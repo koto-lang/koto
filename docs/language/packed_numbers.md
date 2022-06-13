@@ -1,10 +1,10 @@
 # Packed Numbers
 
-Koto includes two types, `Num2` and `Num4` which combine multiple numbers in a 
-single value.
+Koto includes two types that combine several numbers into a single value; 
+`Num2` and `Num4`.
 
-Element-wise arithmetic operations between Num2s and Num4s are available,
-while operations with a Number apply the operation to each element.
+Element-wise arithmetic operations between `Num2`s and `Num4`s are available,
+while operations with a `Number` apply the operation to each element.
 
 ## Num2
 
