@@ -1,4 +1,38 @@
-# Basic Types
+# Language Basics
+
+## Koto Programs
+
+Koto programs contain a series of expressions that are evaluated by Koto's runtime.
+
+For example, this program asks for the user's name and then offers them a
+friendly greeting.
+
+```koto,skip_run
+print 'Please enter your name:'
+name = io.stdin().read_line()
+print "Hi there, $name!"
+```
+
+Try placing the above example in a file named `hello.koto`, and then running 
+`koto hello.koto`.
+
+## Comments
+
+Single-line comments start with a `#`. 
+
+```koto
+# This is a comment, everything until the end of the line is ignored.
+```
+
+Multi-line comments start with `#-` and end with `-#`.
+
+```koto
+#- 
+This is a 
+multi-line 
+comment.
+-#
+```
 
 ## Numbers 
 
@@ -74,7 +108,7 @@ print! null
 check! null
 ```
 
-## Truthiness
+### Truthiness
 
 When `null` is encountered in a boolean context, it evaluates as `false`.
 
@@ -87,3 +121,28 @@ check! true
 print! null or 42
 check! 42
 ```
+
+## Value Assignments
+
+Values are assigned with `=`, and can be freely reassigned.
+
+```koto
+x = 42
+print! x
+check! 42
+
+x = true
+print! x
+check! true
+```
+
+Arithmetic assignment operators are available, e.g. `x *= y` is shorthand for 
+`x = x * y`.
+
+```koto
+a = 100
+a += 11
+print! a
+check! 111
+```
+

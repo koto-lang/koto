@@ -1,7 +1,6 @@
 # Core Library
 
-Koto includes a [Core Library](../../core) of useful functions and values organized into _modules_. 
-Modules in Koto are simply Maps.
+Koto includes a [Core Library](../../core) of useful functions and values organized into `Map`s known as _modules_. 
 
 ```koto
 print! string.size 'hello'

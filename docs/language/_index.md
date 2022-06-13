@@ -1,9 +1,20 @@
 # The Koto Language Guide
 
-- [Introduction](introduction.md)
-- [Comments](comments.md)
-- [Basic Types](basic_types.md)
-- [Value Assignments](value_assignments.md)
+This guide contains a tour of the Koto language, giving an overview of its features.
+
+The markdown files here are the source material for the help topics included in
+the `help` feature of the CLI. 
+
+The guide can be read from start to finish, with later sections building on
+concepts introduced in earlier sections.
+
+The code examples make use of `print!` and `check!` placeholders which are
+used by tools to validate that the examples work correctly
+(see the ['docs examples' tests](/src/koto/tests/docs_examples.rs)).
+The placeholders are then stripped out by the CLI's preprocessor.
+
+- [Getting Started](getting_started.md)
+- [Language Basics](basics.md)
 - [Strings](strings.md)
 - [Functions](functions.md)
 - [Lists](lists.md)
@@ -21,3 +32,4 @@
 - [Meta Maps](meta_maps.md)
 - [Testing](testing.md)
 - [Modules](modules.md)
+- [Prelude](prelude.md)
