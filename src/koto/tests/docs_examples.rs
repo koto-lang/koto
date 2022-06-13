@@ -232,6 +232,7 @@ mod guide {
     test_lang_guide_examples!(maps);
     test_lang_guide_examples!(meta_maps);
     test_lang_guide_examples!(modules);
+    test_lang_guide_examples!(packed_numbers);
     test_lang_guide_examples!(ranges);
     test_lang_guide_examples!(strings);
     test_lang_guide_examples!(testing);

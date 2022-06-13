@@ -34,6 +34,7 @@ impl Help {
             include_str!("../../../docs/language/maps.md"),
             include_str!("../../../docs/language/meta_maps.md"),
             include_str!("../../../docs/language/modules.md"),
+            include_str!("../../../docs/language/packed_numbers.md"),
             include_str!("../../../docs/language/ranges.md"),
             include_str!("../../../docs/language/strings.md"),
             include_str!("../../../docs/language/testing.md"),
