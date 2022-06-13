@@ -38,7 +38,6 @@ impl Help {
             include_str!("../../../docs/language/strings.md"),
             include_str!("../../../docs/language/testing.md"),
             include_str!("../../../docs/language/tuples.md"),
-            include_str!("../../../docs/language/value_assignments.md"),
             include_str!("../../../docs/language/value_unpacking.md"),
         ];
 

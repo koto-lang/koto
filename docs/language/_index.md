@@ -15,7 +15,6 @@ The placeholders are then stripped out by the CLI's preprocessor.
 
 - [Getting Started](getting_started.md)
 - [Language Basics](basics.md)
-- [Value Assignments](value_assignments.md)
 - [Strings](strings.md)
 - [Functions](functions.md)
 - [Lists](lists.md)

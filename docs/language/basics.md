@@ -108,7 +108,7 @@ print! null
 check! null
 ```
 
-## Truthiness
+### Truthiness
 
 When `null` is encountered in a boolean context, it evaluates as `false`.
 
@@ -121,3 +121,28 @@ check! true
 print! null or 42
 check! 42
 ```
+
+## Value Assignments
+
+Values are assigned with `=`, and can be freely reassigned.
+
+```koto
+x = 42
+print! x
+check! 42
+
+x = true
+print! x
+check! true
+```
+
+Arithmetic assignment operators are available, e.g. `x *= y` is shorthand for 
+`x = x * y`.
+
+```koto
+a = 100
+a += 11
+print! a
+check! 111
+```
+
