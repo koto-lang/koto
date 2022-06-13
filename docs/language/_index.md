@@ -13,8 +13,8 @@ used by tools to validate that the examples work correctly
 (see the ['docs examples' tests](/src/koto/tests/docs_examples.rs)).
 The placeholders are then stripped out by the CLI's preprocessor.
 
-- [Comments](comments.md)
-- [Basic Types](basic_types.md)
+- [Getting Started](getting_started.md)
+- [Language Basics](basics.md)
 - [Value Assignments](value_assignments.md)
 - [Strings](strings.md)
 - [Functions](functions.md)

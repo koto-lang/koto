@@ -21,8 +21,7 @@ impl Help {
         };
 
         let guide_files = [
-            include_str!("../../../docs/language/basic_types.md"),
-            include_str!("../../../docs/language/comments.md"),
+            include_str!("../../../docs/language/basics.md"),
             include_str!("../../../docs/language/conditional_expressions.md"),
             include_str!("../../../docs/language/core_library.md"),
             include_str!("../../../docs/language/errors.md"),

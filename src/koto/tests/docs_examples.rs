@@ -220,13 +220,13 @@ mod guide {
         };
     }
 
-    test_lang_guide_examples!(basic_types);
-    test_lang_guide_examples!(comments);
+    test_lang_guide_examples!(basics);
     test_lang_guide_examples!(conditional_expressions);
     test_lang_guide_examples!(core_library);
     test_lang_guide_examples!(errors);
     test_lang_guide_examples!(functions);
     test_lang_guide_examples!(generators);
+    test_lang_guide_examples!(getting_started);
     test_lang_guide_examples!(lists);
     test_lang_guide_examples!(loops);
     test_lang_guide_examples!(maps);
@@ -237,6 +237,5 @@ mod guide {
     test_lang_guide_examples!(strings);
     test_lang_guide_examples!(testing);
     test_lang_guide_examples!(tuples);
-    test_lang_guide_examples!(value_assignments);
     test_lang_guide_examples!(value_unpacking);
 }
