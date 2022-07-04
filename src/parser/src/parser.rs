@@ -2914,6 +2914,7 @@ impl<'source> Parser<'source> {
     where
         E: Into<ParserErrorType>,
     {
+        #[allow(clippy::let_and_return)]
         let error = ParserError::new(error_type.into(), self.current_span());
 
         #[cfg(feature = "panic_on_parser_error")]
