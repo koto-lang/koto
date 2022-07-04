@@ -61,7 +61,7 @@ impl DateTime {
             Some(utc) => Ok(Self::with_chrono_datetime(
                 chrono::DateTime::<Local>::from_utc(utc, offset),
             )),
-            None => return runtime_error!("timestamp in seconds is out of range: {seconds}"),
+            None => runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
 

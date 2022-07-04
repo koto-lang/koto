@@ -131,6 +131,12 @@ impl VmContext {
     }
 }
 
+/// The trait used by the 'module imported' callback mechanism
+pub trait ModuleImportedCallback: Fn(&Path) {}
+
+// Implement the trait for any matching function
+impl<T> ModuleImportedCallback for T where T: Fn(&Path) {}
+
 /// The configurable settings that should be used by the Koto runtime
 pub struct VmSettings {
     /// Whether or not tests should be run when importing modules
@@ -139,7 +145,7 @@ pub struct VmSettings {
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
     /// reload the script when one of its dependencies has changed.
-    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
+    pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
     /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
     /// The runtime's stdout

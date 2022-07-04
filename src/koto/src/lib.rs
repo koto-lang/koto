@@ -32,14 +32,10 @@ use {
     dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        CallArgs, KotoFile, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
+        CallArgs, KotoFile, MetaKey, ModuleImportedCallback, RuntimeError, UnaryOp, Value,
+        ValueMap, Vm, VmSettings,
     },
-    std::{
-        error::Error,
-        fmt,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+    std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
 
 #[derive(Debug)]
@@ -122,7 +118,7 @@ pub struct KotoSettings {
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
     /// reload the script when one of its dependencies has changed.
-    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
+    pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
 }
 
 impl KotoSettings {
@@ -155,7 +151,10 @@ impl KotoSettings {
 
     /// Convenience function for declaring the 'module imported' callback
     #[must_use]
-    pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
+    pub fn with_module_imported_callback(
+        self,
+        callback: impl ModuleImportedCallback + 'static,
+    ) -> Self {
         Self {
             module_imported_callback: Some(Box::new(callback)),
             ..self
