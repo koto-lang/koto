@@ -39,5 +39,5 @@ pub use {
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
-    vm::{CallArgs, Vm, VmSettings},
+    vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };

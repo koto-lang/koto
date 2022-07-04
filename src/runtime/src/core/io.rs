@@ -29,9 +29,7 @@ pub fn make_module() -> ValueMap {
                 let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => {
-                        return runtime_error!("io.create: Error while creating file: {error}");
-                    }
+                    Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
                 }
             }
             unexpected => unexpected_type_error_with_slice(
@@ -80,9 +78,7 @@ pub fn make_module() -> ValueMap {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => {
-                        return runtime_error!("io.open: Error while opening path: {error}");
-                    }
+                    Err(error) => runtime_error!("io.open: Error while opening path: {error}"),
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
