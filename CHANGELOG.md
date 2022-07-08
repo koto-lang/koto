@@ -102,7 +102,8 @@ The Koto project adheres to
     - `start_timer`
       - Provides a timer that can be used for measuring the duration between
         moments in time.
-  - `string.from_bytes`
+  - `string`
+    - `from_bytes`, `replace`
 - The following items are now imported by default into the top level of the
   prelude:
   - `io.print`, `koto.type`, `num2.make_num2`, `num4.make_num4`,

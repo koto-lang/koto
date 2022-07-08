@@ -7,21 +7,6 @@ doc:
 fmt:
   cargo fmt --all -- --check
 
-doc_tests:
-  cargo watch -x "test --test docs_examples"
-
-koto_tests:
-  cargo watch -x "test --test koto_tests"
-
-lib_tests:
-  cargo watch -x "test --test lib_tests"
-
-parser_tests:
-  cargo watch -x "test --package koto_lexer --package koto_parser"
-
-runtime_tests:
-  cargo watch -x "test --package koto_runtime"
-
 temp:
   cargo watch -x "run -- --tests -i temp.koto"
 
@@ -33,6 +18,21 @@ test_all:
 
 test_benches:
   cargo watch -x "test --benches"
+
+test_docs:
+  cargo watch -x "test --test docs_examples"
+
+test_koto:
+  cargo watch -x "test --test koto_tests"
+
+test_libs:
+  cargo watch -x "test --test lib_tests"
+
+test_parser:
+  cargo watch -x "test --package koto_lexer --package koto_parser"
+
+test_runtime:
+  cargo watch -x "test --package koto_runtime"
 
 wasm:
   cd examples/wasm && wasm-pack build
