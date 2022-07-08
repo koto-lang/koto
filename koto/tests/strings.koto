@@ -108,6 +108,11 @@ zzz
     x3 = "foo\nbar\nbaz"
     assert_eq x3.lines().to_tuple(), ("foo", "bar", "baz")
 
+  @test replace: ||
+    assert_eq ''.replace('foo', 'bar'), ''
+    assert_eq ' '.replace(' ', ''), ''
+    assert_eq 'hëllø'.replace('ë', 'éé'), 'hééllø'
+
   @test size: ||
     # size returns the number of unicode graphemes in the string,
     # rather than the number of bytes

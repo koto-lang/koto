@@ -251,6 +251,22 @@ print! '\n\n\n'.lines().to_tuple()
 check! ('', '', '')
 ```
 
+## replace
+
+```kototype
+|String, String, String| -> String
+```
+
+Returns a copy of the input string with all occurrences of the match string
+replaced with an alternative string.
+
+### Example
+
+```koto
+print! '10101'.replace '0', 'x'
+check! 1x1x1
+```
+
 ## size
 
 ```kototype

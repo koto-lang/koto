@@ -119,6 +119,17 @@ pub fn make_module() -> ValueMap {
         unexpected => expected_string_error("lines", unexpected),
     });
 
+    result.add_fn("replace", |vm, args| match vm.get_args(args) {
+        [Str(input), Str(pattern), Str(replace)] => {
+            Ok(Str(input.replace(pattern.as_str(), replace).into()))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "string.replace",
+            "three Strings as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Number(s.graphemes(true).count().into())),
         unexpected => expected_string_error("size", unexpected),
