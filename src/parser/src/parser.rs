@@ -2776,6 +2776,7 @@ impl<'source> Parser<'source> {
                                 }
                                 Some('\\') => literal.push('\\'),
                                 Some('\'') => literal.push('\''),
+                                Some('$') => literal.push('$'),
                                 Some('"') => literal.push('"'),
                                 Some('n') => literal.push('\n'),
                                 Some('r') => literal.push('\r'),

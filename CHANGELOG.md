@@ -300,6 +300,7 @@ The Koto project adheres to
   script without triggering an error.
 - Running an integer remainder operation with a divisor of zero (e.g. `1 % 0`)
   no longer causes a panic and instead returns `NaN`.
+- Added missing support for escaping `$` in strings.
 
 
 ## [0.10.0] 2021.12.02

@@ -33,6 +33,8 @@ print! '👋🥳😆'[1]
 check! 🥳
 ```
 
+## String interpolation
+
 Assigned values can be included in a String by prefixing them with `$`.
 
 ```koto
@@ -56,17 +58,19 @@ all of which start with a `\`.
 - `\n`: Newline
 - `\r`: Carriage Return
 - `\t`: Tab
+- `\'`: Single quote
+- `\"`: Double quote
+- `\\`: Backslash
+- `\$`: Dollar
 - `\u{NNNNNN}`: Unicode character
   - Up to 6 hexadecimal digits can be included within the `{}` braces.
     The maximum value is `\u{10ffff}`.
 - `\xNN`: ASCII character
   - Exactly 2 hexadecimal digits follow the `\x`.
-- `\'`: Single quote
-- `\"`: Double quote
-- `\\`: Backslash
-- `\$`: Dollar
 
 ```koto
+print! '\$\'\"'
+check! $'"
 print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```

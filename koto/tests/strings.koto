@@ -42,6 +42,9 @@
     assert_eq '\x4f\x5f\x6f', 'O_o'
     # Unicode characters
     assert_eq '\u{1f98b}', '🦋'
+    # Escaped dollar sign
+    x = 123
+    assert_eq '$x\$x', '123\x24x'
 
   @test escaped_newlines: ||
     x = "foo \
