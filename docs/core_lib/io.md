@@ -101,7 +101,7 @@ f.exists()
 ```
 
 Prints a formatted string to the active output. 
-See [`string.format`](@/docs/core/string.md#format) for the formatting syntax.
+See [`string.format`](../string/#format) for the formatting syntax.
 
 ```kototype
 |Value| -> Null
