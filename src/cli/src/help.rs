@@ -17,7 +17,9 @@ impl Help {
     pub fn new() -> Self {
         macro_rules! include_doc {
             ($doc:expr) => {
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/", $doc))
+                // Including via a symlink to the top-level docs folder to ensure cargo-package
+                // can find it during packaging.
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/", $doc))
             };
         }
 
