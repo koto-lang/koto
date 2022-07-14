@@ -15,47 +15,53 @@ pub struct Help {
 
 impl Help {
     pub fn new() -> Self {
+        macro_rules! include_doc {
+            ($doc:expr) => {
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/", $doc))
+            };
+        }
+
+        let guide_files = [
+            include_doc!("language/basics.md"),
+            include_doc!("language/conditional_expressions.md"),
+            include_doc!("language/core_library.md"),
+            include_doc!("language/errors.md"),
+            include_doc!("language/functions.md"),
+            include_doc!("language/generators.md"),
+            include_doc!("language/iterators.md"),
+            include_doc!("language/lists.md"),
+            include_doc!("language/loops.md"),
+            include_doc!("language/maps.md"),
+            include_doc!("language/meta_maps.md"),
+            include_doc!("language/modules.md"),
+            include_doc!("language/packed_numbers.md"),
+            include_doc!("language/ranges.md"),
+            include_doc!("language/strings.md"),
+            include_doc!("language/testing.md"),
+            include_doc!("language/tuples.md"),
+            include_doc!("language/value_unpacking.md"),
+        ];
+
+        let reference_files = [
+            include_doc!("core_lib/io.md"),
+            include_doc!("core_lib/iterator.md"),
+            include_doc!("core_lib/koto.md"),
+            include_doc!("core_lib/list.md"),
+            include_doc!("core_lib/map.md"),
+            include_doc!("core_lib/number.md"),
+            include_doc!("core_lib/num2.md"),
+            include_doc!("core_lib/num4.md"),
+            include_doc!("core_lib/os.md"),
+            include_doc!("core_lib/range.md"),
+            include_doc!("core_lib/string.md"),
+            include_doc!("core_lib/test.md"),
+            include_doc!("core_lib/tuple.md"),
+        ];
+
         let mut result = Self {
             help_map: IndexMap::new(),
             module_names: Vec::new(),
         };
-
-        let guide_files = [
-            include_str!("../../../docs/language/basics.md"),
-            include_str!("../../../docs/language/conditional_expressions.md"),
-            include_str!("../../../docs/language/core_library.md"),
-            include_str!("../../../docs/language/errors.md"),
-            include_str!("../../../docs/language/functions.md"),
-            include_str!("../../../docs/language/generators.md"),
-            include_str!("../../../docs/language/iterators.md"),
-            include_str!("../../../docs/language/lists.md"),
-            include_str!("../../../docs/language/loops.md"),
-            include_str!("../../../docs/language/maps.md"),
-            include_str!("../../../docs/language/meta_maps.md"),
-            include_str!("../../../docs/language/modules.md"),
-            include_str!("../../../docs/language/packed_numbers.md"),
-            include_str!("../../../docs/language/ranges.md"),
-            include_str!("../../../docs/language/strings.md"),
-            include_str!("../../../docs/language/testing.md"),
-            include_str!("../../../docs/language/tuples.md"),
-            include_str!("../../../docs/language/value_unpacking.md"),
-        ];
-
-        let reference_files = [
-            include_str!("../../../docs/core_lib/io.md"),
-            include_str!("../../../docs/core_lib/iterator.md"),
-            include_str!("../../../docs/core_lib/koto.md"),
-            include_str!("../../../docs/core_lib/list.md"),
-            include_str!("../../../docs/core_lib/map.md"),
-            include_str!("../../../docs/core_lib/number.md"),
-            include_str!("../../../docs/core_lib/num2.md"),
-            include_str!("../../../docs/core_lib/num4.md"),
-            include_str!("../../../docs/core_lib/os.md"),
-            include_str!("../../../docs/core_lib/range.md"),
-            include_str!("../../../docs/core_lib/string.md"),
-            include_str!("../../../docs/core_lib/test.md"),
-            include_str!("../../../docs/core_lib/tuple.md"),
-        ];
 
         for file_contents in guide_files.iter() {
             result.add_help_from_guide(file_contents);
