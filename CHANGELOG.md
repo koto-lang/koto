@@ -8,6 +8,8 @@ The Koto project adheres to
 
 ## Unreleased
 
+## [0.11.0] 2022.07.14
+
 ### Added
 
 #### Language

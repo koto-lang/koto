@@ -1,6 +1,6 @@
 [package]
 name = "koto_parser"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 rust-version = "1.58.1"
@@ -11,7 +11,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.10.0"}
+koto_lexer = { path = "../lexer", version = "^0.11.0" }
 
 [features]
 default = []
