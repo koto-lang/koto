@@ -1,6 +1,6 @@
 # Lists
 
-Lists are declared with `[]` braces and can contain any value types.
+Lists are declared with `[]` braces and can contain any values.
 
 Entries in a List can be accessed by index (starting from `0`) by using `[]`
 braces.

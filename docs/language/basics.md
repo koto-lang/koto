@@ -127,10 +127,12 @@ check! 42
 Values are assigned with `=`, and can be freely reassigned.
 
 ```koto
+# Assign the value `42` to `x`
 x = 42
 print! x
 check! 42
 
+# Replace the existing value of `x` 
 x = true
 print! x
 check! true
@@ -141,8 +143,14 @@ Arithmetic assignment operators are available, e.g. `x *= y` is shorthand for
 
 ```koto
 a = 100
-a += 11
+print! a += 11
+check! 111
 print! a
 check! 111
+
+print! a *= 10
+check! 1110
+print! a
+check! 1110
 ```
 

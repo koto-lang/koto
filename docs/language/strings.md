@@ -8,7 +8,11 @@ check! Hello, World!
 
 print! "Welcome to Koto 👋"
 check! Welcome to Koto 👋
+```
 
+Strings can start on one line and finish on another.
+
+```koto
 print! 'This is a string
 that spans
 several lines.'
@@ -74,3 +78,16 @@ check! $'"
 print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
+
+## Single or double quotes
+
+Whether you use `'` or `"` for your strings doesn't make a difference, except that you can use the other quote character freely in the string without having to escape it with `\`.
+
+```koto
+print "This string contains 'single quotes'."
+check! This string contains 'single quotes'.
+
+print 'This string has to escape its \'single quotes\'.'
+check! This string has to escape its 'single quotes'.
+```
+

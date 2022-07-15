@@ -2160,7 +2160,7 @@ impl Vm {
                     unexpected => return unexpected_type_error("index", &unexpected),
                 }
             }
-            unexpected => return unexpected_type_error("indexable value", &unexpected),
+            unexpected => return unexpected_type_error("a mutable indexable value", &unexpected),
         };
 
         Ok(())
