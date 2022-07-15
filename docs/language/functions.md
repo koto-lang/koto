@@ -1,14 +1,18 @@
 # Functions
 
-Functions are called with arguments contained in `()` parentheses.
+Functions are values, and are created using a pair of `|` characters with the function arguments listed between the start and end `|`. 
 
-Functions are created using `||` (with arguments are declared between the start and end `|`), 
-followed by the function's body. 
-
-The result of the function's body is the function's result.
+The _body_ of the function follows, with the result of the body used as the function's result.
 
 ```koto
-hi = || "Hello!"
+hi = || 'Hello!'
+add = |x, y| x + y
+```
+
+Functions are called with arguments contained in `()` parentheses.
+
+```koto
+hi = || 'Hello!'
 print! hi()
 check! Hello!
 
@@ -29,7 +33,9 @@ print! pow 2, 3
 check! 8
 ```
 
-The function's body can be an indented block, with the last expression used as
+## Return 
+
+A function's body can be an indented block, with the last expression used as
 the function's result.
 
 ```koto
@@ -39,4 +45,17 @@ f = |x, y, z|
   x + y + z
 print! f 2, 3, 4
 check! 234
+```
+
+The `return` keyword can be used to exit the function early with a result.
+
+```koto
+f = |n|
+  return 42
+  # This expression won't be reached
+  n * n
+print! f -1
+check! 42
+print! f 10
+check! 42
 ```

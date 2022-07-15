@@ -2,7 +2,7 @@
 
 Maps are Koto's associative containers, containing a series of key/value entries.
 
-They can be declared with `{}` braces, or without using indented blocks.
+They can be declared with `{}` braces (known as _inline syntax_), or by using indented blocks (known as _block syntax_).
 
 With braces:
 
@@ -23,7 +23,7 @@ print! m.apples
 check! 42
 ```
 
-Nested Maps can be declared with additional indentation:
+Nested maps can be declared with additional indentation:
 
 ```koto
 m =
@@ -38,15 +38,32 @@ print! m.hello.to.you
 check! -1
 ```
 
-Once a Map has been created, its data is shared between instances of the Map.
+## Shorthand Values
+
+When using inline syntax, if there's a value available that matches a key's name, then declaring the value is optional.
+
+```koto
+bar = 'hi!'
+m = {foo: 42, bar, baz: -1}
+print! m.bar
+check! hi!
+```
+
+## Data Sharing
+
+Once a map has been created, any additional instances of the map share the same data.
 
 ```koto
 a = {foo: 99, bar: -1}
+print! a.foo
+check! 99
 z = a
 z.foo = 'Hi!'
 print! a.foo
 check! Hi!
 ```
+
+## Maps and Functions
 
 Any value type can be stored in Maps, including Functions.
 
@@ -61,8 +78,7 @@ print! m.bye 'Friend'
 check! Bye, Friend!
 ```
 
-When the first argument in a Map's function is `self`,
-then `self` will automatically be assigned as an instance of the Map that the Function's contained in.
+When the first argument in a Map's function is `self`, then the runtime will assign the map to `self` when the function is called.
 
 ```koto
 m = 

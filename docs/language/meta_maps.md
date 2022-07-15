@@ -27,9 +27,11 @@ print! (x1 - x2).data
 check! -10
 ```
 
+## Meta Operators
+
 All binary operators can be overloaded following this pattern.
 
-The following meta functions can also be defined:
+The following meta functions and values can also be defined:
 
 - `@negate`
   - Overloads the unary negation operator:
@@ -51,5 +53,27 @@ The following meta functions can also be defined:
   - Provides a String that's used when checking the map's type:
     - `@type: "X"`
 
-todo! Add a note about sharing meta maps between instances.
+## Sharing Meta Maps
 
+If you're creating lots of values, then it will likely be more efficient to create a single map with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
+
+```koto
+# Create a map for global values
+globals = {}
+
+# Define a function that makes a Foo
+make_foo = |x|
+  # Make a map that contains x, and the meta map from foo_meta
+  {x}.with_meta_map globals.foo_meta
+
+# Define some meta behaviour in foo_meta
+globals.foo_meta =
+  # Override the + operator
+  @+: |self, other| make_foo self.x + other.x
+
+  # Define how the value should be displayed 
+  @display: |self| "Foo (${self.x})"
+
+print! make_foo(10) + make_foo(20)
+check! Foo (30)
+```
