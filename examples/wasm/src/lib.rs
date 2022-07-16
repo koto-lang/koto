@@ -1,9 +1,9 @@
 use {
     koto::{
-        runtime::{KotoFile, KotoRead, KotoWrite, RuntimeError},
+        runtime::{runtime_error, KotoFile, KotoRead, KotoWrite, RuntimeError},
         Koto, KotoSettings,
     },
-    std::{cell::RefCell, fmt, rc::Rc},
+    std::{cell::RefCell, rc::Rc},
     wasm_bindgen::prelude::*,
 };
 
@@ -16,9 +16,13 @@ struct OutputCapture {
     output: Rc<RefCell<String>>,
 }
 
-impl KotoFile for OutputCapture {}
-impl KotoRead for OutputCapture {}
+impl KotoFile for OutputCapture {
+    fn id(&self) -> String {
+        "_stdout_".to_string()
+    }
+}
 
+impl KotoRead for OutputCapture {}
 impl KotoWrite for OutputCapture {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         let bytes_str = match std::str::from_utf8(bytes) {
@@ -41,9 +45,22 @@ impl KotoWrite for OutputCapture {
     }
 }
 
-impl fmt::Display for OutputCapture {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_stdout_")
+struct BlockedInput {}
+
+impl KotoFile for BlockedInput {
+    fn id(&self) -> String {
+        "_stdin_".to_string()
+    }
+}
+
+impl KotoWrite for BlockedInput {}
+impl KotoRead for BlockedInput {
+    fn read_line(&self) -> Result<Option<String>, RuntimeError> {
+        runtime_error!("Unsupported in the browser")
+    }
+
+    fn read_to_string(&self) -> Result<String, RuntimeError> {
+        runtime_error!("Unsupported in the browser")
     }
 }
 
@@ -54,6 +71,7 @@ pub fn compile_and_run(input: &str) -> String {
 
     let mut koto = Koto::with_settings(
         KotoSettings::default()
+            .with_stdin(BlockedInput {})
             .with_stdout(OutputCapture {
                 output: output.clone(),
             })

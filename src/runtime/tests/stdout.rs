@@ -1,7 +1,7 @@
 use {
     koto_bytecode::Chunk,
     koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, RuntimeError, Vm, VmSettings},
-    std::{cell::RefCell, fmt, rc::Rc},
+    std::{cell::RefCell, rc::Rc},
 };
 
 #[derive(Debug)]
@@ -9,9 +9,13 @@ struct TestStdout {
     output: Rc<RefCell<String>>,
 }
 
-impl KotoFile for TestStdout {}
-impl KotoRead for TestStdout {}
+impl KotoFile for TestStdout {
+    fn id(&self) -> String {
+        "_teststdout_".to_string()
+    }
+}
 
+impl KotoRead for TestStdout {}
 impl KotoWrite for TestStdout {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         self.output
@@ -28,12 +32,6 @@ impl KotoWrite for TestStdout {
 
     fn flush(&self) -> Result<(), RuntimeError> {
         Ok(())
-    }
-}
-
-impl fmt::Display for TestStdout {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_teststdout_")
     }
 }
 

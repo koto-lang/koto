@@ -8,6 +8,18 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Changed
+
+#### Language
+
+- `File`s now implement `@Display`, showing their paths.
+
+#### Internals
+
+- Implementing `KotoFile` has been made easier, with the `Display + Debug`
+  constraint replaced with a required `id()` function.
+
+
 ## [0.11.0] 2022.07.14
 
 ### Added

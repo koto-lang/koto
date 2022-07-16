@@ -1,18 +1,19 @@
 use {
     crate::{core::io::map_io_err, KotoFile, KotoRead, KotoWrite, RuntimeError},
-    std::{
-        fmt,
-        io::{self, Read, Write},
-    },
+    std::io::{self, Read, Write},
 };
 
 /// The default stdin used in Koto
 #[derive(Default)]
 pub struct DefaultStdin {}
 
-impl KotoFile for DefaultStdin {}
-impl KotoWrite for DefaultStdin {}
+impl KotoFile for DefaultStdin {
+    fn id(&self) -> String {
+        "_stdin_".to_string()
+    }
+}
 
+impl KotoWrite for DefaultStdin {}
 impl KotoRead for DefaultStdin {
     fn read_line(&self) -> Result<Option<String>, RuntimeError> {
         let mut result = String::new();
@@ -30,25 +31,17 @@ impl KotoRead for DefaultStdin {
     }
 }
 
-impl fmt::Display for DefaultStdin {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_stdin_")
-    }
-}
-
-impl fmt::Debug for DefaultStdin {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
-    }
-}
-
 /// The default stdout used in Koto
 #[derive(Default)]
 pub struct DefaultStdout {}
 
-impl KotoFile for DefaultStdout {}
-impl KotoRead for DefaultStdout {}
+impl KotoFile for DefaultStdout {
+    fn id(&self) -> String {
+        "_stdout_".to_string()
+    }
+}
 
+impl KotoRead for DefaultStdout {}
 impl KotoWrite for DefaultStdout {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         io::stdout().write_all(bytes).map_err(map_io_err)
@@ -66,25 +59,17 @@ impl KotoWrite for DefaultStdout {
     }
 }
 
-impl fmt::Display for DefaultStdout {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_stdout_")
-    }
-}
-
-impl fmt::Debug for DefaultStdout {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
-    }
-}
-
 /// The default stderr used in Koto
 #[derive(Default)]
 pub struct DefaultStderr {}
 
-impl KotoFile for DefaultStderr {}
-impl KotoRead for DefaultStderr {}
+impl KotoFile for DefaultStderr {
+    fn id(&self) -> String {
+        "_stderr_".to_string()
+    }
+}
 
+impl KotoRead for DefaultStderr {}
 impl KotoWrite for DefaultStderr {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         io::stdout().write_all(bytes).map_err(map_io_err)
@@ -99,17 +84,5 @@ impl KotoWrite for DefaultStderr {
 
     fn flush(&self) -> Result<(), RuntimeError> {
         io::stdout().flush().map_err(map_io_err)
-    }
-}
-
-impl fmt::Display for DefaultStderr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_stderr_")
-    }
-}
-
-impl fmt::Debug for DefaultStderr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
     }
 }
