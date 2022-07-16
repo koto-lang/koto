@@ -207,8 +207,12 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
     meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
         match file.read_line() {
             Ok(Some(result)) => {
-                let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
-                Ok(result[..result.len() - newline_bytes].into())
+                if !result.is_empty() {
+                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                    Ok(result[..result.len() - newline_bytes].into())
+                } else {
+                    Ok(Null)
+                }
             }
             Ok(None) => Ok(Null),
             Err(e) => Err(e.with_prefix("File.read_line")),

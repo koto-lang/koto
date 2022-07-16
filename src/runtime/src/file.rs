@@ -18,7 +18,7 @@ pub trait KotoFile: KotoRead + KotoWrite + Display + Debug {
 
 /// A trait that defines the read operations of a [KotoFile]
 pub trait KotoRead {
-    /// Returns the next line from the file
+    /// Returns the next line from the file, including any newline characters
     ///
     /// If None is returned then the end of the file has been reached.
     fn read_line(&self) -> Result<Option<String>, RuntimeError> {
