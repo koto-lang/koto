@@ -1,10 +1,9 @@
-use {
-    crate::{runtime_error, RuntimeError},
-    std::fmt::{Debug, Display},
-};
+use crate::{runtime_error, RuntimeError};
 
 /// A trait used for file-like-things in Koto
-pub trait KotoFile: KotoRead + KotoWrite + Display + Debug {
+pub trait KotoFile: KotoRead + KotoWrite {
+    fn id(&self) -> String;
+
     /// Returns the path of the file
     fn path(&self) -> Result<String, RuntimeError> {
         runtime_error!("unsupported for this file type")

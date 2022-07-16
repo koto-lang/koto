@@ -6,7 +6,7 @@ use {
     super::string::format,
     crate::{
         error::unexpected_type_error_with_slice, runtime_error, ExternalData, ExternalValue,
-        KotoFile, KotoRead, KotoWrite, MetaMap, RuntimeError, Value, ValueMap, Vm,
+        KotoFile, KotoRead, KotoWrite, MetaMap, RuntimeError, UnaryOp, Value, ValueMap, Vm,
     },
     std::{
         cell::RefCell,
@@ -271,6 +271,10 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
         }
     });
 
+    meta.add_unary_op(UnaryOp::Display, |file: &File, _| {
+        Ok(Str(format!("File({})", file.0.id()).into()))
+    });
+
     meta.into()
 }
 
@@ -344,8 +348,12 @@ impl<T> KotoFile for BufferedSystemFile<T>
 where
     T: Read + Write + Seek,
 {
+    fn id(&self) -> String {
+        self.path.to_string_lossy().to_string()
+    }
+
     fn path(&self) -> Result<String, RuntimeError> {
-        Ok(self.path.to_string_lossy().into())
+        Ok(self.id())
     }
 
     fn seek(&self, position: u64) -> Result<(), RuntimeError> {
@@ -410,7 +418,7 @@ where
     T: Write,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "File({})", self.path.to_string_lossy())
+        f.write_str(&self.path.to_string_lossy())
     }
 }
 

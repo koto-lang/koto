@@ -6,7 +6,6 @@ use {
     },
     std::{
         cell::RefCell,
-        fmt,
         ops::Deref,
         path::{Path, PathBuf},
         rc::Rc,
@@ -82,9 +81,13 @@ struct OutputCapture {
     output: Rc<RefCell<String>>,
 }
 
-impl KotoFile for OutputCapture {}
-impl KotoRead for OutputCapture {}
+impl KotoFile for OutputCapture {
+    fn id(&self) -> String {
+        "_stdout_".to_string()
+    }
+}
 
+impl KotoRead for OutputCapture {}
 impl KotoWrite for OutputCapture {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         let bytes_str = match std::str::from_utf8(bytes) {
@@ -104,12 +107,6 @@ impl KotoWrite for OutputCapture {
 
     fn flush(&self) -> Result<(), RuntimeError> {
         Ok(())
-    }
-}
-
-impl fmt::Display for OutputCapture {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("_stdout_")
     }
 }
 
