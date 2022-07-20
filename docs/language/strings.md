@@ -37,7 +37,7 @@ print! '👋🥳😆'[1]
 check! 🥳
 ```
 
-## String interpolation
+## String Interpolation
 
 Assigned values can be included in a String by prefixing them with `$`.
 

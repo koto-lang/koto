@@ -1,6 +1,6 @@
 # Functions
 
-Functions are values, and are created using a pair of `|` characters with the function arguments listed between the start and end `|`. 
+Functions are values, and are created using a pair of `|` characters (often called [_pipe_](https://en.wikipedia.org/wiki/Vertical_bar#Pipe) characters in computing), with the function arguments listed between the start and end `|`. 
 
 The _body_ of the function follows, with the result of the body used as the function's result.
 
@@ -59,3 +59,31 @@ check! 42
 print! f 10
 check! 42
 ```
+
+## Optional Arguments
+
+When calling a function, any missing arguments will be replaced by `null`.
+
+```koto
+f = |a, b, c|
+  print (a, b, c)
+
+f 1
+check! (1, null, null)
+f 1, 2
+check! (1, 2, null)
+f 1, 2, 3
+check! (1, 2, 3)
+```
+
+In simple cases the function can check for missing arguments by using `or`.
+
+```koto
+f = |a, b, c|
+  print (a or -1, b or -2, c or -3)
+
+f 1
+check! (1, -2, -3)
+```
+
+`or` will reject `false`, so if a 

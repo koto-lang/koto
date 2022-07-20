@@ -63,8 +63,7 @@ check! 13
 `match` expressions can be used to match a value against a series of patterns, 
 with the matched pattern causing a specific branch of code to be executed.
 
-Patterns can be literals or value bindings, 
-and can include an `if` condition to further filter matches.
+Patterns can be literals or identifiers. An identifier will accept any value, so they're often used with `if` conditions to refine the match.
 
 ```koto
 print! match 40 + 2
@@ -99,6 +98,7 @@ rest of the list.
 
 ```koto
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
+  ['a', 'b'] then "A list containing 'a' and 'b'"
   [1, ...] then "Starts with '1'"
   [..., 'y', last] then "Ends with 'y' followed by '$last'"
   ['a', x, others...] then

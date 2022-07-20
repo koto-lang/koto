@@ -42,6 +42,8 @@ check! -1
 
 When using inline syntax, if there's a value available that matches a key's name, then declaring the value is optional.
 
+When using inline syntax, declaring a value for a key is optional. The runtime will look for a value that matches the key's name, and then copy it into the map.
+
 ```koto
 bar = 'hi!'
 m = {foo: 42, bar, baz: -1}
