@@ -285,14 +285,17 @@ impl Repl {
                     }
                     self.continued_lines.clear();
                 }
-                Err(e) => {
-                    if e.is_indentation_error() && self.continued_lines.is_empty() {
+                Err(compile_error) => {
+                    if let Some(help) = self.run_help(&input) {
+                        writeln!(stdout, "{}\n", help).unwrap();
+                        self.continued_lines.clear();
+                    } else if compile_error.is_indentation_error()
+                        && self.continued_lines.is_empty()
+                    {
                         self.continued_lines.push(entered_input.clone());
                         indent_next_line = true;
-                    } else if let Some(help) = self.run_help(&input) {
-                        writeln!(stdout, "{}\n", help).unwrap()
                     } else {
-                        self.print_error(stdout, &e.to_string())?;
+                        self.print_error(stdout, &compile_error.to_string())?;
                         self.continued_lines.clear();
                     }
                 }
