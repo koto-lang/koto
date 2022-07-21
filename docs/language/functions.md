@@ -60,30 +60,3 @@ print! f 10
 check! 42
 ```
 
-## Optional Arguments
-
-When calling a function, any missing arguments will be replaced by `null`.
-
-```koto
-f = |a, b, c|
-  print (a, b, c)
-
-f 1
-check! (1, null, null)
-f 1, 2
-check! (1, 2, null)
-f 1, 2, 3
-check! (1, 2, 3)
-```
-
-In simple cases the function can check for missing arguments by using `or`.
-
-```koto
-f = |a, b, c|
-  print (a or -1, b or -2, c or -3)
-
-f 1
-check! (1, -2, -3)
-```
-
-`or` will reject `false`, so if a 

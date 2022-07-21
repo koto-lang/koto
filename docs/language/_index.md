@@ -26,6 +26,7 @@ The placeholders are then stripped out by the CLI's preprocessor.
 - [Conditional Expressions](conditional_expressions.md)
 - [Loops](loops.md)
 - [Ranges](ranges.md)
+- [Advanced Functions](functions_advanced.md)
 - [Generators](generators.md)
 - [Packed Numbers](packed_numbers.md)
 - [Meta Maps](meta_maps.md)
