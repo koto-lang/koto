@@ -222,6 +222,7 @@ mod guide {
     test_lang_guide_examples!(core_library);
     test_lang_guide_examples!(errors);
     test_lang_guide_examples!(functions);
+    test_lang_guide_examples!(functions_advanced);
     test_lang_guide_examples!(generators);
     test_lang_guide_examples!(getting_started);
     test_lang_guide_examples!(lists);

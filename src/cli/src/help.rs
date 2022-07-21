@@ -29,6 +29,7 @@ impl Help {
             include_doc!("language/core_library.md"),
             include_doc!("language/errors.md"),
             include_doc!("language/functions.md"),
+            include_doc!("language/functions_advanced.md"),
             include_doc!("language/generators.md"),
             include_doc!("language/iterators.md"),
             include_doc!("language/lists.md"),

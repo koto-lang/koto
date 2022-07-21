@@ -2,7 +2,7 @@
 
 ## for
 
-Iterable values can be iterated over with `for` loops.
+`for` loops can be used to iterate over any iterable value.
 
 ```koto
 for n in [10, 20, 30]
@@ -11,6 +11,8 @@ check! 10
 check! 20
 check! 30
 ```
+
+## break
 
 Loops can be stopped early with `break`.
 
@@ -21,6 +23,8 @@ x = for n in (11, 22, 33, 44, 55)
 print! x
 check! 33
 ```
+
+## continue 
 
 `continue` can be used to skip ahead to the next iteration of the loop.
 

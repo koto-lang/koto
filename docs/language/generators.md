@@ -2,15 +2,15 @@
 
 Custom iterators can be made with _generator functions_, which are any functions that contain a `yield` expression. 
 
-The generator is paused each time `yield` is encountered, waiting for the caller to continue execution.
+The iterator is paused each time `yield` is encountered, waiting for the caller to continue execution.
 
 ```koto
-f = ||
+my_first_generator = ||
   yield 1
   yield 2
   yield 3
 
-x = f()
+x = my_first_generator()
 print! x.next()
 check! 1
 print! x.next()
@@ -21,7 +21,7 @@ print! x.next()
 check! null
 ```
 
-Generator functions can be called with arguments like any other function, and their resulting generators are iterators that have access to the `iterator` core library module.
+Generator functions can have arguments like any other function, and calling them creates an iterator that has access to the `iterator` core library module.
 
 ```koto
 my_generator = |x|
@@ -39,23 +39,25 @@ A generator that takes an iterator as an argument is known as an _iterator adapt
 Inserting an adaptor into the `iterator` module makes it available in any iterator chain.
 
 ```koto
-# Make an iterator adaptor that yields every other value from the adapted iterator
+# Make an iterator adaptor that yields 
+# every other value from the adapted iterator
 iterator.every_other = |iter|
   n = 0
   loop
     match iter.next()
-      # Exit when there are no more values in the iterator
+      # Exit when there are no more values 
+      # produced by the iterator
       null then 
         return
-      # Yield a value when n is even
+      # If n is even, then yield a value
       value if n % 2 == 0 then 
         yield value
     n += 1
 
-print! (1..=5)
+print! 1..10
   .each |n| n * 10
   .every_other()
   .to_list()
-check! [10, 30, 50]
+check! [10, 30, 50, 70, 90]
 ```
 

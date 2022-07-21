@@ -122,7 +122,7 @@ print! null or 42
 check! 42
 ```
 
-## Value Assignments
+## Assigning Values
 
 Values are assigned with `=`, and can be freely reassigned.
 
@@ -154,3 +154,22 @@ print! a
 check! 1110
 ```
 
+## Debug
+
+The `debug` expression allows you to quickly display a value while working on a program, along with the expression as a string and its line number.
+
+```koto
+x = 10 + 20
+debug x / 10
+check! [2] x / 10: 3.0
+```
+
+The result of a `debug` expression is the value that gets displayed, which can
+be useful when you want to quickly inspect the result of an expression.
+
+```koto
+x = debug 2 + 2
+check! [1] 2 + 2: 4
+print! x
+check! 4
+```

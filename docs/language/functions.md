@@ -1,6 +1,6 @@
 # Functions
 
-Functions are values, and are created using a pair of `|` characters with the function arguments listed between the start and end `|`. 
+Functions are values, and are created using a pair of `|` characters (often called [_pipe_](https://en.wikipedia.org/wiki/Vertical_bar#Pipe) characters in computing), with the function arguments listed between the start and end `|`. 
 
 The _body_ of the function follows, with the result of the body used as the function's result.
 
@@ -59,3 +59,4 @@ check! 42
 print! f 10
 check! 42
 ```
+
