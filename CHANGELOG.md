@@ -19,6 +19,16 @@ The Koto project adheres to
 - Implementing `KotoFile` has been made easier, with the `Display + Debug`
   constraint replaced with a required `id()` function.
 
+### Fixed
+
+- Ignored values (i.e. `_` or values with a `_` prefix) will now trigger a 
+  compilation error when they're accessed.
+  - e.g. 
+    ```koto
+    _x = 42
+    debug _x
+    #     ^^ This will now cause a compilation error
+    ```
 
 ## [0.11.0] 2022.07.14
 

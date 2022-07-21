@@ -602,7 +602,9 @@ impl Compiler {
             Node::Ellipsis(_) => {
                 return compiler_error!(self, "Ellipsis found outside of match patterns")
             }
-            Node::Wildcard(_) => None,
+            Node::Wildcard(_) => {
+                return compiler_error!(self, "Attempting to access an ignored value")
+            }
             Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
                 self.compile_loop(result_register, Some((*condition, false)), *body, ast)?

@@ -21,7 +21,15 @@ mod bytecode {
         use super::*;
 
         #[test]
-        fn wildcard_as_value() {
+        fn wildcard_access() {
+            let source = "
+f _x
+";
+            check_compilation_fails(source);
+        }
+
+        #[test]
+        fn wildcard_as_rhs() {
             let source = "
 x = 1 + _
 ";
