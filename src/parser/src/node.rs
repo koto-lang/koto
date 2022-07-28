@@ -209,7 +209,7 @@ pub enum Node {
 
     /// The `...` operator
     ///
-    /// Used when capturing variadic arguments, and when unpacking list values.
+    /// Used when capturing variadic arguments, and when unpacking list or tuple values.
     Ellipsis(Option<ConstantIndex>),
 
     /// A `for` loop

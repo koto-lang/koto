@@ -29,6 +29,11 @@
       a * b * c * d * e
     assert_eq (foo 1, [2, [3, 4]], 5), 120
 
+  @test unpacking_with_ellipses: ||
+    foo = |[others_a..., last], (first, others_b...)|
+      others_a.sum() * last + first * others_b.sum()
+    assert_eq (foo [1, 2, 3, 10], (100, 1, 2, 3)), 660
+
   @test tuple_unpacking: ||
     foo = |a, (b, (c, d)), e|
       a + b + c + d + e

@@ -160,7 +160,10 @@ impl Value {
     /// x = [1, 2, 3] # x has size 3
     /// a, b, c = x
     ///
-    /// See [Op::Size](koto_bytecode::Op::Size) and [Op::CheckSize](koto_bytecode::Op::CheckSize).
+    /// See:
+    ///   - [Op::Size](koto_bytecode::Op::Size)
+    ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
+    ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
     pub fn size(&self) -> usize {
         use Value::*;
 

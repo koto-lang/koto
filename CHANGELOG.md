@@ -8,6 +8,18 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+### Language
+
+- Ellipses can now be used when unpacking nested function args.
+  - e.g. 
+    ```koto
+    f = |(a, b, others...)| a * b + others.sum()
+    f (10, 100, 1, 2, 3)
+    # 1006
+    ```
+
 ### Changed
 
 #### Language

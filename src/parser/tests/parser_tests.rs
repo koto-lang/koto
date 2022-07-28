@@ -3316,13 +3316,13 @@ y z";
         fn unpack_call_args_tuple() {
             let sources = [
                 "
-|a, (_, (c, _d)), _e|
+|a, (_, (others..., c, _d)), _e|
   a
 ",
                 "
 | a, 
   ( _, 
-    (c, _d)
+    (others..., c, _d)
   ), 
   _e
 |
@@ -3334,28 +3334,30 @@ y z";
                 &[
                     Id(constant(0)), // a
                     Wildcard(None),
-                    Id(constant(1)),             // c
-                    Wildcard(Some(constant(2))), // d
-                    Tuple(vec![2, 3]),
-                    Tuple(vec![1, 4]),           // 5
-                    Wildcard(Some(constant(3))), // e
+                    Ellipsis(Some(constant(1))), // others
+                    Id(constant(2)),             // c
+                    Wildcard(Some(constant(3))), // d
+                    Tuple(vec![2, 3, 4]),        // ast index 5
+                    Tuple(vec![1, 5]),
+                    Wildcard(Some(constant(4))), // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
-                        args: vec![0, 5, 6],
-                        local_count: 2,
+                        args: vec![0, 6, 7],
+                        local_count: 3,
                         accessed_non_locals: vec![],
-                        body: 7,
+                        body: 8,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![8],
+                        body: vec![9],
                         local_count: 0,
                     },
                 ],
                 Some(&[
                     Constant::Str("a"),
+                    Constant::Str("others"),
                     Constant::Str("c"),
                     Constant::Str("d"),
                     Constant::Str("e"),
@@ -3367,13 +3369,13 @@ y z";
         fn unpack_call_args_list() {
             let sources = [
                 "
-|a, [_, [c, _d]], e|
+|a, [_, [c, _d, ...]], e|
   a
 ",
                 "
 | a, 
   [ _, 
-    [c, _d]
+    [c, _d, ...]
   ], 
   e
 |
@@ -3387,21 +3389,22 @@ y z";
                     Wildcard(None),
                     Id(constant(1)),             // c
                     Wildcard(Some(constant(2))), // d
-                    List(vec![2, 3]),
-                    List(vec![1, 4]), // 5
-                    Id(constant(3)),  // e
+                    Ellipsis(None),              // ...
+                    List(vec![2, 3, 4]),         // ast index 5
+                    List(vec![1, 5]),
+                    Id(constant(3)), // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
-                        args: vec![0, 5, 6],
+                        args: vec![0, 6, 7],
                         local_count: 3,
                         accessed_non_locals: vec![],
-                        body: 7,
+                        body: 8,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![8],
+                        body: vec![9],
                         local_count: 0,
                     },
                 ],

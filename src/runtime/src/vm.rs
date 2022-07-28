@@ -1016,7 +1016,10 @@ impl Vm {
             }
             Instruction::Debug { register, constant } => self.run_debug(register, constant),
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
-            Instruction::CheckSize { register, size } => self.run_check_size(register, size),
+            Instruction::CheckSizeEqual { register, size } => {
+                self.run_check_size_equal(register, size)
+            }
+            Instruction::CheckSizeMin { register, size } => self.run_check_size_min(register, size),
         }?;
 
         Ok(control_flow)
@@ -2913,13 +2916,25 @@ impl Vm {
         Ok(())
     }
 
-    fn run_check_size(&self, register: u8, expected_size: usize) -> InstructionResult {
+    fn run_check_size_equal(&self, register: u8, expected_size: usize) -> InstructionResult {
         let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
             Ok(())
         } else {
-            runtime_error!("Value has a size of '{value_size}', expected '{expected_size}'")
+            runtime_error!("Container has a size of '{value_size}', expected '{expected_size}'")
+        }
+    }
+
+    fn run_check_size_min(&self, register: u8, expected_size: usize) -> InstructionResult {
+        let value_size = self.get_register(register).size();
+
+        if value_size >= expected_size {
+            Ok(())
+        } else {
+            runtime_error!(
+                "Container has a size of '{value_size}', expected a minimum of '{expected_size}'"
+            )
         }
     }
 
