@@ -212,6 +212,11 @@ y = y = 2
                 ]),
             );
         }
+
+        #[test]
+        fn tuple_slicing() {
+            test_script("(0, 1, 2, 3, 4, 5)[2..=4]", number_tuple(&[2, 3, 4]));
+        }
     }
 
     mod lists {

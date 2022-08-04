@@ -403,7 +403,7 @@ struct TupleIterator {
 
 impl TupleIterator {
     fn new(data: ValueTuple) -> Self {
-        let end = data.data().len();
+        let end = data.len();
         Self {
             data,
             index: 0,
@@ -413,7 +413,6 @@ impl TupleIterator {
 
     fn get_output(&self, index: usize) -> Option<ValueIteratorOutput> {
         self.data
-            .data()
             .get(index)
             .map(|data| ValueIteratorOutput::Value(data.clone()))
     }
@@ -456,7 +455,7 @@ impl Iterator for TupleIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.data().len().saturating_sub(self.index) as usize;
+        let remaining = self.data.len().saturating_sub(self.index) as usize;
         (remaining, Some(remaining))
     }
 }

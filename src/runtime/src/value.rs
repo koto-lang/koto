@@ -114,7 +114,7 @@ impl Value {
                 List(ValueList::with_data(result))
             }
             Tuple(t) => {
-                let result = t.data().iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
+                let result = t.iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
                 Tuple(result.into())
             }
             Map(m) => {
@@ -169,7 +169,7 @@ impl Value {
 
         match &self {
             List(l) => l.len(),
-            Tuple(t) => t.data().len(),
+            Tuple(t) => t.len(),
             TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
             Map(m) => m.len(),
             Num2(_) => 2,

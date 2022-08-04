@@ -1230,8 +1230,8 @@ impl Vm {
                 list.data().get(index).cloned().unwrap_or(Null)
             }
             Tuple(tuple) => {
-                let index = signed_index_to_unsigned(index, tuple.data().len());
-                tuple.data().get(index).cloned().unwrap_or(Null)
+                let index = signed_index_to_unsigned(index, tuple.len());
+                tuple.get(index).cloned().unwrap_or(Null)
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
@@ -1289,17 +1289,11 @@ impl Vm {
                 }
             }
             Tuple(tuple) => {
-                let index = signed_index_to_unsigned(index, tuple.data().len());
+                let index = signed_index_to_unsigned(index, tuple.len());
                 if is_slice_to {
-                    tuple
-                        .data()
-                        .get(..index)
-                        .map_or(Null, |entries| Tuple(entries.into()))
+                    tuple.make_sub_tuple(0..index).map_or(Null, Tuple)
                 } else {
-                    tuple
-                        .data()
-                        .get(index..)
-                        .map_or(Null, |entries| Tuple(entries.into()))
+                    tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
                 }
             }
             unexpected => return unexpected_type_error("List or Tuple", unexpected),
@@ -1731,9 +1725,7 @@ impl Vm {
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                let data_a = a.data();
-                let data_b = b.data();
-                self.compare_value_ranges(data_a, data_b)?
+                self.compare_value_ranges(&a, &b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Equal, {
@@ -1801,9 +1793,7 @@ impl Vm {
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                let data_a = a.data();
-                let data_b = b.data();
-                !self.compare_value_ranges(data_a, data_b)?
+                !self.compare_value_ranges(&a, &b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, NotEqual, {
@@ -2255,17 +2245,22 @@ impl Vm {
                 )
             }
             (Tuple(t), Number(n)) => {
-                let index = self.validate_index(n, Some(t.data().len()))?;
-                self.set_register(result_register, t.data()[index].clone());
+                let index = self.validate_index(n, Some(t.len()))?;
+                self.set_register(result_register, t[index].clone());
             }
             (Tuple(t), Range(IntRange { start, end })) => {
-                let (start, end) = self.validate_int_range(start, end, Some(t.data().len()))?;
-                self.set_register(result_register, Tuple(t.data()[start..end].into()))
+                let (start, end) = self.validate_int_range(start, end, Some(t.len()))?;
+                // Safety: the tuple indices were validated in validate_int_range
+                let result = t.make_sub_tuple(start..end).unwrap();
+                self.set_register(result_register, Tuple(result))
             }
             (Tuple(t), IndexRange(value::IndexRange { start, end })) => {
-                let end = end.unwrap_or_else(|| t.data().len());
-                self.validate_index_range(start, end, t.data().len())?;
-                self.set_register(result_register, Tuple(t.data()[start..end].into()))
+                let size = t.len();
+                let end = end.unwrap_or(size);
+                self.validate_index_range(start, end, size)?;
+                // Safety: the tuple indices were validated in validate_index_range
+                let result = t.make_sub_tuple(start..end).unwrap();
+                self.set_register(result_register, Tuple(result))
             }
             (Str(s), Number(n)) => {
                 let index = self.validate_index(n, None)?;
