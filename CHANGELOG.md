@@ -35,6 +35,19 @@ The Koto project adheres to
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
 
+### Removed
+
+#### Core Library
+
+- `string.slice` has been removed in favour of `[]` indexing. 
+  - e.g.
+    ```koto
+    # Instead of:
+    "hello".slice 2, 4
+    # You can use:
+    "hello"[2..4]
+    ```
+
 ### Fixed
 
 - Ignored values (i.e. `_` or values with a `_` prefix) will now trigger a 
