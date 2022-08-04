@@ -79,6 +79,26 @@ print! f x
 check! 15
 ```
 
+Ellipses can be used to unpack any number of elements at the start or end of a List or Tuple. 
+
+```koto
+f = |(..., last)| last * last
+x = (1, 2, 3, 4)
+print! f x
+check! 16
+```
+
+A name can be added to ellipses to assign the unpacked elements. 
+
+```koto
+f = |(first, others...)| first * others.sum()
+x = (10, 1, 2, 3)
+print! f x
+check! 60
+```
+
+As a performance consideration, when assigning elements this way from a List, a new list will be created with copies of the elements. Unpacking elements from a Tuple is cheaper because the underlying data is shared between sub-tuples.
+
 ## Ignoring Arguments
 
 The wildcard `_` can be used as a placeholder for arguments that the function ignores. 
