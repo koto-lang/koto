@@ -292,39 +292,6 @@ print! '🥳👋😁'.size()
 check! 3
 ```
 
-## slice
-
-```kototype
-|String, Number| -> String
-```
-
-Returns a string with the contents of the input string starting from the
-provided character index.
-
-```kototype
-|String, Number, Number| -> String
-```
-
-Returns the sub-string of the input string,
-starting at the first index and ending at the second number.
-
-### Note
-
-Invalid start indices return Null.
-
-### Example
-
-```koto
-print! 'abcdef'.slice 3
-check! def
-
-print! 'abcdef'.slice 2, 4
-check! cd
-
-print! 'abcdef'.slice 100, 110
-check! null
-```
-
 ## split
 
 ```kototype

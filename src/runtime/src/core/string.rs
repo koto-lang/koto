@@ -135,30 +135,6 @@ pub fn make_module() -> ValueMap {
         unexpected => expected_string_error("size", unexpected),
     });
 
-    result.add_fn("slice", |vm, args| match vm.get_args(args) {
-        [Str(input), Number(from)] => {
-            let bounds = usize::from(*from)..input.len();
-            let result = match input.with_bounds(bounds) {
-                Some(result) => Str(result),
-                None => Null,
-            };
-            Ok(result)
-        }
-        [Str(input), Number(from), Number(to)] => {
-            let bounds = usize::from(*from)..usize::from(*to);
-            let result = match input.with_bounds(bounds) {
-                Some(result) => Str(result),
-                None => Null,
-            };
-            Ok(result)
-        }
-        unexpected => unexpected_type_error_with_slice(
-            "string.slice",
-            "a String and Number as arguments",
-            unexpected,
-        ),
-    });
-
     result.add_fn("split", |vm, args| {
         let iterator = match vm.get_args(args) {
             [Str(input), Str(pattern)] => {

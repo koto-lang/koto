@@ -124,13 +124,6 @@ zzz
     assert_eq "abcdef".size(), 6
     assert_eq "äbcdéf".size(), 6
 
-  @test slice: ||
-    assert_eq ("abcdef".slice 2, 5), "cde"
-    x = "abcdef".slice 2 # end index is optional
-    assert_eq x, "cdef"
-    assert_eq (x.slice 1, 3), "de"
-    assert_eq (x.slice 10, 13), null
-
   @test split: ||
     assert_eq "a,b,c".split(",").to_tuple(), ("a", "b", "c")
     assert_eq "O_O".split("O").to_tuple(), ("", "_", "")
