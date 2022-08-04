@@ -60,3 +60,40 @@ print! f 10
 check! 42
 ```
 
+## Function Piping
+
+When passing the result of a function into another function, it can become a bit
+hard to read, especially when a chain of functions is involved.
+
+Using parentheses can help to disambiguate the expression for the reader, but an
+alternative is available in _function piping_, where the `>>` operator can be
+used to pass the result of one function to another, working from left to right.
+
+```koto
+add = |x, y| x + y
+multiply = |x, y| x * y
+square = |x| x * x
+
+# Chained function calls can be a bit hard to follow
+x = multiply 2, square add 1, 3
+print! x
+check! 32
+
+# Parentheses don't help all that much...
+x = multiply(2, square(add(1, 3)))
+print! x
+check! 32
+
+# Piping allows for a left-to-right flow of results
+x = add(1, 3) >> square >> multiply 2
+print! x
+check! 32
+
+# Call chains can also be broken across lines 
+x = 
+  add 1, 3
+  >> square 
+  >> multiply 2
+print! x
+check! 32
+```
