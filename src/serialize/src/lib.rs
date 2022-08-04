@@ -30,8 +30,8 @@ impl<'a> Serialize for SerializableValue<'a> {
                 seq.end()
             }
             Value::Tuple(t) => {
-                let mut seq = s.serialize_seq(Some(t.data().len()))?;
-                for element in t.data().iter() {
+                let mut seq = s.serialize_seq(Some(t.len()))?;
+                for element in t.iter() {
                     seq.serialize_element(&SerializableValue(element))?;
                 }
                 seq.end()

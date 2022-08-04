@@ -1043,8 +1043,15 @@ impl<'source> Parser<'source> {
                         return self.error(SyntaxError::SelfArgNotInFirstPosition);
                     }
 
+                    let arg_node = if self.peek_token() == Some(Token::Ellipsis) {
+                        self.consume_token();
+                        Node::Ellipsis(Some(constant_index))
+                    } else {
+                        Node::Id(constant_index)
+                    };
+
+                    nested_args.push(self.push_node(arg_node)?);
                     arg_ids.push(constant_index);
-                    nested_args.push(self.push_node(Node::Id(constant_index))?);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
                     nested_args.push(self.push_node(Node::Wildcard(maybe_id))?)
@@ -1075,6 +1082,10 @@ impl<'source> Parser<'source> {
                         ) {
                             return self.error(SyntaxError::ExpectedCloseParen);
                         }
+                    }
+                    Some(Token::Ellipsis) => {
+                        self.consume_token();
+                        nested_args.push(self.push_node(Node::Ellipsis(None))?);
                     }
                     _ => break,
                 },

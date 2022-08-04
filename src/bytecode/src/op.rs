@@ -528,10 +528,16 @@ pub enum Op {
     /// Used when matching function arguments.
     ///
     /// `[*value, size]`
-    CheckSize,
+    CheckSizeEqual,
+
+    /// Throws an error if the value isn't at least the expected size
+    ///
+    /// Used when matching function arguments.
+    ///
+    /// `[*value, size]`
+    CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused92,
     Unused93,
     Unused94,
     Unused95,

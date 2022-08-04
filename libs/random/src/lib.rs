@@ -138,8 +138,8 @@ impl ChaChaRng {
                 Ok(Number((start + index).into()))
             }
             [Tuple(t)] => {
-                let index = self.0.gen_range(0..t.data().len());
-                Ok(t.data()[index].clone())
+                let index = self.0.gen_range(0..t.len());
+                Ok(t[index].clone())
             }
             unexpected => unexpected_type_error_with_slice(
                 "random.pick",

@@ -803,14 +803,16 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::List(nested_args) => {
                     let list_register = arg_index as u8;
+                    let size_op = args_size_op(nested_args, ast);
                     self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
-                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
                     self.compile_unpack_nested_args(list_register, nested_args, ast)?;
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = arg_index as u8;
+                    let size_op = args_size_op(nested_args, ast);
                     self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
-                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
                     self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
                 }
                 _ => {}
@@ -888,11 +890,13 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(Arg::Unpacked(*id_index)),
+                Node::Id(id) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(_) => {}
                 Node::List(nested_args) | Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
+                Node::Ellipsis(Some(id)) => result.push(Arg::Unpacked(*id)),
+                Node::Ellipsis(None) => {}
                 unexpected => {
                     return compiler_error!(
                         self,
@@ -912,37 +916,68 @@ impl Compiler {
         args: &[AstIndex],
         ast: &Ast,
     ) -> Result<(), CompilerError> {
+        use Op::*;
+
+        let mut index_from_end = false;
+
         for (arg_index, arg) in args.iter().enumerate() {
+            let is_first_arg = arg_index == 0;
+            let is_last_arg = arg_index == args.len() - 1;
+            let arg_index = if index_from_end {
+                -((args.len() - arg_index) as i8) as u8
+            } else {
+                arg_index as u8
+            };
+
             match &ast.node(*arg).node {
                 Node::Wildcard(_) => {}
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
-                    self.push_op(
-                        Op::TempIndex,
-                        &[local_register, container_register, arg_index as u8],
-                    );
+                    self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                 }
                 Node::List(nested_args) => {
                     let list_register = self.push_register()?;
-                    self.push_op(
-                        Op::TempIndex,
-                        &[list_register, container_register, arg_index as u8],
-                    );
-                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
-                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    let size_op = args_size_op(nested_args, ast);
+                    self.push_op(TempIndex, &[list_register, container_register, arg_index]);
+                    self.push_op(CheckType, &[list_register, TypeId::List as u8]);
+                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
                     self.compile_unpack_nested_args(list_register, nested_args, ast)?;
                     self.pop_register()?; // list_register
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
-                    self.push_op(
-                        Op::TempIndex,
-                        &[tuple_register, container_register, arg_index as u8],
-                    );
-                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
-                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    let size_op = args_size_op(nested_args, ast);
+                    self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
+                    self.push_op(CheckType, &[tuple_register, TypeId::Tuple as u8]);
+                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
                     self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
                     self.pop_register()?; // tuple_register
+                }
+                Node::Ellipsis(maybe_id) if is_first_arg => {
+                    if let Some(id) = maybe_id {
+                        // e.g. [first..., x, y]
+                        // We want to assign the slice containing all but the last two items to
+                        // the given id.
+                        let id_register = self.assign_local_register(*id)?;
+                        let to_index = -(args.len() as i8 - 1) as u8;
+                        self.push_op(SliceTo, &[id_register, container_register, to_index]);
+                    }
+
+                    index_from_end = true;
+                }
+                Node::Ellipsis(Some(id)) if is_last_arg => {
+                    // e.g. [x, y, z, rest...]
+                    // We want to assign the slice containing all but the first three items
+                    // to the given id.
+                    let id_register = self.assign_local_register(*id)?;
+                    self.push_op(SliceFrom, &[id_register, container_register, arg_index]);
+                }
+                Node::Ellipsis(None) if is_last_arg => {}
+                Node::Ellipsis(_) => {
+                    return compiler_error!(
+                        self,
+                        "Args with ellipses are only allowed in first or last position"
+                    );
                 }
                 _ => {}
             }
@@ -3819,6 +3854,17 @@ impl Compiler {
 
     fn span(&self) -> Span {
         *self.span_stack.last().expect("Empty span stack")
+    }
+}
+
+fn args_size_op(args: &[AstIndex], ast: &Ast) -> Op {
+    if args
+        .iter()
+        .any(|arg| matches!(&ast.node(*arg).node, Node::Ellipsis(_)))
+    {
+        Op::CheckSizeMin
+    } else {
+        Op::CheckSizeEqual
     }
 }
 

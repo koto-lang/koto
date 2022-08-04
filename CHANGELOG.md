@@ -8,16 +8,32 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+### Language
+
+- Ellipses can now be used when unpacking nested function args.
+  - e.g. 
+    ```koto
+    f = |(a, b, others...)| a * b + others.sum()
+    f (10, 100, 1, 2, 3)
+    # 1006
+    ```
+
 ### Changed
 
 #### Language
 
 - `File`s now implement `@Display`, showing their paths.
+- `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
+  avoiding unnecessary copies. 
 
 #### Internals
 
 - Implementing `KotoFile` has been made easier, with the `Display + Debug`
   constraint replaced with a required `id()` function.
+- `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
+  its place.
 
 ### Fixed
 

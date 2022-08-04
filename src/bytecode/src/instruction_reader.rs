@@ -400,7 +400,11 @@ pub enum Instruction {
         register: u8,
         type_id: TypeId,
     },
-    CheckSize {
+    CheckSizeEqual {
+        register: u8,
+        size: usize,
+    },
+    CheckSizeMin {
         register: u8,
         size: usize,
     },
@@ -497,7 +501,8 @@ impl fmt::Display for Instruction {
             TryEnd => write!(f, "TryEnd"),
             Debug { .. } => write!(f, "Debug"),
             CheckType { .. } => write!(f, "CheckType"),
-            CheckSize { .. } => write!(f, "CheckSize"),
+            CheckSizeEqual { .. } => write!(f, "CheckSizeEqual"),
+            CheckSizeMin { .. } => write!(f, "CheckSizeMin"),
         }
     }
 }
@@ -830,8 +835,11 @@ impl fmt::Debug for Instruction {
             CheckType { register, type_id } => {
                 write!(f, "CheckType\tregister: {register}\ttype: {type_id:?}")
             }
-            CheckSize { register, size } => {
-                write!(f, "CheckSize\tregister: {register}\tsize: {size}")
+            CheckSizeEqual { register, size } => {
+                write!(f, "CheckSizeEqual\tregister: {register}\tsize: {size}")
+            }
+            CheckSizeMin { register, size } => {
+                write!(f, "CheckSizeMin\tregister: {register}\tsize: {size}")
             }
             StringStart {
                 register,
@@ -1459,7 +1467,11 @@ impl Iterator for InstructionReader {
                     }),
                 }
             }
-            Op::CheckSize => Some(CheckSize {
+            Op::CheckSizeEqual => Some(CheckSizeEqual {
+                register: get_u8!(),
+                size: get_u8!() as usize,
+            }),
+            Op::CheckSizeMin => Some(CheckSizeMin {
                 register: get_u8!(),
                 size: get_u8!() as usize,
             }),

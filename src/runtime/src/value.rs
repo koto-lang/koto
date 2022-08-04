@@ -114,7 +114,7 @@ impl Value {
                 List(ValueList::with_data(result))
             }
             Tuple(t) => {
-                let result = t.data().iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
+                let result = t.iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
                 Tuple(result.into())
             }
             Map(m) => {
@@ -160,13 +160,16 @@ impl Value {
     /// x = [1, 2, 3] # x has size 3
     /// a, b, c = x
     ///
-    /// See [Op::Size](koto_bytecode::Op::Size) and [Op::CheckSize](koto_bytecode::Op::CheckSize).
+    /// See:
+    ///   - [Op::Size](koto_bytecode::Op::Size)
+    ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
+    ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
     pub fn size(&self) -> usize {
         use Value::*;
 
         match &self {
             List(l) => l.len(),
-            Tuple(t) => t.data().len(),
+            Tuple(t) => t.len(),
             TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
             Map(m) => m.len(),
             Num2(_) => 2,

@@ -730,9 +730,9 @@ pub fn make_module() -> ValueMap {
             for output in iterator {
                 let (key, value) = match output {
                     Output::ValuePair(key, value) => (key, value),
-                    Output::Value(Tuple(t)) if t.data().len() == 2 => {
-                        let key = t.data()[0].clone();
-                        let value = t.data()[1].clone();
+                    Output::Value(Tuple(t)) if t.len() == 2 => {
+                        let key = t[0].clone();
+                        let value = t[1].clone();
                         (key, value)
                     }
                     Output::Value(value) => (value, Null),

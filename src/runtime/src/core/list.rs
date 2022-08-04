@@ -70,7 +70,7 @@ pub fn make_module() -> ValueMap {
             Ok(List(l.clone()))
         }
         [List(l), Tuple(other)] => {
-            l.data_mut().extend(other.data().iter().cloned());
+            l.data_mut().extend(other.iter().cloned());
             Ok(List(l.clone()))
         }
         [List(l), iterable] if iterable.is_iterable() => {

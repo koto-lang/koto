@@ -12,7 +12,7 @@ pub fn make_module() -> ValueMap {
         [Tuple(t), value] => {
             let t = t.clone();
             let value = value.clone();
-            for candidate in t.data().iter() {
+            for candidate in t.iter() {
                 match vm.run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone()) {
                     Ok(Bool(false)) => {}
                     Ok(Bool(true)) => return Ok(true.into()),
@@ -41,7 +41,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => match t.data().first() {
+        [Tuple(t)] => match t.first() {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
@@ -61,14 +61,14 @@ pub fn make_module() -> ValueMap {
             }
         };
 
-        match tuple.data().get::<usize>(index.into()) {
+        match tuple.get::<usize>(index.into()) {
             Some(value) => Ok(value.clone()),
             None => Ok(default.clone()),
         }
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => match t.data().last() {
+        [Tuple(t)] => match t.last() {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
@@ -76,13 +76,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => Ok(Number(t.data().len().into())),
+        [Tuple(t)] => Ok(Number(t.len().into())),
         unexpected => expected_tuple_error("size", unexpected),
     });
 
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => {
-            let mut result = t.data().to_vec();
+            let mut result = t.to_vec();
 
             sort_values(vm, &mut result)?;
 
@@ -92,7 +92,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => Ok(List(ValueList::from_slice(t.data()))),
+        [Tuple(t)] => Ok(List(ValueList::from_slice(t))),
         unexpected => expected_tuple_error("to_list", unexpected),
     });
 
