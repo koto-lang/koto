@@ -6,7 +6,7 @@ use {
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
 /// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Node {
     /// The `null` keyword
     Null,
@@ -324,7 +324,7 @@ impl fmt::Display for Node {
 }
 
 /// A function definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
     /// The function's arguments
     pub args: Vec<AstIndex>,
@@ -351,7 +351,7 @@ pub struct Function {
 }
 
 /// A string definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstString {
     /// Indicates if single or double quotation marks were used
     pub quotation_mark: QuotationMark,
@@ -363,7 +363,7 @@ pub struct AstString {
 }
 
 /// A node in a string definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StringNode {
     /// A string literal
     Literal(ConstantIndex),
@@ -372,7 +372,7 @@ pub enum StringNode {
 }
 
 /// A for loop definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstFor {
     /// The ids that capture each iteration's output values, or wildcards that ignore them
     pub args: Vec<AstIndex>,
@@ -383,7 +383,7 @@ pub struct AstFor {
 }
 
 /// An if expression definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstIf {
     /// The if expression's condition
     pub condition: AstIndex,
@@ -396,7 +396,7 @@ pub struct AstIf {
 }
 
 /// An operation used in UnaryOp expressions
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum AstUnaryOp {
     Negate,
@@ -404,7 +404,7 @@ pub enum AstUnaryOp {
 }
 
 /// An operation used in BinaryOp expressions
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum AstBinaryOp {
     Add,
@@ -424,7 +424,7 @@ pub enum AstBinaryOp {
 }
 
 /// A try expression definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstTry {
     /// The block that's wrapped by the try
     pub try_block: AstIndex,
@@ -437,7 +437,7 @@ pub struct AstTry {
 }
 
 /// The operation used in an assignment expression
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AssignOp {
     /// +=
     Add,
@@ -454,7 +454,7 @@ pub enum AssignOp {
 }
 
 /// Specifies the scope of an assignment
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
     /// The export scope
     ///
@@ -480,7 +480,7 @@ pub enum Scope {
 ///  |  |   ^ Str (baz)
 ///  |  ^ Id (bar)
 ///  ^ Root (foo)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LookupNode {
     /// The root of the lookup chain
     Root(AstIndex),
@@ -507,7 +507,7 @@ pub enum LookupNode {
 }
 
 /// An assignment target with its associated scope
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AssignTarget {
     /// The target of the assignment
     pub target_index: AstIndex,
@@ -516,7 +516,7 @@ pub struct AssignTarget {
 }
 
 /// An arm in a match expression
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MatchArm {
     /// A series of match patterns
     pub patterns: Vec<AstIndex>,
@@ -531,7 +531,7 @@ pub struct MatchArm {
 }
 
 /// An arm in a switch expression
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwitchArm {
     /// An optional condition for the switch arm
     ///
@@ -542,7 +542,7 @@ pub struct SwitchArm {
 }
 
 /// A meta key
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum MetaKeyId {
     /// @+
@@ -616,7 +616,7 @@ impl TryFrom<u8> for MetaKeyId {
 }
 
 /// A map key definition
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MapKey {
     /// An identifier
     Id(ConstantIndex),
@@ -629,7 +629,7 @@ pub enum MapKey {
 }
 
 /// The type of quotation mark used in a string literal
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum QuotationMark {
     Double,
@@ -637,7 +637,7 @@ pub enum QuotationMark {
 }
 
 /// A node in an import item, see [Node::Import]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImportItemNode {
     /// An identifier node
     ///

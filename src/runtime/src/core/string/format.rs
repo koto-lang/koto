@@ -6,7 +6,7 @@ use {
     std::{iter::Peekable, str::Chars},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FormatToken<'a> {
     String(&'a str),
     Placeholder(FormatSpec),
@@ -15,7 +15,7 @@ pub enum FormatToken<'a> {
     Error(String),
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct FormatSpec {
     fill: Option<char>,
     alignment: Option<FormatAlign>,
@@ -23,7 +23,7 @@ pub struct FormatSpec {
     precision: Option<u32>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FormatAlign {
     Left,
     Center,
