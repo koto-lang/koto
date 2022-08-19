@@ -6,7 +6,7 @@ use {
 };
 
 /// The tokens that can emerge from the lexer
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum Token {
     Error,

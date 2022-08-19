@@ -338,7 +338,7 @@ pub struct FunctionInfo {
     pub captures: Option<ValueList>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IntRange {
     pub start: isize,
     pub end: isize,
@@ -362,13 +362,13 @@ impl IntRange {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IndexRange {
     pub start: usize,
     pub end: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RegisterSlice {
     pub start: u8,
     pub count: u8,
