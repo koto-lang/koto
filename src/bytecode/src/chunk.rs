@@ -135,8 +135,7 @@ impl Chunk {
                 let line = instruction_span
                     .start
                     .line
-                    .min(source_lines.len() as u32)
-                    .max(1) as usize;
+                    .clamp(1, source_lines.len() as u32) as usize;
                 writeln!(result, "|{line}| {}", source_lines[line - 1]).ok();
                 span = Some(instruction_span);
             }

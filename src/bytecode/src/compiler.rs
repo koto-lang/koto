@@ -2017,7 +2017,7 @@ impl Compiler {
 
                 self.push_op(
                     Op::MakeTempTuple,
-                    &[result.register, start_register as u8, elements.len() as u8],
+                    &[result.register, start_register, elements.len() as u8],
                 );
 
                 // If we're making a temp tuple then the registers need to be kept around,
@@ -3552,15 +3552,12 @@ impl Compiler {
                     Node::Id(id) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
-                        self.push_op_without_span(
-                            IterNext,
-                            &[arg_register, iterator_register as u8],
-                        );
+                        self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
                         self.push_loop_jump_placeholder()?;
                     }
                     Node::Wildcard(_) => {
                         // e.g. for _ in 0..10
-                        self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
+                        self.push_op_without_span(IterNextQuiet, &[iterator_register]);
                         self.push_loop_jump_placeholder()?;
                     }
                     unexpected => {

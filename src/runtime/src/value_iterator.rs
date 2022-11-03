@@ -368,7 +368,7 @@ impl KotoIterator for ListIterator {
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
         if self.end > self.index {
             self.end -= 1;
-            self.get_output(self.end as usize)
+            self.get_output(self.end)
         } else {
             None
         }
@@ -389,7 +389,7 @@ impl Iterator for ListIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.len().saturating_sub(self.index) as usize;
+        let remaining = self.data.len().saturating_sub(self.index);
         (remaining, Some(remaining))
     }
 }
@@ -434,7 +434,7 @@ impl KotoIterator for TupleIterator {
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
         if self.end > self.index {
             self.end -= 1;
-            self.get_output(self.end as usize)
+            self.get_output(self.end)
         } else {
             None
         }
@@ -455,7 +455,7 @@ impl Iterator for TupleIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.len().saturating_sub(self.index) as usize;
+        let remaining = self.data.len().saturating_sub(self.index);
         (remaining, Some(remaining))
     }
 }
@@ -501,7 +501,7 @@ impl KotoIterator for MapIterator {
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
         if self.end > self.index {
             self.end -= 1;
-            self.get_output(self.end as usize)
+            self.get_output(self.end)
         } else {
             None
         }
@@ -522,7 +522,7 @@ impl Iterator for MapIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.data().len().saturating_sub(self.index) as usize;
+        let remaining = self.data.data().len().saturating_sub(self.index);
         (remaining, Some(remaining))
     }
 }
@@ -603,7 +603,7 @@ impl Iterator for StringIterator {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let upper_bound = self.data[self.index..].len();
-        let lower_bound = if upper_bound == 0 { 0 } else { 1 };
+        let lower_bound = (upper_bound != 0) as usize;
         (lower_bound, Some(upper_bound))
     }
 }

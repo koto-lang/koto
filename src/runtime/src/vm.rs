@@ -2675,7 +2675,7 @@ impl Vm {
         // Ensure that registers for missing arguments are set to Null
         if call_arg_count < expected_arg_count {
             for arg_index in call_arg_count..expected_arg_count {
-                generator_vm.set_register(arg_index as u8 + arg_offset, Value::Null);
+                generator_vm.set_register(arg_index + arg_offset, Value::Null);
             }
         }
 
