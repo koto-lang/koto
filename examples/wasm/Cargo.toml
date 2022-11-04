@@ -13,7 +13,3 @@ crate-type = ["cdylib"]
 [dependencies]
 koto = { path = "../../src/koto" }
 wasm-bindgen = "0.2.71"
-wee_alloc = "0.4.5"
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
