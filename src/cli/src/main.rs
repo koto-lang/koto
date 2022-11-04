@@ -5,10 +5,7 @@ use {
     crossterm::tty::IsTty,
     koto::{bytecode::Chunk, Koto, KotoSettings},
     repl::{Repl, ReplSettings},
-    std::{
-        fs,
-        io::{self, Read},
-    },
+    std::{fs, io},
 };
 
 #[cfg(all(jemalloc, not(target_env = "msvc")))]
@@ -147,10 +144,8 @@ fn run() -> Result<(), ()> {
     } else if stdin.is_tty() {
         (None, None)
     } else {
-        let mut script = String::new();
-        stdin
-            .read_to_string(&mut script)
-            .expect("Failed to read script from standard input");
+        let script =
+            io::read_to_string(&mut stdin).expect("Failed to read script from standard input");
         (Some(script), None)
     };
 
