@@ -158,7 +158,7 @@ pub fn make_module() -> ValueMap {
         |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
-                match fs::remove_file(&path) {
+                match fs::remove_file(path) {
                     Ok(_) => Ok(Value::Null),
                     Err(error) => runtime_error!(
                         "io.remove_file: Error while removing file '{}': {error}",

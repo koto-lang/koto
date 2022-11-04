@@ -898,7 +898,7 @@ mod tests {
                             assert_eq!(&lex.slice(), slice, "Slice mismatch at position {i}");
                         }
                         assert_eq!(
-                            lex.line_number() as u32,
+                            lex.line_number(),
                             *line_number,
                             "Line number mismatch at position {i}",
                         );
@@ -924,7 +924,7 @@ mod tests {
                             assert_eq!(&lex.slice(), slice, "Mismatch at token {i}");
                         }
                         assert_eq!(
-                            lex.line_number() as u32,
+                            lex.line_number(),
                             *line_number,
                             "Line number - expected: {}, actual: {} - (token {i} - {token:?})",
                             *line_number,

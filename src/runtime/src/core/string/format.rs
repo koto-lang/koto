@@ -100,20 +100,25 @@ impl<'a> FormatLexer<'a> {
         match chars.next() {
             Some(n @ '0'..='9') => {
                 self.position += 1;
-                let mut n = n.to_digit(10).unwrap();
+                let mut n = n.to_digit(10).unwrap() as u64;
+                let index_max = u32::MAX as u64;
 
                 while let Some(n_next @ '0'..='9') = chars.peek().cloned() {
                     chars.next();
                     self.position += 1;
+
                     n *= 10;
-                    n += n_next.to_digit(10).unwrap();
+                    n += n_next.to_digit(10).unwrap() as u64;
+
+                    if n > index_max {
+                        return Err(format!(
+                            "Placeholder index exceeds the maximum of {}",
+                            index_max
+                        ));
+                    }
                 }
 
-                if n <= u32::MAX as u32 {
-                    Ok(n as u32)
-                } else {
-                    Err(format!("{n} exceeds the maximum of {}", u32::MAX))
-                }
+                Ok(n as u32)
             }
             Some(other) => Err(format!("Expected digit, found '{other}'")),
             None => Err("Expected digit".into()),

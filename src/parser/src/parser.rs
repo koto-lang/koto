@@ -592,11 +592,8 @@ impl<'source> Parser<'source> {
                     }
                     let context = self.consume_until_token_with_context(&context).unwrap();
 
-                    let rhs = if let Some(rhs_expression) =
-                        self.parse_expression_start(&[], right_priority, &context)?
-                    {
-                        rhs_expression
-                    } else {
+                    let Some(rhs) = self.parse_expression_start(&[], right_priority, &context)?
+                    else {
                         return self.consume_token_on_same_line_and_error(
                             ExpectedIndentation::RhsExpression,
                         );
@@ -2691,9 +2688,7 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
 
-        let try_block = if let Some(try_block) = self.parse_indented_block()? {
-            try_block
-        } else {
+        let Some(try_block) = self.parse_indented_block()? else {
             return self.consume_token_on_same_line_and_error(ExpectedIndentation::TryBody);
         };
 
@@ -2717,9 +2712,7 @@ impl<'source> Parser<'source> {
                 return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument);
             };
 
-        let catch_block = if let Some(catch_block) = self.parse_indented_block()? {
-            catch_block
-        } else {
+        let Some(catch_block) = self.parse_indented_block()? else {
             return self.consume_token_on_same_line_and_error(ExpectedIndentation::CatchBody);
         };
 

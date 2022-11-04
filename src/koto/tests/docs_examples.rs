@@ -115,7 +115,7 @@ fn load_markdown_and_run_examples(path: &Path) {
         panic!("Path doesn't exist: {:?}", path);
     }
 
-    let markdown = std::fs::read_to_string(&path)
+    let markdown = std::fs::read_to_string(path)
         .unwrap_or_else(|_| panic!("Unable to load path '{:?}'", &path));
 
     use pulldown_cmark::{CodeBlockKind, Event::*, Parser, Tag::*};
