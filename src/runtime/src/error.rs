@@ -192,7 +192,7 @@ pub fn type_error_with_slice<T>(
 ) -> Result<T, RuntimeError> {
     let message = match unexpected {
         [] => "no args".to_string(),
-        [single_arg] => single_arg.type_as_string(),
+        [single_arg] => single_arg.type_as_string().to_string(),
         _ => {
             let mut types = String::from('(');
             let mut first = true;

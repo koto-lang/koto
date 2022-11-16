@@ -238,7 +238,9 @@ impl Koto {
                         self.runtime.run_tests(tests)?;
                     }
                     Some(other) => {
-                        return Err(KotoError::InvalidTestsType(other.type_as_string()));
+                        return Err(KotoError::InvalidTestsType(
+                            other.type_as_string().to_string(),
+                        ));
                     }
                     None => {}
                 }

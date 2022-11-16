@@ -1,5 +1,5 @@
 use {
-    crate::{MetaKey, MetaMap, RuntimeResult, Value, Vm},
+    crate::{MetaKey, MetaMap, RuntimeResult, Value, ValueString, Vm},
     downcast_rs::impl_downcast,
     std::{
         cell::{Ref, RefCell, RefMut},
@@ -11,10 +11,14 @@ use {
 
 pub use downcast_rs::Downcast;
 
+thread_local! {
+    static EXTERNAL_DATA_TYPE: ValueString  = "External Data".into();
+}
+
 /// A trait for external data
 pub trait ExternalData: Downcast {
-    fn data_type(&self) -> String {
-        "External Data".to_string()
+    fn data_type(&self) -> ValueString {
+        EXTERNAL_DATA_TYPE.with(|x| x.clone())
     }
 }
 
@@ -76,7 +80,7 @@ impl ExternalValue {
         }
     }
 
-    pub fn data_type(&self) -> String {
+    pub fn data_type(&self) -> ValueString {
         self.data.borrow().data_type()
     }
 

@@ -178,41 +178,63 @@ impl Value {
         }
     }
 
-    pub fn type_as_string(&self) -> String {
+    pub fn type_as_string(&self) -> ValueString {
         use Value::*;
         match &self {
-            Null => "Null".to_string(),
-            Bool(_) => "Bool".to_string(),
-            Number(ValueNumber::F64(_)) => "Float".to_string(),
-            Number(ValueNumber::I64(_)) => "Int".to_string(),
-            Num2(_) => "Num2".to_string(),
-            Num4(_) => "Num4".to_string(),
-            List(_) => "List".to_string(),
-            Range { .. } => "Range".to_string(),
-            IndexRange { .. } => "IndexRange".to_string(),
+            Null => TYPE_NULL.with(|x| x.clone()),
+            Bool(_) => TYPE_BOOL.with(|x| x.clone()),
+            Number(ValueNumber::F64(_)) => TYPE_FLOAT.with(|x| x.clone()),
+            Number(ValueNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
+            Num2(_) => TYPE_NUM2.with(|x| x.clone()),
+            Num4(_) => TYPE_NUM4.with(|x| x.clone()),
+            List(_) => TYPE_LIST.with(|x| x.clone()),
+            Range { .. } => TYPE_RANGE.with(|x| x.clone()),
+            IndexRange { .. } => TYPE_INDEX_RANGE.with(|x| x.clone()),
             Map(m) => match m.get_meta_value(&MetaKey::Type) {
-                Some(Str(s)) => s.as_str().to_string(),
-                Some(_) => "Error: expected string for overloaded type".to_string(),
-                None => "Map".to_string(),
+                Some(Str(s)) => s,
+                Some(_) => "Error: expected string for overloaded type".into(),
+                None => TYPE_MAP.with(|x| x.clone()),
             },
-            Str(_) => "String".to_string(),
-            Tuple(_) => "Tuple".to_string(),
-            SimpleFunction(_) => "Function".to_string(),
-            Function(_) => "Function".to_string(),
-            Generator(_) => "Generator".to_string(),
-            ExternalFunction(_) => "ExternalFunction".to_string(),
+            Str(_) => TYPE_STRING.with(|x| x.clone()),
+            Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
+            SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
+            Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
+            ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
             ExternalValue(value) => match value.get_meta_value(&MetaKey::Type) {
-                Some(Str(s)) => s.as_str().to_string(),
-                Some(_) => "Error: expected string for overloaded type".to_string(),
-                None => "ExternalValue".to_string(),
+                Some(Str(s)) => s,
+                Some(_) => "Error: expected string for overloaded type".into(),
+                None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
             },
             ExternalData(data) => data.borrow().data_type(),
-            Iterator(_) => "Iterator".to_string(),
-            TemporaryTuple { .. } => "TemporaryTuple".to_string(),
-            SequenceBuilder(_) => "SequenceBuilder".to_string(),
-            StringBuilder(_) => "StringBuilder".to_string(),
+            Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
+            TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
+            SequenceBuilder(_) => TYPE_SEQUENCE_BUILDER.with(|x| x.clone()),
+            StringBuilder(_) => TYPE_STRING_BUILDER.with(|x| x.clone()),
         }
     }
+}
+
+thread_local! {
+    static TYPE_NULL: ValueString = "Null".into();
+    static TYPE_BOOL: ValueString = "Bool".into();
+    static TYPE_FLOAT: ValueString = "Float".into();
+    static TYPE_INT: ValueString = "Int".into();
+    static TYPE_NUM2: ValueString = "Num2".into();
+    static TYPE_NUM4: ValueString = "Num4".into();
+    static TYPE_LIST: ValueString = "List".into();
+    static TYPE_RANGE: ValueString = "Range".into();
+    static TYPE_INDEX_RANGE: ValueString = "IndexRange".into();
+    static TYPE_MAP: ValueString = "Map".into();
+    static TYPE_STRING: ValueString = "String".into();
+    static TYPE_TUPLE: ValueString = "Tuple".into();
+    static TYPE_FUNCTION: ValueString = "Function".into();
+    static TYPE_GENERATOR: ValueString = "Generator".into();
+    static TYPE_EXTERNAL_FUNCTION: ValueString = "ExternalFunction".into();
+    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
+    static TYPE_ITERATOR: ValueString = "Iterator".into();
+    static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
+    static TYPE_SEQUENCE_BUILDER: ValueString = "SequenceBuilder".into();
+    static TYPE_STRING_BUILDER: ValueString = "StringBuilder".into();
 }
 
 impl Default for Value {

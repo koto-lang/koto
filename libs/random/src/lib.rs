@@ -155,7 +155,11 @@ impl ChaChaRng {
 }
 
 impl ExternalData for ChaChaRng {
-    fn data_type(&self) -> String {
-        "Rng".to_string()
+    fn data_type(&self) -> ValueString {
+        TYPE_RNG.with(|x| x.clone())
     }
+}
+
+thread_local! {
+    static TYPE_RNG: ValueString = "Rng".into();
 }
