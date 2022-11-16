@@ -13,20 +13,20 @@ pub use downcast_rs::Downcast;
 
 /// A trait for external data
 pub trait ExternalData: Downcast {
-    fn value_type(&self) -> String {
+    fn data_type(&self) -> String {
         "External Data".to_string()
     }
 }
 
 impl fmt::Display for dyn ExternalData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.value_type())
+        f.write_str(&self.data_type())
     }
 }
 
 impl fmt::Debug for dyn ExternalData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.value_type())
+        f.write_str(&self.data_type())
     }
 }
 
@@ -62,12 +62,22 @@ impl ExternalValue {
         }
     }
 
-    pub fn data(&self) -> Ref<dyn ExternalData> {
-        self.data.borrow()
+    pub fn data<T: ExternalData>(&self) -> Option<Ref<T>> {
+        match self.data.try_borrow() {
+            Ok(data_ref) => Ref::filter_map(data_ref, |data| data.downcast_ref::<T>()).ok(),
+            Err(_) => None,
+        }
     }
 
-    pub fn data_mut(&self) -> RefMut<dyn ExternalData> {
-        self.data.borrow_mut()
+    pub fn data_mut<T: ExternalData>(&self) -> Option<RefMut<T>> {
+        match self.data.try_borrow_mut() {
+            Ok(data_ref) => RefMut::filter_map(data_ref, |data| data.downcast_mut::<T>()).ok(),
+            Err(_) => None,
+        }
+    }
+
+    pub fn data_type(&self) -> String {
+        self.data.borrow().data_type()
     }
 
     /// Returns true if the value's meta map contains an entry with the given key

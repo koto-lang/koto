@@ -4,7 +4,8 @@ mod external_values {
     use {
         crate::runtime_test_utils::{string, test_script_with_vm},
         koto_runtime::{
-            runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, UnaryOp, Value, Vm,
+            runtime_error, unexpected_type_error_with_slice, BinaryOp, ExternalData, ExternalValue,
+            MetaMap, MetaMapBuilder, UnaryOp, Value, Vm,
         },
         std::{cell::RefCell, rc::Rc},
     };
@@ -12,6 +13,15 @@ mod external_values {
     #[derive(Debug)]
     struct TestExternalData {
         x: f64,
+    }
+
+    impl TestExternalData {
+        fn make_value(x: f64) -> Value {
+            Value::ExternalValue(ExternalValue::with_shared_meta_map(
+                Self { x },
+                EXTERNAL_META.with(|meta| meta.clone()),
+            ))
+        }
     }
 
     impl ExternalData for TestExternalData {}
@@ -22,167 +32,80 @@ mod external_values {
 
     fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
         use Value::{Bool, Null, Number};
+        use {BinaryOp::*, UnaryOp::*};
 
-        let mut meta = MetaMap::with_type_name("TestExternalData");
-
-        meta.add_named_instance_fn("to_number", |data: &TestExternalData, _, _| {
-            Ok(Number(data.x.into()))
-        });
-
-        meta.add_named_instance_fn_mut(
-            "set_all_instances",
-            |data: &mut TestExternalData, _, extra_args| {
-                let fn_name = "TestExternalData.set_all_instances";
-
-                match extra_args {
-                    [Value::ExternalValue(other)] => {
-                        match other.data().downcast_ref::<TestExternalData>() {
-                            Some(other_data) => {
-                                data.x = other_data.x;
-                                Ok(Null)
-                            }
-                            None => runtime_error!(
-                                "{fn_name} - unexpected other type: {}",
-                                other.data().value_type(),
-                            ),
+        MetaMapBuilder::<TestExternalData>::new("TestExternalValue")
+            .data_fn(Display, |data| {
+                Ok(format!("TestExternalData: {}", data.x).into())
+            })
+            .data_fn(Negate, |data| Ok(TestExternalData::make_value(-data.x)))
+            .data_fn_2(Add, |a, b| Ok(TestExternalData::make_value(a.x + b.x)))
+            .data_fn_2(Subtract, |a, b| Ok(TestExternalData::make_value(a.x - b.x)))
+            .data_fn_2(Multiply, |a, b| Ok(TestExternalData::make_value(a.x * b.x)))
+            .data_fn_2(Divide, |a, b| Ok(TestExternalData::make_value(a.x / b.x)))
+            .data_fn_2(Remainder, |a, b| {
+                Ok(TestExternalData::make_value(a.x % b.x))
+            })
+            .data_fn_2(Less, |a, b| Ok(Bool(a.x < b.x)))
+            .data_fn_2(LessOrEqual, |a, b| Ok(Bool(a.x <= b.x)))
+            .data_fn_2(Greater, |a, b| Ok(Bool(a.x > b.x)))
+            .data_fn_2(GreaterOrEqual, |a, b| Ok(Bool(a.x >= b.x)))
+            .data_fn_2(Equal, |a, b| {
+                #[allow(clippy::float_cmp)]
+                Ok(Bool(a.x == b.x))
+            })
+            .data_fn_2(NotEqual, |a, b| {
+                #[allow(clippy::float_cmp)]
+                Ok(Bool(a.x != b.x))
+            })
+            .data_fn_with_args(Index, |data, args| match args {
+                [Number(index)] => {
+                    let index = usize::from(index);
+                    let result = data.x + index as f64;
+                    Ok(result.into())
+                }
+                unexpected => {
+                    unexpected_type_error_with_slice("ExternalValue.@Index", "a Number", unexpected)
+                }
+            })
+            .instance_fn("get_data", |instance| {
+                // We want to return a Rc clone of the internal data,
+                // so instance_fn is used here to get easy access to the Rc.
+                Ok(Value::ExternalData(instance.data.clone()))
+            })
+            .data_fn("to_number", |data| Ok(Number(data.x.into())))
+            .data_fn_mut("invert", |data| {
+                data.x *= -1.0;
+                Ok(Null)
+            })
+            .data_fn_2_mut("set_all_instances", |a, b| {
+                a.x = b.x;
+                Ok(Null)
+            })
+            .data_fn_with_args_mut("absorb_values", |data, args| {
+                for arg in args.iter() {
+                    match arg {
+                        Number(n) => data.x += f64::from(n),
+                        other => {
+                            return unexpected_type_error_with_slice(
+                                "ExternalValue.absorb_values",
+                                "Number",
+                                &[other.clone()],
+                            )
                         }
                     }
-                    _ => {
-                        runtime_error!("{} - expected two ExternalData arguments", fn_name)
-                    }
                 }
-            },
-        );
-
-        meta.add_named_instance_fn(
-            "get_data",
-            |_data: &TestExternalData, value: &ExternalValue, _| {
-                Ok(Value::ExternalData(value.data.clone()))
-            },
-        );
-
-        meta.add_unary_op(UnaryOp::Display, |data: &TestExternalData, _| {
-            Ok(format!("TestExternalData: {}", data.x).into())
-        });
-
-        meta.add_unary_op(UnaryOp::Negate, |data: &TestExternalData, value| {
-            let result = value.with_new_data(TestExternalData { x: -data.x });
-            Ok(result.into())
-        });
-
-        meta.add_binary_op(
-            BinaryOp::Add,
-            |data_a: &TestExternalData, data_b, value_a, _| {
-                let result = value_a.with_new_data(TestExternalData {
-                    x: data_a.x + data_b.x,
-                });
-                Ok(result.into())
-            },
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Subtract,
-            |data_a: &TestExternalData, data_b, value_a, _| {
-                let result = value_a.with_new_data(TestExternalData {
-                    x: data_a.x - data_b.x,
-                });
-                Ok(result.into())
-            },
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Multiply,
-            |data_a: &TestExternalData, data_b, value_a, _| {
-                let result = value_a.with_new_data(TestExternalData {
-                    x: data_a.x * data_b.x,
-                });
-                Ok(result.into())
-            },
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Divide,
-            |data_a: &TestExternalData, data_b, value_a, _| {
-                let result = value_a.with_new_data(TestExternalData {
-                    x: data_a.x / data_b.x,
-                });
-                Ok(result.into())
-            },
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Remainder,
-            |data_a: &TestExternalData, data_b, value_a, _| {
-                let result = value_a.with_new_data(TestExternalData {
-                    x: data_a.x % data_b.x,
-                });
-                Ok(result.into())
-            },
-        );
-
-        meta.add_binary_op(BinaryOp::Less, |data_a: &TestExternalData, data_b, _, _| {
-            Ok(Bool(data_a.x < data_b.x))
-        });
-
-        meta.add_binary_op(
-            BinaryOp::LessOrEqual,
-            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x <= data_b.x)),
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Greater,
-            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x > data_b.x)),
-        );
-
-        meta.add_binary_op(
-            BinaryOp::GreaterOrEqual,
-            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x >= data_b.x)),
-        );
-
-        meta.add_binary_op(
-            BinaryOp::Equal,
-            |data_a: &TestExternalData, data_b, _, _| {
-                #[allow(clippy::float_cmp)]
-                Ok(Bool(data_a.x == data_b.x))
-            },
-        );
-
-        meta.add_binary_op(
-            BinaryOp::NotEqual,
-            |data_a: &TestExternalData, data_b, _, _| {
-                #[allow(clippy::float_cmp)]
-                Ok(Bool(data_a.x != data_b.x))
-            },
-        );
-
-        meta.add_binary_op_with_any_rhs(
-            BinaryOp::Index,
-            |data_a: &TestExternalData, _, value_b| match value_b {
-                Number(index) => {
-                    let index = usize::from(index);
-                    let result = data_a.x + index as f64;
-                    Ok(Number(result.into()))
-                }
-                unexpected => runtime_error!(
-                    "ExternalValue.@Index - Expected Number as argument, found {}",
-                    unexpected.type_as_string()
-                ),
-            },
-        );
-
-        meta.into()
+                Ok(Null)
+            })
+            .build()
     }
 
-    fn test_script_with_external_value(script: &str, expected_output: Value) {
+    fn test_script_with_external_value(script: &str, expected_output: impl Into<Value>) {
         let vm = Vm::default();
         let prelude = vm.prelude();
 
         prelude.add_fn("make_external", |vm, args| match vm.get_args(args) {
-            [Value::Number(x)] => Ok(ExternalValue::with_shared_meta_map(
-                TestExternalData { x: x.into() },
-                EXTERNAL_META.with(|meta| meta.clone()),
-            )
-            .into()),
+            [Value::Number(x)] => Ok(TestExternalData::make_value(x.into())),
             [Value::ExternalData(data)] => Ok(ExternalValue {
                 data: data.clone(),
                 meta: EXTERNAL_META.with(|meta| meta.clone()),
@@ -191,7 +114,7 @@ mod external_values {
             _ => runtime_error!("make_external: Expected a Number or ExternalData as argument"),
         });
 
-        test_script_with_vm(vm, script, expected_output);
+        test_script_with_vm(vm, script, expected_output.into());
     }
 
     mod named_functions {
@@ -203,7 +126,17 @@ mod external_values {
 x = make_external 42
 x.to_number()
 ";
-            test_script_with_external_value(script, 42.into());
+            test_script_with_external_value(script, 42);
+        }
+
+        #[test]
+        fn invert() {
+            let script = "
+x = make_external 42
+x.invert()
+x.to_number()
+";
+            test_script_with_external_value(script, -42.0_f64);
         }
 
         #[test]
@@ -214,7 +147,7 @@ y = x
 y.set_all_instances make_external 99
 x.to_number()
 ";
-            test_script_with_external_value(script, 99.into());
+            test_script_with_external_value(script, 99);
         }
 
         #[test]
@@ -225,7 +158,17 @@ x_data = x.get_data()
 y = make_external x_data
 y.to_number()
 ";
-            test_script_with_external_value(script, 42.into());
+            test_script_with_external_value(script, 42);
+        }
+
+        #[test]
+        fn absorb_values() {
+            let script = "
+x = make_external 42
+x.absorb_values 10, 20, 30
+x.to_number()
+";
+            test_script_with_external_value(script, 102);
         }
     }
 
@@ -245,7 +188,7 @@ x = make_external -123
 x = -x
 x.to_number()
 ";
-            test_script_with_external_value(script, 123.into());
+            test_script_with_external_value(script, 123);
         }
     }
 
@@ -258,7 +201,7 @@ x.to_number()
 x = (make_external 11) + (make_external 22)
 x.to_number()
 ";
-            test_script_with_external_value(script, 33.into());
+            test_script_with_external_value(script, 33);
         }
 
         #[test]
@@ -267,7 +210,7 @@ x.to_number()
 x = (make_external 99) - (make_external 90)
 x.to_number()
 ";
-            test_script_with_external_value(script, 9.into());
+            test_script_with_external_value(script, 9);
         }
 
         #[test]
@@ -276,7 +219,7 @@ x.to_number()
 x = (make_external 3) * (make_external 11)
 x.to_number()
 ";
-            test_script_with_external_value(script, 33.into());
+            test_script_with_external_value(script, 33);
         }
 
         #[test]
@@ -285,7 +228,7 @@ x.to_number()
 x = (make_external 90) / (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, 9.into());
+            test_script_with_external_value(script, 9);
         }
 
         #[test]
@@ -294,7 +237,7 @@ x.to_number()
 x = (make_external 45) % (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, 5.into());
+            test_script_with_external_value(script, 5);
         }
 
         #[test]
@@ -327,7 +270,7 @@ x.to_number()
 x = make_external 100
 x[23]
 ";
-            test_script_with_external_value(script, 123.into());
+            test_script_with_external_value(script, 123);
         }
     }
 
@@ -340,7 +283,7 @@ x[23]
 x = make_external -100
 (-x).to_number()
     ";
-            test_script_with_external_value(script, 100.into());
+            test_script_with_external_value(script, 100);
         }
 
         #[test]
@@ -350,7 +293,7 @@ x = make_external 100
 y = make_external 100
 (x - y).to_number()
     ";
-            test_script_with_external_value(script, 0.into());
+            test_script_with_external_value(script, 0);
         }
     }
 }

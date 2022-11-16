@@ -1,7 +1,8 @@
 use {
     crate::{
         external::{Args, ExternalFunction},
-        runtime_error, ExternalData, ExternalValue, RuntimeResult, Value, ValueString, Vm,
+        runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue, RuntimeError,
+        RuntimeResult, Value, ValueString, Vm,
     },
     indexmap::IndexMap,
     koto_parser::MetaKeyId,
@@ -11,6 +12,7 @@ use {
         cell::RefCell,
         fmt,
         hash::{BuildHasherDefault, Hash, Hasher},
+        marker::PhantomData,
         ops::{Deref, DerefMut},
         rc::Rc,
     },
@@ -22,18 +24,6 @@ type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
 pub struct MetaMap(MetaMapType);
 
 impl MetaMap {
-    /// Initializes a meta map with the given type name
-    pub fn with_type_name(name: &str) -> Self {
-        let mut map = MetaMapType::default();
-        map.insert(MetaKey::Type, name.into());
-        Self(map)
-    }
-
-    /// Extends the MetaMap with clones of another MetaMap's entries
-    pub fn extend(&mut self, other: &MetaMap) {
-        self.0.extend(other.0.clone().into_iter());
-    }
-
     /// Allows access to named entries without having to create a ValueString
     pub fn get_with_string(&self, key: &str) -> Option<&Value> {
         self.0.get(&key as &dyn AsMetaKeyRef)
@@ -44,267 +34,9 @@ impl MetaMap {
         self.0.get_mut(&key as &dyn AsMetaKeyRef)
     }
 
-    /// Adds a function to the map
-    pub fn add_fn(&mut self, key: MetaKey, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
-        self.0.insert(
-            key,
-            Value::ExternalFunction(ExternalFunction::new(f, false)),
-        );
-    }
-
-    /// Adds an instance function to the map
-    pub fn add_instance_fn(
-        &mut self,
-        key: MetaKey,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
-    ) {
-        self.0
-            .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
-    }
-
-    /// Adds a named instance function for external values
-    ///
-    /// This is a helper for adding simple named instance functions for external values, taking
-    /// care of accessing the value's external data, and downcasting to the expected type.
-    ///
-    /// The added function's first argument is expected to be a reference to the value's external
-    /// data instance.
-    ///
-    /// The function's second argument is a reference to the containing value itself, which can be
-    /// useful when a new instance of the value is to be created (e.g. when implementing a builder
-    /// pattern).
-    ///
-    /// The third argument is a slice of any additional arguments that the function is being called
-    /// with.
-    ///
-    /// # Example
-    ///
-    /// meta.add_named_instance_fn(
-    ///     "to_number",
-    ///     |data: &FooData, _value, _extra_args| Ok(Value::Number(data.x.into())),
-    /// );
-    pub fn add_named_instance_fn<T, F>(&mut self, fn_name: &str, f: F)
-    where
-        T: ExternalData,
-        F: Fn(&T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.external_type_name();
-        let fn_name = ValueString::from(fn_name);
-
-        self.add_instance_fn(fn_name.clone().into(), move |vm, args| {
-            match vm.get_args(args) {
-                [Value::ExternalValue(instance_value), extra_args @ ..] => {
-                    match instance_value.data().downcast_ref::<T>() {
-                        Some(instance_data) => f(instance_data, instance_value, extra_args),
-                        None => runtime_error!(
-                            "{type_name}.{fn_name} - Unexpected external data type: {}",
-                            instance_value.data().value_type(),
-                        ),
-                    }
-                }
-                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
-            }
-        });
-    }
-
-    /// Adds a named instance function for external values, with mutable data access.
-    ///
-    /// This is a helper for adding simple named instance functions for external values, taking
-    /// care of accessing the value's external data, and downcasting to the expected type.
-    ///
-    /// The function's first argument is expected to be a mutable reference to the value's
-    /// external data instance.
-    ///
-    /// The function's second argument is a reference to the containing value itself, which can be
-    /// useful when a new instance of the value is to be created (e.g. when implementing a builder
-    /// pattern).
-    ///
-    /// The function's third argument is a slice of any additional arguments that the function is
-    /// being called with.
-    ///
-    /// # Example
-    ///
-    /// meta.add_named_instance_fn(
-    ///     "set_to_zero",
-    ///     |data: &mut FooData, _value, _extra_args| {
-    ///         data.x = 0;
-    ///         Ok(Value::Null),
-    ///     }
-    /// );
-    pub fn add_named_instance_fn_mut<T, F>(&mut self, fn_name: &str, f: F)
-    where
-        T: ExternalData,
-        F: Fn(&mut T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.external_type_name();
-        let fn_name = ValueString::from(fn_name);
-
-        self.add_instance_fn(fn_name.clone().into(), move |vm, args| {
-            match vm.get_args(args) {
-                [Value::ExternalValue(instance_value), extra_args @ ..] => {
-                    match instance_value.data_mut().downcast_mut::<T>() {
-                        Some(instance_data) => f(instance_data, instance_value, extra_args),
-                        None => runtime_error!(
-                            "{type_name}.{fn_name} - Unexpected external data type: {}",
-                            instance_value.data().value_type(),
-                        ),
-                    }
-                }
-                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
-            }
-        });
-    }
-
-    /// Adds a unary op function for external values
-    ///
-    /// This is a helper for adding simple unary op handlers for external values, taking
-    /// care of accessing the value's external data, and downcasting to the expected type.
-    ///
-    /// The added function's first argument is expected to be a reference to the value's
-    /// external data instance.
-    ///
-    /// The second argument is a reference to the containing value itself, which can be useful when
-    /// a new instance of the value is to be created.
-    ///
-    /// # Example
-    ///
-    /// meta.add_unary_op(UnaryOp::Negate, |data: &FooData, value| {
-    ///     let result = value.with_new_data(FooData { x: -data.x });
-    ///     Ok(result.into())
-    /// });
-    pub fn add_unary_op<T, F>(&mut self, op: UnaryOp, f: F)
-    where
-        T: ExternalData,
-        F: Fn(&T, &ExternalValue) -> RuntimeResult + 'static,
-    {
-        let type_name = self.external_type_name();
-
-        self.add_instance_fn(op.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(instance_value)] => {
-                match instance_value.data().downcast_ref::<T>() {
-                    Some(instance_data) => f(instance_data, instance_value),
-                    None => runtime_error!(
-                        "{type_name}.@{op} - Unexpected external data type: {}",
-                        instance_value.data().value_type(),
-                    ),
-                }
-            }
-            _ => runtime_error!("{type_name}.@{op} - Expected {type_name} as argument"),
-        });
-    }
-
-    /// Adds a binary op function for external values
-    ///
-    /// This is a helper for adding simple binary op handlers for external values, taking
-    /// care of accessing the value's external data, and downcasting to the expected type.
-    ///
-    /// The right side of the binary operation is expected to be another ExternalValue with the same
-    /// data type, see [MetaMap::add_binary_op_with_any_rhs] for binary ops with other value types.
-    ///
-    /// The added function's first and second arguments are expected to be references to the
-    /// values' external data instances.
-    ///
-    /// The third and fourth arguments are references to the containing values themselves, which can
-    /// be useful when the result of the operation should be a new instance of the value.
-    ///
-    /// # Example
-    ///
-    /// meta.add_binary_op(
-    ///     BinaryOp::Add,
-    ///     |data_a: &FooData, data_b, value_a, _| {
-    ///         let result = value_a.with_new_data(FooData {
-    ///             x: data_a.x + data_b.x,
-    ///         });
-    ///         Ok(result.into())
-    ///     },
-    /// );
-    pub fn add_binary_op<T, F>(&mut self, op: BinaryOp, f: F)
-    where
-        T: ExternalData,
-        F: Fn(&T, &T, &ExternalValue, &ExternalValue) -> RuntimeResult + 'static,
-    {
-        use Value::ExternalValue;
-
-        let type_name = self.external_type_name();
-
-        self.add_instance_fn(op.into(), move |vm, args| match vm.get_args(args) {
-            [ExternalValue(value_a), ExternalValue(value_b)] => {
-                match (
-                    value_a.data().downcast_ref::<T>(),
-                    value_b.data().downcast_ref::<T>(),
-                ) {
-                    (Some(data_a), Some(data_b)) => f(data_a, data_b, value_a, value_b),
-                    _ => runtime_error!(
-                        "{type_name}.{op} - Unexpected external data types: lhs: {}, rhs: {}",
-                        value_a.data().value_type(),
-                        value_b.data().value_type(),
-                    ),
-                }
-            }
-            _ => runtime_error!("{type_name}.@{op} - Expected two '{type_name}'s as arguments"),
-        });
-    }
-
-    /// Adds a binary op function for external values
-    ///
-    /// This is a helper for adding simple binary op handlers for external values, taking
-    /// care of accessing the value's external data, and downcasting to the expected type.
-    ///
-    /// The right side of the binary operation can be any value, see
-    /// [MetaMap::add_binary_op] for binary ops with matching external value types.
-    ///
-    /// The added function's first argument is expected to be a reference to the value's external
-    /// data instance.
-    ///
-    /// The second argument is a reference to the containing value itselt, which can
-    /// be useful when the result of the operation should be a new instance of the value.
-    ///
-    /// The third argument is a reference to the value on the right side of the expression.
-    ///
-    /// # Example
-    ///
-    /// meta.add_binary_op_with_any_rhs(
-    ///     BinaryOp::Index,
-    ///     |data_a: &FooData, _, value_b| match value_b {
-    ///         Number(index) => {
-    ///             let index = usize::from(index);
-    ///             let result = data_a.x + index as f64;
-    ///             Ok(Number(result.into()))
-    ///         }
-    ///         unexpected => runtime_error!(
-    ///             "Foo.@Index - Expected Number as argument, found {}",
-    ///             unexpected.type_as_string()
-    ///         ),
-    ///     },
-    /// );
-    pub fn add_binary_op_with_any_rhs<T, F>(&mut self, op: BinaryOp, f: F)
-    where
-        T: ExternalData,
-        F: Fn(&T, &ExternalValue, &Value) -> RuntimeResult + 'static,
-    {
-        use Value::ExternalValue;
-
-        let type_name = self.external_type_name();
-
-        self.add_instance_fn(op.into(), move |vm, args| match vm.get_args(args) {
-            [ExternalValue(value_a), value_b] => match value_a.data().downcast_ref::<T>() {
-                Some(data_a) => f(data_a, value_a, value_b),
-                _ => runtime_error!(
-                    "{type_name}.{op} - Unexpected external data type: {}",
-                    value_a.data().value_type(),
-                ),
-            },
-            _ => runtime_error!(
-                "{type_name}.@{op} - Expected '{type_name}' and a Value as arguments"
-            ),
-        });
-    }
-
-    fn external_type_name(&self) -> Value {
-        self.0
-            .get(&MetaKey::Type)
-            .cloned()
-            .unwrap_or_else(|| "ExternalValue".into())
+    /// Extends the MetaMap with clones of another MetaMap's entries
+    pub fn extend(&mut self, other: &MetaMap) {
+        self.0.extend(other.0.clone().into_iter());
     }
 }
 
@@ -343,7 +75,7 @@ pub enum MetaKey {
 
 impl MetaKey {
     fn as_ref(&self) -> MetaKeyRef {
-        match &self {
+        match self {
             MetaKey::BinaryOp(op) => MetaKeyRef::BinaryOp(*op),
             MetaKey::UnaryOp(op) => MetaKeyRef::UnaryOp(*op),
             MetaKey::Named(name) => MetaKeyRef::Named(name),
@@ -353,6 +85,22 @@ impl MetaKey {
             MetaKey::PostTest => MetaKeyRef::PostTest,
             MetaKey::Main => MetaKeyRef::Main,
             MetaKey::Type => MetaKeyRef::Type,
+        }
+    }
+}
+
+impl fmt::Display for MetaKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MetaKey::BinaryOp(op) => write!(f, "@{op}"),
+            MetaKey::UnaryOp(op) => write!(f, "@{op}"),
+            MetaKey::Named(name) => write!(f, "{name}"),
+            MetaKey::Test(test) => write!(f, "test({test})"),
+            MetaKey::Tests => f.write_str("@tests"),
+            MetaKey::PreTest => f.write_str("@pre_test"),
+            MetaKey::PostTest => f.write_str("@post_test"),
+            MetaKey::Main => f.write_str("@main"),
+            MetaKey::Type => f.write_str("@type"),
         }
     }
 }
@@ -539,4 +287,298 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
     fn borrow(&self) -> &(dyn AsMetaKeyRef + 'a) {
         self
     }
+}
+
+/// A builder for MetaMaps
+///
+/// This simplifies adding functions to a [MetaMap], where a common requirement is to work with the
+/// [ExternalData] contained in an [ExternalValue].
+///
+/// # Example
+///
+/// #[derive(Debug)]
+/// struct MyData {
+///     x: f64,
+/// }
+///
+/// impl ExternalData for MyData {}
+///
+/// let meta_map = MetaMapBuilder::<MyData>::new("my_type")
+///     # A 'data function' expects the input value to be an instance of the ExternalData type
+///     # provided to the builder.
+///     .data_fn("to_number", |data| Ok(Value::Number(data.x.into())))
+///     .data_fn(UnaryOp::Display, |data| {
+///         Ok(format!("TestExternalData: {}", data.x).into())
+///     })
+///     # A mutable data function provides a mutable reference to the underlying ExternalData.
+///     .data_fn_mut("invert", |data| {
+///         data.x *= -1.0;
+///         Ok(Value::Null)
+///     })
+///     # Finally, the build function consumes the builder and provides a MetaMap, ready for
+///     # attaching to external values.
+///     .build();
+pub struct MetaMapBuilder<T: ExternalData> {
+    // The map that's being built
+    map: MetaMap,
+    // Keep hold of the type name for error messages
+    type_name: ValueString,
+    // We want to have T available through the implementation
+    _phantom: PhantomData<T>,
+}
+
+impl<T: ExternalData> MetaMapBuilder<T> {
+    /// Initialize a builder with the given type name
+    pub fn new(type_name: &str) -> Self {
+        let type_name = ValueString::from(type_name);
+        let mut map = MetaMap::default();
+        map.insert(MetaKey::Type, Value::Str(type_name.clone()));
+
+        Self {
+            map,
+            type_name,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Build the MetaMap, consuming the builder
+    pub fn build(self) -> Rc<RefCell<MetaMap>> {
+        self.map.into()
+    }
+
+    /// Adds an ExternalValue instance function
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the only argument,
+    /// with internal data that matches the builder's data type.
+    ///
+    /// The provided function is called with the external value itself, rather than the internal
+    /// data. See the `data_` functions for helpers that provide access to the internal data.
+    pub fn instance_fn<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&ExternalValue) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] => match value.data::<T>() {
+                Some(_) => f(value),
+                None => unexpected_data_type(&type_name, &key, value),
+            },
+            other => unexpected_instance_type(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in an ExternalValue instance
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the only argument,
+    /// with internal data that matches the builder's data type.
+    ///
+    /// The provided function is called with a reference to the value's internal data.
+    pub fn data_fn<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&T) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] => match value.data::<T>() {
+                Some(data) => f(&data),
+                None => unexpected_data_type(&type_name, &key, value),
+            },
+            other => unexpected_instance_type(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in an ExternalValue instance
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the only argument,
+    /// with internal data that matches the builder's data type.
+    ///
+    /// The provided function is called with a mutable reference to the value's internal data.
+    pub fn data_fn_mut<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut T) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] => match value.data_mut::<T>() {
+                Some(mut data) => f(&mut data),
+                None => unexpected_data_type(&type_name, &key, value),
+            },
+            other => unexpected_instance_type(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in an ExternalValue instance
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the first argument,
+    /// with internal data that matches the builder's data type.
+    ///
+    /// The provided function is called with a reference to the value's internal data,
+    /// along with a slice containing any additional arguments.
+    pub fn data_fn_with_args<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&T, &[Value]) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
+                Some(data) => f(&data, extra_args),
+                None => unexpected_data_type(&type_name, &key, value),
+            },
+            other => unexpected_instance_type(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in an ExternalValue instance
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the first argument,
+    /// with internal data that matches the builder's data type.
+    ///
+    /// The provided function is called with a mutable reference to the value's internal data,
+    /// along with a slice containing any additional arguments.
+    pub fn data_fn_with_args_mut<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut T, &[Value]) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
+                Some(mut data) => f(&mut data, extra_args),
+                None => unexpected_data_type(&type_name, &key, value),
+            },
+            other => unexpected_instance_type(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in two ExternalValue instances
+    ///
+    /// A helper for a function that expects to be called with two ExternalValues with internal data
+    /// that matches the builder's data type, e.g. a BinaryOp.
+    ///
+    /// The provided function is called with references to the internal data of both ExternalValues.
+    pub fn data_fn_2<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&T, &T) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
+                match (value_a.data::<T>(), value_b.data::<T>()) {
+                    (Some(data_a), Some(data_b)) => f(&data_a, &data_b),
+                    _ => unexpected_data_type_2(&type_name, &key, value_a, value_b),
+                }
+            }
+            other => unexpected_instance_type_2(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in two ExternalValue instances
+    ///
+    /// A helper for a function that expects to be called with two ExternalValues with internal data
+    /// that matches the builder's data type, e.g. a BinaryOp.
+    ///
+    /// The provided function is called with mutable references to the internal data of both
+    /// ExternalValues.
+    pub fn data_fn_2_mut<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut T, &mut T) -> RuntimeResult + 'static,
+    {
+        let key: MetaKey = key.into();
+        let type_name = self.type_name.clone();
+
+        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
+                match (value_a.data_mut::<T>(), value_b.data_mut::<T>()) {
+                    (Some(mut data_a), Some(mut data_b)) => f(&mut data_a, &mut data_b),
+                    _ => unexpected_data_type_2(&type_name, &key, value_a, value_b),
+                }
+            }
+            other => unexpected_instance_type_2(&type_name, &key, other),
+        });
+
+        self
+    }
+
+    fn add_fn(&mut self, key: MetaKey, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+        self.map
+            .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
+    }
+}
+
+fn unexpected_data_type(
+    type_name: &ValueString,
+    key: &MetaKey,
+    unexpected: &ExternalValue,
+) -> Result<Value, RuntimeError> {
+    runtime_error!(
+        "{type_name}.{key} - Unexpected external data type: {}",
+        unexpected.data_type(),
+    )
+}
+
+fn unexpected_data_type_2(
+    type_name: &ValueString,
+    key: &MetaKey,
+    unexpected_a: &ExternalValue,
+    unexpected_b: &ExternalValue,
+) -> Result<Value, RuntimeError> {
+    runtime_error!(
+        "{type_name}.{key} - Unexpected external data types: lhs: {}, rhs: {}",
+        unexpected_a.data_type(),
+        unexpected_b.data_type(),
+    )
+}
+
+fn unexpected_instance_type(
+    type_name: &ValueString,
+    key: &MetaKey,
+    unexpected: &[Value],
+) -> Result<Value, RuntimeError> {
+    unexpected_type_error_with_slice(
+        &format!("{type_name}.{key}"),
+        &format!("'{type_name}'"),
+        unexpected,
+    )
+}
+
+fn unexpected_instance_type_2(
+    type_name: &ValueString,
+    key: &MetaKey,
+    unexpected: &[Value],
+) -> Result<Value, RuntimeError> {
+    unexpected_type_error_with_slice(
+        &format!("{type_name}.{key}"),
+        &format!("two '{type_name}'s"),
+        unexpected,
+    )
 }

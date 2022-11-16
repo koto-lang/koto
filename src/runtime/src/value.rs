@@ -206,7 +206,7 @@ impl Value {
                 Some(_) => "Error: expected string for overloaded type".to_string(),
                 None => "ExternalValue".to_string(),
             },
-            ExternalData(data) => data.borrow().value_type(),
+            ExternalData(data) => data.borrow().data_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
             SequenceBuilder(_) => "SequenceBuilder".to_string(),
@@ -277,6 +277,12 @@ impl From<&str> for Value {
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Self::Str(value.into())
+    }
+}
+
+impl From<ValueString> for Value {
+    fn from(value: ValueString) -> Self {
+        Self::Str(value)
     }
 }
 

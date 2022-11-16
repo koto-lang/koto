@@ -2,7 +2,7 @@ use {
     crate::Poetry,
     koto::runtime::{
         make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue,
-        KotoIterator, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        KotoIterator, MetaMap, MetaMapBuilder, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::{cell::RefCell, rc::Rc},
 };
@@ -33,11 +33,8 @@ thread_local! {
 fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
     use Value::{Iterator, Null, Str};
 
-    let mut bindings = MetaMap::with_type_name("Poetry");
-
-    bindings.add_named_instance_fn_mut(
-        "add_source_material",
-        |poetry: &mut KotoPoetry, _, args| match args {
+    MetaMapBuilder::<KotoPoetry>::new("Poetry")
+        .data_fn_with_args_mut("add_source_material", |poetry, args| match args {
             [Str(text)] => {
                 poetry.0.add_source_material(text);
                 Ok(Null)
@@ -47,25 +44,21 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
                 "a String as argument",
                 unexpected,
             ),
-        },
-    );
-
-    bindings.add_named_instance_fn("iter", |_poetry: &KotoPoetry, external_value, _| {
-        let iter = PoetryIter {
-            poetry: external_value.clone(),
-        };
-        Ok(Iterator(ValueIterator::new(iter)))
-    });
-
-    bindings.add_named_instance_fn_mut("next_word", |poetry: &mut KotoPoetry, _, _| {
-        let result = match poetry.0.next_word() {
-            Some(word) => Str(word.as_ref().into()),
-            None => Null,
-        };
-        Ok(result)
-    });
-
-    bindings.into()
+        })
+        .instance_fn("iter", |poetry_instance| {
+            let iter = PoetryIter {
+                poetry: poetry_instance.clone(),
+            };
+            Ok(Iterator(ValueIterator::new(iter)))
+        })
+        .data_fn_mut("next_word", |poetry| {
+            let result = match poetry.0.next_word() {
+                Some(word) => Str(word.as_ref().into()),
+                None => Null,
+            };
+            Ok(result)
+        })
+        .build()
 }
 
 #[derive(Clone)]
@@ -89,8 +82,8 @@ impl Iterator for PoetryIter {
     fn next(&mut self) -> Option<Self::Item> {
         use Value::{Null, Str};
 
-        match self.poetry.data.borrow_mut().downcast_mut::<KotoPoetry>() {
-            Some(poetry) => {
+        match self.poetry.data_mut::<KotoPoetry>() {
+            Some(mut poetry) => {
                 let result = match poetry.0.next_word() {
                     Some(word) => Str(word.as_ref().into()),
                     None => Null,

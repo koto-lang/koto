@@ -3,7 +3,7 @@
 use {
     koto_runtime::{
         num2, num4, unexpected_type_error_with_slice, ExternalData, ExternalValue, MetaMap,
-        RuntimeResult, Value, ValueMap, ValueTuple,
+        MetaMapBuilder, RuntimeResult, Value, ValueMap, ValueTuple,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha8Rng,
@@ -63,16 +63,14 @@ thread_local! {
 }
 
 fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
-    let mut meta = MetaMap::with_type_name("Rng");
-
-    meta.add_named_instance_fn_mut("bool", |rng: &mut ChaChaRng, _, _| rng.gen_bool());
-    meta.add_named_instance_fn_mut("number", |rng: &mut ChaChaRng, _, _| rng.gen_number());
-    meta.add_named_instance_fn_mut("num2", |rng: &mut ChaChaRng, _, _| rng.gen_num2());
-    meta.add_named_instance_fn_mut("num4", |rng: &mut ChaChaRng, _, _| rng.gen_num4());
-    meta.add_named_instance_fn_mut("pick", |rng: &mut ChaChaRng, _, args| rng.pick(args));
-    meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| rng.seed(args));
-
-    meta.into()
+    MetaMapBuilder::<ChaChaRng>::new("Rng")
+        .data_fn_mut("bool", |rng| rng.gen_bool())
+        .data_fn_mut("number", |rng| rng.gen_number())
+        .data_fn_mut("num2", |rng| rng.gen_num2())
+        .data_fn_mut("num4", |rng| rng.gen_num4())
+        .data_fn_with_args_mut("pick", |rng, args| rng.pick(args))
+        .data_fn_with_args_mut("seed", |rng, args| rng.seed(args))
+        .build()
 }
 
 #[derive(Debug)]
@@ -164,7 +162,7 @@ impl ChaChaRng {
 }
 
 impl ExternalData for ChaChaRng {
-    fn value_type(&self) -> String {
+    fn data_type(&self) -> String {
         "Rng".to_string()
     }
 }

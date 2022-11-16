@@ -27,7 +27,7 @@ pub use {
     file::{KotoFile, KotoRead, KotoWrite},
     koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
-    meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
+    meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
     num2::Num2,
     num4::Num4,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
