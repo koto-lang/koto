@@ -30,6 +30,6 @@ mod koto;
 pub mod prelude;
 
 pub use {
-    crate::koto::{Koto, KotoSettings},
+    crate::koto::{Koto, KotoError, KotoSettings},
     koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime,
 };
