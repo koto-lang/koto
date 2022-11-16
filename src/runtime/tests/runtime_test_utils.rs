@@ -6,8 +6,8 @@ use {
     std::rc::Rc,
 };
 
-pub fn test_script(script: &str, expected_output: Value) {
-    test_script_with_vm(Vm::default(), script, expected_output);
+pub fn test_script(script: &str, expected_output: impl Into<Value>) {
+    test_script_with_vm(Vm::default(), script, expected_output.into());
 }
 
 pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
