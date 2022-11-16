@@ -22,11 +22,7 @@ pub fn make_module() -> ValueMap {
             [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::seed_from_u64(
                 n.to_bits(),
             ))),
-            unexpected => type_error_with_slice(
-                "random.generator",
-                "an optional seed Number as argument",
-                unexpected,
-            ),
+            unexpected => type_error_with_slice("an optional seed Number as argument", unexpected),
         }
     });
 
@@ -136,9 +132,7 @@ impl ChaChaRng {
                 let index = self.0.gen_range(0..t.len());
                 Ok(t[index].clone())
             }
-            unexpected => {
-                type_error_with_slice("random.pick", "a List or Range as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("a List or Range as argument", unexpected),
         }
     }
 
@@ -149,7 +143,7 @@ impl ChaChaRng {
                 self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());
                 Ok(Null)
             }
-            unexpected => type_error_with_slice("random.seed", "a Number as argument", unexpected),
+            unexpected => type_error_with_slice("a Number as argument", unexpected),
         }
     }
 }

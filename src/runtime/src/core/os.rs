@@ -19,7 +19,6 @@ pub fn make_module() -> ValueMap {
             DateTime::from_seconds(seconds.into(), Some(offset.into()))
         }
         unexpected => type_error_with_slice(
-            "os.time",
             "no args, or a timestamp in seconds, with optional timezone offset in seconds",
             unexpected,
         ),

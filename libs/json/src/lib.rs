@@ -52,7 +52,7 @@ pub fn make_module() -> ValueMap {
                 e.to_string()
             ),
         },
-        unexpected => type_error_with_slice("json.from_string", "a String as argument", unexpected),
+        unexpected => type_error_with_slice("a String as argument", unexpected),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
@@ -60,7 +60,7 @@ pub fn make_module() -> ValueMap {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => runtime_error!("json.to_string: {}", e),
         },
-        unexpected => type_error_with_slice("json.to_string", "a Value as argument", unexpected),
+        unexpected => type_error_with_slice("a Value as argument", unexpected),
     });
 
     result

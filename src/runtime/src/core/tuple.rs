@@ -15,26 +15,21 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(true)) => return Ok(true.into()),
                     Ok(unexpected) => {
                         return type_error_with_slice(
-                            "tuple.contains",
                             "a Bool from the equality comparison",
                             &[unexpected],
                         )
                     }
-                    Err(e) => return Err(e.with_prefix("tuple.contains")),
+                    Err(e) => return Err(e),
                 }
             }
             Ok(false.into())
         }
-        unexpected => type_error_with_slice(
-            "tuple.contains",
-            "a Tuple and Value as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a Tuple and Value as arguments", unexpected),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ Tuple(_)] => Ok(value.deep_copy()),
-        unexpected => expected_tuple_error("deep_copy", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
@@ -42,7 +37,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
-        unexpected => expected_tuple_error("first", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result.add_fn("get", |vm, args| {
@@ -51,7 +46,6 @@ pub fn make_module() -> ValueMap {
             [Tuple(tuple), Number(n), default] => (tuple, n, default),
             unexpected => {
                 return type_error_with_slice(
-                    "tuple.get",
                     "a Tuple and Number (with optional default Value) as arguments",
                     unexpected,
                 )
@@ -69,12 +63,12 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
-        unexpected => expected_tuple_error("last", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Number(t.len().into())),
-        unexpected => expected_tuple_error("size", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
@@ -85,17 +79,17 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        unexpected => expected_tuple_error("sort_copy", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(List(ValueList::from_slice(t))),
-        unexpected => expected_tuple_error("to_list", unexpected),
+        unexpected => expected_tuple_error(unexpected),
     });
 
     result
 }
 
-fn expected_tuple_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    type_error_with_slice(&format!("tuple.{name}"), "a Tuple as argument", unexpected)
+fn expected_tuple_error(unexpected: &[Value]) -> RuntimeResult {
+    type_error_with_slice("a Tuple as argument", unexpected)
 }

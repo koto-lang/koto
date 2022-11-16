@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
             l.data_mut().clear();
             Ok(List(l.clone()))
         }
-        unexpected => type_error_with_slice("list.clear", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
@@ -34,24 +34,22 @@ pub fn make_module() -> ValueMap {
                             unexpected.type_as_string()
                         )
                     }
-                    Err(e) => return Err(e.with_prefix("list.contains")),
+                    Err(e) => return Err(e),
                 }
             }
             Ok(false.into())
         }
-        unexpected => {
-            type_error_with_slice("list.contains", "a List and Value as arguments", unexpected)
-        }
+        unexpected => type_error_with_slice("a List and Value as arguments", unexpected),
     });
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(List(ValueList::with_data(l.data().clone()))),
-        unexpected => type_error_with_slice("list.copy", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ List(_)] => Ok(value.deep_copy()),
-        unexpected => type_error_with_slice("list.deep_copy", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("extend", |vm, args| match vm.get_args(args) {
@@ -84,11 +82,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(List(l))
         }
-        unexpected => type_error_with_slice(
-            "list.extend",
-            "a List and iterable value as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a List and iterable value as arguments", unexpected),
     });
 
     result.add_fn("fill", |vm, args| match vm.get_args(args) {
@@ -98,9 +92,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(List(l.clone()))
         }
-        unexpected => {
-            type_error_with_slice("list.fill", "a List and Value as arguments", unexpected)
-        }
+        unexpected => type_error_with_slice("a List and Value as arguments", unexpected),
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
@@ -108,7 +100,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
-        unexpected => type_error_with_slice("list.first", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("get", |vm, args| {
@@ -117,7 +109,6 @@ pub fn make_module() -> ValueMap {
             [List(list), Number(n), default] => (list, n, default),
             unexpected => {
                 return type_error_with_slice(
-                    "list.get",
                     "a List and a Number (with optional default value) as arguments",
                     unexpected,
                 )
@@ -141,7 +132,6 @@ pub fn make_module() -> ValueMap {
             Ok(List(l.clone()))
         }
         unexpected => type_error_with_slice(
-            "list.insert",
             "a List, a non-negative Number, and Value as arguments",
             unexpected,
         ),
@@ -149,7 +139,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Bool(l.data().is_empty())),
-        unexpected => type_error_with_slice("list.is_empty", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {
@@ -157,7 +147,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Null),
         },
-        unexpected => type_error_with_slice("list.last", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("pop", |vm, args| match vm.get_args(args) {
@@ -165,7 +155,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value),
             None => Ok(Null),
         },
-        unexpected => type_error_with_slice("list.pop", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("push", |vm, args| match vm.get_args(args) {
@@ -173,9 +163,7 @@ pub fn make_module() -> ValueMap {
             l.data_mut().push(value.clone());
             Ok(List(l.clone()))
         }
-        unexpected => {
-            type_error_with_slice("list.push", "a List and Value as arguments", unexpected)
-        }
+        unexpected => type_error_with_slice("a List and Value as arguments", unexpected),
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
@@ -191,11 +179,9 @@ pub fn make_module() -> ValueMap {
 
             Ok(l.data_mut().remove(index))
         }
-        unexpected => type_error_with_slice(
-            "list.remove",
-            "a List and non-negative Number as arguments",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("a List and non-negative Number as arguments", unexpected)
+        }
     });
 
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
@@ -208,7 +194,6 @@ pub fn make_module() -> ValueMap {
             Ok(List(l.clone()))
         }
         unexpected => type_error_with_slice(
-            "list.resize",
             "a List, a non-negative Number, and optional Value as arguments",
             unexpected,
         ),
@@ -236,7 +221,6 @@ pub fn make_module() -> ValueMap {
             Ok(List(l))
         }
         unexpected => type_error_with_slice(
-            "list.resize_with",
             "a List, a non-negative Number, and Function as arguments",
             unexpected,
         ),
@@ -260,12 +244,11 @@ pub fn make_module() -> ValueMap {
                         }
                         Ok(unexpected) => {
                             return type_error(
-                                "list.retain",
                                 "a Bool to returned from the predicate",
                                 &unexpected,
                             );
                         }
-                        Err(error) => return Err(error.with_prefix("list.retain")),
+                        Err(error) => return Err(error),
                     }
                 }
                 l.data_mut().resize(write_index, Null);
@@ -285,14 +268,13 @@ pub fn make_module() -> ValueMap {
                         Ok(Bool(false)) => false,
                         Ok(unexpected) => {
                             error = Some(type_error_with_slice(
-                                "list.retain",
                                 "a Bool from the equality comparison",
                                 &[unexpected],
                             ));
                             true
                         }
                         Err(e) => {
-                            error = Some(Err(e.with_prefix("list.retain")));
+                            error = Some(Err(e));
                             true
                         }
                     }
@@ -304,7 +286,6 @@ pub fn make_module() -> ValueMap {
             }
             unexpected => {
                 return type_error_with_slice(
-                    "list.retain",
                     "a List and either a predicate Function or Value as arguments",
                     unexpected,
                 )
@@ -319,12 +300,12 @@ pub fn make_module() -> ValueMap {
             l.data_mut().reverse();
             Ok(List(l.clone()))
         }
-        unexpected => type_error_with_slice("list.reverse", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Number(l.len().into())),
-        unexpected => type_error_with_slice("list.size", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
@@ -368,7 +349,7 @@ pub fn make_module() -> ValueMap {
             });
 
             if let Some(error) = error {
-                return Err(error.with_prefix("list.sort"));
+                return Err(error);
             }
 
             // collect values
@@ -379,7 +360,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(List(l))
         }
-        unexpected => type_error_with_slice("list.sort", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("swap", |vm, args| match vm.get_args(args) {
@@ -387,12 +368,12 @@ pub fn make_module() -> ValueMap {
             std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
             Ok(Null)
         }
-        unexpected => type_error_with_slice("list.swap", "two Lists as arguments", unexpected),
+        unexpected => type_error_with_slice("two Lists as arguments", unexpected),
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Value::Tuple(l.data().as_slice().into())),
-        unexpected => type_error_with_slice("list.to_tuple", "a List as argument", unexpected),
+        unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 
     result.add_fn("transform", |vm, args| match vm.get_args(args) {
@@ -403,17 +384,13 @@ pub fn make_module() -> ValueMap {
             for value in l.data_mut().iter_mut() {
                 *value = match vm.run_function(f.clone(), CallArgs::Single(value.clone())) {
                     Ok(result) => result,
-                    Err(error) => return Err(error.with_prefix("list.transform")),
+                    Err(error) => return Err(error),
                 }
             }
 
             Ok(List(l))
         }
-        unexpected => type_error_with_slice(
-            "list.transform",
-            "a List and Function as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a List and Function as arguments", unexpected),
     });
 
     result.add_fn("with_size", |vm, args| match vm.get_args(args) {
@@ -421,11 +398,9 @@ pub fn make_module() -> ValueMap {
             let result = smallvec::smallvec![value.clone(); n.into()];
             Ok(List(ValueList::with_data(result)))
         }
-        unexpected => type_error_with_slice(
-            "list.with_size",
-            "a non-negative Number and Value as arguments",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("a non-negative Number and Value as arguments", unexpected)
+        }
     });
 
     result

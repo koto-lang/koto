@@ -52,14 +52,11 @@ pub fn make_module() -> ValueMap {
         [Str(s)] => match serde_yaml::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
-                Err(e) => runtime_error!("yaml.from_string: Error while parsing input: {}", e),
+                Err(e) => runtime_error!("Error while parsing input: {}", e),
             },
-            Err(e) => runtime_error!(
-                "yaml.from_string: Error while parsing input: {}",
-                e.to_string()
-            ),
+            Err(e) => runtime_error!("Error while parsing input: {}", e.to_string()),
         },
-        unexpected => type_error_with_slice("yaml.from_string", "a String as argument", unexpected),
+        unexpected => type_error_with_slice("a String as argument", unexpected),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
@@ -67,7 +64,7 @@ pub fn make_module() -> ValueMap {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => runtime_error!("yaml.to_string: {}", e),
         },
-        unexpected => type_error_with_slice("yaml.to_string", "a Value as argument", unexpected),
+        unexpected => type_error_with_slice("a Value as argument", unexpected),
     });
 
     result

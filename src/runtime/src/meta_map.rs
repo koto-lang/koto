@@ -358,15 +358,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&ExternalValue) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value)] => match value.data::<T>() {
                 Some(_) => f(value),
-                None => unexpected_data_type(&type_name, &key, value),
+                None => unexpected_data_type(value),
             },
-            other => unexpected_instance_type(&type_name, &key, other),
+            other => unexpected_instance_type(&type_name, other),
         });
 
         self
@@ -383,15 +382,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&T) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value)] => match value.data::<T>() {
                 Some(data) => f(&data),
-                None => unexpected_data_type(&type_name, &key, value),
+                None => unexpected_data_type(value),
             },
-            other => unexpected_instance_type(&type_name, &key, other),
+            other => unexpected_instance_type(&type_name, other),
         });
 
         self
@@ -408,15 +406,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&mut T) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value)] => match value.data_mut::<T>() {
                 Some(mut data) => f(&mut data),
-                None => unexpected_data_type(&type_name, &key, value),
+                None => unexpected_data_type(value),
             },
-            other => unexpected_instance_type(&type_name, &key, other),
+            other => unexpected_instance_type(&type_name, other),
         });
 
         self
@@ -434,15 +431,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&T, &[Value]) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
                 Some(data) => f(&data, extra_args),
-                None => unexpected_data_type(&type_name, &key, value),
+                None => unexpected_data_type(value),
             },
-            other => unexpected_instance_type(&type_name, &key, other),
+            other => unexpected_instance_type(&type_name, other),
         });
 
         self
@@ -460,15 +456,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&mut T, &[Value]) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
                 Some(mut data) => f(&mut data, extra_args),
-                None => unexpected_data_type(&type_name, &key, value),
+                None => unexpected_data_type(value),
             },
-            other => unexpected_instance_type(&type_name, &key, other),
+            other => unexpected_instance_type(&type_name, other),
         });
 
         self
@@ -485,17 +480,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&T, &T) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
                 match (value_a.data::<T>(), value_b.data::<T>()) {
                     (Some(data_a), Some(data_b)) => f(&data_a, &data_b),
-                    _ => unexpected_data_type_2(&type_name, &key, value_a, value_b),
+                    _ => unexpected_data_type_2(value_a, value_b),
                 }
             }
-            other => unexpected_instance_type_2(&type_name, &key, other),
+            other => unexpected_instance_type_2(&type_name, other),
         });
 
         self
@@ -513,17 +507,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&mut T, &mut T) -> RuntimeResult + 'static,
     {
-        let key: MetaKey = key.into();
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.clone(), move |vm, args| match vm.get_args(args) {
+        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
                 match (value_a.data_mut::<T>(), value_b.data_mut::<T>()) {
                     (Some(mut data_a), Some(mut data_b)) => f(&mut data_a, &mut data_b),
-                    _ => unexpected_data_type_2(&type_name, &key, value_a, value_b),
+                    _ => unexpected_data_type_2(value_a, value_b),
                 }
             }
-            other => unexpected_instance_type_2(&type_name, &key, other),
+            other => unexpected_instance_type_2(&type_name, other),
         });
 
         self
@@ -535,25 +528,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     }
 }
 
-fn unexpected_data_type(
-    type_name: &ValueString,
-    key: &MetaKey,
-    unexpected: &ExternalValue,
-) -> Result<Value, RuntimeError> {
-    runtime_error!(
-        "{type_name}.{key} - Unexpected external data type: {}",
-        unexpected.data_type(),
-    )
+fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {
+    runtime_error!("Unexpected external data type: {}", unexpected.data_type(),)
 }
 
 fn unexpected_data_type_2(
-    type_name: &ValueString,
-    key: &MetaKey,
     unexpected_a: &ExternalValue,
     unexpected_b: &ExternalValue,
 ) -> Result<Value, RuntimeError> {
     runtime_error!(
-        "{type_name}.{key} - Unexpected external data types: lhs: {}, rhs: {}",
+        "Unexpected external data types: lhs: {}, rhs: {}",
         unexpected_a.data_type(),
         unexpected_b.data_type(),
     )
@@ -561,24 +545,14 @@ fn unexpected_data_type_2(
 
 fn unexpected_instance_type(
     type_name: &ValueString,
-    key: &MetaKey,
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
-    type_error_with_slice(
-        &format!("{type_name}.{key}"),
-        &format!("'{type_name}'"),
-        unexpected,
-    )
+    type_error_with_slice(&format!("'{type_name}'"), unexpected)
 }
 
 fn unexpected_instance_type_2(
     type_name: &ValueString,
-    key: &MetaKey,
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
-    type_error_with_slice(
-        &format!("{type_name}.{key}"),
-        &format!("two '{type_name}'s"),
-        unexpected,
-    )
+    type_error_with_slice(&format!("two '{type_name}'s"), unexpected)
 }

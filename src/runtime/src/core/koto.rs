@@ -14,7 +14,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("type", |vm, args| match vm.get_args(args) {
         [value] => Ok(Str(value.type_as_string())),
-        unexpected => type_error_with_slice("koto.type", "a single argument", unexpected),
+        unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
     result

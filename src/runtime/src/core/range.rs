@@ -14,16 +14,12 @@ pub fn make_module() -> ValueMap {
             };
             Ok(Bool(result))
         }
-        unexpected => type_error_with_slice(
-            "range.contains",
-            "a Range and Number as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
     });
 
     result.add_fn("end", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number(r.end.into())),
-        unexpected => type_error_with_slice("range.end", "a Range as argument", unexpected),
+        unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
     result.add_fn("expanded", |vm, args| match vm.get_args(args) {
@@ -41,21 +37,17 @@ pub fn make_module() -> ValueMap {
                 }))
             }
         }
-        unexpected => type_error_with_slice(
-            "range.expanded",
-            "a Range and Number as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number((r.end - r.start).into())),
-        unexpected => type_error_with_slice("range.size", "a Range as argument", unexpected),
+        unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
     result.add_fn("start", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number(r.start.into())),
-        unexpected => type_error_with_slice("range.start", "a Range as argument", unexpected),
+        unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
     result.add_fn("union", |vm, args| match vm.get_args(args) {
@@ -96,7 +88,6 @@ pub fn make_module() -> ValueMap {
             Ok(result)
         }
         unexpected => type_error_with_slice(
-            "range.union",
             "a Range and another Range or a Number as arguments",
             unexpected,
         ),

@@ -14,7 +14,7 @@ pub fn make_module() -> ValueMap {
                 poetry.add_source_material(text);
                 Ok(KotoPoetry::make_external_value(poetry))
             }
-            unexpected => type_error_with_slice("poetry.new", "a String as argument", unexpected),
+            unexpected => type_error_with_slice("a String", unexpected),
         }
     });
 
@@ -34,11 +34,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
                 poetry.0.add_source_material(text);
                 Ok(Null)
             }
-            unexpected => type_error_with_slice(
-                "poetry.add_source_material",
-                "a String as argument",
-                unexpected,
-            ),
+            unexpected => type_error_with_slice("a String", unexpected),
         })
         .instance_fn("iter", |poetry_instance| {
             let iter = PoetryIter {
@@ -86,7 +82,7 @@ impl Iterator for PoetryIter {
                 Some(ValueIteratorOutput::Value(result))
             }
             None => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "poetry.iter: Unexpected internal data type"
+                "Unexpected internal data type"
             ))),
         }
     }

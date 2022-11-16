@@ -10,7 +10,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("length", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.length().into())),
-        unexpected => num4_error("length", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("lerp", |vm, args| match vm.get_args(args) {
@@ -18,9 +18,7 @@ pub fn make_module() -> ValueMap {
             let result = *t * (b - a) + a;
             Ok(Num4(result))
         }
-        unexpected => {
-            type_error_with_slice("num4.lerp", "(Num4, Num4, Number) as arguments", unexpected)
-        }
+        unexpected => type_error_with_slice("(Num4, Num4, Number) as arguments", unexpected),
     });
 
     result.add_fn("make_num4", |vm, args| {
@@ -38,14 +36,10 @@ pub fn make_module() -> ValueMap {
             [iterable] if iterable.is_iterable() => {
                 let iterable = iterable.clone();
                 let iterator = vm.make_iterator(iterable)?;
-                num4_from_iterator(iterator, "num4.make_num4")?
+                num4_from_iterator(iterator)?
             }
             unexpected => {
-                return type_error_with_slice(
-                    "num4.make_num4",
-                    "Numbers or an iterable as arguments",
-                    unexpected,
-                )
+                return type_error_with_slice("Numbers or an iterable as arguments", unexpected)
             }
         };
         Ok(Num4(result))
@@ -53,31 +47,31 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number((n.0.max(n.1).max(n.2).max(n.3)).into())),
-        unexpected => num4_error("max", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number((n.0.min(n.1).min(n.2).min(n.3)).into())),
-        unexpected => num4_error("min", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("normalize", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Num4(n.normalize())),
-        unexpected => num4_error("normalize", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("product", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(
             (n.0 as f64 * n.1 as f64 * n.2 as f64 * n.3 as f64).into(),
         )),
-        unexpected => num4_error("product", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("sum", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(
             (n.0 as f64 + n.1 as f64 + n.2 as f64 + n.3 as f64).into(),
         )),
-        unexpected => num4_error("sum", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("with", |vm, args| match vm.get_args(args) {
@@ -92,67 +86,62 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Num4(result))
         }
-        unexpected => num4_error("with", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("r", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.0.into())),
-        unexpected => num4_error("r", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("g", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.1.into())),
-        unexpected => num4_error("g", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("b", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.2.into())),
-        unexpected => num4_error("b", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("a", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.3.into())),
-        unexpected => num4_error("a", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("x", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.0.into())),
-        unexpected => num4_error("x", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("y", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.1.into())),
-        unexpected => num4_error("y", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("z", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.2.into())),
-        unexpected => num4_error("z", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result.add_fn("w", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.3.into())),
-        unexpected => num4_error("w", unexpected),
+        unexpected => num4_error(unexpected),
     });
 
     result
 }
 
-fn num4_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    type_error_with_slice(&format!("num4.{}", name), "a Num4 as argument", unexpected)
+fn num4_error(unexpected: &[Value]) -> RuntimeResult {
+    type_error_with_slice("a Num4 as argument", unexpected)
 }
 
-pub(crate) fn num4_from_iterator(
-    iterator: ValueIterator,
-    error_prefix: &str,
-) -> Result<num4::Num4, RuntimeError> {
+pub(crate) fn num4_from_iterator(iterator: ValueIterator) -> Result<num4::Num4, RuntimeError> {
     let mut result = num4::Num4::default();
     for (i, value) in iterator.take(4).map(collect_pair).enumerate() {
         match value {
             Output::Value(Value::Number(n)) => result[i] = n.into(),
-            Output::Value(unexpected) => {
-                return type_error_with_slice(error_prefix, "a Number", &[unexpected])
-            }
+            Output::Value(unexpected) => return type_error_with_slice("a Number", &[unexpected]),
             Output::Error(e) => return Err(e),
             _ => unreachable!(), // ValuePairs collected in collect_pair
         }

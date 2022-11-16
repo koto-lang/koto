@@ -168,25 +168,14 @@ macro_rules! runtime_error {
     };
 }
 
-pub fn type_error<T>(
-    prefix: &str,
-    expected_str: &str,
-    unexpected: &Value,
-) -> Result<T, RuntimeError> {
-    let error = make_runtime_error!(format!(
+pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
+    runtime_error!(
         "Expected {expected_str}, but found {}.",
         unexpected.type_as_string()
-    ));
-
-    if prefix.is_empty() {
-        Err(error)
-    } else {
-        Err(error.with_prefix(prefix))
-    }
+    )
 }
 
 pub fn type_error_with_slice<T>(
-    prefix: &str,
     expected_str: &str,
     unexpected: &[Value],
 ) -> Result<T, RuntimeError> {
@@ -207,10 +196,6 @@ pub fn type_error_with_slice<T>(
             types
         }
     };
-    let error = make_runtime_error!(format!("Expected {expected_str}, but found {message}."));
-    if prefix.is_empty() {
-        Err(error)
-    } else {
-        Err(error.with_prefix(prefix))
-    }
+
+    runtime_error!("Expected {expected_str}, but found {message}.")
 }

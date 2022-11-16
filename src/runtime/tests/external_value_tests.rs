@@ -33,7 +33,7 @@ mod external_values {
 
         MetaMapBuilder::<TestExternalData>::new("TestExternalValue")
             .data_fn(Display, |data| {
-                Ok(format!("TestExternalData: {}", data.x).into())
+                Ok(format!("TestExternalValue: {}", data.x).into())
             })
             .data_fn(Negate, |data| Ok(TestExternalData::make_value(-data.x)))
             .data_fn_2(Add, |a, b| Ok(TestExternalData::make_value(a.x + b.x)))
@@ -61,7 +61,7 @@ mod external_values {
                     let result = data.x + index as f64;
                     Ok(result.into())
                 }
-                unexpected => type_error_with_slice("ExternalValue.@Index", "a Number", unexpected),
+                unexpected => type_error_with_slice("Number", unexpected),
             })
             .instance_fn("get_data", |instance| {
                 // We want to return a Rc clone of the internal data,
@@ -81,7 +81,7 @@ mod external_values {
                 for arg in args.iter() {
                     match arg {
                         Number(n) => data.x += f64::from(n),
-                        other => return type_error("ExternalValue.absorb_values", "Number", other),
+                        other => return type_error("Number", other),
                     }
                 }
                 Ok(Null)
@@ -167,7 +167,7 @@ x.to_number()
         #[test]
         fn display() {
             let script = "'{}'.format make_external 42";
-            test_script_with_external_value(script, string("TestExternalData: 42"));
+            test_script_with_external_value(script, string("TestExternalValue: 42"));
         }
 
         #[test]
