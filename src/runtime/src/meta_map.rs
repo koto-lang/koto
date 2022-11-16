@@ -422,7 +422,10 @@ pub struct MetaMapBuilder<T: ExternalData> {
 
 impl<T: ExternalData> MetaMapBuilder<T> {
     /// Initialize a builder with the given type name
-    pub fn new(type_name: &str) -> Self {
+    pub fn new<U>(type_name: U) -> Self
+    where
+        ValueString: From<U>,
+    {
         let type_name = ValueString::from(type_name);
         let mut map = MetaMap::default();
         map.insert(MetaKey::Type, Value::Str(type_name.clone()));

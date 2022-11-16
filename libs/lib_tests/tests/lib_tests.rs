@@ -11,6 +11,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
     koto.set_script_path(path).unwrap();
 
     let prelude = koto.prelude();
+    prelude.add_map("geometry", koto_geometry::make_module());
     prelude.add_map("json", koto_json::make_module());
     prelude.add_map("random", koto_random::make_module());
     prelude.add_map("tempfile", koto_tempfile::make_module());
@@ -62,6 +63,7 @@ macro_rules! lib_test {
 mod lib_tests {
     use super::*;
 
+    lib_test!(geometry);
     lib_test!(json);
     lib_test!(random);
     lib_test!(tempfile);

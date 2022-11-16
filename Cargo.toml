@@ -12,6 +12,8 @@ downcast-rs = "1.1.1"
 dunce = "1.0.2"
 # A small cross-platform library for retrieving random data from system source
 getrandom = "0.2.4"
+# A simple and fast 3D math library for games and graphics
+glam = "0.22.0"
 # A Rust library for conveniently watching and handling file changes.
 hotwatch = "0.4.5"
 # A hash table with consistent order and fast iteration.
@@ -20,6 +22,8 @@ indexmap = "1.9.2"
 lazy_static = "1.4.0"
 # A Rust allocator backed by jemalloc
 jemallocator = { version = "0.5.0" }
+# The core components of nannou - a creative coding framework for Rust.
+nannou_core = "0.18.0"
 # An ultra simple CLI arguments parser.
 pico-args = { version = "0.3.4", default-features = false }
 # A pull parser for CommonMark

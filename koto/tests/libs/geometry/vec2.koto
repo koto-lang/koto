@@ -1,0 +1,31 @@
+import geometry.vec2
+
+@tests =
+  @test vec2: ||
+    assert_eq vec2(), (vec2 0)
+    assert_eq (vec2 1), (vec2 1, 0)
+
+  @test length: ||
+    assert_eq (vec2 0, 0).length(), 0
+    assert_eq (vec2 3, 4).length(), 5
+    assert_eq (vec2 -3, -4).length(), 5
+
+  @test add: ||
+    assert_eq (vec2 2, 3) + (vec2 5, 6), vec2 7, 9
+    assert_eq (vec2 2, 3) + 100, vec2 102, 103
+
+  @test subtract: ||
+    assert_eq (vec2 2, 3) - (vec2 5, 6), vec2 -3, -3
+    assert_eq (vec2 2, 3) - 100, vec2 -98, -97
+
+  @test multiply: ||
+    assert_eq (vec2 2, 3) * (vec2 5, 6), vec2 10, 18
+    assert_eq (vec2 2, 3) * 100, vec2 200, 300
+
+  @test divide: ||
+    assert_eq (vec2 2, 3) / (vec2 5, 6), vec2 0.4, 0.5
+    assert_eq (vec2 2, 3) / 100, vec2 0.02, 0.03
+
+  @test equality: ||
+    assert_eq (vec2 2, 3), (vec2 2, 3)
+    assert_ne (vec2 2, 3), (vec2 2, 1)
