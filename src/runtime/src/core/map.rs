@@ -1,9 +1,6 @@
 use {
     super::iterator::adaptors,
-    crate::{
-        runtime_error, unexpected_type_error_with_slice, value_sort::compare_values, CallArgs,
-        DataMap, RuntimeResult, Value, ValueIterator, ValueIteratorOutput, ValueKey, ValueMap, Vm,
-    },
+    crate::{prelude::*, value_sort::compare_values},
     std::{cmp::Ordering, ops::Deref},
 };
 
@@ -17,32 +14,25 @@ pub fn make_module() -> ValueMap {
             m.data_mut().clear();
             Ok(Map(m.clone()))
         }
-        unexpected => {
-            unexpected_type_error_with_slice("map.clear", "a Map as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
         [Map(m), key] if key.is_immutable() => {
-            Ok(Bool(m.data().contains_key(&ValueKey::from(key.clone()))))
+            let result = m.data().contains_key(&ValueKey::from(key.clone()));
+            Ok(result.into())
         }
-        unexpected => unexpected_type_error_with_slice(
-            "map.contains_key",
-            "a Map and key as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Map(ValueMap::with_data(m.data().clone()))),
-        unexpected => unexpected_type_error_with_slice("map.copy", "a Map as argument", unexpected),
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ Map(_)] => Ok(value.deep_copy()),
-        unexpected => {
-            unexpected_type_error_with_slice("map.deep_copy", "a Map as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("extend", |vm, args| match vm.get_args(args) {
@@ -91,24 +81,14 @@ pub fn make_module() -> ValueMap {
 
             Ok(Map(m))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "map.extend",
-            "a Map and iterable value as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a Map and iterable value as arguments", unexpected),
     });
 
     result.add_fn("get", |vm, args| {
         let (map, key, default) = match vm.get_args(args) {
             [Map(map), key] if key.is_immutable() => (map, key, &Null),
             [Map(map), key, default] if key.is_immutable() => (map, key, default),
-            unexpected => {
-                return unexpected_type_error_with_slice(
-                    "map.get",
-                    "a Map and key as arguments",
-                    unexpected,
-                )
-            }
+            unexpected => return type_error_with_slice("a Map and key as arguments", unexpected),
         };
 
         match map.data().get(&ValueKey::from(key.clone())) {
@@ -122,11 +102,7 @@ pub fn make_module() -> ValueMap {
             [Map(map), Number(n)] => (map, n, &Null),
             [Map(map), Number(n), default] => (map, n, default),
             unexpected => {
-                return unexpected_type_error_with_slice(
-                    "map.get_index",
-                    "a Map and Number as arguments",
-                    unexpected,
-                )
+                return type_error_with_slice("a Map and Number as arguments", unexpected)
             }
         };
 
@@ -147,7 +123,7 @@ pub fn make_module() -> ValueMap {
                 Ok(Null)
             }
         }
-        unexpected => unexpected_type_error_with_slice("map.get_meta_map", "a Map", unexpected),
+        unexpected => type_error_with_slice("a Map", unexpected),
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
@@ -163,26 +139,23 @@ pub fn make_module() -> ValueMap {
                 None => Ok(Null),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
-            "map.insert",
+        unexpected => type_error_with_slice(
             "a Map and key (with optional Value to insert) as arguments",
             unexpected,
         ),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Bool(m.is_empty())),
-        unexpected => {
-            unexpected_type_error_with_slice("map.is_empty", "a Map as argument", unexpected)
-        }
+        [Map(m)] => Ok(m.is_empty().into()),
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
-        unexpected => unexpected_type_error_with_slice("map.keys", "a Map as argument", unexpected),
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
@@ -192,14 +165,12 @@ pub fn make_module() -> ValueMap {
                 None => Ok(Null),
             }
         }
-        unexpected => {
-            unexpected_type_error_with_slice("map.remove", "a Map and key as arguments", unexpected)
-        }
+        unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Number(m.len().into())),
-        unexpected => unexpected_type_error_with_slice("map.size", "a Map as argument", unexpected),
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
@@ -233,7 +204,7 @@ pub fn make_module() -> ValueMap {
                     None => match get_sort_key(vm, &mut cache, key_a, value_a) {
                         Ok(val) => val,
                         Err(e) => {
-                            error.get_or_insert(Err(e.with_prefix("map.sort")));
+                            error.get_or_insert(Err(e));
                             Null
                         }
                     },
@@ -243,7 +214,7 @@ pub fn make_module() -> ValueMap {
                     None => match get_sort_key(vm, &mut cache, key_b, value_b) {
                         Ok(val) => val,
                         Err(e) => {
-                            error.get_or_insert(Err(e.with_prefix("map.sort")));
+                            error.get_or_insert(Err(e));
                             Null
                         }
                     },
@@ -264,8 +235,7 @@ pub fn make_module() -> ValueMap {
                 Ok(Map(m))
             }
         }
-        unexpected => unexpected_type_error_with_slice(
-            "map.sort",
+        unexpected => type_error_with_slice(
             "a Map and optional sort key Function as arguments",
             unexpected,
         ),
@@ -282,8 +252,7 @@ pub fn make_module() -> ValueMap {
             f.clone(),
             vm,
         ),
-        unexpected => unexpected_type_error_with_slice(
-            "map.update",
+        unexpected => type_error_with_slice(
             "a Map, key, optional default Value, and update Function as arguments",
             unexpected,
         ),
@@ -292,20 +261,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
-        unexpected => {
-            unexpected_type_error_with_slice("map.values", "a Map as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("with_meta_map", |vm, args| match vm.get_args(args) {
         [Map(data), Map(meta)] => Ok(Map(ValueMap::from_data_and_meta_maps(data, meta))),
-        unexpected => unexpected_type_error_with_slice(
-            "map.with_meta_map",
-            "two Maps as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("two Maps as arguments", unexpected),
     });
 
     result
@@ -327,6 +290,6 @@ fn do_map_update(
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)
         }
-        Err(error) => Err(error.with_prefix("map.update")),
+        Err(error) => Err(error),
     }
 }

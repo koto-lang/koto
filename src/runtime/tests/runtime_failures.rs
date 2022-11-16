@@ -1,7 +1,7 @@
 mod runtime {
     use {
-        koto_bytecode::Chunk,
-        koto_runtime::{Loader, Vm},
+        koto_bytecode::{Chunk, Loader},
+        koto_runtime::Vm,
     };
 
     fn check_script_fails(script: &str) {

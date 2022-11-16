@@ -1,12 +1,6 @@
 //! A Koto language module for working with JSON data
 
-use {
-    koto_runtime::{
-        runtime_error, unexpected_type_error_with_slice, Value, ValueList, ValueMap, ValueVec,
-    },
-    koto_serialize::SerializableValue,
-    serde_json::Value as JsonValue,
-};
+use {koto_runtime::prelude::*, koto_serialize::SerializableValue, serde_json::Value as JsonValue};
 
 pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> {
     let result = match value {
@@ -58,19 +52,15 @@ pub fn make_module() -> ValueMap {
                 e.to_string()
             ),
         },
-        unexpected => {
-            unexpected_type_error_with_slice("json.from_string", "a String as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a String as argument", unexpected),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
-            Ok(result) => Ok(Str(result.into())),
+            Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("json.to_string: {}", e),
         },
-        unexpected => {
-            unexpected_type_error_with_slice("json.to_string", "a Value as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a Value as argument", unexpected),
     });
 
     result

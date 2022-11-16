@@ -18,7 +18,7 @@ x.next() # 11
 x.next() # 12
 y.next()
 ";
-            test_script(script, 11.into());
+            test_script(script, 11);
         }
 
         #[test]
@@ -33,7 +33,7 @@ x.next() # 3
 x.next() # 4
 y.next()
 ";
-            test_script(script, 3.into());
+            test_script(script, 3);
         }
     }
 
@@ -50,7 +50,7 @@ x.next() # 2
 x.next() # 3
 y.next()
 ";
-            test_script(script, 2.into());
+            test_script(script, 2);
         }
     }
 
@@ -67,7 +67,7 @@ x.next() # 16
 x.next() # 25
 y.next()
 ";
-            test_script(script, 16.into());
+            test_script(script, 16);
         }
     }
 
@@ -102,7 +102,7 @@ x.next() # 2
 x.next() # 0
 y.next()
 ";
-            test_script(script, 2.into());
+            test_script(script, 2);
         }
 
         #[test]
@@ -116,7 +116,7 @@ x.next() # 20
 x.next() # 42
 y.next()
 ";
-            test_script(script, 20.into());
+            test_script(script, 20);
         }
     }
 
@@ -132,7 +132,7 @@ y = x.copy()
 x.next() # 'e'
 y.next()
 ";
-            test_script(script, "e".into());
+            test_script(script, "e");
         }
     }
 
@@ -161,7 +161,7 @@ y = x.copy()
 x.next() # 'c'
 y.next()
 ";
-            test_script(script, "c".into());
+            test_script(script, "c");
         }
     }
 
@@ -198,7 +198,7 @@ y = x.copy()
 x.next() # bar
 y.next()
 ";
-            test_script(script, "bar".into());
+            test_script(script, "bar");
         }
     }
 
@@ -214,7 +214,7 @@ y = x.copy()
 x.next() # 99
 y.next()
 ";
-            test_script(script, 99.into());
+            test_script(script, 99);
         }
     }
 }
@@ -234,7 +234,7 @@ y = x.copy()
 x.next() # 98
 y.next()
 ";
-            test_script(script, 98.into());
+            test_script(script, 98);
         }
     }
 
@@ -250,7 +250,7 @@ y = x.copy()
 x.next() # def
 y.next()
 ";
-            test_script(script, "def".into());
+            test_script(script, "def");
         }
 
         #[test]
@@ -277,7 +277,7 @@ y = x.copy()
 x.next() # 2
 y.next()
 ";
-            test_script(script, "2".into());
+            test_script(script, "2");
         }
 
         #[test]
@@ -289,7 +289,7 @@ y = x.copy()
 x.next() # 2
 y.next()
 ";
-            test_script(script, "2".into());
+            test_script(script, "2");
         }
     }
 }

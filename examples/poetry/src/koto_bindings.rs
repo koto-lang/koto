@@ -1,9 +1,6 @@
 use {
     crate::Poetry,
-    koto::runtime::{
-        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue,
-        KotoIterator, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
-    },
+    koto::prelude::*,
     std::{cell::RefCell, rc::Rc},
 };
 
@@ -17,9 +14,7 @@ pub fn make_module() -> ValueMap {
                 poetry.add_source_material(text);
                 Ok(KotoPoetry::make_external_value(poetry))
             }
-            unexpected => {
-                unexpected_type_error_with_slice("poetry.new", "a String as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("a String", unexpected),
         }
     });
 
@@ -31,41 +26,30 @@ thread_local! {
 }
 
 fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Iterator, Null, Str};
+    use Value::{Null, Str};
 
-    let mut bindings = MetaMap::with_type_name("Poetry");
-
-    bindings.add_named_instance_fn_mut(
-        "add_source_material",
-        |poetry: &mut KotoPoetry, _, args| match args {
+    MetaMapBuilder::<KotoPoetry>::new("Poetry")
+        .data_fn_with_args_mut("add_source_material", |poetry, args| match args {
             [Str(text)] => {
                 poetry.0.add_source_material(text);
                 Ok(Null)
             }
-            unexpected => unexpected_type_error_with_slice(
-                "poetry.add_source_material",
-                "a String as argument",
-                unexpected,
-            ),
-        },
-    );
-
-    bindings.add_named_instance_fn("iter", |_poetry: &KotoPoetry, external_value, _| {
-        let iter = PoetryIter {
-            poetry: external_value.clone(),
-        };
-        Ok(Iterator(ValueIterator::new(iter)))
-    });
-
-    bindings.add_named_instance_fn_mut("next_word", |poetry: &mut KotoPoetry, _, _| {
-        let result = match poetry.0.next_word() {
-            Some(word) => Str(word.as_ref().into()),
-            None => Null,
-        };
-        Ok(result)
-    });
-
-    bindings.into()
+            unexpected => type_error_with_slice("a String", unexpected),
+        })
+        .external_value_fn("iter", |poetry_value| {
+            let iter = PoetryIter {
+                poetry: poetry_value.clone(),
+            };
+            Ok(ValueIterator::new(iter).into())
+        })
+        .data_fn_mut("next_word", |poetry| {
+            let result = match poetry.0.next_word() {
+                Some(word) => Str(word.as_ref().into()),
+                None => Null,
+            };
+            Ok(result)
+        })
+        .build()
 }
 
 #[derive(Clone)]
@@ -89,8 +73,8 @@ impl Iterator for PoetryIter {
     fn next(&mut self) -> Option<Self::Item> {
         use Value::{Null, Str};
 
-        match self.poetry.data.borrow_mut().downcast_mut::<KotoPoetry>() {
-            Some(poetry) => {
+        match self.poetry.data_mut::<KotoPoetry>() {
+            Some(mut poetry) => {
                 let result = match poetry.0.next_word() {
                     Some(word) => Str(word.as_ref().into()),
                     None => Null,
@@ -98,7 +82,7 @@ impl Iterator for PoetryIter {
                 Some(ValueIteratorOutput::Value(result))
             }
             None => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "poetry.iter: Unexpected internal data type"
+                "Unexpected internal data type"
             ))),
         }
     }

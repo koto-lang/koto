@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
                 let path = file.path().to_path_buf();
                 Ok(File::system_file(file, path))
             }
-            Err(e) => Err(e.with_prefix("tempfile.temp_file")),
+            Err(e) => Err(e),
         }
     });
 

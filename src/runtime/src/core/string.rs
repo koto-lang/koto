@@ -2,13 +2,7 @@ pub mod format;
 pub mod iterators;
 
 use {
-    super::iterator::collect_pair,
-    crate::{
-        runtime_error, unexpected_type_error_with_slice,
-        value_iterator::{ValueIterator, ValueIteratorOutput as Output},
-        RuntimeResult, Value, ValueMap,
-    },
-    std::convert::TryFrom,
+    super::iterator::collect_pair, crate::prelude::*, std::convert::TryFrom,
     unicode_segmentation::UnicodeSegmentation,
 };
 
@@ -20,32 +14,29 @@ pub fn make_module() -> ValueMap {
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = iterators::Bytes::new(s.clone());
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
-        unexpected => expected_string_error("bytes", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Iterator(ValueIterator::with_string(s.clone()))),
-        unexpected => expected_string_error("chars", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
-        [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_str()))),
-        unexpected => expected_string_error("contains", unexpected),
+        [Str(s1), Str(s2)] => Ok(s1.contains(s2.as_str()).into()),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("ends_with", |vm, args| match vm.get_args(args) {
-        [Str(s), Str(pattern)] => {
-            let result = s.as_str().ends_with(pattern.as_str());
-            Ok(Bool(result))
-        }
-        unexpected => expected_two_strings_error("ends_with", unexpected),
+        [Str(s), Str(pattern)] => Ok(s.as_str().ends_with(pattern.as_str()).into()),
+        unexpected => expected_two_strings_error(unexpected),
     });
 
     result.add_fn("escape", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
-        unexpected => expected_string_error("escape", unexpected),
+        [Str(s)] => Ok(s.escape_default().to_string().into()),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("format", |vm, args| match vm.get_args(args) {
@@ -54,12 +45,11 @@ pub fn make_module() -> ValueMap {
             let format = format.clone();
             let format_args = format_args.to_vec();
             match format::format_string(vm, &format, &format_args) {
-                Ok(result) => Ok(Str(result.into())),
-                Err(error) => Err(error.with_prefix("string.format")),
+                Ok(result) => Ok(result.into()),
+                Err(error) => Err(error),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
-            "string.format",
+        unexpected => type_error_with_slice(
             "a String as argument, followed by optional additional Values",
             unexpected,
         ),
@@ -73,66 +63,49 @@ pub fn make_module() -> ValueMap {
             let mut bytes = Vec::<u8>::with_capacity(size_hint);
 
             for output in iterator.map(collect_pair) {
+                use ValueIteratorOutput as Output;
                 match output {
                     Output::Value(Number(n)) => match u8::try_from(n.as_i64()) {
                         Ok(byte) => bytes.push(byte),
-                        Err(_) => {
-                            return runtime_error!(
-                                "string.from_bytes: '{n}' is out of the valid byte range"
-                            )
-                        }
+                        Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },
-                    Output::Value(unexpected) => {
-                        return unexpected_type_error_with_slice(
-                            "string.from_bytes",
-                            "a number",
-                            &[unexpected],
-                        )
-                    }
+                    Output::Value(unexpected) => return type_error("a number", &unexpected),
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
                 }
             }
 
             match String::from_utf8(bytes) {
-                Ok(result) => Ok(Str(result.into())),
-                Err(_) => runtime_error!("string.from_bytes: input failed UTF-8 validation"),
+                Ok(result) => Ok(result.into()),
+                Err(_) => runtime_error!("Input failed UTF-8 validation"),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
-            "string.from_bytes",
-            "an iterable value as argument",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Bool(s.is_empty())),
-        unexpected => expected_string_error("is_empty", unexpected),
+        [Str(s)] => Ok(s.is_empty().into()),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = iterators::Lines::new(s.clone());
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
-        unexpected => expected_string_error("lines", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("replace", |vm, args| match vm.get_args(args) {
         [Str(input), Str(pattern), Str(replace)] => {
-            Ok(Str(input.replace(pattern.as_str(), replace).into()))
+            Ok(input.replace(pattern.as_str(), replace).into())
         }
-        unexpected => unexpected_type_error_with_slice(
-            "string.replace",
-            "three Strings as arguments",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("three Strings as arguments", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Number(s.graphemes(true).count().into())),
-        unexpected => expected_string_error("size", unexpected),
+        [Str(s)] => Ok(s.graphemes(true).count().into()),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("split", |vm, args| {
@@ -150,8 +123,7 @@ pub fn make_module() -> ValueMap {
                 ValueIterator::new(result)
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
-                    "string.split",
+                return type_error_with_slice(
                     "a String and either a String or predicate Function as arguments",
                     unexpected,
                 )
@@ -162,19 +134,16 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("starts_with", |vm, args| match vm.get_args(args) {
-        [Str(s), Str(pattern)] => {
-            let result = s.as_str().starts_with(pattern.as_str());
-            Ok(Bool(result))
-        }
-        unexpected => expected_two_strings_error("starts_with", unexpected),
+        [Str(s), Str(pattern)] => Ok(s.as_str().starts_with(pattern.as_str()).into()),
+        unexpected => expected_two_strings_error(unexpected),
     });
 
     result.add_fn("to_lowercase", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
-            Ok(Str(result.into()))
+            Ok(result.into())
         }
-        unexpected => expected_string_error("to_lowercase", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("to_number", |vm, args| match vm.get_args(args) {
@@ -187,15 +156,15 @@ pub fn make_module() -> ValueMap {
                 }
             },
         },
-        unexpected => expected_string_error("to_number", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("to_uppercase", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
-            Ok(Str(result.into()))
+            Ok(result.into())
         }
-        unexpected => expected_string_error("to_uppercase", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {
@@ -208,26 +177,18 @@ pub fn make_module() -> ValueMap {
                 None => s.with_bounds(0..0).unwrap(),
             };
 
-            Ok(Str(result))
+            Ok(result.into())
         }
-        unexpected => expected_string_error("trim", unexpected),
+        unexpected => expected_string_error(unexpected),
     });
 
     result
 }
 
-fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(
-        &format!("string.{name}"),
-        "a String as argument",
-        unexpected,
-    )
+fn expected_string_error(unexpected: &[Value]) -> RuntimeResult {
+    type_error_with_slice("a String as argument", unexpected)
 }
 
-fn expected_two_strings_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(
-        &format!("string.{name}"),
-        "two Strings as arguments",
-        unexpected,
-    )
+fn expected_two_strings_error(unexpected: &[Value]) -> RuntimeResult {
+    type_error_with_slice("two Strings as arguments", unexpected)
 }

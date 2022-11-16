@@ -44,7 +44,6 @@ impl<'a> Serialize for SerializableValue<'a> {
                 seq.end()
             }
             Value::Str(string) => s.serialize_str(string),
-            Value::ExternalData(value) => s.serialize_str(&value.borrow().to_string()),
             // TODO, is it ok to do nothing for non-fundamental types like Range and Num4?
             _ => s.serialize_unit(),
         }

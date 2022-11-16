@@ -1,18 +1,18 @@
 use {
     crate::{
         core::CoreLib,
-        error::{unexpected_type_error, RuntimeErrorType},
-        external::{self, Args, ExternalFunction},
+        error::{type_error, RuntimeErrorType},
+        external::{self, ArgRegisters, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
         runtime_error,
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, Loader, MetaKey,
+        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, MetaKey,
         RuntimeError, RuntimeResult, UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber,
         ValueString, ValueTuple, ValueVec,
     },
-    koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
+    koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
     rustc_hash::FxHasher,
     std::{
@@ -998,7 +998,7 @@ impl Vm {
             } => {
                 let key_string = match self.clone_register(key) {
                     Str(s) => s,
-                    other => return unexpected_type_error("String", &other),
+                    other => return type_error("String", &other),
                 };
                 self.run_access(register, value, key_string)
             }
@@ -1128,10 +1128,10 @@ impl Vm {
                 })
             }
             (Some(Number(_)), Some(unexpected)) | (None, Some(unexpected)) => {
-                return unexpected_type_error("Number for range end", unexpected);
+                return type_error("Number for range end", unexpected);
             }
             (Some(unexpected), _) => {
-                return unexpected_type_error("Number for range start", unexpected);
+                return type_error("Number for range start", unexpected);
             }
         };
 
@@ -1166,7 +1166,7 @@ impl Vm {
                 }
                 Map(map) => ValueIterator::with_map(map),
                 unexpected => {
-                    return unexpected_type_error("Iterable while making iterator", &unexpected);
+                    return type_error("Iterable while making iterator", &unexpected);
                 }
             };
 
@@ -1187,7 +1187,7 @@ impl Vm {
 
         let result = match self.get_register_mut(iterator) {
             Iterator(iterator) => iterator.next(),
-            unexpected => return unexpected_type_error("Iterator", unexpected),
+            unexpected => return type_error("Iterator", unexpected),
         };
 
         match (result, result_register) {
@@ -1258,7 +1258,7 @@ impl Vm {
                     Null
                 }
             }
-            unexpected => return unexpected_type_error("indexable value", unexpected),
+            unexpected => return type_error("indexable value", unexpected),
         };
 
         self.set_register(register, result);
@@ -1296,7 +1296,7 @@ impl Vm {
                     tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
                 }
             }
-            unexpected => return unexpected_type_error("List or Tuple", unexpected),
+            unexpected => return type_error("List or Tuple", unexpected),
         };
 
         self.set_register(register, result);
@@ -1360,7 +1360,7 @@ impl Vm {
             let capture_list = match function {
                 Value::Function(f) => &f.captures,
                 Value::Generator(g) => &g.captures,
-                unexpected => return unexpected_type_error("Function", unexpected),
+                unexpected => return type_error("Function", unexpected),
             };
 
             match capture_list {
@@ -1394,7 +1394,7 @@ impl Vm {
                 let op = v.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            unexpected => return unexpected_type_error("negatable value", unexpected),
+            unexpected => return type_error("negatable value", unexpected),
         };
         self.set_register(result, result_value);
 
@@ -1973,9 +1973,7 @@ impl Vm {
                 self.set_register(import_register, value);
                 return Ok(());
             }
-            other => {
-                return unexpected_type_error("import id or string, or accessible value", &other)
-            }
+            other => return type_error("import id or string, or accessible value", &other),
         };
 
         // Is the import in the exports?
@@ -2073,9 +2071,7 @@ impl Vm {
                     Some(main) if main.is_callable() => {
                         self.run_function(main, CallArgs::None)?;
                     }
-                    Some(unexpected) => {
-                        return unexpected_type_error("callable function", &unexpected)
-                    }
+                    Some(unexpected) => return type_error("callable function", &unexpected),
                     None => {}
                 }
 
@@ -2150,10 +2146,10 @@ impl Vm {
                             list_data[i] = value.clone();
                         }
                     }
-                    unexpected => return unexpected_type_error("index", &unexpected),
+                    unexpected => return type_error("index", &unexpected),
                 }
             }
-            unexpected => return unexpected_type_error("a mutable indexable value", &unexpected),
+            unexpected => return type_error("a mutable indexable value", &unexpected),
         };
 
         Ok(())
@@ -2355,7 +2351,7 @@ impl Vm {
                 map.data_mut().insert(key.into(), value);
                 Ok(())
             }
-            unexpected => unexpected_type_error("Map", unexpected),
+            unexpected => type_error("Map", unexpected),
         }
     }
 
@@ -2376,7 +2372,7 @@ impl Vm {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
-            unexpected => unexpected_type_error("Map", unexpected),
+            unexpected => type_error("Map", unexpected),
         }
     }
 
@@ -2394,7 +2390,7 @@ impl Vm {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
-            other => return unexpected_type_error("String", &other),
+            other => return type_error("String", &other),
         };
 
         match self.get_register_mut(map_register) {
@@ -2402,7 +2398,7 @@ impl Vm {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
-            unexpected => unexpected_type_error("Map", unexpected),
+            unexpected => type_error("Map", unexpected),
         }
     }
 
@@ -2430,7 +2426,7 @@ impl Vm {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
-            other => return unexpected_type_error("String", &other),
+            other => return type_error("String", &other),
         };
 
         self.exports.insert_meta(meta_key, value);
@@ -2487,9 +2483,7 @@ impl Vm {
                     );
                 }
             },
-            unexpected => {
-                return unexpected_type_error("Value that supports '.' access", unexpected)
-            }
+            unexpected => return type_error("Value that supports '.' access", unexpected),
         }
 
         Ok(())
@@ -2594,7 +2588,7 @@ impl Vm {
 
         let result = (*function)(
             self,
-            &Args {
+            &ArgRegisters {
                 register: adjusted_frame_base,
                 count: call_arg_count,
             },
@@ -2859,7 +2853,7 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
-            unexpected => unexpected_type_error("callable function", &unexpected),
+            unexpected => type_error("callable function", &unexpected),
         }
     }
 
@@ -2899,12 +2893,12 @@ impl Vm {
         match type_id {
             TypeId::List => {
                 if !matches!(value, Value::List(_)) {
-                    return unexpected_type_error("List", value);
+                    return type_error("List", value);
                 }
             }
             TypeId::Tuple => {
                 if !matches!(value, Value::Tuple(_) | Value::TemporaryTuple(_)) {
-                    return unexpected_type_error("Tuple", value);
+                    return type_error("Tuple", value);
                 }
             }
         }
@@ -2961,7 +2955,7 @@ impl Vm {
                 self.set_register(register, Value::List(list));
                 Ok(())
             }
-            other => unexpected_type_error("SequenceBuilder", &other),
+            other => type_error("SequenceBuilder", &other),
         }
     }
 
@@ -2972,7 +2966,7 @@ impl Vm {
                 self.set_register(register, Value::Tuple(ValueTuple::from(result)));
                 Ok(())
             }
-            other => unexpected_type_error("SequenceBuilder", &other),
+            other => type_error("SequenceBuilder", &other),
         }
     }
 
@@ -2987,9 +2981,9 @@ impl Vm {
                     builder.push_str(&string);
                     Ok(())
                 }
-                other => unexpected_type_error("StringBuilder", other),
+                other => type_error("StringBuilder", other),
             },
-            other => unexpected_type_error("String", &other),
+            other => type_error("String", &other),
         }
     }
 
@@ -3001,7 +2995,7 @@ impl Vm {
                 self.set_register(register, Value::Str(ValueString::from(result)));
                 Ok(())
             }
-            other => unexpected_type_error("StringBuilder", &other),
+            other => type_error("StringBuilder", &other),
         }
     }
 
@@ -3154,7 +3148,7 @@ impl Vm {
             .truncate(self.register_base() + len as usize);
     }
 
-    pub fn get_args(&self, args: &Args) -> &[Value] {
+    pub fn get_args(&self, args: &ArgRegisters) -> &[Value] {
         self.register_slice(args.register, args.count)
     }
 

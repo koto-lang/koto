@@ -1,5 +1,5 @@
 use {
-    crate::{MetaKey, MetaMap, RuntimeResult, Value, Vm},
+    crate::{MetaKey, MetaMap, RuntimeResult, Value, ValueString, Vm},
     downcast_rs::impl_downcast,
     std::{
         cell::{Ref, RefCell, RefMut},
@@ -11,22 +11,26 @@ use {
 
 pub use downcast_rs::Downcast;
 
+thread_local! {
+    static EXTERNAL_DATA_TYPE: ValueString  = "External Data".into();
+}
+
 /// A trait for external data
 pub trait ExternalData: Downcast {
-    fn value_type(&self) -> String {
-        "External Data".to_string()
+    fn data_type(&self) -> ValueString {
+        EXTERNAL_DATA_TYPE.with(|x| x.clone())
     }
 }
 
 impl fmt::Display for dyn ExternalData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.value_type())
+        f.write_str(&self.data_type())
     }
 }
 
 impl fmt::Debug for dyn ExternalData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.value_type())
+        f.write_str(&self.data_type())
     }
 }
 
@@ -62,14 +66,33 @@ impl ExternalValue {
         }
     }
 
-    pub fn data(&self) -> Ref<dyn ExternalData> {
-        self.data.borrow()
+    pub fn data<T: ExternalData>(&self) -> Option<Ref<T>> {
+        match self.data.try_borrow() {
+            Ok(data_ref) => Ref::filter_map(data_ref, |data| data.downcast_ref::<T>()).ok(),
+            Err(_) => None,
+        }
     }
 
-    pub fn data_mut(&self) -> RefMut<dyn ExternalData> {
-        self.data.borrow_mut()
+    pub fn data_mut<T: ExternalData>(&self) -> Option<RefMut<T>> {
+        match self.data.try_borrow_mut() {
+            Ok(data_ref) => RefMut::filter_map(data_ref, |data| data.downcast_mut::<T>()).ok(),
+            Err(_) => None,
+        }
     }
 
+    pub fn value_type(&self) -> ValueString {
+        match self.get_meta_value(&MetaKey::Type) {
+            Some(Value::Str(s)) => s,
+            Some(_) => "ERROR: Expected String for @type".into(),
+            None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
+        }
+    }
+
+    pub fn data_type(&self) -> ValueString {
+        self.data.borrow().data_type()
+    }
+
+    ///
     /// Returns true if the value's meta map contains an entry with the given key
     pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
         self.meta.borrow().contains_key(key)
@@ -81,17 +104,21 @@ impl ExternalValue {
     }
 }
 
+thread_local! {
+    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
+}
+
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
 pub struct ExternalFunction {
-    pub function: Rc<dyn Fn(&mut Vm, &Args) -> RuntimeResult + 'static>,
+    pub function: Rc<dyn Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static>,
     pub is_instance_function: bool,
 }
 
 impl ExternalFunction {
     pub fn new(
-        function: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
+        function: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {
@@ -132,7 +159,7 @@ impl Hash for ExternalFunction {
 }
 
 /// The start register and argument count for arguments when an ExternalFunction is called
-pub struct Args {
+pub struct ArgRegisters {
     pub register: u8,
     pub count: u8,
 }

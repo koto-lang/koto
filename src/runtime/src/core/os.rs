@@ -1,10 +1,5 @@
-use crate::unexpected_type_error_with_slice;
-
 use {
-    crate::{
-        runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, RuntimeResult, UnaryOp,
-        Value, ValueMap,
-    },
+    crate::prelude::*,
     chrono::prelude::*,
     instant::Instant,
     std::{cell::RefCell, rc::Rc},
@@ -23,8 +18,7 @@ pub fn make_module() -> ValueMap {
         [Number(seconds), Number(offset)] => {
             DateTime::from_seconds(seconds.into(), Some(offset.into()))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "os.time",
+        unexpected => type_error_with_slice(
             "no args, or a timestamp in seconds, with optional timezone offset in seconds",
             unexpected,
         ),
@@ -77,43 +71,29 @@ thread_local! {
 }
 
 fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
-    let mut meta = MetaMap::with_type_name("DateTime");
-
-    meta.add_unary_op(UnaryOp::Display, |data: &DateTime, _| {
-        Ok(data.0.format("%F %T").to_string().into())
-    });
-
-    meta.add_named_instance_fn("day", |data: &DateTime, _, _| Ok(data.0.day().into()));
-
-    meta.add_named_instance_fn("hour", |data: &DateTime, _, _| Ok(data.0.hour().into()));
-
-    meta.add_named_instance_fn("minute", |data: &DateTime, _, _| Ok(data.0.minute().into()));
-
-    meta.add_named_instance_fn("month", |data: &DateTime, _, _| Ok(data.0.month().into()));
-
-    meta.add_named_instance_fn("second", |data: &DateTime, _, _| Ok(data.0.second().into()));
-
-    meta.add_named_instance_fn("nanosecond", |data: &DateTime, _, _| {
-        Ok(data.0.nanosecond().into())
-    });
-
-    meta.add_named_instance_fn("timestamp", |data: &DateTime, _, _| {
-        let seconds = data.0.timestamp() as f64;
-        let sub_nanos = data.0.timestamp_subsec_nanos();
-        Ok((seconds + sub_nanos as f64 / 1.0e9).into())
-    });
-
-    meta.add_named_instance_fn("timezone_offset", |data: &DateTime, _, _| {
-        Ok(data.0.offset().local_minus_utc().into())
-    });
-
-    meta.add_named_instance_fn("timezone_string", |data: &DateTime, _, _| {
-        Ok(data.0.format("%z").to_string().into())
-    });
-
-    meta.add_named_instance_fn("year", |data: &DateTime, _, _| Ok(data.0.year().into()));
-
-    meta.into()
+    MetaMapBuilder::<DateTime>::new("DateTime")
+        .data_fn(UnaryOp::Display, |data| {
+            Ok(data.0.format("%F %T").to_string().into())
+        })
+        .data_fn("day", |data| Ok(data.0.day().into()))
+        .data_fn("hour", |data| Ok(data.0.hour().into()))
+        .data_fn("minute", |data| Ok(data.0.minute().into()))
+        .data_fn("month", |data| Ok(data.0.month().into()))
+        .data_fn("second", |data| Ok(data.0.second().into()))
+        .data_fn("nanosecond", |data| Ok(data.0.nanosecond().into()))
+        .data_fn("timestamp", |data| {
+            let seconds = data.0.timestamp() as f64;
+            let sub_nanos = data.0.timestamp_subsec_nanos();
+            Ok((seconds + sub_nanos as f64 / 1.0e9).into())
+        })
+        .data_fn("timezone_offset", |data| {
+            Ok(data.0.offset().local_minus_utc().into())
+        })
+        .data_fn("timezone_string", |data| {
+            Ok(data.0.format("%z").to_string().into())
+        })
+        .data_fn("year", |data| Ok(data.0.year().into()))
+        .build()
 }
 
 pub struct Timer(Instant);
@@ -133,24 +113,23 @@ thread_local! {
 }
 
 fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
-    let mut meta = MetaMap::with_type_name("Timer");
-
-    meta.add_unary_op(UnaryOp::Display, |data: &Timer, _| {
-        Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
-    });
-
-    meta.add_binary_op(BinaryOp::Subtract, |a: &Timer, b, _, _| {
-        let result = if a.0 >= b.0 {
-            a.0.duration_since(b.0).as_secs_f64()
-        } else {
-            -(b.0.duration_since(a.0).as_secs_f64())
-        };
-        Ok(result.into())
-    });
-
-    meta.add_named_instance_fn("elapsed", |instant: &Timer, _, _| {
-        Ok(instant.0.elapsed().as_secs_f64().into())
-    });
-
-    Rc::new(RefCell::new(meta))
+    MetaMapBuilder::<Timer>::new("Timer")
+        .data_fn(UnaryOp::Display, |data| {
+            Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
+        })
+        .data_fn_2(BinaryOp::Subtract, |a, b| match b {
+            DataOrArgs::Data(b) => {
+                let result = if a.0 >= b.0 {
+                    a.0.duration_since(b.0).as_secs_f64()
+                } else {
+                    -(b.0.duration_since(a.0).as_secs_f64())
+                };
+                Ok(result.into())
+            }
+            DataOrArgs::Args(unexpected) => type_error_with_slice("Timer", unexpected),
+        })
+        .data_fn("elapsed", |instant| {
+            Ok(instant.0.elapsed().as_secs_f64().into())
+        })
+        .build()
 }

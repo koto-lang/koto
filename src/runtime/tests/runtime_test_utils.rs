@@ -1,17 +1,13 @@
 #![allow(unused)]
 
 use {
-    koto_bytecode::Chunk,
-    koto_runtime::{
-        num2, num4, BinaryOp, Loader,
-        Value::{self, *},
-        ValueList, Vm,
-    },
+    koto_bytecode::{Chunk, Loader},
+    koto_runtime::{num2, num4, prelude::*, Value::*},
     std::rc::Rc,
 };
 
-pub fn test_script(script: &str, expected_output: Value) {
-    test_script_with_vm(Vm::default(), script, expected_output);
+pub fn test_script(script: &str, expected_output: impl Into<Value>) {
+    test_script_with_vm(Vm::default(), script, expected_output.into());
 }
 
 pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
@@ -104,11 +100,11 @@ pub fn value_tuple(values: &[Value]) -> Value {
 }
 
 pub fn num2(a: f64, b: f64) -> Value {
-    Num2(num2::Num2(a, b))
+    Value::Num2(num2::Num2(a, b))
 }
 
 pub fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
-    Num4(num4::Num4(a, b, c, d))
+    Value::Num4(num4::Num4(a, b, c, d))
 }
 
 pub fn string(s: &str) -> Value {

@@ -1,5 +1,5 @@
 use {
-    koto::{Koto, KotoSettings},
+    koto::prelude::*,
     std::{fs::read_to_string, path::PathBuf},
 };
 

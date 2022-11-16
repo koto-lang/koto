@@ -5,8 +5,9 @@ pub use buffered_file::BufferedFile;
 use {
     super::string::format,
     crate::{
-        error::unexpected_type_error_with_slice, runtime_error, ExternalData, ExternalValue,
-        KotoFile, KotoRead, KotoWrite, MetaMap, RuntimeError, UnaryOp, Value, ValueMap, Vm,
+        error::type_error_with_slice, runtime_error, type_error, ExternalData, ExternalValue,
+        KotoFile, KotoRead, KotoWrite, MetaMap, MetaMapBuilder, RuntimeError, UnaryOp, Value,
+        ValueMap, Vm,
     },
     std::{
         cell::RefCell,
@@ -32,11 +33,7 @@ pub fn make_module() -> ValueMap {
                     Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
-                "io.create",
-                "a path String as argument",
-                unexpected,
-            ),
+            unexpected => type_error_with_slice("a path String as argument", unexpected),
         }
     });
 
@@ -50,9 +47,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        unexpected => {
-            unexpected_type_error_with_slice("io.exists", "a path String as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a path String as argument", unexpected),
     });
 
     result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
@@ -66,8 +61,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(path.to_string_lossy().to_string().into())
         }
-        unexpected => unexpected_type_error_with_slice(
-            "io.extend_path",
+        unexpected => type_error_with_slice(
             "a path String as argument, followed by some additional path nodes",
             unexpected,
         ),
@@ -82,9 +76,7 @@ pub fn make_module() -> ValueMap {
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
-            unexpected => {
-                unexpected_type_error_with_slice("io.open", "a path String as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("a path String as argument", unexpected),
         }
     });
 
@@ -103,55 +95,35 @@ pub fn make_module() -> ValueMap {
                 let value = value.clone();
                 match vm.run_unary_op(crate::UnaryOp::Display, value)? {
                     Str(s) => vm.stdout().write_line(s.as_str()),
-                    unexpected => {
-                        return unexpected_type_error_with_slice(
-                            "io.print",
-                            "string from @display",
-                            &[unexpected],
-                        )
-                    }
+                    unexpected => return type_error("string from @display", &unexpected),
                 }
             }
             values @ [_, ..] => {
                 let tuple_data = Vec::from(values);
                 match vm.run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))? {
                     Str(s) => vm.stdout().write_line(s.as_str()),
-                    unexpected => {
-                        return unexpected_type_error_with_slice(
-                            "io.print",
-                            "string from @display",
-                            &[unexpected],
-                        )
-                    }
+                    unexpected => return type_error("string from @display", &unexpected),
                 }
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
-                    "io.print",
+                return type_error_with_slice(
                     "a String as argument, followed by optional additional Values",
                     unexpected,
                 )
             }
         };
 
-        match result {
-            Ok(_) => Ok(Null),
-            Err(e) => Err(e.with_prefix("io.print")),
-        }
+        result.map(|_| Null)
     });
 
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
         [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
-            Ok(result) => Ok(Str(result.into())),
+            Ok(result) => Ok(result.into()),
             Err(error) => {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
         },
-        unexpected => unexpected_type_error_with_slice(
-            "io.read_to_string",
-            "a path String as argument",
-            unexpected,
-        ),
+        unexpected => type_error_with_slice("a path String as argument", unexpected),
     });
 
     result.add_fn("remove_file", {
@@ -166,11 +138,7 @@ pub fn make_module() -> ValueMap {
                     ),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
-                "io.remove_file",
-                "a path String as argument",
-                unexpected,
-            ),
+            unexpected => type_error_with_slice("a path String as argument", unexpected),
         }
     });
 
@@ -179,7 +147,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("stdout", |vm, _| Ok(File::stdout(vm)));
 
     result.add_fn("temp_dir", {
-        |_, _| Ok(Str(std::env::temp_dir().to_string_lossy().as_ref().into()))
+        |_, _| Ok(std::env::temp_dir().to_string_lossy().as_ref().into())
     });
 
     result
@@ -190,92 +158,56 @@ thread_local! {
 }
 
 fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Null, Number, Str};
+    use Value::{Null, Number};
 
-    let mut meta = MetaMap::with_type_name("File");
-
-    meta.add_named_instance_fn_mut("flush", |file: &mut File, _, _| match file.flush() {
-        Ok(_) => Ok(Null),
-        Err(e) => Err(e.with_prefix("File.flush")),
-    });
-
-    meta.add_named_instance_fn("path", |file: &File, _, _| match file.path() {
-        Ok(path) => Ok(Str(path.into())),
-        Err(e) => Err(e.with_prefix("File.path")),
-    });
-
-    meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
-        match file.read_line() {
-            Ok(Some(result)) => {
-                if !result.is_empty() {
-                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
-                    Ok(result[..result.len() - newline_bytes].into())
-                } else {
-                    Ok(Null)
+    MetaMapBuilder::<File>::new("File")
+        .data_fn_mut("flush", |file| file.flush().map(|_| Null))
+        .data_fn_mut("path", |file| file.path().map(Value::from))
+        .data_fn_mut("read_line", |file| {
+            file.read_line().map(|result| match result {
+                Some(result) => {
+                    if !result.is_empty() {
+                        let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                        result[..result.len() - newline_bytes].into()
+                    } else {
+                        Null
+                    }
                 }
+                None => Null,
+            })
+        })
+        .data_fn_mut("read_to_string", |file: &mut File| {
+            file.read_to_string().map(Value::from)
+        })
+        .data_fn_with_args_mut("seek", |file, args| match args {
+            [Number(n)] => {
+                if *n < 0.0 {
+                    return runtime_error!("Negative seek positions not allowed");
+                }
+                file.seek(n.into()).map(|_| Value::Null)
             }
-            Ok(None) => Ok(Null),
-            Err(e) => Err(e.with_prefix("File.read_line")),
-        }
-    });
-
-    meta.add_named_instance_fn_mut("read_to_string", |file: &mut File, _, _| {
-        match file.read_to_string() {
-            Ok(result) => Ok(result.into()),
-            Err(e) => Err(e.with_prefix("File.read_to_string")),
-        }
-    });
-
-    meta.add_named_instance_fn_mut("seek", |file: &mut File, _, args| match args {
-        [Number(n)] => {
-            if *n < 0.0 {
-                return runtime_error!("File.seek: Negative seek positions not allowed");
-            }
-            match file.seek(n.into()) {
-                Ok(_) => Ok(Value::Null),
-                Err(e) => Err(e.with_prefix("File.seek")),
-            }
-        }
-        unexpected => unexpected_type_error_with_slice(
-            "File.seek",
-            "a non-negative Number as the seek position",
-            unexpected,
-        ),
-    });
-
-    meta.add_named_instance_fn_mut("write", |file: &mut File, _, args| match args {
-        [value] => match file.write(value.to_string().as_bytes()) {
-            Ok(_) => Ok(Value::Null),
-            Err(e) => Err(e.with_prefix("File.write")),
-        },
-        unexpected => {
-            unexpected_type_error_with_slice("File.write", "a single argument", unexpected)
-        }
-    });
-
-    meta.add_named_instance_fn_mut("write_line", |file: &mut File, _, args| {
-        let line = match args {
-            [] => "\n".to_string(),
-            [value] => format!("{value}\n"),
             unexpected => {
-                return unexpected_type_error_with_slice(
-                    "File.write_line",
-                    "a single argument",
-                    unexpected,
-                )
+                type_error_with_slice("a non-negative Number as the seek position", unexpected)
             }
-        };
-        match file.write(line.as_bytes()) {
-            Ok(_) => Ok(Value::Null),
-            Err(e) => Err(e.with_prefix("File.write_line")),
-        }
-    });
-
-    meta.add_unary_op(UnaryOp::Display, |file: &File, _| {
-        Ok(Str(format!("File({})", file.0.id()).into()))
-    });
-
-    meta.into()
+        })
+        .data_fn_with_args_mut("write", |file, args| match args {
+            [value] => file
+                .write(value.to_string().as_bytes())
+                .map(|_| Value::Null),
+            unexpected => type_error_with_slice("a single argument", unexpected),
+        })
+        .data_fn_with_args_mut("write_line", |file, args| {
+            let line = match args {
+                [] => "\n".to_string(),
+                [value] => format!("{value}\n"),
+                unexpected => return type_error_with_slice("a single argument", unexpected),
+            };
+            file.write(line.as_bytes()).map(|_| Value::Null)
+        })
+        .data_fn(UnaryOp::Display, |file| {
+            Ok(format!("File({})", file.0.id()).into())
+        })
+        .build()
 }
 
 /// The File type used in the io module
