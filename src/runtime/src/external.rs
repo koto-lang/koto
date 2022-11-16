@@ -80,10 +80,19 @@ impl ExternalValue {
         }
     }
 
+    pub fn value_type(&self) -> ValueString {
+        match self.get_meta_value(&MetaKey::Type) {
+            Some(Value::Str(s)) => s,
+            Some(_) => "ERROR: Expected String for @type".into(),
+            None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
+        }
+    }
+
     pub fn data_type(&self) -> ValueString {
         self.data.borrow().data_type()
     }
 
+    ///
     /// Returns true if the value's meta map contains an entry with the given key
     pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
         self.meta.borrow().contains_key(key)
@@ -95,17 +104,21 @@ impl ExternalValue {
     }
 }
 
+thread_local! {
+    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
+}
+
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
 pub struct ExternalFunction {
-    pub function: Rc<dyn Fn(&mut Vm, &Args) -> RuntimeResult + 'static>,
+    pub function: Rc<dyn Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static>,
     pub is_instance_function: bool,
 }
 
 impl ExternalFunction {
     pub fn new(
-        function: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
+        function: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {
@@ -146,7 +159,7 @@ impl Hash for ExternalFunction {
 }
 
 /// The start register and argument count for arguments when an ExternalFunction is called
-pub struct Args {
+pub struct ArgRegisters {
     pub register: u8,
     pub count: u8,
 }

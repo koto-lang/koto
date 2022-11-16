@@ -1,6 +1,6 @@
 use {
     crate::{
-        external::{Args, ExternalFunction},
+        external::{ArgRegisters, ExternalFunction},
         value_key::ValueKeyRef,
         MetaKey, MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
     },
@@ -36,7 +36,11 @@ impl DataMap {
         ))
     }
 
-    pub fn add_fn(&mut self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+    pub fn add_fn(
+        &mut self,
+        id: &str,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    ) {
         #[allow(clippy::useless_conversion)]
         self.add_value(
             id.into(),
@@ -47,7 +51,7 @@ impl DataMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
     ) {
         #[allow(clippy::useless_conversion)]
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
@@ -185,11 +189,15 @@ impl ValueMap {
         self.data().is_empty()
     }
 
-    pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+    pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
-    pub fn add_instance_fn(&self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+    pub fn add_instance_fn(
+        &self,
+        id: &str,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 

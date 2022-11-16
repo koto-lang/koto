@@ -200,11 +200,7 @@ impl Value {
             SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
             Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
             ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
-            ExternalValue(value) => match value.get_meta_value(&MetaKey::Type) {
-                Some(Str(s)) => s,
-                Some(_) => "Error: expected string for overloaded type".into(),
-                None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
-            },
+            ExternalValue(value) => value.value_type(),
             ExternalData(data) => data.borrow().data_type(),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
@@ -230,7 +226,6 @@ thread_local! {
     static TYPE_FUNCTION: ValueString = "Function".into();
     static TYPE_GENERATOR: ValueString = "Generator".into();
     static TYPE_EXTERNAL_FUNCTION: ValueString = "ExternalFunction".into();
-    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
     static TYPE_ITERATOR: ValueString = "Iterator".into();
     static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
     static TYPE_SEQUENCE_BUILDER: ValueString = "SequenceBuilder".into();

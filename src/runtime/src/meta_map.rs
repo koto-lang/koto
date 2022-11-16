@@ -1,6 +1,6 @@
 use {
     crate::{
-        external::{Args, ExternalFunction},
+        external::{ArgRegisters, ExternalFunction},
         runtime_error, type_error_with_slice, ExternalData, ExternalValue, RuntimeError,
         RuntimeResult, Value, ValueString, Vm,
     },
@@ -346,37 +346,49 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self.map.into()
     }
 
-    /// Adds an ExternalValue instance function
+    /// Adds a function to the `MetaMap`
     ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument,
-    /// with internal data that matches the builder's data type.
+    /// The function will be called with the VM and ArgRegisters, and the args themselves need to be
+    /// retrieved via vm.get_args(_),
     ///
-    /// The provided function is called with the external value itself, rather than the internal
-    /// data. See the `data_` functions for helpers that provide access to the internal data.
-    pub fn instance_fn<Key, F>(mut self, key: Key, f: F) -> Self
+    /// See the `data_` functions for helpers that provide access to the internal data of an
+    /// ExternalValue, which is often what you want when adding functions to a MetaMap.
+    pub fn function<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    {
+        self.insert_fn(key.into(), f);
+        self
+    }
+
+    /// Adds a function that provides the ExternalValue instance
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the only argument.
+    ///
+    /// This is useful when the value itself is needed rather than its internal data.
+    /// When the internal data is needed, see the various `data_` functions.
+    pub fn external_value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
         F: Fn(&ExternalValue) -> RuntimeResult + 'static,
     {
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] => match value.data::<T>() {
-                Some(_) => f(value),
-                None => unexpected_data_type(value),
-            },
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] if value.value_type() == type_name => f(value),
             other => unexpected_instance_type(&type_name, other),
         });
 
         self
     }
 
-    /// Adds a function that provides the data contained in an ExternalValue instance
+    /// Adds a function that provides access to the data contained in an ExternalValue
     ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument,
-    /// with internal data that matches the builder's data type.
+    /// A helper for a function that expects an instance of ExternalValue as the only argument.
     ///
-    /// The provided function is called with a reference to the value's internal data.
+    /// This is useful when you want access to the ExternalValue's internal data,
+    /// e.g. when implementing a UnaryOp.
     pub fn data_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
@@ -384,23 +396,25 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] => match value.data::<T>() {
-                Some(data) => f(&data),
-                None => unexpected_data_type(value),
-            },
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] if value.value_type() == type_name => {
+                match value.data::<T>() {
+                    Some(data) => f(&data),
+                    None => unexpected_data_type(value),
+                }
+            }
             other => unexpected_instance_type(&type_name, other),
         });
 
         self
     }
 
-    /// Adds a function that provides the data contained in an ExternalValue instance
+    /// Adds a function that provides mutable access to the data contained in an ExternalValue
     ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument,
-    /// with internal data that matches the builder's data type.
+    /// A helper for a function that expects an instance of ExternalValue as the only argument.
     ///
-    /// The provided function is called with a mutable reference to the value's internal data.
+    /// This is useful when you want mutable access to the ExternalValue's internal data,
+    /// e.g. when implementing a UnaryOp, or something like `.reset()` function.
     pub fn data_fn_mut<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
@@ -408,24 +422,98 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] => match value.data_mut::<T>() {
-                Some(mut data) => f(&mut data),
-                None => unexpected_data_type(value),
-            },
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(value)] if value.value_type() == type_name => {
+                match value.data_mut::<T>() {
+                    Some(mut data) => f(&mut data),
+                    None => unexpected_data_type(value),
+                }
+            }
             other => unexpected_instance_type(&type_name, other),
         });
 
         self
     }
 
-    /// Adds a function that provides the data contained in an ExternalValue instance
+    /// Adds a function that provides the data contained in two ExternalValue instances
+    ///
+    /// A helper for a function that expects an instance of ExternalValue, followed by either
+    /// another ExternalValue or other arguments.
+    ///
+    /// This is useful when you want access to the internal data of two ExternalValues,
+    /// e.g. when implementing a BinaryOp.
+    pub fn data_fn_2<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&T, DataOrArgs<T>) -> RuntimeResult + 'static,
+    {
+        let type_name = self.type_name.clone();
+
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(a), Value::ExternalValue(b)]
+                if a.value_type() == type_name && b.value_type() == type_name =>
+            {
+                match (a.data::<T>(), b.data::<T>()) {
+                    (Some(data_a), Some(data_b)) => f(&data_a, DataOrArgs::Data(data_b.deref())),
+                    _ => unexpected_data_type_2(a, b),
+                }
+            }
+            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
+                match value.data::<T>() {
+                    Some(data) => f(&data, DataOrArgs::Args(args)),
+                    None => unexpected_data_type(value),
+                }
+            }
+            unexpected => unexpected_instance_type_2(&type_name, unexpected),
+        });
+
+        self
+    }
+
+    /// Adds a function that provides the data contained in two ExternalValue instances
+    ///
+    /// A helper for a function that expects an instance of ExternalValue, followed by either
+    /// another ExternalValue or other arguments.
+    ///
+    /// This is useful when you want mutable access to the internal data of two ExternalValues,
+    /// e.g. when implementing a BinaryOp.
+    pub fn data_fn_2_mut<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut T, DataOrArgsMut<T>) -> RuntimeResult + 'static,
+    {
+        let type_name = self.type_name.clone();
+
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
+            [Value::ExternalValue(a), Value::ExternalValue(b)]
+                if a.value_type() == type_name && b.value_type() == type_name =>
+            {
+                match (a.data_mut::<T>(), b.data_mut::<T>()) {
+                    (Some(mut data_a), Some(mut data_b)) => {
+                        f(&mut data_a, DataOrArgsMut::Data(data_b.deref_mut()))
+                    }
+                    _ => unexpected_data_type_2(a, b),
+                }
+            }
+            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
+                match value.data_mut::<T>() {
+                    Some(mut data) => f(&mut data, DataOrArgsMut::Args(args)),
+                    None => unexpected_data_type(value),
+                }
+            }
+            unexpected => unexpected_instance_type_2(&type_name, unexpected),
+        });
+
+        self
+    }
+
+    /// Adds a function that takes an ExternalValue instance, followed by other arguments
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// with internal data that matches the builder's data type.
+    /// followed by other arguments.
     ///
-    /// The provided function is called with a reference to the value's internal data,
-    /// along with a slice containing any additional arguments.
+    /// This is useful when you want access to the internal data of an ExternalValue,
+    /// along with following arguments.
     pub fn data_fn_with_args<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
@@ -433,7 +521,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
                 Some(data) => f(&data, extra_args),
                 None => unexpected_data_type(value),
@@ -444,13 +532,13 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
-    /// Adds a function that provides the data contained in an ExternalValue instance
+    /// Adds a function that takes an ExternalValue instance, followed by other arguments
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// with internal data that matches the builder's data type.
+    /// followed by other arguments.
     ///
-    /// The provided function is called with a mutable reference to the value's internal data,
-    /// along with a slice containing any additional arguments.
+    /// This is useful when you want mutable access to the internal data of an ExternalValue,
+    /// along with following arguments.
     pub fn data_fn_with_args_mut<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
@@ -458,7 +546,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
+        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
             [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
                 Some(mut data) => f(&mut data, extra_args),
                 None => unexpected_data_type(value),
@@ -469,63 +557,24 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects to be called with two ExternalValues with internal data
-    /// that matches the builder's data type, e.g. a BinaryOp.
-    ///
-    /// The provided function is called with references to the internal data of both ExternalValues.
-    pub fn data_fn_2<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&T, &T) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
-                match (value_a.data::<T>(), value_b.data::<T>()) {
-                    (Some(data_a), Some(data_b)) => f(&data_a, &data_b),
-                    _ => unexpected_data_type_2(value_a, value_b),
-                }
-            }
-            other => unexpected_instance_type_2(&type_name, other),
-        });
-
-        self
-    }
-
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects to be called with two ExternalValues with internal data
-    /// that matches the builder's data type, e.g. a BinaryOp.
-    ///
-    /// The provided function is called with mutable references to the internal data of both
-    /// ExternalValues.
-    pub fn data_fn_2_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T, &mut T) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.add_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value_a), Value::ExternalValue(value_b)] => {
-                match (value_a.data_mut::<T>(), value_b.data_mut::<T>()) {
-                    (Some(mut data_a), Some(mut data_b)) => f(&mut data_a, &mut data_b),
-                    _ => unexpected_data_type_2(value_a, value_b),
-                }
-            }
-            other => unexpected_instance_type_2(&type_name, other),
-        });
-
-        self
-    }
-
-    fn add_fn(&mut self, key: MetaKey, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+    fn insert_fn(
+        &mut self,
+        key: MetaKey,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    ) {
         self.map
             .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
+}
+
+pub enum DataOrArgs<'a, T: ExternalData> {
+    Data(&'a T),
+    Args(&'a [Value]),
+}
+
+pub enum DataOrArgsMut<'a, T: ExternalData> {
+    Data(&'a mut T),
+    Args(&'a [Value]),
 }
 
 fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {

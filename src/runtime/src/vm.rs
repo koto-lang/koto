@@ -2,7 +2,7 @@ use {
     crate::{
         core::CoreLib,
         error::{type_error, RuntimeErrorType},
-        external::{self, Args, ExternalFunction},
+        external::{self, ArgRegisters, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
         runtime_error,
@@ -2588,7 +2588,7 @@ impl Vm {
 
         let result = (*function)(
             self,
-            &Args {
+            &ArgRegisters {
                 register: adjusted_frame_base,
                 count: call_arg_count,
             },
@@ -3148,7 +3148,7 @@ impl Vm {
             .truncate(self.register_base() + len as usize);
     }
 
-    pub fn get_args(&self, args: &Args) -> &[Value] {
+    pub fn get_args(&self, args: &ArgRegisters) -> &[Value] {
         self.register_slice(args.register, args.count)
     }
 

@@ -28,33 +28,57 @@ mod external_values {
     }
 
     fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
-        use Value::{Bool, Null, Number};
+        use Value::{Bool, ExternalValue, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
+
+        macro_rules! arithmetic_op {
+            ($op:tt) => {
+                |a, b| match b {
+                    DataOrArgs::Data(b) => Ok(TestExternalData::make_value(a.x $op b.x)),
+                    DataOrArgs::Args([Number(n)]) => {
+                        Ok(TestExternalData::make_value(a.x $op f64::from(n)))
+                    }
+                    DataOrArgs::Args(unexpected) => {
+                        type_error_with_slice("a TestExternalValue or Number", unexpected)
+                    }
+                }
+            }
+        }
+
+        macro_rules! comparison_op {
+            ($op:tt) => {
+                |a, b| match b {
+                    DataOrArgs::Data(b) => {
+                        #[allow(clippy::float_cmp)]
+                        Ok(Bool(a.x $op b.x))
+                    },
+                    DataOrArgs::Args([Number(n)]) => {
+                        #[allow(clippy::float_cmp)]
+                        Ok(Bool(a.x $op f64::from(n)))
+                    }
+                    DataOrArgs::Args(unexpected) => {
+                        type_error_with_slice("a TestExternalValue or Number", unexpected)
+                    }
+                }
+            }
+        }
 
         MetaMapBuilder::<TestExternalData>::new("TestExternalValue")
             .data_fn(Display, |data| {
                 Ok(format!("TestExternalValue: {}", data.x).into())
             })
             .data_fn(Negate, |data| Ok(TestExternalData::make_value(-data.x)))
-            .data_fn_2(Add, |a, b| Ok(TestExternalData::make_value(a.x + b.x)))
-            .data_fn_2(Subtract, |a, b| Ok(TestExternalData::make_value(a.x - b.x)))
-            .data_fn_2(Multiply, |a, b| Ok(TestExternalData::make_value(a.x * b.x)))
-            .data_fn_2(Divide, |a, b| Ok(TestExternalData::make_value(a.x / b.x)))
-            .data_fn_2(Remainder, |a, b| {
-                Ok(TestExternalData::make_value(a.x % b.x))
-            })
-            .data_fn_2(Less, |a, b| Ok(Bool(a.x < b.x)))
-            .data_fn_2(LessOrEqual, |a, b| Ok(Bool(a.x <= b.x)))
-            .data_fn_2(Greater, |a, b| Ok(Bool(a.x > b.x)))
-            .data_fn_2(GreaterOrEqual, |a, b| Ok(Bool(a.x >= b.x)))
-            .data_fn_2(Equal, |a, b| {
-                #[allow(clippy::float_cmp)]
-                Ok(Bool(a.x == b.x))
-            })
-            .data_fn_2(NotEqual, |a, b| {
-                #[allow(clippy::float_cmp)]
-                Ok(Bool(a.x != b.x))
-            })
+            .data_fn_2(Add, arithmetic_op!(+))
+            .data_fn_2(Subtract, arithmetic_op!(-))
+            .data_fn_2(Multiply, arithmetic_op!(*))
+            .data_fn_2(Divide, arithmetic_op!(/))
+            .data_fn_2(Remainder, arithmetic_op!(%))
+            .data_fn_2(Less, comparison_op!(<))
+            .data_fn_2(LessOrEqual, comparison_op!(<=))
+            .data_fn_2(Greater, comparison_op!(>))
+            .data_fn_2(GreaterOrEqual, comparison_op!(>=))
+            .data_fn_2(Equal, comparison_op!(==))
+            .data_fn_2(NotEqual, comparison_op!(!=))
             .data_fn_with_args(Index, |data, args| match args {
                 [Number(index)] => {
                     let index = usize::from(index);
@@ -63,19 +87,29 @@ mod external_values {
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
-            .instance_fn("get_data", |instance| {
-                // We want to return a Rc clone of the internal data,
-                // so instance_fn is used here to get easy access to the Rc.
-                Ok(Value::ExternalData(instance.data.clone()))
+            .function("get_data", |vm, arg_registers| {
+                match vm.get_args(arg_registers) {
+                    [ExternalValue(value)] if value.value_type() == "TestExternalValue" => {
+                        // We want to return an Rc clone of the internal data,
+                        // so `function` is used here to get access to the data's Rc.
+                        Ok(Value::ExternalData(value.data.clone()))
+                    }
+                    unexpected => type_error_with_slice("TestExternalValue", unexpected),
+                }
             })
             .data_fn("to_number", |data| Ok(Number(data.x.into())))
             .data_fn_mut("invert", |data| {
                 data.x *= -1.0;
                 Ok(Null)
             })
-            .data_fn_2_mut("set_all_instances", |a, b| {
-                a.x = b.x;
-                Ok(Null)
+            .data_fn_2_mut("set_all_instances", |a, b| match b {
+                DataOrArgsMut::Data(b) => {
+                    a.x = b.x;
+                    Ok(Null)
+                }
+                DataOrArgsMut::Args(unexpected) => {
+                    type_error_with_slice("TestExternalValue", unexpected)
+                }
             })
             .data_fn_with_args_mut("absorb_values", |data, args| {
                 for arg in args.iter() {
@@ -187,19 +221,19 @@ x.to_number()
         #[test]
         fn add() {
             let script = "
-x = (make_external 11) + (make_external 22)
+x = (make_external 11) + (make_external 22) + 33
 x.to_number()
 ";
-            test_script_with_external_value(script, 33);
+            test_script_with_external_value(script, 66);
         }
 
         #[test]
         fn subtract() {
             let script = "
-x = (make_external 99) - (make_external 90)
+x = (make_external 99) - (make_external 90) - 9
 x.to_number()
 ";
-            test_script_with_external_value(script, 9);
+            test_script_with_external_value(script, 0);
         }
 
         #[test]

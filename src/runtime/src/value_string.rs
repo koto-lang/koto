@@ -104,6 +104,11 @@ impl ValueString {
     }
 }
 
+impl PartialEq<&str> for ValueString {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
 impl PartialEq for ValueString {
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
