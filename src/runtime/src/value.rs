@@ -1,11 +1,10 @@
 use {
     crate::{
-        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
-        ExternalValue, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
-        ValueVec,
+        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
+        MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
-    std::{cell::RefCell, fmt, rc::Rc},
+    std::{fmt, rc::Rc},
 };
 
 /// The core Value type for Koto
@@ -61,9 +60,6 @@ pub enum Value {
 
     /// A value type that's defined outside of the Koto runtime
     ExternalValue(ExternalValue),
-
-    /// A 'data-only' counterpart to ExternalValue
-    ExternalData(Rc<RefCell<dyn ExternalData>>),
 
     /// The range type used as a temporary value in index expressions.
     ///
@@ -201,7 +197,6 @@ impl Value {
             Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
             ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
             ExternalValue(value) => value.value_type(),
-            ExternalData(data) => data.borrow().data_type(),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
             SequenceBuilder(_) => TYPE_SEQUENCE_BUILDER.with(|x| x.clone()),
@@ -268,7 +263,7 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(_) | ExternalData(_) => f.write_str(&self.type_as_string()),
+            ExternalValue(_) => f.write_str(&self.type_as_string()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{start}..{}]", start + count)

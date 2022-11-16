@@ -28,7 +28,7 @@ mod external_values {
     }
 
     fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
-        use Value::{Bool, ExternalValue, Null, Number};
+        use Value::{Bool, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 
         macro_rules! arithmetic_op {
@@ -39,7 +39,7 @@ mod external_values {
                         Ok(TestExternalData::make_value(a.x $op f64::from(n)))
                     }
                     DataOrArgs::Args(unexpected) => {
-                        type_error_with_slice("a TestExternalValue or Number", unexpected)
+                        type_error_with_slice("a TestExternal or Number", unexpected)
                     }
                 }
             }
@@ -57,7 +57,7 @@ mod external_values {
                         Ok(Bool(a.x $op f64::from(n)))
                     }
                     DataOrArgs::Args(unexpected) => {
-                        type_error_with_slice("a TestExternalValue or Number", unexpected)
+                        type_error_with_slice("a TestExternal or Number", unexpected)
                     }
                 }
             }
@@ -86,16 +86,6 @@ mod external_values {
                     Ok(result.into())
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
-            })
-            .function("get_data", |vm, arg_registers| {
-                match vm.get_args(arg_registers) {
-                    [ExternalValue(value)] if value.value_type() == "TestExternalValue" => {
-                        // We want to return an Rc clone of the internal data,
-                        // so `function` is used here to get access to the data's Rc.
-                        Ok(Value::ExternalData(value.data.clone()))
-                    }
-                    unexpected => type_error_with_slice("TestExternalValue", unexpected),
-                }
             })
             .data_fn("to_number", |data| Ok(Number(data.x.into())))
             .data_fn_mut("invert", |data| {
@@ -129,12 +119,7 @@ mod external_values {
 
         prelude.add_fn("make_external", |vm, args| match vm.get_args(args) {
             [Value::Number(x)] => Ok(TestExternalData::make_value(x.into())),
-            [Value::ExternalData(data)] => Ok(ExternalValue {
-                data: data.clone(),
-                meta: EXTERNAL_META.with(|meta| meta.clone()),
-            }
-            .into()),
-            _ => runtime_error!("make_external: Expected a Number or ExternalData as argument"),
+            _ => runtime_error!("make_external: Expected a Number"),
         });
 
         test_script_with_vm(vm, script, expected_output.into());
@@ -171,17 +156,6 @@ y.set_all_instances make_external 99
 x.to_number()
 ";
             test_script_with_external_value(script, 99);
-        }
-
-        #[test]
-        fn get_data() {
-            let script = "
-x = make_external 42
-x_data = x.get_data()
-y = make_external x_data
-y.to_number()
-";
-            test_script_with_external_value(script, 42);
         }
 
         #[test]
