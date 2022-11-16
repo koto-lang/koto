@@ -1,5 +1,5 @@
 use crate::{
-    num2, num4, runtime_error, unexpected_type_error_with_slice, BinaryOp, RuntimeResult, Value,
+    num2, num4, runtime_error, type_error, type_error_with_slice, BinaryOp, RuntimeResult, Value,
     ValueMap, ValueNumber,
 };
 
@@ -16,13 +16,7 @@ pub fn make_module() -> ValueMap {
                         return runtime_error!("Assertion failed");
                     }
                 }
-                unexpected => {
-                    return unexpected_type_error_with_slice(
-                        "test.assert",
-                        "Bool as argument",
-                        &[unexpected.clone()],
-                    )
-                }
+                unexpected => return type_error("test.assert", "Bool as argument", unexpected),
             }
         }
         Ok(Null)
@@ -38,15 +32,15 @@ pub fn make_module() -> ValueMap {
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{a}' is not equal to '{b}'")
                 }
-                Ok(unexpected) => unexpected_type_error_with_slice(
+                Ok(unexpected) => type_error(
                     "test.assert_eq",
                     "Bool from equality comparison",
-                    &[unexpected],
+                    &unexpected,
                 ),
                 Err(e) => Err(e.with_prefix("assert_eq")),
             }
         }
-        unexpected => unexpected_type_error_with_slice("test.assert_eq", "two Values", unexpected),
+        unexpected => type_error_with_slice("test.assert_eq", "two Values", unexpected),
     });
 
     result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
@@ -59,15 +53,15 @@ pub fn make_module() -> ValueMap {
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{a}' should not be equal to '{b}'")
                 }
-                Ok(unexpected) => unexpected_type_error_with_slice(
+                Ok(unexpected) => type_error(
                     "test.assert_ne",
                     "Bool from equality comparison",
-                    &[unexpected],
+                    &unexpected,
                 ),
                 Err(e) => Err(e.with_prefix("assert_ne")),
             }
         }
-        unexpected => unexpected_type_error_with_slice("test.assert_ne", "two Values", unexpected),
+        unexpected => type_error_with_slice("test.assert_ne", "two Values", unexpected),
     });
 
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
@@ -77,7 +71,7 @@ pub fn make_module() -> ValueMap {
         [Num2(a), Num2(b), Number(allowed_diff)] => num2_near(*a, *b, allowed_diff.into()),
         [Num4(a), Num4(b)] => num4_near(*a, *b, 1.0e-6),
         [Num4(a), Num4(b), Number(allowed_diff)] => num4_near(*a, *b, allowed_diff.into()),
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "test.assert_near",
             "two Numbers (or Num2s or Num4s) as arguments, \
              followed by an optional Number that specifies the allowed difference",
@@ -90,9 +84,7 @@ pub fn make_module() -> ValueMap {
             let tests = tests.clone();
             vm.run_tests(tests)
         }
-        unexpected => {
-            unexpected_type_error_with_slice("test.run_tests", "a Map as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("test.run_tests", "a Map as argument", unexpected),
     });
 
     result

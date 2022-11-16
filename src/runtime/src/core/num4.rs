@@ -1,7 +1,7 @@
 use {
     super::iterator::collect_pair,
     crate::{
-        num4, runtime_error, unexpected_type_error_with_slice,
+        num4, runtime_error, type_error_with_slice,
         value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeError, RuntimeResult, Value, ValueMap,
     },
@@ -22,11 +22,9 @@ pub fn make_module() -> ValueMap {
             let result = *t * (b - a) + a;
             Ok(Num4(result))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "num4.lerp",
-            "(Num4, Num4, Number) as arguments",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("num4.lerp", "(Num4, Num4, Number) as arguments", unexpected)
+        }
     });
 
     result.add_fn("make_num4", |vm, args| {
@@ -47,7 +45,7 @@ pub fn make_module() -> ValueMap {
                 num4_from_iterator(iterator, "num4.make_num4")?
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "num4.make_num4",
                     "Numbers or an iterable as arguments",
                     unexpected,
@@ -145,7 +143,7 @@ pub fn make_module() -> ValueMap {
 }
 
 fn num4_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(&format!("num4.{}", name), "a Num4 as argument", unexpected)
+    type_error_with_slice(&format!("num4.{}", name), "a Num4 as argument", unexpected)
 }
 
 pub(crate) fn num4_from_iterator(
@@ -157,7 +155,7 @@ pub(crate) fn num4_from_iterator(
         match value {
             Output::Value(Value::Number(n)) => result[i] = n.into(),
             Output::Value(unexpected) => {
-                return unexpected_type_error_with_slice(error_prefix, "a Number", &[unexpected])
+                return type_error_with_slice(error_prefix, "a Number", &[unexpected])
             }
             Output::Error(e) => return Err(e),
             _ => unreachable!(), // ValuePairs collected in collect_pair

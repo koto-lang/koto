@@ -1,7 +1,7 @@
 use {
     crate::{
         external::{Args, ExternalFunction},
-        runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue, RuntimeError,
+        runtime_error, type_error_with_slice, ExternalData, ExternalValue, RuntimeError,
         RuntimeResult, Value, ValueString, Vm,
     },
     indexmap::IndexMap,
@@ -564,7 +564,7 @@ fn unexpected_instance_type(
     key: &MetaKey,
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
-    unexpected_type_error_with_slice(
+    type_error_with_slice(
         &format!("{type_name}.{key}"),
         &format!("'{type_name}'"),
         unexpected,
@@ -576,7 +576,7 @@ fn unexpected_instance_type_2(
     key: &MetaKey,
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
-    unexpected_type_error_with_slice(
+    type_error_with_slice(
         &format!("{type_name}.{key}"),
         &format!("two '{type_name}'s"),
         unexpected,

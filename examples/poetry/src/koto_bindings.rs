@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue,
-        KotoIterator, MetaMap, MetaMapBuilder, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        make_runtime_error, type_error_with_slice, ExternalData, ExternalValue, KotoIterator,
+        MetaMap, MetaMapBuilder, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::{cell::RefCell, rc::Rc},
 };
@@ -17,9 +17,7 @@ pub fn make_module() -> ValueMap {
                 poetry.add_source_material(text);
                 Ok(KotoPoetry::make_external_value(poetry))
             }
-            unexpected => {
-                unexpected_type_error_with_slice("poetry.new", "a String as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("poetry.new", "a String as argument", unexpected),
         }
     });
 
@@ -39,7 +37,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
                 poetry.0.add_source_material(text);
                 Ok(Null)
             }
-            unexpected => unexpected_type_error_with_slice(
+            unexpected => type_error_with_slice(
                 "poetry.add_source_material",
                 "a String as argument",
                 unexpected,

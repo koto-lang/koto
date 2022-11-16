@@ -1,7 +1,7 @@
 use {
     crate::{
-        runtime_error, unexpected_type_error_with_slice, BinaryOp, ExternalData, ExternalValue,
-        MetaMap, MetaMapBuilder, RuntimeResult, UnaryOp, Value, ValueMap,
+        runtime_error, type_error_with_slice, BinaryOp, ExternalData, ExternalValue, MetaMap,
+        MetaMapBuilder, RuntimeResult, UnaryOp, Value, ValueMap,
     },
     chrono::prelude::*,
     instant::Instant,
@@ -21,7 +21,7 @@ pub fn make_module() -> ValueMap {
         [Number(seconds), Number(offset)] => {
             DateTime::from_seconds(seconds.into(), Some(offset.into()))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "os.time",
             "no args, or a timestamp in seconds, with optional timezone offset in seconds",
             unexpected,

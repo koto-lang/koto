@@ -168,22 +168,33 @@ macro_rules! runtime_error {
     };
 }
 
-pub fn unexpected_type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
-    runtime_error!(
-        "Expected {expected_str}, found {}.",
+pub fn type_error<T>(
+    prefix: &str,
+    expected_str: &str,
+    unexpected: &Value,
+) -> Result<T, RuntimeError> {
+    let error = make_runtime_error!(format!(
+        "Expected {expected_str}, but found {}.",
         unexpected.type_as_string()
-    )
+    ));
+
+    if prefix.is_empty() {
+        Err(error)
+    } else {
+        Err(error.with_prefix(prefix))
+    }
 }
 
-pub fn unexpected_type_error_with_slice<T>(
+pub fn type_error_with_slice<T>(
     prefix: &str,
     expected_str: &str,
     unexpected: &[Value],
 ) -> Result<T, RuntimeError> {
     let message = match unexpected {
         [] => "no args".to_string(),
+        [single_arg] => single_arg.type_as_string(),
         _ => {
-            let mut types = String::from("'");
+            let mut types = String::from('(');
             let mut first = true;
             for value in unexpected {
                 if !first {
@@ -192,9 +203,14 @@ pub fn unexpected_type_error_with_slice<T>(
                 first = false;
                 types.push_str(&value.type_as_string());
             }
-            types.push('\'');
+            types.push(')');
             types
         }
     };
-    runtime_error!("{prefix} - expected {expected_str}, but found {message}.")
+    let error = make_runtime_error!(format!("Expected {expected_str}, but found {message}."));
+    if prefix.is_empty() {
+        Err(error)
+    } else {
+        Err(error.with_prefix(prefix))
+    }
 }

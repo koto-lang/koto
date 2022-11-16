@@ -5,9 +5,9 @@ pub use buffered_file::BufferedFile;
 use {
     super::string::format,
     crate::{
-        error::unexpected_type_error_with_slice, runtime_error, ExternalData, ExternalValue,
-        KotoFile, KotoRead, KotoWrite, MetaMap, MetaMapBuilder, RuntimeError, UnaryOp, Value,
-        ValueMap, Vm,
+        error::{type_error, type_error_with_slice},
+        runtime_error, ExternalData, ExternalValue, KotoFile, KotoRead, KotoWrite, MetaMap,
+        MetaMapBuilder, RuntimeError, UnaryOp, Value, ValueMap, Vm,
     },
     std::{
         cell::RefCell,
@@ -33,11 +33,9 @@ pub fn make_module() -> ValueMap {
                     Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
-                "io.create",
-                "a path String as argument",
-                unexpected,
-            ),
+            unexpected => {
+                type_error_with_slice("io.create", "a path String as argument", unexpected)
+            }
         }
     });
 
@@ -51,9 +49,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        unexpected => {
-            unexpected_type_error_with_slice("io.exists", "a path String as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("io.exists", "a path String as argument", unexpected),
     });
 
     result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
@@ -67,7 +63,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(path.to_string_lossy().to_string().into())
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "io.extend_path",
             "a path String as argument, followed by some additional path nodes",
             unexpected,
@@ -83,9 +79,7 @@ pub fn make_module() -> ValueMap {
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
-            unexpected => {
-                unexpected_type_error_with_slice("io.open", "a path String as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("io.open", "a path String as argument", unexpected),
         }
     });
 
@@ -105,11 +99,7 @@ pub fn make_module() -> ValueMap {
                 match vm.run_unary_op(crate::UnaryOp::Display, value)? {
                     Str(s) => vm.stdout().write_line(s.as_str()),
                     unexpected => {
-                        return unexpected_type_error_with_slice(
-                            "io.print",
-                            "string from @display",
-                            &[unexpected],
-                        )
+                        return type_error("io.print", "string from @display", &unexpected)
                     }
                 }
             }
@@ -118,16 +108,12 @@ pub fn make_module() -> ValueMap {
                 match vm.run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))? {
                     Str(s) => vm.stdout().write_line(s.as_str()),
                     unexpected => {
-                        return unexpected_type_error_with_slice(
-                            "io.print",
-                            "string from @display",
-                            &[unexpected],
-                        )
+                        return type_error("io.print", "string from @display", &unexpected)
                     }
                 }
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "io.print",
                     "a String as argument, followed by optional additional Values",
                     unexpected,
@@ -148,11 +134,9 @@ pub fn make_module() -> ValueMap {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
         },
-        unexpected => unexpected_type_error_with_slice(
-            "io.read_to_string",
-            "a path String as argument",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("io.read_to_string", "a path String as argument", unexpected)
+        }
     });
 
     result.add_fn("remove_file", {
@@ -167,11 +151,9 @@ pub fn make_module() -> ValueMap {
                     ),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
-                "io.remove_file",
-                "a path String as argument",
-                unexpected,
-            ),
+            unexpected => {
+                type_error_with_slice("io.remove_file", "a path String as argument", unexpected)
+            }
         }
     });
 
@@ -230,7 +212,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
                     Err(e) => Err(e.with_prefix("File.seek")),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
+            unexpected => type_error_with_slice(
                 "File.seek",
                 "a non-negative Number as the seek position",
                 unexpected,
@@ -241,16 +223,14 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
                 Ok(_) => Ok(Value::Null),
                 Err(e) => Err(e.with_prefix("File.write")),
             },
-            unexpected => {
-                unexpected_type_error_with_slice("File.write", "a single argument", unexpected)
-            }
+            unexpected => type_error_with_slice("File.write", "a single argument", unexpected),
         })
         .data_fn_with_args_mut("write_line", |file, args| {
             let line = match args {
                 [] => "\n".to_string(),
                 [value] => format!("{value}\n"),
                 unexpected => {
-                    return unexpected_type_error_with_slice(
+                    return type_error_with_slice(
                         "File.write_line",
                         "a single argument",
                         unexpected,

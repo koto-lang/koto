@@ -1,6 +1,6 @@
 use crate::{
-    unexpected_type_error_with_slice, value_sort::sort_values, BinaryOp, RuntimeResult, Value,
-    ValueList, ValueMap,
+    type_error_with_slice, value_sort::sort_values, BinaryOp, RuntimeResult, Value, ValueList,
+    ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(false)) => {}
                     Ok(Bool(true)) => return Ok(true.into()),
                     Ok(unexpected) => {
-                        return unexpected_type_error_with_slice(
+                        return type_error_with_slice(
                             "tuple.contains",
                             "a Bool from the equality comparison",
                             &[unexpected],
@@ -28,7 +28,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(false.into())
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "tuple.contains",
             "a Tuple and Value as arguments",
             unexpected,
@@ -53,7 +53,7 @@ pub fn make_module() -> ValueMap {
             [Tuple(tuple), Number(n)] => (tuple, n, &Null),
             [Tuple(tuple), Number(n), default] => (tuple, n, default),
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "tuple.get",
                     "a Tuple and Number (with optional default Value) as arguments",
                     unexpected,
@@ -100,5 +100,5 @@ pub fn make_module() -> ValueMap {
 }
 
 fn expected_tuple_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(&format!("tuple.{name}"), "a Tuple as argument", unexpected)
+    type_error_with_slice(&format!("tuple.{name}"), "a Tuple as argument", unexpected)
 }

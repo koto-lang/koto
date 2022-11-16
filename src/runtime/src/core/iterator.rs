@@ -4,7 +4,7 @@ pub mod generators;
 use {
     super::{num2::num2_from_iterator, num4::num4_from_iterator},
     crate::{
-        runtime_error, unexpected_type_error_with_slice,
+        runtime_error, type_error, type_error_with_slice,
         value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         BinaryOp, CallArgs, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap,
         ValueVec, Vm,
@@ -39,10 +39,10 @@ pub fn make_module() -> ValueMap {
                         }
                     }
                     Ok(unexpected) => {
-                        return unexpected_type_error_with_slice(
+                        return type_error(
                             "iterator.all",
                             "a Bool to be returned from the predicate",
-                            &[unexpected],
+                            &unexpected,
                         )
                     }
                     Err(error) => return Err(error.with_prefix("iterator.all")),
@@ -51,7 +51,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Bool(true))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.all",
             "an iterable value and predicate Function as arguments",
             unexpected,
@@ -81,10 +81,10 @@ pub fn make_module() -> ValueMap {
                         }
                     }
                     Ok(unexpected) => {
-                        return unexpected_type_error_with_slice(
+                        return type_error(
                             "iterator.any",
                             "a Bool to be returned from the predicate",
-                            &[unexpected],
+                            &unexpected,
                         )
                     }
                     Err(error) => return Err(error.with_prefix("iterator.all")),
@@ -93,7 +93,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Bool(false))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.any",
             "an iterable value and predicate Function as arguments",
             unexpected,
@@ -111,7 +111,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(result))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.chain",
             "two iterable values as arguments",
             unexpected,
@@ -127,7 +127,7 @@ pub fn make_module() -> ValueMap {
                 Err(e) => runtime_error!("iterator.chunks: {}", e),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.chunks",
             "a value with a range (like a List or String), \
              and a chunk size greater than zero as arguments",
@@ -161,7 +161,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Null)
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.consume",
             "an Iterable Value (and optional Function) as arguments",
             unexpected,
@@ -170,9 +170,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
         [Iterator(iter)] => Ok(Iterator(iter.make_copy())),
-        unexpected => {
-            unexpected_type_error_with_slice("iterator.copy", "an Iterator as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("iterator.copy", "an Iterator as argument", unexpected),
     });
 
     result.add_fn("count", |vm, args| match vm.get_args(args) {
@@ -187,7 +185,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Number(result.into()))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.count",
             "an iterable value as argument",
             unexpected,
@@ -202,7 +200,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.each",
             "an iterable value and a Function as arguments",
             unexpected,
@@ -216,7 +214,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.cycle",
             "an iterable value as argument",
             unexpected,
@@ -229,7 +227,7 @@ pub fn make_module() -> ValueMap {
             let result = adaptors::Enumerate::new(vm.make_iterator(iterable)?);
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.enumerate",
             "an iterable value as argument",
             unexpected,
@@ -251,10 +249,10 @@ pub fn make_module() -> ValueMap {
                                 }
                             }
                             Ok(unexpected) => {
-                                return unexpected_type_error_with_slice(
+                                return type_error(
                                     "iterator.find",
                                     "a Bool to be returned from the predicate",
-                                    &[unexpected],
+                                    &unexpected,
                                 )
                             }
                             Err(error) => return Err(error.with_prefix("iterator.find")),
@@ -267,7 +265,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Null)
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.find",
             "an iterable value and a predicate Function as arguments",
             unexpected,
@@ -281,7 +279,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.cycle",
             "an iterable value as argument",
             unexpected,
@@ -329,7 +327,7 @@ pub fn make_module() -> ValueMap {
                     _ => unreachable!(),
                 }
             }
-            unexpected => unexpected_type_error_with_slice(
+            unexpected => type_error_with_slice(
                 "iterator.fold",
                 "an iterable value, initial value, and folding Function as arguments",
                 unexpected,
@@ -346,7 +344,7 @@ pub fn make_module() -> ValueMap {
             let result = generators::GenerateN::new(n.into(), f.clone(), vm.spawn_shared_vm());
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.generate",
             "(Function), or (Number, Function)",
             unexpected,
@@ -372,7 +370,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.intersperse",
             "an iterable value and separator as arguments",
             unexpected,
@@ -384,11 +382,9 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             Ok(Iterator(vm.make_iterator(iterable)?))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "iterator.iter",
-            "an iterable value as argument",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("iterator.iter", "an iterable value as argument", unexpected)
+        }
     });
 
     result.add_fn("keep", |vm, args| match vm.get_args(args) {
@@ -399,7 +395,7 @@ pub fn make_module() -> ValueMap {
                 adaptors::Keep::new(vm.make_iterator(iterable)?, predicate, vm.spawn_shared_vm());
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.keep",
             "an iterable value and a predicate Function as arguments",
             unexpected,
@@ -422,11 +418,9 @@ pub fn make_module() -> ValueMap {
 
             Ok(result)
         }
-        unexpected => unexpected_type_error_with_slice(
-            "iterator.last",
-            "an iterable value as argument",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("iterator.last", "an iterable value as argument", unexpected)
+        }
     });
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
@@ -441,7 +435,7 @@ pub fn make_module() -> ValueMap {
             run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::Yes)
                 .map_err(|e| e.with_prefix("iterator.max"))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.max",
             "an iterable value and an optional key function as arguments",
             unexpected,
@@ -460,7 +454,7 @@ pub fn make_module() -> ValueMap {
             run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::No)
                 .map_err(|e| e.with_prefix("iterator.min"))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.min",
             "an iterable value and an optional key function as arguments",
             unexpected,
@@ -531,7 +525,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(result.map_or(Null, |((min, _), (max, _))| Tuple(vec![min, max].into())))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.min_max",
             "an iterable value and an optional key function as arguments",
             unexpected,
@@ -545,9 +539,7 @@ pub fn make_module() -> ValueMap {
             None => Ok(Value::Null),
             _ => unreachable!(),
         },
-        unexpected => {
-            unexpected_type_error_with_slice("iterator.next", "an Iterator as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("iterator.next", "an Iterator as argument", unexpected),
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
@@ -573,7 +565,7 @@ pub fn make_module() -> ValueMap {
                         }
                     }
                     Ok(unexpected) => {
-                        return unexpected_type_error_with_slice(
+                        return type_error_with_slice(
                             "iterator.position",
                             "a Bool to be returned from the predicate",
                             &[unexpected],
@@ -585,7 +577,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Null)
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.position",
             "an iterable value and a predicate Function as arguments",
             unexpected,
@@ -599,7 +591,7 @@ pub fn make_module() -> ValueMap {
                 (iterable.clone(), initial_value.clone())
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "iterator.product",
                     "an iterable value and optional initial value as arguments",
                     unexpected,
@@ -620,11 +612,9 @@ pub fn make_module() -> ValueMap {
             let result = generators::RepeatN::new(value.clone(), n.into());
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "iterator.repeat",
-            "(Value), or (Number, Value)",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("iterator.repeat", "(Value), or (Number, Value)", unexpected)
+        }
     });
 
     result.add_fn("reversed", |vm, args| match vm.get_args(args) {
@@ -635,7 +625,7 @@ pub fn make_module() -> ValueMap {
                 Err(e) => runtime_error!("iterator.reversed: {}", e),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.take",
             "an iterable value and non-negative number as arguments",
             unexpected,
@@ -656,7 +646,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(iter))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.skip",
             "an iterable value and non-negative number as arguments",
             unexpected,
@@ -670,7 +660,7 @@ pub fn make_module() -> ValueMap {
                 (iterable.clone(), initial_value.clone())
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "iterator.sum",
                     "an iterable value and optional initial value as arguments",
                     unexpected,
@@ -689,7 +679,7 @@ pub fn make_module() -> ValueMap {
             let result = adaptors::Take::new(vm.make_iterator(iterable)?, n.into());
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.take",
             "an iterable value and non-negative number as arguments",
             unexpected,
@@ -713,7 +703,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(List(ValueList::with_data(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.to_list",
             "an iterable value as argument",
             unexpected,
@@ -750,7 +740,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Map(ValueMap::with_data(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.to_map",
             "an iterable value as argument",
             unexpected,
@@ -763,7 +753,7 @@ pub fn make_module() -> ValueMap {
             let iterator = vm.make_iterator(iterable)?;
             Ok(Num2(num2_from_iterator(iterator, "iterator.to_num2")?))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.to_num2",
             "an iterable value as argument",
             unexpected,
@@ -776,7 +766,7 @@ pub fn make_module() -> ValueMap {
             let iterator = vm.make_iterator(iterable)?;
             Ok(Num4(num4_from_iterator(iterator, "iterator.to_num4")?))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.to_num4",
             "an iterable value as argument",
             unexpected,
@@ -801,7 +791,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Str(result.into()))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.to_string",
             "an iterable value as argument",
             unexpected,
@@ -825,7 +815,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.tuple",
             "an iterable value as argument",
             unexpected,
@@ -841,7 +831,7 @@ pub fn make_module() -> ValueMap {
                 Err(e) => runtime_error!("iterator.windows: {}", e),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.windows",
             "a value with a range (like a List or String), \
              and a chunk size greater than zero as arguments",
@@ -857,7 +847,7 @@ pub fn make_module() -> ValueMap {
                 adaptors::Zip::new(vm.make_iterator(iterable_a)?, vm.make_iterator(iterable_b)?);
             Ok(Iterator(ValueIterator::new(result)))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "iterator.zip",
             "two iterable values as arguments",
             unexpected,

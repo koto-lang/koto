@@ -4,7 +4,7 @@ pub mod iterators;
 use {
     super::iterator::collect_pair,
     crate::{
-        runtime_error, unexpected_type_error_with_slice,
+        runtime_error, type_error, type_error_with_slice,
         value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeResult, Value, ValueMap,
     },
@@ -58,7 +58,7 @@ pub fn make_module() -> ValueMap {
                 Err(error) => Err(error.with_prefix("string.format")),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "string.format",
             "a String as argument, followed by optional additional Values",
             unexpected,
@@ -83,11 +83,7 @@ pub fn make_module() -> ValueMap {
                         }
                     },
                     Output::Value(unexpected) => {
-                        return unexpected_type_error_with_slice(
-                            "string.from_bytes",
-                            "a number",
-                            &[unexpected],
-                        )
+                        return type_error("string.from_bytes", "a number", &unexpected)
                     }
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
@@ -99,7 +95,7 @@ pub fn make_module() -> ValueMap {
                 Err(_) => runtime_error!("string.from_bytes: input failed UTF-8 validation"),
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "string.from_bytes",
             "an iterable value as argument",
             unexpected,
@@ -123,11 +119,9 @@ pub fn make_module() -> ValueMap {
         [Str(input), Str(pattern), Str(replace)] => {
             Ok(Str(input.replace(pattern.as_str(), replace).into()))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "string.replace",
-            "three Strings as arguments",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("string.replace", "three Strings as arguments", unexpected)
+        }
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
@@ -150,7 +144,7 @@ pub fn make_module() -> ValueMap {
                 ValueIterator::new(result)
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "string.split",
                     "a String and either a String or predicate Function as arguments",
                     unexpected,
@@ -217,7 +211,7 @@ pub fn make_module() -> ValueMap {
 }
 
 fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(
+    type_error_with_slice(
         &format!("string.{name}"),
         "a String as argument",
         unexpected,
@@ -225,7 +219,7 @@ fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
 }
 
 fn expected_two_strings_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(
+    type_error_with_slice(
         &format!("string.{name}"),
         "two Strings as arguments",
         unexpected,

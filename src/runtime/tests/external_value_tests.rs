@@ -4,8 +4,8 @@ mod external_values {
     use {
         crate::runtime_test_utils::{string, test_script_with_vm},
         koto_runtime::{
-            runtime_error, unexpected_type_error_with_slice, BinaryOp, ExternalData, ExternalValue,
-            MetaMap, MetaMapBuilder, UnaryOp, Value, Vm,
+            runtime_error, type_error, type_error_with_slice, BinaryOp, ExternalData,
+            ExternalValue, MetaMap, MetaMapBuilder, UnaryOp, Value, Vm,
         },
         std::{cell::RefCell, rc::Rc},
     };
@@ -64,9 +64,7 @@ mod external_values {
                     let result = data.x + index as f64;
                     Ok(result.into())
                 }
-                unexpected => {
-                    unexpected_type_error_with_slice("ExternalValue.@Index", "a Number", unexpected)
-                }
+                unexpected => type_error_with_slice("ExternalValue.@Index", "a Number", unexpected),
             })
             .instance_fn("get_data", |instance| {
                 // We want to return a Rc clone of the internal data,
@@ -86,13 +84,7 @@ mod external_values {
                 for arg in args.iter() {
                     match arg {
                         Number(n) => data.x += f64::from(n),
-                        other => {
-                            return unexpected_type_error_with_slice(
-                                "ExternalValue.absorb_values",
-                                "Number",
-                                &[other.clone()],
-                            )
-                        }
+                        other => return type_error("ExternalValue.absorb_values", "Number", other),
                     }
                 }
                 Ok(Null)

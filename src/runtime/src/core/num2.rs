@@ -1,7 +1,7 @@
 use {
     super::iterator::collect_pair,
     crate::{
-        num2, runtime_error, unexpected_type_error_with_slice,
+        num2, runtime_error, type_error_with_slice,
         value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeError, RuntimeResult, Value, ValueMap,
     },
@@ -27,11 +27,9 @@ pub fn make_module() -> ValueMap {
             let result = *t * (b - a) + a;
             Ok(Num2(result))
         }
-        unexpected => unexpected_type_error_with_slice(
-            "num2.lerp",
-            "(Num2, Num2, Number) as arguments",
-            unexpected,
-        ),
+        unexpected => {
+            type_error_with_slice("num2.lerp", "(Num2, Num2, Number) as arguments", unexpected)
+        }
     });
 
     result.add_fn("make_num2", |vm, args| {
@@ -44,7 +42,7 @@ pub fn make_module() -> ValueMap {
                 num2_from_iterator(vm.make_iterator(iterable)?, "num2.make_num2")?
             }
             unexpected => {
-                return unexpected_type_error_with_slice(
+                return type_error_with_slice(
                     "num2.make_num2",
                     "Numbers or an iterable as arguments",
                     unexpected,
@@ -106,7 +104,7 @@ pub fn make_module() -> ValueMap {
 }
 
 fn num2_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(&format!("num2.{}", name), "a Num2 as argument", unexpected)
+    type_error_with_slice(&format!("num2.{}", name), "a Num2 as argument", unexpected)
 }
 
 pub(crate) fn num2_from_iterator(
@@ -118,7 +116,7 @@ pub(crate) fn num2_from_iterator(
         match value {
             Output::Value(Value::Number(n)) => result[i] = n.into(),
             Output::Value(unexpected) => {
-                return unexpected_type_error_with_slice(error_prefix, "a Number", &[unexpected])
+                return type_error_with_slice(error_prefix, "a Number", &[unexpected])
             }
             Output::Error(e) => return Err(e),
             _ => unreachable!(), // ValuePairs collected in collect_pair

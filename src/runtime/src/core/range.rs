@@ -1,4 +1,4 @@
-use crate::{unexpected_type_error_with_slice, IntRange, Value, ValueMap};
+use crate::{type_error_with_slice, IntRange, Value, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -14,7 +14,7 @@ pub fn make_module() -> ValueMap {
             };
             Ok(Bool(result))
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "range.contains",
             "a Range and Number as arguments",
             unexpected,
@@ -23,9 +23,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("end", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number(r.end.into())),
-        unexpected => {
-            unexpected_type_error_with_slice("range.end", "a Range as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("range.end", "a Range as argument", unexpected),
     });
 
     result.add_fn("expanded", |vm, args| match vm.get_args(args) {
@@ -43,7 +41,7 @@ pub fn make_module() -> ValueMap {
                 }))
             }
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "range.expanded",
             "a Range and Number as arguments",
             unexpected,
@@ -52,16 +50,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number((r.end - r.start).into())),
-        unexpected => {
-            unexpected_type_error_with_slice("range.size", "a Range as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("range.size", "a Range as argument", unexpected),
     });
 
     result.add_fn("start", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(Number(r.start.into())),
-        unexpected => {
-            unexpected_type_error_with_slice("range.start", "a Range as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("range.start", "a Range as argument", unexpected),
     });
 
     result.add_fn("union", |vm, args| match vm.get_args(args) {
@@ -101,7 +95,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(result)
         }
-        unexpected => unexpected_type_error_with_slice(
+        unexpected => type_error_with_slice(
             "range.union",
             "a Range and another Range or a Number as arguments",
             unexpected,

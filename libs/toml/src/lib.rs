@@ -1,9 +1,7 @@
 //! A Koto language module for working with TOML data
 
 use {
-    koto_runtime::{
-        runtime_error, unexpected_type_error_with_slice, Value, ValueList, ValueMap, ValueVec,
-    },
+    koto_runtime::{runtime_error, type_error_with_slice, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
     toml::Value as Toml,
 };
@@ -53,9 +51,7 @@ pub fn make_module() -> ValueMap {
                 e.to_string()
             ),
         },
-        unexpected => {
-            unexpected_type_error_with_slice("toml.from_string", "a String as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("toml.from_string", "a String as argument", unexpected),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
@@ -63,9 +59,7 @@ pub fn make_module() -> ValueMap {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => runtime_error!("toml.to_string: {}", e),
         },
-        unexpected => {
-            unexpected_type_error_with_slice("toml.to_string", "a Value as argument", unexpected)
-        }
+        unexpected => type_error_with_slice("toml.to_string", "a Value as argument", unexpected),
     });
 
     result

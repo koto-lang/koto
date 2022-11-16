@@ -2,8 +2,8 @@
 
 use {
     koto_runtime::{
-        num2, num4, unexpected_type_error_with_slice, ExternalData, ExternalValue, MetaMap,
-        MetaMapBuilder, RuntimeResult, Value, ValueMap, ValueTuple,
+        num2, num4, type_error_with_slice, ExternalData, ExternalValue, MetaMap, MetaMapBuilder,
+        RuntimeResult, Value, ValueMap, ValueTuple,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha8Rng,
@@ -25,7 +25,7 @@ pub fn make_module() -> ValueMap {
             [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::seed_from_u64(
                 n.to_bits(),
             ))),
-            unexpected => unexpected_type_error_with_slice(
+            unexpected => type_error_with_slice(
                 "random.generator",
                 "an optional seed Number as argument",
                 unexpected,
@@ -139,11 +139,9 @@ impl ChaChaRng {
                 let index = self.0.gen_range(0..t.len());
                 Ok(t[index].clone())
             }
-            unexpected => unexpected_type_error_with_slice(
-                "random.pick",
-                "a List or Range as argument",
-                unexpected,
-            ),
+            unexpected => {
+                type_error_with_slice("random.pick", "a List or Range as argument", unexpected)
+            }
         }
     }
 
@@ -154,9 +152,7 @@ impl ChaChaRng {
                 self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());
                 Ok(Null)
             }
-            unexpected => {
-                unexpected_type_error_with_slice("random.seed", "a Number as argument", unexpected)
-            }
+            unexpected => type_error_with_slice("random.seed", "a Number as argument", unexpected),
         }
     }
 }
