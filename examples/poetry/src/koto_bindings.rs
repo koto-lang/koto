@@ -26,7 +26,7 @@ thread_local! {
 }
 
 fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Iterator, Null, Str};
+    use Value::{Null, Str};
 
     MetaMapBuilder::<KotoPoetry>::new("Poetry")
         .data_fn_with_args_mut("add_source_material", |poetry, args| match args {
@@ -40,7 +40,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
             let iter = PoetryIter {
                 poetry: poetry_value.clone(),
             };
-            Ok(Iterator(ValueIterator::new(iter)))
+            Ok(ValueIterator::new(iter).into())
         })
         .data_fn_mut("next_word", |poetry| {
             let result = match poetry.0.next_word() {

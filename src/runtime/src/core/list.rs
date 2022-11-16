@@ -138,7 +138,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(Bool(l.data().is_empty())),
+        [List(l)] => Ok(l.data().is_empty().into()),
         unexpected => type_error_with_slice("a List as argument", unexpected),
     });
 

@@ -102,14 +102,14 @@ pub fn make_module() -> ValueMap {
     result.add_value("infinity", Number(std::f64::INFINITY.into()));
 
     result.add_fn("is_nan", |vm, args| match vm.get_args(args) {
-        [Number(n)] => Ok(Bool(n.is_nan())),
+        [Number(n)] => Ok(n.is_nan().into()),
         unexpected => type_error_with_slice("a Number as argument", unexpected),
     });
 
     result.add_fn("lerp", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b), Number(t)] => {
             let result = *a + (b - a) * *t;
-            Ok(Number(result))
+            Ok(result.into())
         }
         unexpected => type_error_with_slice("two Numbers as arguments", unexpected),
     });

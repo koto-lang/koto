@@ -19,7 +19,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
         [Map(m), key] if key.is_immutable() => {
-            Ok(Bool(m.data().contains_key(&ValueKey::from(key.clone()))))
+            let result = m.data().contains_key(&ValueKey::from(key.clone()));
+            Ok(result.into())
         }
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
@@ -145,14 +146,14 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Bool(m.is_empty())),
+        [Map(m)] => Ok(m.is_empty().into()),
         unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
 
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
         unexpected => type_error_with_slice("a Map as argument", unexpected),
     });
@@ -260,7 +261,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::new(result)))
+            Ok(ValueIterator::new(result).into())
         }
         unexpected => type_error_with_slice("a Map as argument", unexpected),
     });

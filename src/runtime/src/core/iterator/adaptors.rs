@@ -121,9 +121,7 @@ impl Iterator for Chunks {
 
             // Make the chunk iterator by using a Take adaptor.
             let chunk_iter = Take::new(result_iter, self.chunk_size);
-            Some(Output::Value(Value::Iterator(ValueIterator::new(
-                chunk_iter,
-            ))))
+            Some(Output::Value(ValueIterator::new(chunk_iter).into()))
         } else {
             None
         }
@@ -859,9 +857,7 @@ impl Iterator for Windows {
             // Move the input iterator to the start of the next window
             self.iter.next();
 
-            Some(Output::Value(Value::Iterator(ValueIterator::new(
-                window_iter,
-            ))))
+            Some(Output::Value(ValueIterator::new(window_iter).into()))
         } else {
             None
         }

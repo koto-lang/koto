@@ -12,7 +12,7 @@ pub fn make_module() -> ValueMap {
             } else {
                 n.ceil() <= r.start && n.floor() > r.end
             };
-            Ok(Bool(result))
+            Ok(result.into())
         }
         unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
     });

@@ -13,7 +13,7 @@ pub fn make_module() -> ValueMap {
     result.add_value("script_path", Null);
 
     result.add_fn("type", |vm, args| match vm.get_args(args) {
-        [value] => Ok(Str(value.type_as_string())),
+        [value] => Ok(value.type_as_string().into()),
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 

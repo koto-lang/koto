@@ -285,6 +285,12 @@ impl From<bool> for Value {
     }
 }
 
+impl From<ValueNumber> for Value {
+    fn from(value: ValueNumber) -> Self {
+        Self::Number(value)
+    }
+}
+
 impl From<&str> for Value {
     fn from(value: &str) -> Self {
         Self::Str(value.into())

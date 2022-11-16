@@ -118,7 +118,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
         [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
-            Ok(result) => Ok(Str(result.into())),
+            Ok(result) => Ok(result.into()),
             Err(error) => {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
@@ -147,7 +147,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("stdout", |vm, _| Ok(File::stdout(vm)));
 
     result.add_fn("temp_dir", {
-        |_, _| Ok(Str(std::env::temp_dir().to_string_lossy().as_ref().into()))
+        |_, _| Ok(std::env::temp_dir().to_string_lossy().as_ref().into())
     });
 
     result
@@ -158,7 +158,7 @@ thread_local! {
 }
 
 fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Null, Number, Str};
+    use Value::{Null, Number};
 
     MetaMapBuilder::<File>::new("File")
         .data_fn_mut("flush", |file| file.flush().map(|_| Null))
@@ -205,7 +205,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
             file.write(line.as_bytes()).map(|_| Value::Null)
         })
         .data_fn(UnaryOp::Display, |file| {
-            Ok(Str(format!("File({})", file.0.id()).into()))
+            Ok(format!("File({})", file.0.id()).into())
         })
         .build()
 }

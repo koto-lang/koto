@@ -49,7 +49,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
-            Ok(result) => Ok(Str(result.into())),
+            Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("toml.to_string: {}", e),
         },
         unexpected => type_error_with_slice("a Value as argument", unexpected),
