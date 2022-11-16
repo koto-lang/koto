@@ -10,7 +10,7 @@ The Koto project adheres to
 
 ### Added
 
-### Language
+#### Language
 
 - Ellipses can now be used when unpacking nested function args.
   - e.g. 
@@ -19,6 +19,11 @@ The Koto project adheres to
     f (10, 100, 1, 2, 3)
     # 1006
     ```
+
+#### Internals
+
+- `MetaMapBuilder` is now available to simplify the creation of `MetaMap`s. 
+- Preludes are now available in the `koto` and `koto_runtime` crates.
 
 ### Changed
 
@@ -34,6 +39,7 @@ The Koto project adheres to
   constraint replaced with a required `id()` function.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
+- Type strings are now expected to be provided as `ValueString`s.
 
 ### Removed
 
@@ -47,6 +53,8 @@ The Koto project adheres to
     # You can use:
     "hello"[2..4]
     ```
+- The `Value::ExternalData` variant has been removed, `ExternalValue` can be
+  used instead. 
 
 ### Fixed
 
