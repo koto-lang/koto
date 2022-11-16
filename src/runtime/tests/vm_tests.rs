@@ -6,11 +6,7 @@ mod vm {
             num2, num4, number, number_list, number_tuple, string, test_script,
             test_script_with_vm, value_tuple,
         },
-        koto_runtime::{
-            runtime_error, DataMap, IntRange,
-            Value::{self, *},
-            ValueList, ValueMap, ValueTuple, Vm,
-        },
+        koto_runtime::{prelude::*, Value::*},
     };
 
     mod literals {

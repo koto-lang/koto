@@ -3,10 +3,7 @@ mod runtime_test_utils;
 mod external_values {
     use {
         crate::runtime_test_utils::{string, test_script_with_vm},
-        koto_runtime::{
-            runtime_error, type_error, type_error_with_slice, BinaryOp, ExternalData,
-            ExternalValue, MetaMap, MetaMapBuilder, UnaryOp, Value, Vm,
-        },
+        koto_runtime::prelude::*,
         std::{cell::RefCell, rc::Rc},
     };
 

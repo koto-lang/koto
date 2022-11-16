@@ -1,10 +1,6 @@
 //! A Koto language module for working with YAML data
 
-use {
-    koto_runtime::{runtime_error, type_error_with_slice, Value, ValueList, ValueMap, ValueVec},
-    koto_serialize::SerializableValue,
-    serde_yaml::Value as YamlValue,
-};
+use {koto_runtime::prelude::*, koto_serialize::SerializableValue, serde_yaml::Value as YamlValue};
 
 pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, String> {
     let result = match value {

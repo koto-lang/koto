@@ -8,11 +8,11 @@ use {
         runtime_error,
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, Loader, MetaKey,
+        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, MetaKey,
         RuntimeError, RuntimeResult, UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber,
         ValueString, ValueTuple, ValueVec,
     },
-    koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
+    koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
     rustc_hash::FxHasher,
     std::{

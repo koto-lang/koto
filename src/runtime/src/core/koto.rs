@@ -1,4 +1,4 @@
-use crate::{type_error_with_slice, Value, ValueMap, ValueTuple};
+use crate::prelude::*;
 
 pub fn make_module() -> ValueMap {
     use Value::*;

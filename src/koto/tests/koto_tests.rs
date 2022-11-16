@@ -1,5 +1,5 @@
 use {
-    koto::{Koto, KotoSettings},
+    koto::prelude::*,
     std::{
         cell::RefCell,
         fs::read_to_string,

@@ -1,7 +1,4 @@
-use crate::{
-    num2, num4, runtime_error, type_error, type_error_with_slice, BinaryOp, RuntimeResult, Value,
-    ValueMap, ValueNumber,
-};
+use crate::{num2, num4, prelude::*};
 
 pub fn make_module() -> ValueMap {
     use Value::*;

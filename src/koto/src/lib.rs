@@ -7,7 +7,7 @@
 //! ## Example
 //!
 //! ```
-//! use koto::{Koto, runtime::Value};
+//! use koto::prelude::*;
 //!
 //! let mut koto = Koto::default();
 //! match koto.compile("1 + 2") {
@@ -26,15 +26,14 @@
 //! }
 //! ```
 
+pub mod prelude;
+
 pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
     dunce::canonicalize,
-    koto_bytecode::{Chunk, LoaderError},
-    koto_runtime::{
-        CallArgs, KotoFile, MetaKey, ModuleImportedCallback, RuntimeError, UnaryOp, Value,
-        ValueMap, Vm, VmSettings,
-    },
+    koto_runtime::ModuleImportedCallback,
+    prelude::*,
     std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
 

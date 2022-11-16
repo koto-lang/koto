@@ -19,14 +19,13 @@ mod vm;
 pub mod core;
 pub mod num2;
 pub mod num4;
+pub mod prelude;
 pub mod value;
 
 pub use {
-    error::*,
+    error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
     external::{ExternalData, ExternalFunction, ExternalValue},
     file::{KotoFile, KotoRead, KotoWrite},
-    koto_bytecode::{CompilerError, Loader, LoaderError},
-    koto_parser::ParserError,
     meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
     num2::Num2,
     num4::Num4,

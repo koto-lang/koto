@@ -1,7 +1,4 @@
-use crate::{
-    type_error_with_slice, value_sort::sort_values, BinaryOp, RuntimeResult, Value, ValueList,
-    ValueMap,
-};
+use crate::{prelude::*, value_sort::sort_values};
 
 pub fn make_module() -> ValueMap {
     use Value::*;

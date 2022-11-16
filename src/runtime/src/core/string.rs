@@ -2,13 +2,7 @@ pub mod format;
 pub mod iterators;
 
 use {
-    super::iterator::collect_pair,
-    crate::{
-        runtime_error, type_error, type_error_with_slice,
-        value_iterator::{ValueIterator, ValueIteratorOutput as Output},
-        RuntimeResult, Value, ValueMap,
-    },
-    std::convert::TryFrom,
+    super::iterator::collect_pair, crate::prelude::*, std::convert::TryFrom,
     unicode_segmentation::UnicodeSegmentation,
 };
 
@@ -73,6 +67,7 @@ pub fn make_module() -> ValueMap {
             let mut bytes = Vec::<u8>::with_capacity(size_hint);
 
             for output in iterator.map(collect_pair) {
+                use ValueIteratorOutput as Output;
                 match output {
                     Output::Value(Number(n)) => match u8::try_from(n.as_i64()) {
                         Ok(byte) => bytes.push(byte),
