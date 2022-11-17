@@ -1,6 +1,6 @@
 # Functions
 
-Functions are values, and are created using a pair of `|` characters (often called [_pipe_](https://en.wikipedia.org/wiki/Vertical_bar#Pipe) characters in computing), with the function arguments listed between the start and end `|`. 
+Functions are values, and are created using a pair of `|` vertical bars, with the function arguments listed between the start and end `|`. 
 
 The _body_ of the function follows, with the result of the body used as the function's result.
 
@@ -35,8 +35,7 @@ check! 8
 
 ## Return 
 
-A function's body can be an indented block, with the last expression used as
-the function's result.
+A function's body can be an indented block, with the final expression in the body used as the function's result.
 
 ```koto
 f = |x, y, z|

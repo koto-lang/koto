@@ -100,8 +100,8 @@ check! true
 
 ## Null
 
-The `null` keyword is used to declare a Null value,
-which is used to represent the absence of a value.
+The `null` keyword is used to declare a value of type `Null`,
+which represents the absence of a value.
 
 ```koto
 print! null
