@@ -7,8 +7,9 @@
 ```
 
 Checks the Iterable's values against a test Function.
-The Function should return `true` or `false`, and then `all` returns `true`
-if all values pass the test.
+
+The provided function should return `true` or `false`, 
+and then `all` will return `true` if all values pass the test.
 
 `all` stops running as soon as it finds a failing test, and then `false` is
 returned.
@@ -35,8 +36,9 @@ check! true
 ```
 
 Checks the Iterable's values against a test Function.
-The Function should return `true` or `false`, and then `any` returns `true`
-if any of the values pass the test.
+
+The provided function should return `true` or `false`, 
+and then `any` will return `true` if any of the values pass the test.
 
 `any` stops running as soon as it finds a passing test.
 
@@ -67,7 +69,9 @@ followed by the output of the second iterator.
 ### Example
 
 ```koto
-print! [1, 2].chain([3, 4, 5]).to_tuple()
+print! [1, 2]
+  .chain [3, 4, 5]
+  .to_tuple()
 check! (1, 2, 3, 4, 5)
 ```
 
@@ -87,7 +91,7 @@ e.g. a List or a String (i.e. not an adapted iterator or a generator).
 ### Example
 
 ```koto
-print! (1..=10)
+print! 1..=10
   .chunks 3
   .each |chunk| chunk.to_list()
   .to_list()
@@ -113,7 +117,7 @@ iterator output value.
 
 ```koto
 result = []
-(1..=10)
+1..=10
   .keep |n| n % 2 == 0
   .each |n| result.push n
   .consume()
@@ -123,7 +127,7 @@ check! [2, 4, 6, 8, 10]
 # Alternatively, calling consume with a function is equivalent to having an
 # `each` / `consume` chain
 result = []
-(1..=10)
+1..=10
   .keep |n| n % 2 == 1
   .consume |n| result.push n
 print! result
@@ -181,7 +185,7 @@ Counts the number of items yielded from the iterator.
 print! (5..15).count()
 check! 10
 
-print! (0..100)
+print! 0..100
   .keep |x| x % 2 == 0
   .count()
 check! 50
@@ -279,7 +283,9 @@ containers will still be present in the output.
 ### Example
 
 ```koto
-print! [(2, 4), [6, 8, (10, 12)]].flatten().to_list()
+print! [(2, 4), [6, 8, (10, 12)]]
+  .flatten()
+  .to_list()
 check! [2, 4, 6, 8, (10, 12)]
 ```
 
@@ -310,7 +316,8 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 ### Example
 
 ```koto
-print! ('a', 'b', 'c').fold '', |result, x| result += x + '-'
+print! ('a', 'b', 'c')
+  .fold '', |result, x| result += x + '-'
 check! a-b-c-
 ```
 
@@ -324,13 +331,17 @@ check! a-b-c-
 ```kototype
 |Function| -> Iterator
 ```
+
+Provides an iterator that yields the result of repeatedly calling the provided
+function. Note that this version of `generate` won't terminate and will iterate
+endlessly.
+
 ```kototype
 |Number, Function| -> Value
 ```
 
 Provides an iterator that yields the result of repeatedly calling the provided
-function. A number of calls to the function can be provided as the first
-argument.
+function `n` times.
 
 ### Example
 
@@ -420,7 +431,9 @@ discarded.
 ### Example
 
 ```koto
-print! (0..10).keep(|x| x % 2 == 0).to_tuple()
+print! 0..10
+  .keep |x| x % 2 == 0
+  .to_tuple()
 check! (0, 2, 4, 6, 8)
 ```
 
@@ -620,7 +633,9 @@ A number of repeats can be optionally provided as the second argument.
 ### Example
 
 ```koto
-print! iterator.repeat(42).take(5).to_list()
+print! iterator.repeat(42)
+  .take(5)
+  .to_list()
 check! [42, 42, 42, 42, 42]
 
 print! iterator.repeat(-1, 3).to_tuple()
@@ -849,7 +864,10 @@ e.g. a List or a String (i.e. not an adapted iterator or a generator).
 ### Example
 
 ```koto
-print! (1..=5).windows(3).each(iterator.to_list).to_list(),
+print! 1..=5
+  .windows(3)
+  .each iterator.to_list
+  .to_list(),
 check! [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
 ```
 
@@ -865,6 +883,8 @@ corresponding pairs of values, one at a time from each input iterable.
 ### Example
 
 ```koto
-print! (1, 2, 3).zip(('a', 'b', 'c')).to_list()
+print! (1, 2, 3)
+  .zip ('a', 'b', 'c')
+  .to_list()
 check! [(1, 'a'), (2, 'b'), (3, 'c')]
 ```
