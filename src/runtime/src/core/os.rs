@@ -113,12 +113,15 @@ thread_local! {
 }
 
 fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
+    use Value::ExternalValue;
+
     MetaMapBuilder::<Timer>::new("Timer")
         .data_fn(UnaryOp::Display, |data| {
             Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
         })
-        .data_fn_2(BinaryOp::Subtract, |a, b| match b {
-            DataOrArgs::Data(b) => {
+        .data_fn_with_args(BinaryOp::Subtract, |a, b| match b {
+            [ExternalValue(b)] if b.has_data::<Timer>() => {
+                let b = b.data::<Timer>().unwrap();
                 let result = if a.0 >= b.0 {
                     a.0.duration_since(b.0).as_secs_f64()
                 } else {
@@ -126,7 +129,7 @@ fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
                 };
                 Ok(result.into())
             }
-            DataOrArgs::Args(unexpected) => type_error_with_slice("Timer", unexpected),
+            unexpected => type_error_with_slice("Timer", unexpected),
         })
         .data_fn("elapsed", |instant| {
             Ok(instant.0.elapsed().as_secs_f64().into())

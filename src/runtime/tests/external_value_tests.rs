@@ -28,17 +28,20 @@ mod external_values {
     }
 
     fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
-        use Value::{Bool, Null, Number};
+        use Value::{Bool, ExternalValue, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 
         macro_rules! arithmetic_op {
             ($op:tt) => {
                 |a, b| match b {
-                    DataOrArgs::Data(b) => Ok(TestExternalData::make_value(a.x $op b.x)),
-                    DataOrArgs::Args([Number(n)]) => {
+                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
+                        let b = b.data::<TestExternalData>().unwrap();
+                        Ok(TestExternalData::make_value(a.x $op b.x))
+                    }
+                    [Number(n)] => {
                         Ok(TestExternalData::make_value(a.x $op f64::from(n)))
                     }
-                    DataOrArgs::Args(unexpected) => {
+                    unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
                     }
                 }
@@ -48,15 +51,16 @@ mod external_values {
         macro_rules! comparison_op {
             ($op:tt) => {
                 |a, b| match b {
-                    DataOrArgs::Data(b) => {
+                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
+                        let b = b.data::<TestExternalData>().unwrap();
                         #[allow(clippy::float_cmp)]
                         Ok(Bool(a.x $op b.x))
-                    },
-                    DataOrArgs::Args([Number(n)]) => {
+                    }
+                    [Number(n)] => {
                         #[allow(clippy::float_cmp)]
                         Ok(Bool(a.x $op f64::from(n)))
                     }
-                    DataOrArgs::Args(unexpected) => {
+                    unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
                     }
                 }
@@ -68,17 +72,17 @@ mod external_values {
                 Ok(format!("TestExternalValue: {}", data.x).into())
             })
             .data_fn(Negate, |data| Ok(TestExternalData::make_value(-data.x)))
-            .data_fn_2(Add, arithmetic_op!(+))
-            .data_fn_2(Subtract, arithmetic_op!(-))
-            .data_fn_2(Multiply, arithmetic_op!(*))
-            .data_fn_2(Divide, arithmetic_op!(/))
-            .data_fn_2(Remainder, arithmetic_op!(%))
-            .data_fn_2(Less, comparison_op!(<))
-            .data_fn_2(LessOrEqual, comparison_op!(<=))
-            .data_fn_2(Greater, comparison_op!(>))
-            .data_fn_2(GreaterOrEqual, comparison_op!(>=))
-            .data_fn_2(Equal, comparison_op!(==))
-            .data_fn_2(NotEqual, comparison_op!(!=))
+            .data_fn_with_args(Add, arithmetic_op!(+))
+            .data_fn_with_args(Subtract, arithmetic_op!(-))
+            .data_fn_with_args(Multiply, arithmetic_op!(*))
+            .data_fn_with_args(Divide, arithmetic_op!(/))
+            .data_fn_with_args(Remainder, arithmetic_op!(%))
+            .data_fn_with_args(Less, comparison_op!(<))
+            .data_fn_with_args(LessOrEqual, comparison_op!(<=))
+            .data_fn_with_args(Greater, comparison_op!(>))
+            .data_fn_with_args(GreaterOrEqual, comparison_op!(>=))
+            .data_fn_with_args(Equal, comparison_op!(==))
+            .data_fn_with_args(NotEqual, comparison_op!(!=))
             .data_fn_with_args(Index, |data, args| match args {
                 [Number(index)] => {
                     let index = usize::from(index);
@@ -92,14 +96,13 @@ mod external_values {
                 data.x *= -1.0;
                 Ok(Null)
             })
-            .data_fn_2_mut("set_all_instances", |a, b| match b {
-                DataOrArgsMut::Data(b) => {
+            .data_fn_with_args_mut("set_all_instances", |a, b| match b {
+                [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
+                    let b = b.data::<TestExternalData>().unwrap();
                     a.x = b.x;
                     Ok(Null)
                 }
-                DataOrArgsMut::Args(unexpected) => {
-                    type_error_with_slice("TestExternalValue", unexpected)
-                }
+                unexpected => type_error_with_slice("TestExternalValue", unexpected),
             })
             .data_fn_with_args_mut("absorb_values", |data, args| {
                 for arg in args.iter() {

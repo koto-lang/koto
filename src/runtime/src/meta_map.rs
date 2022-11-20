@@ -435,78 +435,6 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects an instance of ExternalValue, followed by either
-    /// another ExternalValue or other arguments.
-    ///
-    /// This is useful when you want access to the internal data of two ExternalValues,
-    /// e.g. when implementing a BinaryOp.
-    pub fn data_fn_2<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&T, DataOrArgs<T>) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(a), Value::ExternalValue(b)]
-                if a.value_type() == type_name && b.value_type() == type_name =>
-            {
-                match (a.data::<T>(), b.data::<T>()) {
-                    (Some(data_a), Some(data_b)) => f(&data_a, DataOrArgs::Data(data_b.deref())),
-                    _ => unexpected_data_type_2(a, b),
-                }
-            }
-            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
-                match value.data::<T>() {
-                    Some(data) => f(&data, DataOrArgs::Args(args)),
-                    None => unexpected_data_type(value),
-                }
-            }
-            unexpected => unexpected_instance_type_2(&type_name, unexpected),
-        });
-
-        self
-    }
-
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects an instance of ExternalValue, followed by either
-    /// another ExternalValue or other arguments.
-    ///
-    /// This is useful when you want mutable access to the internal data of two ExternalValues,
-    /// e.g. when implementing a BinaryOp.
-    pub fn data_fn_2_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T, DataOrArgsMut<T>) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(a), Value::ExternalValue(b)]
-                if a.value_type() == type_name && b.value_type() == type_name =>
-            {
-                match (a.data_mut::<T>(), b.data_mut::<T>()) {
-                    (Some(mut data_a), Some(mut data_b)) => {
-                        f(&mut data_a, DataOrArgsMut::Data(data_b.deref_mut()))
-                    }
-                    _ => unexpected_data_type_2(a, b),
-                }
-            }
-            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
-                match value.data_mut::<T>() {
-                    Some(mut data) => f(&mut data, DataOrArgsMut::Args(args)),
-                    None => unexpected_data_type(value),
-                }
-            }
-            unexpected => unexpected_instance_type_2(&type_name, unexpected),
-        });
-
-        self
-    }
-
     /// Adds a function that takes an ExternalValue instance, followed by other arguments
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
@@ -567,29 +495,8 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     }
 }
 
-pub enum DataOrArgs<'a, T: ExternalData> {
-    Data(&'a T),
-    Args(&'a [Value]),
-}
-
-pub enum DataOrArgsMut<'a, T: ExternalData> {
-    Data(&'a mut T),
-    Args(&'a [Value]),
-}
-
 fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {
     runtime_error!("Unexpected external data type: {}", unexpected.data_type(),)
-}
-
-fn unexpected_data_type_2(
-    unexpected_a: &ExternalValue,
-    unexpected_b: &ExternalValue,
-) -> Result<Value, RuntimeError> {
-    runtime_error!(
-        "Unexpected external data types: lhs: {}, rhs: {}",
-        unexpected_a.data_type(),
-        unexpected_b.data_type(),
-    )
 }
 
 fn unexpected_instance_type(
@@ -597,11 +504,4 @@ fn unexpected_instance_type(
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
     type_error_with_slice(&format!("'{type_name}'"), unexpected)
-}
-
-fn unexpected_instance_type_2(
-    type_name: &ValueString,
-    unexpected: &[Value],
-) -> Result<Value, RuntimeError> {
-    type_error_with_slice(&format!("two '{type_name}'s"), unexpected)
 }

@@ -66,6 +66,13 @@ impl ExternalValue {
         }
     }
 
+    pub fn has_data<T: ExternalData>(&self) -> bool {
+        match self.data.try_borrow() {
+            Ok(data) => data.downcast_ref::<T>().is_some(),
+            Err(_) => false,
+        }
+    }
+
     pub fn data<T: ExternalData>(&self) -> Option<Ref<T>> {
         match self.data.try_borrow() {
             Ok(data_ref) => Ref::filter_map(data_ref, |data| data.downcast_ref::<T>()).ok(),
