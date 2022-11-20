@@ -1,5 +1,7 @@
 //! Contains the runtime and core library for the Koto language
 
+#![warn(missing_docs)]
+
 mod error;
 mod external;
 mod file;

@@ -1,3 +1,6 @@
+//! A collection of useful items to make it easier to work with `koto_runtime`
+
+#[doc(inline)]
 pub use crate::{
     make_runtime_error, runtime_error, type_error, type_error_with_slice, BinaryOp, CallArgs,
     DataMap, ExternalData, ExternalValue, IntRange, KotoFile, KotoIterator, KotoRead, KotoWrite,

@@ -1,3 +1,5 @@
+//! Adapators used by the `iterator` core library module
+
 use {
     super::collect_pair,
     crate::{prelude::*, ValueIteratorOutput as Output},
@@ -11,6 +13,7 @@ pub struct Chain {
 }
 
 impl Chain {
+    /// Creates a [Chain] adapator from two iterators
     pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
         Self {
             iter_a: Some(iter_a),
@@ -80,6 +83,7 @@ pub struct Chunks {
 }
 
 impl Chunks {
+    /// Creates a [Chunks] adapator
     pub fn new(iter: ValueIterator, chunk_size: usize) -> Result<Self, ChunksError> {
         if chunk_size < 1 {
             Err(ChunksError::ChunkSizeMustBeAtLeastOne)
@@ -150,6 +154,8 @@ impl Iterator for Chunks {
     }
 }
 
+/// An error that can be returned by [Chunks::new]
+#[allow(missing_docs)]
 pub enum ChunksError {
     IteratorMightHaveSideEffects,
     ChunkSizeMustBeAtLeastOne,
@@ -183,6 +189,7 @@ pub struct Cycle {
 }
 
 impl Cycle {
+    /// Creates a new [Cycle] adaptor
     pub fn new(iterator: ValueIterator) -> Self {
         Self {
             iter: iterator.make_copy(),
@@ -241,6 +248,7 @@ pub struct Each {
 }
 
 impl Each {
+    /// Creates a new [Each] adaptor
     pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
         Self { iter, function, vm }
     }
@@ -293,6 +301,7 @@ pub struct Enumerate {
 }
 
 impl Enumerate {
+    /// Creates a new [Enumerate] adaptor
     pub fn new(iter: ValueIterator) -> Self {
         Self { iter, index: 0 }
     }
@@ -342,6 +351,7 @@ pub struct Flatten {
 }
 
 impl Flatten {
+    /// Creates a new [Flatten] adaptor
     pub fn new(iter: ValueIterator, vm: Vm) -> Self {
         Self {
             vm,
@@ -402,6 +412,7 @@ pub struct Intersperse {
 }
 
 impl Intersperse {
+    /// Creates a new [Intersperse] adaptor
     pub fn new(iter: ValueIterator, separator: Value) -> Self {
         Self {
             iter,
@@ -466,6 +477,7 @@ pub struct IntersperseWith {
 }
 
 impl IntersperseWith {
+    /// Creates a new [IntersperseWith] adaptor
     pub fn new(iter: ValueIterator, separator_function: Value, vm: Vm) -> Self {
         Self {
             iter,
@@ -546,6 +558,7 @@ pub struct Keep {
 }
 
 impl Keep {
+    /// Creates a new [Keep] adaptor
     pub fn new(iter: ValueIterator, predicate: Value, vm: Vm) -> Self {
         Self {
             iter,
@@ -614,6 +627,7 @@ pub struct PairFirst {
 }
 
 impl PairFirst {
+    /// Creates a new [PairFirst] adaptor
     pub fn new(iter: ValueIterator) -> Self {
         Self { iter }
     }
@@ -653,6 +667,7 @@ pub struct PairSecond {
 }
 
 impl PairSecond {
+    /// Creates a new [PairSecond] adaptor
     pub fn new(iter: ValueIterator) -> Self {
         Self { iter }
     }
@@ -692,6 +707,7 @@ pub struct Reversed {
 }
 
 impl Reversed {
+    /// Creates a new [Reversed] adaptor
     pub fn new(iter: ValueIterator) -> Result<Self, ReversedError> {
         if iter.is_bidirectional() {
             Ok(Self {
@@ -728,6 +744,8 @@ impl Iterator for Reversed {
     }
 }
 
+/// An error that can be returned by [Reversed::new]
+#[allow(missing_docs)]
 pub enum ReversedError {
     IteratorIsntReversible,
 }
@@ -757,6 +775,7 @@ pub struct Take {
 }
 
 impl Take {
+    /// Creates a new [Take] adaptor
     pub fn new(iter: ValueIterator, count: usize) -> Self {
         Self {
             iter,
@@ -808,6 +827,7 @@ pub struct Windows {
 }
 
 impl Windows {
+    /// Creates a new [Windows] adaptor
     pub fn new(iter: ValueIterator, window_size: usize) -> Result<Self, WindowsError> {
         if window_size < 1 {
             Err(WindowsError::WindowSizeMustBeAtLeastOne)
@@ -871,6 +891,8 @@ impl Iterator for Windows {
     }
 }
 
+/// An error that can be returned by [Windows::new]
+#[allow(missing_docs)]
 pub enum WindowsError {
     IteratorMightHaveSideEffects,
     WindowSizeMustBeAtLeastOne,
@@ -904,6 +926,7 @@ pub struct Zip {
 }
 
 impl Zip {
+    /// Creates a new [Zip] adaptor
     pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
         Self { iter_a, iter_b }
     }

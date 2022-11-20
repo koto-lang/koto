@@ -5,6 +5,8 @@ use {
     std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
 
+/// The error type returned by [Koto] operations
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub enum KotoError {
     CompileError(LoaderError),
@@ -17,6 +19,10 @@ pub enum KotoError {
 }
 
 impl KotoError {
+    /// Returns true if the error is a complier 'expected indentation' error
+    ///
+    /// This is useful in the REPL, where an indentation error signals that the expression should be
+    /// continued on an indented line.
     pub fn is_indentation_error(&self) -> bool {
         match &self {
             Self::CompileError(e) => e.is_indentation_error(),
@@ -160,10 +166,12 @@ impl Default for Koto {
 }
 
 impl Koto {
+    /// Initializes Koto with the default settings
     pub fn new() -> Self {
         Self::with_settings(KotoSettings::default())
     }
 
+    /// Initializes Koto with the provided settings
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
             runtime: Vm::with_settings(VmSettings {
@@ -180,6 +188,9 @@ impl Koto {
         }
     }
 
+    /// Compiles a Koto script, returning the complied chunk if successful
+    ///
+    /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
     pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
         let compile_result = if self.repl_mode {
             self.runtime.loader().borrow_mut().compile_repl(script)
@@ -204,11 +215,13 @@ impl Koto {
         self.runtime.loader().borrow_mut().clear_cache();
     }
 
+    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
     pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
         self.set_args(args)?;
         self.run()
     }
 
+    /// Runs the chunk last compiled with [compile](Koto::compile)
     pub fn run(&mut self) -> KotoResult {
         let chunk = self.chunk.clone();
         match chunk {
@@ -257,6 +270,7 @@ impl Koto {
         }
     }
 
+    /// Runs a function in the runtime's exports map by name
     pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
         match self.runtime.get_exported_function(function_name) {
             Some(f) => self.run_function(f, args),
@@ -264,26 +278,31 @@ impl Koto {
         }
     }
 
+    /// Runs a function in the runtime's exports map by name
     pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
         self.runtime
             .run_function(function, args)
             .map_err(|e| e.into())
     }
 
+    /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: Value) -> KotoResult {
         self.runtime
             .run_unary_op(UnaryOp::Display, value)
             .map_err(|e| e.into())
     }
 
+    /// Returns a reference to the runtime's prelude
     pub fn prelude(&self) -> &ValueMap {
         self.runtime.prelude()
     }
 
+    /// Returns a reference to the runtime's exports
     pub fn exports(&self) -> &ValueMap {
         self.runtime.exports()
     }
 
+    /// Sets the arguments for the script, accessible via `koto.args()`
     pub fn set_args(&mut self, args: &[String]) -> Result<(), KotoError> {
         use Value::{Map, Str, Tuple};
 
@@ -306,6 +325,7 @@ impl Koto {
         }
     }
 
+    /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
     pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
         use Value::{Map, Null, Str};
 

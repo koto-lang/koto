@@ -1,3 +1,5 @@
+//! The `list` core library module
+
 use {
     super::iterator::collect_pair,
     crate::{
@@ -7,6 +9,7 @@ use {
     std::{cmp::Ordering, ops::DerefMut},
 };
 
+/// Initializes the `list` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

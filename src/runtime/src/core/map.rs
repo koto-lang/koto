@@ -1,9 +1,12 @@
+//! The `map` core library module
+
 use {
     super::iterator::adaptors,
     crate::{prelude::*, value_sort::compare_values},
     std::{cmp::Ordering, ops::Deref},
 };
 
+/// Initializes the `map` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

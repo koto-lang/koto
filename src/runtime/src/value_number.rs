@@ -8,6 +8,10 @@ use {
     },
 };
 
+/// The Number type used by the Koto runtime
+///
+/// The number can be either an `f64` or an `i64` depending on usage.
+#[allow(missing_docs)]
 #[derive(Clone, Copy)]
 pub enum ValueNumber {
     F64(f64),
@@ -15,6 +19,7 @@ pub enum ValueNumber {
 }
 
 impl ValueNumber {
+    /// Returns the absolute value of the number
     #[must_use]
     pub fn abs(self) -> Self {
         match self {
@@ -23,6 +28,7 @@ impl ValueNumber {
         }
     }
 
+    /// Returns the smallest integer greater than or equal to the number
     #[must_use]
     pub fn ceil(self) -> Self {
         match self {
@@ -31,11 +37,15 @@ impl ValueNumber {
         }
     }
 
+    /// Returns the largest integer less than or equal to the number
     #[must_use]
     pub fn floor(self) -> Self {
         Self::I64(self.as_i64())
     }
 
+    /// Returns the integer closest to the number
+    ///
+    /// Half-way values get rounded away from zero.
     #[must_use]
     pub fn round(self) -> Self {
         match self {
@@ -44,10 +54,12 @@ impl ValueNumber {
         }
     }
 
+    /// Returns true if the number is represented by an `f64`
     pub fn is_f64(self) -> bool {
         matches!(self, Self::F64(_))
     }
 
+    /// Returns true if the integer version of the number is representable by an `f64`
     pub fn is_i64_in_f64_range(&self) -> bool {
         if let Self::I64(n) = *self {
             (n as f64 as i64) == n
@@ -56,6 +68,7 @@ impl ValueNumber {
         }
     }
 
+    /// Returns true if the number is NaN
     pub fn is_nan(self) -> bool {
         match self {
             Self::F64(n) => n.is_nan(),
@@ -63,6 +76,10 @@ impl ValueNumber {
         }
     }
 
+    /// Returns the result of raising self to the power of `other`
+    ///
+    /// If both inputs are i64s then the result will also be an i64,
+    /// otherwise the result will be an f64.
     #[must_use]
     pub fn pow(self, other: Self) -> Self {
         use ValueNumber::*;
@@ -75,6 +92,7 @@ impl ValueNumber {
         }
     }
 
+    /// Returns the value transmuted to a `u64`
     pub fn to_bits(self) -> u64 {
         match self {
             Self::F64(n) => n.to_bits(),
@@ -82,6 +100,7 @@ impl ValueNumber {
         }
     }
 
+    /// Returns the number as an `i64`, calling `floor` if the number is an `f64`
     pub fn as_i64(self) -> i64 {
         match self {
             Self::F64(n) => n.floor() as i64,

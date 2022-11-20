@@ -25,6 +25,7 @@ type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 pub struct DataMap(DataMapType);
 
 impl DataMap {
+    /// Creates a new DataMap with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self(DataMapType::with_capacity_and_hasher(
             capacity,
@@ -32,6 +33,7 @@ impl DataMap {
         ))
     }
 
+    /// Adds a function with the given id to the map
     pub fn add_fn(
         &mut self,
         id: &str,
@@ -44,6 +46,7 @@ impl DataMap {
         );
     }
 
+    /// Adds an instance function with the given id to the map
     pub fn add_instance_fn(
         &mut self,
         id: &str,
@@ -53,16 +56,19 @@ impl DataMap {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
+    /// Adds a list with the given id to the map
     pub fn add_list(&mut self, id: &str, list: ValueList) {
         #[allow(clippy::useless_conversion)]
         self.add_value(id.into(), Value::List(list));
     }
 
+    /// Adds a map with the given id to the map
     pub fn add_map(&mut self, id: &str, map: ValueMap) {
         #[allow(clippy::useless_conversion)]
         self.add_value(id.into(), Value::Map(map));
     }
 
+    /// Adds a Value with the given id to the map
     pub fn add_value(&mut self, id: &str, value: Value) -> Option<Value> {
         #[allow(clippy::useless_conversion)]
         self.insert(id.into(), value)
@@ -112,18 +118,22 @@ pub struct ValueMap {
 }
 
 impl ValueMap {
+    /// Creates an empty ValueMap
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates an empty ValueMap with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self::with_contents(DataMap::with_capacity(capacity), None)
     }
 
+    /// Creates a ValueMap initialized with the provided data
     pub fn with_data(data: DataMap) -> Self {
         Self::with_contents(data, None)
     }
 
+    /// Creates a ValueMap initialized with the provided data and meta map
     pub fn with_contents(data: DataMap, meta: Option<MetaMap>) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),
@@ -131,7 +141,7 @@ impl ValueMap {
         }
     }
 
-    // Makes a ValueMap taking the data map from the first arg, and the meta map from the second
+    /// Makes a ValueMap taking the data map from the first arg, and the meta map from the second
     pub fn from_data_and_meta_maps(data: &Self, meta: &Self) -> Self {
         Self {
             data: data.data.clone(),
@@ -139,14 +149,19 @@ impl ValueMap {
         }
     }
 
+    /// Provides a reference to the ValueMaps' data
     pub fn data(&self) -> Ref<DataMap> {
         self.data.borrow()
     }
 
+    /// Provides a mutable reference to the ValueMaps' data
     pub fn data_mut(&self) -> RefMut<DataMap> {
         self.data.borrow_mut()
     }
 
+    /// Provides a reference to the ValueMaps' meta map
+    ///
+    /// This is returned as a reference to the meta map's Rc to allow for cloning.
     pub fn meta_map(&self) -> Option<&Rc<RefCell<MetaMap>>> {
         self.meta.as_ref()
     }
@@ -165,6 +180,7 @@ impl ValueMap {
             .and_then(|meta| meta.borrow().get(key).cloned())
     }
 
+    /// Insert an entry into the ValueMap's data
     pub fn insert(&self, key: ValueKey, value: Value) {
         self.data_mut().insert(key, value);
     }
@@ -177,18 +193,26 @@ impl ValueMap {
             .insert(key, value);
     }
 
+    /// Returns the number of entries in the ValueMap's data map
+    ///
+    /// Note that this doesn't include entries in the meta map.
     pub fn len(&self) -> usize {
         self.data().len()
     }
 
+    /// Returns true if the ValueMap's data map contains no entries
+    ///
+    /// Note that this doesn't take entries in the meta map into account.
     pub fn is_empty(&self) -> bool {
         self.data().is_empty()
     }
 
+    /// Adds a function to the ValueMap's data map
     pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
+    /// Adds an instance function to the ValueMap's data map
     pub fn add_instance_fn(
         &self,
         id: &str,
@@ -197,14 +221,17 @@ impl ValueMap {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
+    /// Adds a list to the ValueMap's data map
     pub fn add_list(&self, id: &str, list: ValueList) {
         self.add_value(id, Value::List(list));
     }
 
+    /// Adds a map to the ValueMap's data map
     pub fn add_map(&self, id: &str, map: ValueMap) {
         self.add_value(id, Value::Map(map));
     }
 
+    /// Adds a [Value](crate::Value) to the ValueMap's data map
     pub fn add_value(&self, id: &str, value: Value) {
         self.insert(id.into(), value);
     }

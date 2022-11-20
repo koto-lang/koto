@@ -1,5 +1,8 @@
+//! The `test` core library module
+
 use crate::{num2, num4, prelude::*};
 
+/// Initializes the `test` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

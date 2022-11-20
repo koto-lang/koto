@@ -5,6 +5,7 @@ use {
     serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer},
 };
 
+/// A newtype that allows us to implement support for Serde serialization
 pub struct SerializableValue<'a>(pub &'a Value);
 
 impl<'a> Serialize for SerializableValue<'a> {

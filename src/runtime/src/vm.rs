@@ -166,6 +166,7 @@ impl Default for VmSettings {
     }
 }
 
+/// The Koto runtime's virtual machine
 #[derive(Clone)]
 pub struct Vm {
     exports: ValueMap,
@@ -413,6 +414,7 @@ impl Vm {
         result
     }
 
+    /// Provides the result of running a unary operation on a Value
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
@@ -445,6 +447,7 @@ impl Vm {
         result
     }
 
+    /// Provides the result of running a binary operation on a pair of Values
     pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
@@ -524,6 +527,9 @@ impl Vm {
         Ok(result)
     }
 
+    /// Runs any tests that are contained in the map's @tests meta entry
+    ///
+    /// Any test failure will be returned as an error.
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
         use Value::{Function, Map, Null};
 
@@ -2999,6 +3005,7 @@ impl Vm {
         }
     }
 
+    /// The bytecode chunk currently active in the VM
     pub fn chunk(&self) -> Rc<Chunk> {
         self.reader.chunk.clone()
     }
@@ -3134,7 +3141,7 @@ impl Vm {
         &mut self.value_stack[index]
     }
 
-    pub fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+    fn register_slice(&self, register: u8, count: u8) -> &[Value] {
         if count > 0 {
             let start = self.register_index(register);
             &self.value_stack[start..start + count as usize]
@@ -3148,6 +3155,9 @@ impl Vm {
             .truncate(self.register_base() + len as usize);
     }
 
+    /// Returns the register slice corresponding to the given ArgRegisters
+    ///
+    /// This is called by external functions when they need access to the call's arguments.
     pub fn get_args(&self, args: &ArgRegisters) -> &[Value] {
         self.register_slice(args.register, args.count)
     }

@@ -1,5 +1,8 @@
+//! The `koto` core library module
+
 use crate::prelude::*;
 
+/// Initializes the `koto` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

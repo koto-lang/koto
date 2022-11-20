@@ -20,6 +20,10 @@ use {
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
 
+/// The meta map used by [ValueMap](crate::ValueMap) and [ExternalValue](crate::ExternalValue)
+///
+/// Each ValueMap and ExternalValue contains a metamap,
+/// which allows for customized value behaviour by implementing [MetaKeys](crate::MetaKey).
 #[derive(Clone, Debug, Default)]
 pub struct MetaMap(MetaMapType);
 
@@ -60,16 +64,50 @@ impl From<MetaMap> for Rc<RefCell<MetaMap>> {
     }
 }
 
+/// The key type used by [MetaMaps](crate::MetaMap)
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
+    /// A binary operation
+    ///
+    /// e.g. `@+`, `@==`
     BinaryOp(BinaryOp),
+    /// A unary operation
+    ///
+    /// e.g. `@not`
     UnaryOp(UnaryOp),
+    /// A named key
+    ///
+    /// e.g. `@meta my_named_key`
+    ///
+    /// This allows for named entries to be included in the meta map,
+    /// which is particularly useful in [ExternalValue](crate::ExternalValue) metamaps.
+    ///
+    /// Named entries also have use in [ValueMaps][crate::ValueMap] where shared named items can be
+    /// made available without them being inserted into the map's contents.
     Named(ValueString),
+    /// A test function
+    ///
+    /// e.g. `@test my_test`
     Test(ValueString),
+    /// `@tests`
+    ///
+    /// Tests are defined together in a [ValueMap](crate::ValueMap).
     Tests,
+    /// `@pre_test`
+    ///
+    /// Used to define a function that will be run before each `@test`.
     PreTest,
+    /// `@post_test`
+    ///
+    /// Used to define a function that will be run after each `@test`.
     PostTest,
+    /// `@main`
+    ///
+    /// Used to define a function that will be run when a module is first imported.
     Main,
+    /// `@type`
+    ///
+    /// Used to define a [ValueString](crate::ValueString) that declare the value's type.
     Type,
 }
 
@@ -129,19 +167,34 @@ impl From<BinaryOp> for MetaKey {
     }
 }
 
+/// The binary operations that can be implemented in a [MetaMap](crate::MetaMap)
+///
+/// See [MetaKey::BinaryOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
+    /// `@+`
     Add,
+    /// `@-`
     Subtract,
+    /// `@*`
     Multiply,
+    /// `@/`
     Divide,
+    /// `@%`
     Remainder,
+    /// `@<`
     Less,
+    /// `@<=`
     LessOrEqual,
+    /// `@>`
     Greater,
+    /// `@>=`
     GreaterOrEqual,
+    /// `@==`
     Equal,
+    /// `@!=`
     NotEqual,
+    /// `@[]`
     Index,
 }
 
@@ -170,11 +223,18 @@ impl fmt::Display for BinaryOp {
     }
 }
 
+/// The unary operations that can be implemented in a [MetaMap](crate::MetaMap)
+///
+/// See [MetaKey::UnaryOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
+    /// `@display`
     Display,
+    /// `@iterator`
     Iterator,
+    /// `@negate`
     Negate,
+    /// `@not`
     Not,
 }
 
@@ -195,6 +255,7 @@ impl fmt::Display for UnaryOp {
     }
 }
 
+/// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
 pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey, String> {
     use {BinaryOp::*, UnaryOp::*};
 

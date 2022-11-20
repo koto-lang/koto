@@ -1,3 +1,5 @@
+//! The `io` core library module
+
 mod buffered_file;
 
 pub use buffered_file::BufferedFile;
@@ -19,6 +21,7 @@ use {
     },
 };
 
+/// The initializer for the io module
 pub fn make_module() -> ValueMap {
     use Value::{Bool, Null, Str};
 
@@ -154,6 +157,7 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
+    /// The meta map used by Files
     pub static FILE_META: Rc<RefCell<MetaMap>> = make_file_meta_map();
 }
 
@@ -363,6 +367,7 @@ where
     }
 }
 
+/// Converts an io::Error into a RuntimeError
 pub fn map_io_err(e: io::Error) -> RuntimeError {
     e.to_string().into()
 }

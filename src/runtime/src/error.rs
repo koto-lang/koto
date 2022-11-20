@@ -142,8 +142,13 @@ impl fmt::Display for RuntimeError {
 
 impl error::Error for RuntimeError {}
 
+/// The main return type used in the Koto runtime
 pub type RuntimeResult = Result<Value, RuntimeError>;
 
+/// Creates a [RuntimeError] from a provided message
+///
+/// If the `panic_on_runtime_error` feature is enabled then a panic will occur,
+/// which can be useful when debugging.
 #[macro_export]
 macro_rules! make_runtime_error {
     ($message:expr) => {{
@@ -155,6 +160,11 @@ macro_rules! make_runtime_error {
     }};
 }
 
+/// Creates a [RuntimeError] from a message (with format-like behaviour), wrapped in `Err`
+///
+/// Wrapping the result in `Err` is a convenience for functions that need to return immediately when
+/// an error has occured. See `make_runtime_error` for the internal function that creates the
+/// internal error itself.
 #[macro_export]
 macro_rules! runtime_error {
     ($error:literal) => {
@@ -168,6 +178,7 @@ macro_rules! runtime_error {
     };
 }
 
+/// Creates an error that describes a type mismatch
 pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
     runtime_error!(
         "Expected {expected_str}, but found {}.",
@@ -175,6 +186,7 @@ pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, Runtim
     )
 }
 
+/// Creates an error that describes a type mismatch with a slice of [Value]s
 pub fn type_error_with_slice<T>(
     expected_str: &str,
     unexpected: &[Value],

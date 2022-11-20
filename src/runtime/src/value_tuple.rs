@@ -7,6 +7,7 @@ use {
     },
 };
 
+/// The Tuple type used by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct ValueTuple {
     data: Rc<[Value]>,
