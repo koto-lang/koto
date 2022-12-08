@@ -1695,14 +1695,11 @@ result";
 
         #[test]
         fn from_literals() {
-            let mut result_data = DataMap::default();
-            result_data.add_value("foo", 42.into());
-            result_data.add_value("bar", "baz".into());
+            let expected = ValueMap::default();
+            expected.add_value("foo", 42.into());
+            expected.add_value("bar", "baz".into());
 
-            test_script(
-                "{foo: 42, bar: 'baz'}",
-                Map(ValueMap::with_data(result_data)),
-            );
+            test_script("{foo: 42, bar: 'baz'}", Map(expected));
         }
 
         #[test]

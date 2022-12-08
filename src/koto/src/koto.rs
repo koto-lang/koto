@@ -318,7 +318,7 @@ impl Koto {
             .get_with_string_mut("koto")
         {
             Some(Map(map)) => {
-                map.data_mut().add_value("args", Tuple(koto_args.into()));
+                map.add_value("args", Tuple(koto_args.into()));
                 Ok(())
             }
             _ => Err(KotoError::MissingKotoModuleInPrelude),
@@ -357,7 +357,6 @@ impl Koto {
             .get_with_string_mut("koto")
         {
             Some(Map(map)) => {
-                let map = &mut map.data_mut();
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
                 Ok(())
