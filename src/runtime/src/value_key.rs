@@ -15,6 +15,7 @@ use {
 pub struct ValueKey(Value);
 
 impl ValueKey {
+    /// Returns a reference to the key's value
     pub fn value(&self) -> &Value {
         &self.0
     }

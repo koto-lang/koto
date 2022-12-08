@@ -26,6 +26,8 @@
 //! }
 //! ```
 
+#![warn(missing_docs)]
+
 mod koto;
 pub mod prelude;
 

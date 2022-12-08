@@ -1,7 +1,10 @@
+//! A collection of useful items to make it easier to work with `koto_runtime`
+
+#[doc(inline)]
 pub use crate::{
     make_runtime_error, runtime_error, type_error, type_error_with_slice, BinaryOp, CallArgs,
-    DataMap, DataOrArgs, DataOrArgsMut, ExternalData, ExternalValue, IntRange, KotoFile,
-    KotoIterator, KotoRead, KotoWrite, MetaKey, MetaMap, MetaMapBuilder, Num2, Num4, RuntimeError,
-    RuntimeResult, UnaryOp, Value, ValueIterator, ValueIteratorOutput, ValueKey, ValueList,
-    ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec, Vm, VmSettings,
+    DataMap, ExternalData, ExternalValue, IntRange, KotoFile, KotoIterator, KotoRead, KotoWrite,
+    MetaKey, MetaMap, MetaMapBuilder, Num2, Num4, RuntimeError, RuntimeResult, UnaryOp, Value,
+    ValueIterator, ValueIteratorOutput, ValueKey, ValueList, ValueMap, ValueNumber, ValueString,
+    ValueTuple, ValueVec, Vm, VmSettings,
 };

@@ -1,3 +1,5 @@
+//! The `os` core library module
+
 use {
     crate::prelude::*,
     chrono::prelude::*,
@@ -5,12 +7,15 @@ use {
     std::{cell::RefCell, rc::Rc},
 };
 
+/// Initializes the `os` core library module
 pub fn make_module() -> ValueMap {
     use Value::Number;
 
     let result = ValueMap::new();
 
     result.add_fn("name", |_, _| Ok(std::env::consts::OS.into()));
+
+    result.add_fn("start_timer", |_, _| Ok(Timer::now()));
 
     result.add_fn("time", |vm, args| match vm.get_args(args) {
         [] => Ok(DateTime::now()),
@@ -24,11 +29,10 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
-    result.add_fn("start_timer", |_, _| Ok(Timer::now()));
-
     result
 }
 
+/// The underlying data type returned by `os.time()`
 pub struct DateTime(chrono::DateTime<Local>);
 
 impl DateTime {
@@ -67,6 +71,7 @@ impl DateTime {
 impl ExternalData for DateTime {}
 
 thread_local! {
+    /// The meta map used by [DateTime]
     pub static SYSTEM_TIME_META: Rc<RefCell<MetaMap>> = make_system_time_meta_map();
 }
 
@@ -96,6 +101,7 @@ fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
         .build()
 }
 
+/// The underlying data type returned by `os.start_timer()`
 pub struct Timer(Instant);
 
 impl Timer {
@@ -109,16 +115,20 @@ impl Timer {
 impl ExternalData for Timer {}
 
 thread_local! {
+    /// The meta map used by [Timer]
     pub static TIMER_META: Rc<RefCell<MetaMap>> = make_timer_meta_map();
 }
 
 fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
+    use Value::ExternalValue;
+
     MetaMapBuilder::<Timer>::new("Timer")
         .data_fn(UnaryOp::Display, |data| {
             Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
         })
-        .data_fn_2(BinaryOp::Subtract, |a, b| match b {
-            DataOrArgs::Data(b) => {
+        .data_fn_with_args(BinaryOp::Subtract, |a, b| match b {
+            [ExternalValue(b)] if b.has_data::<Timer>() => {
+                let b = b.data::<Timer>().unwrap();
                 let result = if a.0 >= b.0 {
                     a.0.duration_since(b.0).as_secs_f64()
                 } else {
@@ -126,7 +136,7 @@ fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
                 };
                 Ok(result.into())
             }
-            DataOrArgs::Args(unexpected) => type_error_with_slice("Timer", unexpected),
+            unexpected => type_error_with_slice("Timer", unexpected),
         })
         .data_fn("elapsed", |instant| {
             Ok(instant.0.elapsed().as_secs_f64().into())

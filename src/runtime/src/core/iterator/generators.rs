@@ -1,3 +1,5 @@
+//! Generators used by the `iterator` core library module
+
 use crate::{
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
     CallArgs, Value, Vm,
@@ -9,6 +11,7 @@ pub struct Repeat {
 }
 
 impl Repeat {
+    /// Creates a new [Repeat] generator
     pub fn new(value: Value) -> Self {
         Self { value }
     }
@@ -42,6 +45,7 @@ pub struct RepeatN {
 }
 
 impl RepeatN {
+    /// Creates a new [RepeatN] generator
     pub fn new(value: Value, n: usize) -> Self {
         Self {
             remaining: n,
@@ -88,6 +92,7 @@ pub struct Generate {
 }
 
 impl Generate {
+    /// Creates a new [Generate] generator
     pub fn new(function: Value, vm: Vm) -> Self {
         Self { function, vm }
     }
@@ -128,6 +133,7 @@ pub struct GenerateN {
 }
 
 impl GenerateN {
+    /// Creates a new [GenerateN] generator
     pub fn new(n: usize, function: Value, vm: Vm) -> Self {
         Self {
             remaining: n,

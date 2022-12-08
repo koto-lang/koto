@@ -3,6 +3,7 @@ use std::io::{self, prelude::*, BufReader, BufWriter, Result, Seek, SeekFrom};
 /// A combination of BufReader and BufWriter
 #[derive(Debug)]
 pub struct BufferedFile<T: Write>(Reader<T>);
+
 type Reader<T> = BufReader<BufWriterWrapper<T>>;
 type Writer<T> = BufWriter<T>;
 
@@ -10,6 +11,7 @@ impl<T> BufferedFile<T>
 where
     T: Read + Write,
 {
+    /// Creates a BufferedFile that wraps the provided Read + Write value
     pub fn new(file: T) -> Self {
         Self(BufReader::new(BufWriterWrapper::new(file)))
     }

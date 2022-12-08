@@ -1,3 +1,5 @@
+//! String formatting support for `string.format` and `io.print`
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use {
@@ -7,7 +9,7 @@ use {
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum FormatToken<'a> {
+enum FormatToken<'a> {
     String(&'a str),
     Placeholder(FormatSpec),
     Positional(u32, FormatSpec),
@@ -16,7 +18,7 @@ pub enum FormatToken<'a> {
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct FormatSpec {
+struct FormatSpec {
     fill: Option<char>,
     alignment: Option<FormatAlign>,
     min_width: Option<u32>,
@@ -24,13 +26,13 @@ pub struct FormatSpec {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum FormatAlign {
+enum FormatAlign {
     Left,
     Center,
     Right,
 }
 
-pub struct FormatLexer<'a> {
+struct FormatLexer<'a> {
     format_string: &'a str,
     position: usize,
 }
@@ -295,6 +297,7 @@ impl<'a> Iterator for FormatLexer<'a> {
     }
 }
 
+/// Formats a string, used by `string.format` and `io.print`
 pub fn format_string(
     vm: &mut Vm,
     format_string: &str,
@@ -577,7 +580,7 @@ mod tests {
 
         #[test]
         fn identifier_placeholders() {
-            let mut map_data = DataMap::new();
+            let mut map_data = DataMap::default();
             map_data.insert("x".into(), Value::Number(42.into()));
             map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
             let map = Value::Map(ValueMap::with_data(map_data));

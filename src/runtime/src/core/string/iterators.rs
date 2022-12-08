@@ -1,3 +1,5 @@
+//! A collection of string iterators
+
 use {
     crate::{
         make_runtime_error,
@@ -15,6 +17,7 @@ pub struct Bytes {
 }
 
 impl Bytes {
+    /// Creates a new [Bytes] iterator
     pub fn new(input: ValueString) -> Self {
         Self { input, index: 0 }
     }
@@ -61,6 +64,7 @@ pub struct Lines {
 }
 
 impl Lines {
+    /// Creates a new [Lines] iterator
     pub fn new(input: ValueString) -> Self {
         Self { input, start: 0 }
     }
@@ -120,6 +124,7 @@ pub struct Split {
 }
 
 impl Split {
+    /// Creates a new [Split] iterator
     pub fn new(input: ValueString, pattern: ValueString) -> Self {
         Self {
             input,
@@ -173,6 +178,7 @@ pub struct SplitWith {
 }
 
 impl SplitWith {
+    /// Creates a new [SplitWith] iterator
     pub fn new(input: ValueString, predicate: Value, vm: Vm) -> Self {
         Self {
             input,

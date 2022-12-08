@@ -17,6 +17,7 @@ pub mod tuple;
 use crate::ValueMap;
 
 #[derive(Clone)]
+#[allow(missing_docs)]
 pub struct CoreLib {
     pub io: ValueMap,
     pub iterator: ValueMap,

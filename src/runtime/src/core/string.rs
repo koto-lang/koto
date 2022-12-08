@@ -1,3 +1,5 @@
+//! The `string` core library module
+
 pub mod format;
 pub mod iterators;
 
@@ -6,6 +8,7 @@ use {
     unicode_segmentation::UnicodeSegmentation,
 };
 
+/// Initializes the `string` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

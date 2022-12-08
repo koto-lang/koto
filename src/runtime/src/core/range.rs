@@ -1,5 +1,8 @@
+//! The `range` core library module
+
 use crate::prelude::*;
 
+/// Initializes the `range` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

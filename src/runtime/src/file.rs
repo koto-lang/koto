@@ -2,6 +2,8 @@ use crate::{runtime_error, RuntimeError};
 
 /// A trait used for file-like-things in Koto
 pub trait KotoFile: KotoRead + KotoWrite {
+    /// An identifier for the file, accessed when displaying the file in strings
+    // TODO(#191) - Return a ValueString
     fn id(&self) -> String;
 
     /// Returns the path of the file

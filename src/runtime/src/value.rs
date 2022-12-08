@@ -1,3 +1,5 @@
+//! The core value type used in the Koto runtime
+
 use {
     crate::{
         num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
@@ -100,6 +102,9 @@ impl Value {
         }
     }
 
+    /// Returns a recursive 'deep copy' of a Value
+    ///
+    /// This is used by the various `.deep_copy()` core library functions.
     #[must_use]
     pub fn deep_copy(&self) -> Value {
         use Value::*;
@@ -127,11 +132,15 @@ impl Value {
         }
     }
 
+    /// Returns true if the value has function-like callable behaviour
     pub fn is_callable(&self) -> bool {
         use Value::*;
         matches!(self, SimpleFunction(_) | Function(_) | ExternalFunction(_))
     }
 
+    /// Returns true if the value doesn't have internal mutability
+    ///
+    /// Only immutable values are acceptable as map keys.
     pub fn is_immutable(&self) -> bool {
         use Value::*;
         matches!(
@@ -174,6 +183,7 @@ impl Value {
         }
     }
 
+    /// Returns the value's type as a ValueString
     pub fn type_as_string(&self) -> ValueString {
         use Value::*;
         match &self {
@@ -316,6 +326,11 @@ impl From<ValueIterator> for Value {
     }
 }
 
+/// A plain and simple function
+///
+/// See also:
+/// * [Value::SimpleFunction]
+/// * [FunctionInfo]
 #[derive(Clone, Debug)]
 pub struct SimpleFunctionInfo {
     /// The [Chunk] in which the function can be found.
@@ -326,6 +341,11 @@ pub struct SimpleFunctionInfo {
     pub arg_count: u8,
 }
 
+/// A fully-featured function with all the bells and whistles
+///
+/// See also:
+/// * [Value::Function]
+/// * [SimpleFunctionInfo]
 #[derive(Clone, Debug)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
@@ -362,6 +382,10 @@ pub struct FunctionInfo {
     pub captures: Option<ValueList>,
 }
 
+/// The integer range type that's exposed to users in the runtime
+///
+/// See [Value::Range]
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IntRange {
     pub start: isize,
@@ -369,10 +393,14 @@ pub struct IntRange {
 }
 
 impl IntRange {
+    /// Returns true if the range's start is less than or equal to its end
     pub fn is_ascending(&self) -> bool {
         self.start <= self.end
     }
 
+    /// Returns the size of the range
+    ///
+    /// Descending ranges have a non-negative size, i.e. the size is equal to `start - end`.
     pub fn len(&self) -> usize {
         if self.is_ascending() {
             (self.end - self.start) as usize
@@ -381,17 +409,28 @@ impl IntRange {
         }
     }
 
+    /// Returns true if the range's size is zero
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
 
+/// A range type that's used in indexing expressions
+///
+/// Index ranges have an optional end to support indexing expressions like `foo[10..]`.
+///
+/// See [Value::IndexRange]
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IndexRange {
     pub start: usize,
     pub end: Option<usize>,
 }
 
+/// A slice of a VM's registers
+///
+/// See [Value::TemporaryTuple]
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RegisterSlice {
     pub start: u8,

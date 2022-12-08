@@ -1,3 +1,5 @@
+//! The `iterator` core library module
+
 pub mod adaptors;
 pub mod generators;
 
@@ -6,6 +8,7 @@ use {
     crate::{prelude::*, ValueIteratorOutput as Output},
 };
 
+/// Initializes the `iterator` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

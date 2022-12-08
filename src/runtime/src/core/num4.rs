@@ -1,8 +1,11 @@
+//! The `num4` core library module
+
 use {
     super::iterator::collect_pair,
     crate::{num4, prelude::*, ValueIteratorOutput as Output},
 };
 
+/// Initializes the `num4` core library module
 pub fn make_module() -> ValueMap {
     use Value::*;
 

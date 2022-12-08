@@ -20,6 +20,10 @@ use {
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
 
+/// The meta map used by [ValueMap](crate::ValueMap) and [ExternalValue](crate::ExternalValue)
+///
+/// Each ValueMap and ExternalValue contains a metamap,
+/// which allows for customized value behaviour by implementing [MetaKeys](crate::MetaKey).
 #[derive(Clone, Debug, Default)]
 pub struct MetaMap(MetaMapType);
 
@@ -60,16 +64,50 @@ impl From<MetaMap> for Rc<RefCell<MetaMap>> {
     }
 }
 
+/// The key type used by [MetaMaps](crate::MetaMap)
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
+    /// A binary operation
+    ///
+    /// e.g. `@+`, `@==`
     BinaryOp(BinaryOp),
+    /// A unary operation
+    ///
+    /// e.g. `@not`
     UnaryOp(UnaryOp),
+    /// A named key
+    ///
+    /// e.g. `@meta my_named_key`
+    ///
+    /// This allows for named entries to be included in the meta map,
+    /// which is particularly useful in [ExternalValue](crate::ExternalValue) metamaps.
+    ///
+    /// Named entries also have use in [ValueMaps][crate::ValueMap] where shared named items can be
+    /// made available without them being inserted into the map's contents.
     Named(ValueString),
+    /// A test function
+    ///
+    /// e.g. `@test my_test`
     Test(ValueString),
+    /// `@tests`
+    ///
+    /// Tests are defined together in a [ValueMap](crate::ValueMap).
     Tests,
+    /// `@pre_test`
+    ///
+    /// Used to define a function that will be run before each `@test`.
     PreTest,
+    /// `@post_test`
+    ///
+    /// Used to define a function that will be run after each `@test`.
     PostTest,
+    /// `@main`
+    ///
+    /// Used to define a function that will be run when a module is first imported.
     Main,
+    /// `@type`
+    ///
+    /// Used to define a [ValueString](crate::ValueString) that declare the value's type.
     Type,
 }
 
@@ -129,19 +167,34 @@ impl From<BinaryOp> for MetaKey {
     }
 }
 
+/// The binary operations that can be implemented in a [MetaMap](crate::MetaMap)
+///
+/// See [MetaKey::BinaryOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
+    /// `@+`
     Add,
+    /// `@-`
     Subtract,
+    /// `@*`
     Multiply,
+    /// `@/`
     Divide,
+    /// `@%`
     Remainder,
+    /// `@<`
     Less,
+    /// `@<=`
     LessOrEqual,
+    /// `@>`
     Greater,
+    /// `@>=`
     GreaterOrEqual,
+    /// `@==`
     Equal,
+    /// `@!=`
     NotEqual,
+    /// `@[]`
     Index,
 }
 
@@ -170,11 +223,18 @@ impl fmt::Display for BinaryOp {
     }
 }
 
+/// The unary operations that can be implemented in a [MetaMap](crate::MetaMap)
+///
+/// See [MetaKey::UnaryOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
+    /// `@display`
     Display,
+    /// `@iterator`
     Iterator,
+    /// `@negate`
     Negate,
+    /// `@not`
     Not,
 }
 
@@ -195,6 +255,7 @@ impl fmt::Display for UnaryOp {
     }
 }
 
+/// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
 pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey, String> {
     use {BinaryOp::*, UnaryOp::*};
 
@@ -435,78 +496,6 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects an instance of ExternalValue, followed by either
-    /// another ExternalValue or other arguments.
-    ///
-    /// This is useful when you want access to the internal data of two ExternalValues,
-    /// e.g. when implementing a BinaryOp.
-    pub fn data_fn_2<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&T, DataOrArgs<T>) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(a), Value::ExternalValue(b)]
-                if a.value_type() == type_name && b.value_type() == type_name =>
-            {
-                match (a.data::<T>(), b.data::<T>()) {
-                    (Some(data_a), Some(data_b)) => f(&data_a, DataOrArgs::Data(data_b.deref())),
-                    _ => unexpected_data_type_2(a, b),
-                }
-            }
-            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
-                match value.data::<T>() {
-                    Some(data) => f(&data, DataOrArgs::Args(args)),
-                    None => unexpected_data_type(value),
-                }
-            }
-            unexpected => unexpected_instance_type_2(&type_name, unexpected),
-        });
-
-        self
-    }
-
-    /// Adds a function that provides the data contained in two ExternalValue instances
-    ///
-    /// A helper for a function that expects an instance of ExternalValue, followed by either
-    /// another ExternalValue or other arguments.
-    ///
-    /// This is useful when you want mutable access to the internal data of two ExternalValues,
-    /// e.g. when implementing a BinaryOp.
-    pub fn data_fn_2_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T, DataOrArgsMut<T>) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(a), Value::ExternalValue(b)]
-                if a.value_type() == type_name && b.value_type() == type_name =>
-            {
-                match (a.data_mut::<T>(), b.data_mut::<T>()) {
-                    (Some(mut data_a), Some(mut data_b)) => {
-                        f(&mut data_a, DataOrArgsMut::Data(data_b.deref_mut()))
-                    }
-                    _ => unexpected_data_type_2(a, b),
-                }
-            }
-            [Value::ExternalValue(value), args @ ..] if value.value_type() == type_name => {
-                match value.data_mut::<T>() {
-                    Some(mut data) => f(&mut data, DataOrArgsMut::Args(args)),
-                    None => unexpected_data_type(value),
-                }
-            }
-            unexpected => unexpected_instance_type_2(&type_name, unexpected),
-        });
-
-        self
-    }
-
     /// Adds a function that takes an ExternalValue instance, followed by other arguments
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
@@ -567,29 +556,8 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     }
 }
 
-pub enum DataOrArgs<'a, T: ExternalData> {
-    Data(&'a T),
-    Args(&'a [Value]),
-}
-
-pub enum DataOrArgsMut<'a, T: ExternalData> {
-    Data(&'a mut T),
-    Args(&'a [Value]),
-}
-
 fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {
     runtime_error!("Unexpected external data type: {}", unexpected.data_type(),)
-}
-
-fn unexpected_data_type_2(
-    unexpected_a: &ExternalValue,
-    unexpected_b: &ExternalValue,
-) -> Result<Value, RuntimeError> {
-    runtime_error!(
-        "Unexpected external data types: lhs: {}, rhs: {}",
-        unexpected_a.data_type(),
-        unexpected_b.data_type(),
-    )
 }
 
 fn unexpected_instance_type(
@@ -597,11 +565,4 @@ fn unexpected_instance_type(
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
     type_error_with_slice(&format!("'{type_name}'"), unexpected)
-}
-
-fn unexpected_instance_type_2(
-    type_name: &ValueString,
-    unexpected: &[Value],
-) -> Result<Value, RuntimeError> {
-    type_error_with_slice(&format!("two '{type_name}'s"), unexpected)
 }

@@ -8,6 +8,10 @@ use {
     unicode_segmentation::UnicodeSegmentation,
 };
 
+/// The String type used by the Koto runtime
+///
+/// The underlying string data is shared between instances,
+/// with internal bounds allowing for clone-free subslicing.
 #[derive(Clone)]
 pub struct ValueString {
     string: Rc<str>,
@@ -15,16 +19,22 @@ pub struct ValueString {
 }
 
 impl ValueString {
+    /// Initializes a new ValueString with the provided data
     fn new(string: Rc<str>) -> Self {
         let bounds = 0..string.len();
         Self { string, bounds }
     }
 
     /// Returns the empty string
+    ///
+    /// This returns a clone of an empty ValueString which is initialized once per thread.
     pub fn empty() -> Self {
         Self::new(EMPTY_STRING.with(|s| s.clone()))
     }
 
+    /// Initializes a new ValueString with the provided data and bounds
+    ///
+    /// If the bounds aren't valid for the data then `None` is returned.
     pub fn new_with_bounds(string: Rc<str>, bounds: Range<usize>) -> Option<Self> {
         if string.get(bounds.clone()).is_some() {
             Some(Self { string, bounds })
@@ -33,6 +43,9 @@ impl ValueString {
         }
     }
 
+    /// Returns a new ValueString with shared data and new bounds
+    ///
+    /// If the bounds aren't valid for the data then `None` is returned.
     pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Option<Self> {
         new_bounds.end += self.bounds.start;
         new_bounds.start += self.bounds.start;
@@ -47,6 +60,12 @@ impl ValueString {
         }
     }
 
+    /// Returns a new ValueString with shared data and bounds defined by the grapheme indices
+    ///
+    /// This allows for subslicing by index, with the index referring to unicode graphemes.
+    ///
+    /// When `end` is `None` then the resulting string will have bounds from the `start` grapheme
+    /// to the end of the data.
     pub fn with_grapheme_indices(&self, start: usize, end: Option<usize>) -> Option<Self> {
         let end_unwrapped = end.unwrap_or(self.len());
         debug_assert!(start <= end_unwrapped);
@@ -93,10 +112,12 @@ impl ValueString {
         self.with_bounds(result_bounds)
     }
 
+    /// Returns the number of graphemes contained within the ValueString's bounds
     pub fn grapheme_count(&self) -> usize {
         self.graphemes(true).count()
     }
 
+    /// Returns the `&str` within the ValueString's bounds
     #[inline]
     pub fn as_str(&self) -> &str {
         // Safety: bounds have already been checked in new_with_bounds / with_bounds

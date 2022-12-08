@@ -53,60 +53,81 @@ pub enum ValueIteratorOutput {
 pub struct ValueIterator(Rc<RefCell<dyn KotoIterator>>);
 
 impl ValueIterator {
+    /// Creates a new ValueIterator from any value that implements [KotoIterator]
     pub fn new(external: impl KotoIterator + 'static) -> Self {
         Self(Rc::new(RefCell::new(external)))
     }
 
+    /// Creates a new ValueIterator from a Range
     pub fn with_range(range: IntRange) -> Self {
         Self::new(RangeIterator::new(range))
     }
 
+    /// Creates a new ValueIterator from a Num2
     pub fn with_num2(n: Num2) -> Self {
         Self::new(Num2Iterator::new(n))
     }
 
+    /// Creates a new ValueIterator from a Num4
     pub fn with_num4(n: Num4) -> Self {
         Self::new(Num4Iterator::new(n))
     }
 
+    /// Creates a new ValueIterator from a List
     pub fn with_list(list: ValueList) -> Self {
         Self::new(ListIterator::new(list))
     }
 
+    /// Creates a new ValueIterator from a Tuple
     pub fn with_tuple(tuple: ValueTuple) -> Self {
         Self::new(TupleIterator::new(tuple))
     }
 
+    /// Creates a new ValueIterator from a Map
     pub fn with_map(map: ValueMap) -> Self {
         Self::new(MapIterator::new(map))
     }
 
+    /// Creates a new ValueIterator from a String
     pub fn with_string(s: ValueString) -> Self {
         Self::new(StringIterator::new(s))
     }
 
+    /// Creates a new ValueIterator from a Vm, used to implement generators
     pub fn with_vm(vm: Vm) -> Self {
         Self::new(GeneratorIterator::new(vm))
     }
 
+    /// Makes a copy of the iterator
+    ///
+    /// See [KotoIterator::make_copy]
     #[must_use]
     pub fn make_copy(&self) -> Self {
         self.0.borrow().make_copy()
     }
 
+    /// Returns true if the iterator might have side-effects
+    ///
+    /// See [KotoIterator::might_have_side_effects]
     pub fn might_have_side_effects(&self) -> bool {
         self.0.borrow().might_have_side_effects()
     }
 
+    /// Returns true if the iterator supports reversed iteration via `next_back`
+    ///
+    /// See [KotoIterator::is_bidirectional]
     pub fn is_bidirectional(&self) -> bool {
         self.0.borrow().is_bidirectional()
     }
 
+    /// Returns the next item produced by iterating backwards
+    ///
+    /// See [KotoIterator::next_back]
     pub fn next_back(&mut self) -> Option<ValueIteratorOutput> {
         self.0.borrow_mut().next_back()
     }
 
-    // For internal functions that want to perform repeated iterations with a single borrow
+    /// Mutably borrows the underlying iterator, allowing repeated iterations with a single borrow
     pub fn borrow_internals(
         &mut self,
         mut f: impl FnMut(&mut dyn KotoIterator) -> Option<ValueIteratorOutput>,
