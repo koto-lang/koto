@@ -1352,14 +1352,6 @@ impl Compiler {
                         }
                     }
                     Some(ImportItemNode::Str(_)) => {
-                        // String imports need to be explicitly assigned
-                        if result.is_none() {
-                            return compiler_error!(
-                                self,
-                                "Missing assignment for the import of a String"
-                            );
-                        }
-
                         let import_register = self.push_register()?;
                         self.compile_import_item(import_register, item, ast)?;
                         imported.push(import_register);
@@ -1413,14 +1405,6 @@ impl Compiler {
                         }
                     }
                     Some(ImportItemNode::Str(_)) => {
-                        // String imports need to be explicitly assigned
-                        if result.is_none() {
-                            return compiler_error!(
-                                self,
-                                "Missing assignment for import of a String"
-                            );
-                        }
-
                         let import_register = self.push_register()?;
 
                         // Access the item from from_register, incrementally accessing nested items
@@ -1461,11 +1445,6 @@ impl Compiler {
                     self.push_op(SequenceToTuple, &[result.register]);
                 }
             }
-        } else {
-            debug_assert!(
-                imported.is_empty(),
-                "The imported Vec is only needed when the expression result is being used"
-            );
         }
 
         self.truncate_register_stack(stack_count)?;
