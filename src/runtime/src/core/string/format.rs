@@ -577,7 +577,7 @@ mod tests {
 
         #[test]
         fn identifier_placeholders() {
-            let mut map_data = DataMap::new();
+            let mut map_data = DataMap::default();
             map_data.insert("x".into(), Value::Number(42.into()));
             map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
             let map = Value::Map(ValueMap::with_data(map_data));

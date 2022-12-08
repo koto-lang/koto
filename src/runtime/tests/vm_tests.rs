@@ -1695,7 +1695,7 @@ result";
 
         #[test]
         fn from_literals() {
-            let mut result_data = DataMap::new();
+            let mut result_data = DataMap::default();
             result_data.add_value("foo", 42.into());
             result_data.add_value("bar", "baz".into());
 

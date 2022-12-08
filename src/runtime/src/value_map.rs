@@ -25,10 +25,6 @@ type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 pub struct DataMap(DataMapType);
 
 impl DataMap {
-    pub fn new() -> Self {
-        Self(DataMapType::default())
-    }
-
     pub fn with_capacity(capacity: usize) -> Self {
         Self(DataMapType::with_capacity_and_hasher(
             capacity,
