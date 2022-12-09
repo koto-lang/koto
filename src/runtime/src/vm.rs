@@ -838,6 +838,11 @@ impl Vm {
             Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
             Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
             Instruction::Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs),
+            Instruction::AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs),
+            Instruction::SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs),
+            Instruction::MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs),
+            Instruction::DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs),
+            Instruction::RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs),
             Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
             Instruction::LessOrEqual { register, lhs, rhs } => {
                 self.run_less_or_equal(register, lhs, rhs)
@@ -1604,6 +1609,106 @@ impl Vm {
         };
         self.set_register(result, result_value);
 
+        Ok(())
+    }
+
+    fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a + b),
+            (Number(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Number(b)) => Num2(a + b),
+            (Number(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Number(b)) => Num4(a + b),
+            _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a - b),
+            (Number(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Number(b)) => Num2(a - b),
+            (Number(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Number(b)) => Num4(a - b),
+            _ => return self.binary_op_error(lhs_value, rhs_value, "-="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a * b),
+            (Number(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Number(b)) => Num2(a * b),
+            (Number(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Number(b)) => Num4(a * b),
+            _ => return self.binary_op_error(lhs_value, rhs_value, "*="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a / b),
+            (Number(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Number(b)) => Num2(a / b),
+            (Number(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Number(b)) => Num4(a / b),
+            _ => return self.binary_op_error(lhs_value, rhs_value, "/="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a % b),
+            (Number(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Number(b)) => Num2(a % b),
+            (Number(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Number(b)) => Num4(a % b),
+            _ => return self.binary_op_error(lhs_value, rhs_value, "%="),
+        };
+
+        self.set_register(lhs, result_value);
         Ok(())
     }
 

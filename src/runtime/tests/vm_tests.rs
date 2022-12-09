@@ -148,6 +148,18 @@ y = y = 2
 ";
             test_script(script, 2);
         }
+
+        #[test]
+        fn assignment_ops() {
+            let script = "
+a = 10
+a += 1 # 11
+a *= 6 # 66
+a /= 2 # 33
+a %= 5
+";
+            test_script(script, 3);
+        }
     }
 
     mod ranges {
@@ -1854,6 +1866,33 @@ l = [m, m, m]
 l[2].foo[0] = 99
 l[2].foo[0]";
             test_script(script, 99);
+        }
+
+        #[test]
+        fn add_assign_with_map_entry() {
+            let script = "
+m = {foo: 99}
+m.foo += 1
+m.foo";
+            test_script(script, 100);
+        }
+
+        #[test]
+        fn subtract_assign_with_string_key() {
+            let script = "
+m = {foo: 42}
+m.'foo' -= 1
+m.'foo'";
+            test_script(script, 41);
+        }
+
+        #[test]
+        fn multiply_assign_with_list_entry() {
+            let script = "
+m = [1, 2, 3]
+m[1] *= 10
+m[1]";
+            test_script(script, 20);
         }
 
         #[test]

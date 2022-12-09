@@ -317,8 +317,10 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 
 ```koto
 print! ('a', 'b', 'c')
-  .fold '', |result, x| result += x + '-'
-check! a-b-c-
+  .fold [], |result, x| 
+    result.push x
+    result.push '-'
+check! ['a', '-', 'b', '-', 'c', '-']
 ```
 
 ### See Also

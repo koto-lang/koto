@@ -607,6 +607,12 @@ impl<'source> Parser<'source> {
                         Divide => AstBinaryOp::Divide,
                         Remainder => AstBinaryOp::Remainder,
 
+                        AddAssign => AstBinaryOp::AddAssign,
+                        SubtractAssign => AstBinaryOp::SubtractAssign,
+                        MultiplyAssign => AstBinaryOp::MultiplyAssign,
+                        DivideAssign => AstBinaryOp::DivideAssign,
+                        RemainderAssign => AstBinaryOp::RemainderAssign,
+
                         Equal => AstBinaryOp::Equal,
                         NotEqual => AstBinaryOp::NotEqual,
 
@@ -654,21 +660,12 @@ impl<'source> Parser<'source> {
         scope: Scope,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let assign_op = match self
+        match self
             .peek_token_with_context(context)
             .map(|token| token.token)
         {
-            Some(Token::Assign) => AssignOp::Equal,
-            Some(Token::AssignAdd) => AssignOp::Add,
-            Some(Token::AssignSubtract) => AssignOp::Subtract,
-            Some(Token::AssignMultiply) => AssignOp::Multiply,
-            Some(Token::AssignDivide) => AssignOp::Divide,
-            Some(Token::AssignRemainder) => AssignOp::Remainder,
+            Some(Token::Assign) => {}
             _ => return Ok(None),
-        };
-
-        if matches!(scope, Scope::Export) && !matches!(assign_op, AssignOp::Equal) {
-            return self.consume_token_and_error(SyntaxError::UnexpectedExportAssignmentOp);
         }
 
         let mut targets = Vec::with_capacity(previous_lhs.len() + 1);
@@ -676,7 +673,7 @@ impl<'source> Parser<'source> {
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match (self.ast.node(*lhs_expression).node.clone(), scope) {
-                (Node::Id(id_index), Scope::Local) if matches!(assign_op, AssignOp::Equal) => {
+                (Node::Id(id_index), Scope::Local) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 (Node::Id(_) | Node::Lookup(_) | Node::Wildcard(_), _) => {}
@@ -708,7 +705,6 @@ impl<'source> Parser<'source> {
             let node = if single_target {
                 Node::Assign {
                     target: *targets.first().unwrap(),
-                    op: assign_op,
                     expression: rhs,
                 }
             } else {
@@ -3223,13 +3219,15 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
         Pipe => (1, 2),
-        Or => (MIN_PRECEDENCE_AFTER_PIPE, 4),
-        And => (5, 6),
+        AddAssign | SubtractAssign => (4, MIN_PRECEDENCE_AFTER_PIPE),
+        MultiplyAssign | DivideAssign | RemainderAssign => (6, 5),
+        Or => (7, 8),
+        And => (9, 10),
         // Chained comparisons require right-associativity
-        Equal | NotEqual => (8, 7),
-        Greater | GreaterOrEqual | Less | LessOrEqual => (10, 9),
-        Add | Subtract => (11, 12),
-        Multiply | Divide | Remainder => (13, 14),
+        Equal | NotEqual => (12, 11),
+        Greater | GreaterOrEqual | Less | LessOrEqual => (14, 13),
+        Add | Subtract => (15, 16),
+        Multiply | Divide | Remainder => (17, 18),
         _ => return None,
     };
     Some(priority)

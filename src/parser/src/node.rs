@@ -151,8 +151,6 @@ pub enum Node {
     Assign {
         /// The target of the assignment
         target: AssignTarget,
-        /// The operator to use, e.g. `=`, `+=`, etc.
-        op: AssignOp,
         /// The expression to be assigned
         expression: AstIndex,
     },
@@ -412,6 +410,11 @@ pub enum AstBinaryOp {
     Multiply,
     Divide,
     Remainder,
+    AddAssign,
+    SubtractAssign,
+    MultiplyAssign,
+    DivideAssign,
+    RemainderAssign,
     Equal,
     NotEqual,
     Less,
@@ -434,23 +437,6 @@ pub struct AstTry {
     pub catch_block: AstIndex,
     /// An optional `finally` block
     pub finally_block: Option<AstIndex>,
-}
-
-/// The operation used in an assignment expression
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AssignOp {
-    /// +=
-    Add,
-    /// -=
-    Subtract,
-    /// *=
-    Multiply,
-    /// /=
-    Divide,
-    /// %=
-    Remainder,
-    /// =
-    Equal,
 }
 
 /// Specifies the scope of an assignment
