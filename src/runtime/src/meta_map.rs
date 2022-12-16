@@ -182,6 +182,16 @@ pub enum BinaryOp {
     Divide,
     /// `@%`
     Remainder,
+    /// `@+=`
+    AddAssign,
+    /// `@-=`
+    SubtractAssign,
+    /// `@*=`
+    MultiplyAssign,
+    /// `@/=`
+    DivideAssign,
+    /// `@%=`
+    RemainderAssign,
     /// `@<`
     Less,
     /// `@<=`
@@ -211,6 +221,11 @@ impl fmt::Display for BinaryOp {
                 Multiply => "*",
                 Divide => "/",
                 Remainder => "%",
+                AddAssign => "+=",
+                SubtractAssign => "-=",
+                MultiplyAssign => "*=",
+                DivideAssign => "/=",
+                RemainderAssign => "%=",
                 Less => "<",
                 LessOrEqual => "<=",
                 Greater => ">",
@@ -265,6 +280,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Multiply => MetaKey::BinaryOp(Multiply),
         MetaKeyId::Divide => MetaKey::BinaryOp(Divide),
         MetaKeyId::Remainder => MetaKey::BinaryOp(Remainder),
+        MetaKeyId::AddAssign => MetaKey::BinaryOp(AddAssign),
+        MetaKeyId::SubtractAssign => MetaKey::BinaryOp(SubtractAssign),
+        MetaKeyId::MultiplyAssign => MetaKey::BinaryOp(MultiplyAssign),
+        MetaKeyId::DivideAssign => MetaKey::BinaryOp(DivideAssign),
+        MetaKeyId::RemainderAssign => MetaKey::BinaryOp(RemainderAssign),
         MetaKeyId::Less => MetaKey::BinaryOp(Less),
         MetaKeyId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
         MetaKeyId::Greater => MetaKey::BinaryOp(Greater),
@@ -432,12 +452,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     pub fn external_value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
-        F: Fn(&ExternalValue) -> RuntimeResult + 'static,
+        F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.type_name.clone();
 
         self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] if value.value_type() == type_name => f(value),
+            [Value::ExternalValue(value), extra_args @ ..] if value.value_type() == type_name => {
+                f(value, extra_args)
+            }
             other => unexpected_instance_type(&type_name, other),
         });
 

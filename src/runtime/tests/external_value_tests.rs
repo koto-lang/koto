@@ -48,6 +48,25 @@ mod external_values {
             }
         }
 
+        macro_rules! assignment_op {
+            ($op:tt) => {
+                |value, args| match (value.data_mut::<TestExternalData>(), args) {
+                    (Some(mut a), [ExternalValue(b)]) if b.has_data::<TestExternalData>() => {
+                        let b = b.data::<TestExternalData>().unwrap();
+                        a.x $op b.x;
+                        Ok(ExternalValue(value.clone()))
+                    }
+                    (Some(mut a), [Number(n)]) => {
+                        a.x $op f64::from(n);
+                        Ok(ExternalValue(value.clone()))
+                    }
+                    (_, unexpected) => {
+                        type_error_with_slice("a TestExternal or Number", unexpected)
+                    }
+                }
+            }
+        }
+
         macro_rules! comparison_op {
             ($op:tt) => {
                 |a, b| match b {
@@ -77,6 +96,11 @@ mod external_values {
             .data_fn_with_args(Multiply, arithmetic_op!(*))
             .data_fn_with_args(Divide, arithmetic_op!(/))
             .data_fn_with_args(Remainder, arithmetic_op!(%))
+            .external_value_fn(AddAssign, assignment_op!(+=))
+            .external_value_fn(SubtractAssign, assignment_op!(-=))
+            .external_value_fn(MultiplyAssign, assignment_op!(*=))
+            .external_value_fn(DivideAssign, assignment_op!(/=))
+            .external_value_fn(RemainderAssign, assignment_op!(%=))
             .data_fn_with_args(Less, comparison_op!(<))
             .data_fn_with_args(LessOrEqual, comparison_op!(<=))
             .data_fn_with_args(Greater, comparison_op!(>))
@@ -238,6 +262,26 @@ x = (make_external 45) % (make_external 10)
 x.to_number()
 ";
             test_script_with_external_value(script, 5);
+        }
+
+        #[test]
+        fn add_assign() {
+            let script = "
+x = make_external 11
+x += make_external 22 += 33
+x.to_number()
+";
+            test_script_with_external_value(script, 66);
+        }
+
+        #[test]
+        fn multiply_assign() {
+            let script = "
+x = make_external 3
+x *= make_external 11 *= 3
+x.to_number()
+";
+            test_script_with_external_value(script, 99);
         }
 
         #[test]

@@ -23,6 +23,11 @@ foo = |n|
   @-: |self, other|
     foo self.data - other.data
 
+  # Overloading the multiply-assignment operator
+  @*=: |self, other|
+    self.data *= other.data
+    self
+
 foo_a = foo 10
 foo_b = foo 20
 
@@ -30,6 +35,9 @@ print! (foo_a + foo_b).data
 check! 30
 print! (foo_a - foo_b).data
 check! -10
+foo_a *= foo_b
+print! foo_a.data
+check! 200
 ```
 
 ## Meta Operators

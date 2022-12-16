@@ -541,6 +541,16 @@ pub enum MetaKeyId {
     Divide,
     /// @%
     Remainder,
+    /// @+=
+    AddAssign,
+    /// @-=
+    SubtractAssign,
+    /// @*=
+    MultiplyAssign,
+    /// @/=
+    DivideAssign,
+    /// @%=
+    RemainderAssign,
     /// @<
     Less,
     /// @<=

@@ -2715,6 +2715,39 @@ z.x
         }
 
         #[test]
+        fn arithmetic_assignment() {
+            let script = "
+locals = {}
+foo = |x| {x}.with_meta_map locals.foo_meta
+locals.foo_meta =
+  @+=: |self, y|
+    self.x += y
+    self
+  @-=: |self, y|
+    self.x -= y
+    self
+  @*=: |self, y|
+    self.x *= y
+    self
+  @/=: |self, y|
+    self.x /= y
+    self
+  @%=: |self, y|
+    self.x %= y
+    self
+
+z = foo 2
+z += 10 # 12
+z *= 3  # 36
+z /= 2  # 18
+z -= 3  # 15
+z %= 4  # 3
+z.x
+";
+            test_script(script, 3);
+        }
+
+        #[test]
         fn less() {
             let script = "
 foo = |x|
