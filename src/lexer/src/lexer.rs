@@ -48,11 +48,11 @@ pub enum Token {
     Remainder,
 
     Assign,
-    AssignAdd,
-    AssignSubtract,
-    AssignMultiply,
-    AssignDivide,
-    AssignRemainder,
+    AddAssign,
+    SubtractAssign,
+    MultiplyAssign,
+    DivideAssign,
+    RemainderAssign,
 
     Equal,
     NotEqual,
@@ -535,12 +535,12 @@ impl<'a> TokenLexer<'a> {
         check_symbol!(">", Greater);
         check_symbol!("<", Less);
 
-        check_symbol!("+=", AssignAdd);
-        check_symbol!("-=", AssignSubtract);
-        check_symbol!("*=", AssignMultiply);
-        check_symbol!("/=", AssignDivide);
-        check_symbol!("%=", AssignRemainder);
         check_symbol!("=", Assign);
+        check_symbol!("+=", AddAssign);
+        check_symbol!("-=", SubtractAssign);
+        check_symbol!("*=", MultiplyAssign);
+        check_symbol!("/=", DivideAssign);
+        check_symbol!("%=", RemainderAssign);
 
         check_symbol!("+", Add);
         check_symbol!("-", Subtract);
@@ -1223,15 +1223,15 @@ c *= 3";
             input,
             &[
                 (Id, Some("a"), 1),
-                (AssignAdd, None, 1),
+                (AddAssign, None, 1),
                 (Number, Some("1"), 1),
                 (NewLine, None, 2),
                 (Id, Some("b"), 2),
-                (AssignSubtract, None, 2),
+                (SubtractAssign, None, 2),
                 (Number, Some("2"), 2),
                 (NewLine, None, 3),
                 (Id, Some("c"), 3),
-                (AssignMultiply, None, 3),
+                (MultiplyAssign, None, 3),
                 (Number, Some("3"), 3),
             ],
         );

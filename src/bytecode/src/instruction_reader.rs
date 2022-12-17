@@ -235,6 +235,26 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
+    AddAssign {
+        lhs: u8,
+        rhs: u8,
+    },
+    SubtractAssign {
+        lhs: u8,
+        rhs: u8,
+    },
+    MultiplyAssign {
+        lhs: u8,
+        rhs: u8,
+    },
+    DivideAssign {
+        lhs: u8,
+        rhs: u8,
+    },
+    RemainderAssign {
+        lhs: u8,
+        rhs: u8,
+    },
     Less {
         register: u8,
         lhs: u8,
@@ -421,92 +441,6 @@ pub enum Instruction {
     },
 }
 
-impl fmt::Display for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Instruction::*;
-        match self {
-            Error { message } => unreachable!("{message}"),
-            Copy { .. } => write!(f, "Copy"),
-            SetNull { .. } => write!(f, "SetNull"),
-            SetBool { .. } => write!(f, "SetBool"),
-            SetNumber { .. } => write!(f, "SetNumber"),
-            LoadFloat { .. } => write!(f, "LoadFloat"),
-            LoadInt { .. } => write!(f, "LoadInt"),
-            LoadString { .. } => write!(f, "LoadString"),
-            LoadNonLocal { .. } => write!(f, "LoadNonLocal"),
-            ValueExport { .. } => write!(f, "ValueExport"),
-            Import { .. } => write!(f, "Import"),
-            MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
-            TempTupleToTuple { .. } => write!(f, "TempTupleToTuple"),
-            MakeMap { .. } => write!(f, "MakeMap"),
-            SequenceStart { .. } => write!(f, "SequenceStart"),
-            SequencePush { .. } => write!(f, "SequencePush"),
-            SequencePushN { .. } => write!(f, "SequencePushN"),
-            SequenceToList { .. } => write!(f, "SequenceToList"),
-            SequenceToTuple { .. } => write!(f, "SequenceToTuple"),
-            StringStart { .. } => write!(f, "StringStart"),
-            StringPush { .. } => write!(f, "StringPush"),
-            StringFinish { .. } => write!(f, "StringFinish"),
-            Range { .. } => write!(f, "Range"),
-            RangeInclusive { .. } => write!(f, "RangeInclusive"),
-            RangeTo { .. } => write!(f, "RangeTo"),
-            RangeToInclusive { .. } => write!(f, "RangeToInclusive"),
-            RangeFrom { .. } => write!(f, "RangeFrom"),
-            RangeFull { .. } => write!(f, "RangeFull"),
-            MakeIterator { .. } => write!(f, "MakeIterator"),
-            SimpleFunction { .. } => write!(f, "SimpleFunction"),
-            Function { .. } => write!(f, "Function"),
-            Capture { .. } => write!(f, "Capture"),
-            Negate { .. } => write!(f, "Negate"),
-            Not { .. } => write!(f, "Not"),
-            Add { .. } => write!(f, "Add"),
-            Subtract { .. } => write!(f, "Subtract"),
-            Multiply { .. } => write!(f, "Multiply"),
-            Divide { .. } => write!(f, "Divide"),
-            Remainder { .. } => write!(f, "Remainder"),
-            Less { .. } => write!(f, "Less"),
-            LessOrEqual { .. } => write!(f, "LessOrEqual"),
-            Greater { .. } => write!(f, "Greater"),
-            GreaterOrEqual { .. } => write!(f, "GreaterOrEqual"),
-            Equal { .. } => write!(f, "Equal"),
-            NotEqual { .. } => write!(f, "NotEqual"),
-            Jump { .. } => write!(f, "Jump"),
-            JumpBack { .. } => write!(f, "JumpBack"),
-            JumpIfTrue { .. } => write!(f, "JumpIfTrue"),
-            JumpIfFalse { .. } => write!(f, "JumpIfFalse"),
-            Call { .. } => write!(f, "Call"),
-            CallInstance { .. } => write!(f, "CallInstance"),
-            Return { .. } => write!(f, "Return"),
-            Yield { .. } => write!(f, "Yield"),
-            Throw { .. } => write!(f, "Throw"),
-            Size { .. } => write!(f, "Size"),
-            IterNext { .. } => write!(f, "IterNext"),
-            IterNextTemp { .. } => write!(f, "IterNextTemp"),
-            IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
-            TempIndex { .. } => write!(f, "TempIndex"),
-            SliceFrom { .. } => write!(f, "SliceFrom"),
-            SliceTo { .. } => write!(f, "SliceTo"),
-            IsTuple { .. } => write!(f, "IsTuple"),
-            IsList { .. } => write!(f, "IsList"),
-            Index { .. } => write!(f, "Index"),
-            SetIndex { .. } => write!(f, "SetIndex"),
-            MapInsert { .. } => write!(f, "MapInsert"),
-            MetaInsert { .. } => write!(f, "MetaInsert"),
-            MetaInsertNamed { .. } => write!(f, "MetaInsertNamed"),
-            MetaExport { .. } => write!(f, "MetaExport"),
-            MetaExportNamed { .. } => write!(f, "MetaExportNamed"),
-            Access { .. } => write!(f, "Access"),
-            AccessString { .. } => write!(f, "AccessString"),
-            TryStart { .. } => write!(f, "TryStart"),
-            TryEnd => write!(f, "TryEnd"),
-            Debug { .. } => write!(f, "Debug"),
-            CheckType { .. } => write!(f, "CheckType"),
-            CheckSizeEqual { .. } => write!(f, "CheckSizeEqual"),
-            CheckSizeMin { .. } => write!(f, "CheckSizeMin"),
-        }
-    }
-}
-
 impl fmt::Debug for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
@@ -650,6 +584,21 @@ impl fmt::Debug for Instruction {
                     f,
                     "Remainder\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}"
                 )
+            }
+            AddAssign { lhs, rhs } => {
+                write!(f, "AddAssign\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            SubtractAssign { lhs, rhs } => {
+                write!(f, "SubAssign\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            MultiplyAssign { lhs, rhs } => {
+                write!(f, "MulAssign\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            DivideAssign { lhs, rhs } => {
+                write!(f, "DivAssign\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            RemainderAssign { lhs, rhs } => {
+                write!(f, "RemAssign\tlhs: {lhs}\t\trhs: {rhs}")
             }
             Less { register, lhs, rhs } => {
                 write!(f, "Less\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
@@ -1238,6 +1187,26 @@ impl Iterator for InstructionReader {
             }),
             Op::Remainder => Some(Remainder {
                 register: get_u8!(),
+                lhs: get_u8!(),
+                rhs: get_u8!(),
+            }),
+            Op::AddAssign => Some(AddAssign {
+                lhs: get_u8!(),
+                rhs: get_u8!(),
+            }),
+            Op::SubtractAssign => Some(SubtractAssign {
+                lhs: get_u8!(),
+                rhs: get_u8!(),
+            }),
+            Op::MultiplyAssign => Some(MultiplyAssign {
+                lhs: get_u8!(),
+                rhs: get_u8!(),
+            }),
+            Op::DivideAssign => Some(DivideAssign {
+                lhs: get_u8!(),
+                rhs: get_u8!(),
+            }),
+            Op::RemainderAssign => Some(RemainderAssign {
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),

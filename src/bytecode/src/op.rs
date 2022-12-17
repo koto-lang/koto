@@ -288,6 +288,31 @@ pub enum Op {
     /// `[*result, *lhs, *rhs]`
     Remainder,
 
+    /// Add-assign rhs -> lhs
+    ///
+    /// `[*lhs, *rhs]`
+    AddAssign,
+
+    /// Subtract-assign rhs -> lhs
+    ///
+    /// `[*lhs, *rhs]`
+    SubtractAssign,
+
+    /// Multiply-assign rhs -> lhs
+    ///
+    /// `[*lhs, *rhs]`
+    MultiplyAssign,
+
+    /// Divide-assign rhs -> lhs
+    ///
+    /// `[*lhs, *rhs]`
+    DivideAssign,
+
+    /// Remainder-assign rhs -> lhs
+    ///
+    /// `[*lhs, *rhs]`
+    RemainderAssign,
+
     /// Compares lhs and rhs using the '<' operator
     ///
     /// `[*result, *lhs, *rhs]`
@@ -538,11 +563,6 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused93,
-    Unused94,
-    Unused95,
-    Unused96,
-    Unused97,
     Unused98,
     Unused99,
     Unused100,

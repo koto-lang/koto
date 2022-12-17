@@ -412,7 +412,6 @@ x = [
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 6,
                     },
                     MainBlock {
@@ -471,7 +470,6 @@ x =
                             target_index: 1,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     MainBlock {
@@ -552,7 +550,6 @@ x"#;
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     Id(constant(0)),
@@ -591,7 +588,6 @@ x =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     MainBlock {
@@ -626,7 +622,6 @@ x =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {
@@ -668,7 +663,6 @@ x =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -705,7 +699,6 @@ x =
                             target_index: 0,
                             scope: Scope::Export,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -803,7 +796,6 @@ min..max
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 1,
                     },
                     Id(constant(1)),
@@ -813,7 +805,6 @@ min..max
                             target_index: 3,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     Id(constant(0)),
@@ -1029,7 +1020,6 @@ min..max
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 1,
                     },
                     MainBlock {
@@ -1069,7 +1059,6 @@ export a =
                             target_index: 0,
                             scope: Scope::Export,
                         },
-                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {
@@ -1096,7 +1085,6 @@ export a =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {
@@ -1127,7 +1115,6 @@ export a =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     MainBlock {
@@ -1270,53 +1257,38 @@ x %= 4";
                 &[
                     Id(constant(0)),
                     Number0,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Add,
-                        expression: 1,
+                    BinaryOp {
+                        op: AstBinaryOp::AddAssign,
+                        lhs: 0,
+                        rhs: 1,
                     },
                     Id(constant(0)),
                     Number1,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 3,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Subtract,
-                        expression: 4,
+                    BinaryOp {
+                        op: AstBinaryOp::SubtractAssign,
+                        lhs: 3,
+                        rhs: 4,
                     }, // 5
                     Id(constant(0)),
                     Int(constant(1)),
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 6,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Multiply,
-                        expression: 7,
+                    BinaryOp {
+                        op: AstBinaryOp::MultiplyAssign,
+                        lhs: 6,
+                        rhs: 7,
                     },
                     Id(constant(0)),
                     Int(constant(2)), // 10
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 9,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Divide,
-                        expression: 10,
+                    BinaryOp {
+                        op: AstBinaryOp::DivideAssign,
+                        lhs: 9,
+                        rhs: 10,
                     },
                     Id(constant(0)),
                     Int(constant(3)),
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 12,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Remainder,
-                        expression: 13,
+                    BinaryOp {
+                        op: AstBinaryOp::RemainderAssign,
+                        lhs: 12,
+                        rhs: 13,
                     },
                     MainBlock {
                         body: vec![2, 5, 8, 11, 14],
@@ -1520,7 +1492,6 @@ x %= 4";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -1580,7 +1551,6 @@ a =
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     MainBlock {
@@ -1638,7 +1608,6 @@ a = (1
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 6,
                     },
                     MainBlock {
@@ -1790,7 +1759,6 @@ a";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 8,
                     },
                     Id(constant(0)),
@@ -2091,7 +2059,6 @@ a()";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     Id(constant(0)),
@@ -2220,7 +2187,6 @@ f 42";
                             target_index: 2,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     Id(constant(2)), // 5
@@ -2239,7 +2205,6 @@ f 42";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     Int(constant(3)), // 42
@@ -2291,7 +2256,6 @@ f 42";
                             target_index: 2,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     Id(constant(1)), // x
@@ -2314,7 +2278,6 @@ f 42";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 10,
                     },
                     Int(constant(4)), // 42
@@ -2545,7 +2508,6 @@ f x";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -2723,7 +2685,6 @@ foo.bar x
                             target_index: 5,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 6,
                     },
                     Function(koto_parser::Function {
@@ -2785,7 +2746,6 @@ f = ||
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     },
                     MainBlock {
@@ -2837,7 +2797,6 @@ f = ||
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     MainBlock {
@@ -2878,7 +2837,6 @@ f()";
                             target_index: 6,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     Function(koto_parser::Function {
@@ -2908,7 +2866,6 @@ f()";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 11,
                     },
                     Id(constant(0)),
@@ -2995,7 +2952,6 @@ f = |n|
                             target_index: 2,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 15,
                     },
                     Id(constant(2)),
@@ -3014,7 +2970,6 @@ f = |n|
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 19,
                     }, // ast 20
                     MainBlock {
@@ -3054,7 +3009,6 @@ f = |n|
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     Id(constant(0)), // 5
@@ -3094,7 +3048,6 @@ f = |n|
                             target_index: 1,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     Nested(3),
@@ -3105,7 +3058,6 @@ f = |n|
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 6,
                     },
                     Function(koto_parser::Function {
@@ -3136,13 +3088,10 @@ f = |n|
                 &[
                     Id(constant(0)),
                     Number1,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Add,
-                        expression: 1,
+                    BinaryOp {
+                        op: AstBinaryOp::AddAssign,
+                        lhs: 0,
+                        rhs: 1,
                     },
                     Function(koto_parser::Function {
                         args: vec![],
@@ -3205,7 +3154,6 @@ y z";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 10,
                     },
                     Id(constant(0)), // z
@@ -3441,7 +3389,6 @@ y z";
                             target_index: 3,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     MainBlock {
@@ -3622,7 +3569,6 @@ x.bar()."baz" = 1
                             target_index: 4,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     MainBlock {
@@ -3943,7 +3889,6 @@ x = ( 0
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     MainBlock {
@@ -3996,7 +3941,6 @@ x = [ 0
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     MainBlock {
@@ -4055,7 +3999,6 @@ x = { y
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -4404,7 +4347,6 @@ assert_eq x, "hello"
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 1,
                     },
                     MainBlock {
@@ -4752,7 +4694,6 @@ x = match y
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     MainBlock {

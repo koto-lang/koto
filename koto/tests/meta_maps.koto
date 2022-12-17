@@ -15,6 +15,23 @@ globals.foo_meta =
   @/: |self, other| foo self.x / other.x
   @%: |self, other| foo self.x % other.x
 
+  # Modify-Assignment operators
+  @+=: |self, other|
+    self.x += other
+    self
+  @-=: |self, other|
+    self.x -= other
+    self
+  @*=: |self, other|
+    self.x *= other
+    self
+  @/=: |self, other|
+    self.x /= other
+    self
+  @%=: |self, other|
+    self.x %= other
+    self
+
   # Comparison operators
   @<: |self, other| self.x < other.x
   @<=: |self, other| self.x <= other.x
@@ -59,6 +76,21 @@ globals.foo_meta =
 
   @test remainder: ||
     assert_eq (foo(42) % foo(10)), foo 2
+
+  @test add_assign: ||
+    assert_eq (foo(10) += 20), foo 30
+
+  @test subtract_assign: ||
+    assert_eq (foo(99) -= 100), foo -1
+
+  @test multiply_assign: ||
+    assert_eq (foo(6) *= 7), foo 42
+
+  @test divide_assign: ||
+    assert_eq (foo(42) /= 2), foo 21
+
+  @test remainder_assign: ||
+    assert_eq (foo(42) %= 10), foo 2
 
   @test less: ||
     assert foo(5) < foo(6)

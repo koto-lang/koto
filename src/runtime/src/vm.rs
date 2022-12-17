@@ -466,6 +466,26 @@ impl Vm {
             BinaryOp::Remainder => {
                 self.run_remainder(result_register, lhs_register, rhs_register)?
             }
+            BinaryOp::AddAssign => {
+                self.run_add_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
+            BinaryOp::SubtractAssign => {
+                self.run_subtract_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
+            BinaryOp::MultiplyAssign => {
+                self.run_multiply_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
+            BinaryOp::DivideAssign => {
+                self.run_divide_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
+            BinaryOp::RemainderAssign => {
+                self.run_remainder_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
             BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register)?,
             BinaryOp::LessOrEqual => {
                 self.run_less_or_equal(result_register, lhs_register, rhs_register)?
@@ -838,6 +858,11 @@ impl Vm {
             Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
             Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
             Instruction::Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs),
+            Instruction::AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs),
+            Instruction::SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs),
+            Instruction::MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs),
+            Instruction::DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs),
+            Instruction::RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs),
             Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
             Instruction::LessOrEqual { register, lhs, rhs } => {
                 self.run_less_or_equal(register, lhs, rhs)
@@ -1604,6 +1629,156 @@ impl Vm {
         };
         self.set_register(result, result_value);
 
+        Ok(())
+    }
+
+    fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::AddAssign, Value::*};
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a + b),
+            (Number(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Number(b)) => Num2(a + b),
+            (Number(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Number(b)) => Num4(a + b),
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, AddAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "+=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, AddAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "+=");
+                })
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::SubtractAssign, Value::*};
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a - b),
+            (Number(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Number(b)) => Num2(a - b),
+            (Number(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Number(b)) => Num4(a - b),
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, SubtractAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "-=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, SubtractAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "-=");
+                })
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "-="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::MultiplyAssign, Value::*};
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a * b),
+            (Number(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Number(b)) => Num2(a * b),
+            (Number(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Number(b)) => Num4(a * b),
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, MultiplyAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "*=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, MultiplyAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "*=");
+                })
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "*="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::DivideAssign, Value::*};
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a / b),
+            (Number(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Number(b)) => Num2(a / b),
+            (Number(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Number(b)) => Num4(a / b),
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, DivideAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "/=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, DivideAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "/=");
+                })
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "/="),
+        };
+
+        self.set_register(lhs, result_value);
+        Ok(())
+    }
+
+    fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::RemainderAssign, Value::*};
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a % b),
+            (Number(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Number(b)) => Num2(a % b),
+            (Number(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Number(b)) => Num4(a % b),
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, RemainderAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "%=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, RemainderAssign, {
+                    return self.binary_op_error(lhs_value, rhs_value, "%=");
+                })
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "%="),
+        };
+
+        self.set_register(lhs, result_value);
         Ok(())
     }
 

@@ -24,7 +24,7 @@
 
   @test addition: ||
     x = "^"
-    x += "_" + "^"
+    x = x + "_" + "^"
     assert_eq x, "^_^"
 
   @test indexing: ||

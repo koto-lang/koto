@@ -182,6 +182,16 @@ pub enum BinaryOp {
     Divide,
     /// `@%`
     Remainder,
+    /// `@+=`
+    AddAssign,
+    /// `@-=`
+    SubtractAssign,
+    /// `@*=`
+    MultiplyAssign,
+    /// `@/=`
+    DivideAssign,
+    /// `@%=`
+    RemainderAssign,
     /// `@<`
     Less,
     /// `@<=`
@@ -211,6 +221,11 @@ impl fmt::Display for BinaryOp {
                 Multiply => "*",
                 Divide => "/",
                 Remainder => "%",
+                AddAssign => "+=",
+                SubtractAssign => "-=",
+                MultiplyAssign => "*=",
+                DivideAssign => "/=",
+                RemainderAssign => "%=",
                 Less => "<",
                 LessOrEqual => "<=",
                 Greater => ">",
@@ -265,6 +280,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Multiply => MetaKey::BinaryOp(Multiply),
         MetaKeyId::Divide => MetaKey::BinaryOp(Divide),
         MetaKeyId::Remainder => MetaKey::BinaryOp(Remainder),
+        MetaKeyId::AddAssign => MetaKey::BinaryOp(AddAssign),
+        MetaKeyId::SubtractAssign => MetaKey::BinaryOp(SubtractAssign),
+        MetaKeyId::MultiplyAssign => MetaKey::BinaryOp(MultiplyAssign),
+        MetaKeyId::DivideAssign => MetaKey::BinaryOp(DivideAssign),
+        MetaKeyId::RemainderAssign => MetaKey::BinaryOp(RemainderAssign),
         MetaKeyId::Less => MetaKey::BinaryOp(Less),
         MetaKeyId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
         MetaKeyId::Greater => MetaKey::BinaryOp(Greater),
@@ -357,6 +377,7 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
 ///
 /// # Example
 ///
+/// ```
 /// #[derive(Debug)]
 /// struct MyData {
 ///     x: f64,
@@ -365,20 +386,21 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
 /// impl ExternalData for MyData {}
 ///
 /// let meta_map = MetaMapBuilder::<MyData>::new("my_type")
-///     # A 'data function' expects the input value to be an instance of the ExternalData type
-///     # provided to the builder.
+///     // A 'data function' expects the input value to be an instance of the ExternalData type
+///     // provided to the builder.
 ///     .data_fn("to_number", |data| Ok(Value::Number(data.x.into())))
 ///     .data_fn(UnaryOp::Display, |data| {
 ///         Ok(format!("TestExternalData: {}", data.x).into())
 ///     })
-///     # A mutable data function provides a mutable reference to the underlying ExternalData.
+///     // A mutable data function provides a mutable reference to the underlying ExternalData.
 ///     .data_fn_mut("invert", |data| {
 ///         data.x *= -1.0;
 ///         Ok(Value::Null)
 ///     })
-///     # Finally, the build function consumes the builder and provides a MetaMap, ready for
-///     # attaching to external values.
+///     // Finally, the build function consumes the builder and provides a MetaMap, ready for
+///     // attaching to external values.
 ///     .build();
+/// ```
 pub struct MetaMapBuilder<T: ExternalData> {
     // The map that's being built
     map: MetaMap,
@@ -432,12 +454,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     pub fn external_value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
-        F: Fn(&ExternalValue) -> RuntimeResult + 'static,
+        F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.type_name.clone();
 
         self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] if value.value_type() == type_name => f(value),
+            [Value::ExternalValue(value), extra_args @ ..] if value.value_type() == type_name => {
+                f(value, extra_args)
+            }
             other => unexpected_instance_type(&type_name, other),
         });
 

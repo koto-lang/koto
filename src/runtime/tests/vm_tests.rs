@@ -148,6 +148,18 @@ y = y = 2
 ";
             test_script(script, 2);
         }
+
+        #[test]
+        fn assignment_ops() {
+            let script = "
+a = 10
+a += 1 # 11
+a *= 6 # 66
+a /= 2 # 33
+a %= 5
+";
+            test_script(script, 3);
+        }
     }
 
     mod ranges {
@@ -1857,6 +1869,33 @@ l[2].foo[0]";
         }
 
         #[test]
+        fn add_assign_with_map_entry() {
+            let script = "
+m = {foo: 99}
+m.foo += 1
+m.foo";
+            test_script(script, 100);
+        }
+
+        #[test]
+        fn subtract_assign_with_string_key() {
+            let script = "
+m = {foo: 42}
+m.'foo' -= 1
+m.'foo'";
+            test_script(script, 41);
+        }
+
+        #[test]
+        fn multiply_assign_with_list_entry() {
+            let script = "
+m = [1, 2, 3]
+m[1] *= 10
+m[1]";
+            test_script(script, 20);
+        }
+
+        #[test]
         fn function_call() {
             let script = "
 m = {get_map: || { foo: -1 }}
@@ -2673,6 +2712,39 @@ z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
 z.x
 ";
             test_script(script, 1);
+        }
+
+        #[test]
+        fn arithmetic_assignment() {
+            let script = "
+locals = {}
+foo = |x| {x}.with_meta_map locals.foo_meta
+locals.foo_meta =
+  @+=: |self, y|
+    self.x += y
+    self
+  @-=: |self, y|
+    self.x -= y
+    self
+  @*=: |self, y|
+    self.x *= y
+    self
+  @/=: |self, y|
+    self.x /= y
+    self
+  @%=: |self, y|
+    self.x %= y
+    self
+
+z = foo 2
+z += 10 # 12
+z *= 3  # 36
+z /= 2  # 18
+z -= 3  # 15
+z %= 4  # 3
+z.x
+";
+            test_script(script, 3);
         }
 
         #[test]
