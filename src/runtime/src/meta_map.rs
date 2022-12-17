@@ -377,6 +377,7 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
 ///
 /// # Example
 ///
+/// ```
 /// #[derive(Debug)]
 /// struct MyData {
 ///     x: f64,
@@ -385,20 +386,21 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
 /// impl ExternalData for MyData {}
 ///
 /// let meta_map = MetaMapBuilder::<MyData>::new("my_type")
-///     # A 'data function' expects the input value to be an instance of the ExternalData type
-///     # provided to the builder.
+///     // A 'data function' expects the input value to be an instance of the ExternalData type
+///     // provided to the builder.
 ///     .data_fn("to_number", |data| Ok(Value::Number(data.x.into())))
 ///     .data_fn(UnaryOp::Display, |data| {
 ///         Ok(format!("TestExternalData: {}", data.x).into())
 ///     })
-///     # A mutable data function provides a mutable reference to the underlying ExternalData.
+///     // A mutable data function provides a mutable reference to the underlying ExternalData.
 ///     .data_fn_mut("invert", |data| {
 ///         data.x *= -1.0;
 ///         Ok(Value::Null)
 ///     })
-///     # Finally, the build function consumes the builder and provides a MetaMap, ready for
-///     # attaching to external values.
+///     // Finally, the build function consumes the builder and provides a MetaMap, ready for
+///     // attaching to external values.
 ///     .build();
+/// ```
 pub struct MetaMapBuilder<T: ExternalData> {
     // The map that's being built
     map: MetaMap,

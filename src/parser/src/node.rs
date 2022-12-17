@@ -594,7 +594,7 @@ pub enum MetaKeyId {
 
     /// Unused
     ///
-    /// This entry must be last, see TryFrom<u7> for [MetaKeyId]
+    /// This entry must be last, see `TryFrom<u7>` for [MetaKeyId]
     Invalid,
 }
 
