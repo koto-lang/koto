@@ -159,7 +159,7 @@ impl fmt::Display for ErrorType {
         use ErrorType::*;
 
         match &self {
-            InternalError(error) => write!(f, "Internal error: {}", error),
+            InternalError(error) => write!(f, "Internal error: {error}"),
             ExpectedIndentation(error) => f.write_str(&error.to_string()),
             SyntaxError(error) => f.write_str(&error.to_string()),
         }

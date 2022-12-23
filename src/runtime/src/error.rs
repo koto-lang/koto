@@ -65,7 +65,7 @@ impl RuntimeError {
         use RuntimeErrorType::StringError;
 
         self.error = match self.error {
-            StringError(message) => StringError(format!("{}: {}", prefix, message)),
+            StringError(message) => StringError(format!("{prefix}: {message}")),
             other => other,
         };
 

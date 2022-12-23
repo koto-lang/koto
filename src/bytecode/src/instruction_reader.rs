@@ -605,8 +605,7 @@ impl fmt::Debug for Instruction {
             }
             LessOrEqual { register, lhs, rhs } => write!(
                 f,
-                "LessOrEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {}",
-                rhs
+                "LessOrEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}",
             ),
             Greater { register, lhs, rhs } => {
                 write!(f, "Greater\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
@@ -1349,8 +1348,7 @@ impl Iterator for InstructionReader {
                 } else {
                     Some(Error {
                         message: format!(
-                            "Unexpected meta id {} found at instruction {}",
-                            meta_id, op_ip
+                            "Unexpected meta id {meta_id} found at instruction {op_ip}",
                         ),
                     })
                 }

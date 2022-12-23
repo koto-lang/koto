@@ -66,7 +66,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
 
     let script = args
         .subcommand()
-        .map_err(|e| format!("Error while parsing arguments: {}", e))?;
+        .map_err(|e| format!("Error while parsing arguments: {e}"))?;
 
     let script_args = match args.free() {
         Ok(extra_args) => extra_args,
@@ -135,7 +135,7 @@ fn run() -> Result<(), ()> {
             let script_contents = match fs::read_to_string(&script_path) {
                 Ok(contents) => contents,
                 Err(e) => {
-                    eprintln!("Error while loading script: {}", e);
+                    eprintln!("Error while loading script: {e}");
                     return Err(());
                 }
             };

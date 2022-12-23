@@ -680,7 +680,7 @@ impl<'a> Iterator for TokenLexer<'a> {
 }
 
 fn is_digit(c: char) -> bool {
-    matches!(c, '0'..='9')
+    c.is_ascii_digit()
 }
 
 fn is_binary_digit(c: char) -> bool {
