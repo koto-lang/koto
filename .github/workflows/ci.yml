@@ -49,7 +49,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Docs
         run: cargo doc --workspace --exclude koto_cli
