@@ -11,8 +11,8 @@ struct OutputCapture {
 }
 
 impl KotoFile for OutputCapture {
-    fn id(&self) -> String {
-        "_stdout_".to_string()
+    fn id(&self) -> ValueString {
+        "_stdout_".into()
     }
 }
 
@@ -42,8 +42,8 @@ impl KotoWrite for OutputCapture {
 struct BlockedInput {}
 
 impl KotoFile for BlockedInput {
-    fn id(&self) -> String {
-        "_stdin_".to_string()
+    fn id(&self) -> ValueString {
+        "_stdin_".into()
     }
 }
 

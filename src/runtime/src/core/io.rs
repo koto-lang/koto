@@ -6,11 +6,7 @@ pub use buffered_file::BufferedFile;
 
 use {
     super::string::format,
-    crate::{
-        error::type_error_with_slice, runtime_error, type_error, ExternalData, ExternalValue,
-        KotoFile, KotoRead, KotoWrite, MetaMap, MetaMapBuilder, RuntimeError, UnaryOp, Value,
-        ValueMap, Vm,
-    },
+    crate::prelude::*,
     std::{
         cell::RefCell,
         fmt, fs,
@@ -284,11 +280,11 @@ impl<T> KotoFile for BufferedSystemFile<T>
 where
     T: Read + Write + Seek,
 {
-    fn id(&self) -> String {
-        self.path.to_string_lossy().to_string()
+    fn id(&self) -> ValueString {
+        self.path.to_string_lossy().to_string().into()
     }
 
-    fn path(&self) -> Result<String, RuntimeError> {
+    fn path(&self) -> Result<ValueString, RuntimeError> {
         Ok(self.id())
     }
 

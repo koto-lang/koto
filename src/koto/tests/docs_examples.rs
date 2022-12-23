@@ -78,8 +78,8 @@ struct OutputCapture {
 }
 
 impl KotoFile for OutputCapture {
-    fn id(&self) -> String {
-        "_stdout_".to_string()
+    fn id(&self) -> ValueString {
+        "_stdout_".into()
     }
 }
 

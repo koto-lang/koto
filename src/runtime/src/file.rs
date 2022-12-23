@@ -1,13 +1,12 @@
-use crate::{runtime_error, RuntimeError};
+use crate::{runtime_error, RuntimeError, ValueString};
 
 /// A trait used for file-like-things in Koto
 pub trait KotoFile: KotoRead + KotoWrite {
     /// An identifier for the file, accessed when displaying the file in strings
-    // TODO(#191) - Return a ValueString
-    fn id(&self) -> String;
+    fn id(&self) -> ValueString;
 
     /// Returns the path of the file
-    fn path(&self) -> Result<String, RuntimeError> {
+    fn path(&self) -> Result<ValueString, RuntimeError> {
         runtime_error!("unsupported for this file type")
     }
 

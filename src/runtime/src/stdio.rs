@@ -1,5 +1,5 @@
 use {
-    crate::{core::io::map_io_err, KotoFile, KotoRead, KotoWrite, RuntimeError},
+    crate::{core::io::map_io_err, KotoFile, KotoRead, KotoWrite, RuntimeError, ValueString},
     std::io::{self, Read, Write},
 };
 
@@ -8,8 +8,8 @@ use {
 pub struct DefaultStdin {}
 
 impl KotoFile for DefaultStdin {
-    fn id(&self) -> String {
-        "_stdin_".to_string()
+    fn id(&self) -> ValueString {
+        STDIN_ID.with(|id| id.clone())
     }
 }
 
@@ -36,8 +36,8 @@ impl KotoRead for DefaultStdin {
 pub struct DefaultStdout {}
 
 impl KotoFile for DefaultStdout {
-    fn id(&self) -> String {
-        "_stdout_".to_string()
+    fn id(&self) -> ValueString {
+        STDOUT_ID.with(|id| id.clone())
     }
 }
 
@@ -64,8 +64,8 @@ impl KotoWrite for DefaultStdout {
 pub struct DefaultStderr {}
 
 impl KotoFile for DefaultStderr {
-    fn id(&self) -> String {
-        "_stderr_".to_string()
+    fn id(&self) -> ValueString {
+        STDERR_ID.with(|id| id.clone())
     }
 }
 
@@ -85,4 +85,10 @@ impl KotoWrite for DefaultStderr {
     fn flush(&self) -> Result<(), RuntimeError> {
         io::stdout().flush().map_err(map_io_err)
     }
+}
+
+thread_local! {
+    static STDIN_ID: ValueString = "_stdin_".into();
+    static STDOUT_ID: ValueString = "_stdout_".into();
+    static STDERR_ID: ValueString = "_stderr_".into();
 }
