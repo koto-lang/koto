@@ -10,7 +10,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
             Some(n64) => Value::Number(n64.into()),
             None => match n.as_f64() {
                 Some(n64) => Value::Number(n64.into()),
-                None => return Err(format!("Number is out of range: {}", n)),
+                None => return Err(format!("Number is out of range: {n}")),
             },
         },
         JsonValue::String(s) => Value::Str(s.as_str().into()),
@@ -45,7 +45,7 @@ pub fn make_module() -> ValueMap {
         [Str(s)] => match serde_json::from_str(s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
-                Err(e) => runtime_error!("json.from_string: Error while parsing input: {}", e),
+                Err(e) => runtime_error!("json.from_string: Error while parsing input: {e}"),
             },
             Err(e) => runtime_error!(
                 "json.from_string: Error while parsing input: {}",
@@ -58,7 +58,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(result.into()),
-            Err(e) => runtime_error!("json.to_string: {}", e),
+            Err(e) => runtime_error!("json.to_string: {e}"),
         },
         unexpected => type_error_with_slice("a Value as argument", unexpected),
     });

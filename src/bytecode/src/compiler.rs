@@ -212,10 +212,7 @@ impl Frame {
                 deferred_ops.push(DeferredOp { bytes, span });
                 Ok(())
             }
-            _ => Err(format!(
-                "defer_op_until_register_is_committed: register {} hasn't been reserved",
-                reserved_register
-            )),
+            _ => Err(format!("register {reserved_register} hasn't been reserved")),
         }
     }
 
@@ -228,8 +225,7 @@ impl Frame {
             Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.to_vec()),
             _ => {
                 return Err(format!(
-                    "commit_local_register: register {} hasn't been reserved",
-                    local_register
+                    "commit_local_register: register {local_register} hasn't been reserved"
                 ));
             }
         };
@@ -445,7 +441,9 @@ impl Compiler {
                         }
                         1 => self.push_op(Set1, &[result.register]),
                         n if n >= 0 => self.push_op(SetNumberU8, &[result.register, n as u8]),
-                        n => self.push_op(SetNumberNegU8, &[result.register, n.abs() as u8]),
+                        n => {
+                            self.push_op(SetNumberNegU8, &[result.register, n.unsigned_abs() as u8])
+                        }
                     }
                 }
                 result
@@ -3477,9 +3475,9 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_nested_match_arm_patterns<'a>(
+    fn compile_nested_match_arm_patterns(
         &mut self,
-        params: MatchArmParameters<'a>,
+        params: MatchArmParameters,
         pattern_index: Option<i8>,
         nested_patterns: &[AstIndex],
         type_check_op: Op,

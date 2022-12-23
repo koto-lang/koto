@@ -91,7 +91,7 @@ impl Help {
                             help = entry.help
                         );
 
-                        let sub_match = format!("{}.", search_lower);
+                        let sub_match = format!("{search_lower}.");
                         let match_level = sub_match.chars().filter(|&c| c == '.').count();
                         let sub_entries = self
                             .help_map
@@ -252,8 +252,8 @@ impl Help {
     }
 }
 
-fn consume_help_section<'a, 'b>(
-    parser: &mut Peekable<pulldown_cmark::Parser<'a, 'b>>,
+fn consume_help_section(
+    parser: &mut Peekable<pulldown_cmark::Parser>,
     module_name: Option<&str>,
 ) -> (String, String) {
     use pulldown_cmark::{CodeBlockKind, Event::*, HeadingLevel, Tag::*};

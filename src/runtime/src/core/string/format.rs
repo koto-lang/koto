@@ -114,8 +114,7 @@ impl<'a> FormatLexer<'a> {
 
                     if n > index_max {
                         return Err(format!(
-                            "Placeholder index exceeds the maximum of {}",
-                            index_max
+                            "Placeholder index exceeds the maximum of {index_max}"
                         ));
                     }
                 }

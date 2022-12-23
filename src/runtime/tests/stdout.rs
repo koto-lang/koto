@@ -10,8 +10,8 @@ struct TestStdout {
 }
 
 impl KotoFile for TestStdout {
-    fn id(&self) -> String {
-        "_teststdout_".to_string()
+    fn id(&self) -> ValueString {
+        "_teststdout_".into()
     }
 }
 

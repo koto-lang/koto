@@ -10,7 +10,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Stri
             Some(n64) => Value::Number(n64.into()),
             None => match n.as_f64() {
                 Some(n64) => Value::Number(n64.into()),
-                None => return Err(format!("Number is out of range: {}", n)),
+                None => return Err(format!("Number is out of range: {n}")),
             },
         },
         YamlValue::String(s) => Value::Str(s.as_str().into()),

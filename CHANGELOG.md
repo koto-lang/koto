@@ -40,7 +40,8 @@ The Koto project adheres to
   constraint replaced with a required `id()` function.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
-- Type strings are now expected to be provided as `ValueString`s.
+- Type strings and strings returned by `KotoFile` implementations are now 
+  expected to be `ValueString`s.
 - `unexpected_type_error_with_slice` has been renamed to
   `type_error_with_slice`, and has had the prefix argument removed.
 
