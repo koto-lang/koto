@@ -1678,10 +1678,10 @@ impl<'source> Parser<'source> {
         };
 
         let number_node = if let Ok(n) = maybe_integer {
-            if n == 0 {
-                self.push_node(Number0)?
-            } else if n == 1 && !negate {
-                self.push_node(Number1)?
+            // Should we store the number as a SmallInt or as a stored constant?
+            if u8::try_from(n).is_ok() {
+                let n = if negate { -n } else { n };
+                self.push_node(SmallInt(n as i16))?
             } else {
                 let n = if negate { -n } else { n };
                 match self.constants.add_i64(n) {

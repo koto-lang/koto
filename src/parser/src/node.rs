@@ -39,13 +39,10 @@ pub enum Node {
     /// The `false` keyword
     BoolFalse,
 
-    /// The integer `0`
-    Number0,
+    /// An integer in the range -255..=255
+    SmallInt(i16),
 
-    /// The integer `1`
-    Number1,
-
-    /// An integer literal
+    /// An integer outside of the range -255..=255
     Int(ConstantIndex),
 
     /// An float literal
@@ -280,9 +277,8 @@ impl fmt::Display for Node {
             BoolTrue => write!(f, "BoolTrue"),
             BoolFalse => write!(f, "BoolFalse"),
             Float(_) => write!(f, "Float"),
+            SmallInt(_) => write!(f, "SmallInt"),
             Int(_) => write!(f, "Int"),
-            Number0 => write!(f, "Number0"),
-            Number1 => write!(f, "Number1"),
             Str(_) => write!(f, "Str"),
             List(_) => write!(f, "List"),
             Tuple(_) => write!(f, "Tuple"),
