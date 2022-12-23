@@ -50,17 +50,17 @@ mod external_values {
 
         macro_rules! assignment_op {
             ($op:tt) => {
-                |value, args| match (value.data_mut::<TestExternalData>(), args) {
-                    (Some(mut a), [ExternalValue(b)]) if b.has_data::<TestExternalData>() => {
+                |a, b| match b {
+                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
                         let b = b.data::<TestExternalData>().unwrap();
                         a.x $op b.x;
-                        Ok(ExternalValue(value.clone()))
+                        Ok(Null)
                     }
-                    (Some(mut a), [Number(n)]) => {
+                    [Number(n)] => {
                         a.x $op f64::from(n);
-                        Ok(ExternalValue(value.clone()))
+                        Ok(Null)
                     }
-                    (_, unexpected) => {
+                    unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
                     }
                 }
@@ -96,11 +96,11 @@ mod external_values {
             .data_fn_with_args(Multiply, arithmetic_op!(*))
             .data_fn_with_args(Divide, arithmetic_op!(/))
             .data_fn_with_args(Remainder, arithmetic_op!(%))
-            .external_value_fn(AddAssign, assignment_op!(+=))
-            .external_value_fn(SubtractAssign, assignment_op!(-=))
-            .external_value_fn(MultiplyAssign, assignment_op!(*=))
-            .external_value_fn(DivideAssign, assignment_op!(/=))
-            .external_value_fn(RemainderAssign, assignment_op!(%=))
+            .data_fn_with_args_mut(AddAssign, assignment_op!(+=))
+            .data_fn_with_args_mut(SubtractAssign, assignment_op!(-=))
+            .data_fn_with_args_mut(MultiplyAssign, assignment_op!(*=))
+            .data_fn_with_args_mut(DivideAssign, assignment_op!(/=))
+            .data_fn_with_args_mut(RemainderAssign, assignment_op!(%=))
             .data_fn_with_args(Less, comparison_op!(<))
             .data_fn_with_args(LessOrEqual, comparison_op!(<=))
             .data_fn_with_args(Greater, comparison_op!(>))
@@ -268,7 +268,8 @@ x.to_number()
         fn add_assign() {
             let script = "
 x = make_external 11
-x += make_external 22 += 33
+x += make_external 22
+x += 33
 x.to_number()
 ";
             test_script_with_external_value(script, 66);
@@ -278,11 +279,14 @@ x.to_number()
         fn multiply_assign() {
             let script = "
 x = make_external 3
-x *= make_external 11 *= 3
+x *= make_external 11
+x *= 3
 x.to_number()
 ";
             test_script_with_external_value(script, 99);
         }
+
+        // TODO missing tests
 
         #[test]
         fn less() {

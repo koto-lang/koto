@@ -378,6 +378,8 @@ impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
 /// # Example
 ///
 /// ```
+/// use koto_runtime::prelude::*;
+///
 /// #[derive(Debug)]
 /// struct MyData {
 ///     x: f64,
