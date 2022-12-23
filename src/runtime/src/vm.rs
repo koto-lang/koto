@@ -1646,14 +1646,17 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a + b),
             (Num4(a), Number(b)) => Num4(a + b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, AddAssign, {
+                // The call result can be discarded, the result is always the modified LHS
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, AddAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "+=");
-                })
+                });
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, AddAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, AddAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "+=");
-                })
+                });
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
         };
@@ -1676,12 +1679,14 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a - b),
             (Num4(a), Number(b)) => Num4(a - b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, SubtractAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, SubtractAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "-=");
                 })
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, SubtractAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, SubtractAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "-=");
                 })
             }
@@ -1706,12 +1711,14 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a * b),
             (Num4(a), Number(b)) => Num4(a * b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, MultiplyAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, MultiplyAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "*=");
                 })
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, MultiplyAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, MultiplyAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "*=");
                 })
             }
@@ -1736,12 +1743,14 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a / b),
             (Num4(a), Number(b)) => Num4(a / b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, DivideAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, DivideAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "/=");
                 })
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, DivideAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, DivideAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "/=");
                 })
             }
@@ -1766,12 +1775,14 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, map, RemainderAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, RemainderAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "%=");
                 })
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, lhs, lhs, rhs_value, ev, RemainderAssign, {
+                let unused = self.next_register();
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, RemainderAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "%=");
                 })
             }
