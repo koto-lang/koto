@@ -45,6 +45,11 @@ pub enum Op {
     /// `[*target, n]`
     SetNumberU8,
 
+    /// Sets a register to contain Int(-n)
+    ///
+    /// `[*target, n]`
+    SetNumberNegU8,
+
     /// Loads an f64 constant into a register
     ///
     /// `[*target, constant]`
@@ -563,7 +568,6 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused98,
     Unused99,
     Unused100,
     Unused101,

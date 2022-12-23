@@ -999,6 +999,10 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 value: get_u8!() as i64,
             }),
+            Op::SetNumberNegU8 => Some(SetNumber {
+                register: get_u8!(),
+                value: -(get_u8!() as i64),
+            }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
                 constant: ConstantIndex::from(get_u8!()),

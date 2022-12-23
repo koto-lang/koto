@@ -434,17 +434,19 @@ impl Compiler {
                 }
                 result
             }
-            Node::Number0 => {
+            Node::SmallInt(n) => {
+                dbg!(n);
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(Set0, &[result.register]);
-                }
-                result
-            }
-            Node::Number1 => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(Set1, &[result.register]);
+                    match *n {
+                        0 => {
+                            println!("Set0!");
+                            self.push_op(Set0, &[result.register])
+                        }
+                        1 => self.push_op(Set1, &[result.register]),
+                        n if n >= 0 => self.push_op(SetNumberU8, &[result.register, n as u8]),
+                        n => self.push_op(SetNumberNegU8, &[result.register, n.abs() as u8]),
+                    }
                 }
                 result
             }
@@ -3336,10 +3338,9 @@ impl Compiler {
                 Node::Null
                 | Node::BoolTrue
                 | Node::BoolFalse
-                | Node::Number0
-                | Node::Number1
-                | Node::Float(_)
+                | Node::SmallInt(_)
                 | Node::Int(_)
+                | Node::Float(_)
                 | Node::Str(_)
                 | Node::Lookup(_) => {
                     let pattern = self.push_register()?;

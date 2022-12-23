@@ -28,6 +28,8 @@ mod parser {
                         expected_constants.len(),
                         "Constant pool size mismatch"
                     );
+                } else {
+                    assert_eq!(ast.constants().size(), 0);
                 }
             }
             Err(error) => panic!("{error} - {}", error.span.start),
@@ -81,7 +83,7 @@ null"#;
                 &[
                     BoolTrue,
                     BoolFalse,
-                    Number1,
+                    SmallInt(1),
                     Float(constant(0)),
                     string_literal(1, QuotationMark::Double),
                     string_literal(2, QuotationMark::Single),
@@ -116,25 +118,20 @@ null"#;
             check_ast(
                 source,
                 &[
-                    Number1,
-                    Number1,
+                    SmallInt(1),
+                    SmallInt(1),
                     Int(constant(0)),
                     Int(constant(1)),
-                    Number1,
-                    Int(constant(2)),
-                    Number1,
-                    Int(constant(3)),
+                    SmallInt(1),
+                    SmallInt(64),
+                    SmallInt(1),
+                    SmallInt(4),
                     MainBlock {
                         body: vec![0, 1, 2, 3, 4, 5, 6, 7],
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::I64(256),
-                    Constant::I64(2880293630),
-                    Constant::I64(64),
-                    Constant::I64(4),
-                ]),
+                Some(&[Constant::I64(256), Constant::I64(2880293630)]),
             )
         }
 
@@ -237,15 +234,15 @@ null"#;
         }
 
         #[test]
-        fn strings_with_interpolated_expression() {
+        fn string_with_interpolated_expression() {
             let source = "
 '${123 + 456}!'
 ";
             check_ast(
                 source,
                 &[
+                    SmallInt(123),
                     Int(constant(0)),
-                    Int(constant(1)),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 0,
@@ -253,14 +250,14 @@ null"#;
                     },
                     Str(AstString {
                         quotation_mark: QuotationMark::Single,
-                        nodes: vec![StringNode::Expr(2), StringNode::Literal(constant(2))],
+                        nodes: vec![StringNode::Expr(2), StringNode::Literal(constant(1))],
                     }),
                     MainBlock {
                         body: vec![3],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(123), Constant::I64(456), Constant::Str("!")]),
+                Some(&[Constant::I64(456), Constant::Str("!")]),
             )
         }
 
@@ -281,15 +278,15 @@ null"#;
                         value: 1,
                     },
                     Id(constant(2)),
-                    Number0,
+                    SmallInt(0),
                     Lookup((LookupNode::Index(4), None)), // 5
                     Lookup((LookupNode::Root(3), Some(5))),
                     UnaryOp {
                         op: AstUnaryOp::Negate,
                         value: 6,
                     },
-                    Number1,
-                    Number1,
+                    SmallInt(1),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 8,
@@ -322,11 +319,11 @@ null"#;
             check_ast(
                 source,
                 &[
-                    Number0,
+                    SmallInt(0),
                     Id(constant(0)),
                     string_literal(1, QuotationMark::Double),
                     Id(constant(0)),
-                    Int(constant(2)),
+                    SmallInt(-1),
                     List(vec![0, 1, 2, 3, 4]),
                     List(vec![]),
                     MainBlock {
@@ -334,7 +331,7 @@ null"#;
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("n"), Constant::Str("test"), Constant::I64(-1)]),
+                Some(&[Constant::Str("n"), Constant::Str("test")]),
             )
         }
 
@@ -346,18 +343,18 @@ null"#;
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
-                    Int(constant(0)),
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(-1),
                     List(vec![1, 2]),
-                    Int(constant(1)),
+                    SmallInt(2),
                     List(vec![0, 3, 4]), // 5
                     MainBlock {
                         body: vec![5],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(-1), Constant::I64(2)]),
+                None,
             )
         }
 
@@ -401,11 +398,11 @@ x = [
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number0,
-                    Number1,
-                    Number0,
-                    Number1,
-                    Number0, // 5
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0), // 5
                     List(vec![1, 2, 3, 4, 5]),
                     Assign {
                         target: AssignTarget {
@@ -456,13 +453,13 @@ x =
                 &[
                     Map(vec![]),
                     Id(constant(0)),
-                    Int(constant(2)),
-                    string_literal(5, QuotationMark::Single),
-                    Int(constant(6)),
+                    SmallInt(42),
+                    string_literal(4, QuotationMark::Single),
+                    SmallInt(99),
                     Map(vec![
                         (string_literal_map_key(1, QuotationMark::Single), Some(2)),
-                        (MapKey::Id(constant(3)), None),
-                        (MapKey::Id(constant(4)), Some(3)),
+                        (MapKey::Id(constant(2)), None),
+                        (MapKey::Id(constant(3)), Some(3)),
                         (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
                     ]), // 5
                     Assign {
@@ -480,11 +477,9 @@ x =
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
-                    Constant::I64(99),
                 ]),
             )
         }
@@ -501,12 +496,12 @@ x =
             check_ast(
                 source,
                 &[
-                    Int(constant(1)),
-                    string_literal(4, QuotationMark::Double),
+                    SmallInt(42),
+                    string_literal(3, QuotationMark::Double),
                     Map(vec![
                         (string_literal_map_key(0, QuotationMark::Single), Some(0)),
-                        (MapKey::Id(constant(2)), None),
-                        (MapKey::Id(constant(3)), Some(1)),
+                        (MapKey::Id(constant(1)), None),
+                        (MapKey::Id(constant(2)), Some(1)),
                     ]),
                     MainBlock {
                         body: vec![2],
@@ -515,7 +510,6 @@ x =
                 ],
                 Some(&[
                     Constant::Str("foo"),
-                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
@@ -535,14 +529,14 @@ x"#;
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),  // x
-                    Int(constant(2)), // 42
-                    Number0,
+                    Id(constant(0)), // x
+                    SmallInt(42),
+                    SmallInt(0),
                     Map(vec![(MapKey::Id(constant(1)), Some(2))]), // foo, 0
-                    Int(constant(4)),
+                    SmallInt(-1),
                     Map(vec![
                         (MapKey::Id(constant(1)), Some(1)), // foo: 42
-                        (string_literal_map_key(3, QuotationMark::Double), Some(3)), // "baz": nested map
+                        (string_literal_map_key(2, QuotationMark::Double), Some(3)), // "baz": nested map
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),          // @-: -1
                     ]), // 5
                     Assign {
@@ -561,9 +555,7 @@ x"#;
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::I64(42),
                     Constant::Str("baz"),
-                    Constant::I64(-1),
                 ]),
             )
         }
@@ -577,8 +569,8 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),  // x
-                    Int(constant(2)), // 42
+                    Id(constant(0)), // x
+                    SmallInt(42),
                     Map(vec![(
                         string_literal_map_key(1, QuotationMark::Double),
                         Some(1),
@@ -595,7 +587,7 @@ x =
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
@@ -609,8 +601,8 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),  // x
-                    Int(constant(3)), // 42
+                    Id(constant(0)), // x
+                    SmallInt(42),
                     Map(vec![
                         (MapKey::Id(constant(2)), Some(1)), // bar: 42
                     ]),
@@ -633,7 +625,6 @@ x =
                     Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
-                    Constant::I64(42),
                 ]),
             )
         }
@@ -650,9 +641,9 @@ x =
                 source,
                 &[
                     Id(constant(0)), // x
-                    Number0,
-                    Number1,
-                    Number0,
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0),
                     Map(vec![
                         (MapKey::Meta(MetaKeyId::Add, None), Some(1)),
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(2)),
@@ -686,9 +677,9 @@ x =
                 source,
                 &[
                     Meta(MetaKeyId::Tests, None),
-                    Number0,
-                    Number1,
-                    Number0,
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0),
                     Map(vec![
                         (MapKey::Meta(MetaKeyId::PreTest, None), Some(1)),
                         (MapKey::Meta(MetaKeyId::PostTest, None), Some(2)),
@@ -722,15 +713,15 @@ x =
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Range {
                         start: 0,
                         end: 1,
                         inclusive: false,
                     },
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Range {
                         start: 3,
                         end: 4,
@@ -741,7 +732,7 @@ x =
                         local_count: 0,
                     },
                 ],
-                Some(&[]),
+                None,
             )
         }
 
@@ -751,15 +742,15 @@ x =
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 3,
@@ -775,7 +766,7 @@ x =
                         local_count: 0,
                     },
                 ],
-                Some(&[]),
+                None,
             )
         }
 
@@ -790,7 +781,7 @@ min..max
                 source,
                 &[
                     Id(constant(0)),
-                    Number0,
+                    SmallInt(0),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
@@ -799,7 +790,7 @@ min..max
                         expression: 1,
                     },
                     Id(constant(1)),
-                    Int(constant(2)),
+                    SmallInt(10),
                     Assign {
                         target: AssignTarget {
                             target_index: 3,
@@ -819,11 +810,7 @@ min..max
                         local_count: 2,
                     },
                 ],
-                Some(&[
-                    Constant::Str("min"),
-                    Constant::Str("max"),
-                    Constant::I64(10),
-                ]),
+                Some(&[Constant::Str("min"), Constant::Str("max")]),
             )
         }
 
@@ -865,23 +852,23 @@ min..max
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Range {
                         start: 0,
                         end: 1,
                         inclusive: false,
                     },
                     List(vec![2]),
-                    Number0,
-                    Int(constant(0)), // 5
+                    SmallInt(0),
+                    SmallInt(10), // 5
                     Range {
                         start: 4,
                         end: 5,
                         inclusive: false,
                     },
-                    Int(constant(0)),
-                    Number0,
+                    SmallInt(10),
+                    SmallInt(0),
                     Range {
                         start: 7,
                         end: 8,
@@ -893,7 +880,7 @@ min..max
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(10)]),
+                None,
             )
         }
     }
@@ -907,9 +894,9 @@ min..max
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
-                    Number0,
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0),
                     Tuple(vec![0, 1, 2]),
                     MainBlock {
                         body: vec![3],
@@ -973,9 +960,9 @@ min..max
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Number0,
-                    Number1,
-                    Number0,
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(0),
                     Tuple(vec![0, 1, 2]),
                     MainBlock {
                         body: vec![3],
@@ -992,7 +979,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Number1,
+                    SmallInt(1),
                     Tuple(vec![0]),
                     MainBlock {
                         body: vec![1],
@@ -1014,7 +1001,7 @@ min..max
                 source,
                 &[
                     Id(constant(0)),
-                    Number1,
+                    SmallInt(1),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
@@ -1047,8 +1034,8 @@ export a =
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number1,
-                    Number1,
+                    SmallInt(1),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 1,
@@ -1077,8 +1064,8 @@ export a =
                 source,
                 &[
                     Id(constant(0)),
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     Tuple(vec![1, 2]),
                     Assign {
                         target: AssignTarget {
@@ -1103,11 +1090,11 @@ export a =
                 source,
                 &[
                     Id(constant(0)),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Tuple(vec![1, 2]),
-                    Int(constant(1)),
-                    Int(constant(2)), // 5
+                    SmallInt(2),
+                    SmallInt(3), // 5
                     Tuple(vec![4, 5]),
                     Tuple(vec![3, 6]),
                     Assign {
@@ -1122,7 +1109,7 @@ export a =
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::I64(2), Constant::I64(3)]),
+                Some(&[Constant::Str("x")]),
             )
         }
 
@@ -1134,11 +1121,11 @@ export a =
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
-                    Number0,
+                    SmallInt(0),
                     Lookup((LookupNode::Index(2), None)),
                     Lookup((LookupNode::Root(1), Some(3))),
-                    Number1, // 5
-                    Number0,
+                    SmallInt(1), // 5
+                    SmallInt(0),
                     TempTuple(vec![5, 6]),
                     MultiAssign {
                         targets: vec![
@@ -1174,8 +1161,8 @@ x";
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     TempTuple(vec![2, 3]),
                     MultiAssign {
                         targets: vec![
@@ -1256,35 +1243,35 @@ x %= 4";
                 source,
                 &[
                     Id(constant(0)),
-                    Number0,
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::AddAssign,
                         lhs: 0,
                         rhs: 1,
                     },
                     Id(constant(0)),
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::SubtractAssign,
                         lhs: 3,
                         rhs: 4,
                     }, // 5
                     Id(constant(0)),
-                    Int(constant(1)),
+                    SmallInt(2),
                     BinaryOp {
                         op: AstBinaryOp::MultiplyAssign,
                         lhs: 6,
                         rhs: 7,
                     },
                     Id(constant(0)),
-                    Int(constant(2)), // 10
+                    SmallInt(3), // 10
                     BinaryOp {
                         op: AstBinaryOp::DivideAssign,
                         lhs: 9,
                         rhs: 10,
                     },
                     Id(constant(0)),
-                    Int(constant(3)),
+                    SmallInt(4),
                     BinaryOp {
                         op: AstBinaryOp::RemainderAssign,
                         lhs: 12,
@@ -1295,12 +1282,7 @@ x %= 4";
                         local_count: 0,
                     }, // 15
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::I64(2),
-                    Constant::I64(3),
-                    Constant::I64(4),
-                ]),
+                Some(&[Constant::Str("x")]),
             )
         }
     }
@@ -1327,14 +1309,14 @@ x %= 4";
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::Subtract,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 2,
@@ -1355,9 +1337,9 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Number1,
-                    Number0,
-                    Number1,
+                    SmallInt(1),
+                    SmallInt(0),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Multiply,
                         lhs: 1,
@@ -1368,7 +1350,7 @@ x %= 4";
                         lhs: 0,
                         rhs: 3,
                     },
-                    Number0, // 5
+                    SmallInt(0), // 5
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 4,
@@ -1389,16 +1371,16 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
                     Nested(2),
-                    Number1,
-                    Number0, // 5
+                    SmallInt(1),
+                    SmallInt(0), // 5
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 4,
@@ -1425,14 +1407,14 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Int(constant(0)),
-                    Int(constant(1)),
+                    SmallInt(18),
+                    SmallInt(3),
                     BinaryOp {
                         op: AstBinaryOp::Divide,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Int(constant(2)),
+                    SmallInt(4),
                     BinaryOp {
                         op: AstBinaryOp::Remainder,
                         lhs: 2,
@@ -1443,7 +1425,7 @@ x %= 4";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(18), Constant::I64(3), Constant::I64(4)]),
+                None,
             )
         }
 
@@ -1476,7 +1458,7 @@ x %= 4";
                 source,
                 &[
                     Id(constant(0)), // x
-                    Number1,
+                    SmallInt(1),
                     Id(constant(2)), // y
                     NamedCall {
                         id: constant(1), // f
@@ -1533,9 +1515,9 @@ a =
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number1,
-                    Int(constant(1)),
-                    Int(constant(2)),
+                    SmallInt(1),
+                    SmallInt(2),
+                    SmallInt(3),
                     BinaryOp {
                         op: AstBinaryOp::Multiply,
                         lhs: 2,
@@ -1558,7 +1540,7 @@ a =
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::I64(2), Constant::I64(3)]),
+                Some(&[Constant::Str("a")]),
             )
         }
 
@@ -1589,15 +1571,15 @@ a = (1
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number1,
-                    Int(constant(1)),
+                    SmallInt(1),
+                    SmallInt(2),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 2,
                     },
                     Nested(3),
-                    Int(constant(2)), // 5
+                    SmallInt(3), // 5
                     BinaryOp {
                         op: AstBinaryOp::Multiply,
                         lhs: 4,
@@ -1615,7 +1597,7 @@ a = (1
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::I64(2), Constant::I64(3)]),
+                Some(&[Constant::Str("a")]),
             )
         }
     }
@@ -1629,15 +1611,15 @@ a = (1
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::Greater,
                         lhs: 3,
@@ -1669,9 +1651,9 @@ a = (1
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::LessOrEqual,
                         lhs: 1,
@@ -1701,10 +1683,10 @@ a = (1
             check_ast(
                 source,
                 &[
-                    Number1,
+                    SmallInt(1),
                     BoolTrue,
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     If(AstIf {
                         condition: 1,
                         then_node: 2,
@@ -1742,12 +1724,12 @@ a";
                 &[
                     Id(constant(0)),
                     BoolFalse,
-                    Number0,
+                    SmallInt(0),
                     BoolTrue,
-                    Number1,
+                    SmallInt(1),
                     BoolFalse, // 5
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     If(AstIf {
                         condition: 1,
                         then_node: 2,
@@ -1767,7 +1749,7 @@ a";
                         local_count: 1,
                     }, // 10
                 ],
-                None,
+                Some(&[Constant::Str("a")]),
             )
         }
 
@@ -1780,11 +1762,11 @@ a";
                     Id(constant(0)),
                     Id(constant(1)),
                     BoolTrue,
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Tuple(vec![3, 4]), // 5
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     Tuple(vec![6, 7]),
                     If(AstIf {
                         condition: 2,
@@ -2044,7 +2026,7 @@ a()";
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(1)),
+                    SmallInt(42),
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
@@ -2075,7 +2057,7 @@ a()";
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::I64(42)]),
+                Some(&[Constant::Str("a")]),
             )
         }
 
@@ -2207,7 +2189,7 @@ f 42";
                         },
                         expression: 7,
                     },
-                    Int(constant(3)), // 42
+                    SmallInt(42),
                     NamedCall {
                         id: constant(0),
                         args: vec![9],
@@ -2217,12 +2199,7 @@ f 42";
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::I64(42),
-                ]),
+                Some(&[Constant::Str("f"), Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -2280,7 +2257,7 @@ f 42";
                         },
                         expression: 10,
                     },
-                    Int(constant(4)), // 42
+                    SmallInt(42),
                     NamedCall {
                         id: constant(0), // f
                         args: vec![12],
@@ -2295,7 +2272,6 @@ f 42";
                     Constant::Str("x"),
                     Constant::Str("y"),
                     Constant::Str("z"),
-                    Constant::I64(42),
                 ]),
             )
         }
@@ -2332,7 +2308,7 @@ f 42";
                 source,
                 &[
                     Id(constant(1)),
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Subtract,
                         lhs: 0,
@@ -2673,13 +2649,13 @@ foo.bar x
             check_ast(
                 source,
                 &[
-                    Int(constant(1)),
-                    Id(constant(3)), // self
-                    Id(constant(4)), // x
-                    Id(constant(3)),
+                    SmallInt(42),
+                    Id(constant(2)), // self
+                    Id(constant(3)), // x
+                    Id(constant(2)),
                     Lookup((LookupNode::Id(constant(0)), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
-                    Id(constant(4)),
+                    Id(constant(3)),
                     Assign {
                         target: AssignTarget {
                             target_index: 5,
@@ -2698,7 +2674,7 @@ foo.bar x
                     }),
                     Map(vec![
                         (MapKey::Id(constant(0)), Some(0)),
-                        (MapKey::Id(constant(2)), Some(8)),
+                        (MapKey::Id(constant(1)), Some(8)),
                     ]),
                     MainBlock {
                         body: vec![9],
@@ -2707,7 +2683,6 @@ foo.bar x
                 ],
                 Some(&[
                     Constant::Str("foo"),
-                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("self"),
                     Constant::Str("x"),
@@ -2727,7 +2702,7 @@ f = ||
                 &[
                     Id(constant(0)),
                     Id(constant(2)),
-                    Number0,
+                    SmallInt(0),
                     Map(vec![
                         (MapKey::Id(constant(1)), Some(1)),
                         (MapKey::Id(constant(3)), Some(2)),
@@ -2778,7 +2753,7 @@ f = ||
                     Map(vec![
                         (MapKey::Id(constant(2)), Some(1)), // bar: x
                     ]),
-                    Number0,
+                    SmallInt(0),
                     Map(vec![
                         (MapKey::Id(constant(1)), Some(2)), // foo: ...
                         (MapKey::Id(constant(4)), Some(3)), // baz: 0
@@ -2825,13 +2800,13 @@ f()";
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(2)),
-                    Id(constant(4)), // self
-                    Id(constant(5)), // x
-                    Id(constant(4)),
+                    SmallInt(42),
+                    Id(constant(3)), // self
+                    Id(constant(4)), // x
+                    Id(constant(3)),
                     Lookup((LookupNode::Id(constant(1)), None)), // 5
                     Lookup((LookupNode::Root(4), Some(5))),
-                    Id(constant(5)),
+                    Id(constant(4)),
                     Assign {
                         target: AssignTarget {
                             target_index: 6,
@@ -2850,7 +2825,7 @@ f()";
                     }),
                     Map(vec![
                         (MapKey::Id(constant(1)), Some(1)),
-                        (MapKey::Id(constant(3)), Some(9)),
+                        (MapKey::Id(constant(2)), Some(9)),
                     ]), // 10
                     Function(koto_parser::Function {
                         args: vec![],
@@ -2885,7 +2860,6 @@ f()";
                 Some(&[
                     Constant::Str("f"),
                     Constant::Str("foo"),
-                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("self"),
                     Constant::Str("x"),
@@ -2911,8 +2885,8 @@ f = |n|
                     Id(constant(2)), // f2
                     Id(constant(1)),
                     Id(constant(3)), // i
-                    Number0,         // ast 5
-                    Number1,
+                    SmallInt(0),     // ast 5
+                    SmallInt(1),
                     Range {
                         start: 5,
                         end: 6,
@@ -2998,7 +2972,7 @@ f = |n|
                 &[
                     Id(constant(0)),
                     Id(constant(0)),
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 1,
@@ -3042,7 +3016,7 @@ f = |n|
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
-                    Number1,
+                    SmallInt(1),
                     Assign {
                         target: AssignTarget {
                             target_index: 1,
@@ -3087,7 +3061,7 @@ f = |n|
                 source,
                 &[
                     Id(constant(0)),
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::AddAssign,
                         lhs: 0,
@@ -3120,17 +3094,17 @@ y z";
                 source,
                 &[
                     Id(constant(0)), // z
-                    Number0,
-                    Int(constant(2)),
+                    SmallInt(0),
+                    SmallInt(20),
                     Range {
                         start: 1,
                         end: 2,
                         inclusive: false,
                     },
                     List(vec![3]),
-                    Id(constant(3)), // 5 - x
-                    Id(constant(3)),
-                    Number1,
+                    Id(constant(2)), // 5 - x
+                    Id(constant(2)),
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Greater,
                         lhs: 6,
@@ -3166,12 +3140,7 @@ y z";
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("z"),
-                    Constant::Str("y"),
-                    Constant::I64(20),
-                    Constant::Str("x"),
-                ]),
+                Some(&[Constant::Str("z"), Constant::Str("y"), Constant::Str("x")]),
             )
         }
 
@@ -3181,7 +3150,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Number1,
+                    SmallInt(1),
                     Yield(0),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -3207,8 +3176,8 @@ y z";
             check_ast(
                 source,
                 &[
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     Tuple(vec![0, 1]),
                     Yield(2),
                     Function(koto_parser::Function {
@@ -3239,7 +3208,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Int(constant(1)),
+                    SmallInt(42),
                     Map(vec![(MapKey::Id(constant(0)), Some(0))]),
                     Yield(1),
                     Function(koto_parser::Function {
@@ -3256,7 +3225,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("foo"), Constant::I64(42)]),
+                Some(&[Constant::Str("foo")]),
             )
         }
 
@@ -3377,11 +3346,11 @@ y z";
                 source,
                 &[
                     Id(constant(0)),
-                    Number0,
+                    SmallInt(0),
                     Lookup((LookupNode::Index(1), None)),
                     Lookup((LookupNode::Root(0), Some(2))),
                     Id(constant(0)),
-                    Number1, // 5
+                    SmallInt(1), // 5
                     Lookup((LookupNode::Index(5), None)),
                     Lookup((LookupNode::Root(4), Some(6))),
                     Assign {
@@ -3426,7 +3395,7 @@ y z";
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(1)),
+                    SmallInt(3),
                     RangeTo {
                         end: 1,
                         inclusive: false,
@@ -3438,7 +3407,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::I64(3)]),
+                Some(&[Constant::Str("x")]),
             )
         }
 
@@ -3449,9 +3418,9 @@ y z";
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(1)),
+                    SmallInt(10),
                     RangeFrom { start: 1 },
-                    Number0,
+                    SmallInt(0),
                     Lookup((LookupNode::Index(3), None)),
                     Lookup((LookupNode::Index(2), Some(4))), // 5
                     Lookup((LookupNode::Root(0), Some(5))),
@@ -3460,7 +3429,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::I64(10)]),
+                Some(&[Constant::Str("x")]),
             )
         }
 
@@ -3523,7 +3492,7 @@ y z";
                     )),
                     Lookup((LookupNode::Id(constant(1)), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
-                    Number1,
+                    SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Subtract,
                         lhs: 3,
@@ -3563,7 +3532,7 @@ x.bar()."baz" = 1
                     )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
-                    Number1, // 5
+                    SmallInt(1), // 5
                     Assign {
                         target: AssignTarget {
                             target_index: 4,
@@ -3591,7 +3560,7 @@ x.bar()."baz" = 1
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(2)),
+                    SmallInt(42),
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -3606,7 +3575,7 @@ x.bar()."baz" = 1
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
@@ -3620,7 +3589,7 @@ x.foo
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(2)),
+                    SmallInt(42),
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -3635,7 +3604,7 @@ x.foo
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
@@ -3648,8 +3617,8 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),  // x
-                    Int(constant(3)), // 42
+                    Id(constant(0)), // x
+                    SmallInt(42),
                     Map(vec![
                         (MapKey::Id(constant(2)), Some(1)), // foo: 42
                     ]),
@@ -3671,7 +3640,6 @@ x.takes_a_map
                     Constant::Str("x"),
                     Constant::Str("takes_a_map"),
                     Constant::Str("foo"),
-                    Constant::I64(42),
                 ]),
             )
         }
@@ -3754,7 +3722,7 @@ x.takes_a_map
                         args: vec![0],
                     },
                     Nested(1),
-                    Number0,
+                    SmallInt(0),
                     Lookup((LookupNode::Index(3), None)),
                     Lookup((LookupNode::Root(2), Some(4))), // 5
                     MainBlock {
@@ -3802,7 +3770,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Number1,
+                    SmallInt(1),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -3871,8 +3839,8 @@ x = ( 0
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Tuple(vec![1, 2]),
                     Id(constant(2)),
                     Lookup((
@@ -3923,8 +3891,8 @@ x = [ 0
                 &sources,
                 &[
                     Id(constant(0)),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     List(vec![1, 2]),
                     Id(constant(2)),
                     Lookup((
@@ -4021,8 +3989,8 @@ x = { y
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Range {
                         start: 0,
                         end: 1,
@@ -4056,8 +4024,8 @@ x = { y
             check_ast(
                 source,
                 &[
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Range {
                         start: 0,
                         end: 1,
@@ -4124,7 +4092,7 @@ x.iter()
                 source,
                 &[
                     Id(constant(0)),
-                    Number1,
+                    SmallInt(1),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -4221,7 +4189,7 @@ return 1";
                     Break(None),
                     Continue,
                     Return(None),
-                    Number1,
+                    SmallInt(1),
                     Return(Some(3)),
                     MainBlock {
                         body: vec![0, 1, 2, 4],
@@ -4572,7 +4540,7 @@ finally
                         expression_string: constant(1),
                         expression: 4,
                     }, // ast 5
-                    Number0,
+                    SmallInt(0),
                     Try(AstTry {
                         try_block: 2,
                         catch_arg: 3,
@@ -4669,11 +4637,11 @@ x = match y
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
-                    Number0,
-                    Number1,
-                    Int(constant(2)),
-                    Id(constant(3)), // 5
-                    Int(constant(4)),
+                    SmallInt(0),
+                    SmallInt(1),
+                    SmallInt(42),
+                    Id(constant(2)), // 5
+                    SmallInt(-1),
                     Match {
                         expression: 1,
                         arms: vec![
@@ -4701,13 +4669,7 @@ x = match y
                         local_count: 2,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::I64(42),
-                    Constant::Str("z"),
-                    Constant::I64(-1),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("z")]),
             )
         }
 
@@ -4723,9 +4685,9 @@ match x
                 &[
                     Id(constant(0)),
                     string_literal(1, QuotationMark::Single),
-                    Int(constant(2)),
+                    SmallInt(99),
+                    string_literal(2, QuotationMark::Double),
                     string_literal(3, QuotationMark::Double),
-                    string_literal(4, QuotationMark::Double),
                     Break(None), // 5
                     Match {
                         expression: 0,
@@ -4750,7 +4712,6 @@ match x
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::I64(99), // 5
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                 ]),
@@ -4771,18 +4732,18 @@ match (x, y, z)
                     Id(constant(1)),
                     Id(constant(2)),
                     Tuple(vec![0, 1, 2]),
-                    Number0,
+                    SmallInt(0),
                     Id(constant(3)), // 5
                     Wildcard(None),
                     Tuple(vec![4, 5, 6]),
                     Id(constant(3)),
                     Wildcard(None),
-                    Number0, // 10
+                    SmallInt(0), // 10
                     Id(constant(4)),
                     Tuple(vec![10, 11]),
                     Wildcard(Some(constant(5))),
                     Tuple(vec![9, 12, 13]),
-                    Number0, // 15
+                    SmallInt(0), // 15
                     Match {
                         expression: 3,
                         arms: vec![
@@ -4826,13 +4787,13 @@ match x
                 &[
                     Id(constant(0)),
                     Ellipsis(None),
-                    Number0,
+                    SmallInt(0),
                     Tuple(vec![1, 2]),
-                    Number0,
-                    Number1, // 5
+                    SmallInt(0),
+                    SmallInt(1), // 5
                     Ellipsis(None),
                     Tuple(vec![5, 6]),
-                    Number1,
+                    SmallInt(1),
                     Match {
                         expression: 0,
                         arms: vec![
@@ -4869,15 +4830,15 @@ match y
                 &[
                     Id(constant(0)),
                     Ellipsis(Some(constant(1))),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Tuple(vec![1, 2, 3]),
-                    Number0, // 5
-                    Number1,
-                    Number0,
+                    SmallInt(0), // 5
+                    SmallInt(1),
+                    SmallInt(0),
                     Ellipsis(Some(constant(2))),
                     Tuple(vec![6, 7, 8]),
-                    Number1, // 10
+                    SmallInt(1), // 10
                     Match {
                         expression: 0,
                         arms: vec![
@@ -4922,24 +4883,24 @@ match x
                     Id(constant(0)),
                     Id(constant(1)),
                     Id(constant(1)),
-                    Int(constant(2)),
+                    SmallInt(5),
                     BinaryOp {
                         op: AstBinaryOp::Greater,
                         lhs: 2,
                         rhs: 3,
                     },
-                    Number0, // 5
+                    SmallInt(0), // 5
                     Id(constant(1)),
                     Id(constant(1)),
-                    Int(constant(3)),
+                    SmallInt(10),
                     BinaryOp {
                         op: AstBinaryOp::Less,
                         lhs: 7,
                         rhs: 8,
                     },
-                    Number1, // 10
+                    SmallInt(1), // 10
                     Id(constant(1)),
-                    Int(constant(4)),
+                    SmallInt(-1),
                     Match {
                         expression: 0,
                         arms: vec![
@@ -4965,13 +4926,7 @@ match x
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("z"),
-                    Constant::I64(5),
-                    Constant::I64(10),
-                    Constant::I64(-1),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("z")]),
             )
         }
 
@@ -4990,19 +4945,19 @@ match x, y
                     Id(constant(0)),
                     Id(constant(1)),
                     TempTuple(vec![0, 1]),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     TempTuple(vec![3, 4]), // 5
-                    Int(constant(2)),
-                    Int(constant(3)),
+                    SmallInt(2),
+                    SmallInt(3),
                     TempTuple(vec![6, 7]),
-                    Id(constant(4)),
-                    Number0, // 10
-                    Id(constant(5)),
+                    Id(constant(2)),
+                    SmallInt(0), // 10
+                    Id(constant(3)),
                     Null,
                     TempTuple(vec![11, 12]),
-                    Id(constant(5)),
-                    Number0, // 15
+                    Id(constant(3)),
+                    SmallInt(0), // 15
                     Match {
                         expression: 2,
                         arms: vec![
@@ -5031,8 +4986,6 @@ match x, y
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("y"),
-                    Constant::I64(2),
-                    Constant::I64(3),
                     Constant::Str("z"),
                     Constant::Str("a"),
                 ]),
@@ -5050,7 +5003,7 @@ match x.foo 42
                 source,
                 &[
                     Id(constant(0)),
-                    Int(constant(2)),
+                    SmallInt(42),
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -5061,8 +5014,8 @@ match x.foo 42
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     Null, // 5
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     Match {
                         expression: 4,
                         arms: vec![
@@ -5083,7 +5036,7 @@ match x.foo 42
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
@@ -5100,7 +5053,7 @@ match x
                     Id(constant(1)),
                     Lookup((LookupNode::Id(constant(2)), None)),
                     Lookup((LookupNode::Root(1), Some(2))),
-                    Number0,
+                    SmallInt(0),
                     Match {
                         expression: 0,
                         arms: vec![MatchArm {
@@ -5129,8 +5082,8 @@ match x
                 source,
                 &[
                     Id(constant(0)),
-                    Number0,
-                    Number1,
+                    SmallInt(0),
+                    SmallInt(1),
                     string_literal(1, QuotationMark::Single),
                     Throw(3),
                     Match {
@@ -5168,14 +5121,14 @@ switch
             check_ast(
                 source,
                 &[
-                    Number1,
-                    Number0,
+                    SmallInt(1),
+                    SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::Equal,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Number0,
+                    SmallInt(0),
                     Id(constant(0)),
                     Id(constant(1)), // 5
                     BinaryOp {
@@ -5183,7 +5136,7 @@ switch
                         lhs: 4,
                         rhs: 5,
                     },
-                    Number1,
+                    SmallInt(1),
                     Id(constant(0)),
                     Switch(vec![
                         SwitchArm {
@@ -5219,7 +5172,7 @@ switch
                 source,
                 &[
                     BoolTrue,
-                    Number1,
+                    SmallInt(1),
                     Id(constant(0)),
                     Debug {
                         expression_string: constant(0),
