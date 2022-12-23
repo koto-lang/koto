@@ -276,6 +276,17 @@ x.to_number()
         }
 
         #[test]
+        fn subtract_assign() {
+            let script = "
+x = make_external 42
+x -= make_external 20
+x -= 2
+x.to_number()
+";
+            test_script_with_external_value(script, 20);
+        }
+
+        #[test]
         fn multiply_assign() {
             let script = "
 x = make_external 3
@@ -286,7 +297,27 @@ x.to_number()
             test_script_with_external_value(script, 99);
         }
 
-        // TODO missing tests
+        #[test]
+        fn divide_assign() {
+            let script = "
+x = make_external 99
+x /= make_external 3
+x /= 3
+x.to_number()
+";
+            test_script_with_external_value(script, 11);
+        }
+
+        #[test]
+        fn remainder_assign() {
+            let script = "
+x = make_external 99
+x %= make_external 90
+x %= 5
+x.to_number()
+";
+            test_script_with_external_value(script, 4);
+        }
 
         #[test]
         fn less() {
