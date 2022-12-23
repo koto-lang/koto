@@ -135,7 +135,12 @@ impl Value {
     /// Returns true if the value has function-like callable behaviour
     pub fn is_callable(&self) -> bool {
         use Value::*;
-        matches!(self, SimpleFunction(_) | Function(_) | ExternalFunction(_))
+        match self {
+            SimpleFunction(_) | Function(_) | ExternalFunction(_) => true,
+            Map(m) => m.contains_meta_key(&MetaKey::Call),
+            ExternalValue(v) => v.contains_meta_key(&MetaKey::Call),
+            _ => false,
+        }
     }
 
     /// Returns true if the value doesn't have internal mutability

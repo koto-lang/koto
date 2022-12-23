@@ -431,7 +431,6 @@ impl Compiler {
                 result
             }
             Node::SmallInt(n) => {
-                dbg!(n);
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
                     match *n {

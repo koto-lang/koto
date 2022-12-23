@@ -573,6 +573,9 @@ pub enum MetaKeyId {
     /// @type
     Type,
 
+    /// @||
+    Call,
+
     /// @tests
     Tests,
     /// @test test_name

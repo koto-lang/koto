@@ -75,6 +75,10 @@ pub enum MetaKey {
     ///
     /// e.g. `@not`
     UnaryOp(UnaryOp),
+    /// Function call - `@||`
+    ///
+    /// Defines the behaviour when performing a function call on the value.
+    Call,
     /// A named key
     ///
     /// e.g. `@meta my_named_key`
@@ -116,6 +120,7 @@ impl MetaKey {
         match self {
             MetaKey::BinaryOp(op) => MetaKeyRef::BinaryOp(*op),
             MetaKey::UnaryOp(op) => MetaKeyRef::UnaryOp(*op),
+            MetaKey::Call => MetaKeyRef::Call,
             MetaKey::Named(name) => MetaKeyRef::Named(name),
             MetaKey::Test(name) => MetaKeyRef::Test(name),
             MetaKey::Tests => MetaKeyRef::Tests,
@@ -132,6 +137,7 @@ impl fmt::Display for MetaKey {
         match self {
             MetaKey::BinaryOp(op) => write!(f, "@{op}"),
             MetaKey::UnaryOp(op) => write!(f, "@{op}"),
+            MetaKey::Call => f.write_str("@||"),
             MetaKey::Named(name) => write!(f, "{name}"),
             MetaKey::Test(test) => write!(f, "test({test})"),
             MetaKey::Tests => f.write_str("@tests"),
@@ -296,6 +302,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
+        MetaKeyId::Call => MetaKey::Call,
         MetaKeyId::Named => {
             MetaKey::Named(name.ok_or_else(|| "Missing name for named meta entry".to_string())?)
         }
@@ -316,6 +323,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
 enum MetaKeyRef<'a> {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
+    Call,
     Named(&'a str),
     Test(&'a str),
     Tests,

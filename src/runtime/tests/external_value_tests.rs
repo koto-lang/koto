@@ -115,6 +115,7 @@ mod external_values {
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
+            .data_fn(MetaKey::Call, |data| Ok(Number(data.x.into())))
             .data_fn("to_number", |data| Ok(Number(data.x.into())))
             .data_fn_mut("invert", |data| {
                 data.x *= -1.0;
@@ -350,6 +351,15 @@ x = make_external 100
 x[23]
 ";
             test_script_with_external_value(script, 123);
+        }
+
+        #[test]
+        fn call() {
+            let script = "
+x = make_external 256
+x()
+";
+            test_script_with_external_value(script, 256);
         }
     }
 

@@ -2042,6 +2042,10 @@ impl<'source> Parser<'source> {
                 Some(Token::SquareClose) => MetaKeyId::Index,
                 _ => return self.error(SyntaxError::UnexpectedMetaKey),
             },
+            Some(Token::Function) => match self.consume_token() {
+                Some(Token::Function) => MetaKeyId::Call,
+                _ => return self.error(SyntaxError::UnexpectedMetaKey),
+            },
             _ => return self.error(SyntaxError::UnexpectedMetaKey),
         };
 
