@@ -3,18 +3,19 @@
   "version": "0.0.1",
   "scripts": {
     "build": "webpack",
-    "start": "webpack serve --open"
+    "start": "webpack serve --open",
+    "test": "wasmpack test --node"
   },
   "dependencies": {
     "brace": "^0.11.1",
-    "webpack-dev-server": "^3.11.2"
+    "webpack-dev-server": "^4.11.1"
   },
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.5.0",
-    "css-loader": "^6.2.0",
-    "html-webpack-plugin": "^5.3.2",
-    "style-loader": "^3.2.1",
-    "webpack": "^5.49.0",
-    "webpack-cli": "^4.7.2"
+    "@wasm-tool/wasm-pack-plugin": "^1.6.0",
+    "css-loader": "^6.7.3",
+    "html-webpack-plugin": "^5.5.0",
+    "style-loader": "^3.3.1",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1"
   }
 }

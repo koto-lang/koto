@@ -82,3 +82,18 @@ pub fn compile_and_run(input: &str) -> String {
         Err(error) => format!("Compilation error: {error}"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use {super::*, wasm_bindgen_test::wasm_bindgen_test};
+
+    #[wasm_bindgen_test]
+    fn one_plus_one() {
+        assert_eq!(compile_and_run("print 1 + 1"), "2\n");
+    }
+
+    #[wasm_bindgen_test]
+    fn tuple_to_list() {
+        assert_eq!(compile_and_run("print (1, 2, 3).to_list()"), "[1, 2, 3]\n");
+    }
+}

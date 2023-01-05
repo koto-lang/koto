@@ -35,6 +35,6 @@ module.exports = {
     clean: true,
   },
   devServer: {
-    contentBase: dist,
+    static: dist,
   },
 };
