@@ -3,6 +3,7 @@ name = "koto_cli"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
+rust-version = "1.64.0"
 license = "MIT"
 description = "A CLI and script runner for the Koto programming language"
 homepage = "https://github.com/koto-lang/koto"
@@ -14,7 +15,7 @@ name = "koto"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["jemallocator"]
 jemalloc = ["jemallocator"]
 
 [dependencies]
@@ -25,19 +26,12 @@ koto_tempfile = { path = "../../libs/tempfile", version = "^0.11.0" }
 koto_toml = { path = "../../libs/toml", version = "^0.11.0" }
 koto_yaml = { path = "../../libs/yaml", version = "^0.11.0" }
 
-crossterm = "0.22.1" # A crossplatform terminal library for manipulating terminals.
-indexmap = "1.8.2"
-textwrap = "0.15.0" # Powerful library for word wrapping, indenting, and dedenting strings
-unicode-width = "0.1.9" # Determine displayed width of `char` and `str` types
-
-[dependencies.pulldown-cmark]
-# Markdown parsing
-version = "0.9.1"
-default-features = false
-
-[dependencies.pico-args]
-version = "0.3.4"
-default-features = false
+crossterm.workspace = true
+indexmap.workspace = true
+pico-args.workspace = true
+pulldown-cmark.workspace = true
+textwrap.workspace = true
+unicode-width.workspace = true
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = { version = "0.3.2", optional = true }
+jemallocator = { workspace = true, optional = true }

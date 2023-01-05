@@ -3,7 +3,7 @@ name = "koto_lexer"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
-rust-version = "1.58.1"
+rust-version = "1.64.0"
 license = "MIT"
 description = "The lexer used by the Koto programming language"
 homepage = "https://github.com/koto-lang/koto"
@@ -11,5 +11,5 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-unicode-width = "0.1.9"
-unicode-xid = "0.2.2"
+unicode-width.workspace = true
+unicode-xid.workspace = true

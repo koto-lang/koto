@@ -3,6 +3,7 @@ name = "koto_poetry"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
+rust-version = "1.64.0"
 autobins = false
 publish = false
 
@@ -11,10 +12,11 @@ name = "poetry"
 path = "src/main.rs"
 
 [dependencies]
-hotwatch = "0.4.5"
-indexmap = "1.8.2"
 koto = { path = "../../src/koto", version = "^0.11.0" }
 koto_random = { path = "../../libs/random", version = "^0.11.0" }
-lazy_static = "1.4.0"
-pico-args = "0.3.4"
-rand = "0.7.3"
+
+hotwatch.workspace = true
+indexmap.workspace = true
+lazy_static.workspace = true
+pico-args.workspace = true
+rand.workspace = true
