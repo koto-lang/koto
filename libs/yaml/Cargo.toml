@@ -3,6 +3,7 @@ name = "koto_yaml"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
+rust-version = "1.64.0"
 license = "MIT"
 description = "A Koto library for working with YAML data"
 homepage = "https://github.com/koto-lang/koto"
@@ -14,5 +15,5 @@ keywords = ["scripting", "language", "koto", "yaml"]
 [dependencies]
 koto_runtime = { path = "../../src/runtime", version = "^0.11.0" }
 koto_serialize = { path = "../../src/serialize", version = "^0.11.0" }
-serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
-serde_yaml = "0.8.20"
+
+serde_yaml.workspace = true

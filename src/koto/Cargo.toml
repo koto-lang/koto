@@ -3,7 +3,7 @@ name = "koto"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
-rust-version = "1.58.1"
+rust-version = "1.64.0"
 license = "MIT"
 description = "A simple, expressive, embeddable programming language"
 homepage = "https://github.com/koto-lang/koto"
@@ -19,19 +19,15 @@ koto_bytecode = { path = "../bytecode", version = "^0.11.0" }
 koto_parser = { path = "../parser", version = "^0.11.0" }
 koto_runtime = { path = "../runtime", version = "^0.11.0" }
 
-dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
+dunce.workspace = true
 
 [dev-dependencies]
-criterion = "0.3.1"
-test_bin = "0.4.0" # A crate for getting the crate binary in an integration test.
-
-[dev-dependencies.pulldown-cmark]
-# Markdown parsing
-version = "0.9.1"
-default-features = false
+criterion.workspace = true
+pulldown-cmark.workspace = true
+test_bin.workspace = true
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
-jemallocator = {version = "0.3.2"}
+jemallocator.workspace = true
 
 [[bench]]
 name = "koto_benchmark"

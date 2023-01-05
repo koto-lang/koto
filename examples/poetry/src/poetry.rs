@@ -54,7 +54,7 @@ impl Poetry {
             Some(result.clone())
         } else {
             // If no link was found, choose a new starting point
-            let start = thread_rng().gen_range(0, self.links.len());
+            let start = thread_rng().gen_range(0..self.links.len());
             self.links
                 .get_index(start)
                 .map(|(key, _value)| key)

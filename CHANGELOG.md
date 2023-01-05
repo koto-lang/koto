@@ -30,6 +30,10 @@ The Koto project adheres to
 
 ### Changed
 
+#### Rust MSRV
+
+- The minimum supported Rust version is now 1.64.
+
 #### Language
 
 - `File`s now implement `@Display`, showing their paths.
