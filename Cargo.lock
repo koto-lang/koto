@@ -491,6 +491,7 @@ dependencies = [
  "koto_parser",
  "koto_runtime",
  "pulldown-cmark",
+ "test_bin",
 ]
 
 [[package]]
@@ -1232,6 +1233,12 @@ dependencies = [
  "remove_dir_all",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "test_bin"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e7a7de15468c6e65dd7db81cf3822c1ec94c71b2a3c1a976ea8e4696c91115c"
 
 [[package]]
 name = "textwrap"
