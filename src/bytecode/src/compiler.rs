@@ -434,10 +434,7 @@ impl Compiler {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
                     match *n {
-                        0 => {
-                            println!("Set0!");
-                            self.push_op(Set0, &[result.register])
-                        }
+                        0 => self.push_op(Set0, &[result.register]),
                         1 => self.push_op(Set1, &[result.register]),
                         n if n >= 0 => self.push_op(SetNumberU8, &[result.register, n as u8]),
                         n => {
