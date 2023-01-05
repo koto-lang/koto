@@ -8,7 +8,7 @@ use {
     std::{fs, io},
 };
 
-#[cfg(all(jemalloc, not(target_env = "msvc")))]
+#[cfg(all(jemalloc, not(debug_assertions), not(target_env = "msvc")))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 

@@ -19,7 +19,7 @@ indexmap = "1.8.2"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
 # A Rust allocator backed by jemalloc
-jemallocator = { version = "0.3.2" }
+jemallocator = { version = "0.5.0" }
 # An ultra simple CLI arguments parser.
 pico-args = { version = "0.3.4", default-features = false }
 # A pull parser for CommonMark
