@@ -129,7 +129,8 @@ fn load_markdown_and_run_examples(path: &Path) {
         match event {
             Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 let mut lang_info = lang.deref().split(',');
-                if matches!(lang_info.next(), Some("koto")) {
+                // Coffeescript highlighting is used for the code example in the readme
+                if matches!(lang_info.next(), Some("koto" | "coffee")) {
                     in_koto_code = true;
                     code_block.clear();
                     let modifier = lang_info.next();
@@ -232,4 +233,11 @@ mod guide {
     test_lang_guide_examples!(testing);
     test_lang_guide_examples!(tuples);
     test_lang_guide_examples!(value_unpacking);
+}
+
+mod readme {
+    #[test]
+    fn check_readme() {
+        super::run_doc_examples(&[".."], "README")
+    }
 }

@@ -23,6 +23,7 @@ dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoidin
 
 [dev-dependencies]
 criterion = "0.3.1"
+test_bin = "0.4.0" # A crate for getting the crate binary in an integration test.
 
 [dev-dependencies.pulldown-cmark]
 # Markdown parsing

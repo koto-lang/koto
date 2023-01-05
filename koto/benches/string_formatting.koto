@@ -31,12 +31,12 @@ number_to_english = |n|
     null then 50
     arg then arg.to_number()
 
-  result = -n..n
+  result = -n..=n
     .each |x| number_to_english x
     .to_tuple()
 
   if not (koto.args.get 1) == 'quiet'
-    io.print result
+    print result
 
 @tests =
   @test number_to_english: ||

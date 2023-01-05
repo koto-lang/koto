@@ -71,5 +71,5 @@ jobs:
         with:
           version: v0.10.3
 
-      - name: Build wasm example
-        run: cd examples/wasm && wasm-pack build
+      - name: Run wasm example tests
+        run: cd examples/wasm && wasm-pack test --node

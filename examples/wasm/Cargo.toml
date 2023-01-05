@@ -13,3 +13,6 @@ crate-type = ["cdylib"]
 [dependencies]
 koto = { path = "../../src/koto" }
 wasm-bindgen = "0.2.71"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.33" # Internal testing crate for wasm-bindgen

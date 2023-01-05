@@ -38,50 +38,56 @@ a try, your early feedback will be invaluable.
 
 ### A Quick Tour
 
-```coffee
+```coffee,skip_check
 # Numbers
 x = 1 + 2.5 + 100.sqrt()
 assert_eq x, 13.5
 
 # Strings
-name = "Koto"
-print "Hello, $name!"
+name = 'Koto'
+print 'Hello, $name!'
+# -> Hello, Koto!
 
 # Functions
 square = |n| n * n
-print "8 squared is ${square 8}"
+print '8 squared is ${square 8}'
+# -> 8 squared is 64
 
 add_squares = |a, b| (square a) + (square b)
 assert_eq (add_squares 2, 4), 20
 
-# Iterators, ranges, and lists
+# Iterators, Ranges, and Lists
 fizz_buzz = (1..100)
   .keep |n| (10..=15).contains n
   .each |n|
     match n % 3, n % 5
-      0, 0 then "Fizz Buzz"
-      0, _ then "Fizz"
-      _, 0 then "Buzz"
+      0, 0 then 'Fizz Buzz'
+      0, _ then 'Fizz'
+      _, 0 then 'Buzz'
       else n
   .to_list()
 assert_eq
   fizz_buzz,
-  ["Buzz", 11, "Fizz", 13, 14, "Fizz Buzz"]
+  ['Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz']
 
 # Maps and tuples
-x = {peaches: 42, pears: 99}
-assert_eq
-  x.keys().to_tuple(),
-  ("peaches", "pears")
 
-y = # Maps can also be defined using indented `key: value` pairs
+## Maps can be defined with curly braces
+fruits = {peaches: 42, pears: 99}
+
+## Maps can also be defined using indented `key: value` pairs
+more_fruits = 
   apples: 123
   plums: 99
 
-fruits = x + y # Maps can be combined using the `+` operator
+fruits.extend more_fruits
+assert_eq
+  fruits.keys().to_tuple(),
+  ('peaches', 'pears', 'apples', 'plums')
 
 fruit, amount = fruits.max |(_, amount)| amount
-print "The highest amount of fruit is: $amount $fruit"
+'The highest amount of fruit is: $amount $fruit'
+# -> The highest amount of fruit is: 123 apples
 ```
 
 ### Learning the Language
@@ -121,7 +127,7 @@ Launching the `koto` CLI without providing a script enters the REPL.
 Welcome to Koto 
 » 1 + 1
 ➝ 2
-» print "{}, {}!", "Hello", "World"
+» print '{}, {}!', 'Hello', 'World'
 Hello, World!
 ➝ null
 ```
