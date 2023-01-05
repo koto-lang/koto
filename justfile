@@ -35,4 +35,4 @@ test_runtime:
   cargo watch -x "test --package koto_runtime"
 
 wasm:
-  cd examples/wasm && wasm-pack build
+  cd examples/wasm && wasm-pack test --node
