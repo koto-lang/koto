@@ -86,6 +86,25 @@ print! (foo 10)[7]
 check! 17
 ```
 
+### `@||`
+
+The `@||` meta key defines how the value should behave when called as a
+function.
+
+```koto
+foo = |n|
+  data: n
+  @||: |self| 
+    self.data *= 2
+    self.data
+
+x = foo 2
+print! x()
+check! 4
+print! x()
+check! 8
+```
+
 ### `@iterator`
 
 The `@iterator` meta key defines how iterators should be made when the value is

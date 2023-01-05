@@ -40,15 +40,19 @@ globals.foo_meta =
   @==: |self, other| self.x == other.x
   @!=: |self, other| not self == other
 
-  # Negation
+  # Negation (e.g. -foo)
   @negate: |self| foo -self.x
 
-  # Not
+  # Not (e.g. !foo)
   @not: |self| if self.x == 0 then true else false
+
+  # Function call
+  @||: |self| self.x
 
   # Indexing
   @[]: |self, index| self.x + index
 
+  # Overloaded iteration behaviour
   @iterator: |self| 0..self.x
 
   # Formatting
@@ -135,6 +139,9 @@ globals.foo_meta =
   @test index: ||
     assert_eq foo(10)[5], 15
     assert_eq foo(100)[-1], 99
+
+  @test call: ||
+    assert_eq foo(99)(), 99
 
   @test iterator: ||
     assert_eq foo(5).to_tuple(), (0, 1, 2, 3, 4)

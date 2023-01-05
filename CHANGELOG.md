@@ -19,7 +19,9 @@ The Koto project adheres to
     f (10, 100, 1, 2, 3)
     # 1006
     ```
-- Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented in meta maps and external values.
+- Meta map improvements
+  - Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented in meta maps and external values.
+  - The function call operator (`@||`) can be implemented to values that behave like functions.
 
 #### Internals
 

@@ -6,9 +6,8 @@ from test import assert, assert_eq, assert_ne, assert_near
     random.seed 1
 
   @test bool: ||
-    rng_bool = import random.bool
-    assert rng_bool()
-    assert not rng_bool()
+    assert random.bool()
+    assert not random.bool()
 
   @test number: ||
     assert_near random.number(), 0.402, 0.001
@@ -20,7 +19,7 @@ from test import assert, assert_eq, assert_ne, assert_near
 
   @test pick_list: ||
     x = ["foo", "bar", "baz"]
-    assert (x.contains (random.pick x))
+    assert x.contains random.pick x
 
   @test pick_map: ||
     x = {foo: 123, bar: 456, baz: 789}
@@ -29,15 +28,15 @@ from test import assert, assert_eq, assert_ne, assert_near
 
   @test pick_range: ||
     x = 0..10
-    assert (x.contains (random.pick x))
+    assert x.contains random.pick x
 
   @test pick_tuple: ||
     x = ("foo", "bar", "baz")
-    assert (x.contains (random.pick x))
+    assert x.contains random.pick x
 
   @test generator: ||
     get_rng_output = |rng|
-      (0..10)
+      0..10
         .each |_| rng.pick 0..5
         .to_tuple()
 
@@ -47,9 +46,9 @@ from test import assert, assert_eq, assert_ne, assert_near
 
     output1 = get_rng_output rng1
 
-    assert_eq output1, (get_rng_output rng2)
-    assert_ne output1, (get_rng_output rng3)
+    assert_eq output1, get_rng_output rng2
+    assert_ne output1, get_rng_output rng3
 
     # seed can be used to reseed the unique generator
     rng3.seed 0
-    assert_eq output1, (get_rng_output rng3)
+    assert_eq output1, get_rng_output rng3

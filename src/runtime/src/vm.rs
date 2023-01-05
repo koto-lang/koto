@@ -3045,6 +3045,32 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
+            Map(ref map) if map.contains_meta_key(&MetaKey::Call) => {
+                // Set the map as the instance by placing it in the frame base,
+                // and then passing it into call_callable
+                let instance = function.clone();
+                self.set_register(frame_base, instance);
+                self.call_callable(
+                    result_register,
+                    map.get_meta_value(&MetaKey::Call).unwrap(),
+                    frame_base,
+                    call_arg_count,
+                    Some(frame_base),
+                    temp_tuple_values,
+                )
+            }
+            ExternalValue(ref v) if v.contains_meta_key(&MetaKey::Call) => {
+                let instance = function.clone();
+                self.set_register(frame_base, instance);
+                self.call_callable(
+                    result_register,
+                    v.get_meta_value(&MetaKey::Call).unwrap(),
+                    frame_base,
+                    call_arg_count,
+                    Some(frame_base),
+                    temp_tuple_values,
+                )
+            }
             unexpected => type_error("callable function", &unexpected),
         }
     }

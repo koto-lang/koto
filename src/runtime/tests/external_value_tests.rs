@@ -115,6 +115,7 @@ mod external_values {
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
+            .data_fn(MetaKey::Call, |data| Ok(Number(data.x.into())))
             .data_fn("to_number", |data| Ok(Number(data.x.into())))
             .data_fn_mut("invert", |data| {
                 data.x *= -1.0;
@@ -276,6 +277,17 @@ x.to_number()
         }
 
         #[test]
+        fn subtract_assign() {
+            let script = "
+x = make_external 42
+x -= make_external 20
+x -= 2
+x.to_number()
+";
+            test_script_with_external_value(script, 20);
+        }
+
+        #[test]
         fn multiply_assign() {
             let script = "
 x = make_external 3
@@ -286,7 +298,27 @@ x.to_number()
             test_script_with_external_value(script, 99);
         }
 
-        // TODO missing tests
+        #[test]
+        fn divide_assign() {
+            let script = "
+x = make_external 99
+x /= make_external 3
+x /= 3
+x.to_number()
+";
+            test_script_with_external_value(script, 11);
+        }
+
+        #[test]
+        fn remainder_assign() {
+            let script = "
+x = make_external 99
+x %= make_external 90
+x %= 5
+x.to_number()
+";
+            test_script_with_external_value(script, 4);
+        }
 
         #[test]
         fn less() {
@@ -319,6 +351,15 @@ x = make_external 100
 x[23]
 ";
             test_script_with_external_value(script, 123);
+        }
+
+        #[test]
+        fn call() {
+            let script = "
+x = make_external 256
+x()
+";
+            test_script_with_external_value(script, 256);
         }
     }
 

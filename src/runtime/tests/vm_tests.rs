@@ -2964,6 +2964,39 @@ foos[0] == foos[1]
         }
     }
 
+    mod overloaded_call {
+        use super::*;
+
+        #[test]
+        fn basic_call() {
+            let script = "
+x = { @||: || 42 }
+x()
+";
+            test_script(script, 42);
+        }
+
+        #[test]
+        fn with_args() {
+            let script = "
+x = { @||: |a, b| a + b }
+x 12, 34
+";
+            test_script(script, 46);
+        }
+
+        #[test]
+        fn instance() {
+            let script = "
+x =
+  data: 99
+  @||: |self, z| self.data * z
+x 10
+";
+            test_script(script, 990);
+        }
+    }
+
     mod named_meta_entries {
         use super::*;
 
