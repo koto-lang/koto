@@ -3,10 +3,7 @@
 pub mod adaptors;
 pub mod generators;
 
-use {
-    super::{num2::num2_from_iterator, num4::num4_from_iterator},
-    crate::{prelude::*, ValueIteratorOutput as Output},
-};
+use crate::{prelude::*, ValueIteratorOutput as Output};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> ValueMap {
@@ -659,24 +656,6 @@ pub fn make_module() -> ValueMap {
             }
 
             Ok(Map(ValueMap::with_data(result)))
-        }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
-    });
-
-    result.add_fn("to_num2", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            Ok(Num2(num2_from_iterator(iterator)?))
-        }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
-    });
-
-    result.add_fn("to_num4", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            Ok(Num4(num4_from_iterator(iterator)?))
         }
         unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });

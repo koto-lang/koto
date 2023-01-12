@@ -58,12 +58,6 @@ pub fn koto_benchmark(c: &mut Criterion) {
             runner.run();
         })
     });
-    c.bench_function("num4", |b| {
-        let mut runner = BenchmarkRunner::setup("num4.koto", &[]);
-        b.iter(|| {
-            runner.run();
-        })
-    });
     c.bench_function("enumerate", |b| {
         let mut runner = BenchmarkRunner::setup("enumerate.koto", &[]);
         b.iter(|| {

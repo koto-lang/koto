@@ -19,8 +19,6 @@ mod value_tuple;
 mod vm;
 
 pub mod core;
-pub mod num2;
-pub mod num4;
 pub mod prelude;
 pub mod value;
 
@@ -29,8 +27,6 @@ pub use {
     external::{ExternalData, ExternalFunction, ExternalValue},
     file::{KotoFile, KotoRead, KotoWrite},
     meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
-    num2::Num2,
-    num4::Num4,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, IntRange, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},

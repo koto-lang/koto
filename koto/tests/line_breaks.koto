@@ -43,18 +43,19 @@ a = 1 +
       * 5
 assert_eq a, 26
 
-a = make_num4
+make_tuple = |args...| args.to_tuple()
+a = make_tuple
   0, 1, 2, 3
-b = make_num4
+b = make_tuple
   0, 1,
   2, 3
 assert_eq a, b
 
-a = make_num4(1,
+a = make_tuple(1,
   2, 3,
   4
 )
-b = make_num4(
+b = make_tuple(
   1,
   2, 3, # Comments can be included in the num4 construction
   4

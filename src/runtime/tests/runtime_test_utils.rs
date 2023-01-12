@@ -2,7 +2,7 @@
 
 use {
     koto_bytecode::{Chunk, Loader},
-    koto_runtime::{num2, num4, prelude::*, Value::*},
+    koto_runtime::{prelude::*, Value::*},
     std::rc::Rc,
 };
 
@@ -97,14 +97,6 @@ pub fn value_list(values: &[Value]) -> Value {
 
 pub fn value_tuple(values: &[Value]) -> Value {
     Tuple(values.into())
-}
-
-pub fn num2(a: f64, b: f64) -> Value {
-    Value::Num2(num2::Num2(a, b))
-}
-
-pub fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
-    Value::Num4(num4::Num4(a, b, c, d))
 }
 
 pub fn string(s: &str) -> Value {

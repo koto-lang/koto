@@ -1,7 +1,5 @@
 use {
-    crate::{
-        IntRange, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
-    },
+    crate::{IntRange, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
     std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc},
     unicode_segmentation::GraphemeCursor,
 };
@@ -61,16 +59,6 @@ impl ValueIterator {
     /// Creates a new ValueIterator from a Range
     pub fn with_range(range: IntRange) -> Self {
         Self::new(RangeIterator::new(range))
-    }
-
-    /// Creates a new ValueIterator from a Num2
-    pub fn with_num2(n: Num2) -> Self {
-        Self::new(Num2Iterator::new(n))
-    }
-
-    /// Creates a new ValueIterator from a Num4
-    pub fn with_num4(n: Num4) -> Self {
-        Self::new(Num4Iterator::new(n))
     }
 
     /// Creates a new ValueIterator from a List
@@ -156,132 +144,6 @@ impl fmt::Debug for ValueIterator {
 
 // Convenience type alias for the rest of this module
 type Output = ValueIteratorOutput;
-
-#[derive(Clone)]
-struct Num2Iterator {
-    data: Num2,
-    index: u8,
-    end: u8,
-}
-
-impl Num2Iterator {
-    fn new(data: Num2) -> Self {
-        Self {
-            data,
-            index: 0,
-            end: 2,
-        }
-    }
-
-    fn get_output(&self, index: usize) -> ValueIteratorOutput {
-        Output::Value(Value::Number(self.data[index].into()))
-    }
-}
-
-impl KotoIterator for Num2Iterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
-    fn is_bidirectional(&self) -> bool {
-        true
-    }
-
-    fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        if self.end > self.index {
-            self.end -= 1;
-            Some(self.get_output(self.end as usize))
-        } else {
-            None
-        }
-    }
-}
-
-impl Iterator for Num2Iterator {
-    type Item = Output;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.end {
-            let result = self.get_output(self.index as usize);
-            self.index += 1;
-            Some(result)
-        } else {
-            None
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.end.saturating_sub(self.index) as usize;
-        (remaining, Some(remaining))
-    }
-}
-
-#[derive(Clone)]
-struct Num4Iterator {
-    data: Num4,
-    index: u8,
-    end: u8,
-}
-
-impl Num4Iterator {
-    fn new(data: Num4) -> Self {
-        Self {
-            data,
-            index: 0,
-            end: 4,
-        }
-    }
-
-    fn get_output(&self, index: usize) -> ValueIteratorOutput {
-        Output::Value(Value::Number(self.data[index].into()))
-    }
-}
-
-impl KotoIterator for Num4Iterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
-    fn is_bidirectional(&self) -> bool {
-        true
-    }
-
-    fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        if self.end > self.index {
-            self.end -= 1;
-            Some(self.get_output(self.end as usize))
-        } else {
-            None
-        }
-    }
-}
-
-impl Iterator for Num4Iterator {
-    type Item = Output;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.end {
-            let result = self.get_output(self.index as usize);
-            self.index += 1;
-            Some(result)
-        } else {
-            None
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.end.saturating_sub(self.index) as usize;
-        (remaining, Some(remaining))
-    }
-}
 
 #[derive(Clone)]
 struct RangeIterator {

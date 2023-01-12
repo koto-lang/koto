@@ -146,19 +146,10 @@ x = (1..10).find |n| n == x
             use super::*;
 
             #[test]
-            fn num2_mutation_via_index() {
+            fn index_out_of_bounds() {
                 let script = "
-x = make_num2 1, 2
-x[0] = -1
-";
-                check_script_fails(script);
-            }
-
-            #[test]
-            fn num4_mutation_via_index() {
-                let script = "
-x = make_num4 1, 2, 3, 4
-x[0] = -1
+x = [0, 1, 2]
+x[3] = 3
 ";
                 check_script_fails(script);
             }
