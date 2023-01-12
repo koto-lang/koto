@@ -118,11 +118,16 @@ impl ValueMap {
         self.data.borrow_mut()
     }
 
-    /// Provides a reference to the ValueMaps' meta map
+    /// Provides a reference to the ValueMap's meta map
     ///
     /// This is returned as a reference to the meta map's Rc to allow for cloning.
     pub fn meta_map(&self) -> Option<&Rc<RefCell<MetaMap>>> {
         self.meta.as_ref()
+    }
+
+    /// Sets the ValueMap's meta map
+    pub fn set_meta_map(&mut self, meta: Option<MetaMap>) {
+        self.meta = meta.map(|meta| Rc::new(RefCell::new(meta)))
     }
 
     /// Returns true if the meta map contains an entry with the given key

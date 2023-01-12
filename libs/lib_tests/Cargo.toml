@@ -11,6 +11,7 @@ description = "A test runner for the standard Koto libraries"
 
 [dev-dependencies]
 koto = { path = "../../src/koto", version = "^0.11.0" }
+koto_color = { path = "../color", version = "^0.11.0" }
 koto_geometry = { path = "../geometry", version = "^0.11.0" }
 koto_json = { path = "../json", version = "^0.11.0" }
 koto_random = { path = "../random", version = "^0.11.0" }

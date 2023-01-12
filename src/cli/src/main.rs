@@ -201,6 +201,7 @@ fn run() -> Result<(), ()> {
 
 fn add_modules(koto: &Koto) {
     let prelude = koto.prelude();
+    prelude.add_map("color", koto_color::make_module());
     prelude.add_map("geometry", koto_geometry::make_module());
     prelude.add_map("json", koto_json::make_module());
     prelude.add_map("random", koto_random::make_module());

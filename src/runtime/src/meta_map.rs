@@ -42,6 +42,28 @@ impl MetaMap {
     pub fn extend(&mut self, other: &MetaMap) {
         self.0.extend(other.0.clone().into_iter());
     }
+
+    /// Adds a function to the meta map
+    pub fn add_fn(
+        &mut self,
+        key: MetaKey,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    ) {
+        self.0.insert(
+            key,
+            Value::ExternalFunction(ExternalFunction::new(f, false)),
+        );
+    }
+
+    /// Adds an instance function to the meta map
+    pub fn add_instance_fn(
+        &mut self,
+        key: MetaKey,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+    ) {
+        self.0
+            .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
+    }
 }
 
 impl Deref for MetaMap {
@@ -454,7 +476,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         Key: Into<MetaKey>,
         F: Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
     {
-        self.insert_fn(key.into(), f);
+        self.map.add_instance_fn(key.into(), f);
         self
     }
 
@@ -471,12 +493,15 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value), extra_args @ ..] if value.value_type() == type_name => {
-                f(value, extra_args)
-            }
-            other => unexpected_instance_type(&type_name, other),
-        });
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value), extra_args @ ..]
+                    if value.value_type() == type_name =>
+                {
+                    f(value, extra_args)
+                }
+                other => unexpected_instance_type(&type_name, other),
+            });
 
         self
     }
@@ -494,15 +519,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] if value.value_type() == type_name => {
-                match value.data::<T>() {
-                    Some(data) => f(&data),
-                    None => unexpected_data_type(value),
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value)] if value.value_type() == type_name => {
+                    match value.data::<T>() {
+                        Some(data) => f(&data),
+                        None => unexpected_data_type(value),
+                    }
                 }
-            }
-            other => unexpected_instance_type(&type_name, other),
-        });
+                other => unexpected_instance_type(&type_name, other),
+            });
 
         self
     }
@@ -520,15 +546,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value)] if value.value_type() == type_name => {
-                match value.data_mut::<T>() {
-                    Some(mut data) => f(&mut data),
-                    None => unexpected_data_type(value),
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value)] if value.value_type() == type_name => {
+                    match value.data_mut::<T>() {
+                        Some(mut data) => f(&mut data),
+                        None => unexpected_data_type(value),
+                    }
                 }
-            }
-            other => unexpected_instance_type(&type_name, other),
-        });
+                other => unexpected_instance_type(&type_name, other),
+            });
 
         self
     }
@@ -547,13 +574,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
-                Some(data) => f(&data, extra_args),
-                None => unexpected_data_type(value),
-            },
-            other => unexpected_instance_type(&type_name, other),
-        });
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
+                    Some(data) => f(&data, extra_args),
+                    None => unexpected_data_type(value),
+                },
+                other => unexpected_instance_type(&type_name, other),
+            });
 
         self
     }
@@ -572,24 +600,16 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     {
         let type_name = self.type_name.clone();
 
-        self.insert_fn(key.into(), move |vm, args| match vm.get_args(args) {
-            [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
-                Some(mut data) => f(&mut data, extra_args),
-                None => unexpected_data_type(value),
-            },
-            other => unexpected_instance_type(&type_name, other),
-        });
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
+                    Some(mut data) => f(&mut data, extra_args),
+                    None => unexpected_data_type(value),
+                },
+                other => unexpected_instance_type(&type_name, other),
+            });
 
         self
-    }
-
-    fn insert_fn(
-        &mut self,
-        key: MetaKey,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
-    ) {
-        self.map
-            .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 }
 
