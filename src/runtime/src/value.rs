@@ -2,8 +2,8 @@
 
 use {
     crate::{
-        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
-        MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple, ValueVec,
+        value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue, MetaKey,
+        ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     std::{fmt, rc::Rc},
@@ -20,12 +20,6 @@ pub enum Value {
 
     /// A number, represented as either a signed 64 bit integer or float
     Number(ValueNumber),
-
-    /// A pair of 64 bit floats, useful when working with 2 dimensional values
-    Num2(num2::Num2),
-
-    /// A pack of four 32 bit floats, useful in working with 3 or 4 dimensional values
-    Num4(num4::Num4),
 
     /// A range with start/end boundaries
     Range(IntRange),
@@ -94,8 +88,6 @@ impl Value {
             Value::Null => ValueRef::Null,
             Value::Bool(b) => ValueRef::Bool(b),
             Value::Number(n) => ValueRef::Number(n),
-            Value::Num2(n) => ValueRef::Num2(n),
-            Value::Num4(n) => ValueRef::Num4(n),
             Value::Str(s) => ValueRef::Str(s),
             Value::Range(r) => ValueRef::Range(r),
             _ => unreachable!(), // Only immutable values can be used in ValueKey
@@ -148,10 +140,7 @@ impl Value {
     /// Only immutable values are acceptable as map keys.
     pub fn is_immutable(&self) -> bool {
         use Value::*;
-        matches!(
-            self,
-            Null | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
-        )
+        matches!(self, Null | Bool(_) | Number(_) | Range(_) | Str(_))
     }
 
     /// Returns true if a `ValueIterator` can be made from the value
@@ -159,7 +148,7 @@ impl Value {
         use Value::*;
         matches!(
             self,
-            Num2(_) | Num4(_) | Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
         )
     }
 
@@ -182,8 +171,6 @@ impl Value {
             Tuple(t) => t.len(),
             TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
             Map(m) => m.len(),
-            Num2(_) => 2,
-            Num4(_) => 4,
             _ => 1,
         }
     }
@@ -196,8 +183,6 @@ impl Value {
             Bool(_) => TYPE_BOOL.with(|x| x.clone()),
             Number(ValueNumber::F64(_)) => TYPE_FLOAT.with(|x| x.clone()),
             Number(ValueNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
-            Num2(_) => TYPE_NUM2.with(|x| x.clone()),
-            Num4(_) => TYPE_NUM4.with(|x| x.clone()),
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             IndexRange { .. } => TYPE_INDEX_RANGE.with(|x| x.clone()),
@@ -225,8 +210,6 @@ thread_local! {
     static TYPE_BOOL: ValueString = "Bool".into();
     static TYPE_FLOAT: ValueString = "Float".into();
     static TYPE_INT: ValueString = "Int".into();
-    static TYPE_NUM2: ValueString = "Num2".into();
-    static TYPE_NUM4: ValueString = "Num4".into();
     static TYPE_LIST: ValueString = "List".into();
     static TYPE_RANGE: ValueString = "Range".into();
     static TYPE_INDEX_RANGE: ValueString = "IndexRange".into();
@@ -255,8 +238,6 @@ impl fmt::Display for Value {
             Null => f.write_str("null"),
             Bool(b) => write!(f, "{b}"),
             Number(n) => write!(f, "{n}"),
-            Num2(n) => write!(f, "{n}"),
-            Num4(n) => write!(f, "{n}"),
             Str(s) => {
                 if f.alternate() {
                     write!(f, "{s:#}")

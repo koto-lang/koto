@@ -1,5 +1,3 @@
-from test import assert, assert_eq, assert_ne, assert_near
-
 @tests =
   @pre_test: ||
     # random.seed seeds the default generator
@@ -12,10 +10,6 @@ from test import assert, assert_eq, assert_ne, assert_near
   @test number: ||
     assert_near random.number(), 0.402, 0.001
     assert_near random.number(), 0.080, 0.001
-
-  @test num2_num4: ||
-    assert_near random.num2(), (make_num2 0.402, 0.080), 0.001
-    assert_near random.num4(), (make_num4 0.211, 0.597, 0.387, 0.219), 0.001
 
   @test pick_list: ||
     x = ["foo", "bar", "baz"]

@@ -64,8 +64,6 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     prelude.add_map("map", core_lib.map.clone());
     prelude.add_map("os", core_lib.os.clone());
     prelude.add_map("number", core_lib.number.clone());
-    prelude.add_map("num2", core_lib.num2.clone());
-    prelude.add_map("num4", core_lib.num4.clone());
     prelude.add_map("range", core_lib.range.clone());
     prelude.add_map("string", core_lib.string.clone());
     prelude.add_map("test", core_lib.test.clone());
@@ -89,8 +87,6 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     default_import!("assert_eq", test);
     default_import!("assert_ne", test);
     default_import!("assert_near", test);
-    default_import!("make_num2", num2);
-    default_import!("make_num4", num4);
     default_import!("print", io);
     default_import!("type", koto);
 
@@ -530,8 +526,6 @@ impl Vm {
 
         let result = match value {
             Range(r) => ValueIterator::with_range(r),
-            Num2(n) => ValueIterator::with_num2(n),
-            Num4(n) => ValueIterator::with_num4(n),
             List(l) => ValueIterator::with_list(l),
             Tuple(t) => ValueIterator::with_tuple(t),
             Str(s) => ValueIterator::with_string(s),
@@ -1187,8 +1181,6 @@ impl Vm {
                 List(list) => ValueIterator::with_list(list),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),
-                Num2(n) => ValueIterator::with_num2(n),
-                Num4(n) => ValueIterator::with_num4(n),
                 Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(UnaryOp::Iterator)) => {
                     let op = map
                         .get_meta_value(&MetaKey::UnaryOp(UnaryOp::Iterator))
@@ -1269,22 +1261,6 @@ impl Vm {
                 if index.unsigned_abs() < count {
                     let index = signed_index_to_unsigned(index, count as usize);
                     self.clone_register(start + index as u8)
-                } else {
-                    Null
-                }
-            }
-            Num2(n) => {
-                let index = signed_index_to_unsigned(index, 2);
-                if index < 2 {
-                    Number(n[index].into())
-                } else {
-                    Null
-                }
-            }
-            Num4(n) => {
-                let index = signed_index_to_unsigned(index, 4);
-                if index < 4 {
-                    Number(n[index].into())
                 } else {
                     Null
                 }
@@ -1415,8 +1391,6 @@ impl Vm {
 
         let result_value = match &self.get_register(value) {
             Number(n) => Number(-n),
-            Num2(v) => Num2(-v),
-            Num4(v) => Num4(-v),
             Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(Negate)) => {
                 let op = map.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
@@ -1479,12 +1453,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a + b),
-            (Number(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Number(b)) => Num2(a + b),
-            (Number(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Number(b)) => Num4(a + b),
             (Str(a), Str(b)) => {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
@@ -1513,12 +1481,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
-            (Number(a), Num2(b)) => Num2(a - b),
-            (Num2(a), Num2(b)) => Num2(a - b),
-            (Num2(a), Number(b)) => Num2(a - b),
-            (Number(a), Num4(b)) => Num4(a - b),
-            (Num4(a), Num4(b)) => Num4(a - b),
-            (Num4(a), Number(b)) => Num4(a - b),
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Subtract, {
                     return self.binary_op_error(lhs_value, rhs_value, "-");
@@ -1544,12 +1506,6 @@ impl Vm {
 
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
-            (Number(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Number(b)) => Num2(a * b),
-            (Number(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Number(b)) => Num4(a * b),
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Multiply, {
                     return self.binary_op_error(lhs_value, rhs_value, "*");
@@ -1574,12 +1530,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
-            (Number(a), Num2(b)) => Num2(a / b),
-            (Num2(a), Num2(b)) => Num2(a / b),
-            (Num2(a), Number(b)) => Num2(a / b),
-            (Number(a), Num4(b)) => Num4(a / b),
-            (Num4(a), Num4(b)) => Num4(a / b),
-            (Num4(a), Number(b)) => Num4(a / b),
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Divide, {
                     return self.binary_op_error(lhs_value, rhs_value, "/");
@@ -1609,12 +1559,6 @@ impl Vm {
                 Number(f64::NAN.into())
             }
             (Number(a), Number(b)) => Number(a % b),
-            (Number(a), Num2(b)) => Num2(a % b),
-            (Num2(a), Num2(b)) => Num2(a % b),
-            (Num2(a), Number(b)) => Num2(a % b),
-            (Number(a), Num4(b)) => Num4(a % b),
-            (Num4(a), Num4(b)) => Num4(a % b),
-            (Num4(a), Number(b)) => Num4(a % b),
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Remainder, {
                     return self.binary_op_error(lhs_value, rhs_value, "%");
@@ -1639,12 +1583,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a + b),
-            (Number(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Number(b)) => Num2(a + b),
-            (Number(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Number(b)) => Num4(a + b),
             (Map(map), _) => {
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1672,12 +1610,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
-            (Number(a), Num2(b)) => Num2(a - b),
-            (Num2(a), Num2(b)) => Num2(a - b),
-            (Num2(a), Number(b)) => Num2(a - b),
-            (Number(a), Num4(b)) => Num4(a - b),
-            (Num4(a), Num4(b)) => Num4(a - b),
-            (Num4(a), Number(b)) => Num4(a - b),
             (Map(map), _) => {
                 let unused = self.next_register();
                 call_binary_op_or_else!(self, unused, lhs, rhs_value, map, SubtractAssign, {
@@ -1704,12 +1636,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
-            (Number(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Number(b)) => Num2(a * b),
-            (Number(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Number(b)) => Num4(a * b),
             (Map(map), _) => {
                 let unused = self.next_register();
                 call_binary_op_or_else!(self, unused, lhs, rhs_value, map, MultiplyAssign, {
@@ -1736,12 +1662,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
-            (Number(a), Num2(b)) => Num2(a / b),
-            (Num2(a), Num2(b)) => Num2(a / b),
-            (Num2(a), Number(b)) => Num2(a / b),
-            (Number(a), Num4(b)) => Num4(a / b),
-            (Num4(a), Num4(b)) => Num4(a / b),
-            (Num4(a), Number(b)) => Num4(a / b),
             (Map(map), _) => {
                 let unused = self.next_register();
                 call_binary_op_or_else!(self, unused, lhs, rhs_value, map, DivideAssign, {
@@ -1768,12 +1688,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a % b),
-            (Number(a), Num2(b)) => Num2(a % b),
-            (Num2(a), Num2(b)) => Num2(a % b),
-            (Num2(a), Number(b)) => Num2(a % b),
-            (Number(a), Num4(b)) => Num4(a % b),
-            (Num4(a), Num4(b)) => Num4(a % b),
-            (Num4(a), Number(b)) => Num4(a % b),
             (Map(map), _) => {
                 let unused = self.next_register();
                 call_binary_op_or_else!(self, unused, lhs, rhs_value, map, RemainderAssign, {
@@ -1900,8 +1814,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
@@ -1968,8 +1880,6 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => a != b,
-            (Num2(a), Num2(b)) => a != b,
-            (Num4(a), Num4(b)) => a != b,
             (Bool(a), Bool(b)) => a != b,
             (Str(a), Str(b)) => a != b,
             (Range(a), Range(b)) => a != b,
@@ -2493,20 +2403,6 @@ impl Vm {
                     );
                 }
             }
-            (Num2(n), Number(i)) => {
-                let i = usize::from(i);
-                match i {
-                    0 | 1 => self.set_register(result_register, Number(n[i].into())),
-                    other => return runtime_error!("Index out of bounds for Num2, {other}"),
-                }
-            }
-            (Num4(n), Number(i)) => {
-                let i = usize::from(i);
-                match i {
-                    0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
-                    other => return runtime_error!("Index out of bounds for Num4, {other}"),
-                }
-            }
             (Map(m), index) => {
                 call_binary_op_or_else!(self, result_register, value_register, index, m, Index, {
                     return runtime_error!("Unable to index {}", value.type_as_string());
@@ -2659,8 +2555,6 @@ impl Vm {
                 },
             },
             List(_) => core_op!(list, true),
-            Num2(_) => core_op!(num2, true),
-            Num4(_) => core_op!(num4, true),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
             Str(_) => core_op!(string, true),

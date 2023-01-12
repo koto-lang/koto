@@ -23,10 +23,16 @@ The Koto project adheres to
   - Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented in meta maps and external values.
   - The function call operator (`@||`) can be implemented to values that behave like functions.
 
+#### Libs
+
+- New `color` and `geometry` libs have been added, and are available by default
+  in the CLI.
+
 #### Internals
 
 - `MetaMapBuilder` is now available to simplify the creation of `MetaMap`s. 
 - Preludes are now available in the `koto` and `koto_runtime` crates.
+
 
 ### Changed
 
@@ -52,6 +58,13 @@ The Koto project adheres to
   `type_error_with_slice`, and has had the prefix argument removed.
 
 ### Removed
+
+#### Packed number removal
+
+- The `Num2` and `Num4` types have been removed.
+  - Some of the use cases for these types are covered by the new `color` and 
+    `geometry` libs.
+  - See https://github.com/koto-lang/koto/issues/201 for removal rationale.
 
 #### Core Library
 

@@ -20,6 +20,8 @@ jemalloc = ["jemallocator"]
 
 [dependencies]
 koto = { path = "../koto", version = "^0.11.0" }
+koto_color = { path = "../../libs/color", version = "^0.11.0" }
+koto_geometry = { path = "../../libs/geometry", version = "^0.11.0" }
 koto_json = { path = "../../libs/json", version = "^0.11.0" }
 koto_random = { path = "../../libs/random", version = "^0.11.0" }
 koto_tempfile = { path = "../../libs/tempfile", version = "^0.11.0" }

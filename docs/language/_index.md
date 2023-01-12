@@ -28,7 +28,6 @@ The placeholders are then stripped out by the CLI's preprocessor.
 - [Ranges](ranges.md)
 - [Advanced Functions](functions_advanced.md)
 - [Generators](generators.md)
-- [Packed Numbers](packed_numbers.md)
 - [Meta Maps](meta_maps.md)
 - [Errors](errors.md)
 - [Testing](testing.md)

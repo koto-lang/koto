@@ -24,6 +24,9 @@ impl BenchmarkRunner {
         let script = read_to_string(path).expect("Unable to load path");
 
         let mut runtime = Koto::new();
+        let prelude = runtime.prelude();
+        prelude.add_map("geometry", koto_geometry::make_module());
+
         match runtime.compile(&script) {
             Ok(_) => {
                 if let Err(error) = runtime.run_with_args(args) {
@@ -51,12 +54,6 @@ impl BenchmarkRunner {
 pub fn koto_benchmark(c: &mut Criterion) {
     c.bench_function("fib", |b| {
         let mut runner = BenchmarkRunner::setup("fib_recursive.koto", &[]);
-        b.iter(|| {
-            runner.run();
-        })
-    });
-    c.bench_function("num4", |b| {
-        let mut runner = BenchmarkRunner::setup("num4.koto", &[]);
         b.iter(|| {
             runner.run();
         })

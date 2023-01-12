@@ -22,6 +22,8 @@ koto_runtime = { path = "../runtime", version = "^0.11.0" }
 dunce.workspace = true
 
 [dev-dependencies]
+koto_geometry = { path = "../../libs/geometry", version = "^0.11.0" }
+
 criterion.workspace = true
 pulldown-cmark.workspace = true
 test_bin.workspace = true

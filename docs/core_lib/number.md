@@ -147,10 +147,6 @@ check! inf
 Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
 `x` to determine the correct quadrant.
 
-### Note
-
-`y.atan2 x` is equivalent to `make_num2(x, y).angle()`.
-
 ### Example
 
 ```koto

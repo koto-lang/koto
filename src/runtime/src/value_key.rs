@@ -1,5 +1,5 @@
 use {
-    crate::{num2, num4, value::Value, IntRange, ValueNumber, ValueString},
+    crate::{value::Value, IntRange, ValueNumber, ValueString},
     std::{
         borrow::Borrow,
         cmp::Ordering,
@@ -27,8 +27,6 @@ impl PartialEq for ValueKey {
 
         match (&self.0, &other.0) {
             (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
@@ -89,8 +87,6 @@ impl PartialOrd for ValueKey {
             (Null, _) => Some(Ordering::Less),
             (_, Null) => Some(Ordering::Greater),
             (Number(a), Number(b)) => a.partial_cmp(b),
-            (Num2(a), Num2(b)) => a.partial_cmp(b),
-            (Num4(a), Num4(b)) => a.partial_cmp(b),
             (Str(a), Str(b)) => a.partial_cmp(b),
             _ => Some(Ordering::Less),
         }
@@ -120,8 +116,6 @@ pub(crate) enum ValueRef<'a> {
     Null,
     Bool(&'a bool),
     Number(&'a ValueNumber),
-    Num2(&'a num2::Num2),
-    Num4(&'a num4::Num4),
     Str(&'a str),
     Range(&'a IntRange),
 }
@@ -132,8 +126,6 @@ impl<'a> From<&'a Value> for ValueRef<'a> {
             Value::Null => ValueRef::Null,
             Value::Bool(b) => ValueRef::Bool(b),
             Value::Number(n) => ValueRef::Number(n),
-            Value::Num2(n) => ValueRef::Num2(n),
-            Value::Num4(n) => ValueRef::Num4(n),
             Value::Str(s) => ValueRef::Str(s),
             Value::Range(r) => ValueRef::Range(r),
             _ => unreachable!(), // Only immutable values can be used in ValueKey
@@ -147,8 +139,6 @@ impl<'a> PartialEq for ValueRef<'a> {
 
         match (self, other) {
             (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
@@ -170,8 +160,6 @@ impl<'a> Hash for ValueRef<'a> {
             Null => {}
             Bool(b) => b.hash(state),
             Number(n) => n.hash(state),
-            Num2(n) => n.hash(state),
-            Num4(n) => n.hash(state),
             Str(s) => s.hash(state),
             Range(IntRange { start, end }) => {
                 state.write_isize(*start);

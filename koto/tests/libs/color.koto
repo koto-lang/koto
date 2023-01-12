@@ -1,0 +1,41 @@
+import color
+
+@tests =
+  @test rgb: ||
+    assert_eq (color 1, 0, 1), (color.rgb 1, 0, 1)
+    assert_eq (color 0, 0.5, 0.9), (color.rgb 0, 0.5, 0.9)
+
+  @test rgba: ||
+    assert_eq (color 1, 0, 1, 0.5), (color.rgba 1, 0, 1, 0.5)
+    assert_eq (color 0, 0.5, 0.9, 0.1), (color.rgba 0, 0.5, 0.9, 0.1)
+    assert_eq (color.rgb 0.1, 0.2, 0.3), (color.rgba 0.1, 0.2, 0.3, 1)
+
+  @test named: ||
+    assert_eq (color 'blue'), (color.named 'blue')
+    assert_eq (color 'red'), (color.rgb 1, 0, 0)
+
+  @test components: ||
+    allowed_error = 1.0e-3
+    c = color 'firebrick'
+    assert_near c.r(), 0.698, allowed_error
+    assert_near c.g(), 0.133, allowed_error
+    assert_near c.b(), 0.133, allowed_error
+    assert_near c.a(), 1.0, allowed_error
+
+  @test set_components: ||
+    allowed_error = 1.0e-7
+    c = color 'yellow'
+    c.set_r 0.4
+    assert_near c.r(), 0.4, allowed_error
+    c.set_g 0.9
+    assert_near c.g(), 0.9, allowed_error
+    c.set_b 0.7
+    assert_near c.b(), 0.7, allowed_error
+    c.set_a 0.2
+    assert_near c.a(), 0.2, allowed_error
+
+  @test arithmetic: ||
+    assert_eq color('red') + color('blue'), color 'fuchsia'
+    c = color 'black'
+    c += 0.5
+    assert_eq c, (color 0.5, 0.5, 0.5)

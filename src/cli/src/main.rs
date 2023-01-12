@@ -156,12 +156,7 @@ fn run() -> Result<(), ()> {
             return Err(());
         }
 
-        let prelude = koto.prelude();
-        prelude.add_map("json", koto_json::make_module());
-        prelude.add_map("random", koto_random::make_module());
-        prelude.add_map("tempfile", koto_tempfile::make_module());
-        prelude.add_map("toml", koto_toml::make_module());
-        prelude.add_map("yaml", koto_yaml::make_module());
+        add_modules(&koto);
 
         match koto.compile(&script) {
             Ok(chunk) => {
@@ -202,4 +197,15 @@ fn run() -> Result<(), ()> {
         );
         repl.run().map_err(|_| ())
     }
+}
+
+fn add_modules(koto: &Koto) {
+    let prelude = koto.prelude();
+    prelude.add_map("color", koto_color::make_module());
+    prelude.add_map("geometry", koto_geometry::make_module());
+    prelude.add_map("json", koto_json::make_module());
+    prelude.add_map("random", koto_random::make_module());
+    prelude.add_map("tempfile", koto_tempfile::make_module());
+    prelude.add_map("toml", koto_toml::make_module());
+    prelude.add_map("yaml", koto_yaml::make_module());
 }

@@ -194,8 +194,6 @@ mod core_lib {
     test_core_lib_examples!(koto);
     test_core_lib_examples!(list);
     test_core_lib_examples!(map);
-    test_core_lib_examples!(num2);
-    test_core_lib_examples!(num4);
     test_core_lib_examples!(number);
     test_core_lib_examples!(os);
     test_core_lib_examples!(range);
@@ -227,7 +225,6 @@ mod guide {
     test_lang_guide_examples!(maps);
     test_lang_guide_examples!(meta_maps);
     test_lang_guide_examples!(modules);
-    test_lang_guide_examples!(packed_numbers);
     test_lang_guide_examples!(ranges);
     test_lang_guide_examples!(strings);
     test_lang_guide_examples!(testing);

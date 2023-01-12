@@ -1,7 +1,7 @@
 //! A random number module for the Koto language
 
 use {
-    koto_runtime::{num2, num4, prelude::*},
+    koto_runtime::prelude::*,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha8Rng,
     std::{cell::RefCell, rc::Rc},
@@ -30,14 +30,6 @@ pub fn make_module() -> ValueMap {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_number())
     });
 
-    result.add_fn("num2", |_, _| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_num2())
-    });
-
-    result.add_fn("num4", |_, _| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_num4())
-    });
-
     result.add_fn("pick", |vm, args| {
         THREAD_RNG.with(|rng| rng.borrow_mut().pick(vm.get_args(args)))
     });
@@ -59,8 +51,6 @@ fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
     MetaMapBuilder::<ChaChaRng>::new("Rng")
         .data_fn_mut("bool", |rng| rng.gen_bool())
         .data_fn_mut("number", |rng| rng.gen_number())
-        .data_fn_mut("num2", |rng| rng.gen_num2())
-        .data_fn_mut("num4", |rng| rng.gen_num4())
         .data_fn_with_args_mut("pick", |rng, args| rng.pick(args))
         .data_fn_with_args_mut("seed", |rng, args| rng.seed(args))
         .build()
@@ -83,21 +73,6 @@ impl ChaChaRng {
 
     fn gen_number(&mut self) -> RuntimeResult {
         Ok(self.0.gen::<f64>().into())
-    }
-
-    fn gen_num2(&mut self) -> RuntimeResult {
-        let result = num2::Num2(self.0.gen::<f64>(), self.0.gen::<f64>());
-        Ok(Value::Num2(result))
-    }
-
-    fn gen_num4(&mut self) -> RuntimeResult {
-        let result = num4::Num4(
-            self.0.gen::<f32>(),
-            self.0.gen::<f32>(),
-            self.0.gen::<f32>(),
-            self.0.gen::<f32>(),
-        );
-        Ok(Value::Num4(result))
     }
 
     fn pick(&mut self, args: &[Value]) -> RuntimeResult {

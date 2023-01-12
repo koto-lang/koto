@@ -76,29 +76,12 @@ catch error
 |Number, Number, Number| -> Null
 ```
 
-```kototype
-|Num2, Num2| -> Null
-```
-
-```kototype
-|Num2, Num2, Number| -> Null
-```
-
-```kototype
-|Num4, Num4| -> Null
-```
-
-```kototype
-|Num4, Num4, Number| -> Null
-```
-
 Checks that the two input numbers are equal, within an allowed margin of error.
 
 This is useful when testing floating-point operations, where the result can be
 close to a target with some acceptable imprecision.
 
-The margin of error is optional, defaulting to `1.0e-12` for `Number` and `Num2`
-comparisons, and `1.0e-6` for `Num4` comparisons.
+The margin of error is optional, defaulting to `1.0e-12`.
 
 ### Example
 
