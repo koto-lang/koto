@@ -216,24 +216,39 @@ check! My Map
 ## insert
 
 ```kototype
-|Map, Key| -> Value
-```
-
-Inserts Null into the map with the given key.
-
-```kototype
 |Map, Key, Value| -> Value
 ```
 
-Inserts a value into the map with the given key.
+Inserts an entry into the map with the given key and value. 
+
+```kototype
+|Map, Key| -> Value
+```
+
+Inserts an entry into the map with the given key, and Null as its value.
 
 If the key already existed in the map, then the old value is returned.
 If the key didn't already exist, then Null is returned.
+
+### Map Keys
+
+Map keys are typically strings, but any _immutable_ value can be used.
+
+Values that can be used as keys are:
+- `Bool`
+- `Number`
+- `Null`
+- `Range`
+- `String`
+- `Tuple` 
+  - A Tuple can only be used as a key when its contained values are immutable, 
+    any mutable value (like a `List` or `Map`) will throw an error.
 
 ### Example
 
 ```koto
 x = {hello: -1}
+
 print! x.insert 'hello', 99 # -1 already exists at `hello`, so it's returned here
 check! -1
 
@@ -245,10 +260,23 @@ check! null
 
 print! x.goodbye
 check! 123
+
+print! x.insert 123, 'hi!' # Numbers can be used as map keys 
+check! null
+
+print! x.get 123
+check! hi!
+
+print! x.insert ('a', 'b'), -1 # Tuples can be used as map keys 
+check! null
+
+print! x.get ('a', 'b')
+check! -1
 ```
 
 ### See also
 
+- [`map.get`](#get)
 - [`map.remove`](#remove)
 - [`map.update`](#update)
 

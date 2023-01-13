@@ -157,5 +157,36 @@ x[3] = 3
                 check_script_fails(script);
             }
         }
+
+        mod maps {
+            use super::*;
+
+            #[test]
+            fn list_as_key() {
+                let script = "
+x = {}
+x.insert [1, 2], 'hello'
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn map_as_key() {
+                let script = "
+x = {}
+x.insert {foo: 42}, 'hello'
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn tuple_as_key_with_contained_list() {
+                let script = "
+x = {}
+x.insert (1, [2, 3]), 'hello'
+";
+                check_script_fails(script);
+            }
+        }
     }
 }

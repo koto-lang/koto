@@ -317,7 +317,7 @@ pub fn format_string(
                 None => return runtime_error!("Missing argument for index {n}"),
             },
             FormatToken::Identifier(id, format_spec) => match format_args.first() {
-                Some(Value::Map(map)) => match map.data().get_with_string(id) {
+                Some(Value::Map(map)) => match map.data().get(id) {
                     Some(value) => result.push_str(&value_to_string(vm, value, format_spec)?),
                     None => return runtime_error!("Key '{id}' not found in map"),
                 },

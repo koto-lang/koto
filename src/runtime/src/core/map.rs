@@ -3,7 +3,7 @@
 use {
     super::iterator::adaptors,
     crate::{prelude::*, value_sort::compare_values},
-    std::{cmp::Ordering, ops::Deref},
+    std::cmp::Ordering,
 };
 
 /// Initializes the `map` core library module
@@ -103,7 +103,7 @@ pub fn make_module() -> ValueMap {
         };
 
         match map.data().get_index(index.into()) {
-            Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
+            Some((key, value)) => Ok(Tuple(vec![key.value().clone(), value.clone()].into())),
             None => Ok(default.clone()),
         }
     });
@@ -170,23 +170,45 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            m.data_mut().sort_keys();
-            Ok(Map(m.clone()))
+            let mut error = None;
+            m.data_mut().sort_by(|key_a, _, key_b, _| {
+                if error.is_some() {
+                    return Ordering::Equal;
+                }
+
+                match key_a.partial_cmp(key_b) {
+                    Some(ordering) => ordering,
+                    None => {
+                        // This should never happen, ValueKeys can only be made with sortable values
+                        error = Some(runtime_error!("Invalid map key encountered"));
+                        Ordering::Equal
+                    }
+                }
+            });
+
+            if let Some(error) = error {
+                error
+            } else {
+                Ok(Map(m.clone()))
+            }
         }
         [Map(m), f] if f.is_callable() => {
             let m = m.clone();
             let f = f.clone();
             let mut error = None;
 
-            let get_sort_key =
-                |vm: &mut Vm, cache: &mut DataMap, key: &Value, value: &Value| -> RuntimeResult {
-                    let value = vm.run_function(
-                        f.clone(),
-                        CallArgs::Separate(&[key.clone(), value.clone()]),
-                    )?;
-                    cache.insert(ValueKey::try_from(key.clone())?, value.clone());
-                    Ok(value)
-                };
+            let get_sort_key = |vm: &mut Vm,
+                                cache: &mut DataMap,
+                                key: &ValueKey,
+                                value: &Value|
+             -> RuntimeResult {
+                let value = vm.run_function(
+                    f.clone(),
+                    CallArgs::Separate(&[key.value().clone(), value.clone()]),
+                )?;
+                cache.insert(key.clone(), value.clone());
+                Ok(value)
+            };
 
             let mut cache = DataMap::with_capacity(m.len());
             m.data_mut().sort_by(|key_a, value_a, key_b, value_b| {

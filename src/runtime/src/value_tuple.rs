@@ -32,6 +32,11 @@ impl ValueTuple {
             None
         }
     }
+
+    /// Returns true if the tuple contains only immutable values
+    pub fn is_hashable(&self) -> bool {
+        self.iter().all(Value::is_hashable)
+    }
 }
 
 impl Deref for ValueTuple {

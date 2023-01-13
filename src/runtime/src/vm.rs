@@ -68,15 +68,7 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
 
     macro_rules! default_import {
         ($name:expr, $module:ident) => {{
-            prelude.add_value(
-                $name,
-                core_lib
-                    .$module
-                    .data()
-                    .get_with_string($name)
-                    .unwrap()
-                    .clone(),
-            );
+            prelude.add_value($name, core_lib.$module.data().get($name).unwrap().clone());
         }};
     }
 
@@ -243,7 +235,7 @@ impl Vm {
 
     /// Returns the named value from the exports map, or None if no matching value is found
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
-        self.exports.data().get_with_string(id).cloned()
+        self.exports.data().get(id).cloned()
     }
 
     /// Returns the named function from the exports map
@@ -1058,9 +1050,9 @@ impl Vm {
         let non_local = self
             .exports
             .data()
-            .get_with_string(name)
+            .get(name)
             .cloned()
-            .or_else(|| self.context.prelude.data().get_with_string(name).cloned());
+            .or_else(|| self.context.prelude.data().get(name).cloned());
 
         if let Some(non_local) = non_local {
             self.set_register(register, non_local);
@@ -2084,19 +2076,14 @@ impl Vm {
         };
 
         // Is the import in the exports?
-        let maybe_in_exports = self.exports.data().get_with_string(&import_name).cloned();
+        let maybe_in_exports = self.exports.data().get(&import_name).cloned();
         if let Some(value) = maybe_in_exports {
             self.set_register(import_register, value);
             return Ok(());
         }
 
         // Is the import in the prelude?
-        let maybe_in_prelude = self
-            .context
-            .prelude
-            .data()
-            .get_with_string(&import_name)
-            .cloned();
+        let maybe_in_prelude = self.context.prelude.data().get(&import_name).cloned();
         if let Some(value) = maybe_in_prelude {
             self.set_register(import_register, value);
             return Ok(());
@@ -2642,7 +2629,7 @@ impl Vm {
                 other => other,
             },
             None => {
-                return runtime_error!("'{}' not found in '{module_name}'", key.key_to_string()?);
+                return runtime_error!("'{key}' not found in '{module_name}'");
             }
         };
 

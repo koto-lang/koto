@@ -2,8 +2,6 @@ use {
     crate::{
         external::{ArgRegisters, ExternalFunction},
         prelude::*,
-        value_key::ValueKeyRef,
-        // MetaKey, MetaMap, RuntimeResult, Value, ValueKey, Vm,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
@@ -31,21 +29,6 @@ impl DataMap {
             capacity,
             Default::default(),
         ))
-    }
-
-    /// Allows access to map entries without having to create a ValueString
-    pub fn get_with_string(&self, key: &str) -> Option<&Value> {
-        self.0.get(&key as &dyn ValueKeyRef)
-    }
-
-    /// Allows access to map entries without having to create a ValueString
-    pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
-        self.0.get_mut(&key as &dyn ValueKeyRef)
-    }
-
-    /// Removes any entry with a matching name and returns the removed value
-    pub fn remove_with_string(&mut self, key: &str) -> Option<Value> {
-        self.0.remove(&key as &dyn ValueKeyRef)
     }
 }
 
@@ -209,7 +192,7 @@ impl KotoDisplay for ValueMap {
                 if i > 0 {
                     s.push_str(", ");
                 }
-                key.display(s, vm, KotoDisplayOptions::default())?;
+                key.value().display(s, vm, KotoDisplayOptions::default())?;
                 s.push_str(": ");
                 value.display(
                     s,
@@ -234,13 +217,10 @@ mod tests {
     fn get_and_remove_with_string() {
         let m = ValueMap::default();
 
-        assert!(m.data().get_with_string("test").is_none());
+        assert!(m.data().get("test").is_none());
         m.add_value("test", Value::Null);
-        assert!(m.data().get_with_string("test").is_some());
-        assert!(matches!(
-            m.data_mut().remove_with_string("test"),
-            Some(Value::Null)
-        ));
-        assert!(m.data().get_with_string("test").is_none());
+        assert!(m.data().get("test").is_some());
+        assert!(matches!(m.data_mut().remove("test"), Some(Value::Null)));
+        assert!(m.data().get("test").is_none());
     }
 }
