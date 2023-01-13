@@ -1,8 +1,7 @@
 use {
-    crate::Value,
+    crate::prelude::*,
     std::{
         cell::{Ref, RefCell, RefMut},
-        fmt,
         rc::Rc,
     },
 };
@@ -53,15 +52,23 @@ impl ValueList {
     }
 }
 
-impl fmt::Display for ValueList {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
+impl KotoDisplay for ValueList {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+        s.push('[');
         for (i, value) in self.data().iter().enumerate() {
             if i > 0 {
-                write!(f, ", ")?;
+                s.push_str(", ");
             }
-            write!(f, "{value:#}")?;
+            value.display(
+                s,
+                vm,
+                KotoDisplayOptions {
+                    contained_value: true,
+                },
+            )?;
         }
-        write!(f, "]")
+        s.push(']');
+
+        Ok(().into())
     }
 }

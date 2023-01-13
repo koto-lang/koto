@@ -1,5 +1,5 @@
 use {
-    crate::{value::Value, IntRange, ValueNumber, ValueString},
+    crate::prelude::*,
     std::{
         borrow::Borrow,
         cmp::Ordering,
@@ -18,6 +18,24 @@ impl ValueKey {
     /// Returns a reference to the key's value
     pub fn value(&self) -> &Value {
         &self.0
+    }
+
+    /// Returns a display string for the key
+    pub fn key_to_string(&self) -> Result<String, RuntimeError> {
+        use Value::*;
+
+        let result = match &self.0 {
+            Null => "null".to_string(),
+            Bool(b) => b.to_string(),
+            Number(n) => n.to_string(),
+            Range(r) => r.to_string(),
+            Str(s) => s.to_string(),
+            unexpected => {
+                return runtime_error!("Invalid ValueKeyType: {}", unexpected.type_as_string())
+            }
+        };
+
+        Ok(result)
     }
 }
 

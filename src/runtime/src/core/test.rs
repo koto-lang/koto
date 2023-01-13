@@ -30,7 +30,11 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
-                    runtime_error!("Assertion failed, '{a}' is not equal to '{b}'")
+                    runtime_error!(
+                        "Assertion failed, '{}' is not equal to '{}'",
+                        vm.value_to_string(&a)?,
+                        vm.value_to_string(&b)?,
+                    )
                 }
                 Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),
@@ -47,7 +51,11 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
-                    runtime_error!("Assertion failed, '{a}' should not be equal to '{b}'")
+                    runtime_error!(
+                        "Assertion failed, '{}' should not be equal to '{}'",
+                        vm.value_to_string(&a)?,
+                        vm.value_to_string(&b)?
+                    )
                 }
                 Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),

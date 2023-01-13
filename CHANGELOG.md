@@ -42,12 +42,14 @@ The Koto project adheres to
 
 #### Language
 
-- `File`s now implement `@Display`, showing their paths.
+- `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
   avoiding unnecessary copies. 
 
 #### Internals
 
+- `Value` no longer implements `fmt::Display`, instead `value_to_string` can be
+  called on `Koto` or the Vm to get a string.
 - Implementing `KotoFile` has been made easier, with the `Display + Debug`
   constraint replaced with a required `id()` function.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking

@@ -286,10 +286,8 @@ impl Koto {
     }
 
     /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
-    pub fn value_to_string(&mut self, value: Value) -> KotoResult {
-        self.runtime
-            .run_unary_op(UnaryOp::Display, value)
-            .map_err(|e| e.into())
+    pub fn value_to_string(&mut self, value: Value) -> Result<String, KotoError> {
+        self.runtime.value_to_string(&value).map_err(|e| e.into())
     }
 
     /// Returns a reference to the runtime's prelude

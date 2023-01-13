@@ -1,14 +1,14 @@
 use {
     crate::{
         external::{ArgRegisters, ExternalFunction},
+        prelude::*,
         value_key::ValueKeyRef,
-        MetaKey, MetaMap, RuntimeResult, Value, ValueKey, Vm,
+        // MetaKey, MetaMap, RuntimeResult, Value, ValueKey, Vm,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
     std::{
         cell::{Ref, RefCell, RefMut},
-        fmt,
         hash::BuildHasherDefault,
         iter::IntoIterator,
         ops::{Deref, DerefMut},
@@ -196,18 +196,33 @@ impl ValueMap {
     }
 }
 
-impl fmt::Display for ValueMap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{")?;
-        let mut first = true;
-        for (key, value) in self.data().iter() {
-            if !first {
-                write!(f, ", ")?;
+impl KotoDisplay for ValueMap {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+        if self.contains_meta_key(&UnaryOp::Display.into()) {
+            match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
+                Value::Str(display_result) => s.push_str(&display_result),
+                unexpected => return type_error("String as @display result", &unexpected),
             }
-            write!(f, "{}: {value:#}", key.value())?;
-            first = false;
+        } else {
+            s.push('{');
+            for (i, (key, value)) in self.data().iter().enumerate() {
+                if i > 0 {
+                    s.push_str(", ");
+                }
+                key.display(s, vm, KotoDisplayOptions::default())?;
+                s.push_str(": ");
+                value.display(
+                    s,
+                    vm,
+                    KotoDisplayOptions {
+                        contained_value: true,
+                    },
+                )?;
+            }
+            s.push('}');
         }
-        write!(f, "}}")
+
+        Ok(().into())
     }
 }
 

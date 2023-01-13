@@ -11,7 +11,10 @@ fn one_plus_two() {
     match koto.run() {
         Ok(result) => match result {
             Value::Number(n) => assert_eq!(n, 3),
-            other => panic!("Unexpected result: {other}"),
+            other => panic!(
+                "Unexpected result: {}",
+                koto.value_to_string(other).unwrap()
+            ),
         },
         Err(runtime_error) => {
             panic!("Runtime error: {runtime_error}");

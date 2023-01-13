@@ -1,16 +1,13 @@
 use {
     crate::{
         core::CoreLib,
-        error::{type_error, RuntimeErrorType},
+        error::RuntimeErrorType,
         external::{self, ArgRegisters, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
-        runtime_error,
+        prelude::*,
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
-        value_iterator::{ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, MetaKey,
-        RuntimeError, RuntimeResult, UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber,
-        ValueString, ValueTuple, ValueVec,
+        DefaultStderr, DefaultStdin, DefaultStdout,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -410,6 +407,13 @@ impl Vm {
         result
     }
 
+    /// Returns a displayable string for the given value
+    pub fn value_to_string(&mut self, value: &Value) -> Result<String, RuntimeError> {
+        let mut result = String::new();
+        value.display(&mut result, self, KotoDisplayOptions::default())?;
+        Ok(result)
+    }
+
     /// Provides the result of running a unary operation on a Value
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
         let old_frame_count = self.call_stack.len();
@@ -534,7 +538,7 @@ impl Vm {
             unexpected => {
                 return runtime_error!(
                     "expected iterable value, found '{}'",
-                    unexpected.type_as_string()
+                    unexpected.type_as_string(),
                 )
             }
         };
@@ -921,22 +925,19 @@ impl Vm {
                 let thrown_value = self.clone_register(register);
 
                 let display_op = MetaKey::UnaryOp(UnaryOp::Display);
-                use RuntimeErrorType::KotoError;
                 match &thrown_value {
-                    Str(_) => Err(RuntimeError::new(KotoError {
-                        thrown_value,
-                        vm: None,
-                    })),
-                    Map(m) if m.contains_meta_key(&display_op) => Err(
-                        RuntimeError::from_koto_value(thrown_value, self.spawn_shared_vm()),
-                    ),
+                    Str(_) => {}
+                    Map(m) if m.contains_meta_key(&display_op) => {}
+                    ExternalValue(v) if v.contains_meta_key(&display_op) => {}
                     other => {
-                        runtime_error!(
-                            "throw: expected string or map with @display function, found '{}'",
-                            other.type_as_string()
-                        )
+                        return type_error("a String or a value that implements @display", other);
                     }
-                }
+                };
+
+                Err(RuntimeError::from_koto_value(
+                    thrown_value,
+                    self.spawn_shared_vm(),
+                ))
             }
             Instruction::Size { register, value } => {
                 self.run_size(register, value);
@@ -1430,20 +1431,26 @@ impl Vm {
     fn run_display(&mut self, result: u8, value: u8) -> InstructionResult {
         use {UnaryOp::Display, Value::*};
 
-        let result_value = match &self.get_register(value) {
-            Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(Display)) => {
-                let op = map.get_meta_value(&MetaKey::UnaryOp(Display)).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
+        match self.clone_register(value) {
+            Map(map) if map.contains_meta_key(&Display.into()) => {
+                let op = map.get_meta_value(&Display.into()).unwrap();
+                self.call_overloaded_unary_op(result, value, op)
             }
-            ExternalValue(v) if v.contains_meta_key(&MetaKey::UnaryOp(Display)) => {
-                let op = v.get_meta_value(&MetaKey::UnaryOp(Display)).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
+            ExternalValue(v) if v.contains_meta_key(&Display.into()) => {
+                let op = v.get_meta_value(&Display.into()).unwrap();
+                self.call_overloaded_unary_op(result, value, op)
             }
-            other => Str(other.to_string().into()),
-        };
-        self.set_register(result, result_value);
-
-        Ok(())
+            other => {
+                let mut display_string = String::new();
+                match other.display(&mut display_string, self, KotoDisplayOptions::default()) {
+                    Ok(_) => {
+                        self.set_register(result, display_string.into());
+                        Ok(())
+                    }
+                    Err(_) => runtime_error!("Failed to get display value"),
+                }
+            }
+        }
     }
 
     fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
@@ -2637,8 +2644,7 @@ impl Vm {
                 other => other,
             },
             None => {
-                use std::ops::Deref;
-                return runtime_error!("'{}' not found in '{module_name}'", key.deref());
+                return runtime_error!("'{}' not found in '{module_name}'", key.key_to_string()?);
             }
         };
 
@@ -2972,7 +2978,7 @@ impl Vm {
     fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> InstructionResult {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
-            result @ Value::Str(_) => result,
+            Value::Str(s) => s,
             other => {
                 return runtime_error!(
                     "debug: Expected string to display, found '{}'",
@@ -2997,7 +3003,7 @@ impl Vm {
         let expression_string = self.get_constant_str(expression_constant);
 
         self.stdout()
-            .write_line(&format!("{prefix}{expression_string}: {value_string}",))
+            .write_line(&format!("{prefix}{expression_string}: {value_string}"))
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> InstructionResult {

@@ -1,5 +1,5 @@
 use {
-    crate::{MetaKey, MetaMap, RuntimeResult, Value, ValueString, Vm},
+    crate::prelude::*,
     downcast_rs::impl_downcast,
     std::{
         cell::{Ref, RefCell, RefMut},
@@ -124,6 +124,21 @@ impl ExternalValue {
     /// Returns a clone of the meta value corresponding to the given key
     pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
         self.meta.borrow().get(key).cloned()
+    }
+}
+
+impl KotoDisplay for ExternalValue {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+        use UnaryOp::Display;
+        if self.contains_meta_key(&Display.into()) {
+            match vm.run_unary_op(Display, self.clone().into())? {
+                Value::Str(display_result) => s.push_str(&display_result),
+                unexpected => return type_error("String as @display result", &unexpected),
+            }
+        } else {
+            s.push_str(&self.value_type());
+        }
+        Ok(().into())
     }
 }
 

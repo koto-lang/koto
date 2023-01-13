@@ -2,7 +2,7 @@
 
 use {
     koto_runtime::Value,
-    serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer},
+    serde::ser::{self, Serialize, SerializeMap, SerializeSeq, Serializer},
 };
 
 /// A newtype that allows us to implement support for Serde serialization
@@ -40,12 +40,16 @@ impl<'a> Serialize for SerializableValue<'a> {
             Value::Map(m) => {
                 let mut seq = s.serialize_map(Some(m.len()))?;
                 for (key, value) in m.data().iter() {
-                    seq.serialize_entry(&key.to_string(), &SerializableValue(value))?;
+                    seq.serialize_entry(
+                        &key.key_to_string()
+                            .map_err(|e| ser::Error::custom(e.to_string()))?,
+                        &SerializableValue(value),
+                    )?;
                 }
                 seq.end()
             }
             Value::Str(string) => s.serialize_str(string),
-            // TODO, is it ok to do nothing for non-fundamental types like Range and Num4?
+            // TODO, is it ok to do nothing for non-fundamental types, e.g. External Values?
             _ => s.serialize_unit(),
         }
     }

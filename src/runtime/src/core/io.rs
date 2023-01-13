@@ -52,10 +52,20 @@ pub fn make_module() -> ValueMap {
     result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
+            let mut display_vm = None;
+            let mut node_string = String::new();
             for node in nodes {
                 match node {
                     Str(s) => path.push(s.as_str()),
-                    other => path.push(other.to_string()),
+                    other => {
+                        node_string.clear();
+                        other.display(
+                            &mut node_string,
+                            display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
+                            KotoDisplayOptions::default(),
+                        )?;
+                        path.push(&node_string);
+                    }
                 }
             }
             Ok(path.to_string_lossy().to_string().into())
@@ -190,19 +200,25 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
                 type_error_with_slice("a non-negative Number as the seek position", unexpected)
             }
         })
-        .data_fn_with_args_mut("write", |file, args| match args {
-            [value] => file
-                .write(value.to_string().as_bytes())
-                .map(|_| Value::Null),
+        .data_fn_with_vm_mut("write", |file, vm, args| match args {
+            [value] => {
+                let mut string_to_write = String::new();
+                value.display(&mut string_to_write, vm, KotoDisplayOptions::default())?;
+                file.write(string_to_write.as_bytes()).map(|_| Value::Null)
+            }
             unexpected => type_error_with_slice("a single argument", unexpected),
         })
-        .data_fn_with_args_mut("write_line", |file, args| {
-            let line = match args {
-                [] => "\n".to_string(),
-                [value] => format!("{value}\n"),
+        .data_fn_with_vm_mut("write_line", |file, vm, args| {
+            let mut string_to_write = String::new();
+            match args {
+                [] => {}
+                [value] => {
+                    value.display(&mut string_to_write, vm, KotoDisplayOptions::default())?;
+                }
                 unexpected => return type_error_with_slice("a single argument", unexpected),
             };
-            file.write(line.as_bytes()).map(|_| Value::Null)
+            string_to_write.push('\n');
+            file.write(string_to_write.as_bytes()).map(|_| Value::Null)
         })
         .data_fn(UnaryOp::Display, |file| {
             Ok(format!("File({})", file.0.id()).into())

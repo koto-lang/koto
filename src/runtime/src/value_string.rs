@@ -1,6 +1,7 @@
 use {
+    crate::prelude::*,
     std::{
-        fmt,
+        fmt::{self},
         hash::{Hash, Hasher},
         ops::{Deref, Range},
         rc::Rc,
@@ -176,11 +177,20 @@ impl fmt::Debug for ValueString {
 
 impl fmt::Display for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if f.alternate() {
-            write!(f, "'{}'", self.as_str())
+        f.write_str(self.as_str())
+    }
+}
+
+impl KotoDisplay for ValueString {
+    fn display(&self, s: &mut String, _vm: &mut Vm, options: KotoDisplayOptions) -> RuntimeResult {
+        if options.contained_value {
+            s.push('\'');
+            s.push_str(self);
+            s.push('\'');
         } else {
-            write!(f, "{}", self.as_str())
+            s.push_str(self);
         }
+        Ok(().into())
     }
 }
 
