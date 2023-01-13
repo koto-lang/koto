@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+mod display;
 mod error;
 mod external;
 mod file;
@@ -23,6 +24,7 @@ pub mod prelude;
 pub mod value;
 
 pub use {
+    display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
     external::{ExternalData, ExternalFunction, ExternalValue},
     file::{KotoFile, KotoRead, KotoWrite},

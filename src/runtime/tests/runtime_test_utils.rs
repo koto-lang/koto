@@ -28,12 +28,16 @@ pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
                     print_chunk(script, vm.chunk());
                     panic!(
                         "Unexpected result - expected: {}, result: {}",
-                        expected_output, result
+                        vm.value_to_string(&expected_output).unwrap(),
+                        vm.value_to_string(&result).unwrap(),
                     );
                 }
                 Ok(other) => {
                     print_chunk(script, vm.chunk());
-                    panic!("Expected bool from equality comparison, found '{}'", other);
+                    panic!(
+                        "Expected bool from equality comparison, found '{}'",
+                        vm.value_to_string(&other).unwrap()
+                    );
                 }
                 Err(e) => {
                     print_chunk(script, vm.chunk());

@@ -25,7 +25,10 @@ mod runtime {
 
         if let Ok(result) = vm.run(chunk) {
             print_chunk(script, vm.chunk());
-            panic!("Script didn't fail as expected, result: {}", result)
+            panic!(
+                "Script didn't fail as expected, result: {}",
+                vm.value_to_string(&result).unwrap()
+            )
         }
     }
 

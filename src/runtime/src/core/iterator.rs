@@ -666,14 +666,20 @@ pub fn make_module() -> ValueMap {
             let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut result = String::with_capacity(size_hint);
-
+            let mut display_vm = None;
             for output in iterator.map(collect_pair) {
                 match output {
                     Output::Value(Str(s)) => result.push_str(&s),
-                    Output::Value(value) => result.push_str(&value.to_string()),
+                    Output::Value(value) => {
+                        value.display(
+                            &mut result,
+                            display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
+                            KotoDisplayOptions::default(),
+                        )?;
+                    }
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
-                }
+                };
             }
 
             Ok(result.into())

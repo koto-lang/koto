@@ -1,7 +1,6 @@
 use {
-    crate::Value,
+    crate::prelude::*,
     std::{
-        fmt,
         ops::{Deref, Range},
         rc::Rc,
     },
@@ -53,16 +52,24 @@ impl Default for ValueTuple {
     }
 }
 
-impl fmt::Display for ValueTuple {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
+impl KotoDisplay for ValueTuple {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+        s.push('(');
         for (i, value) in self.iter().enumerate() {
             if i > 0 {
-                write!(f, ", ")?;
+                s.push_str(", ");
             }
-            write!(f, "{value:#}")?;
+            value.display(
+                s,
+                vm,
+                KotoDisplayOptions {
+                    contained_value: true,
+                },
+            )?;
         }
-        write!(f, ")")
+        s.push(')');
+
+        Ok(().into())
     }
 }
 

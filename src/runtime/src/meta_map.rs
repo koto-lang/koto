@@ -160,8 +160,8 @@ impl fmt::Display for MetaKey {
             MetaKey::BinaryOp(op) => write!(f, "@{op}"),
             MetaKey::UnaryOp(op) => write!(f, "@{op}"),
             MetaKey::Call => f.write_str("@||"),
-            MetaKey::Named(name) => write!(f, "{name}"),
-            MetaKey::Test(test) => write!(f, "test({test})"),
+            MetaKey::Named(name) => f.write_str(name.as_str()),
+            MetaKey::Test(test) => write!(f, "test({})", test.as_str()),
             MetaKey::Tests => f.write_str("@tests"),
             MetaKey::PreTest => f.write_str("@pre_test"),
             MetaKey::PostTest => f.write_str("@post_test"),
@@ -611,15 +611,47 @@ impl<T: ExternalData> MetaMapBuilder<T> {
 
         self
     }
+
+    /// Adds a function that takes an ExternalValue instance, along with a shared VM and args
+    ///
+    /// A helper for a function that expects an instance of ExternalValue as the first argument,
+    /// followed by other arguments.
+    ///
+    /// This is useful when you want mutable access to the internal data of an ExternalValue,
+    /// along with following arguments.
+    pub fn data_fn_with_vm_mut<Key, F>(mut self, key: Key, f: F) -> Self
+    where
+        Key: Into<MetaKey>,
+        F: Fn(&mut T, &mut Vm, &[Value]) -> RuntimeResult + 'static,
+    {
+        let type_name = self.type_name.clone();
+
+        self.map
+            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
+                [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
+                    Some(mut data) => {
+                        let mut vm = vm.spawn_shared_vm();
+                        f(&mut data, &mut vm, extra_args)
+                    }
+                    None => unexpected_data_type(value),
+                },
+                other => unexpected_instance_type(&type_name, other),
+            });
+
+        self
+    }
 }
 
 fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {
-    runtime_error!("Unexpected external data type: {}", unexpected.data_type(),)
+    runtime_error!(
+        "Unexpected external data type: {}",
+        unexpected.data_type().as_str()
+    )
 }
 
 fn unexpected_instance_type(
     type_name: &ValueString,
     unexpected: &[Value],
 ) -> Result<Value, RuntimeError> {
-    type_error_with_slice(&format!("'{type_name}'"), unexpected)
+    type_error_with_slice(&format!("'{}'", type_name.as_str()), unexpected)
 }

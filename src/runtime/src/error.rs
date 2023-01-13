@@ -1,8 +1,8 @@
 use {
-    crate::{UnaryOp, Value, Vm},
+    crate::prelude::*,
     koto_bytecode::Chunk,
     koto_parser::format_error_with_excerpt,
-    std::{cell::RefCell, error, fmt, rc::Rc},
+    std::{cell::RefCell, error, fmt, ops::DerefMut, rc::Rc},
 };
 
 /// A chunk and ip in a call stack where an error was thrown
@@ -19,14 +19,15 @@ pub(crate) enum RuntimeErrorType {
     StringError(String),
     /// An error thrown by a Koto script
     ///
-    /// The value will either be a String or a Map.
-    /// If the thrown value is a Map, then its @display function will be evaluated by the included
-    /// VM when displaying the error.
+    /// The value will either be a String, or a value that implements @display, in which case the
+    /// @display function will be evaluated by the included VM when displaying the error.
     KotoError {
         /// The thrown value
         thrown_value: Value,
         /// A VM that should be used to format the thrown value
-        vm: Option<Rc<RefCell<Vm>>>,
+        // This is placed in a RefCell so that fmt::Display can be implemented,
+        // which expectes an immutable self reference.
+        vm: RefCell<Vm>,
     },
 }
 
@@ -50,7 +51,7 @@ impl RuntimeError {
     pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
         Self::new(RuntimeErrorType::KotoError {
             thrown_value,
-            vm: Some(Rc::new(RefCell::new(vm))),
+            vm: RefCell::new(vm),
         })
     }
 
@@ -87,25 +88,25 @@ impl From<&str> for RuntimeError {
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use {RuntimeErrorType::*, Value::*};
+        use RuntimeErrorType::*;
 
         let message = match &self.error {
             StringError(s) => s.clone(),
-            KotoError { thrown_value, vm } => match (&thrown_value, vm) {
-                (Str(message), _) => message.to_string(),
-                (Map(_), Some(vm)) => match vm
-                    .borrow_mut()
-                    .run_unary_op(UnaryOp::Display, thrown_value.clone())
+            KotoError { thrown_value, vm } => {
+                let mut message = String::new();
+                if thrown_value
+                    .display(
+                        &mut message,
+                        vm.borrow_mut().deref_mut(),
+                        KotoDisplayOptions::default(),
+                    )
+                    .is_ok()
                 {
-                    Ok(Str(message)) => message.to_string(),
-                    Ok(other) => format!(
-                        "Error while getting error message, expected string, found '{}'",
-                        other.type_as_string()
-                    ),
-                    Err(_) => "Unable to get error message".to_string(),
-                },
-                _ => "Unable to get error message".to_string(),
-            },
+                    message
+                } else {
+                    "Unable to get error message".to_string()
+                }
+            }
         };
 
         if f.alternate() {
@@ -182,7 +183,7 @@ macro_rules! runtime_error {
 pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
     runtime_error!(
         "Expected {expected_str}, but found {}.",
-        unexpected.type_as_string()
+        unexpected.type_as_string().as_str()
     )
 }
 

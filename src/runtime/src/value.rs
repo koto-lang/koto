@@ -1,12 +1,12 @@
 //! The core value type used in the Koto runtime
 
 use {
-    crate::{
-        value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue, MetaKey,
-        ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple, ValueVec,
-    },
+    crate::{prelude::*, value_key::ValueRef, ExternalFunction},
     koto_bytecode::Chunk,
-    std::{fmt, rc::Rc},
+    std::{
+        fmt::{self, Write},
+        rc::Rc,
+    },
 };
 
 /// The core Value type for Koto
@@ -205,6 +205,38 @@ impl Value {
     }
 }
 
+impl KotoDisplay for Value {
+    fn display(&self, s: &mut String, vm: &mut Vm, options: KotoDisplayOptions) -> RuntimeResult {
+        use Value::*;
+        let result = match self {
+            Null => s.write_str("null"),
+            Bool(b) => write!(s, "{b}"),
+            Number(n) => write!(s, "{n}"),
+            Range(r) => write!(s, "{r}"),
+            SimpleFunction(_) | Function(_) => write!(s, "||"),
+            Generator(_) => s.write_str("Generator"),
+            Iterator(_) => s.write_str("Iterator"),
+            ExternalFunction(_) => s.write_str("||"),
+            IndexRange(self::IndexRange { .. }) => s.write_str("IndexRange"),
+            TemporaryTuple(RegisterSlice { start, count }) => {
+                write!(s, "TemporaryTuple [{start}..{}]", start + count)
+            }
+            SequenceBuilder(_) => s.write_str("SequenceBuilder"),
+            StringBuilder(sb) => write!(s, "StringBuilder({sb})"),
+            Str(value_string) => return value_string.display(s, vm, options),
+            List(l) => return l.display(s, vm, options),
+            Tuple(t) => return t.display(s, vm, options),
+            Map(m) => return m.display(s, vm, options),
+            ExternalValue(v) => return v.display(s, vm, options),
+        };
+        if result.is_ok() {
+            Ok(Null)
+        } else {
+            runtime_error!("Failed to write to string")
+        }
+    }
+}
+
 thread_local! {
     static TYPE_NULL: ValueString = "Null".into();
     static TYPE_BOOL: ValueString = "Bool".into();
@@ -231,42 +263,9 @@ impl Default for Value {
     }
 }
 
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Value::*;
-        match self {
-            Null => f.write_str("null"),
-            Bool(b) => write!(f, "{b}"),
-            Number(n) => write!(f, "{n}"),
-            Str(s) => {
-                if f.alternate() {
-                    write!(f, "{s:#}")
-                } else {
-                    write!(f, "{s}")
-                }
-            }
-            List(l) => write!(f, "{l}"),
-            Tuple(t) => write!(f, "{t}"),
-            Map(m) => {
-                if f.alternate() {
-                    write!(f, "{m:#}")
-                } else {
-                    write!(f, "{m}")
-                }
-            }
-            Range(IntRange { start, end }) => write!(f, "{start}..{end}"),
-            SimpleFunction(_) | Function(_) => write!(f, "||"),
-            Generator(_) => write!(f, "Generator"),
-            Iterator(_) => write!(f, "Iterator"),
-            ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(_) => f.write_str(&self.type_as_string()),
-            IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
-            TemporaryTuple(RegisterSlice { start, count }) => {
-                write!(f, "TemporaryTuple [{start}..{}]", start + count)
-            }
-            SequenceBuilder(_) => write!(f, "SequenceBuilder"),
-            StringBuilder(s) => write!(f, "StringBuilder({s})"),
-        }
+impl From<()> for Value {
+    fn from(_: ()) -> Self {
+        Self::Null
     }
 }
 
@@ -297,6 +296,12 @@ impl From<String> for Value {
 impl From<ValueString> for Value {
     fn from(value: ValueString) -> Self {
         Self::Str(value)
+    }
+}
+
+impl From<ValueMap> for Value {
+    fn from(value: ValueMap) -> Self {
+        Self::Map(value)
     }
 }
 
@@ -398,6 +403,12 @@ impl IntRange {
     /// Returns true if the range's size is zero
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl fmt::Display for IntRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
     }
 }
 

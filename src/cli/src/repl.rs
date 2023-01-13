@@ -8,7 +8,7 @@ use {
         tty::IsTty,
         Result,
     },
-    koto::{bytecode::Chunk, runtime::Value as KotoValue, Koto, KotoSettings},
+    koto::{bytecode::Chunk, Koto, KotoSettings},
     std::{
         cmp::Ordering,
         fmt,
@@ -273,7 +273,7 @@ impl Repl {
                             Err(e) => {
                                 print_wrapped!(
                                     stdout,
-                                    "Error while getting display string for value '{}' - {}",
+                                    "Error while getting display string for value '{:?}' - {}",
                                     result,
                                     e
                                 )?;
@@ -380,7 +380,7 @@ fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
     textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
 }
 
-fn print_result(stdout: &mut Stdout, result: &KotoValue) -> Result<()> {
+fn print_result(stdout: &mut Stdout, result: &str) -> Result<()> {
     if stdout.is_tty() {
         use style::*;
 
