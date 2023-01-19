@@ -28,7 +28,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Stri
             let map = ValueMap::with_capacity(mapping.len());
             for (key, value) in mapping.iter() {
                 let key_as_koto_value = yaml_value_to_koto_value(key)?;
-                if !key_as_koto_value.is_immutable() {
+                if !key_as_koto_value.is_hashable() {
                     return Err(format!(
                         "Invalid value type for map key: {}",
                         key_as_koto_value.type_as_string()

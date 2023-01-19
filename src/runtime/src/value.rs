@@ -135,10 +135,10 @@ impl Value {
         }
     }
 
-    /// Returns true if the value doesn't have internal mutability
+    /// Returns true if the value is hashable
     ///
-    /// Only immutable values are acceptable as map keys.
-    pub fn is_immutable(&self) -> bool {
+    /// Only hashable values are acceptable as map keys.
+    pub fn is_hashable(&self) -> bool {
         use Value::*;
         matches!(self, Null | Bool(_) | Number(_) | Range(_) | Str(_))
     }

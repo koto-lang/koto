@@ -21,7 +21,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
+        [Map(m), key] if key.is_hashable() => {
             let result = m.data().contains_key(&ValueKey::from(key.clone()));
             Ok(result.into())
         }
@@ -71,7 +71,7 @@ pub fn make_module() -> ValueMap {
                         Output::Error(error) => return Err(error),
                     };
 
-                    if !key.is_immutable() {
+                    if !key.is_hashable() {
                         return runtime_error!(
                             "map.extend: Only immutable Values can be used as keys (found '{}')",
                             key.type_as_string()
@@ -89,8 +89,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get", |vm, args| {
         let (map, key, default) = match vm.get_args(args) {
-            [Map(map), key] if key.is_immutable() => (map, key, &Null),
-            [Map(map), key, default] if key.is_immutable() => (map, key, default),
+            [Map(map), key] if key.is_hashable() => (map, key, &Null),
+            [Map(map), key, default] if key.is_hashable() => (map, key, default),
             unexpected => return type_error_with_slice("a Map and key as arguments", unexpected),
         };
 
@@ -130,13 +130,11 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
-            match m.data_mut().insert(key.clone().into(), Null) {
-                Some(old_value) => Ok(old_value),
-                None => Ok(Null),
-            }
-        }
-        [Map(m), key, value] if key.is_immutable() => {
+        [Map(m), key] if key.is_hashable() => match m.data_mut().insert(key.clone().into(), Null) {
+            Some(old_value) => Ok(old_value),
+            None => Ok(Null),
+        },
+        [Map(m), key, value] if key.is_hashable() => {
             match m.data_mut().insert(key.clone().into(), value.clone()) {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Null),
@@ -162,7 +160,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
+        [Map(m), key] if key.is_hashable() => {
             match m.data_mut().shift_remove(&ValueKey::from(key.clone())) {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Null),
@@ -245,10 +243,10 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, f] if key.is_immutable() && f.is_callable() => {
+        [Map(m), key, f] if key.is_hashable() && f.is_callable() => {
             do_map_update(m.clone(), key.clone().into(), Null, f.clone(), vm)
         }
-        [Map(m), key, default, f] if key.is_immutable() && f.is_callable() => do_map_update(
+        [Map(m), key, default, f] if key.is_hashable() && f.is_callable() => do_map_update(
             m.clone(),
             key.clone().into(),
             default.clone(),

@@ -10,7 +10,7 @@ use {
 
 /// The key type used by [ValueMap](crate::ValueMap)
 ///
-/// Only immutable values can be used as keys, see [Value::is_immutable]
+/// Only immutable values can be used as keys, see [Value::is_hashable]
 #[derive(Clone, Debug)]
 pub struct ValueKey(Value);
 
@@ -57,7 +57,7 @@ impl PartialEq for ValueKey {
 impl From<Value> for ValueKey {
     fn from(value: Value) -> Self {
         assert!(
-            value.is_immutable(),
+            value.is_hashable(),
             "Only immutable Value types can be used as a ValueKey"
         );
         Self(value)
