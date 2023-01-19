@@ -3014,7 +3014,9 @@ impl Vm {
         if value_size == expected_size {
             Ok(())
         } else {
-            runtime_error!("Container has a size of '{value_size}', expected '{expected_size}'")
+            runtime_error!(
+                "The provided value has a size of '{value_size}', expected '{expected_size}'"
+            )
         }
     }
 
@@ -3025,7 +3027,7 @@ impl Vm {
             Ok(())
         } else {
             runtime_error!(
-                "Container has a size of '{value_size}', expected a minimum of '{expected_size}'"
+                "The provided value has a size of '{value_size}', expected a minimum of '{expected_size}'"
             )
         }
     }

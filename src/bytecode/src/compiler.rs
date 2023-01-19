@@ -794,7 +794,9 @@ impl Compiler {
 
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
-            match &ast.node(*arg).node {
+            let arg_node = ast.node(*arg);
+            self.span_stack.push(*ast.span(arg_node.span));
+            match &arg_node.node {
                 Node::List(nested_args) => {
                     let list_register = arg_index as u8;
                     let size_op = args_size_op(nested_args, ast);
@@ -811,6 +813,7 @@ impl Compiler {
                 }
                 _ => {}
             }
+            self.span_stack.pop();
         }
 
         let result_register = if allow_implicit_return {
