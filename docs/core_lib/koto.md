@@ -37,6 +37,29 @@ Although typically module items are exported with `export` expressions,
 it can be useful to export items programatically.
 
 
+## hash
+
+```kototype
+|Value| -> Value
+```
+
+Returns the value's hash as an integer, or Null if the value is not hashable.
+
+```koto
+import koto.hash
+
+print! (hash 'hi') == (hash 'bye')
+check! false
+
+# Lists aren't hashable
+print! hash [1, 2] 
+check! null
+
+# Tuples are hashable if they only contain hashable values 
+print! (hash (1, 2)) == null
+check! false
+```
+
 ## script_dir
 
 ```kototype

@@ -34,7 +34,7 @@ pub use {
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},
-    value_map::{DataMap, ValueMap},
+    value_map::{DataMap, KotoHasher, ValueMap},
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,

@@ -14,7 +14,10 @@ use {
     },
 };
 
-type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
+/// The hasher used throughout the Koto runtime
+pub type KotoHasher = FxHasher;
+
+type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<KotoHasher>>;
 
 /// The underlying ValueKey -> Value 'data' hash map used in Koto
 ///

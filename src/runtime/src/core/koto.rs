@@ -1,6 +1,9 @@
 //! The `koto` core library module
 
-use crate::prelude::*;
+use {
+    crate::prelude::*,
+    std::hash::{Hash, Hasher},
+};
 
 /// Initializes the `koto` core library module
 pub fn make_module() -> ValueMap {
@@ -11,6 +14,18 @@ pub fn make_module() -> ValueMap {
     result.add_value("args", Tuple(ValueTuple::default()));
 
     result.add_fn("exports", |vm, _| Ok(Map(vm.exports().clone())));
+
+    result.add_fn("hash", |vm, args| match vm.get_args(args) {
+        [value] => match ValueKey::try_from(value.clone()) {
+            Ok(key) => {
+                let mut hasher = KotoHasher::default();
+                key.hash(&mut hasher);
+                Ok(hasher.finish().into())
+            }
+            Err(_) => Ok(Null),
+        },
+        unexpected => type_error_with_slice("a single argument", unexpected),
+    });
 
     result.add_value("script_dir", Null);
     result.add_value("script_path", Null);
