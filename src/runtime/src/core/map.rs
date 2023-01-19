@@ -3,7 +3,7 @@
 use {
     super::iterator::adaptors,
     crate::{prelude::*, value_sort::compare_values},
-    std::{cmp::Ordering, ops::Deref},
+    std::cmp::Ordering,
 };
 
 /// Initializes the `map` core library module
@@ -21,8 +21,8 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
-            let result = m.data().contains_key(&ValueKey::from(key.clone()));
+        [Map(m), key] => {
+            let result = m.data().contains_key(&ValueKey::try_from(key.clone())?);
             Ok(result.into())
         }
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
@@ -71,14 +71,7 @@ pub fn make_module() -> ValueMap {
                         Output::Error(error) => return Err(error),
                     };
 
-                    if !key.is_immutable() {
-                        return runtime_error!(
-                            "map.extend: Only immutable Values can be used as keys (found '{}')",
-                            key.type_as_string()
-                        );
-                    }
-
-                    map_data.insert(key.into(), value);
+                    map_data.insert(ValueKey::try_from(key.clone())?, value);
                 }
             }
 
@@ -89,12 +82,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get", |vm, args| {
         let (map, key, default) = match vm.get_args(args) {
-            [Map(map), key] if key.is_immutable() => (map, key, &Null),
-            [Map(map), key, default] if key.is_immutable() => (map, key, default),
+            [Map(map), key] => (map, key, &Null),
+            [Map(map), key, default] => (map, key, default),
             unexpected => return type_error_with_slice("a Map and key as arguments", unexpected),
         };
 
-        match map.data().get(&ValueKey::from(key.clone())) {
+        match map.data().get(&ValueKey::try_from(key.clone())?) {
             Some(value) => Ok(value.clone()),
             None => Ok(default.clone()),
         }
@@ -110,7 +103,7 @@ pub fn make_module() -> ValueMap {
         };
 
         match map.data().get_index(index.into()) {
-            Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
+            Some((key, value)) => Ok(Tuple(vec![key.value().clone(), value.clone()].into())),
             None => Ok(default.clone()),
         }
     });
@@ -130,14 +123,15 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
-            match m.data_mut().insert(key.clone().into(), Null) {
-                Some(old_value) => Ok(old_value),
-                None => Ok(Null),
-            }
-        }
-        [Map(m), key, value] if key.is_immutable() => {
-            match m.data_mut().insert(key.clone().into(), value.clone()) {
+        [Map(m), key] => match m.data_mut().insert(ValueKey::try_from(key.clone())?, Null) {
+            Some(old_value) => Ok(old_value),
+            None => Ok(Null),
+        },
+        [Map(m), key, value] => {
+            match m
+                .data_mut()
+                .insert(ValueKey::try_from(key.clone())?, value.clone())
+            {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Null),
             }
@@ -162,12 +156,10 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => {
-            match m.data_mut().shift_remove(&ValueKey::from(key.clone())) {
-                Some(old_value) => Ok(old_value),
-                None => Ok(Null),
-            }
-        }
+        [Map(m), key] => match m.data_mut().shift_remove(&ValueKey::try_from(key.clone())?) {
+            Some(old_value) => Ok(old_value),
+            None => Ok(Null),
+        },
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
 
@@ -178,23 +170,45 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            m.data_mut().sort_keys();
-            Ok(Map(m.clone()))
+            let mut error = None;
+            m.data_mut().sort_by(|key_a, _, key_b, _| {
+                if error.is_some() {
+                    return Ordering::Equal;
+                }
+
+                match key_a.partial_cmp(key_b) {
+                    Some(ordering) => ordering,
+                    None => {
+                        // This should never happen, ValueKeys can only be made with sortable values
+                        error = Some(runtime_error!("Invalid map key encountered"));
+                        Ordering::Equal
+                    }
+                }
+            });
+
+            if let Some(error) = error {
+                error
+            } else {
+                Ok(Map(m.clone()))
+            }
         }
         [Map(m), f] if f.is_callable() => {
             let m = m.clone();
             let f = f.clone();
             let mut error = None;
 
-            let get_sort_key =
-                |vm: &mut Vm, cache: &mut DataMap, key: &Value, value: &Value| -> RuntimeResult {
-                    let value = vm.run_function(
-                        f.clone(),
-                        CallArgs::Separate(&[key.clone(), value.clone()]),
-                    )?;
-                    cache.insert(key.clone().into(), value.clone());
-                    Ok(value)
-                };
+            let get_sort_key = |vm: &mut Vm,
+                                cache: &mut DataMap,
+                                key: &ValueKey,
+                                value: &Value|
+             -> RuntimeResult {
+                let value = vm.run_function(
+                    f.clone(),
+                    CallArgs::Separate(&[key.value().clone(), value.clone()]),
+                )?;
+                cache.insert(key.clone(), value.clone());
+                Ok(value)
+            };
 
             let mut cache = DataMap::with_capacity(m.len());
             m.data_mut().sort_by(|key_a, value_a, key_b, value_b| {
@@ -245,12 +259,16 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, f] if key.is_immutable() && f.is_callable() => {
-            do_map_update(m.clone(), key.clone().into(), Null, f.clone(), vm)
-        }
-        [Map(m), key, default, f] if key.is_immutable() && f.is_callable() => do_map_update(
+        [Map(m), key, f] if f.is_callable() => do_map_update(
             m.clone(),
-            key.clone().into(),
+            ValueKey::try_from(key.clone())?,
+            Null,
+            f.clone(),
+            vm,
+        ),
+        [Map(m), key, default, f] if f.is_callable() => do_map_update(
+            m.clone(),
+            ValueKey::try_from(key.clone())?,
             default.clone(),
             f.clone(),
             vm,

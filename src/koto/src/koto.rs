@@ -309,12 +309,7 @@ impl Koto {
             .map(|arg| Str(arg.as_str().into()))
             .collect::<Vec<_>>();
 
-        match self
-            .runtime
-            .prelude()
-            .data_mut()
-            .get_with_string_mut("koto")
-        {
+        match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
                 map.add_value("args", Tuple(koto_args.into()));
                 Ok(())
@@ -348,12 +343,7 @@ impl Koto {
 
         self.script_path = path;
 
-        match self
-            .runtime
-            .prelude()
-            .data_mut()
-            .get_with_string_mut("koto")
-        {
+        match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);

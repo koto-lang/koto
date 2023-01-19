@@ -25,8 +25,8 @@ The Koto project adheres to
 
 #### Libs
 
-- New `color` and `geometry` libs have been added, and are available by default
-  in the CLI.
+- New `color` and `geometry` libs have been added, and are available by default in the CLI.
+- `koto.hash` has been added to allow value hashes to be accessed.
 
 #### Internals
 
@@ -44,7 +44,7 @@ The Koto project adheres to
 
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
-  avoiding unnecessary copies. 
+    avoiding unnecessary copies. 
 
 #### Internals
 
@@ -58,6 +58,9 @@ The Koto project adheres to
   expected to be `ValueString`s.
 - `unexpected_type_error_with_slice` has been renamed to
   `type_error_with_slice`, and has had the prefix argument removed.
+- `DataMap::get_with_string` has been replaced with a simplified `ValueKey`
+  implementation that allows for efficient `&str` accesses without the
+  intermediate steps.
 
 ### Removed
 

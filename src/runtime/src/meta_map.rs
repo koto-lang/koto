@@ -1,12 +1,10 @@
 use {
     crate::{
         external::{ArgRegisters, ExternalFunction},
-        runtime_error, type_error_with_slice, ExternalData, ExternalValue, RuntimeError,
-        RuntimeResult, Value, ValueString, Vm,
+        prelude::*,
     },
     indexmap::IndexMap,
     koto_parser::MetaKeyId,
-    rustc_hash::FxHasher,
     std::{
         borrow::Borrow,
         cell::RefCell,
@@ -18,7 +16,7 @@ use {
     },
 };
 
-type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
+type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 
 /// The meta map used by [ValueMap](crate::ValueMap) and [ExternalValue](crate::ExternalValue)
 ///

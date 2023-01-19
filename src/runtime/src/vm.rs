@@ -68,15 +68,7 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
 
     macro_rules! default_import {
         ($name:expr, $module:ident) => {{
-            prelude.add_value(
-                $name,
-                core_lib
-                    .$module
-                    .data()
-                    .get_with_string($name)
-                    .unwrap()
-                    .clone(),
-            );
+            prelude.add_value($name, core_lib.$module.data().get($name).unwrap().clone());
         }};
     }
 
@@ -243,7 +235,7 @@ impl Vm {
 
     /// Returns the named value from the exports map, or None if no matching value is found
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
-        self.exports.data().get_with_string(id).cloned()
+        self.exports.data().get(id).cloned()
     }
 
     /// Returns the named function from the exports map
@@ -749,10 +741,7 @@ impl Vm {
             Instruction::LoadNonLocal { register, constant } => {
                 self.run_load_non_local(register, constant)
             }
-            Instruction::ValueExport { name, value } => {
-                self.run_value_export(name, value);
-                Ok(())
-            }
+            Instruction::ValueExport { name, value } => self.run_value_export(name, value),
             Instruction::Import { register } => self.run_import(register),
             Instruction::MakeTempTuple {
                 register,
@@ -1061,9 +1050,9 @@ impl Vm {
         let non_local = self
             .exports
             .data()
-            .get_with_string(name)
+            .get(name)
             .cloned()
-            .or_else(|| self.context.prelude.data().get_with_string(name).cloned());
+            .or_else(|| self.context.prelude.data().get(name).cloned());
 
         if let Some(non_local) = non_local {
             self.set_register(register, non_local);
@@ -1073,10 +1062,11 @@ impl Vm {
         }
     }
 
-    fn run_value_export(&mut self, name_register: u8, value_register: u8) {
-        let name = ValueKey::from(self.clone_register(name_register));
+    fn run_value_export(&mut self, name_register: u8, value_register: u8) -> InstructionResult {
+        let name = ValueKey::try_from(self.clone_register(name_register))?;
         let value = self.clone_register(value_register);
         self.exports.data_mut().insert(name, value);
+        Ok(())
     }
 
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> InstructionResult {
@@ -2086,19 +2076,14 @@ impl Vm {
         };
 
         // Is the import in the exports?
-        let maybe_in_exports = self.exports.data().get_with_string(&import_name).cloned();
+        let maybe_in_exports = self.exports.data().get(&import_name).cloned();
         if let Some(value) = maybe_in_exports {
             self.set_register(import_register, value);
             return Ok(());
         }
 
         // Is the import in the prelude?
-        let maybe_in_prelude = self
-            .context
-            .prelude
-            .data()
-            .get_with_string(&import_name)
-            .cloned();
+        let maybe_in_prelude = self.context.prelude.data().get(&import_name).cloned();
         if let Some(value) = maybe_in_prelude {
             self.set_register(import_register, value);
             return Ok(());
@@ -2438,12 +2423,12 @@ impl Vm {
         key_register: u8,
         value_register: u8,
     ) -> InstructionResult {
-        let key = self.clone_register(key_register);
+        let key = ValueKey::try_from(self.clone_register(key_register))?;
         let value = self.clone_register(value_register);
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(key.into(), value);
+                map.data_mut().insert(key, value);
                 Ok(())
             }
             unexpected => type_error("Map", unexpected),
@@ -2644,7 +2629,7 @@ impl Vm {
                 other => other,
             },
             None => {
-                return runtime_error!("'{}' not found in '{module_name}'", key.key_to_string()?);
+                return runtime_error!("'{key}' not found in '{module_name}'");
             }
         };
 

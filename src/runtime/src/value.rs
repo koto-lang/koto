@@ -1,7 +1,7 @@
 //! The core value type used in the Koto runtime
 
 use {
-    crate::{prelude::*, value_key::ValueRef, ExternalFunction},
+    crate::{prelude::*, ExternalFunction},
     koto_bytecode::Chunk,
     std::{
         fmt::{self, Write},
@@ -82,18 +82,6 @@ pub enum Value {
 }
 
 impl Value {
-    #[inline]
-    pub(crate) fn as_ref(&self) -> ValueRef {
-        match &self {
-            Value::Null => ValueRef::Null,
-            Value::Bool(b) => ValueRef::Bool(b),
-            Value::Number(n) => ValueRef::Number(n),
-            Value::Str(s) => ValueRef::Str(s),
-            Value::Range(r) => ValueRef::Range(r),
-            _ => unreachable!(), // Only immutable values can be used in ValueKey
-        }
-    }
-
     /// Returns a recursive 'deep copy' of a Value
     ///
     /// This is used by the various `.deep_copy()` core library functions.
@@ -135,12 +123,16 @@ impl Value {
         }
     }
 
-    /// Returns true if the value doesn't have internal mutability
+    /// Returns true if the value is hashable
     ///
-    /// Only immutable values are acceptable as map keys.
-    pub fn is_immutable(&self) -> bool {
+    /// Only hashable values are acceptable as map keys.
+    pub fn is_hashable(&self) -> bool {
         use Value::*;
-        matches!(self, Null | Bool(_) | Number(_) | Range(_) | Str(_))
+        match self {
+            Null | Bool(_) | Number(_) | Range(_) | Str(_) => true,
+            Tuple(t) => t.is_hashable(),
+            _ => false,
+        }
     }
 
     /// Returns true if a `ValueIterator` can be made from the value

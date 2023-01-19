@@ -1782,6 +1782,15 @@ m.baz"#;
         }
 
         #[test]
+        fn tuple_keys() {
+            let script = r#"
+m = {}
+m.insert (1, 2), 'hello'
+m.get (1, 2)"#;
+            test_script(script, "hello");
+        }
+
+        #[test]
         fn instance_function_no_args() {
             let script = "
 make_o = ||
