@@ -21,8 +21,8 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_hashable() => {
-            let result = m.data().contains_key(&ValueKey::from(key.clone()));
+        [Map(m), key] => {
+            let result = m.data().contains_key(&ValueKey::try_from(key.clone())?);
             Ok(result.into())
         }
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
@@ -71,14 +71,7 @@ pub fn make_module() -> ValueMap {
                         Output::Error(error) => return Err(error),
                     };
 
-                    if !key.is_hashable() {
-                        return runtime_error!(
-                            "map.extend: Only immutable Values can be used as keys (found '{}')",
-                            key.type_as_string()
-                        );
-                    }
-
-                    map_data.insert(key.into(), value);
+                    map_data.insert(ValueKey::try_from(key.clone())?, value);
                 }
             }
 
@@ -89,12 +82,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get", |vm, args| {
         let (map, key, default) = match vm.get_args(args) {
-            [Map(map), key] if key.is_hashable() => (map, key, &Null),
-            [Map(map), key, default] if key.is_hashable() => (map, key, default),
+            [Map(map), key] => (map, key, &Null),
+            [Map(map), key, default] => (map, key, default),
             unexpected => return type_error_with_slice("a Map and key as arguments", unexpected),
         };
 
-        match map.data().get(&ValueKey::from(key.clone())) {
+        match map.data().get(&ValueKey::try_from(key.clone())?) {
             Some(value) => Ok(value.clone()),
             None => Ok(default.clone()),
         }
@@ -130,12 +123,15 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_hashable() => match m.data_mut().insert(key.clone().into(), Null) {
+        [Map(m), key] => match m.data_mut().insert(ValueKey::try_from(key.clone())?, Null) {
             Some(old_value) => Ok(old_value),
             None => Ok(Null),
         },
-        [Map(m), key, value] if key.is_hashable() => {
-            match m.data_mut().insert(key.clone().into(), value.clone()) {
+        [Map(m), key, value] => {
+            match m
+                .data_mut()
+                .insert(ValueKey::try_from(key.clone())?, value.clone())
+            {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Null),
             }
@@ -160,12 +156,10 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_hashable() => {
-            match m.data_mut().shift_remove(&ValueKey::from(key.clone())) {
-                Some(old_value) => Ok(old_value),
-                None => Ok(Null),
-            }
-        }
+        [Map(m), key] => match m.data_mut().shift_remove(&ValueKey::try_from(key.clone())?) {
+            Some(old_value) => Ok(old_value),
+            None => Ok(Null),
+        },
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
 
@@ -190,7 +184,7 @@ pub fn make_module() -> ValueMap {
                         f.clone(),
                         CallArgs::Separate(&[key.clone(), value.clone()]),
                     )?;
-                    cache.insert(key.clone().into(), value.clone());
+                    cache.insert(ValueKey::try_from(key.clone())?, value.clone());
                     Ok(value)
                 };
 
@@ -243,12 +237,16 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, f] if key.is_hashable() && f.is_callable() => {
-            do_map_update(m.clone(), key.clone().into(), Null, f.clone(), vm)
-        }
-        [Map(m), key, default, f] if key.is_hashable() && f.is_callable() => do_map_update(
+        [Map(m), key, f] if f.is_callable() => do_map_update(
             m.clone(),
-            key.clone().into(),
+            ValueKey::try_from(key.clone())?,
+            Null,
+            f.clone(),
+            vm,
+        ),
+        [Map(m), key, default, f] if f.is_callable() => do_map_update(
+            m.clone(),
+            ValueKey::try_from(key.clone())?,
             default.clone(),
             f.clone(),
             vm,

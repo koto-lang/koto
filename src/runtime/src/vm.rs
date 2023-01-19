@@ -749,10 +749,7 @@ impl Vm {
             Instruction::LoadNonLocal { register, constant } => {
                 self.run_load_non_local(register, constant)
             }
-            Instruction::ValueExport { name, value } => {
-                self.run_value_export(name, value);
-                Ok(())
-            }
+            Instruction::ValueExport { name, value } => self.run_value_export(name, value),
             Instruction::Import { register } => self.run_import(register),
             Instruction::MakeTempTuple {
                 register,
@@ -1073,10 +1070,11 @@ impl Vm {
         }
     }
 
-    fn run_value_export(&mut self, name_register: u8, value_register: u8) {
-        let name = ValueKey::from(self.clone_register(name_register));
+    fn run_value_export(&mut self, name_register: u8, value_register: u8) -> InstructionResult {
+        let name = ValueKey::try_from(self.clone_register(name_register))?;
         let value = self.clone_register(value_register);
         self.exports.data_mut().insert(name, value);
+        Ok(())
     }
 
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> InstructionResult {
@@ -2438,12 +2436,12 @@ impl Vm {
         key_register: u8,
         value_register: u8,
     ) -> InstructionResult {
-        let key = self.clone_register(key_register);
+        let key = ValueKey::try_from(self.clone_register(key_register))?;
         let value = self.clone_register(value_register);
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(key.into(), value);
+                map.data_mut().insert(key, value);
                 Ok(())
             }
             unexpected => type_error("Map", unexpected),

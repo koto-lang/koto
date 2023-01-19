@@ -646,13 +646,7 @@ pub fn make_module() -> ValueMap {
                     Output::Error(error) => return Err(error),
                 };
 
-                if !key.is_hashable() {
-                    return runtime_error!(
-                        "Only immutable Values can be used as keys (found '{}')",
-                        key.type_as_string()
-                    );
-                }
-                result.insert(key.into(), value);
+                result.insert(ValueKey::try_from(key)?, value);
             }
 
             Ok(Map(ValueMap::with_data(result)))
