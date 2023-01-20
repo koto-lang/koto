@@ -75,6 +75,12 @@ impl DerefMut for Color {
     }
 }
 
+impl From<(f32, f32, f32, f32)> for Color {
+    fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
+        Self::from_r_g_b_a(r, g, b, a)
+    }
+}
+
 impl From<Inner> for Color {
     fn from(c: Inner) -> Self {
         Self(c)

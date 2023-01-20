@@ -63,6 +63,12 @@ impl From<Vec2> for Value {
     }
 }
 
+impl From<(f64, f64)> for Vec2 {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self::new(x, y)
+    }
+}
+
 impl fmt::Display for Vec2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "Vec2{{x: {}, y: {}}}", self.x, self.y)

@@ -53,6 +53,12 @@ impl From<DVec3> for Vec3 {
     }
 }
 
+impl From<(f64, f64, f64)> for Vec3 {
+    fn from((x, y, z): (f64, f64, f64)) -> Self {
+        Self::new(x, y, z)
+    }
+}
+
 impl From<Vec3> for Value {
     fn from(vec3: Vec3) -> Self {
         let meta = VEC3_META.with(|meta| meta.clone());

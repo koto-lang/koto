@@ -79,6 +79,12 @@ impl From<Inner> for Rect {
     }
 }
 
+impl From<(f64, f64, f64, f64)> for Rect {
+    fn from((x, y, w, h): (f64, f64, f64, f64)) -> Self {
+        Self::from_x_y_w_h(x, y, w, h)
+    }
+}
+
 impl From<Rect> for Value {
     fn from(point: Rect) -> Self {
         let meta = RECT_META.with(|meta| meta.clone());
