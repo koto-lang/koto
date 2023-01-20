@@ -15,11 +15,11 @@ pub struct Color(Inner);
 
 impl Color {
     pub fn from_r_g_b(r: f32, g: f32, b: f32) -> Self {
-        Self(Inner::new(r, b, g, 1.0))
+        Self(Inner::new(r, g, b, 1.0))
     }
 
     pub fn from_r_g_b_a(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self(Inner::new(r, b, g, a))
+        Self(Inner::new(r, g, b, a))
     }
 
     pub fn named(name: &str) -> Option<Self> {
