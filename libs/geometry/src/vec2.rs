@@ -12,6 +12,7 @@ use {
 fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
     let builder = MetaMapBuilder::<Vec2>::new("Vec2");
     add_ops!(Vec2, builder)
+        .data_fn("angle", |v| Ok(DVec2::X.angle_between(*v.deref()).into()))
         .data_fn("length", |v| Ok(v.length().into()))
         .data_fn("x", |v| Ok(v.x.into()))
         .data_fn("y", |v| Ok(v.y.into()))
