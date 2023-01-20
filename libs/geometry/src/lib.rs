@@ -6,7 +6,9 @@ mod rect;
 mod vec2;
 mod vec3;
 
-use {koto_runtime::prelude::*, rect::Rect, vec2::Vec2, vec3::Vec3};
+pub use {rect::Rect, vec2::Vec2, vec3::Vec3};
+
+use koto_runtime::prelude::*;
 
 pub fn make_module() -> ValueMap {
     use Value::*;
