@@ -1238,6 +1238,8 @@ impl Vm {
     fn run_temp_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
         use Value::*;
 
+        let index_op = BinaryOp::Index.into();
+
         let result = match self.get_register(value) {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
@@ -1255,6 +1257,14 @@ impl Vm {
                 } else {
                     Null
                 }
+            }
+            Map(map) if map.contains_meta_key(&index_op) => {
+                let op = map.get_meta_value(&index_op).unwrap();
+                return self.call_overloaded_binary_op(register, value, index.into(), op);
+            }
+            ExternalValue(v) if v.contains_meta_key(&index_op) => {
+                let op = v.get_meta_value(&index_op).unwrap();
+                return self.call_overloaded_binary_op(register, value, index.into(), op);
             }
             unexpected => return type_error("indexable value", unexpected),
         };

@@ -2,7 +2,7 @@ mod runtime_test_utils;
 
 mod external_values {
     use {
-        crate::runtime_test_utils::{string, test_script_with_vm},
+        crate::runtime_test_utils::*,
         koto_runtime::prelude::*,
         std::{cell::RefCell, rc::Rc},
     };
@@ -351,6 +351,16 @@ x = make_external 100
 x[23]
 ";
             test_script_with_external_value(script, 123);
+        }
+
+        #[test]
+        fn unpacking_via_index() {
+            let script = "
+x = make_external 10
+a, b, c = x
+a, b, c
+";
+            test_script_with_external_value(script, number_tuple(&[10, 11, 12]));
         }
 
         #[test]
