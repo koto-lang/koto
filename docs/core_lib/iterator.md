@@ -760,10 +760,6 @@ check! {a: 1, bbb: 3, cc: 2}
 - [`iterator.to_string`](#to-string)
 - [`iterator.to_tuple`](#to-tuple)
 
-### See also
-
-- [`iterator.to_num4`](#to-num4)
-
 ## to_string
 
 ```kototype
