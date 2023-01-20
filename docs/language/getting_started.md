@@ -16,7 +16,7 @@ Running `koto` without arguments will start the Koto
 expressions can be entered and evaluated interactively. 
 
 
-```
+```lua
 > koto
 Welcome to Koto v0.11.0
 » 1 + 1
@@ -29,7 +29,7 @@ Welcome to Koto v0.11.0
 This guide, along with the [core library reference](../../core), 
 can be read in the REPL using the `help` command. 
 
-```
+```lua
 > koto
 Welcome to Koto v0.11.0
 » help bool
