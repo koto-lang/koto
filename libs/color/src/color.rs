@@ -254,6 +254,16 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn_with_args_mut(DivideAssign, color_arithmetic_assign_op!(/=))
         .data_fn_with_args(Equal, color_comparison_op!(==))
         .data_fn_with_args(NotEqual, color_comparison_op!(!=))
+        .data_fn_with_args(Index, |a, b| match b {
+            [Number(n)] => match usize::from(n) {
+                0 => Ok(a.r().into()),
+                1 => Ok(a.g().into()),
+                2 => Ok(a.b().into()),
+                3 => Ok(a.a().into()),
+                other => runtime_error!("index out of range (got {other}, should be <= 3)"),
+            },
+            unexpected => type_error_with_slice("expected a Number", unexpected),
+        })
         .build()
 }
 

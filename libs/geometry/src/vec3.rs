@@ -10,12 +10,23 @@ use {
 };
 
 fn make_vec3_meta_map() -> Rc<RefCell<MetaMap>> {
+    use {BinaryOp::*, Value::*};
+
     let builder = MetaMapBuilder::<Vec3>::new("Vec3");
     add_ops!(Vec3, builder)
         .data_fn("x", |v| Ok(v.x.into()))
         .data_fn("y", |v| Ok(v.y.into()))
         .data_fn("z", |v| Ok(v.z.into()))
         .data_fn("sum", |v| Ok((v.x + v.y + v.z).into()))
+        .data_fn_with_args(Index, |a, b| match b {
+            [Number(n)] => match usize::from(n) {
+                0 => Ok(a.x.into()),
+                1 => Ok(a.y.into()),
+                2 => Ok(a.z.into()),
+                other => runtime_error!("index out of range (got {other}, should be <= 2)"),
+            },
+            unexpected => type_error_with_slice("expected a Number", unexpected),
+        })
         .build()
 }
 

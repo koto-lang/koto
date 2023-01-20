@@ -35,3 +35,9 @@ import geometry.vec2, number.pi
   @test equality: ||
     assert_eq (vec2 2, 3), (vec2 2, 3)
     assert_ne (vec2 2, 3), (vec2 2, 1)
+
+  @test index: ||
+    assert_eq (vec2 1, 2)[0], 1
+    assert_eq (vec2 5, 6)[1], 6
+    x, y = vec2 10, 11
+    assert_eq (x, y), (10, 11)

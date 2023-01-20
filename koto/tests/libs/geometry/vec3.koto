@@ -31,3 +31,10 @@ import geometry.vec3
   @test equality: ||
     assert_eq (vec3 1, 2, 3), (vec3 1, 2, 3)
     assert_ne (vec3 1, 2, 3), (vec3 3, 2, 1)
+
+  @test index: ||
+    assert_eq (vec3 1, 2, 3)[0], 1
+    assert_eq (vec3 4, 5, 6)[1], 5
+    assert_eq (vec3 7, 8, 9)[2], 9
+    x, y, z = vec3 10, 11, 12
+    assert_eq (x, y, z), (10, 11, 12)
