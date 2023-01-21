@@ -15,11 +15,11 @@ pub struct Color(Inner);
 
 impl Color {
     pub fn from_r_g_b(r: f32, g: f32, b: f32) -> Self {
-        Self(Inner::new(r, b, g, 1.0))
+        Self(Inner::new(r, g, b, 1.0))
     }
 
     pub fn from_r_g_b_a(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self(Inner::new(r, b, g, a))
+        Self(Inner::new(r, g, b, a))
     }
 
     pub fn named(name: &str) -> Option<Self> {
@@ -72,6 +72,12 @@ impl Deref for Color {
 impl DerefMut for Color {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for Color {
+    fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
+        Self::from_r_g_b_a(r, g, b, a)
     }
 }
 
@@ -248,6 +254,16 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn_with_args_mut(DivideAssign, color_arithmetic_assign_op!(/=))
         .data_fn_with_args(Equal, color_comparison_op!(==))
         .data_fn_with_args(NotEqual, color_comparison_op!(!=))
+        .data_fn_with_args(Index, |a, b| match b {
+            [Number(n)] => match usize::from(n) {
+                0 => Ok(a.r().into()),
+                1 => Ok(a.g().into()),
+                2 => Ok(a.b().into()),
+                3 => Ok(a.a().into()),
+                other => runtime_error!("index out of range (got {other}, should be <= 3)"),
+            },
+            unexpected => type_error_with_slice("expected a Number", unexpected),
+        })
         .build()
 }
 

@@ -10,11 +10,22 @@ use {
 };
 
 fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
+    use {BinaryOp::*, Value::*};
+
     let builder = MetaMapBuilder::<Vec2>::new("Vec2");
     add_ops!(Vec2, builder)
+        .data_fn("angle", |v| Ok(DVec2::X.angle_between(*v.deref()).into()))
         .data_fn("length", |v| Ok(v.length().into()))
         .data_fn("x", |v| Ok(v.x.into()))
         .data_fn("y", |v| Ok(v.y.into()))
+        .data_fn_with_args(Index, |a, b| match b {
+            [Number(n)] => match usize::from(n) {
+                0 => Ok(a.x.into()),
+                1 => Ok(a.y.into()),
+                other => runtime_error!("index out of range (got {other}, should be <= 1)"),
+            },
+            unexpected => type_error_with_slice("expected a Number", unexpected),
+        })
         .build()
 }
 
@@ -60,6 +71,12 @@ impl From<Vec2> for Value {
     fn from(point: Vec2) -> Self {
         let meta = VEC2_META.with(|meta| meta.clone());
         ExternalValue::with_shared_meta_map(point, meta).into()
+    }
+}
+
+impl From<(f64, f64)> for Vec2 {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self::new(x, y)
     }
 }
 

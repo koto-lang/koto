@@ -2,7 +2,9 @@
 
 mod color;
 
-use {color::Color, koto_runtime::prelude::*};
+pub use color::Color;
+
+use koto_runtime::prelude::*;
 
 pub fn make_module() -> ValueMap {
     use Value::*;

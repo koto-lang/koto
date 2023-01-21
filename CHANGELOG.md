@@ -20,12 +20,17 @@ The Koto project adheres to
     # 1006
     ```
 - Meta map improvements
-  - Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented in meta maps and external values.
-  - The function call operator (`@||`) can be implemented to values that behave like functions.
+  - Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented 
+    in meta maps and external values.
+  - The function call operator (`@||`) can be implemented to values that behave 
+    like functions.
+  - Values that implement `@[]` can now be used in unpacking assignment
+    expressions.
 
 #### Libs
 
-- New `color` and `geometry` libs have been added, and are available by default in the CLI.
+- New `color` and `geometry` libs have been added, and are available by default 
+  in the CLI.
 - `koto.hash` has been added to allow value hashes to be accessed.
 
 #### Internals

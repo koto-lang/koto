@@ -2824,6 +2824,31 @@ x 10
         }
     }
 
+    mod overloaded_index {
+        use super::*;
+
+        #[test]
+        fn index() {
+            let script = "
+x =
+  @[]: |self, i| i + 10
+x[1]
+";
+            test_script(script, 11);
+        }
+
+        #[test]
+        fn unpacking() {
+            let script = "
+x =
+  @[]: |self, i| i + 10
+a, b = x
+a + b
+";
+            test_script(script, 21);
+        }
+    }
+
     mod named_meta_entries {
         use super::*;
 

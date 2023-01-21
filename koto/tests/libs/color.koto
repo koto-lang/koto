@@ -39,3 +39,9 @@ import color
     c = color 'black'
     c += 0.5
     assert_eq c, (color 0.5, 0.5, 0.5)
+
+  @test index: ||
+    assert_eq (color 'blue')[1], 0
+    assert_eq (color 'blue')[2], 1
+    r, g, b, a = color 'red'
+    assert_eq (r, g, b, a), (1, 0, 0, 1)
