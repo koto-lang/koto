@@ -152,23 +152,6 @@ impl MetaKey {
     }
 }
 
-impl fmt::Display for MetaKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaKey::BinaryOp(op) => write!(f, "@{op}"),
-            MetaKey::UnaryOp(op) => write!(f, "@{op}"),
-            MetaKey::Call => f.write_str("@||"),
-            MetaKey::Named(name) => f.write_str(name.as_str()),
-            MetaKey::Test(test) => write!(f, "test({})", test.as_str()),
-            MetaKey::Tests => f.write_str("@tests"),
-            MetaKey::PreTest => f.write_str("@pre_test"),
-            MetaKey::PostTest => f.write_str("@post_test"),
-            MetaKey::Main => f.write_str("@main"),
-            MetaKey::Type => f.write_str("@type"),
-        }
-    }
-}
-
 impl From<&str> for MetaKey {
     fn from(name: &str) -> Self {
         Self::Named(name.into())
@@ -277,23 +260,6 @@ pub enum UnaryOp {
     Negate,
     /// `@not`
     Not,
-}
-
-impl fmt::Display for UnaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use UnaryOp::*;
-
-        write!(
-            f,
-            "{}",
-            match self {
-                Display => "display",
-                Iterator => "iterator",
-                Negate => "negate",
-                Not => "not",
-            }
-        )
-    }
 }
 
 /// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
