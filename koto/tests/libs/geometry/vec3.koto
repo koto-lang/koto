@@ -1,4 +1,4 @@
-import geometry.vec3
+from geometry import vec2, vec3
 
 @tests =
   @test vec3: ||
@@ -6,6 +6,8 @@ import geometry.vec3
     assert_eq (vec3 1), (vec3 1, 0)
     assert_eq (vec3 1, 2), (vec3 1, 2, 0)
     assert_eq (vec3 1, 2, 3), (vec3 1, 2, 3)
+    assert_eq (vec3 (vec2 1, 2), 3), (vec3 1, 2, 3)
+    assert_eq (vec3 vec3 1, 2, 3), (vec3 1, 2, 3)
 
   @test add: ||
     assert_eq (vec3 1, 2, 3) + (vec3 4, 5, 6), vec3 5, 7, 9

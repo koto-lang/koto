@@ -32,6 +32,9 @@ pub fn make_module() -> ValueMap {
             [] => (0.0, 0.0),
             [Number(x)] => (x.into(), 0.0),
             [Number(x), Number(y)] => (x.into(), y.into()),
+            [ExternalValue(vec2)] if vec2.has_data::<Vec2>() => {
+                return Ok((*vec2.data::<Vec2>().unwrap()).into())
+            }
             unexpected => return type_error_with_slice("up to 2 Numbers", unexpected),
         };
 
@@ -44,7 +47,20 @@ pub fn make_module() -> ValueMap {
             [Number(x)] => (x.into(), 0.0, 0.0),
             [Number(x), Number(y)] => (x.into(), y.into(), 0.0),
             [Number(x), Number(y), Number(z)] => (x.into(), y.into(), z.into()),
-            unexpected => return type_error_with_slice("up to 3 Numbers", unexpected),
+            [ExternalValue(v)] if v.has_data::<Vec2>() => {
+                let xy = v.data::<Vec2>().unwrap();
+                (xy.x, xy.y, 0.0)
+            }
+            [ExternalValue(v), Number(z)] if v.has_data::<Vec2>() => {
+                let xy = v.data::<Vec2>().unwrap();
+                (xy.x, xy.y, z.into())
+            }
+            [ExternalValue(v)] if v.has_data::<Vec3>() => {
+                return Ok((*v.data::<Vec3>().unwrap()).into())
+            }
+            unexpected => {
+                return type_error_with_slice("up to 3 Numbers, a Vec2, or a Vec3", unexpected)
+            }
         };
 
         Ok(Vec3::new(x, y, z).into())
