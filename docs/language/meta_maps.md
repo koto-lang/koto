@@ -1,12 +1,16 @@
-# Meta Maps
+# Objects and Meta Maps
 
-The behaviour of maps in Koto can be customized.
+The behaviour of values in Koto can be customized by making an _Object_.
 
-Keys with `@` prefixes go into the map's 'meta map',
-and when the map is used by the runtime for a particular operation, its meta map 
-will be checked for an entry corresponding to the operation.
+An Object is created by making a map that contains at least one key with a `@` 
+prefix, known as a _metakey_.
 
-In the following example, addition and subtraction are overridden for a custom `Foo` value type.
+Metakeys go in to the object's _metamap_. When the runtime encounters the object
+while performing operations, the object's metamap will be checked for an entry 
+corresponding to the operation.
+
+In the following example, addition and subtraction are overridden for a custom 
+`Foo` object.
 
 ```koto
 # foo is a function that makes Foo values
@@ -185,7 +189,7 @@ check! ('data')
 
 ## Sharing Meta Maps
 
-If you're creating lots of values, then it will likely be more efficient to create a single map with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
+If you're creating lots of values, then it will likely be more efficient to create a single value with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
 
 ```koto
 # Create an empty map for global values 
@@ -194,7 +198,7 @@ globals = {}
 # Define a function that makes a Foo
 foo = |data|
   # Make a map that contains `data`, 
-  # and the meta map from foo_meta
+  # along with the meta map from foo_meta
   {data}.with_meta_map globals.foo_meta
 
 # Define some meta behaviour in foo_meta

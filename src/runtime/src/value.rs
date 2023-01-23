@@ -178,11 +178,12 @@ impl Value {
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             IndexRange { .. } => TYPE_INDEX_RANGE.with(|x| x.clone()),
-            Map(m) => match m.get_meta_value(&MetaKey::Type) {
+            Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
                 Some(_) => "Error: expected string for overloaded type".into(),
-                None => TYPE_MAP.with(|x| x.clone()),
+                None => TYPE_OBJECT.with(|x| x.clone()),
             },
+            Map(_) => TYPE_MAP.with(|x| x.clone()),
             Str(_) => TYPE_STRING.with(|x| x.clone()),
             Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
             SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
@@ -238,6 +239,7 @@ thread_local! {
     static TYPE_RANGE: ValueString = "Range".into();
     static TYPE_INDEX_RANGE: ValueString = "IndexRange".into();
     static TYPE_MAP: ValueString = "Map".into();
+    static TYPE_OBJECT: ValueString = "Object".into();
     static TYPE_STRING: ValueString = "String".into();
     static TYPE_TUPLE: ValueString = "Tuple".into();
     static TYPE_FUNCTION: ValueString = "Function".into();

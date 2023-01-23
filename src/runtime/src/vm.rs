@@ -2551,9 +2551,15 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => match map.get_meta_value(&MetaKey::Named(key_string)) {
+                None if map.meta_map().is_none() => core_op!(map, true),
+                _ => match map.get_meta_value(&MetaKey::Named(key_string)) {
                     Some(value) => self.set_register(result_register, value),
-                    None => core_op!(map, true),
+                    None => {
+                        return runtime_error!(
+                            "'{key}' not found in '{}'",
+                            accessed_value.type_as_string()
+                        )
+                    }
                 },
             },
             List(_) => core_op!(list, true),
