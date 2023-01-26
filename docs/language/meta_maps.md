@@ -160,6 +160,34 @@ print! koto.type (foo 42)
 check! Foo
 ```
 
+### `@base`
+
+Objects can inherit the entries of another value by declaring it as the object's
+_base value_ using the `@base` metakey.
+
+In the following example, two kinds of animals are created that share the
+`speak` function from their base value.
+
+```koto
+animal = |name|
+  name: name
+  speak: |self| '${self.noise}! My name is ${self.name}!'
+
+dog = |name|
+  @base: animal name
+  noise: 'Woof'
+
+cat = |name|
+  @base: animal name
+  noise: 'Meow'
+
+print! dog('Fido').speak()
+check! Woof! My name is Fido!
+
+print! cat('Smudge').speak()
+check! Meow! My name is Smudge!
+```
+
 ### `@meta`
 
 Named meta entries can be inserted into the map, which will be accessible via
@@ -183,7 +211,7 @@ check! Hello!
 print x.get_info()
 check! -1 is negative
 
-print x.keys().to_tuple()
+print map.keys(x).to_tuple()
 check! ('data')
 ```
 

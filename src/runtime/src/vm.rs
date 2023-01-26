@@ -2547,27 +2547,59 @@ impl Vm {
         }
 
         match &accessed_value {
-            Map(map) => match map.data().get(&key) {
-                Some(value) => {
-                    self.set_register(result_register, value.clone());
-                }
-                None if map.meta_map().is_none() => core_op!(map, true),
-                _ => match map.get_meta_value(&MetaKey::Named(key_string)) {
-                    Some(value) => self.set_register(result_register, value),
-                    None => {
-                        return runtime_error!(
-                            "'{key}' not found in '{}'",
-                            accessed_value.type_as_string()
-                        )
-                    }
-                },
-            },
             List(_) => core_op!(list, true),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
+            Map(map) => {
+                let mut lookup_map = map.clone();
+                let mut access_result = None;
+                while access_result.is_none() {
+                    let maybe_value = lookup_map.data().get(&key).cloned();
+                    match maybe_value {
+                        Some(value) => access_result = Some(value),
+                        // map module fallback when there's no metamap
+                        None if lookup_map.meta_map().is_none() => {
+                            core_op!(map, true);
+                            return Ok(());
+                        }
+                        _ => match lookup_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
+                            Some(value) => access_result = Some(value),
+                            None => match lookup_map.get_meta_value(&MetaKey::Base) {
+                                Some(Map(base)) => {
+                                    // Attempt the lookup again with the base map
+                                    lookup_map = base;
+                                }
+                                Some(unexpected) => {
+                                    return type_error("Map as base value", &unexpected)
+                                }
+                                None => break,
+                            },
+                        },
+                    }
+                }
+
+                // Iterator fallback?
+                if access_result.is_none() && map.contains_meta_key(&UnaryOp::Iterator.into()) {
+                    access_result = Some(self.get_core_op(
+                        &key,
+                        &self.context.core_lib.iterator,
+                        false,
+                        &accessed_value.type_as_string(),
+                    )?);
+                }
+
+                if let Some(value) = access_result {
+                    self.set_register(result_register, value);
+                } else {
+                    return runtime_error!(
+                        "'{key}' not found in '{}'",
+                        accessed_value.type_as_string()
+                    );
+                }
+            }
             ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {

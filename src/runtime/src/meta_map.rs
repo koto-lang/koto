@@ -133,6 +133,10 @@ pub enum MetaKey {
     ///
     /// Used to define a [ValueString](crate::ValueString) that declare the value's type.
     Type,
+    /// `@base`
+    ///
+    /// Defines a base map to be used as fallback for accesses when a key isn't found.
+    Base,
 }
 
 impl MetaKey {
@@ -148,6 +152,7 @@ impl MetaKey {
             MetaKey::PostTest => MetaKeyRef::PostTest,
             MetaKey::Main => MetaKeyRef::Main,
             MetaKey::Type => MetaKeyRef::Type,
+            MetaKey::Base => MetaKeyRef::Base,
         }
     }
 }
@@ -298,6 +303,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::PostTest => MetaKey::PostTest,
         MetaKeyId::Main => MetaKey::Main,
         MetaKeyId::Type => MetaKey::Type,
+        MetaKeyId::Base => MetaKey::Base,
         MetaKeyId::Invalid => return Err("Invalid MetaKeyId".to_string()),
     };
 
@@ -317,6 +323,7 @@ enum MetaKeyRef<'a> {
     PostTest,
     Main,
     Type,
+    Base,
 }
 
 // A trait that allows for allocation-free map accesses with &str

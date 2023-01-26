@@ -22,3 +22,6 @@ export tests_were_run = false
 
   @test local_value_unmodified_by_import: ||
     assert_eq local_value, 123
+
+@type =
+  'test_module'

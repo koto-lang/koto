@@ -2782,7 +2782,7 @@ foo = |x|
   @>=: |self, other| self.x >= other.x
 
 a = foo 42
-b = a.deep_copy()
+b = map.deep_copy a
 b >= a
 ";
             test_script(script, true);
@@ -2891,6 +2891,26 @@ a = foo 10
 a.x + a.y # The meta map's y entry is hidden by the data entry
 ";
             test_script(script, 110);
+        }
+    }
+
+    mod base_lookup {
+        use super::*;
+
+        #[test]
+        fn base_entry() {
+            let script = "
+animal = |name|
+  name: name
+  speak: |self| throw 'unimplemented'
+
+dog = |name|
+  @base: animal name
+  speak: |self| 'Woof! My name is ${self.name}'
+
+dog('Fido').speak()
+";
+            test_script(script, "Woof! My name is Fido");
         }
     }
 

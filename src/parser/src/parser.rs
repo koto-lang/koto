@@ -2027,6 +2027,9 @@ impl<'source> Parser<'source> {
                 "display" => MetaKeyId::Display,
                 "iterator" => MetaKeyId::Iterator,
                 "negate" => MetaKeyId::Negate,
+                "type" => MetaKeyId::Type,
+                "base" => MetaKeyId::Base,
+                "main" => MetaKeyId::Main,
                 "tests" => MetaKeyId::Tests,
                 "pre_test" => MetaKeyId::PreTest,
                 "post_test" => MetaKeyId::PostTest,
@@ -2046,8 +2049,6 @@ impl<'source> Parser<'source> {
                     }
                     _ => return self.error(SyntaxError::ExpectedMetaId),
                 },
-                "type" => MetaKeyId::Type,
-                "main" => MetaKeyId::Main,
                 _ => return self.error(SyntaxError::UnexpectedMetaKey),
             },
             Some(Token::SquareOpen) => match self.consume_token() {

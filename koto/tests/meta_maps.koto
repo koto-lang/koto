@@ -125,9 +125,8 @@ globals.foo_meta =
     assert_eq bar(100, -1), bar(100, -2)
 
   @test not_equal: ||
-    assert foo(7) != foo(8)
+    assert_ne foo(7), foo(8)
     assert not (foo(7) != foo(7))
-    # TODO Add an assert_ne test
 
   @test negate: ||
     assert_eq -foo(1), foo(-1)
@@ -155,18 +154,18 @@ globals.foo_meta =
 
   @test named_meta_entries: ||
     f = foo 99
-    assert_eq f.keys().to_list(), ["x"]
-    assert_eq f.size(), 1
+    assert_eq map.keys(f).to_list(), ["x"]
+    assert_eq map.size(f), 1
 
     assert_eq f.hello, "Hello"
     assert_eq f.say_hello("you"), "Hello, you!"
 
   @test get_meta_map: ||
     f = foo 42
-    meta = f.get_meta_map()
+    meta = map.get_meta_map f
 
     # get_meta_map returns a map with the argument's meta map, but no data
-    assert_eq meta.keys().count(), 0
+    assert_eq map.keys(meta).count(), 0
     assert_eq meta.hello, "Hello"
 
     # Add an "x" entry, allowing it to be treated as a Foo

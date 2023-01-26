@@ -572,6 +572,8 @@ pub enum MetaKeyId {
     Not,
     /// @type
     Type,
+    /// @base
+    Base,
 
     /// @||
     Call,
