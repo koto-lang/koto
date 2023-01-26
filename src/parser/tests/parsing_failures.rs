@@ -107,7 +107,12 @@ for x in y if f x
             use super::*;
 
             #[test]
-            fn self_not_in_first_position() {
+            fn self_as_first_arg() {
+                check_parsing_fails("f = |self, x| x");
+            }
+
+            #[test]
+            fn self_as_last_arg() {
                 check_parsing_fails("f = |x, self| x");
             }
 

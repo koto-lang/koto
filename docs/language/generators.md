@@ -41,10 +41,10 @@ Inserting an adaptor into the `iterator` module makes it available in any iterat
 ```koto
 # Make an iterator adaptor that yields 
 # every other value from the adapted iterator
-iterator.every_other = |iter|
+iterator.every_other = ||
   n = 0
   loop
-    match iter.next()
+    match self.next()
       # Exit when there are no more values 
       # produced by the iterator
       null then 

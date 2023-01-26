@@ -1078,6 +1078,16 @@ f [10, (1, 2, 3), 20, 30]
         }
 
         #[test]
+        fn arg_unpacking_temporary_tuple() {
+            let script = "
+{foo: 1, bar: 2, baz: 3}
+  .keep |(key, _)| key.starts_with 'b'
+  .count()
+";
+            test_script(script, 2);
+        }
+
+        #[test]
         fn variadic_function() {
             let script = "
 f = |a, b...|
@@ -1794,7 +1804,7 @@ m.get (1, 2)"#;
         fn instance_function_no_args() {
             let script = "
 make_o = ||
-  {foo: 42, get_foo: |self| self.foo}
+  {foo: 42, get_foo: || self.foo}
 o = make_o()
 o.get_foo()";
             test_script(script, 42);
@@ -1805,7 +1815,7 @@ o.get_foo()";
             let script = "
 make_o = ||
   foo: 0
-  set_foo: |self, a, b| self.foo = a + b
+  set_foo: |a, b| self.foo = a + b
 o = make_o()
 o.set_foo 10, 20
 o.foo";
@@ -1950,7 +1960,7 @@ m.foo 1, 2, 3
         fn instance_function_call_variadic() {
             let script = "
 m =
-  foo: |self, x, xs...|
+  foo: |x, xs...|
     self.offset + xs.fold x, |a, b| a + b
   offset: 10
 m.foo 1, 2, 3
@@ -1962,7 +1972,7 @@ m.foo 1, 2, 3
         fn instance_function_call_variadic_generator() {
             let script = "
 m =
-  foo: |self, first, xs...|
+  foo: |first, xs...|
     for x in xs
       yield self.offset + first + x
     self.offset + xs.fold x, |a, b| a + b
@@ -2006,7 +2016,7 @@ m2.foo.bar";
         #[test]
         fn copy_from_expression() {
             let script = "
-m = {foo: {bar: 88}, get_foo: |self| self.foo}
+m = {foo: {bar: 88}, get_foo: || self.foo}
 m2 = m.get_foo().copy()
 m.get_foo().bar = 99
 m2.bar";
@@ -2231,6 +2241,22 @@ gen().to_tuple()
 ";
             test_script(script, number_tuple(&[11, 12, 13]));
         }
+
+        #[test]
+        fn generator_as_iterator_adaptor() {
+            let script = "
+iterator.every_other = ||
+  n = 0
+  iter = self.iter()
+  loop
+    match iter.next()
+      null then return
+      value if n % 2 == 0 then yield value
+    n += 1
+(1..=5).every_other().to_tuple()
+";
+            test_script(script, number_tuple(&[1, 3, 5]));
+        }
     }
 
     mod strings {
@@ -2405,7 +2431,7 @@ m.'key$x'
         #[test]
         fn interpolated_string_with_value_with_overloaded_display() {
             let script = "
-foo = {@display: |self| 'Foo'}
+foo = {@display: || 'Foo'}
 '$foo'
 ";
             test_script(script, string("Foo"));
@@ -2504,7 +2530,7 @@ try
   x += 1
   throw
     data: x
-    @display: |self| "error!"
+    @display: || "error!"
 catch error
   error.data
 "#;
@@ -2542,14 +2568,13 @@ catch _
             test_script(script, 4);
         }
 
-
         #[test]
         fn catch_throw_from_map_creation() {
             // This would be a strange thing to do, but the compiler previously melted down while
             // trying to compile the throw expression as map value, which it shouldn't do.
             let script = "
 try
-  x = 
+  x =
     foo: throw 'foo'
 catch _
   99
@@ -2567,11 +2592,11 @@ catch _
 locals = {}
 foo = |x| {x}.with_meta_map locals.foo_meta
 locals.foo_meta =
-  @+: |self, other| foo self.x + other.x
-  @-: |self, other| foo self.x - other.x
-  @*: |self, other| foo self.x * other.x
-  @/: |self, other| foo self.x / other.x
-  @%: |self, other| foo self.x % other.x
+  @+: |other| foo self.x + other.x
+  @-: |other| foo self.x - other.x
+  @*: |other| foo self.x * other.x
+  @/: |other| foo self.x / other.x
+  @%: |other| foo self.x % other.x
 
 z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
 z.x
@@ -2585,11 +2610,11 @@ z.x
 locals = {}
 foo = |x| {x}.with_meta_map locals.foo_meta
 locals.foo_meta =
-  @+=: |self, y| self.x += y
-  @-=: |self, y| self.x -= y
-  @*=: |self, y| self.x *= y
-  @/=: |self, y| self.x /= y
-  @%=: |self, y| self.x %= y
+  @+=: |y| self.x += y
+  @-=: |y| self.x -= y
+  @*=: |y| self.x *= y
+  @/=: |y| self.x /= y
+  @%=: |y| self.x %= y
 
 z = foo 2
 z += 10 # 12
@@ -2607,7 +2632,7 @@ z.x
             let script = "
 foo = |x|
   x: x
-  @<: |self, other| self.x < other.x
+  @<: |other| self.x < other.x
 
 (foo 10) < (foo 20) and not (foo 30) < (foo 30)
 ";
@@ -2619,7 +2644,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @<=: |self, other| self.x <= other.x
+  @<=: |other| self.x <= other.x
 
 (foo 10) <= (foo 20) and (foo 30) <= (foo 30)
 ";
@@ -2631,7 +2656,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @>: |self, other| self.x > other.x
+  @>: |other| self.x > other.x
 
 (foo 0) > (foo -1) and not (foo 0) > (foo 0)
 ";
@@ -2643,7 +2668,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @>=: |self, other| self.x >= other.x
+  @>=: |other| self.x >= other.x
 
 (foo 50) >= (foo 40) and (foo 50) >= (foo 50)
 ";
@@ -2655,7 +2680,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map equality behaviour to show its effect
     self.x != other.x
 
@@ -2669,7 +2694,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @!=: |self, other|
+  @!=: |other|
     # Invert the default map inequality behaviour to show its effect
     self.x == other.x
 
@@ -2683,7 +2708,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map inequality behaviour to show its effect
     self.x != other.x
 
@@ -2699,7 +2724,7 @@ a == b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map inequality behaviour to show its effect
     self.x != other.x
 
@@ -2715,7 +2740,7 @@ a == b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map inequality behaviour to show its effect
     self.x != other.x
 
@@ -2731,7 +2756,7 @@ a == b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map equality behaviour to show its effect
     self.x != other.x
 
@@ -2747,7 +2772,7 @@ a != b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map equality behaviour to show its effect
     self.x != other.x
 
@@ -2763,7 +2788,7 @@ a != b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @==: |self, other|
+  @==: |other|
     # Invert the default map equality behaviour to show its effect
     self.x != other.x
 
@@ -2779,7 +2804,7 @@ a != b # Should evaluate to true due to the inverted equality operator
             let script = "
 foo = |x|
   x: x
-  @>=: |self, other| self.x >= other.x
+  @>=: |other| self.x >= other.x
 
 a = foo 42
 b = map.deep_copy a
@@ -2796,7 +2821,7 @@ foos = (0, 1)
   .each |n|
     foo =
       x: n
-      @==: |self, other| self.x != other.x # inverting the usual behaviour to show its effect
+      @==: |other| self.x != other.x # inverting the usual behaviour to show its effect
     || foo # The function returns its captured foo
   .to_tuple()
 
@@ -2832,7 +2857,7 @@ x 12, 34
             let script = "
 x =
   data: 99
-  @||: |self, z| self.data * z
+  @||: |z| self.data * z
 x 10
 ";
             test_script(script, 990);
@@ -2846,7 +2871,7 @@ x 10
         fn index() {
             let script = "
 x =
-  @[]: |self, i| i + 10
+  @[]: |i| i + 10
 x[1]
 ";
             test_script(script, 11);
@@ -2856,7 +2881,7 @@ x[1]
         fn unpacking() {
             let script = "
 x =
-  @[]: |self, i| i + 10
+  @[]: |i| i + 10
 a, b = x
 a + b
 ";
@@ -2873,7 +2898,7 @@ a + b
 locals = {}
 foo = |x| {x}.with_meta_map locals.foo_meta
 locals.foo_meta =
-  @meta get_x: |self| self.x
+  @meta get_x: || self.x
 a = foo 10
 a.x + a.get_x()
 ";
@@ -2902,11 +2927,11 @@ a.x + a.y # The meta map's y entry is hidden by the data entry
             let script = "
 animal = |name|
   name: name
-  speak: |self| throw 'unimplemented'
+  speak: || throw 'unimplemented'
 
 dog = |name|
   @base: animal name
-  speak: |self| 'Woof! My name is ${self.name}'
+  speak: || 'Woof! My name is ${self.name}'
 
 dog('Fido').speak()
 ";

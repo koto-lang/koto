@@ -9,61 +9,61 @@ foo = |x|
 # instance is more efficient than declaring them each time foo is called.
 globals.foo_meta =
   # Arithmetic operators
-  @+: |self, other| foo self.x + other.x
-  @-: |self, other| foo self.x - other.x
-  @*: |self, other| foo self.x * other.x
-  @/: |self, other| foo self.x / other.x
-  @%: |self, other| foo self.x % other.x
+  @+: |other| foo self.x + other.x
+  @-: |other| foo self.x - other.x
+  @*: |other| foo self.x * other.x
+  @/: |other| foo self.x / other.x
+  @%: |other| foo self.x % other.x
 
   # Modify-Assignment operators
-  @+=: |self, other|
+  @+=: |other|
     self.x += other
     self
-  @-=: |self, other|
+  @-=: |other|
     self.x -= other
     self
-  @*=: |self, other|
+  @*=: |other|
     self.x *= other
     self
-  @/=: |self, other|
+  @/=: |other|
     self.x /= other
     self
-  @%=: |self, other|
+  @%=: |other|
     self.x %= other
     self
 
   # Comparison operators
-  @<: |self, other| self.x < other.x
-  @<=: |self, other| self.x <= other.x
-  @>: |self, other| self.x > other.x
-  @>=: |self, other| self.x >= other.x
-  @==: |self, other| self.x == other.x
-  @!=: |self, other| not self == other
+  @<: |other| self.x < other.x
+  @<=: |other| self.x <= other.x
+  @>: |other| self.x > other.x
+  @>=: |other| self.x >= other.x
+  @==: |other| self.x == other.x
+  @!=: |other| not self == other
 
   # Negation (e.g. -foo)
-  @negate: |self| foo -self.x
+  @negate: || foo -self.x
 
   # Not (e.g. !foo)
-  @not: |self| if self.x == 0 then true else false
+  @not: || if self.x == 0 then true else false
 
   # Function call
-  @||: |self| self.x
+  @||: || self.x
 
   # Indexing
-  @[]: |self, index| self.x + index
+  @[]: |index| self.x + index
 
   # Overloaded iteration behaviour
-  @iterator: |self| 0..self.x
+  @iterator: || 0..self.x
 
   # Formatting
-  @display: |self| "Foo (${self.x})"
+  @display: || "Foo (${self.x})"
 
   # Type
   @type: "Foo"
 
   # Named meta entries are accessible on the value but don't appear as map entries
   @meta hello: "Hello"
-  @meta say_hello: |self, name| "${self.hello}, $name!"
+  @meta say_hello: |name| "${self.hello}, $name!"
 
 @tests =
   @test add: ||
@@ -116,7 +116,7 @@ globals.foo_meta =
     bar = |x, y|
       x: x
       y: y
-      @==: |self, other|
+      @==: |other|
         # Maps already have equality comparison that compare each member,
         # so to show the effect of overloading, ignore y
         self.x == other.x

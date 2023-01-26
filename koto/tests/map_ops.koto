@@ -1,8 +1,8 @@
 make_foo = |x|
   x: x
-  @<: |self, other| self.x < other.x
-  @>: |self, other| self.x > other.x
-  @==: |self, other| self.x == other.x
+  @<: |other| self.x < other.x
+  @>: |other| self.x > other.x
+  @==: |other| self.x == other.x
 
 @tests =
   @test clear: ||

@@ -1,8 +1,8 @@
 test_map = ||
   child_map:
     foo: 42
-    set_foo: |self, x| self.foo = x
-  get_child_map: |self| self.child_map
+    set_foo: |x| self.foo = x
+  get_child_map: || self.child_map
 
 # Make a list of two test maps
 maps = [test_map(), test_map()]

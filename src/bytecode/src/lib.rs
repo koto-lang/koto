@@ -1,4 +1,3 @@
-//! # koto_bytecode
 //!
 //! Contains Koto's compiler and its bytecode operations
 

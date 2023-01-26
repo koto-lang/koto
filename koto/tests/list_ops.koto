@@ -1,8 +1,8 @@
 make_foo = |x|
   x: x
-  @<: |self, other| self.x < other.x
-  @>: |self, other| self.x > other.x
-  @==: |self, other| self.x == other.x
+  @<: |other| self.x < other.x
+  @>: |other| self.x > other.x
+  @==: |other| self.x == other.x
 
 @tests =
   @test clear: ||
@@ -18,7 +18,7 @@ make_foo = |x|
   @test contains_with_overloaded_equality_op: ||
     bar = |x|
       x: x
-      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+      @==: |other| self.x != other.x # This inverts the usual behaviour of ==
 
     assert not [(bar 1)].contains (bar 1)
 
@@ -129,7 +129,7 @@ make_foo = |x|
   @test retain_with_overloaded_equality_op: ||
     bar = |x|
       x: x
-      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+      @==: |other| self.x != other.x # This inverts the usual behaviour of ==
 
     z = [bar(0), bar(1), bar(1), bar(1), bar(2)]
     z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped

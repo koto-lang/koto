@@ -18,17 +18,17 @@ foo = |n|
   data: n
 
   # Overloading the addition operator
-  @+: |self, other|
+  @+: |other|
     # A new Foo is made using the result 
     # of adding the two data values together
     foo self.data + other.data
 
   # Overloading the subtraction operator
-  @-: |self, other|
+  @-: |other|
     foo self.data - other.data
 
   # Overloading the multiply-assignment operator
-  @*=: |self, other|
+  @*=: |other|
     self.data *= other.data
     self
 
@@ -57,7 +57,7 @@ The `@negate` meta key overloads the unary negation operator.
 ```koto
 foo = |n|
   data: n
-  @negate: |self| foo -self.data
+  @negate: || foo -self.data
 
 x = -foo(100)
 print! x.data
@@ -71,7 +71,7 @@ The `@not` meta key overloads the unary `not` operator.
 ```koto
 foo = |n|
   data: n
-  @not: |self| self.data == 0
+  @not: || self.data == 0
 
 print! not (foo 10)
 check! false
@@ -84,7 +84,7 @@ The `@[]` meta key defines how indexing the value with `[]` should behave.
 ```koto
 foo = |n|
   data: n
-  @[]: |self, index| self.data + index
+  @[]: |index| self.data + index
 
 print! (foo 10)[7]
 check! 17
@@ -98,7 +98,7 @@ function.
 ```koto
 foo = |n|
   data: n
-  @||: |self| 
+  @||: || 
     self.data *= 2
     self.data
 
@@ -118,7 +118,7 @@ instead of the default behaviour of iterating over the map's entries.
 ```koto
 foo = |n|
   data: n
-  @iterator: |self| 0..=self.data
+  @iterator: || 0..=self.data
 
 print! (foo 5).to_tuple()
 check! (0, 1, 2, 3, 4, 5)
@@ -136,7 +136,7 @@ or [`string.format`](../../core/string/#format).
 ```koto
 foo = |n|
   data: n
-  @display: |self| 'Foo: {}'.format self.data
+  @display: || 'Foo: {}'.format self.data
 
 print! foo 42
 check! Foo: 42
@@ -171,7 +171,7 @@ In the following example, two kinds of animals are created that share the
 ```koto
 animal = |name|
   name: name
-  speak: |self| '${self.noise}! My name is ${self.name}!'
+  speak: || '${self.noise}! My name is ${self.name}!'
 
 dog = |name|
   @base: animal name
@@ -197,7 +197,7 @@ Named meta entries can be inserted into the map, which will be accessible via
 foo = |n|
   data: n
   @meta hello: "Hello!"
-  @meta get_info: |self| 
+  @meta get_info: || 
     info = match self.data 
       0 then "zero"
       n if n < 0 then "negative"
@@ -232,10 +232,10 @@ foo = |data|
 # Define some meta behaviour in foo_meta
 globals.foo_meta =
   # Override the + operator
-  @+: |self, other| foo self.data + other.data
+  @+: |other| foo self.data + other.data
 
   # Define how the value should be displayed 
-  @display: |self| "Foo (${self.data})"
+  @display: || "Foo (${self.data})"
 
 print! (foo 10) + (foo 20)
 check! Foo (30)

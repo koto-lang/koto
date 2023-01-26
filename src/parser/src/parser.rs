@@ -756,6 +756,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Id => self.parse_id_expression(context),
+                Token::Self_ => self.parse_self_expression(context),
                 Token::At => {
                     let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
 
@@ -894,7 +895,6 @@ impl<'source> Parser<'source> {
         // Parse function's args
         let mut arg_nodes = Vec::new();
         let mut arg_ids = Vec::new();
-        let mut is_instance_function = false;
         let mut is_variadic = false;
 
         let mut args_context = ExpressionContext::permissive();
@@ -904,13 +904,6 @@ impl<'source> Parser<'source> {
                 .unwrap();
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
-                    if self.constants.get_str(constant_index) == "self" {
-                        if !arg_nodes.is_empty() {
-                            return self.error(SyntaxError::SelfArgNotInFirstPosition);
-                        }
-                        is_instance_function = true;
-                    }
-
                     arg_ids.push(constant_index);
                     arg_nodes.push(self.push_node(Node::Id(constant_index))?);
 
@@ -925,6 +918,10 @@ impl<'source> Parser<'source> {
                 }
                 None => {
                     match self.peek_token() {
+                        Some(Token::Self_) => {
+                            self.consume_token();
+                            return self.error(SyntaxError::SelfArg);
+                        }
                         Some(Token::SquareOpen) => {
                             self.consume_token();
                             let nested_span_start = self.current_span();
@@ -1013,7 +1010,6 @@ impl<'source> Parser<'source> {
                 local_count,
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
-                is_instance_function,
                 is_variadic,
                 is_generator: function_frame.contains_yield,
             }),
@@ -1041,7 +1037,7 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(&args_context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     if self.constants.get_str(constant_index) == "self" {
-                        return self.error(SyntaxError::SelfArgNotInFirstPosition);
+                        return self.error(SyntaxError::SelfArg);
                     }
 
                     let arg_node = if self.peek_token() == Some(Token::Ellipsis) {
@@ -1253,6 +1249,24 @@ impl<'source> Parser<'source> {
             }
         } else {
             self.consume_token_and_error(InternalError::UnexpectedToken)
+        }
+    }
+
+    fn parse_self_expression(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<AstIndex, ParserError> {
+        if let Some((_, self_context)) = self.consume_token_with_context(context) {
+            let lookup_context = self_context.lookup_start();
+            let self_index = self.push_node(Node::Self_)?;
+
+            if self.next_token_is_lookup_start(&lookup_context) {
+                self.parse_lookup(self_index, &lookup_context)
+            } else {
+                Ok(self_index)
+            }
+        } else {
+            self.error(SyntaxError::ExpectedCloseParen)
         }
     }
 

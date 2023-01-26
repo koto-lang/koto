@@ -104,7 +104,7 @@ foo 4
     fn print_value_with_overridden_display() {
         let script = "
 foo =
-  @display: |self| 'Hello from @display'
+  @display: || 'Hello from @display'
   @type: 'Foo'
 print foo
 ";

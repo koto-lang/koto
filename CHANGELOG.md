@@ -47,6 +47,8 @@ The Koto project adheres to
 
 #### Language
 
+- `self` is now provided implicitly in functions and doesn't need to be declared
+    as an argument.
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 

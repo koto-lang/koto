@@ -113,11 +113,11 @@ Runs the tests contained in the map.
 
 ```koto,skip_check
 my_tests =
-  @pre_test: |self| self.test_data = 1, 2, 3
-  @post_test: |self| self.test_data = null
+  @pre_test: || self.test_data = 1, 2, 3
+  @post_test: || self.test_data = null
 
-  @test data_size: |self| assert_eq self.test_data.size(), 3
-  @test failure: |self| assert_eq self.test_data.size(), 0
+  @test data_size: || assert_eq self.test_data.size(), 3
+  @test failure: || assert_eq self.test_data.size(), 0
 
 try
   test.run_tests my_tests

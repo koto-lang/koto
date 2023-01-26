@@ -107,6 +107,9 @@ pub enum Node {
     /// Values are optional for inline maps.
     Map(Vec<(MapKey, Option<AstIndex>)>),
 
+    /// The `self` keyword
+    Self_,
+
     /// The main block node
     ///
     /// Typically all ASTs will have this node at the root.
@@ -299,6 +302,7 @@ impl fmt::Display for Node {
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
+            Self_ { .. } => write!(f, "Self"),
             Switch { .. } => write!(f, "Switch"),
             Wildcard(_) => write!(f, "Wildcard"),
             Ellipsis(_) => write!(f, "Ellipsis"),
@@ -334,8 +338,6 @@ pub struct Function {
     pub accessed_non_locals: Vec<ConstantIndex>,
     /// The function's body
     pub body: AstIndex,
-    /// A flag that indicates if the function has used `self` as its first argument
-    pub is_instance_function: bool,
     /// A flag that indicates if the function arguments end with a variadic `...` argument
     pub is_variadic: bool,
     /// A flag that indicates if the function is a generator or not

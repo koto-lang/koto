@@ -39,7 +39,7 @@ pub enum Value {
     /// A callable function with simple properties
     SimpleFunction(SimpleFunctionInfo),
 
-    /// A callable function with less simple properties, e.g. captures, instance function, etc.
+    /// A callable function with less simple properties, e.g. captures, variadic arguments, etc.
     Function(FunctionInfo),
 
     /// A function that produces an Iterator when called
@@ -339,8 +339,6 @@ pub struct FunctionInfo {
     pub ip: usize,
     /// The expected number of arguments for the function.
     pub arg_count: u8,
-    /// If the function is an instance function, then the first argument will be `self`.
-    pub instance_function: bool,
     /// If the function is variadic, then extra args will be captured in a tuple.
     pub variadic: bool,
     /// If the function has a single arg, and that arg is an unpacked tuple
