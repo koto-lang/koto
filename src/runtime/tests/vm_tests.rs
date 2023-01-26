@@ -2541,6 +2541,21 @@ catch _
 ";
             test_script(script, 4);
         }
+
+
+        #[test]
+        fn catch_throw_from_map_creation() {
+            // This would be a strange thing to do, but the compiler previously melted down while
+            // trying to compile the throw expression as map value, which it shouldn't do.
+            let script = "
+try
+  x = 
+    foo: throw 'foo'
+catch _
+  99
+";
+            test_script(script, 99);
+        }
     }
 
     mod operator_overloading {

@@ -717,6 +717,10 @@ impl Compiler {
                 result
             }
             Node::Throw(expression) => {
+                // A throw will prevent the result from being used, but the caller should be
+                // provided with a result register regardless.
+                let result = self.get_result_register(result_register)?;
+
                 let expression_register = self
                     .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
                     .unwrap();
@@ -727,7 +731,7 @@ impl Compiler {
                     self.pop_register()?;
                 }
 
-                None
+                result
             }
             Node::Try(try_expression) => {
                 self.compile_try_expression(result_register, try_expression, ast)?
