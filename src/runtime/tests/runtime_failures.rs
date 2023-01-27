@@ -8,7 +8,7 @@ mod runtime {
         let mut vm = Vm::default();
 
         let print_chunk = |script: &str, chunk| {
-            println!("{}\n", script);
+            println!("{script}\n");
             let script_lines = script.lines().collect::<Vec<_>>();
 
             println!("{}", Chunk::instructions_as_string(chunk, &script_lines));
@@ -19,7 +19,7 @@ mod runtime {
             Ok(chunk) => chunk,
             Err(error) => {
                 print_chunk(script, vm.chunk());
-                panic!("Error while compiling script: {}", error);
+                panic!("Error while compiling script: {error}");
             }
         };
 

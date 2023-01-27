@@ -52,7 +52,7 @@ mod vm {
         });
 
         let print_chunk = |script: &str, chunk: Rc<Chunk>| {
-            println!("{}\n", script);
+            println!("{script}\n");
             let script_lines = script.lines().collect::<Vec<_>>();
 
             println!("Constants\n---------\n{}\n", chunk.constants);
@@ -67,7 +67,7 @@ mod vm {
             Ok(chunk) => chunk,
             Err(error) => {
                 print_chunk(script, vm.chunk());
-                panic!("Error while compiling script: {}", error);
+                panic!("Error while compiling script: {error}");
             }
         };
 
@@ -77,7 +77,7 @@ mod vm {
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
-                panic!("Error while running script: {}", e);
+                panic!("Error while running script: {e}");
             }
         }
     }

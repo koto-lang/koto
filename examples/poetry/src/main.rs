@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if args.watch {
         if let Err(e) = compile_and_run(&mut koto, &script_path) {
-            eprintln!("{}", e);
+            eprintln!("{e}");
         }
 
         let mut hotwatch = Hotwatch::new_with_custom_delay(Duration::from_secs_f64(0.25))

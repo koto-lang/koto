@@ -108,7 +108,7 @@ impl KotoWrite for OutputCapture {
 
 fn load_markdown_and_run_examples(path: &Path) {
     if !path.exists() {
-        panic!("Path doesn't exist: {:?}", path);
+        panic!("Path doesn't exist: {path:?}");
     }
 
     let markdown = std::fs::read_to_string(path)

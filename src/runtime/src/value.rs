@@ -10,9 +10,10 @@ use {
 };
 
 /// The core Value type for Koto
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Value {
     /// The default type representing the absence of a value
+    #[default]
     Null,
 
     /// A boolean, can be either true or false
@@ -249,12 +250,6 @@ thread_local! {
     static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
     static TYPE_SEQUENCE_BUILDER: ValueString = "SequenceBuilder".into();
     static TYPE_STRING_BUILDER: ValueString = "StringBuilder".into();
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::Null
-    }
 }
 
 impl From<()> for Value {

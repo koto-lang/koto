@@ -6,9 +6,10 @@ use {
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
 /// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Node {
     /// The `null` keyword
+    #[default]
     Null,
 
     /// A single expression wrapped in parentheses
@@ -260,12 +261,6 @@ pub enum Node {
         /// The expression that should be debugged
         expression: AstIndex,
     },
-}
-
-impl Default for Node {
-    fn default() -> Self {
-        Node::Null
-    }
 }
 
 impl fmt::Display for Node {

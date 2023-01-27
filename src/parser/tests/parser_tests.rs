@@ -2,7 +2,7 @@ mod parser {
     use koto_parser::{Node::*, *};
 
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
-        println!("{}", source);
+        println!("{source}");
 
         match Parser::parse(source) {
             Ok(ast) => {

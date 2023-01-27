@@ -66,10 +66,10 @@ fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
     let mut script_path = test_folder.clone();
     script_path.push(script_file_name);
     if !script_path.exists() {
-        panic!("Path doesn't exist: {:?}", script_path);
+        panic!("Path doesn't exist: {script_path:?}");
     }
     let script = read_to_string(&script_path)
-        .unwrap_or_else(|_| panic!("Unable to load path '{:?}'", &script_path));
+        .unwrap_or_else(|_| panic!("Unable to load path '{script_path:?}'"));
 
     let expected_module_paths = imported_modules
         .iter()
