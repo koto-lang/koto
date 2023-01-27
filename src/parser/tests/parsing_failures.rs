@@ -68,23 +68,14 @@ x =
             }
 
             #[test]
-            fn else_at_same_indentation_as_if_body() {
+            fn else_at_greater_indentation_than_else_if() {
                 let source = "
-if f x
-  0
-  else
-    1
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
-            fn else_if_at_same_indentation_as_if_body() {
-                let source = "
-if f x
-  0
-  else if g x
-    1
+z = if f x
+        0
+    else if g x
+        1
+      else
+        2
 ";
                 check_parsing_fails(source);
             }
@@ -107,7 +98,12 @@ for x in y if f x
             use super::*;
 
             #[test]
-            fn self_not_in_first_position() {
+            fn self_as_first_arg() {
+                check_parsing_fails("f = |self, x| x");
+            }
+
+            #[test]
+            fn self_as_last_arg() {
                 check_parsing_fails("f = |x, self| x");
             }
 

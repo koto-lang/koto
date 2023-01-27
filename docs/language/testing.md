@@ -32,25 +32,24 @@ basic_tests =
 test.run_tests basic_tests
 ```
 
-If a test function takes `self` as its first argument, then the test map will be passed in as `self`. 
 `@pre_test` and `@post_test` functions can be used to define shared setup and cleanup steps.
 
 ```koto
 make_x = |n|
   data: n
-  @+: |self, other| make_x self.data + other.data
-  @-: |self, other| make_x self.data - other.data
+  @+: |other| make_x self.data + other.data
+  @-: |other| make_x self.data - other.data
 
 x_tests =
-  @pre_test: |self| 
+  @pre_test: || 
     self.x1 = make_x 100
     self.x2 = make_x 200
 
-  @test addition: |self|
+  @test addition: ||
     print 'Testing addition'
     assert_eq self.x1 + self.x2, make_x 300
 
-  @test subtraction: |self|
+  @test subtraction: ||
     print 'Testing subtraction'
     assert_eq self.x1 - self.x2, make_x -100
 

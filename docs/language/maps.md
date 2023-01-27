@@ -80,12 +80,12 @@ print! m.bye 'Friend'
 check! Bye, Friend!
 ```
 
-When the first argument in a Map's function is `self`, then the runtime will assign the map to `self` when the function is called.
+`self` is a special identifier that refers to the instance of the map that the function is contained in. 
 
 ```koto
 m = 
   name: 'World'
-  hello: |self| 'Hello, ${self.name}!'
+  hello: || 'Hello, ${self.name}!'
 
 print! m.hello()
 check! Hello, World!

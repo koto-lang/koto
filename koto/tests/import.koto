@@ -22,7 +22,7 @@ import test_module
   @test import_module: ||
     # The test_module module being imported here is defined in the neighbouring
     # test_module directory, with test_module/main.koto as its entry point.
-    assert_eq (type test_module), "Map"
+    assert_eq (type test_module), "test_module"
     assert_eq test_module.foo, 42
     assert_eq (test_module.square 9), 81
 
@@ -69,5 +69,5 @@ import test_module
 
   @test dynamic_exported_value: ||
     x = "value_x"
-    koto.exports().insert x, 99
+    map.insert koto.exports(), x, 99
     assert_eq value_x, 99

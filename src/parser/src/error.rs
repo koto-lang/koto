@@ -107,7 +107,7 @@ pub enum SyntaxError {
     LexerError,
     MatchEllipsisOutsideOfNestedPatterns,
     MatchElseNotInLastArm,
-    SelfArgNotInFirstPosition,
+    SelfArg,
     SwitchElseNotInLastArm,
     UnexpectedCharInNumericEscapeCode,
     UnexpectedElseIndentation,
@@ -330,7 +330,7 @@ impl fmt::Display for SyntaxError {
             SwitchElseNotInLastArm => {
                 f.write_str("else can only be used in the last arm in a switch expression")
             }
-            SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
+            SelfArg => f.write_str("self doesn't need to be declared as an argument"),
             UnexpectedCharInNumericEscapeCode => {
                 f.write_str("Unexpected character in numeric escape code")
             }

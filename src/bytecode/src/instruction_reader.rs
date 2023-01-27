@@ -26,8 +26,6 @@ impl TypeId {
 
 /// Flags used to define the properties of a Function
 pub struct FunctionFlags {
-    /// True if the function is an instance function
-    pub instance_function: bool,
     /// True if the function has a variadic argument
     pub variadic: bool,
     /// True if the function is a generator
@@ -37,19 +35,16 @@ pub struct FunctionFlags {
 }
 
 impl FunctionFlags {
-    /// Corresponding to [FunctionFlags::instance_function]
-    pub const INSTANCE: u8 = 1 << 0;
     /// Corresponding to [FunctionFlags::variadic]
-    pub const VARIADIC: u8 = 1 << 1;
+    pub const VARIADIC: u8 = 1 << 0;
     /// Corresponding to [FunctionFlags::generator]
-    pub const GENERATOR: u8 = 1 << 2;
+    pub const GENERATOR: u8 = 1 << 1;
     /// Corresponding to [FunctionFlags::arg_is_unpacked_tuple]
-    pub const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 3;
+    pub const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 2;
 
     /// Initializes a flags struct from a byte
     pub fn from_byte(byte: u8) -> Self {
         Self {
-            instance_function: byte & Self::INSTANCE != 0,
             variadic: byte & Self::VARIADIC != 0,
             generator: byte & Self::GENERATOR != 0,
             arg_is_unpacked_tuple: byte & Self::ARG_IS_UNPACKED_TUPLE != 0,
@@ -59,9 +54,6 @@ impl FunctionFlags {
     /// Returns a byte containing the packed flags
     pub fn as_byte(&self) -> u8 {
         let mut result = 0;
-        if self.instance_function {
-            result |= Self::INSTANCE;
-        }
         if self.variadic {
             result |= Self::VARIADIC;
         }
@@ -191,7 +183,6 @@ pub enum Instruction {
         register: u8,
         arg_count: u8,
         capture_count: u8,
-        instance_function: bool,
         variadic: bool,
         generator: bool,
         arg_is_unpacked_tuple: bool,
@@ -461,10 +452,10 @@ impl fmt::Debug for Instruction {
                 write!(f, "LoadInt\t\tresult: {register}\tconstant: {constant}")
             }
             LoadString { register, constant } => {
-                write!(f, "LoadString\tresult: {register}\tconstant: {constant}",)
+                write!(f, "LoadString\tresult: {register}\tconstant: {constant}")
             }
             LoadNonLocal { register, constant } => {
-                write!(f, "LoadNonLocal\tresult: {register}\tconstant: {constant}",)
+                write!(f, "LoadNonLocal\tresult: {register}\tconstant: {constant}")
             }
             ValueExport { name, value } => {
                 write!(f, "ValueExport\tname: {name}\t\tvalue: {value}")
@@ -541,7 +532,6 @@ impl fmt::Debug for Instruction {
                 register,
                 arg_count,
                 capture_count,
-                instance_function,
                 variadic,
                 generator,
                 arg_is_unpacked_tuple,
@@ -549,8 +539,8 @@ impl fmt::Debug for Instruction {
             } => write!(
                 f,
                 "Function\tresult: {register}\targs: {arg_count}\
-                 \t\tcaptures: {capture_count}\tsize: {size}
-                 \t\t\tinstance: {instance_function}\tgenerator: {generator}
+                 \tcaptures: {capture_count}
+                 \t\t\tsize: {size} \tgenerator: {generator}
                  \t\t\tvariadic: {variadic}\targ_is_unpacked_tuple: {arg_is_unpacked_tuple}",
             ),
             Capture {
@@ -580,10 +570,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "Divide\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
             }
             Remainder { register, lhs, rhs } => {
-                write!(
-                    f,
-                    "Remainder\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}"
-                )
+                write!(f, "Remainder\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
             }
             AddAssign { lhs, rhs } => {
                 write!(f, "AddAssign\tlhs: {lhs}\t\trhs: {rhs}")
@@ -1148,7 +1135,6 @@ impl Iterator for InstructionReader {
                     register,
                     arg_count,
                     capture_count,
-                    instance_function: flags.instance_function,
                     variadic: flags.variadic,
                     generator: flags.generator,
                     arg_is_unpacked_tuple: flags.arg_is_unpacked_tuple,

@@ -552,7 +552,7 @@ mod tests {
             let mut vm = Vm::default();
             match format_string(&mut vm, format, args) {
                 Ok(result) => assert_eq!(result, expected),
-                Err(error) => panic!("format_string failed: '{}'", error),
+                Err(error) => panic!("format_string failed: '{error}'"),
             }
         }
 

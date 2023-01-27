@@ -1,8 +1,8 @@
 make_foo = |x|
   x: x
-  @<: |self, other| self.x < other.x
-  @>: |self, other| self.x > other.x
-  @==: |self, other| self.x == other.x
+  @<: |other| self.x < other.x
+  @>: |other| self.x > other.x
+  @==: |other| self.x == other.x
 
 @tests =
   @test next: ||
@@ -221,7 +221,7 @@ make_foo = |x|
   @test product_with_overloaded_multiply_operator: ||
     foo = |x|
       x: x
-      @*: |self, other| foo self.x * other.x
+      @*: |other| foo self.x * other.x
     foos = (foo 2), (foo 3), (foo 4)
     assert_eq foos.product(foo 1), (foo 24)
 
@@ -250,7 +250,7 @@ make_foo = |x|
   @test sum_with_overloaded_add_operator: ||
     foo = |x|
       x: x
-      @+: |self, other| foo self.x + other.x
+      @+: |other| foo self.x + other.x
     foos = (foo 10), (foo 20), (foo 30)
     assert_eq foos.sum(foo 0), (foo 60)
 
@@ -267,9 +267,12 @@ make_foo = |x|
       (1, 1, 1)
 
   @test windows: ||
+    import iterator.to_tuple
+
     assert_eq
-      (1..=5).windows(3).each(iterator.to_tuple).to_tuple(),
+      (1..=5).windows(3).each(to_tuple).to_tuple(),
       ((1, 2, 3), (2, 3, 4), (3, 4, 5))
+
     # If there aren't enough values in the input, then no windows are produced.
     assert_eq (1, 2).windows(3).count(), 0
 
@@ -288,22 +291,21 @@ make_foo = |x|
 
   @test custom_iterator_adaptor: ||
     # Inserting a function into the iterator map makes it available as an iterator adaptor
-    iterator.every_other = |iter|
+    iterator.every_other = ||
       n = 0
+      iter = self.iter()
       loop
         match iter.next()
           null then return
           value if n % 2 == 0 then yield value
         n += 1
 
-    make_iter = ||
-      (10..15).each |x| "$x"
-
+    # As an adaptor for an iterable
     assert_eq
-      make_iter().every_other().to_tuple(),
-      ("10", "12", "14")
+      (1..=5).every_other().to_tuple(),
+      (1, 3, 5)
 
-    # The every_other adaptor can also be called via iterator.every_other
+    # As an adaptor in an adaptor chain
     assert_eq
-      iterator.every_other(make_iter()).to_tuple(),
-      ("10", "12", "14")
+      (10..15).each(|x| '$x').every_other().to_tuple(),
+      ('10', '12', '14')

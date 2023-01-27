@@ -2,7 +2,7 @@ mod parser {
     use koto_parser::{Node::*, *};
 
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
-        println!("{}", source);
+        println!("{source}");
 
         match Parser::parse(source) {
             Ok(ast) => {
@@ -1709,7 +1709,8 @@ a = (1
 
         #[test]
         fn if_block() {
-            let source = "\
+            let sources = [
+                "
 a = if false
   0
 else if true
@@ -1718,9 +1719,31 @@ else if false
   0
 else
   1
-a";
-            check_ast(
-                source,
+a",
+                "
+a =
+  if false
+    0
+  else if true
+    1
+  else if false
+    0
+  else
+    1
+a",
+                "
+a = if false
+      0
+    else if true
+      1
+    else if false
+      0
+    else
+      1
+a",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     BoolFalse,
@@ -1823,7 +1846,6 @@ a";
                         local_count: 0,
                         accessed_non_locals: vec![constant(0)],
                         body: 4,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
@@ -2032,7 +2054,6 @@ a()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2091,7 +2112,6 @@ a()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 4,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
@@ -2133,7 +2153,6 @@ a()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 7,
-                        is_instance_function: false,
                         is_variadic: true,
                         is_generator: false,
                     }),
@@ -2178,7 +2197,6 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2224,7 +2242,6 @@ f 42";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 4,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
@@ -2246,7 +2263,6 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 9,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
@@ -2412,7 +2428,6 @@ foo
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2475,7 +2490,6 @@ f x";
                         local_count: 1,
                         accessed_non_locals: vec![constant(0)],
                         body: 3,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2514,7 +2528,6 @@ f x";
                         local_count: 1,
                         accessed_non_locals: vec![constant(0)],
                         body: 4,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
@@ -2530,7 +2543,6 @@ f x";
                         local_count: 1,
                         accessed_non_locals: vec![constant(1)],
                         body: 9,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
@@ -2645,46 +2657,43 @@ foo.bar x
 
         #[test]
         fn instance_function() {
-            let source = "{foo: 42, bar: |self, x| self.foo = x}";
+            let source = "{foo: 42, bar: |x| self.foo = x}";
             check_ast(
                 source,
                 &[
                     SmallInt(42),
-                    Id(constant(2)), // self
-                    Id(constant(3)), // x
-                    Id(constant(2)),
+                    Id(constant(2)), // x
+                    Self_,           // self
                     Lookup((LookupNode::Id(constant(0)), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
-                    Id(constant(3)),
+                    Lookup((LookupNode::Root(2), Some(3))),
+                    Id(constant(2)), // 5
                     Assign {
                         target: AssignTarget {
-                            target_index: 5,
+                            target_index: 4,
                             scope: Scope::Local,
                         },
-                        expression: 6,
+                        expression: 5,
                     },
                     Function(koto_parser::Function {
-                        args: vec![1, 2],
-                        local_count: 2,
+                        args: vec![1],
+                        local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 7,
-                        is_instance_function: true,
+                        body: 6,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     Map(vec![
                         (MapKey::Id(constant(0)), Some(0)),
-                        (MapKey::Id(constant(1)), Some(8)),
+                        (MapKey::Id(constant(1)), Some(7)),
                     ]),
                     MainBlock {
-                        body: vec![9],
+                        body: vec![8],
                         local_count: 0,
                     },
                 ],
                 Some(&[
                     Constant::Str("foo"),
                     Constant::Str("bar"),
-                    Constant::Str("self"),
                     Constant::Str("x"),
                 ]),
             )
@@ -2712,7 +2721,6 @@ f = ||
                         local_count: 0,
                         accessed_non_locals: vec![constant(2)],
                         body: 3,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2763,7 +2771,6 @@ f = ||
                         local_count: 0,
                         accessed_non_locals: vec![constant(3)],
                         body: 4,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
@@ -2794,45 +2801,42 @@ f = ||
             let source = "
 f = ||
   foo: 42
-  bar: |self, x| self.foo = x
+  bar: |x| self.foo = x
 f()";
             check_ast(
                 source,
                 &[
                     Id(constant(0)),
                     SmallInt(42),
-                    Id(constant(3)), // self
-                    Id(constant(4)), // x
+                    Id(constant(3)), // x
+                    Self_,
+                    Lookup((LookupNode::Id(constant(1)), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
                     Id(constant(3)),
-                    Lookup((LookupNode::Id(constant(1)), None)), // 5
-                    Lookup((LookupNode::Root(4), Some(5))),
-                    Id(constant(4)),
                     Assign {
                         target: AssignTarget {
-                            target_index: 6,
+                            target_index: 5,
                             scope: Scope::Local,
                         },
-                        expression: 7,
+                        expression: 6,
                     },
                     Function(koto_parser::Function {
-                        args: vec![2, 3],
-                        local_count: 2,
+                        args: vec![2],
+                        local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 8,
-                        is_instance_function: true,
+                        body: 7,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 10
                     Map(vec![
                         (MapKey::Id(constant(1)), Some(1)),
-                        (MapKey::Id(constant(2)), Some(9)),
-                    ]), // 10
+                        (MapKey::Id(constant(2)), Some(8)),
+                    ]),
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 10,
-                        is_instance_function: false,
+                        body: 9,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2841,7 +2845,7 @@ f()";
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        expression: 11,
+                        expression: 10,
                     },
                     Id(constant(0)),
                     Lookup((
@@ -2850,10 +2854,10 @@ f()";
                             with_parens: true,
                         },
                         None,
-                    )),
-                    Lookup((LookupNode::Root(13), Some(14))), // 15
+                    )), // 15
+                    Lookup((LookupNode::Root(12), Some(13))),
                     MainBlock {
-                        body: vec![12, 15],
+                        body: vec![11, 14],
                         local_count: 1,
                     },
                 ],
@@ -2861,7 +2865,6 @@ f()";
                     Constant::Str("f"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
-                    Constant::Str("self"),
                     Constant::Str("x"),
                 ]),
             )
@@ -2917,7 +2920,6 @@ f = |n|
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 14,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }), // ast 15
@@ -2935,7 +2937,6 @@ f = |n|
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 18,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -2992,7 +2993,6 @@ f = |n|
                         local_count: 1,
                         accessed_non_locals: vec![constant(0)], // initial read of x via capture
                         body: 6,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -3039,7 +3039,6 @@ f = |n|
                         local_count: 2,
                         accessed_non_locals: vec![], // b is locally assigned when accessed
                         body: 7,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -3072,7 +3071,6 @@ f = |n|
                         local_count: 0,
                         accessed_non_locals: vec![constant(0)], // initial read of x via capture
                         body: 2,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -3115,7 +3113,6 @@ y z";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -3157,7 +3154,6 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: true,
                     }),
@@ -3185,7 +3181,6 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: true,
                     }),
@@ -3216,7 +3211,6 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 2,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: true,
                     }),
@@ -3263,7 +3257,6 @@ y z";
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 8,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
@@ -3316,7 +3309,6 @@ y z";
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 8,
-                        is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),

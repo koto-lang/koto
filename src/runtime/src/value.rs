@@ -10,9 +10,10 @@ use {
 };
 
 /// The core Value type for Koto
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Value {
     /// The default type representing the absence of a value
+    #[default]
     Null,
 
     /// A boolean, can be either true or false
@@ -39,7 +40,7 @@ pub enum Value {
     /// A callable function with simple properties
     SimpleFunction(SimpleFunctionInfo),
 
-    /// A callable function with less simple properties, e.g. captures, instance function, etc.
+    /// A callable function with less simple properties, e.g. captures, variadic arguments, etc.
     Function(FunctionInfo),
 
     /// A function that produces an Iterator when called
@@ -178,11 +179,12 @@ impl Value {
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             IndexRange { .. } => TYPE_INDEX_RANGE.with(|x| x.clone()),
-            Map(m) => match m.get_meta_value(&MetaKey::Type) {
+            Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
                 Some(_) => "Error: expected string for overloaded type".into(),
-                None => TYPE_MAP.with(|x| x.clone()),
+                None => TYPE_OBJECT.with(|x| x.clone()),
             },
+            Map(_) => TYPE_MAP.with(|x| x.clone()),
             Str(_) => TYPE_STRING.with(|x| x.clone()),
             Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
             SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
@@ -238,6 +240,7 @@ thread_local! {
     static TYPE_RANGE: ValueString = "Range".into();
     static TYPE_INDEX_RANGE: ValueString = "IndexRange".into();
     static TYPE_MAP: ValueString = "Map".into();
+    static TYPE_OBJECT: ValueString = "Object".into();
     static TYPE_STRING: ValueString = "String".into();
     static TYPE_TUPLE: ValueString = "Tuple".into();
     static TYPE_FUNCTION: ValueString = "Function".into();
@@ -247,12 +250,6 @@ thread_local! {
     static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
     static TYPE_SEQUENCE_BUILDER: ValueString = "SequenceBuilder".into();
     static TYPE_STRING_BUILDER: ValueString = "StringBuilder".into();
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::Null
-    }
 }
 
 impl From<()> for Value {
@@ -337,8 +334,6 @@ pub struct FunctionInfo {
     pub ip: usize,
     /// The expected number of arguments for the function.
     pub arg_count: u8,
-    /// If the function is an instance function, then the first argument will be `self`.
-    pub instance_function: bool,
     /// If the function is variadic, then extra args will be captured in a tuple.
     pub variadic: bool,
     /// If the function has a single arg, and that arg is an unpacked tuple

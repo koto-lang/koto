@@ -85,6 +85,7 @@ pub enum Token {
     Null,
     Or,
     Return,
+    Self_,
     Switch,
     Then,
     Throw,
@@ -482,6 +483,7 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("null", Null);
             check_keyword!("or", Or);
             check_keyword!("return", Return);
+            check_keyword!("self", Self_);
             check_keyword!("switch", Switch);
             check_keyword!("then", Then);
             check_keyword!("throw", Throw);

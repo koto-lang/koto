@@ -4,8 +4,9 @@ use {koto_bytecode::Chunk, std::rc::Rc};
 pub(crate) struct Frame {
     // The chunk being interpreted in this frame
     pub chunk: Rc<Chunk>,
-    // The index in the VM value stack of the first argument register,
-    // or the first local register if there are no arguments.
+    // The index in the VM's value stack of the first frame register.
+    // The frame's instance is always in register 0 (Null if not set).
+    // Call arguments followed by local values are in registers starting from index 1.
     pub register_base: usize,
     // When returning to this frame, the ip that produced the most recently read instruction
     pub return_instruction_ip: usize,

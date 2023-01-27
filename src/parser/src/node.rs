@@ -6,9 +6,10 @@ use {
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
 /// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Node {
     /// The `null` keyword
+    #[default]
     Null,
 
     /// A single expression wrapped in parentheses
@@ -106,6 +107,9 @@ pub enum Node {
     ///
     /// Values are optional for inline maps.
     Map(Vec<(MapKey, Option<AstIndex>)>),
+
+    /// The `self` keyword
+    Self_,
 
     /// The main block node
     ///
@@ -259,12 +263,6 @@ pub enum Node {
     },
 }
 
-impl Default for Node {
-    fn default() -> Self {
-        Node::Null
-    }
-}
-
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;
@@ -299,6 +297,7 @@ impl fmt::Display for Node {
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
+            Self_ { .. } => write!(f, "Self"),
             Switch { .. } => write!(f, "Switch"),
             Wildcard(_) => write!(f, "Wildcard"),
             Ellipsis(_) => write!(f, "Ellipsis"),
@@ -334,8 +333,6 @@ pub struct Function {
     pub accessed_non_locals: Vec<ConstantIndex>,
     /// The function's body
     pub body: AstIndex,
-    /// A flag that indicates if the function has used `self` as its first argument
-    pub is_instance_function: bool,
     /// A flag that indicates if the function arguments end with a variadic `...` argument
     pub is_variadic: bool,
     /// A flag that indicates if the function is a generator or not
@@ -572,6 +569,8 @@ pub enum MetaKeyId {
     Not,
     /// @type
     Type,
+    /// @base
+    Base,
 
     /// @||
     Call,

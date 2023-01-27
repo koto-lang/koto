@@ -100,9 +100,11 @@ struct Frame {
 impl Frame {
     fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
         let temporary_base =
+            // register 0 is always self
+            1
             // Includes all named args (including unpacked args),
             // and any locally assigned values.
-            local_count
+            + local_count
             // Captures get copied to local registers when the function is called.
             + captures.len() as u8
             // To get the first temporary register, we also need to include 'unnamed' args, which
@@ -113,7 +115,8 @@ impl Frame {
                 .count() as u8;
 
         // First, assign registers to the 'top-level' args, including placeholder registers
-        let mut local_registers = Vec::with_capacity(args.len() + captures.len());
+        let mut local_registers = Vec::with_capacity(1 + args.len() + captures.len());
+        local_registers.push(LocalRegister::Allocated); // self
         local_registers.extend(args.iter().filter_map(|arg| match arg {
             Arg::Local(id) => Some(LocalRegister::Assigned(*id)),
             Arg::Placeholder => Some(LocalRegister::Allocated),
@@ -475,6 +478,17 @@ impl Compiler {
                 self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
             }
             Node::Map(entries) => self.compile_make_map(result_register, entries, ast)?,
+            Node::Self_ => {
+                // self is always in register 0
+                match result_register {
+                    ResultRegister::None => None,
+                    ResultRegister::Any => Some(CompileResult::with_assigned(0)),
+                    ResultRegister::Fixed(register) => {
+                        self.push_op(Op::Copy, &[register, 0]);
+                        Some(CompileResult::with_assigned(register))
+                    }
+                }
+            }
             Node::Range {
                 start,
                 end,
@@ -717,6 +731,10 @@ impl Compiler {
                 result
             }
             Node::Throw(expression) => {
+                // A throw will prevent the result from being used, but the caller should be
+                // provided with a result register regardless.
+                let result = self.get_result_register(result_register)?;
+
                 let expression_register = self
                     .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
                     .unwrap();
@@ -727,7 +745,7 @@ impl Compiler {
                     self.pop_register()?;
                 }
 
-                None
+                result
             }
             Node::Try(try_expression) => {
                 self.compile_try_expression(result_register, try_expression, ast)?
@@ -798,14 +816,14 @@ impl Compiler {
             self.span_stack.push(*ast.span(arg_node.span));
             match &arg_node.node {
                 Node::List(nested_args) => {
-                    let list_register = arg_index as u8;
+                    let list_register = arg_index as u8 + 1;
                     let size_op = args_size_op(nested_args, ast);
                     self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
                     self.push_op(size_op, &[list_register, nested_args.len() as u8]);
                     self.compile_unpack_nested_args(list_register, nested_args, ast)?;
                 }
                 Node::Tuple(nested_args) => {
-                    let tuple_register = arg_index as u8;
+                    let tuple_register = arg_index as u8 + 1;
                     let size_op = args_size_op(nested_args, ast);
                     self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
                     self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
@@ -2244,7 +2262,6 @@ impl Compiler {
             );
 
             let flags_byte = FunctionFlags {
-                instance_function: function.is_instance_function,
                 variadic: function.is_variadic,
                 generator: function.is_generator,
                 arg_is_unpacked_tuple,

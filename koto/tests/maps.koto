@@ -89,10 +89,7 @@
   @test instance_functions: ||
     make_map = ||
       foo: 42
-      get_foo: |self|
-        # self as first argument creates an instance function,
-        # where self refers to the container value that its contained in
-        self.foo
+      get_foo: || self.foo
 
     m = make_map()
     assert_eq 42, m.get_foo() # m is implicitly passed to get_foo as an argument
@@ -100,9 +97,9 @@
     make_map_2 = ||
       make_map().extend
         foo_2: 57
-        get_foo_2: |self| self.foo_2
-        set_foo_2: |self, x| self.foo_2 = x
-        sum_foo: |self| self.foo + self.foo_2
+        get_foo_2: || self.foo_2
+        set_foo_2: |x| self.foo_2 = x
+        sum_foo: || self.foo + self.foo_2
 
     m2 = make_map_2()
     assert_eq m2.foo, 42 # .foo takes no arguments
@@ -138,7 +135,7 @@
           c:
             d:
               foo: -1
-              set_foo: |self, x| self.foo = x
+              set_foo: |x| self.foo = x
     assert_eq deep.a.b.c.d.foo, -1
     deep.a.b.c.d.set_foo(42)
     assert_eq deep.a.b.c.d.foo, 42

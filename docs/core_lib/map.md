@@ -198,11 +198,11 @@ my_map =
   data: 42
   @type: 'My Map'
 
-meta = my_map.get_meta_map()
+meta = map.get_meta_map my_map
 
-print! my_map.keys().count()
+print! map.keys(my_map).count()
 check! 1
-print! meta.keys().count()
+print! map.keys(meta).count()
 check! 0
 
 print! koto.type meta

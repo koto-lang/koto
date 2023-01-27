@@ -1,12 +1,16 @@
-# Meta Maps
+# Objects and Meta Maps
 
-The behaviour of maps in Koto can be customized.
+The behaviour of values in Koto can be customized by making an _Object_.
 
-Keys with `@` prefixes go into the map's 'meta map',
-and when the map is used by the runtime for a particular operation, its meta map 
-will be checked for an entry corresponding to the operation.
+An Object is created by making a map that contains at least one key with a `@` 
+prefix, known as a _metakey_.
 
-In the following example, addition and subtraction are overridden for a custom `Foo` value type.
+Metakeys go in to the object's _metamap_. When the runtime encounters the object
+while performing operations, the object's metamap will be checked for an entry 
+corresponding to the operation.
+
+In the following example, addition and subtraction are overridden for a custom 
+`Foo` object.
 
 ```koto
 # foo is a function that makes Foo values
@@ -14,17 +18,17 @@ foo = |n|
   data: n
 
   # Overloading the addition operator
-  @+: |self, other|
+  @+: |other|
     # A new Foo is made using the result 
     # of adding the two data values together
     foo self.data + other.data
 
   # Overloading the subtraction operator
-  @-: |self, other|
+  @-: |other|
     foo self.data - other.data
 
   # Overloading the multiply-assignment operator
-  @*=: |self, other|
+  @*=: |other|
     self.data *= other.data
     self
 
@@ -53,7 +57,7 @@ The `@negate` meta key overloads the unary negation operator.
 ```koto
 foo = |n|
   data: n
-  @negate: |self| foo -self.data
+  @negate: || foo -self.data
 
 x = -foo(100)
 print! x.data
@@ -67,7 +71,7 @@ The `@not` meta key overloads the unary `not` operator.
 ```koto
 foo = |n|
   data: n
-  @not: |self| self.data == 0
+  @not: || self.data == 0
 
 print! not (foo 10)
 check! false
@@ -80,7 +84,7 @@ The `@[]` meta key defines how indexing the value with `[]` should behave.
 ```koto
 foo = |n|
   data: n
-  @[]: |self, index| self.data + index
+  @[]: |index| self.data + index
 
 print! (foo 10)[7]
 check! 17
@@ -94,7 +98,7 @@ function.
 ```koto
 foo = |n|
   data: n
-  @||: |self| 
+  @||: || 
     self.data *= 2
     self.data
 
@@ -114,7 +118,7 @@ instead of the default behaviour of iterating over the map's entries.
 ```koto
 foo = |n|
   data: n
-  @iterator: |self| 0..=self.data
+  @iterator: || 0..=self.data
 
 print! (foo 5).to_tuple()
 check! (0, 1, 2, 3, 4, 5)
@@ -132,7 +136,7 @@ or [`string.format`](../../core/string/#format).
 ```koto
 foo = |n|
   data: n
-  @display: |self| 'Foo: {}'.format self.data
+  @display: || 'Foo: {}'.format self.data
 
 print! foo 42
 check! Foo: 42
@@ -156,6 +160,34 @@ print! koto.type (foo 42)
 check! Foo
 ```
 
+### `@base`
+
+Objects can inherit the entries of another value by declaring it as the object's
+_base value_ using the `@base` metakey.
+
+In the following example, two kinds of animals are created that share the
+`speak` function from their base value.
+
+```koto
+animal = |name|
+  name: name
+  speak: || '${self.noise}! My name is ${self.name}!'
+
+dog = |name|
+  @base: animal name
+  noise: 'Woof'
+
+cat = |name|
+  @base: animal name
+  noise: 'Meow'
+
+print! dog('Fido').speak()
+check! Woof! My name is Fido!
+
+print! cat('Smudge').speak()
+check! Meow! My name is Smudge!
+```
+
 ### `@meta`
 
 Named meta entries can be inserted into the map, which will be accessible via
@@ -165,7 +197,7 @@ Named meta entries can be inserted into the map, which will be accessible via
 foo = |n|
   data: n
   @meta hello: "Hello!"
-  @meta get_info: |self| 
+  @meta get_info: || 
     info = match self.data 
       0 then "zero"
       n if n < 0 then "negative"
@@ -179,13 +211,13 @@ check! Hello!
 print x.get_info()
 check! -1 is negative
 
-print x.keys().to_tuple()
+print map.keys(x).to_tuple()
 check! ('data')
 ```
 
 ## Sharing Meta Maps
 
-If you're creating lots of values, then it will likely be more efficient to create a single map with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
+If you're creating lots of values, then it will likely be more efficient to create a single value with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
 
 ```koto
 # Create an empty map for global values 
@@ -194,16 +226,16 @@ globals = {}
 # Define a function that makes a Foo
 foo = |data|
   # Make a map that contains `data`, 
-  # and the meta map from foo_meta
+  # along with the meta map from foo_meta
   {data}.with_meta_map globals.foo_meta
 
 # Define some meta behaviour in foo_meta
 globals.foo_meta =
   # Override the + operator
-  @+: |self, other| foo self.data + other.data
+  @+: |other| foo self.data + other.data
 
   # Define how the value should be displayed 
-  @display: |self| "Foo (${self.data})"
+  @display: || "Foo (${self.data})"
 
 print! (foo 10) + (foo 20)
 check! Foo (30)

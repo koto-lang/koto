@@ -344,16 +344,17 @@ impl Vm {
                         //
                         // At runtime the unpacking instructions will still be executed, resulting
                         // in the tuple values being unpacked into the same registers that they're
-                        // already in. This is redundant work, but still more efficient than
-                        // allocating a non-temporary Tuple for the values.
+                        // already in. This is redundant work, but more efficient than allocating a
+                        // non-temporary Tuple for the values.
 
                         let capture_count =
                             captures.as_ref().map_or(0, |captures| captures.len() as u8);
 
                         let temp_tuple = Value::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
-                            // captures, which are placed after the temp tuple register
-                            start: capture_count + 1,
+                            // captures, which are placed after the temp tuple and instance
+                            // registers.
+                            start: capture_count + 2,
                             count: args.len() as u8,
                         });
 
@@ -541,7 +542,7 @@ impl Vm {
     ///
     /// Any test failure will be returned as an error.
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
-        use Value::{Function, Map, Null};
+        use Value::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
         // to the internal test map data while calling the test functions, otherwise we'll end up in
@@ -560,14 +561,8 @@ impl Vm {
         };
 
         let self_arg = Map(tests.clone());
-        let pass_self_to_pre_test = match &pre_test {
-            Some(Function(f)) => f.instance_function,
-            _ => false,
-        };
-        let pass_self_to_post_test = match &post_test {
-            Some(Function(f)) => f.instance_function,
-            _ => false,
-        };
+        let pass_self_to_pre_test = true; // TODO
+        let pass_self_to_post_test = true;
 
         for i in 0..meta_entry_count {
             let meta_entry = tests.meta_map().and_then(|meta| {
@@ -600,10 +595,12 @@ impl Vm {
                         }
                     }
 
-                    let pass_self_to_test = match &test {
-                        Function(f) => f.arg_count == 1,
-                        _ => false,
-                    };
+                    // let pass_self_to_test = match &test {
+                    //     Function(f) => f.arg_count == 1,
+                    //     _ => false,
+                    // };
+
+                    let pass_self_to_test = true; // TODO
 
                     let test_result = if pass_self_to_test {
                         self.run_instance_function(self_arg.clone(), test, CallArgs::None)
@@ -1320,7 +1317,6 @@ impl Vm {
                 register,
                 arg_count,
                 capture_count,
-                instance_function,
                 variadic,
                 generator,
                 arg_is_unpacked_tuple,
@@ -1339,7 +1335,6 @@ impl Vm {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
-                    instance_function,
                     variadic,
                     captures,
                     arg_is_unpacked_tuple,
@@ -2547,21 +2542,59 @@ impl Vm {
         }
 
         match &accessed_value {
-            Map(map) => match map.data().get(&key) {
-                Some(value) => {
-                    self.set_register(result_register, value.clone());
-                }
-                None => match map.get_meta_value(&MetaKey::Named(key_string)) {
-                    Some(value) => self.set_register(result_register, value),
-                    None => core_op!(map, true),
-                },
-            },
             List(_) => core_op!(list, true),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
+            Map(map) => {
+                let mut lookup_map = map.clone();
+                let mut access_result = None;
+                while access_result.is_none() {
+                    let maybe_value = lookup_map.data().get(&key).cloned();
+                    match maybe_value {
+                        Some(value) => access_result = Some(value),
+                        // map module fallback when there's no metamap
+                        None if lookup_map.meta_map().is_none() => {
+                            core_op!(map, true);
+                            return Ok(());
+                        }
+                        _ => match lookup_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
+                            Some(value) => access_result = Some(value),
+                            None => match lookup_map.get_meta_value(&MetaKey::Base) {
+                                Some(Map(base)) => {
+                                    // Attempt the lookup again with the base map
+                                    lookup_map = base;
+                                }
+                                Some(unexpected) => {
+                                    return type_error("Map as base value", &unexpected)
+                                }
+                                None => break,
+                            },
+                        },
+                    }
+                }
+
+                // Iterator fallback?
+                if access_result.is_none() && map.contains_meta_key(&UnaryOp::Iterator.into()) {
+                    access_result = Some(self.get_core_op(
+                        &key,
+                        &self.context.core_lib.iterator,
+                        false,
+                        &accessed_value.type_as_string(),
+                    )?);
+                }
+
+                if let Some(value) = access_result {
+                    self.set_register(result_register, value);
+                } else {
+                    return runtime_error!(
+                        "'{key}' not found in '{}'",
+                        accessed_value.type_as_string()
+                    );
+                }
+            }
             ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {
@@ -2591,6 +2624,12 @@ impl Vm {
             maybe_op => maybe_op,
         };
 
+        // if let Some(op) = maybe_op {
+        //     Ok(op)
+        // } else {
+        //     runtime_error!("'{key}' not found in '{module_name}'")
+        // }
+        //
         let result = match maybe_op {
             Some(op) => match op {
                 // Core module functions accessed in a lookup need to be invoked as
@@ -2610,32 +2649,31 @@ impl Vm {
                     };
                     ExternalFunction(f_as_instance_function)
                 }
-                SimpleFunction(f) => {
-                    let f_as_instance_function = FunctionInfo {
-                        chunk: f.chunk,
-                        ip: f.ip,
-                        arg_count: f.arg_count,
-                        instance_function: true,
-                        variadic: false,
-                        captures: None,
-                        arg_is_unpacked_tuple: false,
-                    };
-                    Function(f_as_instance_function)
-                }
-                Function(f) => {
-                    let f_as_instance_function = FunctionInfo {
-                        instance_function: true,
-                        ..f
-                    };
-                    Function(f_as_instance_function)
-                }
-                Generator(f) => {
-                    let f_as_instance_function = FunctionInfo {
-                        instance_function: true,
-                        ..f
-                    };
-                    Generator(f_as_instance_function)
-                }
+                // SimpleFunction(f) => {
+                //     let f_as_instance_function = FunctionInfo {
+                //         chunk: f.chunk,
+                //         ip: f.ip,
+                //         arg_count: f.arg_count,
+                //         variadic: false,
+                //         captures: None,
+                //         arg_is_unpacked_tuple: false,
+                //     };
+                //     Function(f_as_instance_function)
+                // }
+                // Function(f) => {
+                //     let f_as_instance_function = FunctionInfo {
+                //         instance_function: true,
+                //         ..f
+                //     };
+                //     Function(f_as_instance_function)
+                // }
+                // Generator(f) => {
+                //     let f_as_instance_function = FunctionInfo {
+                //         instance_function: true,
+                //         ..f
+                //     };
+                //     Generator(f_as_instance_function)
+                // }
                 other => other,
             },
             None => {
@@ -2707,7 +2745,6 @@ impl Vm {
             chunk,
             ip: function_ip,
             arg_count: function_arg_count,
-            instance_function,
             variadic,
             captures,
             arg_is_unpacked_tuple: _unused,
@@ -2723,27 +2760,21 @@ impl Vm {
             0,
         );
 
-        let expected_arg_count = match (instance_function, variadic) {
-            (true, true) => function_arg_count - 2,
-            (true, false) | (false, true) => function_arg_count - 1,
-            (false, false) => function_arg_count,
-        };
-
-        // Copy the instance value into the generator vm
-        let arg_offset = if instance_function {
-            if let Some(instance_register) = instance_register {
-                let instance = self.clone_register(instance_register);
-                // Place the instance in the first register of the generator vm
-                generator_vm.set_register(0, instance);
-                1
-            } else {
-                return runtime_error!("Missing instance for call to instance function");
-            }
+        let expected_arg_count = if variadic {
+            function_arg_count - 1
         } else {
-            0
+            function_arg_count
         };
 
-        // Copy any regular (non-instance, non-variadic) arguments into the generator vm
+        // Place the instance in the first register of the generator vm
+        let instance = instance_register
+            .map(|register| self.clone_register(register))
+            .unwrap_or_default();
+        generator_vm.set_register(0, instance);
+
+        let arg_offset = 1;
+
+        // Copy any regular (non-variadic) arguments into the generator vm
         for (arg_index, arg) in self
             .register_slice(frame_base + 1, expected_arg_count.min(call_arg_count))
             .iter()
@@ -2811,34 +2842,22 @@ impl Vm {
             chunk,
             ip: function_ip,
             arg_count: function_arg_count,
-            instance_function,
             variadic,
             captures,
             arg_is_unpacked_tuple: _unused,
         } = function;
 
-        let expected_arg_count = match (instance_function, variadic) {
-            (true, true) => function_arg_count - 2,
-            (true, false) | (false, true) => function_arg_count - 1,
-            (false, false) => function_arg_count,
+        let expected_arg_count = if variadic {
+            function_arg_count - 1
+        } else {
+            function_arg_count
         };
 
         // Clone the instance register into the first register of the frame
-        let adjusted_frame_base = if instance_function {
-            if let Some(instance_register) = instance_register {
-                if instance_register != frame_base {
-                    let instance = self.clone_register(instance_register);
-                    self.set_register(frame_base, instance);
-                }
-                frame_base
-            } else {
-                return runtime_error!("Missing instance for call to instance function");
-            }
-        } else {
-            // If there's no self arg, then the frame's instance register is unused,
-            // so the new function's frame base is offset by 1
-            frame_base + 1
-        };
+        let instance = instance_register
+            .map(|register| self.clone_register(register))
+            .unwrap_or_default();
+        self.set_register(frame_base, instance);
 
         if variadic && call_arg_count >= expected_arg_count {
             // The last defined arg is the start of the var_args,
@@ -2852,19 +2871,18 @@ impl Vm {
             self.truncate_registers(varargs_start + 1);
         }
 
-        let frame_base_index = self.register_index(adjusted_frame_base);
+        let arg_index = self.register_index(frame_base + 1);
         if expected_arg_count > call_arg_count {
             // Ensure that temporary registers used to prepare the call args have been removed from
             // the value stack.
             let missing_args = expected_arg_count - call_arg_count;
-            self.value_stack
-                .truncate(frame_base_index + missing_args as usize);
+            self.value_stack.truncate(arg_index + missing_args as usize);
         }
         // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.value_stack
-            .resize(frame_base_index + function_arg_count as usize, Value::Null);
+            .resize(arg_index + function_arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2877,7 +2895,7 @@ impl Vm {
         }
 
         // Set up a new frame for the called function
-        self.push_frame(chunk, function_ip, adjusted_frame_base, result_register);
+        self.push_frame(chunk, function_ip, frame_base, result_register);
 
         Ok(())
     }
@@ -2899,18 +2917,20 @@ impl Vm {
                 ip: function_ip,
                 arg_count: function_arg_count,
             }) => {
-                // The frame base is offset by one since the frame's instance register is unused.
-                let frame_base = frame_base + 1;
+                let instance = instance_register
+                    .map(|register| self.clone_register(register))
+                    .unwrap_or_default();
+                self.set_register(frame_base, instance);
 
-                let frame_base_index = self.register_index(frame_base);
+                let arg_base_index = self.register_index(frame_base) + 1;
                 // Remove any temporary registers used to prepare the call args
                 self.value_stack
-                    .truncate(frame_base_index + call_arg_count as usize);
+                    .truncate(arg_base_index + call_arg_count as usize);
                 // Ensure that registers have been filled with Null for any missing args.
                 // If there are extra args, truncating is OK at this point (variadic calls aren't
                 // available for SimpleFunction).
                 self.value_stack
-                    .resize(frame_base_index + function_arg_count as usize, Value::Null);
+                    .resize(arg_base_index + function_arg_count as usize, Value::Null);
 
                 // Set up a new frame for the called function
                 self.push_frame(chunk, function_ip, frame_base, result_register);

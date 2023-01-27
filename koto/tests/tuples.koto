@@ -1,8 +1,8 @@
 make_foo = |x|
   x: x
-  @<: |self, other| self.x < other.x
-  @>: |self, other| self.x > other.x
-  @==: |self, other| self.x == other.x
+  @<: |other| self.x < other.x
+  @>: |other| self.x > other.x
+  @==: |other| self.x == other.x
 
 @tests =
   @test for_loop: ||
@@ -20,7 +20,7 @@ make_foo = |x|
   @test contains_with_overloaded_equality_op: ||
     bar = |x|
       x: x
-      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+      @==: |other| self.x != other.x # This inverts the usual behaviour of ==
 
     x = (bar 1), (bar 1)
     assert not x.contains (bar 1)
