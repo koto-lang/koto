@@ -1709,7 +1709,8 @@ a = (1
 
         #[test]
         fn if_block() {
-            let source = "\
+            let sources = [
+                "
 a = if false
   0
 else if true
@@ -1718,9 +1719,31 @@ else if false
   0
 else
   1
-a";
-            check_ast(
-                source,
+a",
+                "
+a =
+  if false
+    0
+  else if true
+    1
+  else if false
+    0
+  else
+    1
+a",
+                "
+a = if false
+      0
+    else if true
+      1
+    else if false
+      0
+    else
+      1
+a",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     BoolFalse,

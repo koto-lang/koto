@@ -2182,11 +2182,11 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         use SyntaxError::*;
 
-        let expected_indentation = self.current_indent();
-        let outer_context =
-            context.with_expected_indentation(Indentation::Equal(expected_indentation));
-
         self.consume_token_with_context(context); // Token::If
+
+        // Define the expected indentation of 'else if' / 'else' blocks
+        let mut outer_context =
+            context.with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()));
 
         let condition = match self.parse_expression(&ExpressionContext::inline())? {
             Some(condition) => condition,
@@ -2231,9 +2231,10 @@ impl<'source> Parser<'source> {
 
                     self.consume_token_with_context(&outer_context);
 
-                    if self.current_indent() != expected_indentation {
-                        return self.error(UnexpectedElseIfIndentation);
-                    }
+                    // Once we've got an else if block, then all following blocks in the
+                    // cascade should start with the same indentation.
+                    outer_context = context
+                        .with_expected_indentation(Indentation::Equal(self.current_indent()));
 
                     if let Some(else_if_condition) =
                         self.parse_expression(&ExpressionContext::inline())?
@@ -2253,10 +2254,6 @@ impl<'source> Parser<'source> {
                 let else_node = match self.peek_token_with_context(&outer_context) {
                     Some(peeked) if peeked.token == Token::Else => {
                         self.consume_token_with_context(&outer_context);
-
-                        if self.current_indent() != expected_indentation {
-                            return self.error(UnexpectedElseIndentation);
-                        }
 
                         if let Some(else_block) = self.parse_indented_block()? {
                             Some(else_block)

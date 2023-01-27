@@ -2123,6 +2123,19 @@ foo([42]).next()
 ";
             test_script(script, 123);
         }
+
+        #[test]
+        fn if_else_used_in_map_block() {
+            let script = "
+foo = 
+  x: if 1 == 2
+       99
+     else 
+       42
+foo.x
+";
+            test_script(script, 42);
+        }
     }
 
     mod placeholders {
