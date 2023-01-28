@@ -2649,31 +2649,6 @@ impl Vm {
                     };
                     ExternalFunction(f_as_instance_function)
                 }
-                // SimpleFunction(f) => {
-                //     let f_as_instance_function = FunctionInfo {
-                //         chunk: f.chunk,
-                //         ip: f.ip,
-                //         arg_count: f.arg_count,
-                //         variadic: false,
-                //         captures: None,
-                //         arg_is_unpacked_tuple: false,
-                //     };
-                //     Function(f_as_instance_function)
-                // }
-                // Function(f) => {
-                //     let f_as_instance_function = FunctionInfo {
-                //         instance_function: true,
-                //         ..f
-                //     };
-                //     Function(f_as_instance_function)
-                // }
-                // Generator(f) => {
-                //     let f_as_instance_function = FunctionInfo {
-                //         instance_function: true,
-                //         ..f
-                //     };
-                //     Generator(f_as_instance_function)
-                // }
                 other => other,
             },
             None => {
