@@ -115,6 +115,12 @@ mod external_values {
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
+            .data_fn(Iterator, |data| {
+                Ok(ValueIterator::with_std_forward_iter(
+                    ((data.x as usize)..).map(|n| ValueIteratorOutput::Value(n.into())),
+                )
+                .into())
+            })
             .data_fn(MetaKey::Call, |data| Ok(Number(data.x.into())))
             .data_fn("to_number", |data| Ok(Number(data.x.into())))
             .data_fn_mut("invert", |data| {
@@ -354,7 +360,7 @@ x[23]
         }
 
         #[test]
-        fn unpacking_via_index() {
+        fn multi_assignment_via_iterator() {
             let script = "
 x = make_external 10
 a, b, c = x

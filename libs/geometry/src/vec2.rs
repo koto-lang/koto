@@ -26,6 +26,18 @@ fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
             },
             unexpected => type_error_with_slice("expected a Number", unexpected),
         })
+        .data_fn(UnaryOp::Iterator, |v| {
+            let v = *v;
+            let iter = (0..=1).map(move |i| {
+                let result = match i {
+                    0 => v.x,
+                    1 => v.y,
+                    _ => unreachable!(),
+                };
+                result.into()
+            });
+            Ok(ValueIterator::with_std_iter(iter).into())
+        })
         .build()
 }
 

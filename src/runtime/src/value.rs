@@ -139,10 +139,11 @@ impl Value {
     /// Returns true if a `ValueIterator` can be made from the value
     pub fn is_iterable(&self) -> bool {
         use Value::*;
-        matches!(
-            self,
-            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
-        )
+        match self {
+            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
+            ExternalValue(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => true,
+            _ => false,
+        }
     }
 
     /// Returns the 'size' of the value

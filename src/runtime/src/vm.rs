@@ -514,9 +514,15 @@ impl Vm {
     /// Makes a ValueIterator that iterates over the provided value's contents
     pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
         use Value::*;
+
+        // If the value implements @iterator, first evaluate @iterator and then use the result
         let value = match value {
-            Map(m) if m.contains_meta_key(&MetaKey::UnaryOp(UnaryOp::Iterator)) => {
+            Map(m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 self.run_unary_op(UnaryOp::Iterator, Map(m))?
+            }
+            ExternalValue(ev) if ev.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                println!("foo");
+                self.run_unary_op(UnaryOp::Iterator, ExternalValue(ev))?
             }
             _ => value,
         };
@@ -1155,7 +1161,7 @@ impl Vm {
     // Runs the MakeIterator instruction
     //
     // Distinct from the public `make_iterator` function, which will defer to this function when
-    // the input value is a map that overloads @iterator.
+    // the input value implements @iterator.
     fn run_make_iterator(&mut self, result: u8, iterable_register: u8) -> InstructionResult {
         use Value::*;
 
@@ -1169,13 +1175,15 @@ impl Vm {
                 List(list) => ValueIterator::with_list(list),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),
-                Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(UnaryOp::Iterator)) => {
-                    let op = map
-                        .get_meta_value(&MetaKey::UnaryOp(UnaryOp::Iterator))
-                        .unwrap();
+                Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                    let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
                     return self.call_overloaded_unary_op(result, iterable_register, op);
                 }
                 Map(map) => ValueIterator::with_map(map),
+                ExternalValue(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                    let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
+                    return self.call_overloaded_unary_op(result, iterable_register, op);
+                }
                 unexpected => {
                     return type_error("Iterable while making iterator", &unexpected);
                 }
@@ -2598,10 +2606,22 @@ impl Vm {
             ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {
-                    return runtime_error!(
-                        "'{key_string}' not found in '{}'",
-                        accessed_value.type_as_string()
-                    );
+                    dbg!("iterator fallback");
+                    // Iterator fallback?
+                    if ev.contains_meta_key(&UnaryOp::Iterator.into()) {
+                        let iterator_op = self.get_core_op(
+                            &key,
+                            &self.context.core_lib.iterator,
+                            false,
+                            &accessed_value.type_as_string(),
+                        )?;
+                        self.set_register(result_register, iterator_op);
+                    } else {
+                        return runtime_error!(
+                            "'{key_string}' not found in '{}'",
+                            accessed_value.type_as_string()
+                        );
+                    }
                 }
             },
             unexpected => return type_error("Value that supports '.' access", unexpected),

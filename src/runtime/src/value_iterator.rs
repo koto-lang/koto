@@ -46,6 +46,15 @@ pub enum ValueIteratorOutput {
     Error(RuntimeError),
 }
 
+impl<T> From<T> for ValueIteratorOutput
+where
+    Value: From<T>,
+{
+    fn from(value: T) -> Self {
+        Self::Value(value.into())
+    }
+}
+
 /// The iterator value type used in Koto
 #[derive(Clone)]
 pub struct ValueIterator(Rc<RefCell<dyn KotoIterator>>);
@@ -54,6 +63,26 @@ impl ValueIterator {
     /// Creates a new ValueIterator from any value that implements [KotoIterator]
     pub fn new(external: impl KotoIterator + 'static) -> Self {
         Self(Rc::new(RefCell::new(external)))
+    }
+
+    /// Creates a new ValueIterator from any iterator that implements DoubleEndedIterator
+    ///
+    /// This should only be used for iterators without side-effects.
+    pub fn with_std_iter<T>(iter: T) -> Self
+    where
+        T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+    {
+        Self::new(StdDoubleEndedIterator::<T> { iter })
+    }
+
+    /// Creates a new ValueIterator from any iterator that implements Iterator
+    ///
+    /// This should only be used for iterators without side-effects.
+    pub fn with_std_forward_iter<T>(iter: T) -> Self
+    where
+        T: Iterator<Item = Output> + Clone + 'static,
+    {
+        Self::new(StdForwardIterator::<T> { iter })
     }
 
     /// Creates a new ValueIterator from a Range
@@ -525,5 +554,86 @@ impl Iterator for GeneratorIterator {
             Ok(result) => Some(ValueIteratorOutput::Value(result)),
             Err(error) => Some(ValueIteratorOutput::Error(error)),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct StdForwardIterator<T>
+where
+    T: Iterator<Item = Output> + Clone + 'static,
+{
+    iter: T,
+}
+
+impl<T> KotoIterator for StdForwardIterator<T>
+where
+    T: Iterator<Item = Output> + Clone + 'static,
+{
+    fn make_copy(&self) -> ValueIterator {
+        ValueIterator::new(self.clone())
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
+    }
+}
+
+impl<T> Iterator for StdForwardIterator<T>
+where
+    T: Iterator<Item = Output> + Clone + 'static,
+{
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+#[derive(Clone)]
+pub struct StdDoubleEndedIterator<T>
+where
+    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+{
+    iter: T,
+}
+
+impl<T> KotoIterator for StdDoubleEndedIterator<T>
+where
+    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+{
+    fn make_copy(&self) -> ValueIterator {
+        ValueIterator::new(self.clone())
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
+    }
+
+    fn is_bidirectional(&self) -> bool {
+        true
+    }
+
+    fn next_back(&mut self) -> Option<ValueIteratorOutput> {
+        self.iter.next_back()
+    }
+}
+
+impl<T> Iterator for StdDoubleEndedIterator<T>
+where
+    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+{
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<T> DoubleEndedIterator for StdDoubleEndedIterator<T>
+where
+    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
     }
 }
