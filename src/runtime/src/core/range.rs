@@ -17,7 +17,29 @@ pub fn make_module() -> ValueMap {
             };
             Ok(result.into())
         }
-        unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
+        [Range(a), Range(b)] => {
+            let a = if a.is_ascending() {
+                *a
+            } else {
+                IntRange {
+                    start: a.end + 1,
+                    end: a.start + 1,
+                }
+            };
+            let b = if b.is_ascending() {
+                *b
+            } else {
+                IntRange {
+                    start: b.end + 1,
+                    end: b.start + 1,
+                }
+            };
+            let result = b.start >= a.start && b.end <= a.end;
+            Ok(result.into())
+        }
+        unexpected => {
+            type_error_with_slice("a Range and a Number or Range as arguments", unexpected)
+        }
     });
 
     result.add_fn("end", |vm, args| match vm.get_args(args) {
