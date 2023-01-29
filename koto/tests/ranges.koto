@@ -48,6 +48,12 @@
     assert not (10..=0).contains(10.5)
     assert not (10..=0).contains(-0.5)
 
+    assert (0..10).contains(3..7)
+    assert not (0..10).contains(-1..10)
+    assert not (0..10).contains(1..11)
+    assert not (0..10).contains(10..1)
+    assert (0..=10).contains(10..1)
+
   @test range_expanded: ||
     x = 10..20
     assert_eq x.expanded(5), 5..25

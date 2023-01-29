@@ -32,6 +32,12 @@ The Koto project adheres to
 - New `color` and `geometry` libs have been added, and are available by default 
   in the CLI.
 - `koto.hash` has been added to allow value hashes to be accessed.
+- `range.contains` can now accept a range as an argument.
+  - e.g. 
+    ```koto
+    (10..30).contains 15..25
+    # true
+    ```
 
 #### Internals
 

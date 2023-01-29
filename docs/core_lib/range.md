@@ -8,6 +8,13 @@
 
 Returns true if the provided number is within the range, and false otherwise.
 
+```kototype
+|Range, Range| -> Bool
+```
+
+Returns true if the provided range is entirely containd within the range, 
+and false otherwise.
+
 ### Example
 
 ```koto
@@ -19,6 +26,12 @@ check! true
 
 x = 1..10
 print! x.contains -1
+check! false
+
+print! (10..20).contains 14..18
+check! true
+
+print! (100..200).contains 50..250
 check! false
 ```
 
