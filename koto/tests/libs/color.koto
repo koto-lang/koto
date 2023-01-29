@@ -43,5 +43,9 @@ import color
   @test index: ||
     assert_eq (color 'blue')[1], 0
     assert_eq (color 'blue')[2], 1
+
+  @test iterator: ||
+    assert_eq (color 'blue').to_tuple(), (0, 0, 1, 1)
+
     r, g, b, a = color 'red'
     assert_eq (r, g, b, a), (1, 0, 0, 1)

@@ -1165,6 +1165,16 @@ impl Compiler {
             .compile_node(ResultRegister::Any, ast.node(expression), ast)?
             .unwrap();
 
+        // If the result is needed then prepare a tuple in the result register
+        if let Some(result) = result {
+            self.push_op(SequenceStart, &[result.register, targets.len() as u8]);
+        }
+
+        // If the RHS is a single value then convert it into an iterator
+        if !rhs_is_temp_tuple {
+            self.push_op(MakeIterator, &[rhs.register, rhs.register]);
+        }
+
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
@@ -1172,16 +1182,35 @@ impl Compiler {
                 Node::Id(id_index) => {
                     match (target_register, self.scope_for_assign_target(target)) {
                         (Some(target_register), Scope::Local) => {
-                            self.push_op(TempIndex, &[*target_register, rhs.register, i as u8]);
+                            if rhs_is_temp_tuple {
+                                self.push_op(TempIndex, &[*target_register, rhs.register, i as u8]);
+                            } else {
+                                self.push_op(IterNext, &[*target_register, rhs.register, 0, 0]);
+                            }
                             // The register was reserved before the RHS was compiled, and now it
                             // needs to be committed.
                             self.commit_local_register(*target_register)?;
+
+                            if let Some(result) = result {
+                                self.push_op(SequencePush, &[result.register, *target_register]);
+                            }
                         }
                         (None, Scope::Export) => {
-                            let index_register = self.push_register()?;
-                            self.push_op(TempIndex, &[index_register, rhs.register, i as u8]);
-                            self.compile_value_export(*id_index, index_register)?;
-                            self.pop_register()?; // index_register
+                            let value_register = self.push_register()?;
+
+                            if rhs_is_temp_tuple {
+                                self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                            } else {
+                                self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                            }
+
+                            self.compile_value_export(*id_index, value_register)?;
+
+                            if let Some(result) = result {
+                                self.push_op(SequencePush, &[result.register, value_register]);
+                            }
+
+                            self.pop_register()?; // value_register
                         }
                         _ => {
                             // Either the scope is local, so there should be a reserved target
@@ -1192,21 +1221,47 @@ impl Compiler {
                     }
                 }
                 Node::Lookup(lookup) => {
-                    let register = self.push_register()?;
+                    let value_register = self.push_register()?;
 
-                    self.push_op(TempIndex, &[register, rhs.register, i as u8]);
+                    if rhs_is_temp_tuple {
+                        self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                    } else {
+                        self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                    }
+
                     self.compile_lookup(
                         ResultRegister::None,
                         lookup,
                         None,
-                        Some(register),
+                        Some(value_register),
                         None,
                         ast,
                     )?;
 
-                    self.pop_register()?;
+                    if let Some(result) = result {
+                        self.push_op(SequencePush, &[result.register, value_register]);
+                    }
+
+                    self.pop_register()?; // value_register
                 }
-                Node::Wildcard(_) => {}
+                Node::Wildcard(_) => {
+                    if let Some(result) = result {
+                        let value_register = self.push_register()?;
+
+                        if rhs_is_temp_tuple {
+                            self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                        } else {
+                            self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                        }
+
+                        self.push_op(SequencePush, &[result.register, value_register]);
+
+                        self.pop_register()?; // value_register
+                    } else if !rhs_is_temp_tuple {
+                        // If the RHS is an iterator then we need to move it along
+                        self.push_op(IterNextQuiet, &[rhs.register, 0, 0]);
+                    }
+                }
                 unexpected => {
                     return compiler_error!(
                         self,
@@ -1218,11 +1273,7 @@ impl Compiler {
         }
 
         if let Some(result) = result {
-            if rhs_is_temp_tuple {
-                self.push_op(TempTupleToTuple, &[result.register, rhs.register]);
-            } else {
-                self.push_op(Copy, &[result.register, rhs.register]);
-            }
+            self.push_op(SequenceToTuple, &[result.register]);
         }
 
         if rhs.is_temporary {

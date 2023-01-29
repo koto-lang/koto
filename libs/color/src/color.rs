@@ -243,7 +243,7 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .data_fn(Display, |x| Ok(x.to_string().into()))
+        .data_fn(Display, |c| Ok(c.to_string().into()))
         .data_fn_with_args(Add, color_arithmetic_op!(+))
         .data_fn_with_args(Subtract, color_arithmetic_op!(-))
         .data_fn_with_args(Multiply, color_arithmetic_op!(*))
@@ -263,6 +263,20 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
                 other => runtime_error!("index out of range (got {other}, should be <= 3)"),
             },
             unexpected => type_error_with_slice("expected a Number", unexpected),
+        })
+        .data_fn(UnaryOp::Iterator, |c| {
+            let c = *c;
+            let iter = (0..=3).map(move |i| {
+                let result = match i {
+                    0 => c.r(),
+                    1 => c.g(),
+                    2 => c.b(),
+                    3 => c.a(),
+                    _ => unreachable!(),
+                };
+                ValueIteratorOutput::Value(result.into())
+            });
+            Ok(ValueIterator::with_std_iter(iter).into())
         })
         .build()
 }

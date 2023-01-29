@@ -408,9 +408,7 @@ l2[1]";
 
         #[test]
         fn assign_two_values() {
-            let script = "
-a, b = 10, 20
-";
+            let script = "a, b = 10, 20";
             test_script(script, number_tuple(&[10, 20]));
         }
 
@@ -426,28 +424,37 @@ a";
         fn list_elements_2_to_2() {
             let script = "
 x = [0, 0]
-x[0], x[1] = -1, 42
-x";
-            test_script(script, number_list(&[-1, 42]));
+x[0], x[1] = -1, 42";
+            test_script(script, number_tuple(&[-1, 42]));
         }
 
         #[test]
         fn unpack_list() {
-            let script = "
-a, b, c = [7, 8]
-a, b, c";
+            let script = "a, b, c = [7, 8]";
             test_script(script, value_tuple(&[7.into(), 8.into(), Null]));
         }
 
         #[test]
         fn multiple_lists() {
-            let script = "
-a, b, c = [1, 2], [3, 4]
-a, b, c";
+            let script = "a, b, c = [1, 2], [3, 4]";
             test_script(
                 script,
                 value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Null]),
             );
+        }
+
+        #[test]
+        fn iterator() {
+            let script = "a, b, c = (1, 2).each |x| x * 10";
+            test_script(script, value_tuple(&[10.into(), 20.into(), Null]));
+        }
+
+        #[test]
+        fn iterator_into_lookups() {
+            let script = "
+x = [1, 2]
+x[0], x[1] = (1, 2).each |x| x * 10";
+            test_script(script, value_tuple(&[10.into(), 20.into()]));
         }
 
         #[test]
@@ -2142,7 +2149,7 @@ foo.x
         use super::*;
 
         #[test]
-        fn placeholder_in_assignment() {
+        fn placeholder_in_multi_assignment() {
             let script = "
 f = || 1, 2, 3
 a, _, c = f()
@@ -2889,16 +2896,35 @@ x[1]
 ";
             test_script(script, 11);
         }
+    }
+
+    mod overloaded_iterator {
+        use super::*;
+
+        #[test]
+        fn generator() {
+            let script = "
+x =
+  @iterator: ||
+    yield 1
+    yield 2
+    yield 3
+x.to_tuple()
+";
+            test_script(script, number_tuple(&[1, 2, 3]));
+        }
 
         #[test]
         fn unpacking() {
             let script = "
 x =
-  @[]: |i| i + 10
-a, b = x
-a + b
+  @iterator: ||
+    yield 10
+    yield 20
+a, b, c = x
+a, b, c
 ";
-            test_script(script, 21);
+            test_script(script, value_tuple(&[10.into(), 20.into(), Null]));
         }
     }
 

@@ -42,6 +42,20 @@ fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn(Display, |r| Ok(r.to_string().into()))
         .data_fn_with_args(Equal, koto_comparison_op!(Rect, ==))
         .data_fn_with_args(NotEqual, koto_comparison_op!(Rect, !=))
+        .data_fn(UnaryOp::Iterator, |r| {
+            let r = *r;
+            let iter = (0..=3).map(move |i| {
+                let result = match i {
+                    0 => r.x(),
+                    1 => r.y(),
+                    2 => r.w(),
+                    3 => r.h(),
+                    _ => unreachable!(),
+                };
+                result.into()
+            });
+            Ok(ValueIterator::with_std_iter(iter).into())
+        })
         .build()
 }
 
