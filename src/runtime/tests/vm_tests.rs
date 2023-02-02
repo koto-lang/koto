@@ -3,8 +3,7 @@ mod runtime_test_utils;
 mod vm {
     use {
         crate::runtime_test_utils::{
-            number, number_list, number_tuple, string, test_script, run_script_with_vm,
-            value_tuple,
+            number, number_list, number_tuple, run_script_with_vm, string, test_script, value_tuple,
         },
         koto_runtime::{prelude::*, Value::*},
     };
@@ -1099,10 +1098,19 @@ f [10, (1, 2, 3), 20, 30]
         #[test]
         fn variadic_function() {
             let script = "
-f = |a, b...|
-  a + b.fold 0, |x, y| x + y
+f = |a, b, c...|
+  a + b + c.fold 0, |x, y| x + y
 f 5, 10, 20, 30";
             test_script(script, 65);
+        }
+
+        #[test]
+        fn variadic_function_stacked_call() {
+            let script = "
+f = |a, b, c...|
+  a + b + c.fold 0, |x, y| x + y
+f (f 5, 10, 20, 30), 40, 50";
+            test_script(script, 155);
         }
 
         #[test]
@@ -1265,18 +1273,14 @@ else
         #[test]
         fn missing_argument_in_function_with_capture() {
             let script = "
-z =
-  foo: || 42
-x = 100
-f = |a|
-  if a then return -a
-  x
-g = |b|
-  b = f z.foo()
-  f()
-g 42
+x = -1
+foo = |a| if a then return a else return x
+# Add some temporary values to the stack,
+# a runtime bug prevented registers from being assigned correctly in foo.
+z = 1 + 2 + 3
+foo()
 ";
-            test_script(script, 100);
+            test_script(script, -1);
         }
 
         #[test]

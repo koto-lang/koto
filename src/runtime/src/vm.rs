@@ -521,7 +521,6 @@ impl Vm {
                 self.run_unary_op(UnaryOp::Iterator, Map(m))?
             }
             ExternalValue(ev) if ev.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                println!("foo");
                 self.run_unary_op(UnaryOp::Iterator, ExternalValue(ev))?
             }
             _ => value,
@@ -2865,18 +2864,18 @@ impl Vm {
             self.truncate_registers(varargs_start + 1);
         }
 
-        let arg_index = self.register_index(frame_base + 1);
-        if expected_arg_count > call_arg_count {
-            // Ensure that temporary registers used to prepare the call args have been removed from
-            // the value stack.
-            let missing_args = expected_arg_count - call_arg_count;
-            self.value_stack.truncate(arg_index + missing_args as usize);
-        }
+        // self is in the frame base register, arguments start from register frame_base + 1
+        let arg_base_index = self.register_index(frame_base) + 1;
+
+        // Ensure that any temporary registers used to prepare the call args have been removed
+        // from the value stack.
+        self.value_stack
+            .truncate(arg_base_index + call_arg_count as usize);
         // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.value_stack
-            .resize(arg_index + function_arg_count as usize, Value::Null);
+            .resize(arg_base_index + function_arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2916,6 +2915,7 @@ impl Vm {
                     .unwrap_or_default();
                 self.set_register(frame_base, instance);
 
+                // self is in the frame base, args start at register 1
                 let arg_base_index = self.register_index(frame_base) + 1;
                 // Remove any temporary registers used to prepare the call args
                 self.value_stack
