@@ -95,9 +95,8 @@ check! -5..5
 ```
 
 Returns the size of the range.
-This is equivalent to `range.end() - range.start()`.
-
-Note that for descending ranges, a negative value will be returned.
+For non-inclusive ranges, this is equivalent to `range.end() - range.start()`.
+For inclusive ranges, this is equivalent to `range.end() + 1 - range.start()`.
 
 ### Example
 
@@ -109,7 +108,7 @@ print! (100..=200).size()
 check! 101
 
 print! (20..0).size()
-check! -20
+check! 20
 ```
 
 ## start

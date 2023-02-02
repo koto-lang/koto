@@ -1,5 +1,5 @@
 use {
-    crate::{IntRange, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
+    crate::prelude::*,
     std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc},
     unicode_segmentation::GraphemeCursor,
 };
@@ -176,12 +176,42 @@ type Output = ValueIteratorOutput;
 
 #[derive(Clone)]
 struct RangeIterator {
-    range: IntRange,
+    start: isize,
+    end: isize,
+    bidirectional: bool,
 }
 
 impl RangeIterator {
     fn new(range: IntRange) -> Self {
-        Self { range }
+        let start = range.start.unwrap_or(0);
+        let end = range
+            .end
+            .map(|(end, inclusive)| {
+                use Ordering::*;
+                match start.cmp(&end) {
+                    Less => {
+                        if inclusive {
+                            end + 1
+                        } else {
+                            end
+                        }
+                    }
+                    Greater => {
+                        if inclusive {
+                            end - 1
+                        } else {
+                            end
+                        }
+                    }
+                    Equal => end,
+                }
+            })
+            .unwrap_or(isize::MAX);
+        Self {
+            start,
+            end,
+            bidirectional: range.start.is_some() && range.end.is_some(),
+        }
     }
 }
 
@@ -195,18 +225,17 @@ impl KotoIterator for RangeIterator {
     }
 
     fn is_bidirectional(&self) -> bool {
-        true
+        self.bidirectional
     }
 
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        let range = &mut self.range;
-        match range.start.cmp(&range.end) {
-            Ordering::Less => range.end -= 1,
-            Ordering::Greater => range.end += 1,
+        match self.start.cmp(&self.end) {
+            Ordering::Less => self.end -= 1,
+            Ordering::Greater => self.end += 1,
             Ordering::Equal => return None,
         }
 
-        Some(ValueIteratorOutput::Value(Value::Number(range.end.into())))
+        Some(ValueIteratorOutput::Value(Value::Number(self.end.into())))
     }
 }
 
@@ -214,17 +243,15 @@ impl Iterator for RangeIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let range = &mut self.range;
-
-        let result = match range.start.cmp(&range.end) {
+        let result = match self.start.cmp(&self.end) {
             Ordering::Less => {
-                let result = range.start;
-                range.start += 1;
+                let result = self.start;
+                self.start += 1;
                 result
             }
             Ordering::Greater => {
-                let result = range.start;
-                range.start -= 1;
+                let result = self.start;
+                self.start -= 1;
                 result
             }
             Ordering::Equal => return None,
@@ -234,7 +261,7 @@ impl Iterator for RangeIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.range.len();
+        let remaining = (self.end - self.start).unsigned_abs();
         (remaining, Some(remaining))
     }
 }

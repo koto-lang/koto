@@ -73,24 +73,24 @@
     assert_eq x.start(), 10
     assert_eq x.end(), 20
 
-    assert_eq (10..=20).end(), 21
+    assert_eq (10..=20).end(), 20
 
   @test range_union: ||
     x = 10..20
 
     assert_eq x.union(5), 5..20
     assert_eq x.union(15), 10..20
-    assert_eq x.union(25), 10..=25
+    assert_eq x.union(25), 10..26
 
     assert_eq x.union(1..15), 1..20
     assert_eq x.union(12..100), 10..100
-    assert_eq x.union(5..=25), 5..=25
-    assert_eq x.union(25..=5), 5..=25
+    assert_eq x.union(5..=2), 2..20
+    assert_eq x.union(25..=5), 5..26
 
   @test range_union_descending: ||
     x = 10..0
 
-    assert_eq x.union(-5), 10..=-5
+    assert_eq x.union(-5), 10..-6
     assert_eq x.union(5), 10..0
     assert_eq x.union(15), 15..0
 

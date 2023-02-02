@@ -3,10 +3,7 @@
 use {
     crate::{prelude::*, ExternalFunction},
     koto_bytecode::Chunk,
-    std::{
-        fmt::{self, Write},
-        rc::Rc,
-    },
+    std::{fmt::Write, rc::Rc},
 };
 
 /// The core Value type for Koto
@@ -57,11 +54,6 @@ pub enum Value {
 
     /// A value type that's defined outside of the Koto runtime
     ExternalValue(ExternalValue),
-
-    /// The range type used as a temporary value in index expressions.
-    ///
-    /// Note: this is intended for internal use only.
-    IndexRange(IndexRange),
 
     /// A tuple of values that are packed into a contiguous series of registers
     ///
@@ -179,7 +171,6 @@ impl Value {
             Number(ValueNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
-            IndexRange { .. } => TYPE_INDEX_RANGE.with(|x| x.clone()),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
                 Some(_) => "Error: expected string for overloaded type".into(),
@@ -212,7 +203,6 @@ impl KotoDisplay for Value {
             Generator(_) => s.write_str("Generator"),
             Iterator(_) => s.write_str("Iterator"),
             ExternalFunction(_) => s.write_str("||"),
-            IndexRange(self::IndexRange { .. }) => s.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(s, "TemporaryTuple [{start}..{}]", start + count)
             }
@@ -239,7 +229,6 @@ thread_local! {
     static TYPE_INT: ValueString = "Int".into();
     static TYPE_LIST: ValueString = "List".into();
     static TYPE_RANGE: ValueString = "Range".into();
-    static TYPE_INDEX_RANGE: ValueString = "IndexRange".into();
     static TYPE_MAP: ValueString = "Map".into();
     static TYPE_OBJECT: ValueString = "Object".into();
     static TYPE_STRING: ValueString = "String".into();
@@ -268,6 +257,12 @@ impl From<bool> for Value {
 impl From<ValueNumber> for Value {
     fn from(value: ValueNumber) -> Self {
         Self::Number(value)
+    }
+}
+
+impl From<IntRange> for Value {
+    fn from(value: IntRange) -> Self {
+        Self::Range(value)
     }
 }
 
@@ -359,57 +354,6 @@ pub struct FunctionInfo {
     //    placing FunctionInfo behind an Rc due to its increased size, so it's not clear if there
     //    would be an overall performance win.
     pub captures: Option<ValueList>,
-}
-
-/// The integer range type that's exposed to users in the runtime
-///
-/// See [Value::Range]
-#[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct IntRange {
-    pub start: isize,
-    pub end: isize,
-}
-
-impl IntRange {
-    /// Returns true if the range's start is less than or equal to its end
-    pub fn is_ascending(&self) -> bool {
-        self.start <= self.end
-    }
-
-    /// Returns the size of the range
-    ///
-    /// Descending ranges have a non-negative size, i.e. the size is equal to `start - end`.
-    pub fn len(&self) -> usize {
-        if self.is_ascending() {
-            (self.end - self.start) as usize
-        } else {
-            (self.start - self.end) as usize
-        }
-    }
-
-    /// Returns true if the range's size is zero
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-impl fmt::Display for IntRange {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}..{}", self.start, self.end)
-    }
-}
-
-/// A range type that's used in indexing expressions
-///
-/// Index ranges have an optional end to support indexing expressions like `foo[10..]`.
-///
-/// See [Value::IndexRange]
-#[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct IndexRange {
-    pub start: usize,
-    pub end: Option<usize>,
 }
 
 /// A slice of a VM's registers

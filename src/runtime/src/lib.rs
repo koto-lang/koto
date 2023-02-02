@@ -7,6 +7,7 @@ mod error;
 mod external;
 mod file;
 mod frame;
+mod int_range;
 mod meta_map;
 mod stdio;
 mod value_iterator;
@@ -28,9 +29,10 @@ pub use {
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
     external::{ExternalData, ExternalFunction, ExternalValue},
     file::{KotoFile, KotoRead, KotoWrite},
+    int_range::IntRange,
     meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
-    value::{FunctionInfo, IntRange, Value},
+    value::{FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},

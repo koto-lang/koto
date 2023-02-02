@@ -61,6 +61,7 @@ The Koto project adheres to
     a, b, c = (1..10).each |n| n * 10
     # 10, 20, 30
     ```
+- Ranges now preserve whether or not they're inclusive.
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 

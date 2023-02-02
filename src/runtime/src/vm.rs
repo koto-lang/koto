@@ -6,7 +6,7 @@ use {
         frame::Frame,
         meta_map::meta_id_to_key,
         prelude::*,
-        value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
+        value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         DefaultStderr, DefaultStdin, DefaultStdout,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
@@ -1091,69 +1091,23 @@ impl Vm {
         end_register: Option<u8>,
         inclusive: bool,
     ) -> InstructionResult {
-        use Value::{IndexRange, Number, Range};
+        use Value::Number;
 
-        let start = start_register.map(|register| self.get_register(register));
-        let end = end_register.map(|register| self.get_register(register));
-
-        let range = match (start, end) {
-            (Some(Number(start)), Some(Number(end))) => {
-                let istart = isize::from(start);
-                let iend = isize::from(end);
-
-                let (start, end) = if inclusive {
-                    if istart <= iend {
-                        (istart, iend + 1)
-                    } else {
-                        (istart, iend - 1)
-                    }
-                } else {
-                    (istart, iend)
-                };
-
-                Range(IntRange { start, end })
-            }
-            (None, Some(Number(end))) => {
-                if *end < 0.0 {
-                    return runtime_error!("RangeTo: negative numbers not allowed, found '{end}'");
-                }
-                let end = if inclusive {
-                    usize::from(end) + 1
-                } else {
-                    usize::from(end)
-                };
-                IndexRange(value::IndexRange {
-                    start: 0,
-                    end: Some(end),
-                })
-            }
-            (Some(Number(start)), None) => {
-                if *start < 0.0 {
-                    return runtime_error!(
-                        "RangeFrom: negative numbers not allowed, found '{start}'"
-                    );
-                }
-                IndexRange(value::IndexRange {
-                    start: usize::from(start),
-                    end: None,
-                })
-            }
-            (None, None) => {
-                // RangeFull
-                IndexRange(value::IndexRange {
-                    start: 0,
-                    end: None,
-                })
-            }
-            (Some(Number(_)), Some(unexpected)) | (None, Some(unexpected)) => {
-                return type_error("Number for range end", unexpected);
-            }
-            (Some(unexpected), _) => {
-                return type_error("Number for range start", unexpected);
-            }
+        let start = match start_register.map(|register| self.get_register(register)) {
+            Some(Number(n)) => Some(isize::from(n)),
+            None => None,
+            Some(unexpected) => return type_error("Number for range start", unexpected),
         };
 
-        self.set_register(register, range);
+        let end = match end_register.map(|register| self.get_register(register)) {
+            Some(Number(n)) => Some((isize::from(n), inclusive)),
+            None => None,
+            Some(unexpected) => return type_error("Number for range end", unexpected),
+        };
+
+        let range = IntRange { start, end };
+
+        self.set_register(register, range.into());
         Ok(())
     }
 
@@ -1826,7 +1780,6 @@ impl Vm {
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
-            (IndexRange(a), IndexRange(b)) => a == b,
             (Null, Null) => true,
             (List(a), List(b)) => {
                 let a = a.clone();
@@ -1892,7 +1845,6 @@ impl Vm {
             (Bool(a), Bool(b)) => a != b,
             (Str(a), Str(b)) => a != b,
             (Range(a), Range(b)) => a != b,
-            (IndexRange(a), IndexRange(b)) => a != b,
             (Null, Null) => false,
             (List(a), List(b)) => {
                 let a = a.clone();
@@ -2225,30 +2177,19 @@ impl Vm {
 
         match indexable {
             List(list) => {
-                let list_len = list.len();
+                let mut list_data = list.data_mut();
+                let list_len = list_data.len();
                 match index_value {
                     Number(index) => {
                         let u_index = usize::from(index);
                         if index >= 0.0 && u_index < list_len {
-                            list.data_mut()[u_index] = value;
+                            list_data[u_index] = value;
                         } else {
                             return runtime_error!("Index '{index}' not in List");
                         }
                     }
-                    Range(IntRange { start, end }) => {
-                        let (ustart, uend) = self.validate_int_range(start, end, Some(list_len))?;
-
-                        let mut list_data = list.data_mut();
-                        for i in ustart..uend {
-                            list_data[i] = value.clone();
-                        }
-                    }
-                    IndexRange(value::IndexRange { start, end }) => {
-                        let end = end.unwrap_or(list_len);
-                        self.validate_index_range(start, end, list_len)?;
-
-                        let mut list_data = list.data_mut();
-                        for i in start..end {
+                    Range(range) => {
+                        for i in range.indices(list_len) {
                             list_data[i] = value.clone();
                         }
                     }
@@ -2275,46 +2216,18 @@ impl Vm {
         Ok(index)
     }
 
-    fn validate_int_range(
-        &self,
-        start: isize,
-        end: isize,
-        size: Option<usize>,
-    ) -> Result<(usize, usize), RuntimeError> {
-        let ustart = start as usize;
-        let uend = end as usize;
-
-        if start < 0 || end < 0 {
-            return runtime_error!(
-                "Indexing with negative indices isn't supported, start: {start}, end: {end}"
-            );
-        } else if start > end {
-            return runtime_error!(
-                "Indexing with a descending range isn't supported, start: {start}, end: {end}"
-            );
-        } else if let Some(size) = size {
-            if ustart > size || uend > size {
-                return runtime_error!(
-                    "Index out of bounds, start: {start}, end: {end}, size: {size}"
-                );
-            }
-        }
-
-        Ok((ustart, uend))
-    }
-
-    fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
-        if start > end {
-            runtime_error!(
-                "Indexing with a descending range isn't supported, start: {start}, end: {end}"
-            )
-        } else if start > size || end > size {
-            runtime_error!("Index out of bounds, start: {start}, end: {end}, size: {size}")
-        } else {
-            Ok(())
-        }
-    }
-
+    // fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
+    //     if start > end {
+    //         runtime_error!(
+    //             "Indexing with a descending range isn't supported, start: {start}, end: {end}"
+    //         )
+    //     } else if start > size || end > size {
+    //         runtime_error!("Index out of bounds, start: {start}, end: {end}, size: {size}")
+    //     } else {
+    //         Ok(())
+    //     }
+    // }
+    //
     fn run_index(
         &mut self,
         result_register: u8,
@@ -2331,81 +2244,27 @@ impl Vm {
                 let index = self.validate_index(n, Some(l.len()))?;
                 self.set_register(result_register, l.data()[index].clone());
             }
-            (List(l), Range(IntRange { start, end })) => {
-                let (start, end) = self.validate_int_range(start, end, Some(l.len()))?;
-                self.set_register(
-                    result_register,
-                    List(ValueList::from_slice(&l.data()[start..end])),
-                )
-            }
-            (List(l), IndexRange(value::IndexRange { start, end })) => {
-                let end = end.unwrap_or_else(|| l.len());
-                self.validate_index_range(start, end, l.len())?;
-                self.set_register(
-                    result_register,
-                    List(ValueList::from_slice(&l.data()[start..end])),
-                )
-            }
+            (List(l), Range(range)) => self.set_register(
+                result_register,
+                List(ValueList::from_slice(&l.data()[range.indices(l.len())])),
+            ),
             (Tuple(t), Number(n)) => {
                 let index = self.validate_index(n, Some(t.len()))?;
                 self.set_register(result_register, t[index].clone());
             }
-            (Tuple(t), Range(IntRange { start, end })) => {
-                let (start, end) = self.validate_int_range(start, end, Some(t.len()))?;
-                // Safety: the tuple indices were validated in validate_int_range
-                let result = t.make_sub_tuple(start..end).unwrap();
-                self.set_register(result_register, Tuple(result))
-            }
-            (Tuple(t), IndexRange(value::IndexRange { start, end })) => {
-                let size = t.len();
-                let end = end.unwrap_or(size);
-                self.validate_index_range(start, end, size)?;
-                // Safety: the tuple indices were validated in validate_index_range
-                let result = t.make_sub_tuple(start..end).unwrap();
+            (Tuple(t), Range(range)) => {
+                // Safety: The tuple's length is passed into range.indices, so the range is valid
+                let result = t.make_sub_tuple(range.indices(t.len())).unwrap();
                 self.set_register(result_register, Tuple(result))
             }
             (Str(s), Number(n)) => {
                 let index = self.validate_index(n, None)?;
-
-                if let Some(result) = s.with_grapheme_indices(index, Some(index + 1)) {
-                    self.set_register(result_register, Str(result));
-                } else {
-                    return runtime_error!(
-                        "Index out of bounds - index: {index}, size: {}",
-                        s.grapheme_count()
-                    );
-                }
+                let result = s.with_grapheme_indices(index..index + 1);
+                self.set_register(result_register, Str(result));
             }
-            (Str(s), Range(IntRange { start, end })) => {
-                let (start, end) = self.validate_int_range(start, end, None)?;
-
-                if let Some(result) = s.with_grapheme_indices(start, Some(end)) {
-                    self.set_register(result_register, Str(result));
-                } else {
-                    return runtime_error!(
-                        "Index out of bounds for string - start: {start}, end {end}, size: {}",
-                        s.grapheme_count()
-                    );
-                }
-            }
-            (Str(s), IndexRange(value::IndexRange { start, end })) => {
-                if let Some(end_unwrapped) = end {
-                    self.validate_int_range(start as isize, end_unwrapped as isize, None)?;
-                }
-
-                if let Some(result) = s.with_grapheme_indices(start, end) {
-                    self.set_register(result_register, Str(result));
-                } else {
-                    return runtime_error!(
-                        "Index out of bounds for string - start: {start}{}, size: {}",
-                        if let Some(end_unwrapped) = end {
-                            format!(", {end_unwrapped}")
-                        } else {
-                            "".to_string()
-                        },
-                        s.grapheme_count()
-                    );
-                }
+            (Str(s), Range(range)) => {
+                let result = s.with_grapheme_indices(range.indices(s.len()));
+                self.set_register(result_register, Str(result));
             }
             (Map(m), index) => {
                 call_binary_op_or_else!(self, result_register, value_register, index, m, Index, {
