@@ -539,7 +539,7 @@ impl fmt::Debug for Instruction {
             } => write!(
                 f,
                 "Function\tresult: {register}\targs: {arg_count}\
-                 \tcaptures: {capture_count}
+                 \t\tcaptures: {capture_count}
                  \t\t\tsize: {size} \tgenerator: {generator}
                  \t\t\tvariadic: {variadic}\targ_is_unpacked_tuple: {arg_is_unpacked_tuple}",
             ),

@@ -3,7 +3,7 @@ mod runtime_test_utils;
 mod vm {
     use {
         crate::runtime_test_utils::{
-            number, number_list, number_tuple, string, test_script, test_script_with_vm,
+            number, number_list, number_tuple, string, test_script, run_script_with_vm,
             value_tuple,
         },
         koto_runtime::{prelude::*, Value::*},
@@ -870,7 +870,9 @@ x
                 Ok(Null)
             });
 
-            test_script_with_vm(vm, script, expected_output);
+            if let Err(e) = run_script_with_vm(vm, script, expected_output) {
+                panic!("{e}");
+            }
         }
 
         #[test]
