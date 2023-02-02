@@ -521,7 +521,6 @@ impl Vm {
                 self.run_unary_op(UnaryOp::Iterator, Map(m))?
             }
             ExternalValue(ev) if ev.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                println!("foo");
                 self.run_unary_op(UnaryOp::Iterator, ExternalValue(ev))?
             }
             _ => value,
@@ -1371,7 +1370,7 @@ impl Vm {
             let capture_list = match function {
                 Value::Function(f) => &f.captures,
                 Value::Generator(g) => &g.captures,
-                unexpected => return type_error("Function", unexpected),
+                unexpected => return type_error("Function while capturing value", unexpected),
             };
 
             match capture_list {
@@ -1386,7 +1385,7 @@ impl Vm {
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
-            runtime_error!("Attempting to capture a reserved value in a temporary function")
+            runtime_error!("Function not found while attempting to capture a value")
         }
     }
 
@@ -2606,7 +2605,6 @@ impl Vm {
             ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {
-                    dbg!("iterator fallback");
                     // Iterator fallback?
                     if ev.contains_meta_key(&UnaryOp::Iterator.into()) {
                         let iterator_op = self.get_core_op(
@@ -2866,18 +2864,18 @@ impl Vm {
             self.truncate_registers(varargs_start + 1);
         }
 
-        let arg_index = self.register_index(frame_base + 1);
-        if expected_arg_count > call_arg_count {
-            // Ensure that temporary registers used to prepare the call args have been removed from
-            // the value stack.
-            let missing_args = expected_arg_count - call_arg_count;
-            self.value_stack.truncate(arg_index + missing_args as usize);
-        }
+        // self is in the frame base register, arguments start from register frame_base + 1
+        let arg_base_index = self.register_index(frame_base) + 1;
+
+        // Ensure that any temporary registers used to prepare the call args have been removed
+        // from the value stack.
+        self.value_stack
+            .truncate(arg_base_index + call_arg_count as usize);
         // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.value_stack
-            .resize(arg_index + function_arg_count as usize, Value::Null);
+            .resize(arg_base_index + function_arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2917,6 +2915,7 @@ impl Vm {
                     .unwrap_or_default();
                 self.set_register(frame_base, instance);
 
+                // self is in the frame base, args start at register 1
                 let arg_base_index = self.register_index(frame_base) + 1;
                 // Remove any temporary registers used to prepare the call args
                 self.value_stack

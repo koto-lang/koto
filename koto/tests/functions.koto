@@ -15,7 +15,10 @@
 
   @test sum_variadic: ||
     sum = |x, y, z...|
-      x + y + z.fold(0, |a, b| a + b)
+      if z
+        x + y + z.fold 0, |a, b| a + b
+      else
+        x + y
     assert_eq (sum 1, 2), 3
     assert_eq (sum 3, 4, 5), 12
     assert_eq (sum 6, 7, 8, 9), 30

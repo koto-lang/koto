@@ -156,7 +156,9 @@ mod external_values {
             _ => runtime_error!("make_external: Expected a Number"),
         });
 
-        test_script_with_vm(vm, script, expected_output.into());
+        if let Err(e) = run_script_with_vm(vm, script, expected_output.into()) {
+            panic!("{e}");
+        }
     }
 
     mod named_functions {

@@ -1,39 +1,11 @@
+mod runtime_test_utils;
+
 use {
+    crate::runtime_test_utils::TestStdout,
     koto_bytecode::{Chunk, Loader},
     koto_runtime::prelude::*,
     std::{cell::RefCell, rc::Rc},
 };
-
-#[derive(Debug)]
-struct TestStdout {
-    output: Rc<RefCell<String>>,
-}
-
-impl KotoFile for TestStdout {
-    fn id(&self) -> ValueString {
-        "_teststdout_".into()
-    }
-}
-
-impl KotoRead for TestStdout {}
-impl KotoWrite for TestStdout {
-    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
-        self.output
-            .borrow_mut()
-            .push_str(std::str::from_utf8(bytes).unwrap());
-        Ok(())
-    }
-
-    fn write_line(&self, s: &str) -> Result<(), RuntimeError> {
-        self.output.borrow_mut().push_str(s);
-        self.output.borrow_mut().push('\n');
-        Ok(())
-    }
-
-    fn flush(&self) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-}
 
 mod vm {
     use super::*;

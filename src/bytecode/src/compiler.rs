@@ -94,7 +94,12 @@ struct Frame {
     exported_ids: HashSet<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
-    last_op: Option<Op>, // used to decide if an additional return instruction is needed
+    // Used to decide if an additional return instruction is needed,
+    // e.g. `f = |x| return x`
+    //               ^ explicit return as final expression, implicit return not needed
+    // This is a coarse check, e.g. we currently don't check if the last expression
+    // returns in all branches, but it'll do for now as an optimization for simple cases.
+    last_node_was_return: bool,
 }
 
 impl Frame {
@@ -405,6 +410,10 @@ impl Compiler {
         use Op::*;
 
         self.span_stack.push(*ast.span(node.span));
+
+        if !self.frame_stack.is_empty() {
+            self.frame_mut().last_node_was_return = matches!(&node.node, Node::Return(_));
+        }
 
         let result = match &node.node {
             Node::Null => {
@@ -843,7 +852,7 @@ impl Compiler {
         let block_result = self.compile_block(result_register, expressions, ast)?;
 
         if let Some(result) = block_result {
-            if self.frame().last_op != Some(Op::Return) {
+            if !self.frame().last_node_was_return {
                 self.push_op_without_span(Op::Return, &[result.register]);
             }
             if result.is_temporary {
@@ -3911,7 +3920,6 @@ impl Compiler {
     fn push_op_without_span(&mut self, op: Op, bytes: &[u8]) {
         self.bytes.push(op as u8);
         self.bytes.extend_from_slice(bytes);
-        self.frame_mut().last_op = Some(op);
     }
 
     fn push_bytes(&mut self, bytes: &[u8]) {
