@@ -1371,7 +1371,7 @@ impl Vm {
             let capture_list = match function {
                 Value::Function(f) => &f.captures,
                 Value::Generator(g) => &g.captures,
-                unexpected => return type_error("Function", unexpected),
+                unexpected => return type_error("Function while capturing value", unexpected),
             };
 
             match capture_list {
@@ -1386,7 +1386,7 @@ impl Vm {
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
-            runtime_error!("Attempting to capture a reserved value in a temporary function")
+            runtime_error!("Function not found while attempting to capture a value")
         }
     }
 
@@ -2606,7 +2606,6 @@ impl Vm {
             ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {
-                    dbg!("iterator fallback");
                     // Iterator fallback?
                     if ev.contains_meta_key(&UnaryOp::Iterator.into()) {
                         let iterator_op = self.get_core_op(

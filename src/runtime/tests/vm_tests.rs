@@ -1263,6 +1263,35 @@ else
         }
 
         #[test]
+        fn missing_argument_in_function_with_capture() {
+            let script = "
+z =
+  foo: || 42
+x = 100
+f = |a|
+  if a then return -a
+  x
+g = |b|
+  b = f z.foo()
+  f()
+g 42
+";
+            test_script(script, 100);
+        }
+
+        #[test]
+        fn returning_captured_value_after_if() {
+            let script = "
+x = 100
+f = ||
+  if false then return -1
+  x
+f()
+";
+            test_script(script, 100);
+        }
+
+        #[test]
         fn mutation_of_captured_map() {
             let script = "
 f = |x|
