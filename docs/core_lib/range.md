@@ -88,6 +88,29 @@ print! (5..-5).expanded -10
 check! -5..5
 ```
 
+## intersection
+
+```kototype
+|Range, Range| -> Range
+```
+
+Returns a range representing the intersectin region of the two input ranges.
+
+If there is no intersecting region then `null` is returned.
+
+### Example
+
+```koto
+print! (10..20).intersection 5..15
+check! 10..15
+
+print! (100..200).intersection 250..=150
+check! 150..200
+
+print! (0..10).intersection 90..99
+check! null
+```
+
 ## is_inclusive
 
 ```kototype

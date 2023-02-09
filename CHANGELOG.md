@@ -39,7 +39,7 @@ The Koto project adheres to
       (10..30).contains 15..25
       # true
       ```
-  - `range.is_inclusive`
+  - `is_inclusive` and `intersection` have been added.
 
 #### Internals
 

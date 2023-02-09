@@ -42,6 +42,11 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
     });
 
+    result.add_fn("intersection", |vm, args| match vm.get_args(args) {
+        [Range(a), Range(b)] => Ok(a.intersection(*b).map_or(Null, |result| result.into())),
+        unexpected => type_error_with_slice("two Ranges", unexpected),
+    });
+
     result.add_fn("is_inclusive", |vm, args| match vm.get_args(args) {
         [Range(r)] => Ok(r.end.map_or(false, |(_end, inclusive)| inclusive).into()),
         unexpected => type_error_with_slice("a Range as argument", unexpected),

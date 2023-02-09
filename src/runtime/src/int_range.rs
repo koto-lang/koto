@@ -94,6 +94,23 @@ impl IntRange {
         start..end
     }
 
+    /// Returns the intersection of two ranges
+    pub fn intersection(&self, other: IntRange) -> Option<Self> {
+        let this = self.as_sorted_range();
+        // let mut result = Self::with_bounds(start, end, inclusive);
+        let other = other.as_sorted_range();
+
+        if !(this.contains(&other.start) || this.contains(&other.end)) {
+            return None;
+        }
+
+        Some(Self::with_bounds(
+            this.start.max(other.start),
+            this.end.min(other.end),
+            false,
+        ))
+    }
+
     /// Returns true if the range's start is less than or equal to its end
     pub fn is_ascending(&self) -> bool {
         match (self.start, self.end) {
@@ -174,6 +191,24 @@ mod tests {
                 end: Some((10, false))
             }
             .as_sorted_range(),
+        );
+    }
+
+    #[test]
+    fn intersection() {
+        assert_eq!(
+            Some(IntRange::with_bounds(15, 20, false)),
+            IntRange::with_bounds(10, 20, false).intersection(IntRange::with_bounds(15, 25, false))
+        );
+        assert_eq!(
+            Some(IntRange::with_bounds(200, 201, false)),
+            IntRange::with_bounds(100, 200, true)
+                .intersection(IntRange::with_bounds(300, 200, true))
+        );
+        assert_eq!(
+            None,
+            IntRange::with_bounds(100, 200, false)
+                .intersection(IntRange::with_bounds(0, 50, false))
         );
     }
 
