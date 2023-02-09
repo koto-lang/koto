@@ -32,12 +32,14 @@ The Koto project adheres to
 - New `color` and `geometry` libs have been added, and are available by default 
   in the CLI.
 - `koto.hash` has been added to allow value hashes to be accessed.
-- `range.contains` can now accept a range as an argument.
-  - e.g. 
-    ```koto
-    (10..30).contains 15..25
-    # true
-    ```
+- `range` additions:
+  - `range.contains` can now accept a range as an argument.
+    - e.g. 
+      ```koto
+      (10..30).contains 15..25
+      # true
+      ```
+  - `is_inclusive` and `intersection` have been added.
 
 #### Internals
 
@@ -61,6 +63,7 @@ The Koto project adheres to
     a, b, c = (1..10).each |n| n * 10
     # 10, 20, 30
     ```
+- Ranges now preserve whether or not they're inclusive.
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 

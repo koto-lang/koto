@@ -68,6 +68,14 @@ impl ValueNumber {
         }
     }
 
+    /// Returns true if the number is not NaN or infinity
+    pub fn is_finite(self) -> bool {
+        match self {
+            Self::F64(n) => n.is_finite(),
+            Self::I64(_) => true,
+        }
+    }
+
     /// Returns true if the number is NaN
     pub fn is_nan(self) -> bool {
         match self {

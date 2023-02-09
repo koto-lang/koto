@@ -88,6 +88,50 @@ print! (5..-5).expanded -10
 check! -5..5
 ```
 
+## intersection
+
+```kototype
+|Range, Range| -> Range
+```
+
+Returns a range representing the intersectin region of the two input ranges.
+
+If there is no intersecting region then `null` is returned.
+
+### Example
+
+```koto
+print! (10..20).intersection 5..15
+check! 10..15
+
+print! (100..200).intersection 250..=150
+check! 150..200
+
+print! (0..10).intersection 90..99
+check! null
+```
+
+## is_inclusive
+
+```kototype
+|Range| -> Bool
+```
+
+Returns true if the range has a defined end which is inclusive.
+
+### Example
+
+```koto
+print! (10..20).is_inclusive()
+check! false
+
+print! (1..=10).is_inclusive()
+check! true
+
+print! (100..).is_inclusive()
+check! false
+```
+
 ## size
 
 ```kototype
@@ -95,9 +139,8 @@ check! -5..5
 ```
 
 Returns the size of the range.
-This is equivalent to `range.end() - range.start()`.
-
-Note that for descending ranges, a negative value will be returned.
+For non-inclusive ranges, this is equivalent to `range.end() - range.start()`.
+For inclusive ranges, this is equivalent to `range.end() + 1 - range.start()`.
 
 ### Example
 
@@ -109,7 +152,7 @@ print! (100..=200).size()
 check! 101
 
 print! (20..0).size()
-check! -20
+check! 20
 ```
 
 ## start

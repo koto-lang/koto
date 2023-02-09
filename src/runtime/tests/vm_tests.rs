@@ -189,16 +189,16 @@ a %= 5
 
         #[test]
         fn range() {
-            test_script("0..10", Range(IntRange { start: 0, end: 10 }));
-            test_script("0..-10", Range(IntRange { start: 0, end: -10 }));
-            test_script("1 + 1..2 + 2", Range(IntRange { start: 2, end: 4 }));
+            test_script("0..10", Range(IntRange::with_bounds(0, 10, false)));
+            test_script("0..-10", Range(IntRange::with_bounds(0, -10, false)));
+            test_script("1 + 1..2 + 2", Range(IntRange::with_bounds(2, 4, false)));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
-            test_script("4..=0", Range(IntRange { start: 4, end: -1 }));
-            test_script("2 * 2..=3 * 3", Range(IntRange { start: 4, end: 10 }));
+            test_script("10..=20", Range(IntRange::with_bounds(10, 20, true)));
+            test_script("4..=0", Range(IntRange::with_bounds(4, 0, true)));
+            test_script("2 * 2..=3 * 3", Range(IntRange::with_bounds(4, 9, true)));
         }
     }
 

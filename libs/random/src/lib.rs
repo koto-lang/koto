@@ -94,14 +94,8 @@ impl ChaChaRng {
                 }
             }
             [Range(r)] => {
-                let (start, end) = if r.end > r.start {
-                    (r.start, r.end)
-                } else {
-                    (r.end, r.start)
-                };
-                let size = end - start;
-                let index = self.0.gen_range(0..size);
-                Ok(Number((start + index).into()))
+                let result = self.0.gen_range(r.as_sorted_range());
+                Ok(result.into())
             }
             [Tuple(t)] => {
                 let index = self.0.gen_range(0..t.len());

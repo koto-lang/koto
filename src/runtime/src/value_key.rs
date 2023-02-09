@@ -64,10 +64,7 @@ impl Hash for ValueKey {
             Bool(b) => b.hash(state),
             Number(n) => n.hash(state),
             Str(s) => s.hash(state),
-            Range(IntRange { start, end }) => {
-                state.write_isize(*start);
-                state.write_isize(*end);
-            }
+            Range(r) => r.hash(state),
             Tuple(t) => {
                 for value in t.iter() {
                     Self(value.clone()).hash(state)

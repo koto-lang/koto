@@ -65,11 +65,14 @@ impl ValueString {
     ///
     /// This allows for subslicing by index, with the index referring to unicode graphemes.
     ///
-    /// When `end` is `None` then the resulting string will have bounds from the `start` grapheme
-    /// to the end of the data.
-    pub fn with_grapheme_indices(&self, start: usize, end: Option<usize>) -> Option<Self> {
-        let end_unwrapped = end.unwrap_or(self.len());
-        debug_assert!(start <= end_unwrapped);
+    /// If the provided indices are out of bounds then an empty string will be returned.
+    pub fn with_grapheme_indices(&self, indices: Range<usize>) -> Self {
+        let start = indices.start;
+        let end = indices.end;
+
+        if start == end {
+            return Self::empty();
+        }
 
         let mut result_start = if start == 0 { Some(0) } else { None };
         let mut result_end = None;
@@ -84,18 +87,9 @@ impl ValueString {
                 //   do_something_with_first_char x[0]
                 //   do_something_with_remaining_string x[1..]
                 result_start = Some(grapheme_start + grapheme.len());
-
-                if end.is_none() {
-                    break;
-                }
             }
 
-            if i == end_unwrapped - 1 {
-                if start == end_unwrapped {
-                    // The start index has been validated, so just return the empty string
-                    return Some(Self::empty());
-                }
-
+            if i == end - 1 {
                 // Checking against end - 1 in the same way as for result_start,
                 // allowing for indexing one-past-the-end.
                 // e.g. assert_eq 'xyz'[1..3], 'yz'
@@ -106,11 +100,11 @@ impl ValueString {
 
         let result_bounds = match (result_start, result_end) {
             (Some(result_start), Some(result_end)) => result_start..result_end,
-            (Some(result_start), None) if end.is_none() => result_start..self.len(),
-            _ => return None,
+            (Some(result_start), None) => result_start..self.len(),
+            _ => return Self::empty(),
         };
 
-        self.with_bounds(result_bounds)
+        self.with_bounds(result_bounds).unwrap_or_else(Self::empty)
     }
 
     /// Returns the number of graphemes contained within the ValueString's bounds

@@ -20,7 +20,7 @@ check! false
 
 ```koto
 print! r = 100..=200
-check! 100..201
+check! 100..=200
 print! r.contains 200
 check! true
 ```
