@@ -88,6 +88,27 @@ print! (5..-5).expanded -10
 check! -5..5
 ```
 
+## is_inclusive
+
+```kototype
+|Range| -> Bool
+```
+
+Returns true if the range has a defined end which is inclusive.
+
+### Example
+
+```koto
+print! (10..20).is_inclusive()
+check! false
+
+print! (1..=10).is_inclusive()
+check! true
+
+print! (100..).is_inclusive()
+check! false
+```
+
 ## size
 
 ```kototype

@@ -42,6 +42,11 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a Range and Number as arguments", unexpected),
     });
 
+    result.add_fn("is_inclusive", |vm, args| match vm.get_args(args) {
+        [Range(r)] => Ok(r.end.map_or(false, |(_end, inclusive)| inclusive).into()),
+        unexpected => type_error_with_slice("a Range as argument", unexpected),
+    });
+
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Range(r)] => match r.size() {
             Some(size) => Ok(size.into()),
