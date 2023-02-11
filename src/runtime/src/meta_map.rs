@@ -386,7 +386,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     ///
     /// This is useful when the value itself is needed rather than its internal data.
     /// When the internal data is needed, see the various `data_` functions.
-    pub fn external_value_fn<Key, F>(mut self, key: Key, f: F) -> Self
+    pub fn value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
         F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
