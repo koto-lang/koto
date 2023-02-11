@@ -78,15 +78,15 @@ macro_rules! koto_arithmetic_op {
 #[macro_export]
 macro_rules! koto_arithmetic_assign_op {
     ($type:ident, $op:tt) => {
-        |a, b| match b {
+        |value, args| match args {
             [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
-                let b = b.data::<$type>().unwrap();
-                *a $op *b;
-                Ok(Value::Null)
+                let b: $type = *b.data::<$type>().unwrap().deref();
+                *value.data_mut::<$type>().unwrap() $op b;
+                Ok(value.clone().into())
             }
             [Value::Number(n)] => {
-                *a $op f64::from(n);
-                Ok(Value::Null)
+                *value.data_mut::<$type>().unwrap() $op f64::from(n);
+                Ok(value.clone().into())
             }
             unexpected => {
                 type_error_with_slice(&format!("a {} or Number", stringify!($type)), unexpected)
@@ -120,10 +120,10 @@ macro_rules! add_ops {
             .data_fn_with_args(Subtract, koto_arithmetic_op!($type, -))
             .data_fn_with_args(Multiply, koto_arithmetic_op!($type, *))
             .data_fn_with_args(Divide, koto_arithmetic_op!($type, /))
-            .data_fn_with_args_mut(AddAssign, koto_arithmetic_assign_op!($type, +=))
-            .data_fn_with_args_mut(SubtractAssign, koto_arithmetic_assign_op!($type, -=))
-            .data_fn_with_args_mut(MultiplyAssign, koto_arithmetic_assign_op!($type, *=))
-            .data_fn_with_args_mut(DivideAssign, koto_arithmetic_assign_op!($type, /=))
+            .value_fn(AddAssign, koto_arithmetic_assign_op!($type, +=))
+            .value_fn(SubtractAssign, koto_arithmetic_assign_op!($type, -=))
+            .value_fn(MultiplyAssign, koto_arithmetic_assign_op!($type, *=))
+            .value_fn(DivideAssign, koto_arithmetic_assign_op!($type, /=))
             .data_fn_with_args(Equal, koto_comparison_op!($type, ==))
             .data_fn_with_args(NotEqual, koto_comparison_op!($type, !=))
     }}
