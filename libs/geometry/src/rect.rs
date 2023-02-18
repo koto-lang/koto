@@ -27,7 +27,8 @@ fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
             }
             unexpected => type_error_with_slice("Vec2", unexpected),
         })
-        .data_fn_with_args_mut("set_center", |r, args| {
+        .value_fn("set_center", |value, args| {
+            let mut r = value.data_mut::<Rect>().unwrap();
             let (x, y) = match args {
                 [Number(x), Number(y)] => (x.into(), y.into()),
                 [ExternalValue(p)] if p.has_data::<Vec2>() => {
@@ -37,7 +38,7 @@ fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
                 unexpected => return type_error_with_slice("two Numbers or a Vec2", unexpected),
             };
             r.0 = Inner::from_x_y_w_h(x, y, r.w(), r.h());
-            Ok(Null)
+            Ok(value.clone().into())
         })
         .data_fn(Display, |r| Ok(r.to_string().into()))
         .data_fn_with_args(Equal, koto_comparison_op!(Rect, ==))

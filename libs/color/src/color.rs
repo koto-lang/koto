@@ -179,13 +179,13 @@ macro_rules! color_arithmetic_assign_op {
     ($op:tt) => {
         |a, b| match b {
             [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
-                let b = b.data::<Color>().unwrap();
-                *a $op *b;
-                Ok(Value::Null)
+                let b: Color = *b.data::<Color>().unwrap();
+                *a.data_mut::<Color>().unwrap() $op b;
+                Ok(a.clone().into())
             }
             [Value::Number(n)] => {
-                *a $op f32::from(n);
-                Ok(Value::Null)
+                *a.data_mut::<Color>().unwrap() $op f32::from(n);
+                Ok(a.clone().into())
             }
             unexpected => {
                 type_error_with_slice("a Color or Number", unexpected)
@@ -215,31 +215,31 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn("g", |c| Ok(c.g().into()))
         .data_fn("b", |c| Ok(c.b().into()))
         .data_fn("a", |c| Ok(c.a().into()))
-        .data_fn_with_args_mut("set_r", |c, args| match args {
+        .value_fn("set_r", |c, args| match args {
             [Number(n)] => {
-                c.color.red = n.into();
-                Ok(Null)
+                c.data_mut::<Color>().unwrap().color.red = n.into();
+                Ok(c.clone().into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .data_fn_with_args_mut("set_g", |c, args| match args {
+        .value_fn("set_g", |c, args| match args {
             [Number(n)] => {
-                c.color.green = n.into();
-                Ok(Null)
+                c.data_mut::<Color>().unwrap().color.green = n.into();
+                Ok(c.clone().into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .data_fn_with_args_mut("set_b", |c, args| match args {
+        .value_fn("set_b", |c, args| match args {
             [Number(n)] => {
-                c.color.blue = n.into();
-                Ok(Null)
+                c.data_mut::<Color>().unwrap().color.blue = n.into();
+                Ok(c.clone().into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .data_fn_with_args_mut("set_a", |c, args| match args {
+        .value_fn("set_a", |c, args| match args {
             [Number(n)] => {
-                c.alpha = n.into();
-                Ok(Null)
+                c.data_mut::<Color>().unwrap().alpha = n.into();
+                Ok(c.clone().into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
@@ -248,10 +248,10 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn_with_args(Subtract, color_arithmetic_op!(-))
         .data_fn_with_args(Multiply, color_arithmetic_op!(*))
         .data_fn_with_args(Divide, color_arithmetic_op!(/))
-        .data_fn_with_args_mut(AddAssign, color_arithmetic_assign_op!(+=))
-        .data_fn_with_args_mut(SubtractAssign, color_arithmetic_assign_op!(-=))
-        .data_fn_with_args_mut(MultiplyAssign, color_arithmetic_assign_op!(*=))
-        .data_fn_with_args_mut(DivideAssign, color_arithmetic_assign_op!(/=))
+        .value_fn(AddAssign, color_arithmetic_assign_op!(+=))
+        .value_fn(SubtractAssign, color_arithmetic_assign_op!(-=))
+        .value_fn(MultiplyAssign, color_arithmetic_assign_op!(*=))
+        .value_fn(DivideAssign, color_arithmetic_assign_op!(/=))
         .data_fn_with_args(Equal, color_comparison_op!(==))
         .data_fn_with_args(NotEqual, color_comparison_op!(!=))
         .data_fn_with_args(Index, |a, b| match b {

@@ -50,15 +50,15 @@ mod external_values {
 
         macro_rules! assignment_op {
             ($op:tt) => {
-                |a, b| match b {
+                |value, args| match args {
                     [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                        let b = b.data::<TestExternalData>().unwrap();
-                        a.x $op b.x;
-                        Ok(Null)
+                        let b = b.data::<TestExternalData>().unwrap().x;
+                        value.data_mut::<TestExternalData>().unwrap().x $op b;
+                        Ok(value.clone().into())
                     }
                     [Number(n)] => {
-                        a.x $op f64::from(n);
-                        Ok(Null)
+                        value.data_mut::<TestExternalData>().unwrap().x $op f64::from(n);
+                        Ok(value.clone().into())
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -96,11 +96,11 @@ mod external_values {
             .data_fn_with_args(Multiply, arithmetic_op!(*))
             .data_fn_with_args(Divide, arithmetic_op!(/))
             .data_fn_with_args(Remainder, arithmetic_op!(%))
-            .data_fn_with_args_mut(AddAssign, assignment_op!(+=))
-            .data_fn_with_args_mut(SubtractAssign, assignment_op!(-=))
-            .data_fn_with_args_mut(MultiplyAssign, assignment_op!(*=))
-            .data_fn_with_args_mut(DivideAssign, assignment_op!(/=))
-            .data_fn_with_args_mut(RemainderAssign, assignment_op!(%=))
+            .value_fn(AddAssign, assignment_op!(+=))
+            .value_fn(SubtractAssign, assignment_op!(-=))
+            .value_fn(MultiplyAssign, assignment_op!(*=))
+            .value_fn(DivideAssign, assignment_op!(/=))
+            .value_fn(RemainderAssign, assignment_op!(%=))
             .data_fn_with_args(Less, comparison_op!(<))
             .data_fn_with_args(LessOrEqual, comparison_op!(<=))
             .data_fn_with_args(Greater, comparison_op!(>))
@@ -127,10 +127,10 @@ mod external_values {
                 data.x *= -1.0;
                 Ok(Null)
             })
-            .data_fn_with_args_mut("set_all_instances", |a, b| match b {
+            .value_fn("set_all_instances", |a, b| match b {
                 [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                    let b = b.data::<TestExternalData>().unwrap();
-                    a.x = b.x;
+                    let b_x = b.data::<TestExternalData>().unwrap().x;
+                    a.data_mut::<TestExternalData>().unwrap().x = b_x;
                     Ok(Null)
                 }
                 unexpected => type_error_with_slice("TestExternalValue", unexpected),
@@ -282,6 +282,16 @@ x += 33
 x.to_number()
 ";
             test_script_with_external_value(script, 66);
+        }
+
+        #[test]
+        fn add_assign_to_self() {
+            let script = "
+x = make_external 11
+x += x
+x.to_number()
+";
+            test_script_with_external_value(script, 22);
         }
 
         #[test]

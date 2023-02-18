@@ -24,14 +24,14 @@ import color
 
   @test set_components: ||
     allowed_error = 1.0e-7
-    c = color 'yellow'
-    c.set_r 0.4
+    c = color('yellow')
+      .set_r 0.4
+      .set_g 0.9
+      .set_b 0.7
+      .set_a 0.2
     assert_near c.r(), 0.4, allowed_error
-    c.set_g 0.9
     assert_near c.g(), 0.9, allowed_error
-    c.set_b 0.7
     assert_near c.b(), 0.7, allowed_error
-    c.set_a 0.2
     assert_near c.a(), 0.2, allowed_error
 
   @test arithmetic: ||

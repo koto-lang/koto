@@ -380,13 +380,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
-    /// Adds a function that provides the ExternalValue instance
+    /// Adds a function that takes the ExternalValue instance as the first argument
     ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument.
+    /// This is useful when the value itself is needed rather than its internal data,
+    /// which is useful for self-modifying functions that return self as the result,
+    /// like when implementing a builder pattern.
     ///
-    /// This is useful when the value itself is needed rather than its internal data.
-    /// When the internal data is needed, see the various `data_` functions.
-    pub fn external_value_fn<Key, F>(mut self, key: Key, f: F) -> Self
+    /// When only the internal data is needed, see the various `data_` functions.
+    pub fn value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
         F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
@@ -396,7 +397,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self.map
             .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
                 [Value::ExternalValue(value), extra_args @ ..]
-                    if value.value_type() == type_name =>
+                    if value.value_type() == type_name && value.has_data::<T>() =>
                 {
                     f(value, extra_args)
                 }
@@ -489,10 +490,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     /// Adds a function that takes an ExternalValue instance, followed by other arguments
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// followed by other arguments.
+    /// followed by any other arguments.
     ///
     /// This is useful when you want mutable access to the internal data of an ExternalValue,
     /// along with following arguments.
+    ///
+    /// The mutable reference take of the first argument will prevent additional references from
+    /// being taken, so if one of the other arguments could be another instance of the first
+    /// argument, then value_fn should be used instead.
     pub fn data_fn_with_args_mut<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
@@ -515,10 +520,14 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     /// Adds a function that takes an ExternalValue instance, along with a shared VM and args
     ///
     /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// followed by other arguments.
+    /// followed by any other arguments, along with a VM that shares the calling context.
     ///
     /// This is useful when you want mutable access to the internal data of an ExternalValue,
     /// along with following arguments.
+    ///
+    /// The mutable reference take of the first argument will prevent additional references from
+    /// being taken, so if one of the other arguments could be another instance of the first
+    /// argument, then value_fn should be used instead.
     pub fn data_fn_with_vm_mut<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,

@@ -172,7 +172,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
 
     MetaMapBuilder::<File>::new("File")
         .data_fn_mut("flush", |file| file.flush().map(|_| Null))
-        .data_fn_mut("path", |file| file.path().map(Value::from))
+        .data_fn("path", |file| file.path().map(Value::from))
         .data_fn_mut("read_line", |file| {
             file.read_line().map(|result| match result {
                 Some(result) => {
@@ -189,12 +189,15 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn_mut("read_to_string", |file: &mut File| {
             file.read_to_string().map(Value::from)
         })
-        .data_fn_with_args_mut("seek", |file, args| match args {
+        .value_fn("seek", |file, args| match args {
             [Number(n)] => {
                 if *n < 0.0 {
                     return runtime_error!("Negative seek positions not allowed");
                 }
-                file.seek(n.into()).map(|_| Value::Null)
+                file.data_mut::<File>()
+                    .unwrap()
+                    .seek(n.into())
+                    .map(|_| Value::Null)
             }
             unexpected => {
                 type_error_with_slice("a non-negative Number as the seek position", unexpected)
