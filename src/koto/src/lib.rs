@@ -14,7 +14,7 @@
 //!     Ok(_) => match koto.run() {
 //!         Ok(result) => match result {
 //!             Value::Number(n) => println!("{n}"), // 3.0
-//!             other => panic!("Unexpected result: {}", other),
+//!             other => panic!("Unexpected result type: {}", other.type_as_string()),
 //!         },
 //!         Err(runtime_error) => {
 //!             panic!("Runtime error: {runtime_error}");
