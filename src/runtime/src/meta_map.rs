@@ -1,6 +1,6 @@
 use {
     crate::{
-        external::{ArgRegisters, ExternalFunction},
+        external_function::{ArgRegisters, ExternalFunction},
         prelude::*,
     },
     indexmap::{Equivalent, IndexMap},

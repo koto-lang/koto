@@ -4,7 +4,8 @@
 
 mod display;
 mod error;
-mod external;
+mod external_function;
+mod external_value;
 mod file;
 mod frame;
 mod int_range;
@@ -27,7 +28,8 @@ pub mod value;
 pub use {
     display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
-    external::{ExternalData, ExternalFunction, ExternalValue},
+    external_function::ExternalFunction,
+    external_value::{ExternalData, ExternalValue},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
     meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},

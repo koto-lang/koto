@@ -2,7 +2,7 @@ use {
     crate::{
         core::CoreLib,
         error::RuntimeErrorType,
-        external::{self, ArgRegisters, ExternalFunction},
+        external_function::{self, ArgRegisters, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
         prelude::*,
@@ -2500,7 +2500,7 @@ impl Vm {
                 // ...where it needs to behave as an instance function.
                 // There's surely a cleaner way to achieve this, but this will do for now...
                 ExternalFunction(f) => {
-                    let f_as_instance_function = external::ExternalFunction {
+                    let f_as_instance_function = external_function::ExternalFunction {
                         is_instance_function: true,
                         ..f
                     };
