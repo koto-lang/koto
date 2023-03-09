@@ -14,11 +14,11 @@ type Inner = palette::rgb::LinSrgba;
 pub struct Color(Inner);
 
 impl Color {
-    pub fn from_r_g_b(r: f32, g: f32, b: f32) -> Self {
+    pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self(Inner::new(r, g, b, 1.0))
     }
 
-    pub fn from_r_g_b_a(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self(Inner::new(r, g, b, a))
     }
 
@@ -38,19 +38,19 @@ impl Color {
         self.0
     }
 
-    pub fn r(&self) -> f32 {
+    pub fn red(&self) -> f32 {
         self.color.red
     }
 
-    pub fn g(&self) -> f32 {
+    pub fn green(&self) -> f32 {
         self.color.green
     }
 
-    pub fn b(&self) -> f32 {
+    pub fn blue(&self) -> f32 {
         self.color.blue
     }
 
-    pub fn a(&self) -> f32 {
+    pub fn alpha(&self) -> f32 {
         self.alpha
     }
 }
@@ -77,7 +77,7 @@ impl DerefMut for Color {
 
 impl From<(f32, f32, f32, f32)> for Color {
     fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
-        Self::from_r_g_b_a(r, g, b, a)
+        Self::rgba(r, g, b, a)
     }
 }
 
@@ -99,10 +99,10 @@ impl fmt::Display for Color {
         write!(
             f,
             "Color {{r: {}, g: {}, b: {}, a: {}}}",
-            self.r(),
-            self.g(),
-            self.b(),
-            self.a()
+            self.red(),
+            self.green(),
+            self.blue(),
+            self.alpha()
         )
     }
 }
@@ -211,38 +211,46 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Color>::new("Color")
-        .data_fn("r", |c| Ok(c.r().into()))
-        .data_fn("g", |c| Ok(c.g().into()))
-        .data_fn("b", |c| Ok(c.b().into()))
-        .data_fn("a", |c| Ok(c.a().into()))
-        .value_fn("set_r", |c, args| match args {
+        .data_fn("red", |c| Ok(c.red().into()))
+        .alias("red", "r")
+        .data_fn("green", |c| Ok(c.green().into()))
+        .alias("green", "g")
+        .data_fn("blue", |c| Ok(c.blue().into()))
+        .alias("blue", "b")
+        .data_fn("alpha", |c| Ok(c.alpha().into()))
+        .alias("alpha", "a")
+        .value_fn("set_red", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.red = n.into();
                 Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_g", |c, args| match args {
+        .alias("set_red", "set_r")
+        .value_fn("set_green", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.green = n.into();
                 Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_b", |c, args| match args {
+        .alias("set_green", "set_g")
+        .value_fn("set_blue", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.blue = n.into();
                 Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_a", |c, args| match args {
+        .alias("set_blue", "set_b")
+        .value_fn("set_alpha", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().alpha = n.into();
                 Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
+        .alias("set_alpha", "set_a")
         .data_fn(Display, |c| Ok(c.to_string().into()))
         .data_fn_with_args(Add, color_arithmetic_op!(+))
         .data_fn_with_args(Subtract, color_arithmetic_op!(-))
@@ -256,10 +264,10 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .data_fn_with_args(NotEqual, color_comparison_op!(!=))
         .data_fn_with_args(Index, |a, b| match b {
             [Number(n)] => match usize::from(n) {
-                0 => Ok(a.r().into()),
-                1 => Ok(a.g().into()),
-                2 => Ok(a.b().into()),
-                3 => Ok(a.a().into()),
+                0 => Ok(a.red().into()),
+                1 => Ok(a.green().into()),
+                2 => Ok(a.blue().into()),
+                3 => Ok(a.alpha().into()),
                 other => runtime_error!("index out of range (got {other}, should be <= 3)"),
             },
             unexpected => type_error_with_slice("expected a Number", unexpected),
@@ -268,10 +276,10 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
             let c = *c;
             let iter = (0..=3).map(move |i| {
                 let result = match i {
-                    0 => c.r(),
-                    1 => c.g(),
-                    2 => c.b(),
-                    3 => c.a(),
+                    0 => c.red(),
+                    1 => c.green(),
+                    2 => c.blue(),
+                    3 => c.alpha(),
                     _ => unreachable!(),
                 };
                 ValueIteratorOutput::Value(result.into())

@@ -47,9 +47,9 @@ fn named(name: &str) -> RuntimeResult {
 }
 
 fn rgb(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber) -> RuntimeResult {
-    Ok(Color::from_r_g_b(r.into(), g.into(), b.into()).into())
+    Ok(Color::rgb(r.into(), g.into(), b.into()).into())
 }
 
 fn rgba(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber, a: &ValueNumber) -> RuntimeResult {
-    Ok(Color::from_r_g_b_a(r.into(), g.into(), b.into(), a.into()).into())
+    Ok(Color::rgba(r.into(), g.into(), b.into(), a.into()).into())
 }

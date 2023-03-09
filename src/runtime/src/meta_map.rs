@@ -380,6 +380,25 @@ impl<T: ExternalData> MetaMapBuilder<T> {
         self
     }
 
+    /// Creates an alias for an existing entry
+    ///
+    /// Currently no error is returned if the requested entry doesn't exist,
+    /// this could be revisited if turns out returning an error would be useful.
+    pub fn alias<KeySource, KeyTarget>(
+        mut self,
+        key_source: KeySource,
+        key_target: KeyTarget,
+    ) -> Self
+    where
+        KeySource: Into<MetaKey>,
+        KeyTarget: Into<MetaKey>,
+    {
+        if let Some(existing) = self.map.get(&key_source.into()).cloned() {
+            self.map.insert(key_target.into(), existing);
+        }
+        self
+    }
+
     /// Adds a function that takes the ExternalValue instance as the first argument
     ///
     /// This is useful when the value itself is needed rather than its internal data,
