@@ -390,7 +390,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     pub fn value_fn<Key, F>(mut self, key: Key, f: F) -> Self
     where
         Key: Into<MetaKey>,
-        F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
+        F: Fn(ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.type_name.clone();
 
@@ -399,7 +399,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
                 [Value::ExternalValue(value), extra_args @ ..]
                     if value.value_type() == type_name && value.has_data::<T>() =>
                 {
-                    f(value, extra_args)
+                    f(value.clone(), extra_args)
                 }
                 other => unexpected_instance_type(&type_name, other),
             });

@@ -36,10 +36,8 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
             }
             unexpected => type_error_with_slice("a String", unexpected),
         })
-        .value_fn("iter", |poetry_value, _args| {
-            let iter = PoetryIter {
-                poetry: poetry_value.clone(),
-            };
+        .value_fn("iter", |poetry, _args| {
+            let iter = PoetryIter { poetry };
             Ok(ValueIterator::new(iter).into())
         })
         .data_fn_mut("next_word", |poetry| {

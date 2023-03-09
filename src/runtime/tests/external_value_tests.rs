@@ -54,11 +54,11 @@ mod external_values {
                     [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
                         let b = b.data::<TestExternalData>().unwrap().x;
                         value.data_mut::<TestExternalData>().unwrap().x $op b;
-                        Ok(value.clone().into())
+                        Ok(value.into())
                     }
                     [Number(n)] => {
                         value.data_mut::<TestExternalData>().unwrap().x $op f64::from(n);
-                        Ok(value.clone().into())
+                        Ok(value.into())
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)

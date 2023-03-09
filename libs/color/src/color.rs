@@ -218,28 +218,28 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
         .value_fn("set_r", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.red = n.into();
-                Ok(c.clone().into())
+                Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
         .value_fn("set_g", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.green = n.into();
-                Ok(c.clone().into())
+                Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
         .value_fn("set_b", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().color.blue = n.into();
-                Ok(c.clone().into())
+                Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
         .value_fn("set_a", |c, args| match args {
             [Number(n)] => {
                 c.data_mut::<Color>().unwrap().alpha = n.into();
-                Ok(c.clone().into())
+                Ok(c.into())
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
