@@ -22,20 +22,6 @@ make_foo = |x|
 
     assert not [(bar 1)].contains (bar 1)
 
-  @test copy: ||
-    x = [1, 2, 3]
-    x2 = x
-    x3 = x.copy()
-    x[0] = 99
-    assert_eq x2[0], 99
-    assert_eq x3[0], 1
-
-  @test deep_copy: ||
-    x = [1, [2, 3]]
-    x2 = x.deep_copy()
-    x[1][0] = 99
-    assert_eq x2[1][0], 2
-
   @test extend: ||
     x = [1, 2, 3]
     x.extend [10, 20, 30]

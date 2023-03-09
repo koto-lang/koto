@@ -27,65 +27,6 @@ check! {}
 Returns `true` if the map contains a value with the given key,
 and `false` otherwise.
 
-## copy
-
-```kototype
-|Map| -> Map
-```
-
-Makes a unique copy of the map data.
-
-Note that this only copies the first level of data, so nested containers
-will share their data with their counterparts in the copy. To make a copy where
-any nested containers are also unique, use [`map.deep_copy`](#deep-copy).
-
-### Example
-
-```koto
-x = {foo: -1, bar: 99}
-y = x
-y.foo = 42
-print! x.foo
-check! 42
-
-z = x.copy()
-z.bar = -1
-print! x.bar # x.bar remains unmodified due to the copy
-check! 99
-```
-
-### See also
-
-- [`map.deep_copy`](#deep-copy)
-
-## deep_copy
-
-```kototype
-|Map| -> Map
-```
-
-Makes a unique _deep_ copy of the map data.
-
-This makes a unique copy of the map data, and then recursively makes deep copies
-of any nested containers in the map.
-
-If only the first level of data needs to be made unique, then use
-[`map.copy`](#copy).
-
-### Example
-
-```koto
-x = {foo: 42, bar: {baz: 99}}
-y = x.deep_copy()
-y.bar.baz = 123
-print! x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
-check! 99
-```
-
-### See also
-
-- [`map.copy`](#copy)
-
 ## extend
 
 ```kototype

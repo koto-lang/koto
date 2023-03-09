@@ -33,65 +33,6 @@ print! [1, 'hello', (99, -1)].contains 'hello'
 check! true
 ```
 
-## copy
-
-```kototype
-|List| -> List
-```
-
-Makes a unique copy of the list data.
-
-Note that this only copies the first level of data, so nested containers
-will share their data with their counterparts in the copy. To make a copy where
-any nested containers are also unique, use [`list.deep_copy`](#deep-copy).
-
-### Example
-
-```koto
-x = [1, 2, 'hello']
-y = x
-y[0] = 'abc' # x and y share the same internal list data
-print! x
-check! ['abc', 2, 'hello']
-
-z = x.copy()
-z[1] = -1 # z is a copy of x, so has unique internal data
-print! x # x remains unchanged after the modificaton of z
-check! ['abc', 2, 'hello']
-```
-
-### See also
-
-- [`list.deep_copy`](#deep-copy)
-
-## deep_copy
-
-```kototype
-|List| -> List
-```
-
-Makes a unique _deep_ copy of the list data.
-
-This makes a unique copy of the list data, and then recursively makes deep
-copies of any nested containers in the list.
-
-If only the first level of data needs to be made unique, then use
-[`list.copy`](#copy).
-
-### Example
-
-```koto
-x = [[1, 2], [3, [4, 5]]]
-y = x.deep_copy()
-y[1][1] = 99
-print! x # a deep copy has been made, so x is unaffected by the assignment to y
-check! [[1, 2], [3, [4, 5]]]
-```
-
-### See also
-
-- [`list.copy`](#copy)
-
 ## extend
 
 ```kototype

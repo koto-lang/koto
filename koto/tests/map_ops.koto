@@ -16,12 +16,6 @@ make_foo = |x|
     assert m.contains_key "bar"
     assert not m.contains_key "baz"
 
-  @test deep_copy: ||
-    m = {foo: 42, bar: {baz: 99}}
-    m2 = m.deep_copy()
-    m.bar.baz = 123
-    assert_eq m2.bar.baz, 99
-
   @test extend: ||
     m = {foo: 42, bar: 99}
     m.extend ['baz', ('foo', 123)]

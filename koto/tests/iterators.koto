@@ -91,7 +91,7 @@ make_foo = |x|
   @test copy: ||
     x = (1..10).iter()
     y = x # x and y share the same iteration count
-    z = x.copy() # z gets a unique iteration count, starting from where x's current count
+    z = copy x # z gets a unique iteration count, starting from where x's current count
     assert_eq x.next(), 1
     assert_eq x.next(), 2
     assert_eq y.next(), 3

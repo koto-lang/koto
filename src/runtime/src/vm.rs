@@ -77,6 +77,8 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     default_import!("assert_ne", test);
     default_import!("assert_near", test);
     default_import!("print", io);
+    default_import!("copy", koto);
+    default_import!("deep_copy", koto);
     default_import!("type", koto);
 
     (core_lib, prelude)

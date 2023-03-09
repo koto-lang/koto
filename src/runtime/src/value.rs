@@ -284,6 +284,12 @@ impl From<ValueString> for Value {
     }
 }
 
+impl From<ValueList> for Value {
+    fn from(value: ValueList) -> Self {
+        Self::List(value)
+    }
+}
+
 impl From<ValueMap> for Value {
     fn from(value: ValueMap) -> Self {
         Self::Map(value)

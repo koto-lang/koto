@@ -28,16 +28,6 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a Map and key as arguments", unexpected),
     });
 
-    result.add_fn("copy", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Map(ValueMap::with_data(m.data().clone()))),
-        unexpected => type_error_with_slice("a Map as argument", unexpected),
-    });
-
-    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ Map(_)] => Ok(value.deep_copy()),
-        unexpected => type_error_with_slice("a Map as argument", unexpected),
-    });
-
     result.add_fn("extend", |vm, args| match vm.get_args(args) {
         [Map(m), Map(other)] => {
             m.data_mut().extend(

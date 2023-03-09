@@ -9,8 +9,8 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredu
 fannkuch = |n|
   assert n >= 4
   p = (0..=n).to_list()
-  s = p.copy()
-  q = p.copy()
+  s = copy p
+  q = copy p
   sign = 1
   sum = 0
   max_flips = 0
@@ -18,7 +18,7 @@ fannkuch = |n|
     # flip
     q1 = p[1]
     if q1 != 1
-      q = p.copy()
+      q = copy p
       flips = 1
       while true
         qq = q[q1]

@@ -30,11 +30,6 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a Tuple and Value as arguments", unexpected),
     });
 
-    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ Tuple(_)] => Ok(value.deep_copy()),
-        unexpected => expected_tuple_error(unexpected),
-    });
-
     result.add_fn("first", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => match t.first() {
             Some(value) => Ok(value.clone()),

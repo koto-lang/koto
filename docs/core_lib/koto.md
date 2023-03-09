@@ -25,6 +25,107 @@ koto.args.last()
 # hello
 ```
 
+## copy
+
+```kototype
+|Value| -> Value
+```
+
+Makes a copy of the value. 
+
+### Shared mutable data
+
+For values that have shared mutable data (i.e., `List`, `Map`), unique copies of
+the data will be made. Note that this only applies to the first level of data,
+so nested containers will still share their data with their counterparts in the
+original data. To make a copy where any nested containers are also unique, 
+use [`koto.deep_copy`](#deep-copy).
+
+### Iterator copies
+
+Copied iterators share the same underlying data as the original, but have a
+unique iteration position, which is part of an iterator's shared state by
+default.
+
+If the iterator is a generator, some effort will be made to make the generator's
+copy produce the same output as the original. However, this isn't guaranteed to
+be successful. Specifically, the value stack of the copied virtual machine will
+be scanned for iterators, and each iterator will have a copy made. Iterators
+that may be used in other ways by the generator (such as being stored in
+containers or function captures) won't be copied and will still have shared
+state.
+
+
+### Examples
+
+```koto
+# Copying a map
+x = {foo: -1, bar: 99}
+y = x
+y.foo = 42
+print! x.foo
+check! 42
+
+z = koto.copy x
+z.bar = -1
+print! x.bar # x.bar remains unmodified due to the copy
+check! 99
+```
+
+```koto
+# Copying a list
+
+x = (1..=10).iter()
+y = x # y shares the same iteration position as x.
+z = koto.copy x # z shares the same iteration data (the range 1..=10),
+                # but has a unique iteration position.
+
+print! x.next()
+check! 1
+print! x.next()
+check! 2
+print! y.next() # y shares x's iteration position.
+check! 3
+print! z.next() # z's iteration hasn't been impacted by the advancing of x and y.
+check! 1
+```
+
+### See also
+
+- [`koto.deep_copy`](#deep-copy)
+
+
+## deep_copy
+
+```kototype
+|Value| -> Value
+```
+
+Makes a unique _deep_ copy of the value's data.
+
+### Shared mutable data
+
+This makes a unique copy of the value's data, and then recursively makes deep
+copies of any nested containers in the value.
+
+If only the first level of data needs to be made unique, then use
+[`koto.copy`](#copy).
+
+### Example
+
+```koto
+x = [[1, 2], [3, [4, 5]]]
+y = koto.deep_copy x
+y[1][1] = 99
+print! x # a deep copy has been made, so x is unaffected by the assignment to y
+check! [[1, 2], [3, [4, 5]]]
+```
+
+### See also
+
+- [`koto.copy`](#copy)
+
+
 ## exports
 
 ```kototype
