@@ -1,7 +1,6 @@
 use {
     koto::prelude::*,
     std::{
-        cell::RefCell,
         ops::Deref,
         path::{Path, PathBuf},
         rc::Rc,
@@ -10,12 +9,12 @@ use {
 
 struct ExampleTestRunner {
     koto: Koto,
-    output: Rc<RefCell<String>>,
+    output: RcCell<String>,
 }
 
 impl ExampleTestRunner {
     fn new() -> Self {
-        let output = Rc::new(RefCell::new(String::new()));
+        let output = RcCell::from(String::new());
 
         Self {
             output: output.clone(),
@@ -74,7 +73,7 @@ impl ExampleTestRunner {
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: Rc<RefCell<String>>,
+    output: RcCell<String>,
 }
 
 impl KotoFile for OutputCapture {

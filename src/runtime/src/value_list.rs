@@ -1,9 +1,6 @@
 use {
     crate::prelude::*,
-    std::{
-        cell::{Ref, RefCell, RefMut},
-        rc::Rc,
-    },
+    std::cell::{Ref, RefMut},
 };
 
 /// The underlying Vec type used by [ValueList]
@@ -11,24 +8,22 @@ pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 /// The Koto runtime's List type
 #[derive(Clone, Debug, Default)]
-pub struct ValueList(Rc<RefCell<ValueVec>>);
+pub struct ValueList(RcCell<ValueVec>);
 
 impl ValueList {
     /// Creates an empty list with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Rc::new(RefCell::new(ValueVec::with_capacity(capacity))))
+        Self(ValueVec::with_capacity(capacity).into())
     }
 
     /// Creates a list containing the provided data
     pub fn with_data(data: ValueVec) -> Self {
-        Self(Rc::new(RefCell::new(data)))
+        Self(data.into())
     }
 
     /// Creates a list containing the provided slice of [Values](crate::Value)
     pub fn from_slice(data: &[Value]) -> Self {
-        Self(Rc::new(RefCell::new(
-            data.iter().cloned().collect::<ValueVec>(),
-        )))
+        Self(data.iter().cloned().collect::<ValueVec>().into())
     }
 
     /// Returns the number of entries of the list

@@ -2,8 +2,9 @@ use {
     crate::prelude::*,
     downcast_rs::impl_downcast,
     std::{
-        cell::{Ref, RefMut},
+        cell::{Ref, RefCell, RefMut},
         fmt,
+        rc::Rc,
     },
 };
 
@@ -21,6 +22,15 @@ pub trait ExternalData: Downcast {
     }
 }
 
+impl_downcast!(ExternalData);
+
+// Produce an RcCell<dyn External> from a value that implements ExternalData
+impl<T: ExternalData> From<T> for RcCell<dyn ExternalData> {
+    fn from(value: T) -> Self {
+        RcCell::from(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn ExternalData>>)
+    }
+}
+
 impl fmt::Display for dyn ExternalData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.data_type())
@@ -33,15 +43,13 @@ impl fmt::Debug for dyn ExternalData {
     }
 }
 
-impl_downcast!(ExternalData);
-
 /// A value with data and behaviour defined externally to the Koto runtime
 #[derive(Clone, Debug)]
 pub struct ExternalValue {
     /// The [ExternalData] held by the value
-    pub data: Rc<RefCell<dyn ExternalData>>,
+    pub data: RcCell<dyn ExternalData>,
     /// The [MetaMap] held by the value
-    pub meta: Rc<RefCell<MetaMap>>,
+    pub meta: RcCell<MetaMap>,
 }
 
 impl ExternalValue {
@@ -51,15 +59,15 @@ impl ExternalValue {
     /// see [ExternalValue::with_shared_meta_map].
     pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
-            meta: Rc::new(RefCell::new(meta)),
+            data: data.into(),
+            meta: meta.into(),
         }
     }
 
     /// Creates a new ExternalValue from [ExternalData] and a shared [MetaMap]
-    pub fn with_shared_meta_map(data: impl ExternalData, meta: Rc<RefCell<MetaMap>>) -> Self {
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: RcCell<MetaMap>) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
+            data: data.into(),
             meta,
         }
     }
@@ -68,7 +76,7 @@ impl ExternalValue {
     #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
+            data: data.into(),
             meta: self.meta.clone(),
         }
     }

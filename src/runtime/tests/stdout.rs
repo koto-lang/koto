@@ -4,14 +4,14 @@ use {
     crate::runtime_test_utils::TestStdout,
     koto_bytecode::{Chunk, Loader},
     koto_runtime::prelude::*,
-    std::{cell::RefCell, rc::Rc},
+    std::rc::Rc,
 };
 
 mod vm {
     use super::*;
 
     fn check_logged_output(script: &str, expected_output: &str) {
-        let output = Rc::new(RefCell::new(String::new()));
+        let output = RcCell::from(String::new());
 
         let mut vm = Vm::with_settings(VmSettings {
             stdout: Rc::new(TestStdout {

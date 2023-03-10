@@ -2,14 +2,12 @@ use {
     koto_runtime::prelude::*,
     nannou_core::geom::DVec2,
     std::{
-        cell::RefCell,
         fmt,
         ops::{self, Deref},
-        rc::Rc,
     },
 };
 
-fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_vec2_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, Value::*};
 
     let builder = MetaMapBuilder::<Vec2>::new("Vec2");
@@ -42,7 +40,7 @@ fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static VEC2_META: Rc<RefCell<MetaMap>> = make_vec2_meta_map();
+    static VEC2_META: RcCell<MetaMap> = make_vec2_meta_map();
     static TYPE_VEC2: ValueString = "Vec2".into();
 }
 

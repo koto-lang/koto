@@ -1,12 +1,12 @@
 use {
     crate::Vec2,
     koto_runtime::prelude::*,
-    std::{cell::RefCell, fmt, ops::Deref, rc::Rc},
+    std::{fmt, ops::Deref},
 };
 
 type Inner = nannou_core::geom::Rect<f64>;
 
-fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_rect_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Rect>::new("Rect")
@@ -61,7 +61,7 @@ fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static RECT_META: Rc<RefCell<MetaMap>> = make_rect_meta_map();
+    static RECT_META: RcCell<MetaMap> = make_rect_meta_map();
     static TYPE_RECT: ValueString = "Rect".into();
 }
 

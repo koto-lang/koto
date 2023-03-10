@@ -1,8 +1,4 @@
-use {
-    crate::Poetry,
-    koto::prelude::*,
-    std::{cell::RefCell, rc::Rc},
-};
+use {crate::Poetry, koto::prelude::*};
 
 pub fn make_module() -> ValueMap {
     let result = ValueMap::new();
@@ -22,10 +18,10 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = make_poetry_meta_map();
+    static POETRY_BINDINGS: RcCell<MetaMap> = make_poetry_meta_map();
 }
 
-fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_poetry_meta_map() -> RcCell<MetaMap> {
     use Value::{Null, Str};
 
     MetaMapBuilder::<KotoPoetry>::new("Poetry")

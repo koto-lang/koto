@@ -7,7 +7,7 @@ use {
 };
 
 pub fn test_script(script: &str, expected_output: impl Into<Value>) {
-    let output = Rc::new(RefCell::new(String::new()));
+    let output = RcCell::from(String::new());
 
     let vm = Vm::with_settings(VmSettings {
         stdout: Rc::new(TestStdout {
@@ -127,7 +127,7 @@ pub fn string(s: &str) -> Value {
 
 #[derive(Debug)]
 pub struct TestStdout {
-    pub output: Rc<RefCell<String>>,
+    pub output: RcCell<String>,
 }
 
 impl KotoFile for TestStdout {

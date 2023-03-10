@@ -6,11 +6,10 @@ use {
     indexmap::IndexMap,
     rustc_hash::FxHasher,
     std::{
-        cell::{Ref, RefCell, RefMut},
+        cell::{Ref, RefMut},
         hash::BuildHasherDefault,
         iter::IntoIterator,
         ops::{Deref, DerefMut},
-        rc::Rc,
     },
 };
 
@@ -58,8 +57,8 @@ impl FromIterator<(ValueKey, Value)> for DataMap {
 /// The Map value type used in Koto
 #[derive(Clone, Debug, Default)]
 pub struct ValueMap {
-    data: Rc<RefCell<DataMap>>,
-    meta: Option<Rc<RefCell<MetaMap>>>,
+    data: RcCell<DataMap>,
+    meta: Option<RcCell<MetaMap>>,
 }
 
 impl ValueMap {
@@ -81,8 +80,8 @@ impl ValueMap {
     /// Creates a ValueMap initialized with the provided data and meta map
     pub fn with_contents(data: DataMap, meta: Option<MetaMap>) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
-            meta: meta.map(|meta| Rc::new(RefCell::new(meta))),
+            data: data.into(),
+            meta: meta.map(RcCell::from),
         }
     }
 
@@ -107,13 +106,13 @@ impl ValueMap {
     /// Provides a reference to the ValueMap's meta map
     ///
     /// This is returned as a reference to the meta map's Rc to allow for cloning.
-    pub fn meta_map(&self) -> Option<&Rc<RefCell<MetaMap>>> {
+    pub fn meta_map(&self) -> Option<&RcCell<MetaMap>> {
         self.meta.as_ref()
     }
 
     /// Sets the ValueMap's meta map
     pub fn set_meta_map(&mut self, meta: Option<MetaMap>) {
-        self.meta = meta.map(|meta| Rc::new(RefCell::new(meta)))
+        self.meta = meta.map(RcCell::from)
     }
 
     /// Returns true if the meta map contains an entry with the given key

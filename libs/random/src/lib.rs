@@ -4,7 +4,7 @@ use {
     koto_runtime::prelude::*,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha8Rng,
-    std::{cell::RefCell, rc::Rc},
+    std::cell::RefCell,
 };
 
 pub fn make_module() -> ValueMap {
@@ -42,12 +42,12 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static RNG_META: Rc<RefCell<MetaMap>> = make_rng_meta_map();
+    static RNG_META: RcCell<MetaMap> = make_rng_meta_map();
 
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
 }
 
-fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_rng_meta_map() -> RcCell<MetaMap> {
     MetaMapBuilder::<ChaChaRng>::new("Rng")
         .data_fn_mut("bool", |rng| rng.gen_bool())
         .data_fn_mut("number", |rng| rng.gen_number())

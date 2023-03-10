@@ -4,7 +4,6 @@ use {
     crate::prelude::*,
     chrono::prelude::*,
     instant::Instant,
-    std::{cell::RefCell, rc::Rc},
 };
 
 /// Initializes the `os` core library module
@@ -63,7 +62,7 @@ impl DateTime {
         }
     }
 
-    fn meta_map() -> Rc<RefCell<MetaMap>> {
+    fn meta_map() -> RcCell<MetaMap> {
         SYSTEM_TIME_META.with(|meta| meta.clone())
     }
 }
@@ -72,10 +71,10 @@ impl ExternalData for DateTime {}
 
 thread_local! {
     /// The meta map used by [DateTime]
-    pub static SYSTEM_TIME_META: Rc<RefCell<MetaMap>> = make_system_time_meta_map();
+    pub static SYSTEM_TIME_META: RcCell<MetaMap> = make_system_time_meta_map();
 }
 
-fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_system_time_meta_map() -> RcCell<MetaMap> {
     MetaMapBuilder::<DateTime>::new("DateTime")
         .data_fn(UnaryOp::Display, |data| {
             Ok(data.0.format("%F %T").to_string().into())
@@ -116,10 +115,10 @@ impl ExternalData for Timer {}
 
 thread_local! {
     /// The meta map used by [Timer]
-    pub static TIMER_META: Rc<RefCell<MetaMap>> = make_timer_meta_map();
+    pub static TIMER_META: RcCell<MetaMap> = make_timer_meta_map();
 }
 
-fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_timer_meta_map() -> RcCell<MetaMap> {
     use Value::ExternalValue;
 
     MetaMapBuilder::<Timer>::new("Timer")

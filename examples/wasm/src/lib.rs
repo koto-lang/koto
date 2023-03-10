@@ -1,13 +1,9 @@
-use {
-    koto::prelude::*,
-    std::{cell::RefCell, rc::Rc},
-    wasm_bindgen::prelude::*,
-};
+use {koto::prelude::*, wasm_bindgen::prelude::*};
 
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: Rc<RefCell<String>>,
+    output: RcCell<String>,
 }
 
 impl KotoFile for OutputCapture {
@@ -61,7 +57,7 @@ impl KotoRead for BlockedInput {
 // Runs an input program and returns the output as a String
 #[wasm_bindgen]
 pub fn compile_and_run(input: &str) -> String {
-    let output = Rc::new(RefCell::new(String::new()));
+    let output = RcCell::from(String::new());
 
     let mut koto = Koto::with_settings(
         KotoSettings::default()

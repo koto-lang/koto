@@ -1,10 +1,8 @@
 use {
     koto_runtime::prelude::*,
     std::{
-        cell::RefCell,
         fmt,
         ops::{self, Deref, DerefMut},
-        rc::Rc,
     },
 };
 
@@ -207,7 +205,7 @@ macro_rules! color_comparison_op {
     }
 }
 
-fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_color_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Color>::new("Color")
@@ -290,6 +288,6 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static COLOR_META: Rc<RefCell<MetaMap>> = make_color_meta_map();
+    static COLOR_META: RcCell<MetaMap> = make_color_meta_map();
     static TYPE_COLOR: ValueString = "Color".into();
 }

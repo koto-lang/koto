@@ -1,11 +1,7 @@
 mod runtime_test_utils;
 
 mod external_values {
-    use {
-        crate::runtime_test_utils::*,
-        koto_runtime::prelude::*,
-        std::{cell::RefCell, rc::Rc},
-    };
+    use {crate::runtime_test_utils::*, koto_runtime::prelude::*};
 
     #[derive(Debug)]
     struct TestExternalData {
@@ -24,10 +20,10 @@ mod external_values {
     impl ExternalData for TestExternalData {}
 
     thread_local! {
-        static EXTERNAL_META: Rc<RefCell<MetaMap>> = make_external_value_meta_map();
+        static EXTERNAL_META: RcCell<MetaMap> = make_external_value_meta_map();
     }
 
-    fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
+    fn make_external_value_meta_map() -> RcCell<MetaMap> {
         use Value::{Bool, ExternalValue, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 

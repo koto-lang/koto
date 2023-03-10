@@ -6,12 +6,10 @@ use {
     indexmap::{Equivalent, IndexMap},
     koto_parser::MetaKeyId,
     std::{
-        cell::RefCell,
         fmt,
         hash::{BuildHasherDefault, Hash},
         marker::PhantomData,
         ops::{Deref, DerefMut},
-        rc::Rc,
     },
 };
 
@@ -64,12 +62,6 @@ impl Deref for MetaMap {
 impl DerefMut for MetaMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-impl From<MetaMap> for Rc<RefCell<MetaMap>> {
-    fn from(m: MetaMap) -> Self {
-        Rc::new(RefCell::new(m))
     }
 }
 
@@ -360,7 +352,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     }
 
     /// Build the MetaMap, consuming the builder
-    pub fn build(self) -> Rc<RefCell<MetaMap>> {
+    pub fn build(self) -> RcCell<MetaMap> {
         self.map.into()
     }
 

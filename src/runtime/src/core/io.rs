@@ -164,10 +164,10 @@ pub fn make_module() -> ValueMap {
 
 thread_local! {
     /// The meta map used by Files
-    pub static FILE_META: Rc<RefCell<MetaMap>> = make_file_meta_map();
+    pub static FILE_META: RcCell<MetaMap> = make_file_meta_map();
 }
 
-fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_file_meta_map() -> RcCell<MetaMap> {
     use Value::{Null, Number};
 
     MetaMapBuilder::<File>::new("File")
@@ -268,7 +268,7 @@ impl File {
         Value::ExternalValue(result)
     }
 
-    fn meta() -> Rc<RefCell<MetaMap>> {
+    fn meta() -> RcCell<MetaMap> {
         FILE_META.with(|meta| meta.clone())
     }
 }
