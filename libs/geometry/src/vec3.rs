@@ -59,6 +59,10 @@ impl ExternalData for Vec3 {
     fn data_type(&self) -> ValueString {
         TYPE_VEC3.with(|x| x.clone())
     }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
+    }
 }
 
 impl Deref for Vec3 {

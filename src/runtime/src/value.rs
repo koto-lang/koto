@@ -77,8 +77,7 @@ pub enum Value {
 impl Value {
     /// Returns a recursive 'deep copy' of a Value
     ///
-    /// This is used by the various `.deep_copy()` core library functions.
-    #[must_use]
+    /// This is used by koto.deep_copy.
     pub fn deep_copy(&self) -> Value {
         use Value::*;
 
@@ -101,6 +100,7 @@ impl Value {
                 Map(ValueMap::with_contents(data, meta))
             }
             Iterator(i) => Iterator(i.make_copy()),
+            ExternalValue(v) => ExternalValue(v.make_copy()),
             _ => self.clone(),
         }
     }

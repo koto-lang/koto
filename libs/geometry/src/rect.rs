@@ -78,6 +78,10 @@ impl ExternalData for Rect {
     fn data_type(&self) -> ValueString {
         TYPE_RECT.with(|x| x.clone())
     }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
+    }
 }
 
 impl Deref for Rect {

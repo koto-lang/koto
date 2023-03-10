@@ -5,9 +5,8 @@ use {
 };
 
 /// A basic Markov chain,
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Poetry {
-    //
     links: IndexMap<Rc<str>, Vec<Rc<str>>>,
     previous: Option<Rc<str>>,
 }

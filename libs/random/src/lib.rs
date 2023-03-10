@@ -56,7 +56,7 @@ fn make_rng_meta_map() -> RcCell<MetaMap> {
         .build()
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
@@ -120,6 +120,10 @@ impl ChaChaRng {
 impl ExternalData for ChaChaRng {
     fn data_type(&self) -> ValueString {
         TYPE_RNG.with(|x| x.clone())
+    }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
     }
 }
 

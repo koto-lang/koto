@@ -1,10 +1,6 @@
 //! The `os` core library module
 
-use {
-    crate::prelude::*,
-    chrono::prelude::*,
-    instant::Instant,
-};
+use {crate::prelude::*, chrono::prelude::*, instant::Instant};
 
 /// Initializes the `os` core library module
 pub fn make_module() -> ValueMap {
@@ -32,6 +28,7 @@ pub fn make_module() -> ValueMap {
 }
 
 /// The underlying data type returned by `os.time()`
+#[derive(Clone)]
 pub struct DateTime(chrono::DateTime<Local>);
 
 impl DateTime {
@@ -67,7 +64,11 @@ impl DateTime {
     }
 }
 
-impl ExternalData for DateTime {}
+impl ExternalData for DateTime {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
+    }
+}
 
 thread_local! {
     /// The meta map used by [DateTime]
@@ -101,6 +102,7 @@ fn make_system_time_meta_map() -> RcCell<MetaMap> {
 }
 
 /// The underlying data type returned by `os.start_timer()`
+#[derive(Clone)]
 pub struct Timer(Instant);
 
 impl Timer {
@@ -111,7 +113,11 @@ impl Timer {
     }
 }
 
-impl ExternalData for Timer {}
+impl ExternalData for Timer {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
+    }
+}
 
 thread_local! {
     /// The meta map used by [Timer]

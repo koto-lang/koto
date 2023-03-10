@@ -57,6 +57,10 @@ impl ExternalData for Color {
     fn data_type(&self) -> ValueString {
         TYPE_COLOR.with(|x| x.clone())
     }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
+    }
 }
 
 impl Deref for Color {

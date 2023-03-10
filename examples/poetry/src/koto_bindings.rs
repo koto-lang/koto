@@ -82,7 +82,7 @@ impl Iterator for PoetryIter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct KotoPoetry(Poetry);
 
 impl KotoPoetry {
@@ -96,4 +96,8 @@ impl KotoPoetry {
     }
 }
 
-impl ExternalData for KotoPoetry {}
+impl ExternalData for KotoPoetry {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        self.clone().into()
+    }
+}

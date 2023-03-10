@@ -3,7 +3,7 @@ mod runtime_test_utils;
 mod external_values {
     use {crate::runtime_test_utils::*, koto_runtime::prelude::*};
 
-    #[derive(Debug)]
+    #[derive(Clone, Copy, Debug)]
     struct TestExternalData {
         x: f64,
     }
@@ -17,7 +17,11 @@ mod external_values {
         }
     }
 
-    impl ExternalData for TestExternalData {}
+    impl ExternalData for TestExternalData {
+        fn make_copy(&self) -> RcCell<dyn ExternalData> {
+            (*self).into()
+        }
+    }
 
     thread_local! {
         static EXTERNAL_META: RcCell<MetaMap> = make_external_value_meta_map();
@@ -395,7 +399,7 @@ x()
             let script = "
 x = make_external -100
 (-x).to_number()
-    ";
+";
             test_script_with_external_value(script, 100);
         }
 
@@ -405,8 +409,38 @@ x = make_external -100
 x = make_external 100
 y = make_external 100
 (x - y).to_number()
-    ";
+";
             test_script_with_external_value(script, 0);
+        }
+    }
+
+    mod copy {
+        use super::*;
+
+        #[test]
+        fn copy_makes_unique_value() {
+            let script = "
+x = make_external 100
+y = x
+z = copy x
+y -= 100
+z += 50
+x + z
+";
+            test_script_with_external_value(script, 150);
+        }
+
+        #[test]
+        fn deep_copy_makes_unique_value() {
+            let script = "
+x = make_external 100
+y = x
+z = deep_copy x
+y -= 50
+z += 200
+x + z
+";
+            test_script_with_external_value(script, 350);
         }
     }
 }

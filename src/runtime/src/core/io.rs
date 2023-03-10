@@ -230,6 +230,7 @@ fn make_file_meta_map() -> RcCell<MetaMap> {
 }
 
 /// The File type used in the io module
+#[derive(Clone)]
 pub struct File(Rc<dyn KotoFile>);
 
 impl Deref for File {
@@ -273,7 +274,11 @@ impl File {
     }
 }
 
-impl ExternalData for File {}
+impl ExternalData for File {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
+    }
+}
 
 struct BufferedSystemFile<T>
 where

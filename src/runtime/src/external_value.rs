@@ -20,6 +20,14 @@ pub trait ExternalData: Downcast {
     fn data_type(&self) -> ValueString {
         EXTERNAL_DATA_TYPE.with(|x| x.clone())
     }
+
+    /// Called by koto.copy, should return a unique copy of the data
+    fn make_copy(&self) -> RcCell<dyn ExternalData>;
+
+    /// Called by koto.deep_copy, should return a deep copy of the data
+    fn make_deep_copy(&self) -> RcCell<dyn ExternalData> {
+        self.make_copy()
+    }
 }
 
 impl_downcast!(ExternalData);
@@ -47,9 +55,9 @@ impl fmt::Debug for dyn ExternalData {
 #[derive(Clone, Debug)]
 pub struct ExternalValue {
     /// The [ExternalData] held by the value
-    pub data: RcCell<dyn ExternalData>,
+    data: RcCell<dyn ExternalData>,
     /// The [MetaMap] held by the value
-    pub meta: RcCell<MetaMap>,
+    meta: RcCell<MetaMap>,
 }
 
 impl ExternalValue {
@@ -77,6 +85,17 @@ impl ExternalValue {
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
             data: data.into(),
+            meta: self.meta.clone(),
+        }
+    }
+
+    /// Returns a unique copy of the value.
+    ///
+    /// This is the result of calling [ExternalData::make_copy] on the value's data,
+    /// along with a shared clone of the metamap.
+    pub fn make_copy(&self) -> Self {
+        Self {
+            data: self.data.borrow().make_copy(),
             meta: self.meta.clone(),
         }
     }
