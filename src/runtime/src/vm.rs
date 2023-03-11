@@ -566,8 +566,6 @@ impl Vm {
         };
 
         let self_arg = Map(tests.clone());
-        let pass_self_to_pre_test = true; // TODO
-        let pass_self_to_post_test = true;
 
         for i in 0..meta_entry_count {
             let meta_entry = tests.meta_map().and_then(|meta| {
@@ -584,15 +582,11 @@ impl Vm {
 
                     if let Some(pre_test) = &pre_test {
                         if pre_test.is_callable() {
-                            let pre_test_result = if pass_self_to_pre_test {
-                                self.run_instance_function(
-                                    self_arg.clone(),
-                                    pre_test.clone(),
-                                    CallArgs::None,
-                                )
-                            } else {
-                                self.run_function(pre_test.clone(), CallArgs::None)
-                            };
+                            let pre_test_result = self.run_instance_function(
+                                self_arg.clone(),
+                                pre_test.clone(),
+                                CallArgs::None,
+                            );
 
                             if let Err(error) = pre_test_result {
                                 return make_test_error(error, "Error while preparing to run test");
@@ -600,18 +594,8 @@ impl Vm {
                         }
                     }
 
-                    // let pass_self_to_test = match &test {
-                    //     Function(f) => f.arg_count == 1,
-                    //     _ => false,
-                    // };
-
-                    let pass_self_to_test = true; // TODO
-
-                    let test_result = if pass_self_to_test {
-                        self.run_instance_function(self_arg.clone(), test, CallArgs::None)
-                    } else {
-                        self.run_function(test, CallArgs::None)
-                    };
+                    let test_result =
+                        self.run_instance_function(self_arg.clone(), test, CallArgs::None);
 
                     if let Err(error) = test_result {
                         return make_test_error(error, "Error while running test");
@@ -619,15 +603,11 @@ impl Vm {
 
                     if let Some(post_test) = &post_test {
                         if post_test.is_callable() {
-                            let post_test_result = if pass_self_to_post_test {
-                                self.run_instance_function(
-                                    self_arg.clone(),
-                                    post_test.clone(),
-                                    CallArgs::None,
-                                )
-                            } else {
-                                self.run_function(post_test.clone(), CallArgs::None)
-                            };
+                            let post_test_result = self.run_instance_function(
+                                self_arg.clone(),
+                                post_test.clone(),
+                                CallArgs::None,
+                            );
 
                             if let Err(error) = post_test_result {
                                 return make_test_error(error, "Error after running test");
