@@ -10,6 +10,7 @@ mod file;
 mod frame;
 mod int_range;
 mod meta_map;
+mod meta_map_builder;
 mod rc_cell;
 mod stdio;
 mod value_iterator;
@@ -33,7 +34,8 @@ pub use {
     external_value::{External, ExternalData},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
-    meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
+    meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
+    meta_map_builder::MetaMapBuilder,
     rc_cell::RcCell,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, Value},
