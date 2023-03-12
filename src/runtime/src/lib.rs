@@ -30,7 +30,7 @@ pub use {
     display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
     external_function::ExternalFunction,
-    external_value::{ExternalData, ExternalValue},
+    external_value::{External, ExternalData},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
     meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},

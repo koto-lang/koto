@@ -247,26 +247,26 @@ impl File {
     where
         T: Read + Write + Seek + 'static,
     {
-        let result = ExternalValue::with_shared_meta_map(
+        let result = External::with_shared_meta_map(
             Self(Rc::new(BufferedSystemFile::new(file, path))),
             Self::meta(),
         );
-        Value::ExternalValue(result)
+        Value::External(result)
     }
 
     fn stderr(vm: &Vm) -> Value {
-        let result = ExternalValue::with_shared_meta_map(Self(vm.stderr().clone()), Self::meta());
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(vm.stderr().clone()), Self::meta());
+        Value::External(result)
     }
 
     fn stdin(vm: &Vm) -> Value {
-        let result = ExternalValue::with_shared_meta_map(Self(vm.stdin().clone()), Self::meta());
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(vm.stdin().clone()), Self::meta());
+        Value::External(result)
     }
 
     fn stdout(vm: &Vm) -> Value {
-        let result = ExternalValue::with_shared_meta_map(Self(vm.stdout().clone()), Self::meta());
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(vm.stdout().clone()), Self::meta());
+        Value::External(result)
     }
 
     fn meta() -> RcCell<MetaMap> {

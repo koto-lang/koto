@@ -33,8 +33,8 @@ pub struct DateTime(chrono::DateTime<Local>);
 
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
-        let result = ExternalValue::with_shared_meta_map(Self(time), Self::meta_map());
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(time), Self::meta_map());
+        Value::External(result)
     }
 
     fn now() -> Value {
@@ -108,8 +108,8 @@ pub struct Timer(Instant);
 impl Timer {
     fn now() -> Value {
         let meta = TIMER_META.with(|meta| meta.clone());
-        let result = ExternalValue::with_shared_meta_map(Self(Instant::now()), meta);
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(Instant::now()), meta);
+        Value::External(result)
     }
 }
 
@@ -125,14 +125,14 @@ thread_local! {
 }
 
 fn make_timer_meta_map() -> RcCell<MetaMap> {
-    use Value::ExternalValue;
+    use Value::External;
 
     MetaMapBuilder::<Timer>::new("Timer")
         .data_fn(UnaryOp::Display, |data| {
             Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
         })
         .data_fn_with_args(BinaryOp::Subtract, |a, b| match b {
-            [ExternalValue(b)] if b.has_data::<Timer>() => {
+            [External(b)] if b.has_data::<Timer>() => {
                 let b = b.data::<Timer>().unwrap();
                 let result = if a.0 >= b.0 {
                     a.0.duration_since(b.0).as_secs_f64()

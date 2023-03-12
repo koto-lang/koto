@@ -48,7 +48,7 @@ fn make_poetry_meta_map() -> RcCell<MetaMap> {
 
 #[derive(Clone)]
 struct PoetryIter {
-    poetry: ExternalValue,
+    poetry: External,
 }
 
 impl KotoIterator for PoetryIter {
@@ -87,12 +87,12 @@ pub struct KotoPoetry(Poetry);
 
 impl KotoPoetry {
     fn make_external_value(poetry: Poetry) -> Value {
-        let result = ExternalValue::with_shared_meta_map(
+        let result = External::with_shared_meta_map(
             KotoPoetry(poetry),
             POETRY_BINDINGS.with(|meta| meta.clone()),
         );
 
-        Value::ExternalValue(result)
+        Value::External(result)
     }
 }
 

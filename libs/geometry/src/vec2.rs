@@ -84,7 +84,7 @@ impl From<DVec2> for Vec2 {
 impl From<Vec2> for Value {
     fn from(point: Vec2) -> Self {
         let meta = VEC2_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(point, meta).into()
+        External::with_shared_meta_map(point, meta).into()
     }
 }
 

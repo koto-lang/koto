@@ -23,7 +23,7 @@ pub fn make_module() -> ValueMap {
             );
             Ok(result.into())
         }
-        [ExternalValue(v)] => Ok(v.make_copy().into()),
+        [External(v)] => Ok(v.make_copy().into()),
         [other] => Ok(other.clone()),
         unexpected => type_error_with_slice("a single argument", unexpected),
     });

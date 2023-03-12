@@ -92,7 +92,7 @@ impl From<Inner> for Color {
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
         let meta = COLOR_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(color, meta).into()
+        External::with_shared_meta_map(color, meta).into()
     }
 }
 
@@ -164,7 +164,7 @@ impl_arithmetic_assign_op!(DivAssign, div_assign, /=);
 macro_rules! color_arithmetic_op {
     ($op:tt) => {
         |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
+            [Value::External(b)] if b.has_data::<Color>() =>{
                 let b = b.data::<Color>().unwrap();
                 Ok((*a $op *b).into())
             }
@@ -180,7 +180,7 @@ macro_rules! color_arithmetic_op {
 macro_rules! color_arithmetic_assign_op {
     ($op:tt) => {
         |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
+            [Value::External(b)] if b.has_data::<Color>() =>{
                 let b: Color = *b.data::<Color>().unwrap();
                 *a.data_mut::<Color>().unwrap() $op b;
                 Ok(a.clone().into())
@@ -200,7 +200,7 @@ macro_rules! color_arithmetic_assign_op {
 macro_rules! color_comparison_op {
     ($op:tt) => {
         |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
+            [Value::External(b)] if b.has_data::<Color>() =>{
                 let b = b.data::<Color>().unwrap();
                 Ok((*a $op *b).into())
             }

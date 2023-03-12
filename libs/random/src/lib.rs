@@ -62,9 +62,9 @@ struct ChaChaRng(ChaCha8Rng);
 impl ChaChaRng {
     fn make_external_value(rng: ChaCha8Rng) -> Value {
         let result =
-            ExternalValue::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
+            External::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
 
-        Value::ExternalValue(result)
+        Value::External(result)
     }
 
     fn gen_bool(&mut self) -> RuntimeResult {

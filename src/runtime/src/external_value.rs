@@ -53,18 +53,18 @@ impl fmt::Debug for dyn ExternalData {
 
 /// A value with data and behaviour defined externally to the Koto runtime
 #[derive(Clone, Debug)]
-pub struct ExternalValue {
+pub struct External {
     /// The [ExternalData] held by the value
     data: RcCell<dyn ExternalData>,
     /// The [MetaMap] held by the value
     meta: RcCell<MetaMap>,
 }
 
-impl ExternalValue {
-    /// Creates a new ExternalValue from [ExternalData] and a [MetaMap]
+impl External {
+    /// Creates a new External from [ExternalData] and a [MetaMap]
     ///
     /// Typically you'll want to share the meta map between value instances,
-    /// see [ExternalValue::with_shared_meta_map].
+    /// see [External::with_shared_meta_map].
     pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
         Self {
             data: data.into(),
@@ -72,7 +72,7 @@ impl ExternalValue {
         }
     }
 
-    /// Creates a new ExternalValue from [ExternalData] and a shared [MetaMap]
+    /// Creates a new External from [ExternalData] and a shared [MetaMap]
     pub fn with_shared_meta_map(data: impl ExternalData, meta: RcCell<MetaMap>) -> Self {
         Self {
             data: data.into(),
@@ -80,7 +80,7 @@ impl ExternalValue {
         }
     }
 
-    /// Creates a new [ExternalValue] with the provided data, cloning the existing [MetaMap]
+    /// Creates a new [External] with the provided data, cloning the existing [MetaMap]
     #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
@@ -127,12 +127,12 @@ impl ExternalValue {
     /// Returns the value's type as a [ValueString]
     ///
     /// [MetaKey::Type] will be checked for the type string,
-    /// with "ExternalValue" being returned if it's not present.
+    /// with "External" being returned if it's not present.
     pub fn value_type(&self) -> ValueString {
         match self.get_meta_value(&MetaKey::Type) {
             Some(Value::Str(s)) => s,
             Some(_) => "ERROR: Expected String for @type".into(),
-            None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
+            None => TYPE_EXTERNAL.with(|x| x.clone()),
         }
     }
 
@@ -152,7 +152,7 @@ impl ExternalValue {
     }
 }
 
-impl KotoDisplay for ExternalValue {
+impl KotoDisplay for External {
     fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
         use UnaryOp::Display;
         if self.contains_meta_key(&Display.into()) {
@@ -168,5 +168,5 @@ impl KotoDisplay for ExternalValue {
 }
 
 thread_local! {
-    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
+    static TYPE_EXTERNAL: ValueString = "External".into();
 }

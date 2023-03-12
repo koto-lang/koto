@@ -4,42 +4,42 @@ mod external_values {
     use {crate::runtime_test_utils::*, koto_runtime::prelude::*};
 
     #[derive(Clone, Copy, Debug)]
-    struct TestExternalData {
+    struct TestData {
         x: f64,
     }
 
-    impl TestExternalData {
+    impl TestData {
         fn make_value(x: f64) -> Value {
-            Value::ExternalValue(ExternalValue::with_shared_meta_map(
+            Value::External(External::with_shared_meta_map(
                 Self { x },
                 EXTERNAL_META.with(|meta| meta.clone()),
             ))
         }
     }
 
-    impl ExternalData for TestExternalData {
+    impl ExternalData for TestData {
         fn make_copy(&self) -> RcCell<dyn ExternalData> {
             (*self).into()
         }
     }
 
     thread_local! {
-        static EXTERNAL_META: RcCell<MetaMap> = make_external_value_meta_map();
+        static EXTERNAL_META: RcCell<MetaMap> = make_external_meta_map();
     }
 
-    fn make_external_value_meta_map() -> RcCell<MetaMap> {
-        use Value::{Bool, ExternalValue, Null, Number};
+    fn make_external_meta_map() -> RcCell<MetaMap> {
+        use Value::{Bool, External, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 
         macro_rules! arithmetic_op {
             ($op:tt) => {
                 |a, b| match b {
-                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                        let b = b.data::<TestExternalData>().unwrap();
-                        Ok(TestExternalData::make_value(a.x $op b.x))
+                    [External(b)] if b.has_data::<TestData>() => {
+                        let b = b.data::<TestData>().unwrap();
+                        Ok(TestData::make_value(a.x $op b.x))
                     }
                     [Number(n)] => {
-                        Ok(TestExternalData::make_value(a.x $op f64::from(n)))
+                        Ok(TestData::make_value(a.x $op f64::from(n)))
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -51,13 +51,13 @@ mod external_values {
         macro_rules! assignment_op {
             ($op:tt) => {
                 |value, args| match args {
-                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                        let b = b.data::<TestExternalData>().unwrap().x;
-                        value.data_mut::<TestExternalData>().unwrap().x $op b;
+                    [External(b)] if b.has_data::<TestData>() => {
+                        let b = b.data::<TestData>().unwrap().x;
+                        value.data_mut::<TestData>().unwrap().x $op b;
                         Ok(value.into())
                     }
                     [Number(n)] => {
-                        value.data_mut::<TestExternalData>().unwrap().x $op f64::from(n);
+                        value.data_mut::<TestData>().unwrap().x $op f64::from(n);
                         Ok(value.into())
                     }
                     unexpected => {
@@ -70,8 +70,8 @@ mod external_values {
         macro_rules! comparison_op {
             ($op:tt) => {
                 |a, b| match b {
-                    [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                        let b = b.data::<TestExternalData>().unwrap();
+                    [External(b)] if b.has_data::<TestData>() => {
+                        let b = b.data::<TestData>().unwrap();
                         #[allow(clippy::float_cmp)]
                         Ok(Bool(a.x $op b.x))
                     }
@@ -86,11 +86,11 @@ mod external_values {
             }
         }
 
-        MetaMapBuilder::<TestExternalData>::new("TestExternalValue")
+        MetaMapBuilder::<TestData>::new("TestExternal")
             .data_fn(Display, |data| {
-                Ok(format!("TestExternalValue: {}", data.x).into())
+                Ok(format!("TestExternal: {}", data.x).into())
             })
-            .data_fn(Negate, |data| Ok(TestExternalData::make_value(-data.x)))
+            .data_fn(Negate, |data| Ok(TestData::make_value(-data.x)))
             .data_fn_with_args(Add, arithmetic_op!(+))
             .data_fn_with_args(Subtract, arithmetic_op!(-))
             .data_fn_with_args(Multiply, arithmetic_op!(*))
@@ -128,12 +128,12 @@ mod external_values {
                 Ok(Null)
             })
             .value_fn("set_all_instances", |a, b| match b {
-                [ExternalValue(b)] if b.has_data::<TestExternalData>() => {
-                    let b_x = b.data::<TestExternalData>().unwrap().x;
-                    a.data_mut::<TestExternalData>().unwrap().x = b_x;
+                [External(b)] if b.has_data::<TestData>() => {
+                    let b_x = b.data::<TestData>().unwrap().x;
+                    a.data_mut::<TestData>().unwrap().x = b_x;
                     Ok(Null)
                 }
-                unexpected => type_error_with_slice("TestExternalValue", unexpected),
+                unexpected => type_error_with_slice("TestExternal", unexpected),
             })
             .data_fn_with_args_mut("absorb_values", |data, args| {
                 for arg in args.iter() {
@@ -147,12 +147,12 @@ mod external_values {
             .build()
     }
 
-    fn test_script_with_external_value(script: &str, expected_output: impl Into<Value>) {
+    fn test_script_with_external(script: &str, expected_output: impl Into<Value>) {
         let vm = Vm::default();
         let prelude = vm.prelude();
 
         prelude.add_fn("make_external", |vm, args| match vm.get_args(args) {
-            [Value::Number(x)] => Ok(TestExternalData::make_value(x.into())),
+            [Value::Number(x)] => Ok(TestData::make_value(x.into())),
             _ => runtime_error!("make_external: Expected a Number"),
         });
 
@@ -170,7 +170,7 @@ mod external_values {
 x = make_external 42
 x.to_number()
 ";
-            test_script_with_external_value(script, 42);
+            test_script_with_external(script, 42);
         }
 
         #[test]
@@ -180,7 +180,7 @@ x = make_external 42
 x.invert()
 x.to_number()
 ";
-            test_script_with_external_value(script, -42.0_f64);
+            test_script_with_external(script, -42.0_f64);
         }
 
         #[test]
@@ -191,7 +191,7 @@ y = x
 y.set_all_instances make_external 99
 x.to_number()
 ";
-            test_script_with_external_value(script, 99);
+            test_script_with_external(script, 99);
         }
 
         #[test]
@@ -201,7 +201,7 @@ x = make_external 42
 x.absorb_values 10, 20, 30
 x.to_number()
 ";
-            test_script_with_external_value(script, 102);
+            test_script_with_external(script, 102);
         }
     }
 
@@ -211,7 +211,7 @@ x.to_number()
         #[test]
         fn display() {
             let script = "'{}'.format make_external 42";
-            test_script_with_external_value(script, string("TestExternalValue: 42"));
+            test_script_with_external(script, string("TestExternal: 42"));
         }
 
         #[test]
@@ -221,7 +221,7 @@ x = make_external -123
 x = -x
 x.to_number()
 ";
-            test_script_with_external_value(script, 123);
+            test_script_with_external(script, 123);
         }
     }
 
@@ -234,7 +234,7 @@ x.to_number()
 x = (make_external 11) + (make_external 22) + 33
 x.to_number()
 ";
-            test_script_with_external_value(script, 66);
+            test_script_with_external(script, 66);
         }
 
         #[test]
@@ -243,7 +243,7 @@ x.to_number()
 x = (make_external 99) - (make_external 90) - 9
 x.to_number()
 ";
-            test_script_with_external_value(script, 0);
+            test_script_with_external(script, 0);
         }
 
         #[test]
@@ -252,7 +252,7 @@ x.to_number()
 x = (make_external 3) * (make_external 11)
 x.to_number()
 ";
-            test_script_with_external_value(script, 33);
+            test_script_with_external(script, 33);
         }
 
         #[test]
@@ -261,7 +261,7 @@ x.to_number()
 x = (make_external 90) / (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, 9);
+            test_script_with_external(script, 9);
         }
 
         #[test]
@@ -270,7 +270,7 @@ x.to_number()
 x = (make_external 45) % (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, 5);
+            test_script_with_external(script, 5);
         }
 
         #[test]
@@ -281,7 +281,7 @@ x += make_external 22
 x += 33
 x.to_number()
 ";
-            test_script_with_external_value(script, 66);
+            test_script_with_external(script, 66);
         }
 
         #[test]
@@ -291,7 +291,7 @@ x = make_external 11
 x += x
 x.to_number()
 ";
-            test_script_with_external_value(script, 22);
+            test_script_with_external(script, 22);
         }
 
         #[test]
@@ -302,7 +302,7 @@ x -= make_external 20
 x -= 2
 x.to_number()
 ";
-            test_script_with_external_value(script, 20);
+            test_script_with_external(script, 20);
         }
 
         #[test]
@@ -313,7 +313,7 @@ x *= make_external 11
 x *= 3
 x.to_number()
 ";
-            test_script_with_external_value(script, 99);
+            test_script_with_external(script, 99);
         }
 
         #[test]
@@ -324,7 +324,7 @@ x /= make_external 3
 x /= 3
 x.to_number()
 ";
-            test_script_with_external_value(script, 11);
+            test_script_with_external(script, 11);
         }
 
         #[test]
@@ -335,31 +335,31 @@ x %= make_external 90
 x %= 5
 x.to_number()
 ";
-            test_script_with_external_value(script, 4);
+            test_script_with_external(script, 4);
         }
 
         #[test]
         fn less() {
             let script = "(make_external 1) < (make_external 2)";
-            test_script_with_external_value(script, Bool(true));
+            test_script_with_external(script, Bool(true));
         }
 
         #[test]
         fn less_or_equal() {
             let script = "(make_external 2) <= (make_external 2)";
-            test_script_with_external_value(script, Bool(true));
+            test_script_with_external(script, Bool(true));
         }
 
         #[test]
         fn equal() {
             let script = "(make_external 2) == (make_external 3)";
-            test_script_with_external_value(script, Bool(false));
+            test_script_with_external(script, Bool(false));
         }
 
         #[test]
         fn not_equal() {
             let script = "(make_external 2) != (make_external 3)";
-            test_script_with_external_value(script, Bool(true));
+            test_script_with_external(script, Bool(true));
         }
 
         #[test]
@@ -368,7 +368,7 @@ x.to_number()
 x = make_external 100
 x[23]
 ";
-            test_script_with_external_value(script, 123);
+            test_script_with_external(script, 123);
         }
 
         #[test]
@@ -378,7 +378,7 @@ x = make_external 10
 a, b, c = x
 a, b, c
 ";
-            test_script_with_external_value(script, number_tuple(&[10, 11, 12]));
+            test_script_with_external(script, number_tuple(&[10, 11, 12]));
         }
 
         #[test]
@@ -387,7 +387,7 @@ a, b, c
 x = make_external 256
 x()
 ";
-            test_script_with_external_value(script, 256);
+            test_script_with_external(script, 256);
         }
     }
 
@@ -400,7 +400,7 @@ x()
 x = make_external -100
 (-x).to_number()
 ";
-            test_script_with_external_value(script, 100);
+            test_script_with_external(script, 100);
         }
 
         #[test]
@@ -410,7 +410,7 @@ x = make_external 100
 y = make_external 100
 (x - y).to_number()
 ";
-            test_script_with_external_value(script, 0);
+            test_script_with_external(script, 0);
         }
     }
 
@@ -427,7 +427,7 @@ y -= 100
 z += 50
 x + z
 ";
-            test_script_with_external_value(script, 150);
+            test_script_with_external(script, 150);
         }
 
         #[test]
@@ -440,7 +440,7 @@ y -= 50
 z += 200
 x + z
 ";
-            test_script_with_external_value(script, 350);
+            test_script_with_external(script, 350);
         }
     }
 }

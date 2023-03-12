@@ -20,7 +20,7 @@ fn make_rect_meta_map() -> RcCell<MetaMap> {
         .data_fn("x", |r| Ok(r.x().into()))
         .data_fn("y", |r| Ok(r.y().into()))
         .data_fn_with_args("contains", |r, args| match args {
-            [ExternalValue(p)] if p.has_data::<Vec2>() => {
+            [External(p)] if p.has_data::<Vec2>() => {
                 let p = p.data::<Vec2>().unwrap();
                 let result = r.0.contains(p.inner());
                 Ok(result.into())
@@ -31,7 +31,7 @@ fn make_rect_meta_map() -> RcCell<MetaMap> {
             let mut r = value.data_mut::<Rect>().unwrap();
             let (x, y) = match args {
                 [Number(x), Number(y)] => (x.into(), y.into()),
-                [ExternalValue(p)] if p.has_data::<Vec2>() => {
+                [External(p)] if p.has_data::<Vec2>() => {
                     let p = p.data::<Vec2>().unwrap();
                     (p.x, p.y)
                 }
@@ -107,7 +107,7 @@ impl From<(f64, f64, f64, f64)> for Rect {
 impl From<Rect> for Value {
     fn from(point: Rect) -> Self {
         let meta = RECT_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(point, meta).into()
+        External::with_shared_meta_map(point, meta).into()
     }
 }
 

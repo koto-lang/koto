@@ -522,8 +522,8 @@ impl Vm {
             Map(m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 self.run_unary_op(UnaryOp::Iterator, Map(m))?
             }
-            ExternalValue(ev) if ev.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                self.run_unary_op(UnaryOp::Iterator, ExternalValue(ev))?
+            External(e) if e.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                self.run_unary_op(UnaryOp::Iterator, External(e))?
             }
             _ => value,
         };
@@ -901,7 +901,7 @@ impl Vm {
                 match &thrown_value {
                     Str(_) => {}
                     Map(m) if m.contains_meta_key(&display_op) => {}
-                    ExternalValue(v) if v.contains_meta_key(&display_op) => {}
+                    External(v) if v.contains_meta_key(&display_op) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
@@ -1115,7 +1115,7 @@ impl Vm {
                     return self.call_overloaded_unary_op(result, iterable_register, op);
                 }
                 Map(map) => ValueIterator::with_map(map),
-                ExternalValue(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
                     let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
                     return self.call_overloaded_unary_op(result, iterable_register, op);
                 }
@@ -1202,7 +1202,7 @@ impl Vm {
                 let op = map.get_meta_value(&index_op).unwrap();
                 return self.call_overloaded_binary_op(register, value, index.into(), op);
             }
-            ExternalValue(v) if v.contains_meta_key(&index_op) => {
+            External(v) if v.contains_meta_key(&index_op) => {
                 let op = v.get_meta_value(&index_op).unwrap();
                 return self.call_overloaded_binary_op(register, value, index.into(), op);
             }
@@ -1334,7 +1334,7 @@ impl Vm {
                 let op = map.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            ExternalValue(v) if v.contains_meta_key(&MetaKey::UnaryOp(Negate)) => {
+            External(v) if v.contains_meta_key(&MetaKey::UnaryOp(Negate)) => {
                 let op = v.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
@@ -1355,7 +1355,7 @@ impl Vm {
                 let op = map.get_meta_value(&MetaKey::UnaryOp(Not)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            ExternalValue(v) if v.contains_meta_key(&MetaKey::UnaryOp(Not)) => {
+            External(v) if v.contains_meta_key(&MetaKey::UnaryOp(Not)) => {
                 let op = v.get_meta_value(&MetaKey::UnaryOp(Not)).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
@@ -1374,7 +1374,7 @@ impl Vm {
                 let op = map.get_meta_value(&Display.into()).unwrap();
                 self.call_overloaded_unary_op(result, value, op)
             }
-            ExternalValue(v) if v.contains_meta_key(&Display.into()) => {
+            External(v) if v.contains_meta_key(&Display.into()) => {
                 let op = v.get_meta_value(&Display.into()).unwrap();
                 self.call_overloaded_unary_op(result, value, op)
             }
@@ -1407,8 +1407,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "+");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Add, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Add, {
                     return self.binary_op_error(lhs_value, rhs_value, "+");
                 })
             }
@@ -1431,8 +1431,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "-");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Subtract, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Subtract, {
                     return self.binary_op_error(lhs_value, rhs_value, "-");
                 })
             }
@@ -1456,8 +1456,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "*");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Multiply, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Multiply, {
                     return self.binary_op_error(lhs_value, rhs_value, "*");
                 })
             }
@@ -1480,8 +1480,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "/");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Divide, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Divide, {
                     return self.binary_op_error(lhs_value, rhs_value, "/");
                 })
             }
@@ -1509,8 +1509,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "%");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Remainder, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Remainder, {
                     return self.binary_op_error(lhs_value, rhs_value, "%");
                 })
             }
@@ -1535,9 +1535,9 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "+=");
                 });
             }
-            (ExternalValue(ev), _) => {
+            (External(e), _) => {
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, AddAssign, {
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, AddAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "+=");
                 });
             }
@@ -1561,9 +1561,9 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "-=");
                 })
             }
-            (ExternalValue(ev), _) => {
+            (External(e), _) => {
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, SubtractAssign, {
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, SubtractAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "-=");
                 })
             }
@@ -1587,9 +1587,9 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "*=");
                 })
             }
-            (ExternalValue(ev), _) => {
+            (External(e), _) => {
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, MultiplyAssign, {
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, MultiplyAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "*=");
                 })
             }
@@ -1613,9 +1613,9 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "/=");
                 })
             }
-            (ExternalValue(ev), _) => {
+            (External(e), _) => {
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, DivideAssign, {
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, DivideAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "/=");
                 })
             }
@@ -1639,9 +1639,9 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "%=");
                 })
             }
-            (ExternalValue(ev), _) => {
+            (External(e), _) => {
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, ev, RemainderAssign, {
+                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, RemainderAssign, {
                     return self.binary_op_error(lhs_value, rhs_value, "%=");
                 })
             }
@@ -1665,8 +1665,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "<");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Less, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Less, {
                     return self.binary_op_error(lhs_value, rhs_value, "<");
                 })
             }
@@ -1690,8 +1690,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, "<=");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, LessOrEqual, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, LessOrEqual, {
                     return self.binary_op_error(lhs_value, rhs_value, "<=");
                 })
             }
@@ -1715,8 +1715,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, ">");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Greater, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Greater, {
                     return self.binary_op_error(lhs_value, rhs_value, ">");
                 })
             }
@@ -1740,8 +1740,8 @@ impl Vm {
                     return self.binary_op_error(lhs_value, rhs_value, ">=");
                 })
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, GreaterOrEqual, {
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, GreaterOrEqual, {
                     return self.binary_op_error(lhs_value, rhs_value, ">=");
                 })
             }
@@ -1806,8 +1806,8 @@ impl Vm {
             (SimpleFunction(a), SimpleFunction(b)) => {
                 a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Equal, false)
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Equal, false)
             }
             _ => false,
         };
@@ -1868,8 +1868,8 @@ impl Vm {
                     true
                 }
             }
-            (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, NotEqual, true)
+            (External(e), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, e, NotEqual, true)
             }
             _ => true,
         };
@@ -2014,7 +2014,7 @@ impl Vm {
     fn run_import(&mut self, import_register: u8) -> InstructionResult {
         let import_name = match self.clone_register(import_register) {
             Value::Str(s) => s,
-            value @ Value::Map(_) | value @ Value::ExternalValue(_) => {
+            value @ Value::Map(_) | value @ Value::External(_) => {
                 self.set_register(import_register, value);
                 return Ok(());
             }
@@ -2253,8 +2253,8 @@ impl Vm {
                     return runtime_error!("Unable to index {}", value.type_as_string());
                 });
             }
-            (ExternalValue(ev), index) => {
-                call_binary_op_or_else!(self, result_register, value_register, index, ev, Index, {
+            (External(e), index) => {
+                call_binary_op_or_else!(self, result_register, value_register, index, e, Index, {
                     return runtime_error!("Unable to index {}", value.type_as_string());
                 });
             }
@@ -2443,11 +2443,11 @@ impl Vm {
                     );
                 }
             }
-            ExternalValue(ev) => match ev.get_meta_value(&MetaKey::Named(key_string.clone())) {
+            External(e) => match e.get_meta_value(&MetaKey::Named(key_string.clone())) {
                 Some(value) => self.set_register(result_register, value),
                 None => {
                     // Iterator fallback?
-                    if ev.contains_meta_key(&UnaryOp::Iterator.into()) {
+                    if e.contains_meta_key(&UnaryOp::Iterator.into()) {
                         let iterator_op = self.get_core_op(
                             &key,
                             &self.context.core_lib.iterator,
@@ -2809,7 +2809,7 @@ impl Vm {
                     temp_tuple_values,
                 )
             }
-            ExternalValue(ref v) if v.contains_meta_key(&MetaKey::Call) => {
+            External(ref v) if v.contains_meta_key(&MetaKey::Call) => {
                 let instance = function.clone();
                 self.set_register(frame_base, instance);
                 self.call_callable(

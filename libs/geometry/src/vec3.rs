@@ -88,7 +88,7 @@ impl From<(f64, f64, f64)> for Vec3 {
 impl From<Vec3> for Value {
     fn from(vec3: Vec3) -> Self {
         let meta = VEC3_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(vec3, meta).into()
+        External::with_shared_meta_map(vec3, meta).into()
     }
 }
 

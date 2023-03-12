@@ -63,7 +63,7 @@ macro_rules! impl_arithmetic_ops {
 macro_rules! koto_arithmetic_op {
     ($type:ident, $op:tt) => {
         |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b = b.data::<$type>().unwrap();
                 Ok((*a $op *b).into())
             }
@@ -79,7 +79,7 @@ macro_rules! koto_arithmetic_op {
 macro_rules! koto_arithmetic_assign_op {
     ($type:ident, $op:tt) => {
         |value, args| match args {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b: $type = *b.data::<$type>().unwrap().deref();
                 *value.data_mut::<$type>().unwrap() $op b;
                 Ok(value.clone().into())
@@ -99,7 +99,7 @@ macro_rules! koto_arithmetic_assign_op {
 macro_rules! koto_comparison_op {
     ($type:ident, $op:tt) => {
         |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b = b.data::<$type>().unwrap();
                 Ok((*a $op *b).into())
             }
