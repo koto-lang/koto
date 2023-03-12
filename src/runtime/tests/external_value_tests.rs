@@ -33,13 +33,13 @@ mod external_values {
 
         macro_rules! arithmetic_op {
             ($op:tt) => {
-                |a, b| match b {
+                |context| match context.args {
                     [External(b)] if b.has_data::<TestData>() => {
                         let b = b.data::<TestData>().unwrap();
-                        Ok(TestData::make_value(a.x $op b.x))
+                        Ok(TestData::make_value(context.data()?.x $op b.x))
                     }
                     [Number(n)] => {
-                        Ok(TestData::make_value(a.x $op f64::from(n)))
+                        Ok(TestData::make_value(context.data()?.x $op f64::from(n)))
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -50,15 +50,15 @@ mod external_values {
 
         macro_rules! assignment_op {
             ($op:tt) => {
-                |value, args| match args {
+                |context| match context.args {
                     [External(b)] if b.has_data::<TestData>() => {
                         let b = b.data::<TestData>().unwrap().x;
-                        value.data_mut::<TestData>().unwrap().x $op b;
-                        Ok(value.into())
+                        context.data_mut()?.x $op b;
+                        context.ok_value()
                     }
                     [Number(n)] => {
-                        value.data_mut::<TestData>().unwrap().x $op f64::from(n);
-                        Ok(value.into())
+                        context.data_mut()?.x $op f64::from(n);
+                        context.ok_value()
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -69,15 +69,15 @@ mod external_values {
 
         macro_rules! comparison_op {
             ($op:tt) => {
-                |a, b| match b {
+                |context| match context.args {
                     [External(b)] if b.has_data::<TestData>() => {
                         let b = b.data::<TestData>().unwrap();
                         #[allow(clippy::float_cmp)]
-                        Ok(Bool(a.x $op b.x))
+                        Ok(Bool(context.data()?.x $op b.x))
                     }
                     [Number(n)] => {
                         #[allow(clippy::float_cmp)]
-                        Ok(Bool(a.x $op f64::from(n)))
+                        Ok(Bool(context.data()?.x $op f64::from(n)))
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -87,56 +87,61 @@ mod external_values {
         }
 
         MetaMapBuilder::<TestData>::new("TestExternal")
-            .data_fn(Display, |data| {
-                Ok(format!("TestExternal: {}", data.x).into())
+            .function(Display, |context| {
+                Ok(format!("TestExternal: {}", context.data()?.x).into())
             })
-            .data_fn(Negate, |data| Ok(TestData::make_value(-data.x)))
-            .data_fn_with_args(Add, arithmetic_op!(+))
-            .data_fn_with_args(Subtract, arithmetic_op!(-))
-            .data_fn_with_args(Multiply, arithmetic_op!(*))
-            .data_fn_with_args(Divide, arithmetic_op!(/))
-            .data_fn_with_args(Remainder, arithmetic_op!(%))
-            .value_fn(AddAssign, assignment_op!(+=))
-            .value_fn(SubtractAssign, assignment_op!(-=))
-            .value_fn(MultiplyAssign, assignment_op!(*=))
-            .value_fn(DivideAssign, assignment_op!(/=))
-            .value_fn(RemainderAssign, assignment_op!(%=))
-            .data_fn_with_args(Less, comparison_op!(<))
-            .data_fn_with_args(LessOrEqual, comparison_op!(<=))
-            .data_fn_with_args(Greater, comparison_op!(>))
-            .data_fn_with_args(GreaterOrEqual, comparison_op!(>=))
-            .data_fn_with_args(Equal, comparison_op!(==))
-            .data_fn_with_args(NotEqual, comparison_op!(!=))
-            .data_fn_with_args(Index, |data, args| match args {
+            .function(Negate, |context| {
+                Ok(TestData::make_value(-context.data()?.x))
+            })
+            .function(Add, arithmetic_op!(+))
+            .function(Subtract, arithmetic_op!(-))
+            .function(Multiply, arithmetic_op!(*))
+            .function(Divide, arithmetic_op!(/))
+            .function(Remainder, arithmetic_op!(%))
+            .function(AddAssign, assignment_op!(+=))
+            .function(SubtractAssign, assignment_op!(-=))
+            .function(MultiplyAssign, assignment_op!(*=))
+            .function(DivideAssign, assignment_op!(/=))
+            .function(RemainderAssign, assignment_op!(%=))
+            .function(Less, comparison_op!(<))
+            .function(LessOrEqual, comparison_op!(<=))
+            .function(Greater, comparison_op!(>))
+            .function(GreaterOrEqual, comparison_op!(>=))
+            .function(Equal, comparison_op!(==))
+            .function(NotEqual, comparison_op!(!=))
+            .function(Index, |context| match context.args {
                 [Number(index)] => {
                     let index = usize::from(index);
-                    let result = data.x + index as f64;
+                    let result = context.data()?.x + index as f64;
                     Ok(result.into())
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
-            .data_fn(Iterator, |data| {
+            .function(Iterator, |context| {
                 Ok(ValueIterator::with_std_forward_iter(
-                    ((data.x as usize)..).map(|n| ValueIteratorOutput::Value(n.into())),
+                    ((context.data()?.x as usize)..).map(|n| ValueIteratorOutput::Value(n.into())),
                 )
                 .into())
             })
-            .data_fn(MetaKey::Call, |data| Ok(Number(data.x.into())))
-            .data_fn("to_number", |data| Ok(Number(data.x.into())))
-            .data_fn_mut("invert", |data| {
-                data.x *= -1.0;
+            .function(MetaKey::Call, |context| {
+                Ok(Number(context.data()?.x.into()))
+            })
+            .function("to_number", |context| Ok(Number(context.data()?.x.into())))
+            .function("invert", |context| {
+                context.data_mut()?.x *= -1.0;
                 Ok(Null)
             })
-            .value_fn("set_all_instances", |a, b| match b {
+            .function("set_all_instances", |context| match context.args {
                 [External(b)] if b.has_data::<TestData>() => {
                     let b_x = b.data::<TestData>().unwrap().x;
-                    a.data_mut::<TestData>().unwrap().x = b_x;
+                    context.data_mut()?.x = b_x;
                     Ok(Null)
                 }
                 unexpected => type_error_with_slice("TestExternal", unexpected),
             })
-            .data_fn_with_args_mut("absorb_values", |data, args| {
-                for arg in args.iter() {
+            .function("absorb_values", |context| {
+                let mut data = context.data_mut()?;
+                for arg in context.args.iter() {
                     match arg {
                         Number(n) => data.x += f64::from(n),
                         other => return type_error("Number", other),

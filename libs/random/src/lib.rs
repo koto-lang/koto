@@ -49,10 +49,10 @@ thread_local! {
 
 fn make_rng_meta_map() -> RcCell<MetaMap> {
     MetaMapBuilder::<ChaChaRng>::new("Rng")
-        .data_fn_mut("bool", |rng| rng.gen_bool())
-        .data_fn_mut("number", |rng| rng.gen_number())
-        .data_fn_with_args_mut("pick", |rng, args| rng.pick(args))
-        .data_fn_with_args_mut("seed", |rng, args| rng.seed(args))
+        .function("bool", |context| context.data_mut()?.gen_bool())
+        .function("number", |context| context.data_mut()?.gen_number())
+        .function("pick", |context| context.data_mut()?.pick(context.args))
+        .function("seed", |context| context.data_mut()?.seed(context.args))
         .build()
 }
 

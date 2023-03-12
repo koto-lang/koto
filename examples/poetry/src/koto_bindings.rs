@@ -25,19 +25,21 @@ fn make_poetry_meta_map() -> RcCell<MetaMap> {
     use Value::{Null, Str};
 
     MetaMapBuilder::<KotoPoetry>::new("Poetry")
-        .data_fn_with_args_mut("add_source_material", |poetry, args| match args {
+        .function("add_source_material", |context| match context.args {
             [Str(text)] => {
-                poetry.0.add_source_material(text);
+                context.data_mut()?.0.add_source_material(text);
                 Ok(Null)
             }
             unexpected => type_error_with_slice("a String", unexpected),
         })
-        .value_fn("iter", |poetry, _args| {
-            let iter = PoetryIter { poetry };
+        .function("iter", |context| {
+            let iter = PoetryIter {
+                poetry: context.external.clone(),
+            };
             Ok(ValueIterator::new(iter).into())
         })
-        .data_fn_mut("next_word", |poetry| {
-            let result = match poetry.0.next_word() {
+        .function("next_word", |context| {
+            let result = match context.data_mut()?.0.next_word() {
                 Some(word) => Str(word.as_ref().into()),
                 None => Null,
             };

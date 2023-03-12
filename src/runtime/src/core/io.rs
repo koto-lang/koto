@@ -171,10 +171,10 @@ fn make_file_meta_map() -> RcCell<MetaMap> {
     use Value::{Null, Number};
 
     MetaMapBuilder::<File>::new("File")
-        .data_fn_mut("flush", |file| file.flush().map(|_| Null))
-        .data_fn("path", |file| file.path().map(Value::from))
-        .data_fn_mut("read_line", |file| {
-            file.read_line().map(|result| match result {
+        .function("flush", |context| context.data_mut()?.flush().map(|_| Null))
+        .function("path", |context| context.data()?.path().map(Value::from))
+        .function("read_line", |context| {
+            context.data_mut()?.read_line().map(|result| match result {
                 Some(result) => {
                     if !result.is_empty() {
                         let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
@@ -186,45 +186,56 @@ fn make_file_meta_map() -> RcCell<MetaMap> {
                 None => Null,
             })
         })
-        .data_fn_mut("read_to_string", |file: &mut File| {
-            file.read_to_string().map(Value::from)
+        .function("read_to_string", |context| {
+            context.data_mut()?.read_to_string().map(Value::from)
         })
-        .value_fn("seek", |file, args| match args {
+        .function("seek", |context| match context.args {
             [Number(n)] => {
                 if *n < 0.0 {
                     return runtime_error!("Negative seek positions not allowed");
                 }
-                file.data_mut::<File>()
-                    .unwrap()
-                    .seek(n.into())
-                    .map(|_| Value::Null)
+                context.data_mut()?.seek(n.into()).map(|_| Null)
             }
             unexpected => {
                 type_error_with_slice("a non-negative Number as the seek position", unexpected)
             }
         })
-        .data_fn_with_vm_mut("write", |file, vm, args| match args {
+        .function("write", |context| match context.args {
             [value] => {
                 let mut string_to_write = String::new();
-                value.display(&mut string_to_write, vm, KotoDisplayOptions::default())?;
-                file.write(string_to_write.as_bytes()).map(|_| Value::Null)
+                value.display(
+                    &mut string_to_write,
+                    &mut context.vm.spawn_shared_vm(),
+                    KotoDisplayOptions::default(),
+                )?;
+                context
+                    .data_mut()?
+                    .write(string_to_write.as_bytes())
+                    .map(|_| Null)
             }
             unexpected => type_error_with_slice("a single argument", unexpected),
         })
-        .data_fn_with_vm_mut("write_line", |file, vm, args| {
+        .function("write_line", |context| {
             let mut string_to_write = String::new();
-            match args {
+            match context.args {
                 [] => {}
                 [value] => {
-                    value.display(&mut string_to_write, vm, KotoDisplayOptions::default())?;
+                    value.display(
+                        &mut string_to_write,
+                        &mut context.vm.spawn_shared_vm(),
+                        KotoDisplayOptions::default(),
+                    )?;
                 }
                 unexpected => return type_error_with_slice("a single argument", unexpected),
             };
             string_to_write.push('\n');
-            file.write(string_to_write.as_bytes()).map(|_| Value::Null)
+            context
+                .data_mut()?
+                .write(string_to_write.as_bytes())
+                .map(|_| Null)
         })
-        .data_fn(UnaryOp::Display, |file| {
-            Ok(format!("File({})", file.0.id()).into())
+        .function(UnaryOp::Display, |context| {
+            Ok(format!("File({})", context.data()?.0.id()).into())
         })
         .build()
 }

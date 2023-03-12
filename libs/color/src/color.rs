@@ -163,12 +163,12 @@ impl_arithmetic_assign_op!(DivAssign, div_assign, /=);
 #[macro_export]
 macro_rules! color_arithmetic_op {
     ($op:tt) => {
-        |a, b| match b {
+        |context| match context.args {
             [Value::External(b)] if b.has_data::<Color>() =>{
-                let b = b.data::<Color>().unwrap();
-                Ok((*a $op *b).into())
+                let b = *b.data::<Color>().unwrap();
+                Ok((*context.data()? $op b).into())
             }
-            [Value::Number(n)] => Ok((*a $op f32::from(n)).into()),
+            [Value::Number(n)] => Ok((*context.data()? $op f32::from(n)).into()),
             unexpected => {
                 type_error_with_slice("a Color or Number", unexpected)
             }
@@ -179,15 +179,15 @@ macro_rules! color_arithmetic_op {
 #[macro_export]
 macro_rules! color_arithmetic_assign_op {
     ($op:tt) => {
-        |a, b| match b {
+        |context| match context.args {
             [Value::External(b)] if b.has_data::<Color>() =>{
                 let b: Color = *b.data::<Color>().unwrap();
-                *a.data_mut::<Color>().unwrap() $op b;
-                Ok(a.clone().into())
+                *context.data_mut()? $op b;
+                context.ok_value()
             }
             [Value::Number(n)] => {
-                *a.data_mut::<Color>().unwrap() $op f32::from(n);
-                Ok(a.clone().into())
+                *context.data_mut()? $op f32::from(n);
+                context.ok_value()
             }
             unexpected => {
                 type_error_with_slice("a Color or Number", unexpected)
@@ -199,10 +199,10 @@ macro_rules! color_arithmetic_assign_op {
 #[macro_export]
 macro_rules! color_comparison_op {
     ($op:tt) => {
-        |a, b| match b {
+        |context| match context.args {
             [Value::External(b)] if b.has_data::<Color>() =>{
-                let b = b.data::<Color>().unwrap();
-                Ok((*a $op *b).into())
+                let b = *b.data::<Color>().unwrap();
+                Ok((*context.data()? $op b).into())
             }
             unexpected => type_error_with_slice("a Color", unexpected),
         }
@@ -213,69 +213,68 @@ fn make_color_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Color>::new("Color")
-        .data_fn("red", |c| Ok(c.red().into()))
-        .alias("red", "r")
-        .data_fn("green", |c| Ok(c.green().into()))
-        .alias("green", "g")
-        .data_fn("blue", |c| Ok(c.blue().into()))
-        .alias("blue", "b")
-        .data_fn("alpha", |c| Ok(c.alpha().into()))
-        .alias("alpha", "a")
-        .value_fn("set_red", |c, args| match args {
+        .function_aliased(&["red", "r"], |context| Ok(context.data()?.red().into()))
+        .function_aliased(&["green", "g"], |context| {
+            Ok(context.data()?.green().into())
+        })
+        .function_aliased(&["blue", "b"], |context| Ok(context.data()?.blue().into()))
+        .function_aliased(&["alpha", "a"], |context| {
+            Ok(context.data()?.alpha().into())
+        })
+        .function_aliased(&["set_red", "set_r"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.red = n.into();
-                Ok(c.into())
+                context.data_mut()?.color.red = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .alias("set_red", "set_r")
-        .value_fn("set_green", |c, args| match args {
+        .function_aliased(&["set_green", "set_g"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.green = n.into();
-                Ok(c.into())
+                context.data_mut()?.color.green = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .alias("set_green", "set_g")
-        .value_fn("set_blue", |c, args| match args {
+        .function_aliased(&["set_blue", "set_b"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.blue = n.into();
-                Ok(c.into())
+                context.data_mut()?.color.blue = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .alias("set_blue", "set_b")
-        .value_fn("set_alpha", |c, args| match args {
+        .function_aliased(&["set_alpha", "set_a"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().alpha = n.into();
-                Ok(c.into())
+                context.data_mut()?.alpha = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .alias("set_alpha", "set_a")
-        .data_fn(Display, |c| Ok(c.to_string().into()))
-        .data_fn_with_args(Add, color_arithmetic_op!(+))
-        .data_fn_with_args(Subtract, color_arithmetic_op!(-))
-        .data_fn_with_args(Multiply, color_arithmetic_op!(*))
-        .data_fn_with_args(Divide, color_arithmetic_op!(/))
-        .value_fn(AddAssign, color_arithmetic_assign_op!(+=))
-        .value_fn(SubtractAssign, color_arithmetic_assign_op!(-=))
-        .value_fn(MultiplyAssign, color_arithmetic_assign_op!(*=))
-        .value_fn(DivideAssign, color_arithmetic_assign_op!(/=))
-        .data_fn_with_args(Equal, color_comparison_op!(==))
-        .data_fn_with_args(NotEqual, color_comparison_op!(!=))
-        .data_fn_with_args(Index, |a, b| match b {
-            [Number(n)] => match usize::from(n) {
-                0 => Ok(a.red().into()),
-                1 => Ok(a.green().into()),
-                2 => Ok(a.blue().into()),
-                3 => Ok(a.alpha().into()),
-                other => runtime_error!("index out of range (got {other}, should be <= 3)"),
-            },
+        .function(Display, |context| Ok(context.data()?.to_string().into()))
+        .function(Add, color_arithmetic_op!(+))
+        .function(Subtract, color_arithmetic_op!(-))
+        .function(Multiply, color_arithmetic_op!(*))
+        .function(Divide, color_arithmetic_op!(/))
+        .function(AddAssign, color_arithmetic_assign_op!(+=))
+        .function(SubtractAssign, color_arithmetic_assign_op!(-=))
+        .function(MultiplyAssign, color_arithmetic_assign_op!(*=))
+        .function(DivideAssign, color_arithmetic_assign_op!(/=))
+        .function(Equal, color_comparison_op!(==))
+        .function(NotEqual, color_comparison_op!(!=))
+        .function(Index, |context| match context.args {
+            [Number(n)] => {
+                let c = context.data()?;
+                match usize::from(n) {
+                    0 => Ok(c.red().into()),
+                    1 => Ok(c.green().into()),
+                    2 => Ok(c.blue().into()),
+                    3 => Ok(c.alpha().into()),
+                    other => runtime_error!("index out of range (got {other}, should be <= 3)"),
+                }
+            }
             unexpected => type_error_with_slice("expected a Number", unexpected),
         })
-        .data_fn(UnaryOp::Iterator, |c| {
-            let c = *c;
+        .function(UnaryOp::Iterator, |context| {
+            let c = *context.data()?;
             let iter = (0..=3).map(move |i| {
                 let result = match i {
                     0 => c.red(),
