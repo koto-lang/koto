@@ -2,13 +2,13 @@ use {
     crate::prelude::*,
     koto_bytecode::Chunk,
     koto_parser::format_error_with_excerpt,
-    std::{cell::RefCell, error, fmt, ops::DerefMut, rc::Rc},
+    std::{cell::RefCell, error, fmt, ops::DerefMut},
 };
 
 /// A chunk and ip in a call stack where an error was thrown
 #[derive(Clone, Debug)]
 pub struct ErrorFrame {
-    chunk: Rc<Chunk>,
+    chunk: Ptr<Chunk>,
     instruction: usize,
 }
 
@@ -56,7 +56,7 @@ impl RuntimeError {
     }
 
     /// Extends the error stack with the given [Chunk] and ip
-    pub(crate) fn extend_trace(&mut self, chunk: Rc<Chunk>, instruction: usize) {
+    pub(crate) fn extend_trace(&mut self, chunk: Ptr<Chunk>, instruction: usize) {
         self.trace.push(ErrorFrame { chunk, instruction });
     }
 

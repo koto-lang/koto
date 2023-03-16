@@ -65,6 +65,12 @@ impl From<String> for Ptr<str> {
     }
 }
 
+impl<T: ?Sized + PartialEq> PartialEq for Ptr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::eq(&self.0, &other.0)
+    }
+}
+
 impl<T: ?Sized + fmt::Display> fmt::Display for Ptr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

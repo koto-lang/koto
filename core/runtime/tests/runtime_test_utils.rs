@@ -70,7 +70,7 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
     }
 }
 
-pub fn print_chunk(script: &str, chunk: Rc<Chunk>) {
+pub fn print_chunk(script: &str, chunk: Ptr<Chunk>) {
     println!("{script}\n");
     let script_lines = script.lines().collect::<Vec<_>>();
 

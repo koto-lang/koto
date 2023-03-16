@@ -47,8 +47,8 @@ The Koto project adheres to
 
 - `MetaMapBuilder` is now available to simplify the creation of `MetaMap`s. 
 - Preludes are now available in the `koto` and `koto_runtime` crates.
-- An `RcCell<T>` wrapper has been introduced to simplify uses of 
-  `Rc<RefCell<T>>`.
+- `Ptr<T>` and `PtrMut<T>` wrappers have been introduced as the core memory
+  types for the runtime, replacing uses of `Rc<T>` and `Rc<RefCell<T>>`.
 
 
 ### Changed

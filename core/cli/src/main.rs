@@ -161,7 +161,7 @@ fn run() -> Result<(), ()> {
         match koto.compile(&script) {
             Ok(chunk) => {
                 if args.show_bytecode {
-                    println!("{}\n", &Chunk::bytes_as_string(chunk.clone()));
+                    println!("{}\n", &Chunk::bytes_as_string(&chunk));
                 }
                 if args.show_instructions {
                     println!("Constants\n---------\n{}\n", chunk.constants);

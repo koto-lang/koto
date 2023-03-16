@@ -23,7 +23,7 @@ mod vm {
             ..Default::default()
         });
 
-        let print_chunk = |script: &str, chunk: Rc<Chunk>| {
+        let print_chunk = |script: &str, chunk: Ptr<Chunk>| {
             println!("{script}\n");
             let script_lines = script.lines().collect::<Vec<_>>();
 

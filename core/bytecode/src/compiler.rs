@@ -388,7 +388,7 @@ impl Compiler {
     pub fn compile(
         ast: &Ast,
         settings: CompilerSettings,
-    ) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
+    ) -> Result<(Box<[u8]>, DebugInfo), CompilerError> {
         let mut compiler = Compiler {
             settings,
             ..Default::default()
@@ -398,7 +398,7 @@ impl Compiler {
             compiler.compile_node(ResultRegister::None, entry_point, ast)?;
         }
 
-        Ok((compiler.bytes, compiler.debug_info))
+        Ok((compiler.bytes.into(), compiler.debug_info))
     }
 
     fn compile_node(

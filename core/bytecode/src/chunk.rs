@@ -1,10 +1,10 @@
 use {
     crate::InstructionReader,
+    koto_memory::Ptr,
     koto_parser::{ConstantPool, Span},
     std::{
         fmt::{self, Write},
         path::PathBuf,
-        rc::Rc,
     },
 };
 
@@ -54,7 +54,7 @@ impl DebugInfo {
 #[derive(Clone, Default, PartialEq)]
 pub struct Chunk {
     /// The bytes representing the chunk's bytecode
-    pub bytes: Vec<u8>,
+    pub bytes: Box<[u8]>,
     /// The constant data associated with the chunk's bytecode
     pub constants: ConstantPool,
     /// The path of the program's source file
@@ -66,7 +66,7 @@ pub struct Chunk {
 impl Chunk {
     /// Initializes a Chunk
     pub fn new(
-        bytes: Vec<u8>,
+        bytes: Box<[u8]>,
         constants: ConstantPool,
         source_path: Option<PathBuf>,
         debug_info: DebugInfo,
@@ -80,7 +80,7 @@ impl Chunk {
     }
 
     /// Returns a [String] displaying the instructions contained in the compiled [Chunk]
-    pub fn bytes_as_string(chunk: Rc<Chunk>) -> String {
+    pub fn bytes_as_string(chunk: &Chunk) -> String {
         let mut iter = chunk.bytes.iter();
         let mut result = String::new();
 
@@ -106,7 +106,7 @@ impl Chunk {
     }
 
     /// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
-    pub fn instructions_as_string(chunk: Rc<Chunk>, source_lines: &[&str]) -> String {
+    pub fn instructions_as_string(chunk: Ptr<Chunk>, source_lines: &[&str]) -> String {
         let mut result = String::new();
         let mut reader = InstructionReader::new(chunk);
         let mut ip = reader.ip;

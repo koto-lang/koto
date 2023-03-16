@@ -13,6 +13,7 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+koto_memory = { path = "../memory", version = "^0.11.0" }
 koto_parser = { path = "../parser", version = "^0.11.0" }
 
 dunce = { workspace = true }

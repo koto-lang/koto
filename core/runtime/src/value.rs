@@ -3,7 +3,7 @@
 use {
     crate::{prelude::*, ExternalFunction},
     koto_bytecode::Chunk,
-    std::{fmt::Write, rc::Rc},
+    std::fmt::Write,
 };
 
 /// The core Value type for Koto
@@ -316,7 +316,7 @@ impl From<ValueIterator> for Value {
 #[derive(Clone, Debug)]
 pub struct SimpleFunctionInfo {
     /// The [Chunk] in which the function can be found.
-    pub chunk: Rc<Chunk>,
+    pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
     pub ip: usize,
     /// The expected number of arguments for the function
@@ -331,7 +331,7 @@ pub struct SimpleFunctionInfo {
 #[derive(Clone, Debug)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
-    pub chunk: Rc<Chunk>,
+    pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
     pub ip: usize,
     /// The expected number of arguments for the function.
@@ -354,10 +354,10 @@ pub struct FunctionInfo {
     //    and the assigned function need to share the same captures list. Currently the only way
     //    for this to work is to allow mutation of the shared list after the creation of the
     //    function, so a ValueList is a reasonable choice.
-    // Q. What about using Rc<[Value]> for non-recursive functions, or Option<Value> for
+    // Q. What about using Ptr<[Value]> for non-recursive functions, or Option<Value> for
     //    non-recursive functions with a single capture?
     // A. These could be potential optimizations to investigate at some point, but would involve
-    //    placing FunctionInfo behind an Rc due to its increased size, so it's not clear if there
+    //    placing FunctionInfo behind a Ptr due to its increased size, so it's not clear if there
     //    would be an overall performance win.
     pub captures: Option<ValueList>,
 }

@@ -156,7 +156,7 @@ pub struct Koto {
     run_tests: bool,
     repl_mode: bool,
     script_path: Option<PathBuf>,
-    chunk: Option<Rc<Chunk>>,
+    chunk: Option<Ptr<Chunk>>,
 }
 
 impl Default for Koto {
@@ -191,7 +191,7 @@ impl Koto {
     /// Compiles a Koto script, returning the complied chunk if successful
     ///
     /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
-    pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
+    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>, KotoError> {
         let compile_result = if self.repl_mode {
             self.runtime.loader().borrow_mut().compile_repl(script)
         } else {
@@ -238,7 +238,7 @@ impl Koto {
         self.run_tests = enabled;
     }
 
-    fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
+    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
         if self.repl_mode {
