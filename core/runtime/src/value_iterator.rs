@@ -57,12 +57,14 @@ where
 
 /// The iterator value type used in Koto
 #[derive(Clone)]
-pub struct ValueIterator(Rc<RefCell<dyn KotoIterator>>);
+pub struct ValueIterator(PtrMut<dyn KotoIterator>);
 
 impl ValueIterator {
     /// Creates a new ValueIterator from any value that implements [KotoIterator]
     pub fn new(external: impl KotoIterator + 'static) -> Self {
-        Self(Rc::new(RefCell::new(external)))
+        Self(PtrMut::from(
+            Rc::new(RefCell::new(external)) as Rc<RefCell<dyn KotoIterator>>
+        ))
     }
 
     /// Creates a new ValueIterator from any iterator that implements DoubleEndedIterator
