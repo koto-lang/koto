@@ -16,4 +16,4 @@ keywords = ["scripting", "language", "koto", "yaml"]
 koto_runtime = { path = "../../core/runtime", version = "^0.11.0" }
 koto_serialize = { path = "../../core/serialize", version = "^0.11.0" }
 
-serde_yaml.workspace = true
+serde_yaml = { workspace = true }

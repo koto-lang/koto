@@ -15,4 +15,4 @@ keywords = ["scripting", "language", "koto"]
 [dependencies]
 koto_runtime = { path = "../../core/runtime", version = "^0.11.0" }
 
-tempfile.workspace = true
+tempfile = { workspace = true }
