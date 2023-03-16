@@ -33,7 +33,7 @@ pub use {
     external_value::{make_data_ptr, External, ExternalData},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
-    koto_memory::{Borrow, BorrowMut, PtrMut},
+    koto_memory::{Borrow, BorrowMut, Ptr, PtrMut},
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     meta_map_builder::MetaMapBuilder,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
