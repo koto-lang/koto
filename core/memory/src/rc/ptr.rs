@@ -51,6 +51,20 @@ impl<T> From<Vec<T>> for Ptr<[T]> {
     }
 }
 
+impl From<&str> for Ptr<str> {
+    #[inline]
+    fn from(value: &str) -> Self {
+        Self(Rc::from(value))
+    }
+}
+
+impl From<String> for Ptr<str> {
+    #[inline]
+    fn from(value: String) -> Self {
+        Self(Rc::from(value))
+    }
+}
+
 impl<T: ?Sized + fmt::Display> fmt::Display for Ptr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

@@ -616,6 +616,7 @@ name = "koto_parser"
 version = "0.11.0"
 dependencies = [
  "koto_lexer",
+ "koto_memory",
 ]
 
 [[package]]
