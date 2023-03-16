@@ -11,7 +11,7 @@ mod vm {
     use super::*;
 
     fn check_logged_output(script: &str, expected_output: &str) {
-        let output = RcCell::from(String::new());
+        let output = PtrMut::from(String::new());
 
         let mut vm = Vm::with_settings(VmSettings {
             stdout: Rc::new(TestStdout {

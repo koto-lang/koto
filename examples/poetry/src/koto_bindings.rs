@@ -18,10 +18,10 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static POETRY_BINDINGS: RcCell<MetaMap> = make_poetry_meta_map();
+    static POETRY_BINDINGS: PtrMut<MetaMap> = make_poetry_meta_map();
 }
 
-fn make_poetry_meta_map() -> RcCell<MetaMap> {
+fn make_poetry_meta_map() -> PtrMut<MetaMap> {
     use Value::{Null, Str};
 
     MetaMapBuilder::<KotoPoetry>::new("Poetry")
@@ -99,7 +99,7 @@ impl KotoPoetry {
 }
 
 impl ExternalData for KotoPoetry {
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        self.clone().into()
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(self.clone())
     }
 }

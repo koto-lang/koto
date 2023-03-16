@@ -11,7 +11,6 @@ mod frame;
 mod int_range;
 mod meta_map;
 mod meta_map_builder;
-mod rc_cell;
 mod stdio;
 mod value_iterator;
 mod value_key;
@@ -31,12 +30,12 @@ pub use {
     display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
     external_function::ExternalFunction,
-    external_value::{External, ExternalData},
+    external_value::{make_data_ptr, External, ExternalData},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
+    koto_memory::{Borrow, BorrowMut, PtrMut},
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     meta_map_builder::MetaMapBuilder,
-    rc_cell::RcCell,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},

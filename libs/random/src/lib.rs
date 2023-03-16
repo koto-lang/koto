@@ -42,12 +42,12 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static RNG_META: RcCell<MetaMap> = make_rng_meta_map();
+    static RNG_META: PtrMut<MetaMap> = make_rng_meta_map();
 
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
 }
 
-fn make_rng_meta_map() -> RcCell<MetaMap> {
+fn make_rng_meta_map() -> PtrMut<MetaMap> {
     MetaMapBuilder::<ChaChaRng>::new("Rng")
         .function("bool", |context| context.data_mut()?.gen_bool())
         .function("number", |context| context.data_mut()?.gen_number())
@@ -122,8 +122,8 @@ impl ExternalData for ChaChaRng {
         TYPE_RNG.with(|x| x.clone())
     }
 
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        RcCell::from(self.clone())
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(self.clone())
     }
 }
 

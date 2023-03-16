@@ -17,6 +17,7 @@ panic_on_runtime_error = []
 [dependencies]
 koto_bytecode = { path = "../bytecode", version = "^0.11.0" }
 koto_lexer = { path = "../lexer", version = "^0.11.0" }
+koto_memory = { path = "../memory", version = "^0.11.0" }
 koto_parser = { path = "../parser", version = "^0.11.0" }
 
 downcast-rs = { workspace = true }

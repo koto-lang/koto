@@ -18,16 +18,16 @@ mod external_values {
     }
 
     impl ExternalData for TestData {
-        fn make_copy(&self) -> RcCell<dyn ExternalData> {
-            (*self).into()
+        fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+            make_data_ptr(*self)
         }
     }
 
     thread_local! {
-        static EXTERNAL_META: RcCell<MetaMap> = make_external_meta_map();
+        static EXTERNAL_META: PtrMut<MetaMap> = make_external_meta_map();
     }
 
-    fn make_external_meta_map() -> RcCell<MetaMap> {
+    fn make_external_meta_map() -> PtrMut<MetaMap> {
         use Value::{Bool, External, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 

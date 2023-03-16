@@ -1,14 +1,11 @@
-use {
-    crate::prelude::*,
-    std::cell::{Ref, RefMut},
-};
+use crate::prelude::*;
 
 /// The underlying Vec type used by [ValueList]
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 /// The Koto runtime's List type
 #[derive(Clone, Debug, Default)]
-pub struct ValueList(RcCell<ValueVec>);
+pub struct ValueList(PtrMut<ValueVec>);
 
 impl ValueList {
     /// Creates an empty list with the given capacity
@@ -37,12 +34,12 @@ impl ValueList {
     }
 
     /// Returns a reference to the list's entries
-    pub fn data(&self) -> Ref<ValueVec> {
+    pub fn data(&self) -> Borrow<ValueVec> {
         self.0.borrow()
     }
 
     /// Returns a mutable reference to the list's entries
-    pub fn data_mut(&self) -> RefMut<ValueVec> {
+    pub fn data_mut(&self) -> BorrowMut<ValueVec> {
         self.0.borrow_mut()
     }
 }

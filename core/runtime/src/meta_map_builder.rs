@@ -1,9 +1,6 @@
 use {
     crate::{external_function::ArgRegisters, prelude::*},
-    std::{
-        cell::{Ref, RefMut},
-        marker::PhantomData,
-    },
+    std::marker::PhantomData,
 };
 
 /// A builder for MetaMaps
@@ -22,8 +19,8 @@ use {
 /// }
 ///
 /// impl ExternalData for MyData {
-///     fn make_copy(&self) -> RcCell<dyn ExternalData> {
-///         (*self).into()
+///     fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+///         make_data_ptr(*self)
 ///     }
 /// }
 ///
@@ -67,7 +64,7 @@ impl<T: ExternalData> MetaMapBuilder<T> {
     }
 
     /// Build the MetaMap, consuming the builder
-    pub fn build(self) -> RcCell<MetaMap> {
+    pub fn build(self) -> PtrMut<MetaMap> {
         self.map.into()
     }
 
@@ -131,7 +128,7 @@ impl<'a, T: ExternalData> MetaFnContext<'a, T> {
     /// Returns a reference to the External's data
     ///
     /// See [Self::data_mut] for more information.
-    pub fn data(&self) -> Result<Ref<T>, RuntimeError> {
+    pub fn data(&self) -> Result<Borrow<T>, RuntimeError> {
         self.external.data::<T>().ok_or_else(|| {
             make_runtime_error!(
                 "Failed to access data in meta function (has it already been accessed mutably?)"
@@ -149,7 +146,7 @@ impl<'a, T: ExternalData> MetaFnContext<'a, T> {
     /// functions that need to support expressions that have the same value on the LHS and RHS of
     /// the expression, like `x += x`. The contents of the RHS necessary for the expression should
     /// be retrieved before attempting to assign them to the LHS.
-    pub fn data_mut(&self) -> Result<RefMut<T>, RuntimeError> {
+    pub fn data_mut(&self) -> Result<BorrowMut<T>, RuntimeError> {
         self.external.data_mut::<T>().ok_or_else(|| {
             make_runtime_error!(
                 "Failed to access data in meta function (has it already been accessed mutably?)"

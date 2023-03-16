@@ -608,6 +608,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "koto_memory"
+version = "0.11.0"
+
+[[package]]
 name = "koto_parser"
 version = "0.11.0"
 dependencies = [
@@ -648,6 +652,7 @@ dependencies = [
  "instant",
  "koto_bytecode",
  "koto_lexer",
+ "koto_memory",
  "koto_parser",
  "rustc-hash",
  "smallvec",

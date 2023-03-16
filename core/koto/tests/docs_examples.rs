@@ -9,12 +9,12 @@ use {
 
 struct ExampleTestRunner {
     koto: Koto,
-    output: RcCell<String>,
+    output: PtrMut<String>,
 }
 
 impl ExampleTestRunner {
     fn new() -> Self {
-        let output = RcCell::from(String::new());
+        let output = PtrMut::from(String::new());
 
         Self {
             output: output.clone(),
@@ -73,7 +73,7 @@ impl ExampleTestRunner {
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: RcCell<String>,
+    output: PtrMut<String>,
 }
 
 impl KotoFile for OutputCapture {

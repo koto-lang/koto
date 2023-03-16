@@ -4,6 +4,8 @@ mod buffered_file;
 
 pub use buffered_file::BufferedFile;
 
+use crate::external_value::make_data_ptr;
+
 use {
     super::string::format,
     crate::prelude::*,
@@ -164,10 +166,10 @@ pub fn make_module() -> ValueMap {
 
 thread_local! {
     /// The meta map used by Files
-    pub static FILE_META: RcCell<MetaMap> = make_file_meta_map();
+    pub static FILE_META: PtrMut<MetaMap> = make_file_meta_map();
 }
 
-fn make_file_meta_map() -> RcCell<MetaMap> {
+fn make_file_meta_map() -> PtrMut<MetaMap> {
     use Value::{Null, Number};
 
     MetaMapBuilder::<File>::new("File")
@@ -280,14 +282,14 @@ impl File {
         Value::External(result)
     }
 
-    fn meta() -> RcCell<MetaMap> {
+    fn meta() -> PtrMut<MetaMap> {
         FILE_META.with(|meta| meta.clone())
     }
 }
 
 impl ExternalData for File {
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        RcCell::from(self.clone())
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(self.clone())
     }
 }
 
