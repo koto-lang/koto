@@ -45,16 +45,6 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a List and Value as arguments", unexpected),
     });
 
-    result.add_fn("copy", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(List(ValueList::with_data(l.data().clone()))),
-        unexpected => type_error_with_slice("a List as argument", unexpected),
-    });
-
-    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ List(_)] => Ok(value.deep_copy()),
-        unexpected => type_error_with_slice("a List as argument", unexpected),
-    });
-
     result.add_fn("extend", |vm, args| match vm.get_args(args) {
         [List(l), List(other)] => {
             l.data_mut().extend(other.data().iter().cloned());

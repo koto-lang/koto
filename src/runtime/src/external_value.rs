@@ -4,7 +4,6 @@ use {
     std::{
         cell::{Ref, RefCell, RefMut},
         fmt,
-        hash::{Hash, Hasher},
         rc::Rc,
     },
 };
@@ -21,6 +20,23 @@ pub trait ExternalData: Downcast {
     fn data_type(&self) -> ValueString {
         EXTERNAL_DATA_TYPE.with(|x| x.clone())
     }
+
+    /// Called by koto.copy, should return a unique copy of the data
+    fn make_copy(&self) -> RcCell<dyn ExternalData>;
+
+    /// Called by koto.deep_copy, should return a deep copy of the data
+    fn make_deep_copy(&self) -> RcCell<dyn ExternalData> {
+        self.make_copy()
+    }
+}
+
+impl_downcast!(ExternalData);
+
+// Produce an RcCell<dyn External> from a value that implements ExternalData
+impl<T: ExternalData> From<T> for RcCell<dyn ExternalData> {
+    fn from(value: T) -> Self {
+        RcCell::from(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn ExternalData>>)
+    }
 }
 
 impl fmt::Display for dyn ExternalData {
@@ -35,42 +51,51 @@ impl fmt::Debug for dyn ExternalData {
     }
 }
 
-impl_downcast!(ExternalData);
-
 /// A value with data and behaviour defined externally to the Koto runtime
 #[derive(Clone, Debug)]
-pub struct ExternalValue {
+pub struct External {
     /// The [ExternalData] held by the value
-    pub data: Rc<RefCell<dyn ExternalData>>,
+    data: RcCell<dyn ExternalData>,
     /// The [MetaMap] held by the value
-    pub meta: Rc<RefCell<MetaMap>>,
+    meta: RcCell<MetaMap>,
 }
 
-impl ExternalValue {
-    /// Creates a new ExternalValue from [ExternalData] and a [MetaMap]
+impl External {
+    /// Creates a new External from [ExternalData] and a [MetaMap]
     ///
     /// Typically you'll want to share the meta map between value instances,
-    /// see [ExternalValue::with_shared_meta_map].
+    /// see [External::with_shared_meta_map].
     pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
-            meta: Rc::new(RefCell::new(meta)),
+            data: data.into(),
+            meta: meta.into(),
         }
     }
 
-    /// Creates a new ExternalValue from [ExternalData] and a shared [MetaMap]
-    pub fn with_shared_meta_map(data: impl ExternalData, meta: Rc<RefCell<MetaMap>>) -> Self {
+    /// Creates a new External from [ExternalData] and a shared [MetaMap]
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: RcCell<MetaMap>) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
+            data: data.into(),
             meta,
         }
     }
 
-    /// Creates a new [ExternalValue] with the provided data, cloning the existing [MetaMap]
+    /// Creates a new [External] with the provided data, cloning the existing [MetaMap]
     #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
-            data: Rc::new(RefCell::new(data)),
+            data: data.into(),
+            meta: self.meta.clone(),
+        }
+    }
+
+    /// Returns a unique copy of the value.
+    ///
+    /// This is the result of calling [ExternalData::make_copy] on the value's data,
+    /// along with a shared clone of the metamap.
+    pub fn make_copy(&self) -> Self {
+        Self {
+            data: self.data.borrow().make_copy(),
             meta: self.meta.clone(),
         }
     }
@@ -102,12 +127,12 @@ impl ExternalValue {
     /// Returns the value's type as a [ValueString]
     ///
     /// [MetaKey::Type] will be checked for the type string,
-    /// with "ExternalValue" being returned if it's not present.
+    /// with "External" being returned if it's not present.
     pub fn value_type(&self) -> ValueString {
         match self.get_meta_value(&MetaKey::Type) {
             Some(Value::Str(s)) => s,
             Some(_) => "ERROR: Expected String for @type".into(),
-            None => TYPE_EXTERNAL_VALUE.with(|x| x.clone()),
+            None => TYPE_EXTERNAL.with(|x| x.clone()),
         }
     }
 
@@ -127,7 +152,7 @@ impl ExternalValue {
     }
 }
 
-impl KotoDisplay for ExternalValue {
+impl KotoDisplay for External {
     fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
         use UnaryOp::Display;
         if self.contains_meta_key(&Display.into()) {
@@ -143,72 +168,5 @@ impl KotoDisplay for ExternalValue {
 }
 
 thread_local! {
-    static TYPE_EXTERNAL_VALUE: ValueString = "ExternalValue".into();
-}
-
-/// An function that's defined outside of the Koto runtime
-///
-/// See [Value::ExternalFunction]
-pub struct ExternalFunction {
-    /// The function implementation that should be called when calling the external function
-    ///
-    ///
-    // Once Trait aliases are stabilized this can be simplified a bit,
-    // see: https://github.com/rust-lang/rust/issues/55628
-    #[allow(clippy::type_complexity)]
-    pub function: Rc<dyn Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static>,
-    /// True if the function should behave as an instance function
-    pub is_instance_function: bool,
-}
-
-impl ExternalFunction {
-    /// Creates a new external function
-    pub fn new(
-        function: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
-        is_instance_function: bool,
-    ) -> Self {
-        Self {
-            function: Rc::new(function),
-            is_instance_function,
-        }
-    }
-}
-
-impl Clone for ExternalFunction {
-    fn clone(&self) -> Self {
-        Self {
-            function: self.function.clone(),
-            is_instance_function: self.is_instance_function,
-        }
-    }
-}
-
-impl fmt::Debug for ExternalFunction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.function.clone());
-        write!(
-            f,
-            "external {}function: {raw:?}",
-            if self.is_instance_function {
-                "instance "
-            } else {
-                ""
-            },
-        )
-    }
-}
-
-impl Hash for ExternalFunction {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(Rc::as_ptr(&self.function) as *const () as usize);
-    }
-}
-
-/// The start register and argument count for arguments when an ExternalFunction is called
-///
-/// [Vm::args] should be called with this struct to retrieve the corresponding slice of [Value]s.
-#[allow(missing_docs)]
-pub struct ArgRegisters {
-    pub register: u8,
-    pub count: u8,
+    static TYPE_EXTERNAL: ValueString = "External".into();
 }

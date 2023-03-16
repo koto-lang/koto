@@ -147,11 +147,6 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
-    result.add_fn("copy", |vm, args| match vm.get_args(args) {
-        [Iterator(iter)] => Ok(Iterator(iter.make_copy())),
-        unexpected => type_error_with_slice("an Iterator as argument", unexpected),
-    });
-
     result.add_fn("count", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();

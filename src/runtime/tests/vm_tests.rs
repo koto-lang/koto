@@ -395,7 +395,7 @@ l2[1]";
         fn copy() {
             let script = "
 l = [1, 2, 3]
-l2 = l.copy()
+l2 = copy l
 l[1] = -1
 l2[1]";
             test_script(script, 2);
@@ -1868,7 +1868,7 @@ o.foo";
         fn equality() {
             let script = "
 m = {foo: 42, bar: 'abc'}
-m2 = m.copy()
+m2 = copy m
 m == m2";
             test_script(script, true);
         }
@@ -1905,7 +1905,7 @@ m2.foo";
         fn copy() {
             let script = "
 m = {foo: 42}
-m2 = m.copy()
+m2 = copy m
 m.foo = -1
 m2.foo";
             test_script(script, 42);
@@ -2028,7 +2028,7 @@ m.foo(10, 1, 2, 3).to_tuple()
         fn deep_copy_list() {
             let script = "
 x = [0, [1, {foo: 2}]]
-x2 = x.deep_copy()
+x2 = deep_copy x
 x[1][1].foo = 42
 x2[1][1].foo";
             test_script(script, 2);
@@ -2039,7 +2039,7 @@ x2[1][1].foo";
             let script = "
 list = [1, [2]]
 x = (0, list)
-x2 = x.deep_copy()
+x2 = deep_copy x
 list[1][0] = 42
 x2[1][1][0]";
             test_script(script, 2);
@@ -2049,7 +2049,7 @@ x2[1][1][0]";
         fn deep_copy_map() {
             let script = "
 m = {foo: {bar: -1}}
-m2 = m.deep_copy()
+m2 = deep_copy m
 m.foo.bar = 99
 m2.foo.bar";
             test_script(script, number(-1));
@@ -2059,7 +2059,7 @@ m2.foo.bar";
         fn copy_from_expression() {
             let script = "
 m = {foo: {bar: 88}, get_foo: || self.foo}
-m2 = m.get_foo().copy()
+m2 = copy m.get_foo()
 m.get_foo().bar = 99
 m2.bar";
             test_script(script, 88);
@@ -2508,7 +2508,7 @@ foo = {@display: || 'Foo'}
         fn iterator_copy() {
             let script = "
 x = (1..10).iter()
-z = x.copy()
+z = copy x
 x.next()
 x.next()
 z.next()
@@ -2522,7 +2522,7 @@ z.next()
             let script = "
 r = 1..10
 x = [r.iter()]
-z = x.deep_copy()
+z = deep_copy x
 x[0].next()
 x[0].next()
 z[0].next()
@@ -2539,7 +2539,7 @@ generator = ||
     yield x
 x = generator()
 x.next() # 1
-y = x.copy()
+y = copy x
 x.next() # 2
 x.next() # 3
 y.next()
@@ -2862,7 +2862,7 @@ foo = |x|
   @>=: |other| self.x >= other.x
 
 a = foo 42
-b = map.deep_copy a
+b = deep_copy a
 b >= a
 ";
             test_script(script, true);

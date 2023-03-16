@@ -2,32 +2,35 @@ use {
     koto_runtime::prelude::*,
     nannou_core::geom::DVec2,
     std::{
-        cell::RefCell,
         fmt,
         ops::{self, Deref},
-        rc::Rc,
     },
 };
 
-fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_vec2_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, Value::*};
 
     let builder = MetaMapBuilder::<Vec2>::new("Vec2");
     add_ops!(Vec2, builder)
-        .data_fn("angle", |v| Ok(DVec2::X.angle_between(*v.deref()).into()))
-        .data_fn("length", |v| Ok(v.length().into()))
-        .data_fn("x", |v| Ok(v.x.into()))
-        .data_fn("y", |v| Ok(v.y.into()))
-        .data_fn_with_args(Index, |a, b| match b {
-            [Number(n)] => match usize::from(n) {
-                0 => Ok(a.x.into()),
-                1 => Ok(a.y.into()),
-                other => runtime_error!("index out of range (got {other}, should be <= 1)"),
-            },
+        .function("angle", |context| {
+            Ok(DVec2::X.angle_between(**context.data()?).into())
+        })
+        .function("length", |context| Ok(context.data()?.length().into()))
+        .function("x", |context| Ok(context.data()?.x.into()))
+        .function("y", |context| Ok(context.data()?.y.into()))
+        .function(Index, |context| match context.args {
+            [Number(n)] => {
+                let v = context.data()?;
+                match usize::from(n) {
+                    0 => Ok(v.x.into()),
+                    1 => Ok(v.y.into()),
+                    other => runtime_error!("index out of range (got {other}, should be <= 1)"),
+                }
+            }
             unexpected => type_error_with_slice("expected a Number", unexpected),
         })
-        .data_fn(UnaryOp::Iterator, |v| {
-            let v = *v;
+        .function(UnaryOp::Iterator, |context| {
+            let v = *context.data()?;
             let iter = (0..=1).map(move |i| {
                 let result = match i {
                     0 => v.x,
@@ -42,7 +45,7 @@ fn make_vec2_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static VEC2_META: Rc<RefCell<MetaMap>> = make_vec2_meta_map();
+    static VEC2_META: RcCell<MetaMap> = make_vec2_meta_map();
     static TYPE_VEC2: ValueString = "Vec2".into();
 }
 
@@ -63,6 +66,10 @@ impl ExternalData for Vec2 {
     fn data_type(&self) -> ValueString {
         TYPE_VEC2.with(|x| x.clone())
     }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
+    }
 }
 
 impl Deref for Vec2 {
@@ -82,7 +89,7 @@ impl From<DVec2> for Vec2 {
 impl From<Vec2> for Value {
     fn from(point: Vec2) -> Self {
         let meta = VEC2_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(point, meta).into()
+        External::with_shared_meta_map(point, meta).into()
     }
 }
 

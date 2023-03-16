@@ -1,7 +1,7 @@
 checks: fmt clippy test doc wasm
 
 clippy:
-  cargo clippy --all-targets --all-features
+  cargo clippy --workspace --all-features
 
 doc:
   cargo doc --workspace --exclude koto_cli
@@ -13,7 +13,7 @@ temp:
   cargo run -- --tests -i temp.koto
 
 test:
-  cargo test --all-targets
+  cargo test --workspace
 
 test_benches:
   cargo test --benches

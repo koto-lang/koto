@@ -1,25 +1,22 @@
 use {
     crate::{
-        external::{ArgRegisters, ExternalFunction},
+        external_function::{ArgRegisters, ExternalFunction},
         prelude::*,
     },
     indexmap::{Equivalent, IndexMap},
     koto_parser::MetaKeyId,
     std::{
-        cell::RefCell,
         fmt,
         hash::{BuildHasherDefault, Hash},
-        marker::PhantomData,
         ops::{Deref, DerefMut},
-        rc::Rc,
     },
 };
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 
-/// The meta map used by [ValueMap](crate::ValueMap) and [ExternalValue](crate::ExternalValue)
+/// The meta map used by [ValueMap](crate::ValueMap) and [External](crate::External)
 ///
-/// Each ValueMap and ExternalValue contains a metamap,
+/// Each ValueMap and External contains a metamap,
 /// which allows for customized value behaviour by implementing [MetaKeys](crate::MetaKey).
 #[derive(Clone, Debug, Default)]
 pub struct MetaMap(MetaMapType);
@@ -67,12 +64,6 @@ impl DerefMut for MetaMap {
     }
 }
 
-impl From<MetaMap> for Rc<RefCell<MetaMap>> {
-    fn from(m: MetaMap) -> Self {
-        Rc::new(RefCell::new(m))
-    }
-}
-
 /// The key type used by [MetaMaps](crate::MetaMap)
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
@@ -93,7 +84,7 @@ pub enum MetaKey {
     /// e.g. `@meta my_named_key`
     ///
     /// This allows for named entries to be included in the meta map,
-    /// which is particularly useful in [ExternalValue](crate::ExternalValue) metamaps.
+    /// which is particularly useful in [External](crate::External) metamaps.
     ///
     /// Named entries also have use in [ValueMaps][crate::ValueMap] where shared named items can be
     /// made available without them being inserted into the map's contents.
@@ -298,269 +289,4 @@ impl Equivalent<MetaKey> for ValueString {
             _ => false,
         }
     }
-}
-
-/// A builder for MetaMaps
-///
-/// This simplifies adding functions to a [MetaMap], where a common requirement is to work with the
-/// [ExternalData] contained in an [ExternalValue].
-///
-/// # Example
-///
-/// ```
-/// use koto_runtime::prelude::*;
-///
-/// #[derive(Debug)]
-/// struct MyData {
-///     x: f64,
-/// }
-///
-/// impl ExternalData for MyData {}
-///
-/// let meta_map = MetaMapBuilder::<MyData>::new("my_type")
-///     // A 'data function' expects the input value to be an instance of the ExternalData type
-///     // provided to the builder.
-///     .data_fn("to_number", |data| Ok(Value::Number(data.x.into())))
-///     .data_fn(UnaryOp::Display, |data| {
-///         Ok(format!("TestExternalData: {}", data.x).into())
-///     })
-///     // A mutable data function provides a mutable reference to the underlying ExternalData.
-///     .data_fn_mut("invert", |data| {
-///         data.x *= -1.0;
-///         Ok(Value::Null)
-///     })
-///     // Finally, the build function consumes the builder and provides a MetaMap, ready for
-///     // attaching to external values.
-///     .build();
-/// ```
-pub struct MetaMapBuilder<T: ExternalData> {
-    // The map that's being built
-    map: MetaMap,
-    // Keep hold of the type name for error messages
-    type_name: ValueString,
-    // We want to have T available through the implementation
-    _phantom: PhantomData<T>,
-}
-
-impl<T: ExternalData> MetaMapBuilder<T> {
-    /// Initialize a builder with the given type name
-    pub fn new<U>(type_name: U) -> Self
-    where
-        ValueString: From<U>,
-    {
-        let type_name = ValueString::from(type_name);
-        let mut map = MetaMap::default();
-        map.insert(MetaKey::Type, Value::Str(type_name.clone()));
-
-        Self {
-            map,
-            type_name,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Build the MetaMap, consuming the builder
-    pub fn build(self) -> Rc<RefCell<MetaMap>> {
-        self.map.into()
-    }
-
-    /// Adds a function to the `MetaMap`
-    ///
-    /// The function will be called with the VM and ArgRegisters, and the args themselves need to be
-    /// retrieved via vm.get_args(_),
-    ///
-    /// See the `data_` functions for helpers that provide access to the internal data of an
-    /// ExternalValue, which is often what you want when adding functions to a MetaMap.
-    pub fn function<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
-    {
-        self.map.add_instance_fn(key.into(), f);
-        self
-    }
-
-    /// Adds a function that takes the ExternalValue instance as the first argument
-    ///
-    /// This is useful when the value itself is needed rather than its internal data,
-    /// which is useful for self-modifying functions that return self as the result,
-    /// like when implementing a builder pattern.
-    ///
-    /// When only the internal data is needed, see the various `data_` functions.
-    pub fn value_fn<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&ExternalValue, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value), extra_args @ ..]
-                    if value.value_type() == type_name && value.has_data::<T>() =>
-                {
-                    f(value, extra_args)
-                }
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-
-    /// Adds a function that provides access to the data contained in an ExternalValue
-    ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument.
-    ///
-    /// This is useful when you want access to the ExternalValue's internal data,
-    /// e.g. when implementing a UnaryOp.
-    pub fn data_fn<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&T) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value)] if value.value_type() == type_name => {
-                    match value.data::<T>() {
-                        Some(data) => f(&data),
-                        None => unexpected_data_type(value),
-                    }
-                }
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-
-    /// Adds a function that provides mutable access to the data contained in an ExternalValue
-    ///
-    /// A helper for a function that expects an instance of ExternalValue as the only argument.
-    ///
-    /// This is useful when you want mutable access to the ExternalValue's internal data,
-    /// e.g. when implementing a UnaryOp, or something like `.reset()` function.
-    pub fn data_fn_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value)] if value.value_type() == type_name => {
-                    match value.data_mut::<T>() {
-                        Some(mut data) => f(&mut data),
-                        None => unexpected_data_type(value),
-                    }
-                }
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-
-    /// Adds a function that takes an ExternalValue instance, followed by other arguments
-    ///
-    /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// followed by other arguments.
-    ///
-    /// This is useful when you want access to the internal data of an ExternalValue,
-    /// along with following arguments.
-    pub fn data_fn_with_args<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&T, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value), extra_args @ ..] => match value.data::<T>() {
-                    Some(data) => f(&data, extra_args),
-                    None => unexpected_data_type(value),
-                },
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-
-    /// Adds a function that takes an ExternalValue instance, followed by other arguments
-    ///
-    /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// followed by any other arguments.
-    ///
-    /// This is useful when you want mutable access to the internal data of an ExternalValue,
-    /// along with following arguments.
-    ///
-    /// The mutable reference take of the first argument will prevent additional references from
-    /// being taken, so if one of the other arguments could be another instance of the first
-    /// argument, then value_fn should be used instead.
-    pub fn data_fn_with_args_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
-                    Some(mut data) => f(&mut data, extra_args),
-                    None => unexpected_data_type(value),
-                },
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-
-    /// Adds a function that takes an ExternalValue instance, along with a shared VM and args
-    ///
-    /// A helper for a function that expects an instance of ExternalValue as the first argument,
-    /// followed by any other arguments, along with a VM that shares the calling context.
-    ///
-    /// This is useful when you want mutable access to the internal data of an ExternalValue,
-    /// along with following arguments.
-    ///
-    /// The mutable reference take of the first argument will prevent additional references from
-    /// being taken, so if one of the other arguments could be another instance of the first
-    /// argument, then value_fn should be used instead.
-    pub fn data_fn_with_vm_mut<Key, F>(mut self, key: Key, f: F) -> Self
-    where
-        Key: Into<MetaKey>,
-        F: Fn(&mut T, &mut Vm, &[Value]) -> RuntimeResult + 'static,
-    {
-        let type_name = self.type_name.clone();
-
-        self.map
-            .add_instance_fn(key.into(), move |vm, args| match vm.get_args(args) {
-                [Value::ExternalValue(value), extra_args @ ..] => match value.data_mut::<T>() {
-                    Some(mut data) => {
-                        let mut vm = vm.spawn_shared_vm();
-                        f(&mut data, &mut vm, extra_args)
-                    }
-                    None => unexpected_data_type(value),
-                },
-                other => unexpected_instance_type(&type_name, other),
-            });
-
-        self
-    }
-}
-
-fn unexpected_data_type(unexpected: &ExternalValue) -> Result<Value, RuntimeError> {
-    runtime_error!(
-        "Unexpected external data type: {}",
-        unexpected.data_type().as_str()
-    )
-}
-
-fn unexpected_instance_type(
-    type_name: &ValueString,
-    unexpected: &[Value],
-) -> Result<Value, RuntimeError> {
-    type_error_with_slice(&format!("'{}'", type_name.as_str()), unexpected)
 }

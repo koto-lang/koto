@@ -40,6 +40,9 @@ pub enum Value {
     /// A callable function with less simple properties, e.g. captures, variadic arguments, etc.
     Function(FunctionInfo),
 
+    /// A function that's defined outside of the Koto runtime
+    ExternalFunction(ExternalFunction),
+
     /// A function that produces an Iterator when called
     ///
     /// A [Vm](crate::Vm) gets spawned for the function to run in, which pauses each time a yield
@@ -49,11 +52,8 @@ pub enum Value {
     /// The iterator type used in Koto
     Iterator(ValueIterator),
 
-    /// A function that's defined outside of the Koto runtime
-    ExternalFunction(ExternalFunction),
-
     /// A value type that's defined outside of the Koto runtime
-    ExternalValue(ExternalValue),
+    External(External),
 
     /// A tuple of values that are packed into a contiguous series of registers
     ///
@@ -77,8 +77,7 @@ pub enum Value {
 impl Value {
     /// Returns a recursive 'deep copy' of a Value
     ///
-    /// This is used by the various `.deep_copy()` core library functions.
-    #[must_use]
+    /// This is used by koto.deep_copy.
     pub fn deep_copy(&self) -> Value {
         use Value::*;
 
@@ -101,6 +100,7 @@ impl Value {
                 Map(ValueMap::with_contents(data, meta))
             }
             Iterator(i) => Iterator(i.make_copy()),
+            External(v) => External(v.make_copy()),
             _ => self.clone(),
         }
     }
@@ -111,7 +111,7 @@ impl Value {
         match self {
             SimpleFunction(_) | Function(_) | ExternalFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
-            ExternalValue(v) => v.contains_meta_key(&MetaKey::Call),
+            External(v) => v.contains_meta_key(&MetaKey::Call),
             _ => false,
         }
     }
@@ -133,7 +133,7 @@ impl Value {
         use Value::*;
         match self {
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
-            ExternalValue(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => true,
+            External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => true,
             _ => false,
         }
     }
@@ -182,7 +182,7 @@ impl Value {
             SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
             Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
             ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
-            ExternalValue(value) => value.value_type(),
+            External(value) => value.value_type(),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
             SequenceBuilder(_) => TYPE_SEQUENCE_BUILDER.with(|x| x.clone()),
@@ -212,7 +212,7 @@ impl KotoDisplay for Value {
             List(l) => return l.display(s, vm, options),
             Tuple(t) => return t.display(s, vm, options),
             Map(m) => return m.display(s, vm, options),
-            ExternalValue(v) => return v.display(s, vm, options),
+            External(v) => return v.display(s, vm, options),
         };
         if result.is_ok() {
             Ok(Null)
@@ -284,15 +284,21 @@ impl From<ValueString> for Value {
     }
 }
 
+impl From<ValueList> for Value {
+    fn from(value: ValueList) -> Self {
+        Self::List(value)
+    }
+}
+
 impl From<ValueMap> for Value {
     fn from(value: ValueMap) -> Self {
         Self::Map(value)
     }
 }
 
-impl From<ExternalValue> for Value {
-    fn from(value: ExternalValue) -> Self {
-        Self::ExternalValue(value)
+impl From<External> for Value {
+    fn from(value: External) -> Self {
+        Self::External(value)
     }
 }
 

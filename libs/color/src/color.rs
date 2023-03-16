@@ -1,10 +1,8 @@
 use {
     koto_runtime::prelude::*,
     std::{
-        cell::RefCell,
         fmt,
         ops::{self, Deref, DerefMut},
-        rc::Rc,
     },
 };
 
@@ -14,11 +12,11 @@ type Inner = palette::rgb::LinSrgba;
 pub struct Color(Inner);
 
 impl Color {
-    pub fn from_r_g_b(r: f32, g: f32, b: f32) -> Self {
+    pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self(Inner::new(r, g, b, 1.0))
     }
 
-    pub fn from_r_g_b_a(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self(Inner::new(r, g, b, a))
     }
 
@@ -38,19 +36,19 @@ impl Color {
         self.0
     }
 
-    pub fn r(&self) -> f32 {
+    pub fn red(&self) -> f32 {
         self.color.red
     }
 
-    pub fn g(&self) -> f32 {
+    pub fn green(&self) -> f32 {
         self.color.green
     }
 
-    pub fn b(&self) -> f32 {
+    pub fn blue(&self) -> f32 {
         self.color.blue
     }
 
-    pub fn a(&self) -> f32 {
+    pub fn alpha(&self) -> f32 {
         self.alpha
     }
 }
@@ -58,6 +56,10 @@ impl Color {
 impl ExternalData for Color {
     fn data_type(&self) -> ValueString {
         TYPE_COLOR.with(|x| x.clone())
+    }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
     }
 }
 
@@ -77,7 +79,7 @@ impl DerefMut for Color {
 
 impl From<(f32, f32, f32, f32)> for Color {
     fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
-        Self::from_r_g_b_a(r, g, b, a)
+        Self::rgba(r, g, b, a)
     }
 }
 
@@ -90,7 +92,7 @@ impl From<Inner> for Color {
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
         let meta = COLOR_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(color, meta).into()
+        External::with_shared_meta_map(color, meta).into()
     }
 }
 
@@ -99,10 +101,10 @@ impl fmt::Display for Color {
         write!(
             f,
             "Color {{r: {}, g: {}, b: {}, a: {}}}",
-            self.r(),
-            self.g(),
-            self.b(),
-            self.a()
+            self.red(),
+            self.green(),
+            self.blue(),
+            self.alpha()
         )
     }
 }
@@ -161,12 +163,12 @@ impl_arithmetic_assign_op!(DivAssign, div_assign, /=);
 #[macro_export]
 macro_rules! color_arithmetic_op {
     ($op:tt) => {
-        |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
-                let b = b.data::<Color>().unwrap();
-                Ok((*a $op *b).into())
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<Color>() =>{
+                let b = *b.data::<Color>().unwrap();
+                Ok((*context.data()? $op b).into())
             }
-            [Value::Number(n)] => Ok((*a $op f32::from(n)).into()),
+            [Value::Number(n)] => Ok((*context.data()? $op f32::from(n)).into()),
             unexpected => {
                 type_error_with_slice("a Color or Number", unexpected)
             }
@@ -177,15 +179,15 @@ macro_rules! color_arithmetic_op {
 #[macro_export]
 macro_rules! color_arithmetic_assign_op {
     ($op:tt) => {
-        |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<Color>() =>{
                 let b: Color = *b.data::<Color>().unwrap();
-                *a.data_mut::<Color>().unwrap() $op b;
-                Ok(a.clone().into())
+                *context.data_mut()? $op b;
+                context.ok_value()
             }
             [Value::Number(n)] => {
-                *a.data_mut::<Color>().unwrap() $op f32::from(n);
-                Ok(a.clone().into())
+                *context.data_mut()? $op f32::from(n);
+                context.ok_value()
             }
             unexpected => {
                 type_error_with_slice("a Color or Number", unexpected)
@@ -197,81 +199,88 @@ macro_rules! color_arithmetic_assign_op {
 #[macro_export]
 macro_rules! color_comparison_op {
     ($op:tt) => {
-        |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<Color>() =>{
-                let b = b.data::<Color>().unwrap();
-                Ok((*a $op *b).into())
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<Color>() =>{
+                let b = *b.data::<Color>().unwrap();
+                Ok((*context.data()? $op b).into())
             }
             unexpected => type_error_with_slice("a Color", unexpected),
         }
     }
 }
 
-fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_color_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Color>::new("Color")
-        .data_fn("r", |c| Ok(c.r().into()))
-        .data_fn("g", |c| Ok(c.g().into()))
-        .data_fn("b", |c| Ok(c.b().into()))
-        .data_fn("a", |c| Ok(c.a().into()))
-        .value_fn("set_r", |c, args| match args {
+        .function_aliased(&["red", "r"], |context| Ok(context.data()?.red().into()))
+        .function_aliased(&["green", "g"], |context| {
+            Ok(context.data()?.green().into())
+        })
+        .function_aliased(&["blue", "b"], |context| Ok(context.data()?.blue().into()))
+        .function_aliased(&["alpha", "a"], |context| {
+            Ok(context.data()?.alpha().into())
+        })
+        .function_aliased(&["set_red", "set_r"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.red = n.into();
-                Ok(c.clone().into())
+                context.data_mut()?.color.red = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_g", |c, args| match args {
+        .function_aliased(&["set_green", "set_g"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.green = n.into();
-                Ok(c.clone().into())
+                context.data_mut()?.color.green = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_b", |c, args| match args {
+        .function_aliased(&["set_blue", "set_b"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().color.blue = n.into();
-                Ok(c.clone().into())
+                context.data_mut()?.color.blue = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .value_fn("set_a", |c, args| match args {
+        .function_aliased(&["set_alpha", "set_a"], |context| match context.args {
             [Number(n)] => {
-                c.data_mut::<Color>().unwrap().alpha = n.into();
-                Ok(c.clone().into())
+                context.data_mut()?.alpha = n.into();
+                context.ok_value()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
-        .data_fn(Display, |c| Ok(c.to_string().into()))
-        .data_fn_with_args(Add, color_arithmetic_op!(+))
-        .data_fn_with_args(Subtract, color_arithmetic_op!(-))
-        .data_fn_with_args(Multiply, color_arithmetic_op!(*))
-        .data_fn_with_args(Divide, color_arithmetic_op!(/))
-        .value_fn(AddAssign, color_arithmetic_assign_op!(+=))
-        .value_fn(SubtractAssign, color_arithmetic_assign_op!(-=))
-        .value_fn(MultiplyAssign, color_arithmetic_assign_op!(*=))
-        .value_fn(DivideAssign, color_arithmetic_assign_op!(/=))
-        .data_fn_with_args(Equal, color_comparison_op!(==))
-        .data_fn_with_args(NotEqual, color_comparison_op!(!=))
-        .data_fn_with_args(Index, |a, b| match b {
-            [Number(n)] => match usize::from(n) {
-                0 => Ok(a.r().into()),
-                1 => Ok(a.g().into()),
-                2 => Ok(a.b().into()),
-                3 => Ok(a.a().into()),
-                other => runtime_error!("index out of range (got {other}, should be <= 3)"),
-            },
+        .function(Display, |context| Ok(context.data()?.to_string().into()))
+        .function(Add, color_arithmetic_op!(+))
+        .function(Subtract, color_arithmetic_op!(-))
+        .function(Multiply, color_arithmetic_op!(*))
+        .function(Divide, color_arithmetic_op!(/))
+        .function(AddAssign, color_arithmetic_assign_op!(+=))
+        .function(SubtractAssign, color_arithmetic_assign_op!(-=))
+        .function(MultiplyAssign, color_arithmetic_assign_op!(*=))
+        .function(DivideAssign, color_arithmetic_assign_op!(/=))
+        .function(Equal, color_comparison_op!(==))
+        .function(NotEqual, color_comparison_op!(!=))
+        .function(Index, |context| match context.args {
+            [Number(n)] => {
+                let c = context.data()?;
+                match usize::from(n) {
+                    0 => Ok(c.red().into()),
+                    1 => Ok(c.green().into()),
+                    2 => Ok(c.blue().into()),
+                    3 => Ok(c.alpha().into()),
+                    other => runtime_error!("index out of range (got {other}, should be <= 3)"),
+                }
+            }
             unexpected => type_error_with_slice("expected a Number", unexpected),
         })
-        .data_fn(UnaryOp::Iterator, |c| {
-            let c = *c;
+        .function(UnaryOp::Iterator, |context| {
+            let c = *context.data()?;
             let iter = (0..=3).map(move |i| {
                 let result = match i {
-                    0 => c.r(),
-                    1 => c.g(),
-                    2 => c.b(),
-                    3 => c.a(),
+                    0 => c.red(),
+                    1 => c.green(),
+                    2 => c.blue(),
+                    3 => c.alpha(),
                     _ => unreachable!(),
                 };
                 ValueIteratorOutput::Value(result.into())
@@ -282,6 +291,6 @@ fn make_color_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static COLOR_META: Rc<RefCell<MetaMap>> = make_color_meta_map();
+    static COLOR_META: RcCell<MetaMap> = make_color_meta_map();
     static TYPE_COLOR: ValueString = "Color".into();
 }

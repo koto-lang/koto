@@ -4,7 +4,7 @@ use {
     koto_runtime::prelude::*,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha8Rng,
-    std::{cell::RefCell, rc::Rc},
+    std::cell::RefCell,
 };
 
 pub fn make_module() -> ValueMap {
@@ -42,29 +42,29 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static RNG_META: Rc<RefCell<MetaMap>> = make_rng_meta_map();
+    static RNG_META: RcCell<MetaMap> = make_rng_meta_map();
 
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
 }
 
-fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_rng_meta_map() -> RcCell<MetaMap> {
     MetaMapBuilder::<ChaChaRng>::new("Rng")
-        .data_fn_mut("bool", |rng| rng.gen_bool())
-        .data_fn_mut("number", |rng| rng.gen_number())
-        .data_fn_with_args_mut("pick", |rng, args| rng.pick(args))
-        .data_fn_with_args_mut("seed", |rng, args| rng.seed(args))
+        .function("bool", |context| context.data_mut()?.gen_bool())
+        .function("number", |context| context.data_mut()?.gen_number())
+        .function("pick", |context| context.data_mut()?.pick(context.args))
+        .function("seed", |context| context.data_mut()?.seed(context.args))
         .build()
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
     fn make_external_value(rng: ChaCha8Rng) -> Value {
         let result =
-            ExternalValue::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
+            External::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
 
-        Value::ExternalValue(result)
+        Value::External(result)
     }
 
     fn gen_bool(&mut self) -> RuntimeResult {
@@ -120,6 +120,10 @@ impl ChaChaRng {
 impl ExternalData for ChaChaRng {
     fn data_type(&self) -> ValueString {
         TYPE_RNG.with(|x| x.clone())
+    }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
     }
 }
 

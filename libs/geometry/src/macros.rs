@@ -62,12 +62,12 @@ macro_rules! impl_arithmetic_ops {
 #[macro_export]
 macro_rules! koto_arithmetic_op {
     ($type:ident, $op:tt) => {
-        |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b = b.data::<$type>().unwrap();
-                Ok((*a $op *b).into())
+                Ok((*context.data()? $op *b).into())
             }
-            [Value::Number(n)] => Ok((*a $op f64::from(n)).into()),
+            [Value::Number(n)] => Ok((*context.data()? $op f64::from(n)).into()),
             unexpected => {
                 type_error_with_slice(&format!("a {} or Number", stringify!($type)), unexpected)
             }
@@ -78,15 +78,15 @@ macro_rules! koto_arithmetic_op {
 #[macro_export]
 macro_rules! koto_arithmetic_assign_op {
     ($type:ident, $op:tt) => {
-        |value, args| match args {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b: $type = *b.data::<$type>().unwrap().deref();
-                *value.data_mut::<$type>().unwrap() $op b;
-                Ok(value.clone().into())
+                *context.data_mut()? $op b;
+                context.ok_value()
             }
             [Value::Number(n)] => {
-                *value.data_mut::<$type>().unwrap() $op f64::from(n);
-                Ok(value.clone().into())
+                *context.data_mut()? $op f64::from(n);
+                context.ok_value()
             }
             unexpected => {
                 type_error_with_slice(&format!("a {} or Number", stringify!($type)), unexpected)
@@ -98,10 +98,10 @@ macro_rules! koto_arithmetic_assign_op {
 #[macro_export]
 macro_rules! koto_comparison_op {
     ($type:ident, $op:tt) => {
-        |a, b| match b {
-            [Value::ExternalValue(b)] if b.has_data::<$type>() =>{
+        |context| match context.args {
+            [Value::External(b)] if b.has_data::<$type>() =>{
                 let b = b.data::<$type>().unwrap();
-                Ok((*a $op *b).into())
+                Ok((*context.data()? $op *b).into())
             }
             unexpected => type_error_with_slice(&format!("a {}", stringify!($type)), unexpected),
         }
@@ -114,17 +114,17 @@ macro_rules! add_ops {
         use {BinaryOp::*, UnaryOp::*};
 
         $builder
-            .data_fn(Display, |x| Ok(x.to_string().into()))
-            .data_fn(Negate, |x| Ok($type::from(-(*x)).into()))
-            .data_fn_with_args(Add, koto_arithmetic_op!($type, +))
-            .data_fn_with_args(Subtract, koto_arithmetic_op!($type, -))
-            .data_fn_with_args(Multiply, koto_arithmetic_op!($type, *))
-            .data_fn_with_args(Divide, koto_arithmetic_op!($type, /))
-            .value_fn(AddAssign, koto_arithmetic_assign_op!($type, +=))
-            .value_fn(SubtractAssign, koto_arithmetic_assign_op!($type, -=))
-            .value_fn(MultiplyAssign, koto_arithmetic_assign_op!($type, *=))
-            .value_fn(DivideAssign, koto_arithmetic_assign_op!($type, /=))
-            .data_fn_with_args(Equal, koto_comparison_op!($type, ==))
-            .data_fn_with_args(NotEqual, koto_comparison_op!($type, !=))
+            .function(Display, |context| Ok(context.data()?.to_string().into()))
+            .function(Negate, |context| Ok($type::from(-(*context.data()?)).into()))
+            .function(Add, koto_arithmetic_op!($type, +))
+            .function(Subtract, koto_arithmetic_op!($type, -))
+            .function(Multiply, koto_arithmetic_op!($type, *))
+            .function(Divide, koto_arithmetic_op!($type, /))
+            .function(AddAssign, koto_arithmetic_assign_op!($type, +=))
+            .function(SubtractAssign, koto_arithmetic_assign_op!($type, -=))
+            .function(MultiplyAssign, koto_arithmetic_assign_op!($type, *=))
+            .function(DivideAssign, koto_arithmetic_assign_op!($type, /=))
+            .function(Equal, koto_comparison_op!($type, ==))
+            .function(NotEqual, koto_comparison_op!($type, !=))
     }}
 }

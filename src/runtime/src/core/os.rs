@@ -1,11 +1,6 @@
 //! The `os` core library module
 
-use {
-    crate::prelude::*,
-    chrono::prelude::*,
-    instant::Instant,
-    std::{cell::RefCell, rc::Rc},
-};
+use {crate::prelude::*, chrono::prelude::*, instant::Instant, std::ops::Deref};
 
 /// Initializes the `os` core library module
 pub fn make_module() -> ValueMap {
@@ -33,12 +28,13 @@ pub fn make_module() -> ValueMap {
 }
 
 /// The underlying data type returned by `os.time()`
+#[derive(Clone)]
 pub struct DateTime(chrono::DateTime<Local>);
 
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
-        let result = ExternalValue::with_shared_meta_map(Self(time), Self::meta_map());
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(time), Self::meta_map());
+        Value::External(result)
     }
 
     fn now() -> Value {
@@ -63,72 +59,100 @@ impl DateTime {
         }
     }
 
-    fn meta_map() -> Rc<RefCell<MetaMap>> {
+    fn meta_map() -> RcCell<MetaMap> {
         SYSTEM_TIME_META.with(|meta| meta.clone())
     }
 }
 
-impl ExternalData for DateTime {}
+impl ExternalData for DateTime {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
+    }
+}
+
+impl Deref for DateTime {
+    type Target = chrono::DateTime<Local>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 thread_local! {
     /// The meta map used by [DateTime]
-    pub static SYSTEM_TIME_META: Rc<RefCell<MetaMap>> = make_system_time_meta_map();
+    pub static SYSTEM_TIME_META: RcCell<MetaMap> = make_system_time_meta_map();
 }
 
-fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_system_time_meta_map() -> RcCell<MetaMap> {
     MetaMapBuilder::<DateTime>::new("DateTime")
-        .data_fn(UnaryOp::Display, |data| {
-            Ok(data.0.format("%F %T").to_string().into())
+        .function(UnaryOp::Display, |context| {
+            Ok(context.data()?.format("%F %T").to_string().into())
         })
-        .data_fn("day", |data| Ok(data.0.day().into()))
-        .data_fn("hour", |data| Ok(data.0.hour().into()))
-        .data_fn("minute", |data| Ok(data.0.minute().into()))
-        .data_fn("month", |data| Ok(data.0.month().into()))
-        .data_fn("second", |data| Ok(data.0.second().into()))
-        .data_fn("nanosecond", |data| Ok(data.0.nanosecond().into()))
-        .data_fn("timestamp", |data| {
-            let seconds = data.0.timestamp() as f64;
-            let sub_nanos = data.0.timestamp_subsec_nanos();
+        .function("day", |context| Ok(context.data()?.day().into()))
+        .function("hour", |context| Ok(context.data()?.hour().into()))
+        .function("minute", |context| Ok(context.data()?.minute().into()))
+        .function("month", |context| Ok(context.data()?.month().into()))
+        .function("second", |context| Ok(context.data()?.second().into()))
+        .function("nanosecond", |context| {
+            Ok(context.data()?.nanosecond().into())
+        })
+        .function("timestamp", |context| {
+            let seconds = context.data()?.timestamp() as f64;
+            let sub_nanos = context.data()?.timestamp_subsec_nanos();
             Ok((seconds + sub_nanos as f64 / 1.0e9).into())
         })
-        .data_fn("timezone_offset", |data| {
-            Ok(data.0.offset().local_minus_utc().into())
+        .function("timezone_offset", |context| {
+            Ok(context.data()?.offset().local_minus_utc().into())
         })
-        .data_fn("timezone_string", |data| {
-            Ok(data.0.format("%z").to_string().into())
+        .function("timezone_string", |context| {
+            Ok(context.data()?.format("%z").to_string().into())
         })
-        .data_fn("year", |data| Ok(data.0.year().into()))
+        .function("year", |context| Ok(context.data()?.year().into()))
         .build()
 }
 
 /// The underlying data type returned by `os.start_timer()`
+#[derive(Clone)]
 pub struct Timer(Instant);
 
 impl Timer {
     fn now() -> Value {
         let meta = TIMER_META.with(|meta| meta.clone());
-        let result = ExternalValue::with_shared_meta_map(Self(Instant::now()), meta);
-        Value::ExternalValue(result)
+        let result = External::with_shared_meta_map(Self(Instant::now()), meta);
+        Value::External(result)
     }
 }
 
-impl ExternalData for Timer {}
+impl ExternalData for Timer {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        RcCell::from(self.clone())
+    }
+}
+
+impl Deref for Timer {
+    type Target = Instant;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 thread_local! {
     /// The meta map used by [Timer]
-    pub static TIMER_META: Rc<RefCell<MetaMap>> = make_timer_meta_map();
+    pub static TIMER_META: RcCell<MetaMap> = make_timer_meta_map();
 }
 
-fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::ExternalValue;
+fn make_timer_meta_map() -> RcCell<MetaMap> {
+    use Value::External;
 
     MetaMapBuilder::<Timer>::new("Timer")
-        .data_fn(UnaryOp::Display, |data| {
-            Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
+        .function(UnaryOp::Display, |context| {
+            Ok(format!("Timer({:.3}s)", context.data()?.elapsed().as_secs_f64()).into())
         })
-        .data_fn_with_args(BinaryOp::Subtract, |a, b| match b {
-            [ExternalValue(b)] if b.has_data::<Timer>() => {
+        .function(BinaryOp::Subtract, |context| match context.args {
+            [External(b)] if b.has_data::<Timer>() => {
                 let b = b.data::<Timer>().unwrap();
+                let a = context.data()?;
                 let result = if a.0 >= b.0 {
                     a.0.duration_since(b.0).as_secs_f64()
                 } else {
@@ -138,8 +162,8 @@ fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
             }
             unexpected => type_error_with_slice("Timer", unexpected),
         })
-        .data_fn("elapsed", |instant| {
-            Ok(instant.0.elapsed().as_secs_f64().into())
+        .function("elapsed", |context| {
+            Ok(context.data()?.0.elapsed().as_secs_f64().into())
         })
         .build()
 }

@@ -32,6 +32,8 @@ The Koto project adheres to
 - New `color` and `geometry` libs have been added, and are available by default 
   in the CLI.
 - `koto.hash` has been added to allow value hashes to be accessed.
+- The `copy`/`deep_copy` functions have been merged into the `koto` module, 
+  and made available in the prelude.
 - `range` additions:
   - `range.contains` can now accept a range as an argument.
     - e.g. 
@@ -45,6 +47,8 @@ The Koto project adheres to
 
 - `MetaMapBuilder` is now available to simplify the creation of `MetaMap`s. 
 - Preludes are now available in the `koto` and `koto_runtime` crates.
+- An `RcCell<T>` wrapper has been introduced to simplify uses of 
+  `Rc<RefCell<T>>`.
 
 
 ### Changed
@@ -68,12 +72,16 @@ The Koto project adheres to
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 
 
+### Libs
+
+- The various `.copy`/`.deep_copy` module functions have been merged into 
+  `koto.copy`/`koto.deep_copy`, which have also been added to the prelude.
+
 #### Internals
 
 - `Value` no longer implements `fmt::Display`, instead `value_to_string` can be
   called on `Koto` or the Vm to get a string.
-- Implementing `KotoFile` has been made easier, with the `Display + Debug`
-  constraint replaced with a required `id()` function.
+- `Value::ExternalValue` is now `Value::External`.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
 - Type strings and strings returned by `KotoFile` implementations are now 
@@ -83,6 +91,8 @@ The Koto project adheres to
 - `DataMap::get_with_string` has been replaced with a simplified `ValueKey`
   implementation that allows for efficient `&str` accesses without the
   intermediate steps.
+- Implementing `KotoFile` has been made easier, with the `Display + Debug`
+  constraint replaced with a required `id()` function.
 
 ### Removed
 

@@ -2,33 +2,37 @@ use {
     koto_runtime::prelude::*,
     nannou_core::geom::DVec3,
     std::{
-        cell::RefCell,
         fmt,
         ops::{self, Deref},
-        rc::Rc,
     },
 };
 
-fn make_vec3_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_vec3_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, Value::*};
 
     let builder = MetaMapBuilder::<Vec3>::new("Vec3");
     add_ops!(Vec3, builder)
-        .data_fn("x", |v| Ok(v.x.into()))
-        .data_fn("y", |v| Ok(v.y.into()))
-        .data_fn("z", |v| Ok(v.z.into()))
-        .data_fn("sum", |v| Ok((v.x + v.y + v.z).into()))
-        .data_fn_with_args(Index, |a, b| match b {
-            [Number(n)] => match usize::from(n) {
-                0 => Ok(a.x.into()),
-                1 => Ok(a.y.into()),
-                2 => Ok(a.z.into()),
-                other => runtime_error!("index out of range (got {other}, should be <= 2)"),
-            },
-            unexpected => type_error_with_slice("expected a Number", unexpected),
+        .function("x", |context| Ok(context.data()?.x.into()))
+        .function("y", |context| Ok(context.data()?.y.into()))
+        .function("z", |context| Ok(context.data()?.z.into()))
+        .function("sum", |context| {
+            let v = context.data()?;
+            Ok((v.x + v.y + v.z).into())
         })
-        .data_fn(UnaryOp::Iterator, |v| {
-            let v = *v;
+        .function(Index, |context| {
+            let v = context.data()?;
+            match context.args {
+                [Number(n)] => match usize::from(n) {
+                    0 => Ok(v.x.into()),
+                    1 => Ok(v.y.into()),
+                    2 => Ok(v.z.into()),
+                    other => runtime_error!("index out of range (got {other}, should be <= 2)"),
+                },
+                unexpected => type_error_with_slice("expected a Number", unexpected),
+            }
+        })
+        .function(UnaryOp::Iterator, |context| {
+            let v = *context.data()?;
             let iter = (0..=2).map(move |i| {
                 let result = match i {
                     0 => v.x,
@@ -44,7 +48,7 @@ fn make_vec3_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static VEC3_META: Rc<RefCell<MetaMap>> = make_vec3_meta_map();
+    static VEC3_META: RcCell<MetaMap> = make_vec3_meta_map();
     static TYPE_VEC3: ValueString = "Vec3".into();
 }
 
@@ -60,6 +64,10 @@ impl Vec3 {
 impl ExternalData for Vec3 {
     fn data_type(&self) -> ValueString {
         TYPE_VEC3.with(|x| x.clone())
+    }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
     }
 }
 
@@ -86,7 +94,7 @@ impl From<(f64, f64, f64)> for Vec3 {
 impl From<Vec3> for Value {
     fn from(vec3: Vec3) -> Self {
         let meta = VEC3_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(vec3, meta).into()
+        External::with_shared_meta_map(vec3, meta).into()
     }
 }
 

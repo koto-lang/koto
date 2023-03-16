@@ -1,50 +1,52 @@
 use {
     crate::Vec2,
     koto_runtime::prelude::*,
-    std::{cell::RefCell, fmt, ops::Deref, rc::Rc},
+    std::{fmt, ops::Deref},
 };
 
 type Inner = nannou_core::geom::Rect<f64>;
 
-fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_rect_meta_map() -> RcCell<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Rect>::new("Rect")
-        .data_fn("left", |r| Ok(r.left().into()))
-        .data_fn("right", |r| Ok(r.right().into()))
-        .data_fn("top", |r| Ok(r.top().into()))
-        .data_fn("bottom", |r| Ok(r.bottom().into()))
-        .data_fn("width", |r| Ok(r.w().into()))
-        .data_fn("height", |r| Ok(r.h().into()))
-        .data_fn("center", |r| Ok(Vec2::from(r.xy()).into()))
-        .data_fn("x", |r| Ok(r.x().into()))
-        .data_fn("y", |r| Ok(r.y().into()))
-        .data_fn_with_args("contains", |r, args| match args {
-            [ExternalValue(p)] if p.has_data::<Vec2>() => {
+        .function("left", |context| Ok(context.data()?.left().into()))
+        .function("right", |context| Ok(context.data()?.right().into()))
+        .function("top", |context| Ok(context.data()?.top().into()))
+        .function("bottom", |context| Ok(context.data()?.bottom().into()))
+        .function("width", |context| Ok(context.data()?.w().into()))
+        .function("height", |context| Ok(context.data()?.h().into()))
+        .function("center", |context| {
+            Ok(Vec2::from(context.data()?.xy()).into())
+        })
+        .function("x", |context| Ok(context.data()?.x().into()))
+        .function("y", |context| Ok(context.data()?.y().into()))
+        .function("contains", |context| match context.args {
+            [External(p)] if p.has_data::<Vec2>() => {
                 let p = p.data::<Vec2>().unwrap();
-                let result = r.0.contains(p.inner());
+                let result = context.data()?.contains(p.inner());
                 Ok(result.into())
             }
             unexpected => type_error_with_slice("Vec2", unexpected),
         })
-        .value_fn("set_center", |value, args| {
-            let mut r = value.data_mut::<Rect>().unwrap();
-            let (x, y) = match args {
+        .function("set_center", |context| {
+            let (x, y) = match context.args {
                 [Number(x), Number(y)] => (x.into(), y.into()),
-                [ExternalValue(p)] if p.has_data::<Vec2>() => {
+                [External(p)] if p.has_data::<Vec2>() => {
                     let p = p.data::<Vec2>().unwrap();
                     (p.x, p.y)
                 }
                 unexpected => return type_error_with_slice("two Numbers or a Vec2", unexpected),
             };
+            let mut r = context.data_mut()?;
             r.0 = Inner::from_x_y_w_h(x, y, r.w(), r.h());
-            Ok(value.clone().into())
+            context.ok_value()
         })
-        .data_fn(Display, |r| Ok(r.to_string().into()))
-        .data_fn_with_args(Equal, koto_comparison_op!(Rect, ==))
-        .data_fn_with_args(NotEqual, koto_comparison_op!(Rect, !=))
-        .data_fn(UnaryOp::Iterator, |r| {
-            let r = *r;
+        .function(Display, |context| Ok(context.data()?.to_string().into()))
+        .function(Equal, koto_comparison_op!(Rect, ==))
+        .function(NotEqual, koto_comparison_op!(Rect, !=))
+        .function(UnaryOp::Iterator, |context| {
+            let r = *context.data()?;
             let iter = (0..=3).map(move |i| {
                 let result = match i {
                     0 => r.x(),
@@ -61,7 +63,7 @@ fn make_rect_meta_map() -> Rc<RefCell<MetaMap>> {
 }
 
 thread_local! {
-    static RECT_META: Rc<RefCell<MetaMap>> = make_rect_meta_map();
+    static RECT_META: RcCell<MetaMap> = make_rect_meta_map();
     static TYPE_RECT: ValueString = "Rect".into();
 }
 
@@ -77,6 +79,10 @@ impl Rect {
 impl ExternalData for Rect {
     fn data_type(&self) -> ValueString {
         TYPE_RECT.with(|x| x.clone())
+    }
+
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        (*self).into()
     }
 }
 
@@ -103,7 +109,7 @@ impl From<(f64, f64, f64, f64)> for Rect {
 impl From<Rect> for Value {
     fn from(point: Rect) -> Self {
         let meta = RECT_META.with(|meta| meta.clone());
-        ExternalValue::with_shared_meta_map(point, meta).into()
+        External::with_shared_meta_map(point, meta).into()
     }
 }
 

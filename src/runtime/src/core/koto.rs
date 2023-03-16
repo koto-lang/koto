@@ -13,6 +13,26 @@ pub fn make_module() -> ValueMap {
 
     result.add_value("args", Tuple(ValueTuple::default()));
 
+    result.add_fn("copy", |vm, args| match vm.get_args(args) {
+        [Iterator(iter)] => Ok(iter.make_copy().into()),
+        [List(l)] => Ok(ValueList::with_data(l.data().clone()).into()),
+        [Map(m)] => {
+            let result = ValueMap::with_contents(
+                m.data().clone(),
+                m.meta_map().map(|meta| meta.borrow().clone()),
+            );
+            Ok(result.into())
+        }
+        [External(v)] => Ok(v.make_copy().into()),
+        [other] => Ok(other.clone()),
+        unexpected => type_error_with_slice("a single argument", unexpected),
+    });
+
+    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
+        [value] => Ok(value.deep_copy()),
+        unexpected => type_error_with_slice("a single argument", unexpected),
+    });
+
     result.add_fn("exports", |vm, _| Ok(Map(vm.exports().clone())));
 
     result.add_fn("hash", |vm, args| match vm.get_args(args) {

@@ -4,11 +4,14 @@
 
 mod display;
 mod error;
-mod external;
+mod external_function;
+mod external_value;
 mod file;
 mod frame;
 mod int_range;
 mod meta_map;
+mod meta_map_builder;
+mod rc_cell;
 mod stdio;
 mod value_iterator;
 mod value_key;
@@ -27,10 +30,13 @@ pub mod value;
 pub use {
     display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
-    external::{ExternalData, ExternalFunction, ExternalValue},
+    external_function::ExternalFunction,
+    external_value::{External, ExternalData},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
-    meta_map::{BinaryOp, MetaKey, MetaMap, MetaMapBuilder, UnaryOp},
+    meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
+    meta_map_builder::MetaMapBuilder,
+    rc_cell::RcCell,
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},

@@ -2498,19 +2498,13 @@ impl Compiler {
                     };
 
                     let node_register = self.push_register()?;
-                    let key_register = self.push_register()?;
                     node_registers.push(node_register);
-                    // TODO use compile_access_string
-                    self.compile_string(
-                        ResultRegister::Fixed(key_register),
+                    self.compile_access_string(
+                        node_register,
+                        parent_register,
                         &lookup_string.nodes,
                         ast,
                     )?;
-                    self.push_op(
-                        AccessString,
-                        &[node_register, parent_register, key_register],
-                    );
-                    self.pop_register()?; // key_register
                 }
                 LookupNode::Index(index_node) => {
                     // Indexing into a value

@@ -134,43 +134,6 @@ print! result
 check! [1, 3, 5, 7, 9]
 ```
 
-## copy
-
-```kototype
-|Iterator| -> Iterator
-```
-
-Returns an iterator that shares the same iterable data, but with a unique
-iteration position (which is part of an iterator's shared state by default).
-
-### Note
-
-If the iterator is a generator then some effort will be made to make the
-generator's copy provide the same output as the original, however this isn't
-guaranteeed to be successful. Specifically, the value stack of the copied VM
-will be scanned for iterators, and each iterator will have a copy made.
-Iterators that may be used in other ways by the generator (e.g. stored in
-containers or function captures) won't be copied and will still have shared
-state.
-
-### Example
-
-```koto
-x = (1..=10).iter()
-y = x # y shares the same iteration position as x.
-z = x.copy() # z shares the same iteration data (the range 1..=10),
-             # but has a unique iteration position.
-
-print! x.next()
-check! 1
-print! x.next()
-check! 2
-print! y.next() # y shares x's iteration position.
-check! 3
-print! z.next() # z's iteration hasn't been impacted by the advancing of x and y.
-check! 1
-```
-
 ## count
 
 ```kototype

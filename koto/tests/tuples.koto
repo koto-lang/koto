@@ -30,7 +30,7 @@ make_foo = |x|
     # x contains 3 shared copies of a
     x = (a, a, a)
     # deep_copy creates 3 unique copies of a
-    x2 = x.deep_copy()
+    x2 = deep_copy x
     # modifying a is reflected in x, but not x2
     a[0] = 99
     assert_eq x[1][0], 99

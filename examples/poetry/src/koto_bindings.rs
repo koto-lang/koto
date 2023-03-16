@@ -1,8 +1,4 @@
-use {
-    crate::Poetry,
-    koto::prelude::*,
-    std::{cell::RefCell, rc::Rc},
-};
+use {crate::Poetry, koto::prelude::*};
 
 pub fn make_module() -> ValueMap {
     let result = ValueMap::new();
@@ -22,28 +18,28 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = make_poetry_meta_map();
+    static POETRY_BINDINGS: RcCell<MetaMap> = make_poetry_meta_map();
 }
 
-fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
+fn make_poetry_meta_map() -> RcCell<MetaMap> {
     use Value::{Null, Str};
 
     MetaMapBuilder::<KotoPoetry>::new("Poetry")
-        .data_fn_with_args_mut("add_source_material", |poetry, args| match args {
+        .function("add_source_material", |context| match context.args {
             [Str(text)] => {
-                poetry.0.add_source_material(text);
+                context.data_mut()?.0.add_source_material(text);
                 Ok(Null)
             }
             unexpected => type_error_with_slice("a String", unexpected),
         })
-        .value_fn("iter", |poetry_value, _args| {
+        .function("iter", |context| {
             let iter = PoetryIter {
-                poetry: poetry_value.clone(),
+                poetry: context.external.clone(),
             };
             Ok(ValueIterator::new(iter).into())
         })
-        .data_fn_mut("next_word", |poetry| {
-            let result = match poetry.0.next_word() {
+        .function("next_word", |context| {
+            let result = match context.data_mut()?.0.next_word() {
                 Some(word) => Str(word.as_ref().into()),
                 None => Null,
             };
@@ -54,7 +50,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
 
 #[derive(Clone)]
 struct PoetryIter {
-    poetry: ExternalValue,
+    poetry: External,
 }
 
 impl KotoIterator for PoetryIter {
@@ -88,18 +84,22 @@ impl Iterator for PoetryIter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct KotoPoetry(Poetry);
 
 impl KotoPoetry {
     fn make_external_value(poetry: Poetry) -> Value {
-        let result = ExternalValue::with_shared_meta_map(
+        let result = External::with_shared_meta_map(
             KotoPoetry(poetry),
             POETRY_BINDINGS.with(|meta| meta.clone()),
         );
 
-        Value::ExternalValue(result)
+        Value::External(result)
     }
 }
 
-impl ExternalData for KotoPoetry {}
+impl ExternalData for KotoPoetry {
+    fn make_copy(&self) -> RcCell<dyn ExternalData> {
+        self.clone().into()
+    }
+}

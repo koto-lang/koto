@@ -17,22 +17,29 @@ import color
   @test components: ||
     allowed_error = 1.0e-3
     c = color 'firebrick'
+    assert_near c.red(), 0.698, allowed_error
     assert_near c.r(), 0.698, allowed_error
+    assert_near c.green(), 0.133, allowed_error
     assert_near c.g(), 0.133, allowed_error
+    assert_near c.blue(), 0.133, allowed_error
     assert_near c.b(), 0.133, allowed_error
+    assert_near c.alpha(), 1.0, allowed_error
     assert_near c.a(), 1.0, allowed_error
 
   @test set_components: ||
-    allowed_error = 1.0e-7
     c = color('yellow')
-      .set_r 0.4
-      .set_g 0.9
-      .set_b 0.7
-      .set_a 0.2
-    assert_near c.r(), 0.4, allowed_error
-    assert_near c.g(), 0.9, allowed_error
-    assert_near c.b(), 0.7, allowed_error
-    assert_near c.a(), 0.2, allowed_error
+      .set_red 0.4
+      .set_green 0.9
+      .set_blue 0.7
+      .set_alpha 0.2
+    assert_eq c, color.rgba 0.4, 0.9, 0.7, 0.2
+    c
+      .set_r 0.9
+      .set_g 0.1
+      .set_b 0.4
+      .set_a 0.3
+    assert_eq c, color.rgba 0.9, 0.1, 0.4, 0.3
+
 
   @test arithmetic: ||
     assert_eq color('red') + color('blue'), color 'fuchsia'

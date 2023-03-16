@@ -1,10 +1,7 @@
-use {
-    koto::prelude::*,
-    std::{cell::RefCell, rc::Rc},
-};
+use {koto::prelude::*, std::rc::Rc};
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
-    let output = Rc::new(RefCell::new(String::new()));
+    let output = RcCell::from(String::new());
 
     let mut koto = Koto::with_settings(KotoSettings {
         repl_mode: true,
@@ -47,7 +44,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: Rc<RefCell<String>>,
+    output: RcCell<String>,
 }
 
 impl KotoFile for OutputCapture {
