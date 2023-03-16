@@ -11,11 +11,11 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../src/runtime", version = "^0.11.0" }
+koto_runtime = { path = "../../core/runtime", version = "^0.11.0" }
 
-lazy_static.workspace = true
-rand.workspace = true
-rand_chacha.workspace = true
+lazy_static = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom.workspace = true
+getrandom = { workspace = true }

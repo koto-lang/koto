@@ -12,11 +12,11 @@ name = "poetry"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../../src/koto", version = "^0.11.0" }
+koto = { path = "../../core/koto", version = "^0.11.0" }
 koto_random = { path = "../../libs/random", version = "^0.11.0" }
 
-hotwatch.workspace = true
-indexmap.workspace = true
-lazy_static.workspace = true
-pico-args.workspace = true
-rand.workspace = true
+hotwatch = { workspace = true }
+indexmap = { workspace = true }
+lazy_static = { workspace = true }
+pico-args = { workspace = true }
+rand = { workspace = true }

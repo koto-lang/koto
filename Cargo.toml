@@ -1,5 +1,5 @@
 [workspace]
-members = ["examples/*", "libs/*", "src/*"]
+members = ["core/*", "examples/*", "libs/*"]
 
 [workspace.dependencies]
 # Statistics-driven micro-benchmarking library
