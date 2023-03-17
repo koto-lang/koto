@@ -58,8 +58,8 @@ impl ExternalData for Color {
         TYPE_COLOR.with(|x| x.clone())
     }
 
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        (*self).into()
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(*self)
     }
 }
 
@@ -209,7 +209,7 @@ macro_rules! color_comparison_op {
     }
 }
 
-fn make_color_meta_map() -> RcCell<MetaMap> {
+fn make_color_meta_map() -> PtrMut<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Color>::new("Color")
@@ -291,6 +291,6 @@ fn make_color_meta_map() -> RcCell<MetaMap> {
 }
 
 thread_local! {
-    static COLOR_META: RcCell<MetaMap> = make_color_meta_map();
+    static COLOR_META: PtrMut<MetaMap> = make_color_meta_map();
     static TYPE_COLOR: ValueString = "Color".into();
 }

@@ -7,7 +7,7 @@ use {
     },
 };
 
-fn make_vec2_meta_map() -> RcCell<MetaMap> {
+fn make_vec2_meta_map() -> PtrMut<MetaMap> {
     use {BinaryOp::*, Value::*};
 
     let builder = MetaMapBuilder::<Vec2>::new("Vec2");
@@ -45,7 +45,7 @@ fn make_vec2_meta_map() -> RcCell<MetaMap> {
 }
 
 thread_local! {
-    static VEC2_META: RcCell<MetaMap> = make_vec2_meta_map();
+    static VEC2_META: PtrMut<MetaMap> = make_vec2_meta_map();
     static TYPE_VEC2: ValueString = "Vec2".into();
 }
 
@@ -67,8 +67,8 @@ impl ExternalData for Vec2 {
         TYPE_VEC2.with(|x| x.clone())
     }
 
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        (*self).into()
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(*self)
     }
 }
 

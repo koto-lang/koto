@@ -1,11 +1,11 @@
 [package]
-name = "koto_bytecode"
+name = "koto_memory"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 rust-version = "1.64.0"
 license = "MIT"
-description = "The bytecode compiler used by the Koto programming language"
+description = "Memory management utilities used by the Koto programming language"
 homepage = "https://github.com/koto-lang/koto"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
@@ -13,9 +13,3 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_memory = { path = "../memory", version = "^0.11.0" }
-koto_parser = { path = "../parser", version = "^0.11.0" }
-
-dunce = { workspace = true }
-rustc-hash = { workspace = true }
-smallvec = { workspace = true }

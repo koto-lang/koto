@@ -1,11 +1,11 @@
 use {
     crate::{ConstantIndex, ConstantIndexTryFromOutOfRange},
+    koto_memory::Ptr,
     std::{
         collections::{hash_map::DefaultHasher, HashMap},
         fmt,
         hash::{Hash, Hasher},
         ops::Range,
-        rc::Rc,
     },
 };
 
@@ -42,7 +42,7 @@ pub struct ConstantPool {
     // constant itself.
     constants: Vec<ConstantEntry>,
     // A series of constant strings concatenated into a single string
-    string_data: Rc<str>,
+    string_data: Ptr<str>,
     // A hash of the pool contents, incrementally prepared by the builder
     hash: u64,
 }
@@ -76,7 +76,7 @@ impl ConstantPool {
     }
 
     /// Returns the concatenated string data stored in the pool
-    pub fn string_data(&self) -> &Rc<str> {
+    pub fn string_data(&self) -> &Ptr<str> {
         &self.string_data
     }
 

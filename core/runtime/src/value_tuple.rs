@@ -1,15 +1,12 @@
 use {
     crate::prelude::*,
-    std::{
-        ops::{Deref, Range},
-        rc::Rc,
-    },
+    std::ops::{Deref, Range},
 };
 
 /// The Tuple type used by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct ValueTuple {
-    data: Rc<[Value]>,
+    data: Ptr<[Value]>,
     bounds: Range<usize>,
 }
 

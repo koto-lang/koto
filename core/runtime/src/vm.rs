@@ -252,7 +252,7 @@ impl Vm {
     }
 
     /// Runs the provided [Chunk], returning the resulting [Value]
-    pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
+    pub fn run(&mut self, chunk: Ptr<Chunk>) -> RuntimeResult {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
@@ -2970,11 +2970,11 @@ impl Vm {
     }
 
     /// The bytecode chunk currently active in the VM
-    pub fn chunk(&self) -> Rc<Chunk> {
+    pub fn chunk(&self) -> Ptr<Chunk> {
         self.reader.chunk.clone()
     }
 
-    fn set_chunk_and_ip(&mut self, chunk: Rc<Chunk>, ip: usize) {
+    fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: usize) {
         self.reader = InstructionReader { chunk, ip };
     }
 
@@ -3002,7 +3002,7 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Rc<Chunk>, ip: usize, frame_base: u8, return_register: u8) {
+    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: usize, frame_base: u8, return_register: u8) {
         let return_ip = self.ip();
         let previous_frame_base = if let Some(frame) = self.call_stack.last_mut() {
             frame.return_register_and_ip = Some((return_register, return_ip));

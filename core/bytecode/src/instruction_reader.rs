@@ -1,7 +1,8 @@
 use {
     crate::{Chunk, Op},
+    koto_memory::Ptr,
     koto_parser::{ConstantIndex, MetaKeyId},
-    std::{fmt, rc::Rc},
+    std::fmt,
 };
 
 #[derive(Debug)]
@@ -799,14 +800,14 @@ impl fmt::Debug for Instruction {
 #[derive(Clone, Default)]
 pub struct InstructionReader {
     /// The chunk that the reader is reading from
-    pub chunk: Rc<Chunk>,
+    pub chunk: Ptr<Chunk>,
     /// The reader's instruction pointer
     pub ip: usize,
 }
 
 impl InstructionReader {
     /// Initializes a reader with the given chunk
-    pub fn new(chunk: Rc<Chunk>) -> Self {
+    pub fn new(chunk: Ptr<Chunk>) -> Self {
         Self { chunk, ip: 0 }
     }
 }

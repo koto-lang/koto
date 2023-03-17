@@ -1,9 +1,10 @@
 use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     dunce::canonicalize,
+    koto_memory::Ptr,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
     rustc_hash::FxHasher,
-    std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf, rc::Rc},
+    std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf},
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -106,7 +107,7 @@ impl error::Error for LoaderError {}
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
 pub struct Loader {
-    chunks: HashMap<PathBuf, Rc<Chunk>, BuildHasherDefault<FxHasher>>,
+    chunks: HashMap<PathBuf, Ptr<Chunk>, BuildHasherDefault<FxHasher>>,
 }
 
 impl Loader {
@@ -115,7 +116,7 @@ impl Loader {
         script: &str,
         script_path: Option<PathBuf>,
         compiler_settings: CompilerSettings,
-    ) -> Result<Rc<Chunk>, LoaderError> {
+    ) -> Result<Ptr<Chunk>, LoaderError> {
         match Parser::parse(script) {
             Ok(ast) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
@@ -125,19 +126,14 @@ impl Loader {
 
                 debug_info.source = script.to_string();
 
-                Ok(Rc::new(Chunk::new(
-                    bytes,
-                    ast.consume_constants(),
-                    script_path,
-                    debug_info,
-                )))
+                Ok(Chunk::new(bytes, ast.consume_constants(), script_path, debug_info).into())
             }
             Err(e) => Err(LoaderError::from_parser_error(e, script, script_path)),
         }
     }
 
     /// Compiles a script in REPL mode
-    pub fn compile_repl(&mut self, script: &str) -> Result<Rc<Chunk>, LoaderError> {
+    pub fn compile_repl(&mut self, script: &str) -> Result<Ptr<Chunk>, LoaderError> {
         self.compile(script, None, CompilerSettings { repl_mode: true })
     }
 
@@ -146,7 +142,7 @@ impl Loader {
         &mut self,
         script: &str,
         script_path: &Option<PathBuf>,
-    ) -> Result<Rc<Chunk>, LoaderError> {
+    ) -> Result<Ptr<Chunk>, LoaderError> {
         self.compile(script, script_path.clone(), CompilerSettings::default())
     }
 
@@ -240,7 +236,7 @@ impl Loader {
 }
 
 pub struct CompileModuleResult {
-    pub chunk: Rc<Chunk>,
+    pub chunk: Ptr<Chunk>,
     pub path: PathBuf,
     pub loaded_from_cache: bool,
 }

@@ -3,7 +3,7 @@ use {koto::prelude::*, wasm_bindgen::prelude::*};
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: RcCell<String>,
+    output: PtrMut<String>,
 }
 
 impl KotoFile for OutputCapture {
@@ -57,7 +57,7 @@ impl KotoRead for BlockedInput {
 // Runs an input program and returns the output as a String
 #[wasm_bindgen]
 pub fn compile_and_run(input: &str) -> String {
-    let output = RcCell::from(String::new());
+    let output = PtrMut::from(String::new());
 
     let mut koto = Koto::with_settings(
         KotoSettings::default()

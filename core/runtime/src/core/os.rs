@@ -59,14 +59,14 @@ impl DateTime {
         }
     }
 
-    fn meta_map() -> RcCell<MetaMap> {
+    fn meta_map() -> PtrMut<MetaMap> {
         SYSTEM_TIME_META.with(|meta| meta.clone())
     }
 }
 
 impl ExternalData for DateTime {
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        RcCell::from(self.clone())
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(self.clone())
     }
 }
 
@@ -80,10 +80,10 @@ impl Deref for DateTime {
 
 thread_local! {
     /// The meta map used by [DateTime]
-    pub static SYSTEM_TIME_META: RcCell<MetaMap> = make_system_time_meta_map();
+    pub static SYSTEM_TIME_META: PtrMut<MetaMap> = make_system_time_meta_map();
 }
 
-fn make_system_time_meta_map() -> RcCell<MetaMap> {
+fn make_system_time_meta_map() -> PtrMut<MetaMap> {
     MetaMapBuilder::<DateTime>::new("DateTime")
         .function(UnaryOp::Display, |context| {
             Ok(context.data()?.format("%F %T").to_string().into())
@@ -124,8 +124,8 @@ impl Timer {
 }
 
 impl ExternalData for Timer {
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        RcCell::from(self.clone())
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(self.clone())
     }
 }
 
@@ -139,10 +139,10 @@ impl Deref for Timer {
 
 thread_local! {
     /// The meta map used by [Timer]
-    pub static TIMER_META: RcCell<MetaMap> = make_timer_meta_map();
+    pub static TIMER_META: PtrMut<MetaMap> = make_timer_meta_map();
 }
 
-fn make_timer_meta_map() -> RcCell<MetaMap> {
+fn make_timer_meta_map() -> PtrMut<MetaMap> {
     use Value::External;
 
     MetaMapBuilder::<Timer>::new("Timer")

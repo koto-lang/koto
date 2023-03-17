@@ -7,7 +7,7 @@ use {
 };
 
 pub fn test_script(script: &str, expected_output: impl Into<Value>) {
-    let output = RcCell::from(String::new());
+    let output = PtrMut::from(String::new());
 
     let vm = Vm::with_settings(VmSettings {
         stdout: Rc::new(TestStdout {
@@ -70,7 +70,7 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
     }
 }
 
-pub fn print_chunk(script: &str, chunk: Rc<Chunk>) {
+pub fn print_chunk(script: &str, chunk: Ptr<Chunk>) {
     println!("{script}\n");
     let script_lines = script.lines().collect::<Vec<_>>();
 
@@ -127,7 +127,7 @@ pub fn string(s: &str) -> Value {
 
 #[derive(Debug)]
 pub struct TestStdout {
-    pub output: RcCell<String>,
+    pub output: PtrMut<String>,
 }
 
 impl KotoFile for TestStdout {

@@ -253,7 +253,7 @@ impl Repl {
             match self.koto.compile(&input) {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {
-                        print_wrapped!(stdout, "{}\n", &Chunk::bytes_as_string(chunk.clone()))?;
+                        print_wrapped!(stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
                     }
                     if self.settings.show_instructions {
                         print_wrapped!(stdout, "Constants\n---------\n{}\n", chunk.constants)?;

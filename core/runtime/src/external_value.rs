@@ -1,11 +1,7 @@
 use {
     crate::prelude::*,
     downcast_rs::impl_downcast,
-    std::{
-        cell::{Ref, RefCell, RefMut},
-        fmt,
-        rc::Rc,
-    },
+    std::{cell::RefCell, fmt, rc::Rc},
 };
 
 pub use downcast_rs::Downcast;
@@ -22,21 +18,25 @@ pub trait ExternalData: Downcast {
     }
 
     /// Called by koto.copy, should return a unique copy of the data
-    fn make_copy(&self) -> RcCell<dyn ExternalData>;
+    fn make_copy(&self) -> PtrMut<dyn ExternalData>;
 
     /// Called by koto.deep_copy, should return a deep copy of the data
-    fn make_deep_copy(&self) -> RcCell<dyn ExternalData> {
+    fn make_deep_copy(&self) -> PtrMut<dyn ExternalData> {
         self.make_copy()
     }
 }
 
 impl_downcast!(ExternalData);
 
-// Produce an RcCell<dyn External> from a value that implements ExternalData
-impl<T: ExternalData> From<T> for RcCell<dyn ExternalData> {
-    fn from(value: T) -> Self {
-        RcCell::from(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn ExternalData>>)
-    }
+/// A helper for making a `PtrMut<dyn ExternalData>`
+///
+/// Until DST/custom coercions get stabilized [^1], this function is a wrapper for the pattern of
+/// making the `PtrMut`'s inner `Rc<RefCell<T>>`, and then coercing it into a
+/// `Rc<RefCell<dyn ExternalData>>`.
+///
+/// [^1]: <https://github.com/rust-lang/rust/issues/18598>
+pub fn make_data_ptr<T: ExternalData>(value: T) -> PtrMut<dyn ExternalData> {
+    PtrMut::from(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn ExternalData>>)
 }
 
 impl fmt::Display for dyn ExternalData {
@@ -55,9 +55,9 @@ impl fmt::Debug for dyn ExternalData {
 #[derive(Clone, Debug)]
 pub struct External {
     /// The [ExternalData] held by the value
-    data: RcCell<dyn ExternalData>,
+    data: PtrMut<dyn ExternalData>,
     /// The [MetaMap] held by the value
-    meta: RcCell<MetaMap>,
+    meta: PtrMut<MetaMap>,
 }
 
 impl External {
@@ -67,15 +67,15 @@ impl External {
     /// see [External::with_shared_meta_map].
     pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
         Self {
-            data: data.into(),
+            data: make_data_ptr(data),
             meta: meta.into(),
         }
     }
 
     /// Creates a new External from [ExternalData] and a shared [MetaMap]
-    pub fn with_shared_meta_map(data: impl ExternalData, meta: RcCell<MetaMap>) -> Self {
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: PtrMut<MetaMap>) -> Self {
         Self {
-            data: data.into(),
+            data: make_data_ptr(data),
             meta,
         }
     }
@@ -84,7 +84,7 @@ impl External {
     #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
-            data: data.into(),
+            data: make_data_ptr(data),
             meta: self.meta.clone(),
         }
     }
@@ -109,17 +109,17 @@ impl External {
     }
 
     /// Returns a reference to the value's data if it matches the provided type
-    pub fn data<T: ExternalData>(&self) -> Option<Ref<T>> {
+    pub fn data<T: ExternalData>(&self) -> Option<Borrow<T>> {
         match self.data.try_borrow() {
-            Ok(data_ref) => Ref::filter_map(data_ref, |data| data.downcast_ref::<T>()).ok(),
+            Ok(data_ref) => Borrow::filter_map(data_ref, |data| data.downcast_ref::<T>()).ok(),
             Err(_) => None,
         }
     }
 
     /// Returns a mutable reference to the value's data if it matches the provided type
-    pub fn data_mut<T: ExternalData>(&self) -> Option<RefMut<T>> {
+    pub fn data_mut<T: ExternalData>(&self) -> Option<BorrowMut<T>> {
         match self.data.try_borrow_mut() {
-            Ok(data_ref) => RefMut::filter_map(data_ref, |data| data.downcast_mut::<T>()).ok(),
+            Ok(data_ref) => BorrowMut::filter_map(data_ref, |data| data.downcast_mut::<T>()).ok(),
             Err(_) => None,
         }
     }

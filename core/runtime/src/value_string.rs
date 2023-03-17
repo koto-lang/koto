@@ -1,10 +1,9 @@
 use {
     crate::prelude::*,
     std::{
-        fmt::{self},
+        fmt,
         hash::{Hash, Hasher},
         ops::{Deref, Range},
-        rc::Rc,
     },
     unicode_segmentation::UnicodeSegmentation,
 };
@@ -15,13 +14,13 @@ use {
 /// with internal bounds allowing for clone-free subslicing.
 #[derive(Clone)]
 pub struct ValueString {
-    string: Rc<str>,
+    string: Ptr<str>,
     bounds: Range<usize>,
 }
 
 impl ValueString {
     /// Initializes a new ValueString with the provided data
-    fn new(string: Rc<str>) -> Self {
+    fn new(string: Ptr<str>) -> Self {
         let bounds = 0..string.len();
         Self { string, bounds }
     }
@@ -36,7 +35,7 @@ impl ValueString {
     /// Initializes a new ValueString with the provided data and bounds
     ///
     /// If the bounds aren't valid for the data then `None` is returned.
-    pub fn new_with_bounds(string: Rc<str>, bounds: Range<usize>) -> Option<Self> {
+    pub fn new_with_bounds(string: Ptr<str>, bounds: Range<usize>) -> Option<Self> {
         if string.get(bounds.clone()).is_some() {
             Some(Self { string, bounds })
         } else {
@@ -189,5 +188,5 @@ impl KotoDisplay for ValueString {
 }
 
 thread_local!(
-    static EMPTY_STRING: Rc<str> = Rc::from("");
+    static EMPTY_STRING: Ptr<str> = Ptr::from("");
 );

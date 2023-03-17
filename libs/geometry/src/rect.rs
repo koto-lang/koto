@@ -6,7 +6,7 @@ use {
 
 type Inner = nannou_core::geom::Rect<f64>;
 
-fn make_rect_meta_map() -> RcCell<MetaMap> {
+fn make_rect_meta_map() -> PtrMut<MetaMap> {
     use {BinaryOp::*, UnaryOp::*, Value::*};
 
     MetaMapBuilder::<Rect>::new("Rect")
@@ -63,7 +63,7 @@ fn make_rect_meta_map() -> RcCell<MetaMap> {
 }
 
 thread_local! {
-    static RECT_META: RcCell<MetaMap> = make_rect_meta_map();
+    static RECT_META: PtrMut<MetaMap> = make_rect_meta_map();
     static TYPE_RECT: ValueString = "Rect".into();
 }
 
@@ -81,8 +81,8 @@ impl ExternalData for Rect {
         TYPE_RECT.with(|x| x.clone())
     }
 
-    fn make_copy(&self) -> RcCell<dyn ExternalData> {
-        (*self).into()
+    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+        make_data_ptr(*self)
     }
 }
 

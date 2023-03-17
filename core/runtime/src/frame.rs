@@ -1,9 +1,9 @@
-use {koto_bytecode::Chunk, std::rc::Rc};
+use {crate::Ptr, koto_bytecode::Chunk};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Frame {
     // The chunk being interpreted in this frame
-    pub chunk: Rc<Chunk>,
+    pub chunk: Ptr<Chunk>,
     // The index in the VM's value stack of the first frame register.
     // The frame's instance is always in register 0 (Null if not set).
     // Call arguments followed by local values are in registers starting from index 1.
@@ -24,7 +24,7 @@ pub(crate) struct Frame {
 }
 
 impl Frame {
-    pub fn new(chunk: Rc<Chunk>, register_base: usize) -> Self {
+    pub fn new(chunk: Ptr<Chunk>, register_base: usize) -> Self {
         Self {
             chunk,
             register_base,
