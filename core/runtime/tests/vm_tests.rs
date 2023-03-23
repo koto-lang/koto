@@ -473,6 +473,16 @@ a, b = a+b, a%b
 b";
             test_script(script, 3);
         }
+
+        #[test]
+        fn value_is_unmodified_after_unpacking() {
+            let script = "
+xy = 10, 7
+x, y = xy
+type xy
+";
+            test_script(script, string("Tuple"));
+        }
     }
 
     mod if_expressions {
