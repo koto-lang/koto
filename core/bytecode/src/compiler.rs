@@ -1162,6 +1162,7 @@ impl Compiler {
         }
 
         let result = self.get_result_register(result_register)?;
+        let stack_count = self.frame().register_stack.len();
 
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
@@ -1180,9 +1181,17 @@ impl Compiler {
         }
 
         // If the RHS is a single value then convert it into an iterator
-        if !rhs_is_temp_tuple {
-            self.push_op(MakeIterator, &[rhs.register, rhs.register]);
-        }
+        let iter_register = if rhs_is_temp_tuple {
+            rhs.register
+        } else {
+            let iter_register = if rhs.is_temporary {
+                rhs.register
+            } else {
+                self.push_register()?
+            };
+            self.push_op(MakeIterator, &[iter_register, rhs.register]);
+            iter_register
+        };
 
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
@@ -1192,9 +1201,12 @@ impl Compiler {
                     match (target_register, self.scope_for_assign_target(target)) {
                         (Some(target_register), Scope::Local) => {
                             if rhs_is_temp_tuple {
-                                self.push_op(TempIndex, &[*target_register, rhs.register, i as u8]);
+                                self.push_op(
+                                    TempIndex,
+                                    &[*target_register, iter_register, i as u8],
+                                );
                             } else {
-                                self.push_op(IterNext, &[*target_register, rhs.register, 0, 0]);
+                                self.push_op(IterNext, &[*target_register, iter_register, 0, 0]);
                             }
                             // The register was reserved before the RHS was compiled, and now it
                             // needs to be committed.
@@ -1208,9 +1220,9 @@ impl Compiler {
                             let value_register = self.push_register()?;
 
                             if rhs_is_temp_tuple {
-                                self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                                self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                             } else {
-                                self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                                self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
                             }
 
                             self.compile_value_export(*id_index, value_register)?;
@@ -1233,9 +1245,9 @@ impl Compiler {
                     let value_register = self.push_register()?;
 
                     if rhs_is_temp_tuple {
-                        self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                        self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                     } else {
-                        self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                        self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
                     }
 
                     self.compile_lookup(
@@ -1258,9 +1270,9 @@ impl Compiler {
                         let value_register = self.push_register()?;
 
                         if rhs_is_temp_tuple {
-                            self.push_op(TempIndex, &[value_register, rhs.register, i as u8]);
+                            self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                         } else {
-                            self.push_op(IterNext, &[value_register, rhs.register, 0, 0]);
+                            self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
                         }
 
                         self.push_op(SequencePush, &[result.register, value_register]);
@@ -1268,7 +1280,7 @@ impl Compiler {
                         self.pop_register()?; // value_register
                     } else if !rhs_is_temp_tuple {
                         // If the RHS is an iterator then we need to move it along
-                        self.push_op(IterNextQuiet, &[rhs.register, 0, 0]);
+                        self.push_op(IterNextQuiet, &[iter_register, 0, 0]);
                     }
                 }
                 unexpected => {
@@ -1285,9 +1297,7 @@ impl Compiler {
             self.push_op(SequenceToTuple, &[result.register]);
         }
 
-        if rhs.is_temporary {
-            self.pop_register()?;
-        }
+        self.truncate_register_stack(stack_count)?;
 
         Ok(result)
     }
