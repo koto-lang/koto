@@ -366,7 +366,8 @@ so it's usually not necessary to call `.iter()`, however it can be usefult
 sometimes to make a standalone iterator for manual iteration.
 
 Note that calling `.iter` with an `Iterator` will return the iterator without
-modification. If a copy of the iterator is needed then use `.copy()`.
+modification. If a copy of the iterator is needed then see `koto.copy` and
+`koto.deep_copy`.
 
 ### Example
 
@@ -379,7 +380,8 @@ check! 6
 
 ### See Also
 
-- [`iterator.copy`](#copy)
+- [`koto.copy`](../koto#copy)
+- [`koto.deep_copy`](../koto#deep_copy)
 
 ## keep
 
