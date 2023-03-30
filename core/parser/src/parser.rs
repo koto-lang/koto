@@ -1340,7 +1340,6 @@ impl<'source> Parser<'source> {
                 Token::RoundOpen => {
                     self.consume_token();
 
-                    node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
 
                     lookup.push((
@@ -1348,21 +1347,17 @@ impl<'source> Parser<'source> {
                             args,
                             with_parens: true,
                         },
-                        self.span_with_start(node_start_span),
+                        node_start_span,
                     ));
                 }
                 // Index
                 Token::SquareOpen => {
                     self.consume_token();
 
-                    node_start_span = self.current_span();
                     let index_expression = self.parse_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
-                        lookup.push((
-                            LookupNode::Index(index_expression),
-                            self.span_with_start(node_start_span),
-                        ));
+                        lookup.push((LookupNode::Index(index_expression), node_start_span));
                     } else {
                         return self.error(SyntaxError::ExpectedIndexEnd);
                     }
