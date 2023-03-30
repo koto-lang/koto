@@ -529,7 +529,7 @@ impl Vm {
         };
 
         let result = match value {
-            Range(r) => ValueIterator::with_range(r),
+            Range(r) => ValueIterator::with_range(r)?,
             List(l) => ValueIterator::with_list(l),
             Tuple(t) => ValueIterator::with_tuple(t),
             Str(s) => ValueIterator::with_string(s),
@@ -1106,7 +1106,7 @@ impl Vm {
             self.set_register(result, iterable);
         } else {
             let iterator = match iterable {
-                Range(int_range) => ValueIterator::with_range(int_range),
+                Range(int_range) => ValueIterator::with_range(int_range)?,
                 List(list) => ValueIterator::with_list(list),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),

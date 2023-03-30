@@ -1340,7 +1340,6 @@ impl<'source> Parser<'source> {
                 Token::RoundOpen => {
                     self.consume_token();
 
-                    node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
 
                     lookup.push((
@@ -1348,21 +1347,17 @@ impl<'source> Parser<'source> {
                             args,
                             with_parens: true,
                         },
-                        self.span_with_start(node_start_span),
+                        node_start_span,
                     ));
                 }
                 // Index
                 Token::SquareOpen => {
                     self.consume_token();
 
-                    node_start_span = self.current_span();
                     let index_expression = self.parse_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
-                        lookup.push((
-                            LookupNode::Index(index_expression),
-                            self.span_with_start(node_start_span),
-                        ));
+                        lookup.push((LookupNode::Index(index_expression), node_start_span));
                     } else {
                         return self.error(SyntaxError::ExpectedIndexEnd);
                     }
@@ -1588,6 +1583,8 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Node::{Range, RangeFrom, RangeFull, RangeTo};
 
+        let mut start_span = self.current_span();
+
         let inclusive = match self.peek_next_token_on_same_line() {
             Some(Token::Range) => false,
             Some(Token::RangeInclusive) => true,
@@ -1595,6 +1592,13 @@ impl<'source> Parser<'source> {
         };
 
         self.consume_next_token_on_same_line();
+
+        if lhs.is_none() {
+            // e.g.
+            // for x in ..10
+            //          ^^ <- we want the span to start here if we don't have a LHS
+            start_span = self.current_span();
+        }
 
         let rhs = self.parse_expression(&ExpressionContext::inline())?;
 
@@ -1609,7 +1613,7 @@ impl<'source> Parser<'source> {
             (None, None) => RangeFull,
         };
 
-        let range_node = self.push_node(range_node)?;
+        let range_node = self.push_node_with_start_span(range_node, start_span)?;
         self.check_for_lookup_after_node(range_node, context)
             .map(Some)
     }
