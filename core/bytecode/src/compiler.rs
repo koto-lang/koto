@@ -3671,15 +3671,19 @@ impl Compiler {
         let stack_count = self.frame().register_stack.len();
 
         let iterator_register = {
+            let iterator_node = ast.node(*iterable);
             let iterator_register = self.push_register()?;
             let iterable_register = self
-                .compile_node(ResultRegister::Any, ast.node(*iterable), ast)?
+                .compile_node(ResultRegister::Any, iterator_node, ast)?
                 .unwrap();
 
-            self.push_op_without_span(
+            // Make the iterator, using the iterator's span in case of errors
+            self.span_stack.push(*ast.span(iterator_node.span));
+            self.push_op(
                 MakeIterator,
                 &[iterator_register, iterable_register.register],
             );
+            self.span_stack.pop();
 
             if iterable_register.is_temporary {
                 self.pop_register()?;
