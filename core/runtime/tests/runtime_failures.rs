@@ -95,6 +95,23 @@ x
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn unbounded_range_used_as_iterator() {
+                let script = "
+(1..).count()
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn unbounded_range_used_in_for_loop() {
+                let script = "
+for i in 0..
+  print i
+";
+                check_script_fails(script);
+            }
         }
 
         mod function_calls {

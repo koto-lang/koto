@@ -88,8 +88,8 @@ impl ValueIterator {
     }
 
     /// Creates a new ValueIterator from a Range
-    pub fn with_range(range: IntRange) -> Self {
-        Self::new(RangeIterator::new(range))
+    pub fn with_range(range: IntRange) -> Result<Self, RuntimeError> {
+        Ok(Self::new(RangeIterator::new(range)?))
     }
 
     /// Creates a new ValueIterator from a List
@@ -184,13 +184,12 @@ struct RangeIterator {
 }
 
 impl RangeIterator {
-    fn new(range: IntRange) -> Self {
-        let start = range.start.unwrap_or(0);
-        let end = range
-            .end
-            .map(|(end, inclusive)| {
-                use Ordering::*;
-                match start.cmp(&end) {
+    fn new(range: IntRange) -> Result<Self, RuntimeError> {
+        use Ordering::*;
+
+        match (range.start, range.end) {
+            (Some(start), Some((end, inclusive))) => {
+                let end = match start.cmp(&end) {
                     Less => {
                         if inclusive {
                             end + 1
@@ -206,13 +205,14 @@ impl RangeIterator {
                         }
                     }
                     Equal => end,
-                }
-            })
-            .unwrap_or(isize::MAX);
-        Self {
-            start,
-            end,
-            bidirectional: range.start.is_some() && range.end.is_some(),
+                };
+                Ok(Self {
+                    start,
+                    end,
+                    bidirectional: true,
+                })
+            }
+            _ => runtime_error!("Unbounded ranges can't be used as iterators (range: {range})"),
         }
     }
 }
