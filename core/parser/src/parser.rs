@@ -2291,7 +2291,7 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(switch_context); // Token::Switch
 
         let current_indent = self.current_indent();
-        let start_span = self.current_span();
+        let switch_span = self.current_span();
 
         let arm_context = match self.consume_until_token_with_context(switch_context) {
             Some(arm_context) if self.current_indent() > current_indent => arm_context,
@@ -2354,11 +2354,11 @@ impl<'source> Parser<'source> {
             let last_arm = arm_index == arms.len() - 1;
 
             if arm.condition.is_none() && !last_arm {
-                return Err(ParserError::new(SwitchElseNotInLastArm.into(), start_span));
+                return Err(ParserError::new(SwitchElseNotInLastArm.into(), switch_span));
             }
         }
 
-        self.push_node_with_start_span(Node::Switch(arms), start_span)
+        self.push_node_with_span(Node::Switch(arms), switch_span)
     }
 
     fn parse_match_expression(
