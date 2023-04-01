@@ -822,6 +822,19 @@ m
 "#;
             test_script(script, number_tuple(&[3, 4]));
         }
+
+        #[test]
+        fn missing_else_branch() {
+            // A bug meant that a missing else branch would leak previously assigned values
+            let script = r#"
+a, b = 42, 43
+x = match a, b
+  1, 2 then 1, 2
+  3, 4 then 3, 4
+x
+"#;
+            test_script(script, Null);
+        }
     }
 
     mod switch_expressions {
@@ -849,6 +862,19 @@ x = switch
 x
 "#;
             test_script(script, number_tuple(&[3, 4]));
+        }
+
+        #[test]
+        fn missing_else_branch() {
+            // A bug meant that a missing else branch would leak previously assigned values
+            let script = r#"
+a, b = 42, 43
+x = switch
+  1 == 2 then 1, 2
+  3 == 4 then 3, 4
+x
+"#;
+            test_script(script, Null);
         }
     }
 

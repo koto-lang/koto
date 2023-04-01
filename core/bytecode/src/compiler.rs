@@ -1170,10 +1170,15 @@ impl Compiler {
             .map(|target| self.local_register_for_assign_target(target, ast))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let rhs_is_temp_tuple = matches!(ast.node(expression).node, Node::TempTuple(_));
+        let rhs_node = ast.node(expression);
+        let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
         let rhs = self
-            .compile_node(ResultRegister::Any, ast.node(expression), ast)?
+            .compile_node(ResultRegister::Any, rhs_node, ast)?
             .unwrap();
+
+        // Use the rhs node's span for assignment operations
+        let span_stack_count = self.span_stack.len();
+        self.span_stack.push(*ast.span(rhs_node.span));
 
         // If the result is needed then prepare a tuple in the result register
         if let Some(result) = result {
@@ -1297,6 +1302,7 @@ impl Compiler {
             self.push_op(SequenceToTuple, &[result.register]);
         }
 
+        self.span_stack.truncate(span_stack_count);
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
@@ -3140,6 +3146,14 @@ impl Compiler {
 
         let mut result_jump_placeholders = Vec::new();
 
+        let body_result_register = if let Some(result) = result {
+            // Set the result register to null, in case no switch arm is executed
+            self.push_op(Op::SetNull, &[result.register]);
+            ResultRegister::Fixed(result.register)
+        } else {
+            ResultRegister::None
+        };
+
         for (arm_index, arm) in arms.iter().enumerate() {
             let is_last_arm = arm_index == arms.len() - 1;
 
@@ -3157,12 +3171,6 @@ impl Compiler {
                 Some(self.push_offset_placeholder())
             } else {
                 None
-            };
-
-            let body_result_register = if let Some(result) = result {
-                ResultRegister::Fixed(result.register)
-            } else {
-                ResultRegister::None
             };
 
             self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
@@ -3194,6 +3202,10 @@ impl Compiler {
         ast: &Ast,
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
+
+        if let Some(result) = result {
+            self.push_op(Op::SetNull, &[result.register]);
+        }
 
         let stack_count = self.frame().register_stack.len();
 
