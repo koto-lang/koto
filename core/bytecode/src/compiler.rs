@@ -1176,10 +1176,6 @@ impl Compiler {
             .compile_node(ResultRegister::Any, rhs_node, ast)?
             .unwrap();
 
-        // Use the rhs node's span for assignment operations
-        let span_stack_count = self.span_stack.len();
-        self.span_stack.push(*ast.span(rhs_node.span));
-
         // If the result is needed then prepare a tuple in the result register
         if let Some(result) = result {
             self.push_op(SequenceStart, &[result.register, targets.len() as u8]);
@@ -1302,7 +1298,6 @@ impl Compiler {
             self.push_op(SequenceToTuple, &[result.register]);
         }
 
-        self.span_stack.truncate(span_stack_count);
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
