@@ -691,7 +691,9 @@ impl<'source> Parser<'source> {
             return self.error(InternalError::MissingAssignmentTarget);
         }
 
+        // Consume the `=` token
         self.consume_token_with_context(context);
+        let assign_span = self.current_span();
 
         let single_target = targets.len() == 1;
 
@@ -713,7 +715,7 @@ impl<'source> Parser<'source> {
                     expression: rhs,
                 }
             };
-            Ok(Some(self.push_node(node)?))
+            Ok(Some(self.push_node_with_span(node, assign_span)?))
         } else {
             self.consume_token_on_same_line_and_error(ExpectedIndentation::AssignmentExpression)
         }
@@ -2188,6 +2190,8 @@ impl<'source> Parser<'source> {
 
         self.consume_token_with_context(context); // Token::If
 
+        let if_span = self.current_span();
+
         // Define the expected indentation of 'else if' / 'else' blocks
         let mut outer_context =
             context.with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()));
@@ -2214,12 +2218,15 @@ impl<'source> Parser<'source> {
                 None
             };
 
-            self.push_node(Node::If(AstIf {
-                condition,
-                then_node,
-                else_if_blocks: vec![],
-                else_node,
-            }))
+            self.push_node_with_span(
+                Node::If(AstIf {
+                    condition,
+                    then_node,
+                    else_if_blocks: vec![],
+                    else_node,
+                }),
+                if_span,
+            )
         } else {
             if !outer_context.allow_linebreaks {
                 return self.error(IfBlockNotAllowedInThisContext);
@@ -2270,12 +2277,15 @@ impl<'source> Parser<'source> {
                     _ => None,
                 };
 
-                self.push_node(Node::If(AstIf {
-                    condition,
-                    then_node,
-                    else_if_blocks,
-                    else_node,
-                }))
+                self.push_node_with_span(
+                    Node::If(AstIf {
+                        condition,
+                        then_node,
+                        else_if_blocks,
+                        else_node,
+                    }),
+                    if_span,
+                )
             } else {
                 self.consume_token_on_same_line_and_error(ExpectedIndentation::ThenKeywordOrBlock)
             }
