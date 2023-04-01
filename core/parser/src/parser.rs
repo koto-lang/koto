@@ -2370,7 +2370,7 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(match_context); // Token::Match
 
         let current_indent = self.current_indent();
-        let start_span = self.current_span();
+        let match_span = self.current_span();
 
         let match_expression =
             match self.parse_expressions(&ExpressionContext::inline(), TempResult::Yes)? {
@@ -2491,16 +2491,16 @@ impl<'source> Parser<'source> {
             let last_arm = arm_index == arms.len() - 1;
 
             if arm.patterns.is_empty() && arm.condition.is_none() && !last_arm {
-                return Err(ParserError::new(MatchElseNotInLastArm.into(), start_span));
+                return Err(ParserError::new(MatchElseNotInLastArm.into(), match_span));
             }
         }
 
-        self.push_node_with_start_span(
+        self.push_node_with_span(
             Node::Match {
                 expression: match_expression,
                 arms,
             },
-            start_span,
+            match_span,
         )
     }
 

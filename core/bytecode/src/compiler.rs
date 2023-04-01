@@ -3203,6 +3203,10 @@ impl Compiler {
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
+        if let Some(result) = result {
+            self.push_op(Op::SetNull, &[result.register]);
+        }
+
         let stack_count = self.frame().register_stack.len();
 
         let match_node = ast.node(match_expression);
