@@ -1,6 +1,6 @@
 use {
     crate::prelude::*,
-    std::{fmt, hash::Hash, ops::Range},
+    std::{cmp::Ordering, fmt, hash::Hash, ops::Range},
 };
 
 /// The integer range type used by the Koto runtime
@@ -128,6 +128,41 @@ impl IntRange {
         } else {
             None
         }
+    }
+
+    /// Returns true if the range has defined start and end boundaries
+    pub fn is_bounded(&self) -> bool {
+        self.start.is_some() && self.end.is_some()
+    }
+
+    /// Removes and returns the first element in the range.
+    ///
+    /// This is used in the VM to iterate over temporary ranges.
+    ///
+    /// Returns an error if the range is not bounded.
+    pub fn pop_front(&mut self) -> Result<Option<isize>, RuntimeError> {
+        let result = match (self.start, self.end) {
+            (Some(start), Some((end, inclusive))) => match (start.cmp(&end), inclusive) {
+                (Ordering::Less, _) => {
+                    self.start = Some(start + 1);
+                    Some(start)
+                }
+                (Ordering::Greater, _) => {
+                    self.start = Some(start - 1);
+                    Some(start)
+                }
+                // An inclusive range, with start == end
+                (Ordering::Equal, true) => {
+                    self.end = Some((end, false));
+                    Some(start)
+                }
+                // The range is exhausted
+                (Ordering::Equal, false) => None,
+            },
+            _ => return runtime_error!("IntRange::pop_front can only be used with bounded ranges"),
+        };
+
+        Ok(result)
     }
 }
 

@@ -106,6 +106,22 @@ impl ValueString {
         self.with_bounds(result_bounds).unwrap_or_else(Self::empty)
     }
 
+    /// Removes and returns the first grapheme from the string
+    pub fn pop_front(&mut self) -> Option<Self> {
+        match self.graphemes(true).next() {
+            Some(grapheme) => {
+                let start = self.bounds.start;
+                let end = start + grapheme.len();
+                self.bounds.start = end;
+                Some(Self {
+                    string: self.string.clone(),
+                    bounds: start..end,
+                })
+            }
+            None => None,
+        }
+    }
+
     /// Returns the number of graphemes contained within the ValueString's bounds
     pub fn grapheme_count(&self) -> usize {
         self.graphemes(true).count()

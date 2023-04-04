@@ -34,6 +34,19 @@ impl ValueTuple {
     pub fn is_hashable(&self) -> bool {
         self.iter().all(Value::is_hashable)
     }
+
+    /// Removes and returns the first value in the tuple
+    ///
+    /// The internal bounds of the tuple are adjusted to 'remove' the first element;
+    /// no copy of the underlying tuple data is made.
+    pub fn pop_front(&mut self) -> Option<Value> {
+        if let Some(value) = self.first().cloned() {
+            self.bounds.start += 1;
+            Some(value)
+        } else {
+            None
+        }
+    }
 }
 
 impl Deref for ValueTuple {

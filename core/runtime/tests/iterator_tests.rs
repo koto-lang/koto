@@ -1,6 +1,6 @@
 mod runtime_test_utils;
 
-use crate::runtime_test_utils::{number_tuple, test_script, value_tuple};
+use crate::runtime_test_utils::*;
 
 mod iterator {
     use super::*;
@@ -162,6 +162,22 @@ x.next() # 'c'
 y.next()
 ";
             test_script(script, "c");
+        }
+    }
+
+    mod windows {
+        use super::*;
+
+        #[test]
+        fn windows_in_for_loop() {
+            let script = "
+result = []
+for a, b in (1..=5).windows(2)
+  result.push a
+  result.push b
+result
+";
+            test_script(script, number_list(&[1, 2, 2, 3, 3, 4, 4, 5]));
         }
     }
 

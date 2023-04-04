@@ -3734,23 +3734,24 @@ impl Compiler {
                 // e.g. for a, b, c in list_of_lists()
                 // e.g. for key, value in map
 
-                // A temporary register for the iterator output.
-                // Args are unpacked from the temp register
+                // A temporary register for the iterator's output.
+                // Args are unpacked via iteration from the temp register
                 let temp_register = self.push_register()?;
 
                 self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
                 self.push_loop_jump_placeholder()?;
 
-                for (i, arg) in args.iter().enumerate() {
+                self.push_op_without_span(MakeIterator, &[temp_register, temp_register]);
+
+                for arg in args.iter() {
                     match &ast.node(*arg).node {
                         Node::Id(id) => {
                             let arg_register = self.assign_local_register(*id)?;
-                            self.push_op_without_span(
-                                TempIndex,
-                                &[arg_register, temp_register, i as u8],
-                            );
+                            self.push_op_without_span(IterNext, &[arg_register, temp_register, 0, 0]);
                         }
-                        Node::Wildcard(_) => {}
+                        Node::Wildcard(_) => {
+                            self.push_op_without_span(IterNextQuiet, &[temp_register, 0, 0]);
+                        }
                         unexpected => {
                             return compiler_error!(
                                 self,
