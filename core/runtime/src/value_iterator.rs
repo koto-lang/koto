@@ -1,7 +1,6 @@
 use {
     crate::prelude::*,
     std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc},
-    unicode_segmentation::GraphemeCursor,
 };
 
 /// The trait used to implement iterators in Koto
@@ -180,7 +179,6 @@ type Output = ValueIteratorOutput;
 struct RangeIterator {
     start: isize,
     end: isize,
-    bidirectional: bool,
 }
 
 impl RangeIterator {
@@ -206,11 +204,7 @@ impl RangeIterator {
                     }
                     Equal => end,
                 };
-                Ok(Self {
-                    start,
-                    end,
-                    bidirectional: true,
-                })
+                Ok(Self { start, end })
             }
             _ => runtime_error!("Unbounded ranges can't be used as iterators (range: {range})"),
         }
@@ -227,7 +221,7 @@ impl KotoIterator for RangeIterator {
     }
 
     fn is_bidirectional(&self) -> bool {
-        self.bidirectional
+        true
     }
 
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
@@ -336,26 +330,11 @@ impl Iterator for ListIterator {
 }
 
 #[derive(Clone)]
-struct TupleIterator {
-    data: ValueTuple,
-    index: usize,
-    end: usize,
-}
+struct TupleIterator(ValueTuple);
 
 impl TupleIterator {
-    fn new(data: ValueTuple) -> Self {
-        let end = data.len();
-        Self {
-            data,
-            index: 0,
-            end,
-        }
-    }
-
-    fn get_output(&self, index: usize) -> Option<ValueIteratorOutput> {
-        self.data
-            .get(index)
-            .map(|data| ValueIteratorOutput::Value(data.clone()))
+    fn new(tuple: ValueTuple) -> Self {
+        Self(tuple)
     }
 }
 
@@ -373,12 +352,7 @@ impl KotoIterator for TupleIterator {
     }
 
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        if self.end > self.index {
-            self.end -= 1;
-            self.get_output(self.end)
-        } else {
-            None
-        }
+        self.0.pop_back().map(ValueIteratorOutput::Value)
     }
 }
 
@@ -386,17 +360,11 @@ impl Iterator for TupleIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.end > self.index {
-            let result = self.get_output(self.index);
-            self.index += 1;
-            result
-        } else {
-            None
-        }
+        self.0.pop_front().map(ValueIteratorOutput::Value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.len().saturating_sub(self.index);
+        let remaining = self.0.len();
         (remaining, Some(remaining))
     }
 }
@@ -470,24 +438,11 @@ impl Iterator for MapIterator {
 
 /// An iterator that yields the characters contained in the string
 #[derive(Clone)]
-pub struct StringIterator {
-    data: ValueString,
-    index: usize,
-    end: usize,
-}
+pub struct StringIterator(ValueString);
 
 impl StringIterator {
-    pub fn new(data: ValueString) -> Self {
-        let end = data.len();
-        Self {
-            data,
-            index: 0,
-            end,
-        }
-    }
-
-    fn as_slice(&self) -> &str {
-        &self.data[self.index..self.end]
+    pub fn new(s: ValueString) -> Self {
+        Self(s)
     }
 }
 
@@ -505,20 +460,9 @@ impl KotoIterator for StringIterator {
     }
 
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        let remaining = self.as_slice();
-        match GraphemeCursor::new(remaining.len(), remaining.len(), true)
-            .prev_boundary(remaining, self.index)
-            .unwrap() // Safety: self.index will be on a grapheme boundary or at the string's end
-        {
-            Some(grapheme_start) => {
-                let result = self.data
-                    .with_bounds(grapheme_start..self.end)
-                    .unwrap(); // Safety: Some(_) returned from next_boundary implies valid bounds
-                self.end = grapheme_start;
-                Some(ValueIteratorOutput::Value(Value::Str(result)))
-            }
-            None => None,
-        }
+        self.0
+            .pop_back()
+            .map(|s| ValueIteratorOutput::Value(s.into()))
     }
 }
 
@@ -526,24 +470,13 @@ impl Iterator for StringIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let remaining = self.as_slice();
-        match GraphemeCursor::new(0, remaining.len(), true)
-            .next_boundary(remaining, 0)
-            .unwrap() // Safety: self.index will be on a grapheme boundary or at the string's end
-        {
-            Some(grapheme_end) => {
-                let result = self.data
-                    .with_bounds(self.index..self.index + grapheme_end)
-                    .unwrap(); // Safety: Some(_) returned from next_boundary implies valid bounds
-                self.index += grapheme_end;
-                Some(ValueIteratorOutput::Value(Value::Str(result)))
-            }
-            None => None,
-        }
+        self.0
+            .pop_front()
+            .map(|s| ValueIteratorOutput::Value(s.into()))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let upper_bound = self.data[self.index..].len();
+        let upper_bound = self.0.len();
         let lower_bound = (upper_bound != 0) as usize;
         (lower_bound, Some(upper_bound))
     }

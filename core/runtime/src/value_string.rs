@@ -122,6 +122,22 @@ impl ValueString {
         }
     }
 
+    /// Removes and returns the last grapheme from the string
+    pub fn pop_back(&mut self) -> Option<Self> {
+        match self.grapheme_indices(true).next_back() {
+            Some((mut start, grapheme)) => {
+                start += self.bounds.start;
+                let end = self.bounds.end;
+                self.bounds.end -= grapheme.len();
+                Some(Self {
+                    string: self.string.clone(),
+                    bounds: start..end,
+                })
+            }
+            None => None,
+        }
+    }
+
     /// Returns the number of graphemes contained within the ValueString's bounds
     pub fn grapheme_count(&self) -> usize {
         self.graphemes(true).count()
