@@ -1140,42 +1140,34 @@ impl Vm {
     ) -> InstructionResult {
         use Value::*;
 
-        if let Iterator(iterator) = self.get_register_mut(iterable_register) {
-            match (iterator.next(), result_register) {
-                (Some(ValueIteratorOutput::Value(value)), Some(register)) => {
-                    self.set_register(register, value)
-                }
-                (Some(ValueIteratorOutput::ValuePair(first, second)), Some(register)) => {
-                    if output_is_temporary {
-                        self.set_register(
-                            register,
-                            TemporaryTuple(RegisterSlice {
-                                start: register + 1,
+        let output = if let Iterator(iterator) = self.get_register_mut(iterable_register) {
+            match iterator.next() {
+                Some(ValueIteratorOutput::Value(value)) => Some(value),
+                Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                    if let Some(result) = result_register {
+                        if output_is_temporary {
+                            self.set_register(result + 1, first);
+                            self.set_register(result + 2, second);
+                            Some(TemporaryTuple(RegisterSlice {
+                                start: result + 1,
                                 count: 2,
-                            }),
-                        );
-                        self.set_register(register + 1, first);
-                        self.set_register(register + 2, second);
+                            }))
+                        } else {
+                            Some(Tuple(vec![first, second].into()))
+                        }
                     } else {
-                        self.set_register(register, Tuple(vec![first, second].into()));
+                        // The output is going to be ignored, but we use Some here to indicate that
+                        // iteration should continue.
+                        Some(Null)
                     }
                 }
-                (Some(ValueIteratorOutput::Error(error)), _) => {
+                Some(ValueIteratorOutput::Error(error)) => {
                     return runtime_error!(error.to_string());
                 }
-                (Some(_), None) => {
-                    // No result register, so the output can be discarded
-                }
-                (None, Some(register)) => {
-                    self.set_register(register, Null);
-                    self.jump_ip(jump_offset);
-                }
-                (None, None) => {
-                    self.jump_ip(jump_offset);
-                }
+                None => None,
             }
         } else {
-            // Not an iterator, but maybe a temporary iterable used in value unpacking
+            // The iterable isn't an Iterator, but can be a temporary value used during unpacking
             let (output, new_iterable) = match self.clone_register(iterable_register) {
                 Range(mut r) => {
                     let output = r.pop_front()?;
@@ -1206,22 +1198,23 @@ impl Vm {
             };
 
             self.set_register(iterable_register, new_iterable);
+            output
+        };
 
-            match (output, result_register) {
-                (Some(output), Some(register)) => {
-                    self.set_register(register, output);
-                }
-                (Some(_), None) => {
-                    // No result register, so the output can be discarded
-                }
-                (None, Some(register)) => {
-                    // The iterator is finished, so jump to the provided offset
-                    self.set_register(register, Null);
-                    self.jump_ip(jump_offset);
-                }
-                (None, None) => {
-                    self.jump_ip(jump_offset);
-                }
+        match (output, result_register) {
+            (Some(output), Some(register)) => {
+                self.set_register(register, output);
+            }
+            (Some(_), None) => {
+                // No result register, so the output can be discarded
+            }
+            (None, Some(register)) => {
+                // The iterator is finished, so jump to the provided offset
+                self.set_register(register, Null);
+                self.jump_ip(jump_offset);
+            }
+            (None, None) => {
+                self.jump_ip(jump_offset);
             }
         }
 
