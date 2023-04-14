@@ -927,19 +927,11 @@ impl Vm {
                 Ok(())
             }
             Instruction::IterNext {
-                register,
+                result,
                 iterator,
                 jump_offset,
-            } => self.run_iterator_next(Some(register), iterator, jump_offset, false),
-            Instruction::IterNextTemp {
-                register,
-                iterator,
-                jump_offset,
-            } => self.run_iterator_next(Some(register), iterator, jump_offset, true),
-            Instruction::IterNextQuiet {
-                iterator,
-                jump_offset,
-            } => self.run_iterator_next(None, iterator, jump_offset, false),
+                temporary_output,
+            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output),
             Instruction::TempIndex {
                 register,
                 value,

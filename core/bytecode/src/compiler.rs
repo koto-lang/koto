@@ -1207,7 +1207,7 @@ impl Compiler {
                                     &[*target_register, iter_register, i as u8],
                                 );
                             } else {
-                                self.push_op(IterNext, &[*target_register, iter_register, 0, 0]);
+                                self.push_op(IterUnpack, &[*target_register, iter_register]);
                             }
                             // The register was reserved before the RHS was compiled, and now it
                             // needs to be committed.
@@ -1223,7 +1223,7 @@ impl Compiler {
                             if rhs_is_temp_tuple {
                                 self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                             } else {
-                                self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
+                                self.push_op(IterUnpack, &[value_register, iter_register]);
                             }
 
                             self.compile_value_export(*id_index, value_register)?;
@@ -1248,7 +1248,7 @@ impl Compiler {
                     if rhs_is_temp_tuple {
                         self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                     } else {
-                        self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
+                        self.push_op(IterUnpack, &[value_register, iter_register]);
                     }
 
                     self.compile_lookup(
@@ -1273,7 +1273,7 @@ impl Compiler {
                         if rhs_is_temp_tuple {
                             self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
                         } else {
-                            self.push_op(IterNext, &[value_register, iter_register, 0, 0]);
+                            self.push_op(IterUnpack, &[value_register, iter_register]);
                         }
 
                         self.push_op(SequencePush, &[result.register, value_register]);
@@ -3747,7 +3747,7 @@ impl Compiler {
                     match &ast.node(*arg).node {
                         Node::Id(id) => {
                             let arg_register = self.assign_local_register(*id)?;
-                            self.push_op_without_span(IterNext, &[arg_register, temp_register, 0, 0]);
+                            self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
                         }
                         Node::Wildcard(_) => {
                             self.push_op_without_span(IterNextQuiet, &[temp_register, 0, 0]);

@@ -318,18 +318,10 @@ pub enum Instruction {
         value: u8,
     },
     IterNext {
-        register: u8,
+        result: Option<u8>,
         iterator: u8,
         jump_offset: usize,
-    },
-    IterNextTemp {
-        register: u8,
-        iterator: u8,
-        jump_offset: usize,
-    },
-    IterNextQuiet {
-        iterator: u8,
-        jump_offset: usize,
+        temporary_output: bool,
     },
     TempIndex {
         register: u8,
@@ -642,28 +634,15 @@ impl fmt::Debug for Instruction {
             Throw { register } => write!(f, "Throw\t\tresult: {register}"),
             Size { register, value } => write!(f, "Size\t\tresult: {register}\tvalue: {value}"),
             IterNext {
-                register,
+                result,
                 iterator,
                 jump_offset,
+                temporary_output,
             } => write!(
                 f,
-                "IterNext\tresult: {register}\titerator: {iterator}\tjump offset: {jump_offset}",
-            ),
-            IterNextTemp {
-                register,
-                iterator,
-                jump_offset,
-            } => write!(
-                f,
-                "IterNextTemp\tresult: {register}\
-                 \titerator: {iterator}\tjump offset: {jump_offset}",
-            ),
-            IterNextQuiet {
-                iterator,
-                jump_offset,
-            } => write!(
-                f,
-                "IterNextQuiet\titerator: {iterator}\tjump offset: {jump_offset}",
+                "IterNext\t{}iterator: {iterator}\t\
+                jump: {jump_offset} \ttemp: {temporary_output}",
+                result.map_or(String::new(), |result| format!("result: {result}\t")),
             ),
             TempIndex {
                 register,
@@ -1271,18 +1250,28 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
             }),
             Op::IterNext => Some(IterNext {
-                register: get_u8!(),
+                result: Some(get_u8!()),
                 iterator: get_u8!(),
                 jump_offset: get_u16!() as usize,
+                temporary_output: false,
             }),
-            Op::IterNextTemp => Some(IterNextTemp {
-                register: get_u8!(),
+            Op::IterNextTemp => Some(IterNext {
+                result: Some(get_u8!()),
                 iterator: get_u8!(),
                 jump_offset: get_u16!() as usize,
+                temporary_output: true,
             }),
-            Op::IterNextQuiet => Some(IterNextQuiet {
+            Op::IterNextQuiet => Some(IterNext {
+                result: None,
                 iterator: get_u8!(),
                 jump_offset: get_u16!() as usize,
+                temporary_output: false,
+            }),
+            Op::IterUnpack => Some(IterNext {
+                result: Some(get_u8!()),
+                iterator: get_u8!(),
+                jump_offset: 0,
+                temporary_output: false,
             }),
             Op::TempIndex => Some(TempIndex {
                 register: get_u8!(),
