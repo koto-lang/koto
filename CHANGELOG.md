@@ -67,6 +67,15 @@ The Koto project adheres to
     a, b, c = (1..10).each |n| n * 10
     # 10, 20, 30
     ```
+  - Iteration is also used when unpacking for loop arguments.
+    - e.g. 
+    ```koto
+    for a, b, c in (1..10).windows 3
+      debug a, b, c
+      # 1, 2, 3
+      # 2, 3, 4
+      # ...
+    ```
 - Ranges now preserve whether or not they're inclusive.
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 

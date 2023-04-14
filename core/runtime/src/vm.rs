@@ -420,7 +420,7 @@ impl Vm {
 
         match op {
             UnaryOp::Display => self.run_display(result_register, value_register)?,
-            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register)?,
+            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register, false)?,
             UnaryOp::Negate => self.run_negate(result_register, value_register)?,
             UnaryOp::Not => self.run_not(result_register, value_register)?,
         }
@@ -797,7 +797,7 @@ impl Vm {
             }
             Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
             Instruction::MakeIterator { register, iterable } => {
-                self.run_make_iterator(register, iterable)
+                self.run_make_iterator(register, iterable, true)
             }
             Instruction::SimpleFunction {
                 register,
@@ -927,19 +927,11 @@ impl Vm {
                 Ok(())
             }
             Instruction::IterNext {
-                register,
+                result,
                 iterator,
                 jump_offset,
-            } => self.run_iterator_next(Some(register), iterator, jump_offset, false),
-            Instruction::IterNextTemp {
-                register,
-                iterator,
-                jump_offset,
-            } => self.run_iterator_next(Some(register), iterator, jump_offset, true),
-            Instruction::IterNextQuiet {
-                iterator,
-                jump_offset,
-            } => self.run_iterator_next(None, iterator, jump_offset, false),
+                temporary_output,
+            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output),
             Instruction::TempIndex {
                 register,
                 value,
@@ -1095,82 +1087,136 @@ impl Vm {
 
     // Runs the MakeIterator instruction
     //
-    // Distinct from the public `make_iterator` function, which will defer to this function when
-    // the input value implements @iterator.
-    fn run_make_iterator(&mut self, result: u8, iterable_register: u8) -> InstructionResult {
+    // This function is distinct from the public `make_iterator`, which will defer to this function
+    // when the input value implements @iterator.
+    //
+    // temp_iterator is used for temporary unpacking operations.
+    fn run_make_iterator(
+        &mut self,
+        result: u8,
+        iterable_register: u8,
+        temp_iterator: bool,
+    ) -> InstructionResult {
         use Value::*;
 
         let iterable = self.clone_register(iterable_register);
 
-        if matches!(iterable, Iterator(_)) {
-            self.set_register(result, iterable);
-        } else {
-            let iterator = match iterable {
-                Range(int_range) => ValueIterator::with_range(int_range)?,
-                List(list) => ValueIterator::with_list(list),
-                Tuple(tuple) => ValueIterator::with_tuple(tuple),
-                Str(s) => ValueIterator::with_string(s),
-                Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                    let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                    return self.call_overloaded_unary_op(result, iterable_register, op);
-                }
-                Map(map) => ValueIterator::with_map(map),
-                External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                    let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                    return self.call_overloaded_unary_op(result, iterable_register, op);
-                }
-                unexpected => {
-                    return type_error("Iterable while making iterator", &unexpected);
-                }
-            };
+        let iterator = match iterable {
+            Iterator(_) => iterable,
+            Range(r) if temp_iterator && r.is_bounded() => iterable,
+            Tuple(_) | Str(_) | TemporaryTuple(_) if temp_iterator => {
+                // Immutable sequences can be iterated over directly when used in temporary
+                // situations like argument unpacking.
+                iterable
+            }
+            Range(range) => ValueIterator::with_range(range)?.into(),
+            List(list) => ValueIterator::with_list(list).into(),
+            Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
+            Str(s) => ValueIterator::with_string(s).into(),
+            Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
+                return self.call_overloaded_unary_op(result, iterable_register, op);
+            }
+            Map(map) => ValueIterator::with_map(map).into(),
+            External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
+                return self.call_overloaded_unary_op(result, iterable_register, op);
+            }
+            unexpected => {
+                return type_error("Iterable while making iterator", &unexpected);
+            }
+        };
 
-            self.set_register(result, iterator.into());
-        }
-
+        self.set_register(result, iterator);
         Ok(())
     }
 
     fn run_iterator_next(
         &mut self,
         result_register: Option<u8>,
-        iterator: u8,
+        iterable_register: u8,
         jump_offset: usize,
         output_is_temporary: bool,
     ) -> InstructionResult {
-        use Value::{Iterator, TemporaryTuple, Tuple};
+        use Value::*;
 
-        let result = match self.get_register_mut(iterator) {
-            Iterator(iterator) => iterator.next(),
-            unexpected => return type_error("Iterator", unexpected),
+        let output = if let Iterator(iterator) = self.get_register_mut(iterable_register) {
+            match iterator.next() {
+                Some(ValueIteratorOutput::Value(value)) => Some(value),
+                Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                    if let Some(result) = result_register {
+                        if output_is_temporary {
+                            self.set_register(result + 1, first);
+                            self.set_register(result + 2, second);
+                            Some(TemporaryTuple(RegisterSlice {
+                                start: result + 1,
+                                count: 2,
+                            }))
+                        } else {
+                            Some(Tuple(vec![first, second].into()))
+                        }
+                    } else {
+                        // The output is going to be ignored, but we use Some here to indicate that
+                        // iteration should continue.
+                        Some(Null)
+                    }
+                }
+                Some(ValueIteratorOutput::Error(error)) => {
+                    return runtime_error!(error.to_string());
+                }
+                None => None,
+            }
+        } else {
+            // The iterable isn't an Iterator, but can be a temporary value used during unpacking
+            let (output, new_iterable) = match self.clone_register(iterable_register) {
+                Range(mut r) => {
+                    let output = r.pop_front()?;
+                    (output.map(Value::from), Range(r))
+                }
+                Tuple(mut t) => {
+                    let output = t.pop_front();
+                    (output, Tuple(t))
+                }
+                Str(mut s) => {
+                    let output = s.pop_front();
+                    (output.map(Value::from), Str(s))
+                }
+                TemporaryTuple(RegisterSlice { start, count }) => {
+                    if count > 0 {
+                        (
+                            Some(self.clone_register(start)),
+                            TemporaryTuple(RegisterSlice {
+                                start: start + 1,
+                                count: count - 1,
+                            }),
+                        )
+                    } else {
+                        (None, TemporaryTuple(RegisterSlice { start, count }))
+                    }
+                }
+                unexpected => return type_error("Iterator", &unexpected),
+            };
+
+            self.set_register(iterable_register, new_iterable);
+            output
         };
 
-        match (result, result_register) {
-            (Some(ValueIteratorOutput::Value(value)), Some(register)) => {
-                self.set_register(register, value)
-            }
-            (Some(ValueIteratorOutput::ValuePair(first, second)), Some(register)) => {
-                if output_is_temporary {
-                    self.set_register(
-                        register,
-                        TemporaryTuple(RegisterSlice {
-                            start: register + 1,
-                            count: 2,
-                        }),
-                    );
-                    self.set_register(register + 1, first);
-                    self.set_register(register + 2, second);
-                } else {
-                    self.set_register(register, Tuple(vec![first, second].into()));
-                }
-            }
-            (Some(ValueIteratorOutput::Error(error)), _) => {
-                return runtime_error!(error.to_string())
+        match (output, result_register) {
+            (Some(output), Some(register)) => {
+                self.set_register(register, output);
             }
             (Some(_), None) => {
                 // No result register, so the output can be discarded
             }
-            (None, _) => self.jump_ip(jump_offset),
-        };
+            (None, Some(register)) => {
+                // The iterator is finished, so jump to the provided offset
+                self.set_register(register, Null);
+                self.jump_ip(jump_offset);
+            }
+            (None, None) => {
+                self.jump_ip(jump_offset);
+            }
+        }
 
         Ok(())
     }

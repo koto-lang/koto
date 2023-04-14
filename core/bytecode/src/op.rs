@@ -418,6 +418,13 @@ pub enum Op {
     /// `[*iterator, offset[2]]`
     IterNextQuiet,
 
+    /// Gets the next value from an Iterator, used during value unpacking
+    ///
+    /// If the iterator is finished then null is assigned to the target register.
+    ///
+    /// `[*output, *iterator]`
+    IterUnpack,
+
     /// Accesses a contained value from a temporary value using a u8 index
     ///
     /// This is used for internal indexing operations.
@@ -568,7 +575,6 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused99,
     Unused100,
     Unused101,
     Unused102,
