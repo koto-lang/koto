@@ -483,6 +483,16 @@ type xy
 ";
             test_script(script, string("Tuple"));
         }
+
+        #[test]
+        fn exhausted_iterator_in_unpacking_produces_null() {
+            let script = "
+a, b, c = 1..=3
+a, b, c = 1..=2
+c
+";
+            test_script(script, Null);
+        }
     }
 
     mod if_expressions {
@@ -2053,7 +2063,6 @@ m =
   foo: |first, xs...|
     for x in xs
       yield self.offset + first + x
-    self.offset + xs.fold x, |a, b| a + b
   offset: 100
 m.foo(10, 1, 2, 3).to_tuple()
 ";

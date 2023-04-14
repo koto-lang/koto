@@ -1174,7 +1174,13 @@ impl Vm {
                 (Some(_), None) => {
                     // No result register, so the output can be discarded
                 }
-                (None, _) => self.jump_ip(jump_offset),
+                (None, Some(register)) => {
+                    self.set_register(register, Null);
+                    self.jump_ip(jump_offset);
+                }
+                (None, None) => {
+                    self.jump_ip(jump_offset);
+                }
             }
         } else {
             // Not an iterator, but maybe a temporary iterable used in value unpacking
@@ -1216,8 +1222,12 @@ impl Vm {
                 (Some(_), None) => {
                     // No result register, so the output can be discarded
                 }
-                (None, _) => {
+                (None, Some(register)) => {
                     // The iterator is finished, so jump to the provided offset
+                    self.set_register(register, Null);
+                    self.jump_ip(jump_offset);
+                }
+                (None, None) => {
                     self.jump_ip(jump_offset);
                 }
             }
