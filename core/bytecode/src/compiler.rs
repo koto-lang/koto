@@ -3198,10 +3198,6 @@ impl Compiler {
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
-        if let Some(result) = result {
-            self.push_op(Op::SetNull, &[result.register]);
-        }
-
         let stack_count = self.frame().register_stack.len();
 
         let match_node = ast.node(match_expression);
@@ -3213,25 +3209,23 @@ impl Compiler {
             _ => 1,
         };
 
-        let mut result_jump_placeholders = Vec::new();
+        // Compile the match arms, collecting their jump offset placeholders
+        let arm_jump_placeholders = arms
+            .iter()
+            .map(|arm| self.compile_match_arm(result, match_register.register, match_len, arm, ast))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        for (arm_index, arm) in arms.iter().enumerate() {
-            let is_last_arm = arm_index == arms.len() - 1;
-
-            if let Some(placeholder) = self.compile_match_arm(
-                result,
-                match_register.register,
-                match_len,
-                arm,
-                is_last_arm,
-                ast,
-            )? {
-                result_jump_placeholders.push(placeholder);
+        // Set the result to Null in case there was no matching arm
+        if let Some(result) = result {
+            // If the last arm was `else`, then setting to Null isn't necessary
+            if matches!(arms.last(), Some(arm) if !arm.is_else()) {
+                self.push_op(Op::SetNull, &[result.register]);
             }
         }
 
-        for jump_placeholder in result_jump_placeholders.iter() {
-            self.update_offset_placeholder(*jump_placeholder)?;
+        // Update the arm jump placeholders
+        for placeholder in arm_jump_placeholders.iter().flatten() {
+            self.update_offset_placeholder(*placeholder)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -3245,7 +3239,6 @@ impl Compiler {
         match_register: u8,
         match_len: usize,
         arm: &MatchArm,
-        is_last_arm: bool,
         ast: &Ast,
     ) -> Result<Option<usize>, CompilerError> {
         let mut jumps = MatchJumpPlaceholders::default();
@@ -3363,7 +3356,8 @@ impl Compiler {
 
         self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
 
-        let result_jump_placeholder = if !is_last_arm {
+        // Jump to the end of the match expression, unless this is an `else` arm
+        let result_jump_placeholder = if !arm.is_else() {
             self.push_op_without_span(Op::Jump, &[]);
             Some(self.push_offset_placeholder())
         } else {

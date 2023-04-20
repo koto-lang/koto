@@ -498,6 +498,8 @@ pub struct AssignTarget {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MatchArm {
     /// A series of match patterns
+    ///
+    /// If `patterns` is empty then `else` is implied, and should always appear as the last arm.
     pub patterns: Vec<AstIndex>,
     /// An optional condition for the match arm
     ///
@@ -507,6 +509,13 @@ pub struct MatchArm {
     pub condition: Option<AstIndex>,
     /// The body of the match arm
     pub expression: AstIndex,
+}
+
+impl MatchArm {
+    /// Returns true if the arm is `else`
+    pub fn is_else(&self) -> bool {
+        self.patterns.is_empty()
+    }
 }
 
 /// An arm in a switch expression
