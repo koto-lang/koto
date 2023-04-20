@@ -386,15 +386,5 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a List and Function as arguments", unexpected),
     });
 
-    result.add_fn("with_size", |vm, args| match vm.get_args(args) {
-        [Number(n), value] if *n >= 0.0 => {
-            let result = smallvec::smallvec![value.clone(); n.into()];
-            Ok(List(ValueList::with_data(result)))
-        }
-        unexpected => {
-            type_error_with_slice("a non-negative Number and Value as arguments", unexpected)
-        }
-    });
-
     result
 }
