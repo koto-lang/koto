@@ -822,7 +822,7 @@ m.value_1 + m.value_2
         }
 
         #[test]
-        fn mutliple_expressions_in_inline_arm() {
+        fn multiple_expressions_in_inline_arm() {
             let script = r#"
 m = match 42
   23 then 1, 2
@@ -844,6 +844,18 @@ x = match a, b
 x
 "#;
             test_script(script, Null);
+        }
+
+        #[test]
+        fn assignment_target_used_in_match_arm() {
+            let script = r#"
+x = 10
+x = match 99
+  123 then -1
+  _ then x * x
+x
+"#;
+            test_script(script, 100);
         }
     }
 
@@ -885,6 +897,18 @@ x = switch
 x
 "#;
             test_script(script, Null);
+        }
+
+        #[test]
+        fn assignment_target_used_in_switch_arm() {
+            let script = r#"
+x = 10
+x = switch
+  1 == 2 then 99
+  3 <= 4 then x * x
+x
+"#;
+            test_script(script, 100);
         }
     }
 
