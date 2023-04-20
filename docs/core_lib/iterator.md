@@ -613,6 +613,27 @@ check! ('x', 'x', 'x')
 
 - [`iterator.generate`](#generate)
 
+## reversed
+
+```kototype
+|Iterator| -> Iterator
+```
+
+Reverses the order of the iterator's output.
+
+This only works with iterators that have a defined end, so attempting to reverse
+endless iterators like `generate` will result in an error.
+
+### Example
+
+```koto
+print! 'Héllö'.reversed().to_tuple()
+check! ('ö', 'l', 'l', 'é', 'H')
+
+print! (1..=10).reversed().skip(5).to_tuple()
+check! (5, 4, 3, 2, 1)
+```
+
 ## skip
 
 ```kototype
