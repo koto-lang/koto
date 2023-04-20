@@ -898,6 +898,18 @@ x
 "#;
             test_script(script, Null);
         }
+
+        #[test]
+        fn assignment_target_used_in_switch_arm() {
+            let script = r#"
+x = 10
+x = switch
+  1 == 2 then 99
+  3 <= 4 then x * x
+x
+"#;
+            test_script(script, 100);
+        }
     }
 
     mod prelude {

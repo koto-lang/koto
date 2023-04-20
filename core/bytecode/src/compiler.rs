@@ -3142,16 +3142,12 @@ impl Compiler {
         let mut result_jump_placeholders = Vec::new();
 
         let body_result_register = if let Some(result) = result {
-            // Set the result register to null, in case no switch arm is executed
-            self.push_op(Op::SetNull, &[result.register]);
             ResultRegister::Fixed(result.register)
         } else {
             ResultRegister::None
         };
 
-        for (arm_index, arm) in arms.iter().enumerate() {
-            let is_last_arm = arm_index == arms.len() - 1;
-
+        for arm in arms.iter() {
             let arm_end_jump_placeholder = if let Some(condition) = arm.condition {
                 let condition_register = self
                     .compile_node(ResultRegister::Any, ast.node(condition), ast)?
@@ -3170,13 +3166,22 @@ impl Compiler {
 
             self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
 
-            if !is_last_arm {
+            // Add a jump instruction if this anything other than an `else` arm
+            if !arm.is_else() {
                 self.push_op_without_span(Op::Jump, &[]);
                 result_jump_placeholders.push(self.push_offset_placeholder())
             }
 
             if let Some(jump_placeholder) = arm_end_jump_placeholder {
                 self.update_offset_placeholder(jump_placeholder)?;
+            }
+        }
+
+        // Set the result register to null, in case no switch arm is executed
+        if let Some(result) = result {
+            // If the last arm is `else`, then setting to Null isn't necessary
+            if matches!(arms.last(), Some(arm) if !arm.is_else()) {
+                self.push_op(Op::SetNull, &[result.register]);
             }
         }
 

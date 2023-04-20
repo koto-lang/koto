@@ -529,6 +529,13 @@ pub struct SwitchArm {
     pub expression: AstIndex,
 }
 
+impl SwitchArm {
+    /// Returns true if the arm is `else`
+    pub fn is_else(&self) -> bool {
+        self.condition.is_none()
+    }
+}
+
 /// A meta key
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
