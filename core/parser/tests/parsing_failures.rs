@@ -217,6 +217,14 @@ x = foo: 42, bar: 99,
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn string_used_as_valueless_key() {
+                let source = "
+x = {'y'}
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod lists {

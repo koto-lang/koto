@@ -1267,105 +1267,6 @@ f().bar";
         }
 
         #[test]
-        fn captured_value() {
-            let script = "
-x = 3
-f = || x * x
-f()";
-            test_script(script, 9);
-        }
-
-        #[test]
-        fn capture_via_mutation() {
-            let script = "
-data = [1, 2, 3]
-f = ||
-  data[1] = 99
-  data = () # shadowed assignment doesn't affect the original copy of data
-f()
-data[1]";
-            test_script(script, 99);
-        }
-
-        #[test]
-        fn nested_captured_values() {
-            let script = "
-capture_test = |a, b, c|
-  inner = ||
-    inner2 = |x|
-      x + b + c
-    inner2 a
-  b, c = (), () # inner and inner2 have captured their own copies of b and c
-  inner()
-capture_test 1, 2, 3";
-            test_script(script, 6);
-        }
-
-        #[test]
-        fn local_copy_of_captured_value() {
-            let script = "
-x = 99
-f = ||
-  x = x + 1
-  x
-if f() == 100
-  x
-else
-  -1
-";
-            test_script(script, 99);
-        }
-
-        #[test]
-        fn missing_argument_in_function_with_capture() {
-            let script = "
-x = -1
-foo = |a| if a then return a else return x
-# Add some temporary values to the stack,
-# a runtime bug prevented registers from being assigned correctly in foo.
-z = 1 + 2 + 3
-foo()
-";
-            test_script(script, -1);
-        }
-
-        #[test]
-        fn returning_captured_value_after_if() {
-            let script = "
-x = 100
-f = ||
-  if false then return -1
-  x
-f()
-";
-            test_script(script, 100);
-        }
-
-        #[test]
-        fn mutation_of_captured_map() {
-            let script = "
-f = |x|
-  inner = ||
-    x.foo = 123
-  inner()
-  x.foo
-f {foo: 42, bar: 99}";
-            test_script(script, 123);
-        }
-
-        #[test]
-        fn multi_assignment_to_captured_list() {
-            let script = "
-f = |x|
-  inner = ||
-    x[0], x[1] = x[0] + 1, x[1] + 1
-    x
-  inner()
-f [1, 2]";
-            test_script(script, number_list(&[2, 3]));
-        }
-
-        #[test]
         fn multi_assignment_of_function_results() {
             let script = "
 f = |n| n
@@ -1411,6 +1312,119 @@ f = || 1, 2, 3
 f().fold 0, |x, n| x += n
 ";
             test_script(script, 6);
+        }
+
+        mod value_capturing {
+            use super::*;
+
+            #[test]
+            fn captured_value() {
+                let script = "
+x = 3
+f = || x * x
+f()";
+                test_script(script, 9);
+            }
+
+            #[test]
+            fn capture_via_mutation() {
+                let script = "
+data = [1, 2, 3]
+f = ||
+  data[1] = 99
+  data = () # shadowed assignment doesn't affect the original copy of data
+f()
+data[1]";
+                test_script(script, 99);
+            }
+
+            #[test]
+            fn nested_captured_values() {
+                let script = "
+capture_test = |a, b, c|
+  inner = ||
+    inner2 = |x|
+      x + b + c
+    inner2 a
+  b, c = (), () # inner and inner2 have captured their own copies of b and c
+  inner()
+capture_test 1, 2, 3";
+                test_script(script, 6);
+            }
+
+            #[test]
+            fn local_copy_of_captured_value() {
+                let script = "
+x = 99
+f = ||
+  x = x + 1
+  x
+if f() == 100
+  x
+else
+  -1
+";
+                test_script(script, 99);
+            }
+
+            #[test]
+            fn missing_argument_in_function_with_capture() {
+                let script = "
+x = -1
+foo = |a| if a then return a else return x
+# Add some temporary values to the stack,
+# a runtime bug prevented registers from being assigned correctly in foo.
+z = 1 + 2 + 3
+foo()
+";
+                test_script(script, -1);
+            }
+
+            #[test]
+            fn returning_captured_value_after_if() {
+                let script = "
+x = 100
+f = ||
+  if false then return -1
+  x
+f()
+";
+                test_script(script, 100);
+            }
+
+            #[test]
+            fn mutation_of_captured_map() {
+                let script = "
+f = |x|
+  inner = ||
+    x.foo = 123
+  inner()
+  x.foo
+f {foo: 42, bar: 99}";
+                test_script(script, 123);
+            }
+
+            #[test]
+            fn multi_assignment_to_captured_list() {
+                let script = "
+f = |x|
+  inner = ||
+    x[0], x[1] = x[0] + 1, x[1] + 1
+    x
+  inner()
+f [1, 2]";
+                test_script(script, number_list(&[2, 3]));
+            }
+
+            #[test]
+            fn implicit_map_value_should_be_captured() {
+                let script = "
+x = 99
+f = || {x}
+f().x
+";
+                test_script(script, 99);
+            }
         }
 
         mod piped_calls {

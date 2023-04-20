@@ -1967,6 +1967,10 @@ impl<'source> Parser<'source> {
                     // e.g.
                     //   bar = -1
                     //   x = {foo: 42, bar, baz: 99}
+                    match key {
+                        MapKey::Id(id) => self.frame_mut()?.add_id_access(id),
+                        _ => return self.error(SyntaxError::ExpectedMapValue),
+                    }
                     entries.push((key, None));
                 }
 

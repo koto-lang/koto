@@ -6,6 +6,8 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
+import iterator.repeat
+
 A = |i, j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)
@@ -31,9 +33,9 @@ AtAv = |x, y, t, n|
   Atv t, y, n
 
 spectral_norm = |n|
-  u = list.with_size n, 1
-  v = list.with_size n, 0
-  t = list.with_size n, 0
+  u = repeat(1, n).to_list()
+  v = repeat(0, n).to_list()
+  t = repeat(0, n).to_list()
 
   for _ in 0..10
     AtAv u, v, t, n

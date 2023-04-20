@@ -114,6 +114,14 @@ The Koto project adheres to
 
 #### Core Library
 
+- `list.with_size` has been removed in favour of using `iterator.to_list`.
+  - e.g.
+    ```koto
+    # Instead of:
+    list.with_size 5, 'x'
+    # You can use:
+    iterator.repeat('x', 5).to_list()
+    ```
 - `string.slice` has been removed in favour of `[]` indexing. 
   - e.g.
     ```koto

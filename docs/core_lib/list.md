@@ -488,18 +488,3 @@ check! ['3', '2', '1']
 print! x
 check! ['3', '2', '1']
 ```
-
-## with_size
-
-```kototype
-|Number, Value| -> List
-```
-
-Returns a list containing `N` copies of a value.
-
-### Example
-
-```koto
-print! list.with_size 5, '!'
-check! ['!', '!', '!', '!', '!']
-```
