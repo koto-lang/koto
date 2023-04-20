@@ -252,6 +252,19 @@ impl Each {
     pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
         Self { iter, function, vm }
     }
+
+    fn map_output(&mut self, output: Output) -> Output {
+        let function = self.function.clone();
+        let functor_result = match output {
+            Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
+            Output::ValuePair(a, b) => self.vm.run_function(function, CallArgs::AsTuple(&[a, b])),
+            other => return other,
+        };
+        match functor_result {
+            Ok(result) => Output::Value(result),
+            Err(error) => Output::Error(error),
+        }
+    }
 }
 
 impl KotoIterator for Each {
@@ -267,26 +280,21 @@ impl KotoIterator for Each {
     fn might_have_side_effects(&self) -> bool {
         true
     }
+
+    fn is_bidirectional(&self) -> bool {
+        self.iter.is_bidirectional()
+    }
+
+    fn next_back(&mut self) -> Option<Output> {
+        self.iter.next_back().map(|output| self.map_output(output))
+    }
 }
 
 impl Iterator for Each {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|output| {
-            let function = self.function.clone();
-            let functor_result = match output {
-                Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
-                Output::ValuePair(a, b) => {
-                    self.vm.run_function(function, CallArgs::AsTuple(&[a, b]))
-                }
-                other => return other,
-            };
-            match functor_result {
-                Ok(result) => Output::Value(result),
-                Err(error) => Output::Error(error),
-            }
-        })
+        self.iter.next().map(|output| self.map_output(output))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -754,7 +762,7 @@ impl fmt::Display for ReversedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ReversedError::IteratorIsntReversible => {
-                write!(f, "the input iterator isn't bidirectional")
+                write!(f, "the provided iterator isn't bidirectional")
             }
         }
     }

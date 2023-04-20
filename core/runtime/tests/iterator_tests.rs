@@ -69,6 +69,17 @@ y.next()
 ";
             test_script(script, 16);
         }
+
+        #[test]
+        fn each_reversed() {
+            let script = "
+x = (2, 4, 6)
+ .each |x| x * x
+ .reversed()
+x.next()
+";
+            test_script(script, 36);
+        }
     }
 
     mod enumerate {
