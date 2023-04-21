@@ -10,12 +10,6 @@ pub trait KotoIterator: Iterator<Item = ValueIteratorOutput> {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> ValueIterator;
 
-    /// Returns true when the iterator executes functions that may cause side effects
-    ///
-    /// This is used to determine whether or not the iterator is repeatable, which is used in
-    /// iterator adaptors like chunks() or windows().
-    fn might_have_side_effects(&self) -> bool;
-
     /// Returns true if the iterator supports reversed iteration via `next_back`
     fn is_bidirectional(&self) -> bool {
         false
@@ -124,13 +118,6 @@ impl ValueIterator {
         self.0.borrow().make_copy()
     }
 
-    /// Returns true if the iterator might have side-effects
-    ///
-    /// See [KotoIterator::might_have_side_effects]
-    pub fn might_have_side_effects(&self) -> bool {
-        self.0.borrow().might_have_side_effects()
-    }
-
     /// Returns true if the iterator supports reversed iteration via `next_back`
     ///
     /// See [KotoIterator::is_bidirectional]
@@ -216,10 +203,6 @@ impl KotoIterator for RangeIterator {
         ValueIterator::new(self.clone())
     }
 
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
     fn is_bidirectional(&self) -> bool {
         true
     }
@@ -292,10 +275,6 @@ impl KotoIterator for ListIterator {
         ValueIterator::new(self.clone())
     }
 
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
     fn is_bidirectional(&self) -> bool {
         true
     }
@@ -341,10 +320,6 @@ impl TupleIterator {
 impl KotoIterator for TupleIterator {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -399,10 +374,6 @@ impl KotoIterator for MapIterator {
         ValueIterator::new(self.clone())
     }
 
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
     fn is_bidirectional(&self) -> bool {
         true
     }
@@ -451,10 +422,6 @@ impl KotoIterator for StringIterator {
         ValueIterator::new(self.clone())
     }
 
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
-
     fn is_bidirectional(&self) -> bool {
         true
     }
@@ -498,10 +465,6 @@ impl KotoIterator for GeneratorIterator {
         let new_vm = crate::vm::clone_generator_vm(&self.vm);
         ValueIterator::with_vm(new_vm)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
-    }
 }
 
 impl Iterator for GeneratorIterator {
@@ -534,10 +497,6 @@ where
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
 }
 
 impl<T> Iterator for StdForwardIterator<T>
@@ -565,10 +524,6 @@ where
 {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
     }
 
     fn is_bidirectional(&self) -> bool {

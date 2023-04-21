@@ -30,15 +30,6 @@ impl KotoIterator for Chain {
         };
         ValueIterator::new(result)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        if let Some(iter_a) = &self.iter_a {
-            if iter_a.might_have_side_effects() {
-                return true;
-            }
-        }
-        self.iter_b.might_have_side_effects()
-    }
 }
 
 impl Iterator for Chain {
@@ -87,8 +78,6 @@ impl Chunks {
     pub fn new(iter: ValueIterator, chunk_size: usize) -> Result<Self, ChunksError> {
         if chunk_size < 1 {
             Err(ChunksError::ChunkSizeMustBeAtLeastOne)
-        } else if iter.might_have_side_effects() {
-            Err(ChunksError::IteratorMightHaveSideEffects)
         } else {
             Ok(Self { iter, chunk_size })
         }
@@ -102,10 +91,6 @@ impl KotoIterator for Chunks {
             chunk_size: self.chunk_size,
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -157,16 +142,12 @@ impl Iterator for Chunks {
 /// An error that can be returned by [Chunks::new]
 #[allow(missing_docs)]
 pub enum ChunksError {
-    IteratorMightHaveSideEffects,
     ChunkSizeMustBeAtLeastOne,
 }
 
 impl fmt::Display for ChunksError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ChunksError::IteratorMightHaveSideEffects => {
-                write!(f, "the iterator to be chunked should not run any functions")
-            }
             ChunksError::ChunkSizeMustBeAtLeastOne => {
                 write!(f, "the chunk size must be at least 1")
             }
@@ -205,10 +186,6 @@ impl KotoIterator for Cycle {
             current_cycle: self.current_cycle.make_copy(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -277,10 +254,6 @@ impl KotoIterator for Each {
         ValueIterator::new(result)
     }
 
-    fn might_have_side_effects(&self) -> bool {
-        true
-    }
-
     fn is_bidirectional(&self) -> bool {
         self.iter.is_bidirectional()
     }
@@ -322,10 +295,6 @@ impl KotoIterator for Enumerate {
             index: self.index,
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -377,10 +346,6 @@ impl KotoIterator for Flatten {
             nested: self.nested.as_ref().map(|nested| nested.make_copy()),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
     }
 }
 
@@ -440,10 +405,6 @@ impl KotoIterator for Intersperse {
             separator: self.separator.clone(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -507,10 +468,6 @@ impl KotoIterator for IntersperseWith {
             vm: self.vm.spawn_shared_vm(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
     }
 }
 
@@ -585,10 +542,6 @@ impl KotoIterator for Keep {
         };
         ValueIterator::new(result)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
-    }
 }
 
 impl Iterator for Keep {
@@ -648,10 +601,6 @@ impl KotoIterator for PairFirst {
         };
         ValueIterator::new(result)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
-    }
 }
 
 impl Iterator for PairFirst {
@@ -687,10 +636,6 @@ impl KotoIterator for PairSecond {
             iter: self.iter.make_copy(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -733,10 +678,6 @@ impl KotoIterator for Reversed {
             iter: self.iter.make_copy(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -800,10 +741,6 @@ impl KotoIterator for Take {
         };
         ValueIterator::new(result)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
-    }
 }
 
 impl Iterator for Take {
@@ -839,8 +776,6 @@ impl Windows {
     pub fn new(iter: ValueIterator, window_size: usize) -> Result<Self, WindowsError> {
         if window_size < 1 {
             Err(WindowsError::WindowSizeMustBeAtLeastOne)
-        } else if iter.might_have_side_effects() {
-            Err(WindowsError::IteratorMightHaveSideEffects)
         } else {
             let mut end_iter = iter.make_copy();
             // Skip the end iterator to 'one before the last' of the first window
@@ -865,10 +800,6 @@ impl KotoIterator for Windows {
             window_size: self.window_size,
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter.might_have_side_effects()
     }
 }
 
@@ -902,16 +833,12 @@ impl Iterator for Windows {
 /// An error that can be returned by [Windows::new]
 #[allow(missing_docs)]
 pub enum WindowsError {
-    IteratorMightHaveSideEffects,
     WindowSizeMustBeAtLeastOne,
 }
 
 impl fmt::Display for WindowsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WindowsError::IteratorMightHaveSideEffects => {
-                write!(f, "the iterator to be chunked should not run any functions")
-            }
             WindowsError::WindowSizeMustBeAtLeastOne => {
                 write!(f, "the window size must be at least 1")
             }
@@ -947,10 +874,6 @@ impl KotoIterator for Zip {
             iter_b: self.iter_b.make_copy(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        self.iter_a.might_have_side_effects() || self.iter_b.might_have_side_effects()
     }
 }
 
