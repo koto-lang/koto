@@ -1115,6 +1115,9 @@ impl Vm {
             Str(s) => ValueIterator::with_string(s).into(),
             Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
+                if !(op.is_callable() || matches!(op, Generator(_))) {
+                    return type_error("Callable function from @iterator", &op);
+                }
                 return self.call_overloaded_unary_op(result, iterable_register, op);
             }
             Map(map) => ValueIterator::with_map(map).into(),
@@ -1993,8 +1996,7 @@ impl Vm {
         }
 
         // Set up the call registers at the end of the stack
-        let stack_len = self.value_stack.len();
-        let frame_base = (stack_len - self.register_base()) as u8;
+        let frame_base = self.new_frame_base()?;
         self.value_stack.push(Value::Null); // frame_base
         self.call_callable(
             result_register,
@@ -2020,8 +2022,7 @@ impl Vm {
         }
 
         // Set up the call registers at the end of the stack
-        let stack_len = self.value_stack.len();
-        let frame_base = (stack_len - self.register_base()) as u8;
+        let frame_base = self.new_frame_base()?;
         self.value_stack.push(Value::Null); // frame_base
         self.value_stack.push(rhs); // arg
         self.call_callable(
@@ -3089,6 +3090,11 @@ impl Vm {
                 runtime_error!("pop_frame: Empty call stack")
             }
         }
+    }
+
+    fn new_frame_base(&self) -> Result<u8, RuntimeError> {
+        u8::try_from(self.value_stack.len() - self.register_base())
+            .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
     }
 
     fn register_base(&self) -> usize {
