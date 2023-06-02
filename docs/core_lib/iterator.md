@@ -517,7 +517,7 @@ check! (-3, 99)
 ## next
 
 ```kototype
-|Iterator| -> Value
+|Iterable| -> Value
 ```
 
 Returns the next value from the iterator.

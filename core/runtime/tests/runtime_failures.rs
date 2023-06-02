@@ -205,5 +205,39 @@ x.insert (1, [2, 3]), 'hello'
                 check_script_fails(script);
             }
         }
+
+        mod meta_maps {
+            use super::*;
+
+            #[test]
+            fn next_with_generator() {
+                let script = "
+x =
+  @next: || yield 42
+a, b = x
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn next_with_non_function() {
+                let script = "
+x =
+  @next: 42
+a, b = x
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn next_back_without_next() {
+                let script = "
+x =
+  @next_back: || 42
+x.reversed().next()
+";
+                check_script_fails(script);
+            }
+        }
     }
 }

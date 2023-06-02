@@ -223,6 +223,10 @@ pub enum UnaryOp {
     Display,
     /// `@iterator`
     Iterator,
+    /// `@next`
+    Next,
+    /// `@next_back`
+    NextBack,
     /// `@negate`
     Negate,
     /// `@not`
@@ -252,6 +256,8 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::NotEqual => MetaKey::BinaryOp(NotEqual),
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
         MetaKeyId::Iterator => MetaKey::UnaryOp(Iterator),
+        MetaKeyId::Next => MetaKey::UnaryOp(Next),
+        MetaKeyId::NextBack => MetaKey::UnaryOp(NextBack),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),

@@ -411,6 +411,8 @@ impl Vm {
 
     /// Provides the result of running a unary operation on a Value
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
+        use Value::*;
+
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
         let value_register = result_register + 1;
@@ -420,9 +422,24 @@ impl Vm {
 
         match op {
             UnaryOp::Display => self.run_display(result_register, value_register)?,
-            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register, false)?,
             UnaryOp::Negate => self.run_negate(result_register, value_register)?,
             UnaryOp::Not => self.run_not(result_register, value_register)?,
+            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register, false)?,
+            UnaryOp::Next => {
+                self.run_iterator_next(Some(result_register), value_register, 0, false)?
+            }
+            UnaryOp::NextBack => match self.clone_register(value_register) {
+                Map(map) => {
+                    let op = map.get_meta_value(&UnaryOp::NextBack.into()).unwrap();
+                    if !op.is_callable() {
+                        return type_error("Callable function from @next_back", &op);
+                    }
+                    self.call_overloaded_unary_op(self.next_register(), value_register, op)?
+                }
+                unexpected => {
+                    return type_error("Value with an implementation of @next_back", &unexpected)
+                }
+            },
         }
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -533,6 +550,9 @@ impl Vm {
             List(l) => ValueIterator::with_list(l),
             Tuple(t) => ValueIterator::with_tuple(t),
             Str(s) => ValueIterator::with_string(s),
+            Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
+                ValueIterator::with_meta_next(self.spawn_shared_vm(), m)?
+            }
             Map(m) => ValueIterator::with_map(m),
             Iterator(i) => i,
             unexpected => {
@@ -1113,14 +1133,28 @@ impl Vm {
             List(list) => ValueIterator::with_list(list).into(),
             Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
             Str(s) => ValueIterator::with_string(s).into(),
-            Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                if !(op.is_callable() || matches!(op, Generator(_))) {
-                    return type_error("Callable function from @iterator", &op);
+            Map(map) => {
+                // First, look for an implementation of @next
+                // Second, look for an implementation of @iterator
+                // Otherwise, iterator over the map entries
+                if let Some(op) = map.get_meta_value(&UnaryOp::Next.into()) {
+                    if op.is_callable() {
+                        ValueIterator::with_meta_next(self.spawn_shared_vm(), map)?.into()
+                    } else {
+                        return type_error("Callable function from @next", &op);
+                    }
+                } else if let Some(op) = map.get_meta_value(&UnaryOp::Iterator.into()) {
+                    if op.is_callable() {
+                        return self.call_overloaded_unary_op(result, iterable_register, op);
+                    } else if matches!(op, Generator(_)) {
+                        return self.call_overloaded_unary_op(result, iterable_register, op);
+                    } else {
+                        return type_error("Callable function from @iterator", &op);
+                    }
+                } else {
+                    ValueIterator::with_map(map).into()
                 }
-                return self.call_overloaded_unary_op(result, iterable_register, op);
             }
-            Map(map) => ValueIterator::with_map(map).into(),
             External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
                 return self.call_overloaded_unary_op(result, iterable_register, op);
@@ -1143,65 +1177,85 @@ impl Vm {
     ) -> InstructionResult {
         use Value::*;
 
-        let output = if let Iterator(iterator) = self.get_register_mut(iterable_register) {
-            match iterator.next() {
-                Some(ValueIteratorOutput::Value(value)) => Some(value),
-                Some(ValueIteratorOutput::ValuePair(first, second)) => {
-                    if let Some(result) = result_register {
-                        if output_is_temporary {
-                            self.set_register(result + 1, first);
-                            self.set_register(result + 2, second);
-                            Some(TemporaryTuple(RegisterSlice {
-                                start: result + 1,
-                                count: 2,
-                            }))
+        let output = match self.clone_register(iterable_register) {
+            Iterator(mut iterator) => {
+                match iterator.next() {
+                    Some(ValueIteratorOutput::Value(value)) => Some(value),
+                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                        if let Some(result) = result_register {
+                            if output_is_temporary {
+                                self.set_register(result + 1, first);
+                                self.set_register(result + 2, second);
+                                Some(TemporaryTuple(RegisterSlice {
+                                    start: result + 1,
+                                    count: 2,
+                                }))
+                            } else {
+                                Some(Tuple(vec![first, second].into()))
+                            }
                         } else {
-                            Some(Tuple(vec![first, second].into()))
+                            // The output is going to be ignored, but we use Some here to indicate that
+                            // iteration should continue.
+                            Some(Null)
                         }
-                    } else {
-                        // The output is going to be ignored, but we use Some here to indicate that
-                        // iteration should continue.
-                        Some(Null)
                     }
+                    Some(ValueIteratorOutput::Error(error)) => {
+                        return runtime_error!(error.to_string());
+                    }
+                    None => None,
                 }
-                Some(ValueIteratorOutput::Error(error)) => {
-                    return runtime_error!(error.to_string());
-                }
-                None => None,
             }
-        } else {
-            // The iterable isn't an Iterator, but can be a temporary value used during unpacking
-            let (output, new_iterable) = match self.clone_register(iterable_register) {
-                Range(mut r) => {
-                    let output = r.pop_front()?;
-                    (output.map(Value::from), Range(r))
+            Map(iterable) if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
+                let op = iterable.get_meta_value(&UnaryOp::Next.into()).unwrap();
+                if !op.is_callable() {
+                    return type_error("Callable function from @next", &op);
                 }
-                Tuple(mut t) => {
-                    let output = t.pop_front();
-                    (output, Tuple(t))
-                }
-                Str(mut s) => {
-                    let output = s.pop_front();
-                    (output.map(Value::from), Str(s))
-                }
-                TemporaryTuple(RegisterSlice { start, count }) => {
-                    if count > 0 {
-                        (
-                            Some(self.clone_register(start)),
-                            TemporaryTuple(RegisterSlice {
-                                start: start + 1,
-                                count: count - 1,
-                            }),
-                        )
-                    } else {
-                        (None, TemporaryTuple(RegisterSlice { start, count }))
+                self.call_overloaded_unary_op(self.next_register(), iterable_register, op)?;
+                self.frame_mut().execution_barrier = true;
+                match self.execute_instructions() {
+                    Ok(Null) => None,
+                    Ok(output) => Some(output),
+                    Err(error) => {
+                        self.pop_frame(Value::Null)?;
+                        return Err(error);
                     }
                 }
-                unexpected => return type_error("Iterator", &unexpected),
-            };
+            }
+            other => {
+                // The iterable isn't an Iterator, but might be a temporary value that's being used
+                // during unpacking.
+                let (output, new_iterable) = match other {
+                    Range(mut r) => {
+                        let output = r.pop_front()?;
+                        (output.map(Value::from), Range(r))
+                    }
+                    Tuple(mut t) => {
+                        let output = t.pop_front();
+                        (output, Tuple(t))
+                    }
+                    Str(mut s) => {
+                        let output = s.pop_front();
+                        (output.map(Value::from), Str(s))
+                    }
+                    TemporaryTuple(RegisterSlice { start, count }) => {
+                        if count > 0 {
+                            (
+                                Some(self.clone_register(start)),
+                                TemporaryTuple(RegisterSlice {
+                                    start: start + 1,
+                                    count: count - 1,
+                                }),
+                            )
+                        } else {
+                            (None, TemporaryTuple(RegisterSlice { start, count }))
+                        }
+                    }
+                    unexpected => return type_error("Iterator", &unexpected),
+                };
 
-            self.set_register(iterable_register, new_iterable);
-            output
+                self.set_register(iterable_register, new_iterable);
+                output
+            }
         };
 
         match (output, result_register) {
@@ -2472,7 +2526,10 @@ impl Vm {
                 }
 
                 // Iterator fallback?
-                if access_result.is_none() && map.contains_meta_key(&UnaryOp::Iterator.into()) {
+                if access_result.is_none()
+                    && (map.contains_meta_key(&UnaryOp::Iterator.into())
+                        || map.contains_meta_key(&UnaryOp::Next.into()))
+                {
                     access_result = Some(self.get_core_op(
                         &key,
                         &self.context.core_lib.iterator,
