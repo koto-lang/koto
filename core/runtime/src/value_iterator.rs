@@ -110,9 +110,9 @@ impl ValueIterator {
         Self::new(GeneratorIterator::new(vm))
     }
 
-    /// Creates a new ValueIterator from a Map that has implemented `@next`
-    pub fn with_meta_next(vm: Vm, map: ValueMap) -> Result<Self, RuntimeError> {
-        Ok(Self::new(MetaIterator::new(vm, map)?))
+    /// Creates a new ValueIterator from a Value that has an implementation of `@next`
+    pub fn with_meta_next(vm: Vm, iterator: Value) -> Result<Self, RuntimeError> {
+        Ok(Self::new(MetaIterator::new(vm, iterator)?))
     }
 
     /// Makes a copy of the iterator
@@ -415,27 +415,27 @@ impl Iterator for MapIterator {
 #[derive(Clone)]
 struct MetaIterator {
     vm: Vm,
-    map: Value,
+    iterator: Value,
     is_bidirectional: bool,
 }
 
 impl MetaIterator {
-    fn new(vm: Vm, map: ValueMap) -> Result<Self, RuntimeError> {
-        match map.get_meta_value(&UnaryOp::Next.into()) {
-            Some(op) if (op.is_callable() || matches!(op, Value::Generator(_))) => {}
+    fn new(vm: Vm, iterator: Value) -> Result<Self, RuntimeError> {
+        match iterator.get_meta_value(&UnaryOp::Next.into()) {
+            Some(op) if op.is_callable() => {}
             Some(op) => return type_error("Callable function from @next", &op),
             None => return runtime_error!("Expected implementation of @next"),
         };
 
-        let is_bidirectional = match map.get_meta_value(&UnaryOp::NextBack.into()) {
-            Some(op) if (op.is_callable() || matches!(op, Value::Generator(_))) => true,
+        let is_bidirectional = match iterator.get_meta_value(&UnaryOp::NextBack.into()) {
+            Some(op) if op.is_callable() => true,
             Some(op) => return type_error("Callable function from @next_back", &op),
             None => false,
         };
 
         Ok(Self {
             vm,
-            map: map.into(),
+            iterator,
             is_bidirectional,
         })
     }
@@ -451,7 +451,10 @@ impl KotoIterator for MetaIterator {
     }
 
     fn next_back(&mut self) -> Option<ValueIteratorOutput> {
-        match self.vm.run_unary_op(UnaryOp::NextBack, self.map.clone()) {
+        match self
+            .vm
+            .run_unary_op(UnaryOp::NextBack, self.iterator.clone())
+        {
             Ok(Value::Null) => None,
             Ok(result) => Some(Output::Value(result)),
             Err(error) => Some(Output::Error(error)),
@@ -463,7 +466,7 @@ impl Iterator for MetaIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.vm.run_unary_op(UnaryOp::Next, self.map.clone()) {
+        match self.vm.run_unary_op(UnaryOp::Next, self.iterator.clone()) {
             Ok(Value::Null) => None,
             Ok(result) => Some(Output::Value(result)),
             Err(error) => Some(Output::Error(error)),

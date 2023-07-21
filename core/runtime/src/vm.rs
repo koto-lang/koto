@@ -411,7 +411,7 @@ impl Vm {
 
     /// Provides the result of running a unary operation on a Value
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
-        use Value::*;
+        use UnaryOp::*;
 
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
@@ -421,20 +421,18 @@ impl Vm {
         self.value_stack.push(value); // value_register
 
         match op {
-            UnaryOp::Display => self.run_display(result_register, value_register)?,
-            UnaryOp::Negate => self.run_negate(result_register, value_register)?,
-            UnaryOp::Not => self.run_not(result_register, value_register)?,
-            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register, false)?,
-            UnaryOp::Next => {
-                self.run_iterator_next(Some(result_register), value_register, 0, false)?
-            }
-            UnaryOp::NextBack => match self.clone_register(value_register) {
-                Map(map) => {
-                    let op = map.get_meta_value(&UnaryOp::NextBack.into()).unwrap();
+            Display => self.run_display(result_register, value_register)?,
+            Negate => self.run_negate(result_register, value_register)?,
+            Not => self.run_not(result_register, value_register)?,
+            Iterator => self.run_make_iterator(result_register, value_register, false)?,
+            Next => self.run_iterator_next(Some(result_register), value_register, 0, false)?,
+            NextBack => match self.clone_register(value_register) {
+                value if value.contains_meta_key(&NextBack.into()) => {
+                    let op = value.get_meta_value(&NextBack.into()).unwrap();
                     if !op.is_callable() {
                         return type_error("Callable function from @next_back", &op);
                     }
-                    self.call_overloaded_unary_op(self.next_register(), value_register, op)?
+                    self.call_overloaded_unary_op(result_register, value_register, op)?
                 }
                 unexpected => {
                     return type_error("Value with an implementation of @next_back", &unexpected)
@@ -534,35 +532,29 @@ impl Vm {
     pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
         use Value::*;
 
-        // If the value implements @iterator, first evaluate @iterator and then use the result
-        let value = match value {
-            Map(m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                self.run_unary_op(UnaryOp::Iterator, Map(m))?
+        match value {
+            _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
+                ValueIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
-            External(e) if e.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                self.run_unary_op(UnaryOp::Iterator, External(e))?
+            _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                // If the value implements @iterator,
+                // first evaluate @iterator and then make an iterator from the result
+                let iterator_call_result = self.run_unary_op(UnaryOp::Iterator, value)?;
+                self.make_iterator(iterator_call_result)
             }
-            _ => value,
-        };
-
-        let result = match value {
-            Range(r) => ValueIterator::with_range(r)?,
-            List(l) => ValueIterator::with_list(l),
-            Tuple(t) => ValueIterator::with_tuple(t),
-            Str(s) => ValueIterator::with_string(s),
-            Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
-                ValueIterator::with_meta_next(self.spawn_shared_vm(), m)?
-            }
-            Map(m) => ValueIterator::with_map(m),
-            Iterator(i) => i,
+            Iterator(i) => Ok(i),
+            Range(r) => ValueIterator::with_range(r),
+            List(l) => Ok(ValueIterator::with_list(l)),
+            Tuple(t) => Ok(ValueIterator::with_tuple(t)),
+            Str(s) => Ok(ValueIterator::with_string(s)),
+            Map(m) => Ok(ValueIterator::with_map(m)),
             unexpected => {
-                return runtime_error!(
+                runtime_error!(
                     "expected iterable value, found '{}'",
                     unexpected.type_as_string(),
                 )
             }
-        };
-        Ok(result)
+        }
     }
 
     /// Runs any tests that are contained in the map's @tests meta entry
@@ -1122,6 +1114,20 @@ impl Vm {
         let iterable = self.clone_register(iterable_register);
 
         let iterator = match iterable {
+            _ if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
+                ValueIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
+            }
+            _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
+                    if op.is_callable() || matches!(op, Generator(_)) {
+                        return self.call_overloaded_unary_op(result, iterable_register, op);
+                    } else {
+                        return type_error("Callable function from @iterator", &op);
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
             Iterator(_) => iterable,
             Range(r) if temp_iterator && r.is_bounded() => iterable,
             Tuple(_) | Str(_) | TemporaryTuple(_) if temp_iterator => {
@@ -1133,32 +1139,7 @@ impl Vm {
             List(list) => ValueIterator::with_list(list).into(),
             Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
             Str(s) => ValueIterator::with_string(s).into(),
-            Map(map) => {
-                // First, look for an implementation of @next
-                // Second, look for an implementation of @iterator
-                // Otherwise, iterator over the map entries
-                if let Some(op) = map.get_meta_value(&UnaryOp::Next.into()) {
-                    if op.is_callable() {
-                        ValueIterator::with_meta_next(self.spawn_shared_vm(), map)?.into()
-                    } else {
-                        return type_error("Callable function from @next", &op);
-                    }
-                } else if let Some(op) = map.get_meta_value(&UnaryOp::Iterator.into()) {
-                    if op.is_callable() {
-                        return self.call_overloaded_unary_op(result, iterable_register, op);
-                    } else if matches!(op, Generator(_)) {
-                        return self.call_overloaded_unary_op(result, iterable_register, op);
-                    } else {
-                        return type_error("Callable function from @iterator", &op);
-                    }
-                } else {
-                    ValueIterator::with_map(map).into()
-                }
-            }
-            External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                return self.call_overloaded_unary_op(result, iterable_register, op);
-            }
+            Map(map) => ValueIterator::with_map(map).into(),
             unexpected => {
                 return type_error("Iterable while making iterator", &unexpected);
             }
@@ -1205,19 +1186,27 @@ impl Vm {
                     None => None,
                 }
             }
-            Map(iterable) if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
+            iterable if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
                 let op = iterable.get_meta_value(&UnaryOp::Next.into()).unwrap();
                 if !op.is_callable() {
                     return type_error("Callable function from @next", &op);
                 }
-                self.call_overloaded_unary_op(self.next_register(), iterable_register, op)?;
-                self.frame_mut().execution_barrier = true;
-                match self.execute_instructions() {
-                    Ok(Null) => None,
-                    Ok(output) => Some(output),
-                    Err(error) => {
-                        self.pop_frame(Value::Null)?;
-                        return Err(error);
+                let old_frame_count = self.call_stack.len();
+                let call_result_register = self.next_register();
+                self.call_overloaded_unary_op(call_result_register, iterable_register, op)?;
+                if self.call_stack.len() == old_frame_count {
+                    // If the call stack is the same size,
+                    // then the result will be in the result register
+                    Some(self.clone_register(call_result_register))
+                } else {
+                    self.frame_mut().execution_barrier = true;
+                    match self.execute_instructions() {
+                        Ok(Null) => None,
+                        Ok(output) => Some(output),
+                        Err(error) => {
+                            self.pop_frame(Value::Null)?;
+                            return Err(error);
+                        }
                     }
                 }
             }

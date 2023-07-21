@@ -189,6 +189,26 @@ impl Value {
             StringBuilder(_) => TYPE_STRING_BUILDER.with(|x| x.clone()),
         }
     }
+
+    /// Returns true if the value is a Map or an External that contains the given meta key
+    pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
+        use Value::*;
+        match &self {
+            Map(m) => m.contains_meta_key(key),
+            External(e) => e.contains_meta_key(key),
+            _ => false,
+        }
+    }
+
+    /// If the value is a Map or an External, returns a clone of the corresponding meta value
+    pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
+        use Value::*;
+        match &self {
+            Map(m) => m.get_meta_value(key),
+            External(e) => e.get_meta_value(key),
+            _ => None,
+        }
+    }
 }
 
 impl KotoDisplay for Value {
