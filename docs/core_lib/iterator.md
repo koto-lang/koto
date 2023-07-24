@@ -575,6 +575,64 @@ check! null
 - [`iterator.next`](#next)
 - [`iterator.reversed`](#reversed)
 
+## peekable
+
+```kototype
+|Iterable| -> Peekable
+```
+
+Wraps the given iterable value in a peekable iterator.
+
+### Peekable.peek
+
+Returns the next value from the iterator without advancing it. 
+The peeked value is cached until the iterator is advanced.
+
+#### Example
+
+```koto
+x = 'abcdef'.peekable()
+print! x.peek()
+check! a
+print! x.peek()
+check! a
+print! x.next()
+check! a
+print! x.peek()
+check! b
+```
+
+#### See Also
+
+- [`iterator.next`](#next)
+
+### Peekable.peek_back
+
+Returns the next value from the end of the iterator without advancing it. 
+The peeked value is cached until the iterator is advanced.
+
+#### Example
+
+```koto
+x = 'abcdef'.peekable()
+print! x.peek_back()
+check! f
+print! x.next_back()
+check! f
+print! x.peek()
+check! a
+print! x.peek_back()
+check! e
+print! x.next_back()
+check! e
+print! x.next()
+check! a
+```
+
+#### See Also
+
+- [`iterator.peek_back`](#peek_back)
+
 ## position
 
 ```kototype

@@ -133,7 +133,12 @@ impl Value {
         use Value::*;
         match self {
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
-            External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => true,
+            External(v)
+                if v.contains_meta_key(&UnaryOp::Iterator.into())
+                    || v.contains_meta_key(&UnaryOp::Next.into()) =>
+            {
+                true
+            }
             _ => false,
         }
     }

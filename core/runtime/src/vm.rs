@@ -2440,7 +2440,9 @@ impl Vm {
                 Some(value) => self.set_register(result_register, value),
                 None => {
                     // Iterator fallback?
-                    if e.contains_meta_key(&UnaryOp::Iterator.into()) {
+                    if e.contains_meta_key(&UnaryOp::Iterator.into())
+                        || e.contains_meta_key(&UnaryOp::Next.into())
+                    {
                         let iterator_op = self.get_core_op(
                             &key,
                             &self.context.core_lib.iterator,
