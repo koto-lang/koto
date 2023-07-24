@@ -214,6 +214,16 @@ make_foo = |x|
     x = [[1], [2, 3], [4, 5, 6]]
     assert_eq x.min_max(list.size), ([1], [4, 5, 6])
 
+  @test peekable: ||
+    i = 'abcde'.peekable()
+    assert_eq i.peek(), 'a'
+    assert_eq i.next(), 'a'
+    assert_eq i.peek_back(), 'e'
+    assert_eq i.next_back(), 'e'
+    assert_eq i.peek_back(), 'd'
+    assert_eq i.peek(), 'b'
+    assert_eq i.to_tuple(), ('b', 'c', 'd')
+
   @test position: ||
     assert_eq
       (100..1000).position(|x| x >= 110),

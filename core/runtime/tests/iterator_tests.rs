@@ -1,6 +1,6 @@
 mod runtime_test_utils;
 
-use crate::runtime_test_utils::*;
+use {crate::runtime_test_utils::*, koto_runtime::Value};
 
 mod iterator {
     use super::*;
@@ -163,6 +163,101 @@ x.next() # 'e'
 y.next()
 ";
             test_script(script, "e");
+        }
+    }
+
+    mod peekable {
+        use super::*;
+        use Value::Null;
+
+        #[test]
+        fn peek() {
+            use Value::Null;
+
+            let script = "
+i = (1, 2, 3).peekable()
+result = []
+result.push i.peek() # 1
+result.push i.next() # 1
+result.push i.next() # 2
+result.push i.peek() # 3
+result.push i.next() # 3
+result.push i.peek() # null
+result.push i.next() # null
+result
+";
+            test_script(
+                script,
+                value_list(&[1.into(), 1.into(), 2.into(), 3.into(), 3.into(), Null, Null]),
+            );
+        }
+
+        #[test]
+        fn peek_back_forwards() {
+            let script = "
+i = (1, 2, 3).peekable()
+result = []
+result.push i.peek() # 1
+result.push i.peek_back() # 3
+result.push i.peek_back() # 3
+result.push i.next() # 1
+result.push i.next() # 2
+result.push i.peek() # 3
+result.push i.next() # 3
+result.push i.next() # null
+result.push i.next_back() # null
+result.push i.peek_back() # null
+result
+";
+            test_script(
+                script,
+                value_list(&[
+                    1.into(),
+                    3.into(),
+                    3.into(),
+                    1.into(),
+                    2.into(),
+                    3.into(),
+                    3.into(),
+                    Null,
+                    Null,
+                    Null,
+                ]),
+            );
+        }
+
+        #[test]
+        fn peek_back_backwards() {
+            let script = "
+i = (1, 2, 3).peekable()
+result = []
+result.push i.peek() # 1
+result.push i.peek_back() # 3
+result.push i.peek_back() # 3
+result.push i.next_back() # 3
+result.push i.next_back() # 2
+result.push i.peek_back() # 1
+result.push i.next_back() # 1
+result.push i.peek_back() # null
+result.push i.next_back() # null
+result.push i.next() # null
+result
+";
+            test_script(
+                script,
+                value_list(&[
+                    1.into(),
+                    3.into(),
+                    3.into(),
+                    3.into(),
+                    2.into(),
+                    1.into(),
+                    1.into(),
+                    Null,
+                    Null,
+                    Null,
+                ]),
+            );
         }
     }
 

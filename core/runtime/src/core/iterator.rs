@@ -2,6 +2,7 @@
 
 pub mod adaptors;
 pub mod generators;
+pub mod peekable;
 
 use crate::{prelude::*, ValueIteratorOutput as Output};
 
@@ -468,12 +469,7 @@ pub fn make_module() -> ValueMap {
             }
         };
 
-        match iter.next().map(collect_pair) {
-            Some(Output::Value(value)) => Ok(value),
-            Some(Output::Error(error)) => Err(error),
-            None => Ok(Value::Null),
-            _ => unreachable!(),
-        }
+        iter_output_to_result(iter.next())
     });
 
     result.add_fn("next_back", |vm, args| {
@@ -485,12 +481,15 @@ pub fn make_module() -> ValueMap {
             }
         };
 
-        match iter.next_back().map(collect_pair) {
-            Some(Output::Value(value)) => Ok(value),
-            Some(Output::Error(error)) => Err(error),
-            None => Ok(Value::Null),
-            _ => unreachable!(),
+        iter_output_to_result(iter.next_back())
+    });
+
+    result.add_fn("peekable", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
+            Ok(peekable::Peekable::make_value(vm.make_iterator(iterable)?))
         }
+        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
@@ -754,6 +753,15 @@ pub(crate) fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),
         _ => iterator_output,
+    }
+}
+
+pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> RuntimeResult {
+    match iterator_output.map(collect_pair) {
+        Some(Output::Value(value)) => Ok(value),
+        Some(Output::ValuePair(first, second)) => Ok(Value::Tuple(vec![first, second].into())),
+        Some(Output::Error(error)) => Err(error),
+        None => Ok(Value::Null),
     }
 }
 

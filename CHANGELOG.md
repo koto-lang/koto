@@ -43,7 +43,9 @@ The Koto project adheres to
       # true
       ```
   - `is_inclusive` and `intersection` have been added.
-- `iterator.next_back` has been added.
+- `iterator` additions:
+  - `iterator.next_back`
+  - `iterator.peekable`
 
 #### Internals
 
