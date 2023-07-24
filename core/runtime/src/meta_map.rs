@@ -24,7 +24,7 @@ pub struct MetaMap(MetaMapType);
 impl MetaMap {
     /// Extends the MetaMap with clones of another MetaMap's entries
     pub fn extend(&mut self, other: &MetaMap) {
-        self.0.extend(other.0.clone().into_iter());
+        self.0.extend(other.0.clone());
     }
 
     /// Adds a function to the meta map

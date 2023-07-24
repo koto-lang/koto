@@ -3729,7 +3729,7 @@ impl Compiler {
                     }
                 }
             }
-            [args @ ..] => {
+            args => {
                 // e.g. for a, b, c in list_of_lists()
                 // e.g. for key, value in map
 
