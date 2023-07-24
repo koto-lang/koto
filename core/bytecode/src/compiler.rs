@@ -2684,10 +2684,10 @@ impl Compiler {
         // Do we need to modify the accessed value?
         if access_assignment {
             let Some(rhs) = rhs else {
-                return compiler_error!(self, "compile_lookup: Missing rhs")
+                return compiler_error!(self, "compile_lookup: Missing rhs");
             };
             let Some(rhs_op) = rhs_op else {
-                return compiler_error!(self, "compile_lookup: Missing rhs_op")
+                return compiler_error!(self, "compile_lookup: Missing rhs_op");
             };
 
             self.push_op(rhs_op, &[access_register, rhs]);
