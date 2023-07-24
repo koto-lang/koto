@@ -679,6 +679,14 @@ impl KotoIterator for Reversed {
         };
         ValueIterator::new(result)
     }
+
+    fn is_bidirectional(&self) -> bool {
+        true
+    }
+
+    fn next_back(&mut self) -> Option<Output> {
+        self.iter.next()
+    }
 }
 
 impl Iterator for Reversed {
