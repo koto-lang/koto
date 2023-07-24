@@ -2050,6 +2050,8 @@ impl<'source> Parser<'source> {
             Some(Token::Id) => match self.lexer.slice() {
                 "display" => MetaKeyId::Display,
                 "iterator" => MetaKeyId::Iterator,
+                "next" => MetaKeyId::Next,
+                "next_back" => MetaKeyId::NextBack,
                 "negate" => MetaKeyId::Negate,
                 "type" => MetaKeyId::Type,
                 "base" => MetaKeyId::Base,

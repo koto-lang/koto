@@ -52,8 +52,30 @@ globals.foo_meta =
   # Indexing
   @[]: |index| self.x + index
 
-  # Overloaded iteration behaviour
-  @iterator: || 0..self.x
+  # Custom iteration
+  # @iterator must be a function that returns an iterable value,
+  # in this case a map with implementations of @next and @next_back
+  @iterator: ||
+    # Start iterating from 0
+    start: 0
+    # End at self.x
+    end: self.x
+
+    @next: ||
+      result = self.start
+      if result < self.end
+        self.start += 1
+        result
+      else
+        null
+
+    @next_back: ||
+      result = self.end
+      if result > self.start
+        self.end -= 1
+        result
+      else
+        null
 
   # Formatting
   @display: || "Foo (${self.x})"
@@ -144,7 +166,7 @@ globals.foo_meta =
 
   @test iterator: ||
     assert_eq foo(5).to_tuple(), (0, 1, 2, 3, 4)
-    assert_eq foo(-4).to_list(), [0, -1, -2, -3]
+    assert_eq foo(4).to_list(), [0, 1, 2, 3]
 
   @test display: ||
     assert_eq "${foo -1}", "Foo (-1)"

@@ -517,7 +517,7 @@ check! (-3, 99)
 ## next
 
 ```kototype
-|Iterator| -> Value
+|Iterable| -> Value
 ```
 
 Returns the next value from the iterator.
@@ -533,6 +533,47 @@ check! 2
 print! x.next()
 check! null
 ```
+
+### See Also
+
+- [`iterator.next_back`](#next_back)
+
+## next_back
+
+```kototype
+|Iterable| -> Value
+```
+
+Returns the next value from the end of the iterator.
+
+This only works with iterators that have a defined end, so attempting to call
+`next_back` on endless iterators like [`iterator.generate`](#generate) will 
+result in an error.
+
+### Example
+
+```koto
+x = (1..=5).iter()
+print! x.next_back()
+check! 5
+print! x.next_back()
+check! 4
+# calls to next and next_back can be mixed together
+print! x.next()
+check! 1
+print! x.next_back()
+check! 3
+print! x.next_back()
+check! 2
+# 1 has already been produced by the iterator, so now it's finished
+print! x.next_back()
+check! null
+```
+
+### See Also
+
+- [`iterator.next`](#next)
+- [`iterator.reversed`](#reversed)
 
 ## position
 
@@ -622,7 +663,7 @@ check! ('x', 'x', 'x')
 Reverses the order of the iterator's output.
 
 This only works with iterators that have a defined end, so attempting to reverse
-endless iterators like `generate` will result in an error.
+endless iterators like [`iterator.generate`](#generate) will result in an error.
 
 ### Example
 

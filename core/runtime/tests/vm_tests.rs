@@ -3020,19 +3020,6 @@ x[1]
         use super::*;
 
         #[test]
-        fn generator() {
-            let script = "
-x =
-  @iterator: ||
-    yield 1
-    yield 2
-    yield 3
-x.to_tuple()
-";
-            test_script(script, number_tuple(&[1, 2, 3]));
-        }
-
-        #[test]
         fn unpacking() {
             let script = "
 x =
@@ -3043,6 +3030,35 @@ a, b, c = x
 a, b, c
 ";
             test_script(script, value_tuple(&[10.into(), 20.into(), Null]));
+        }
+    }
+
+    mod overloaded_next {
+        use super::*;
+
+        #[test]
+        fn next() {
+            let script = "
+x =
+  foo: 0
+  @next: || self.foo += 1
+
+x.take(3).to_tuple()
+";
+            test_script(script, number_tuple(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn next_back() {
+            let script = "
+x =
+  foo: 0
+  @next: || self.foo += 1
+  @next_back: || self.foo -= 1
+
+x.skip(3).reversed().take(3).to_tuple()
+";
+            test_script(script, number_tuple(&[2, 1, 0]));
         }
     }
 

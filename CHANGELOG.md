@@ -26,6 +26,7 @@ The Koto project adheres to
     like functions.
   - Values that implement `@[]` can now be used in unpacking assignment
     expressions.
+  - `@next` and `@next_back` meta keys have been added to enable custom iterators.
 
 #### Libs
 
@@ -42,6 +43,7 @@ The Koto project adheres to
       # true
       ```
   - `is_inclusive` and `intersection` have been added.
+- `iterator.next_back` has been added.
 
 #### Internals
 

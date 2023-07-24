@@ -27,10 +27,6 @@ impl KotoIterator for Bytes {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
 }
 
 impl Iterator for Bytes {
@@ -73,10 +69,6 @@ impl Lines {
 impl KotoIterator for Lines {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
     }
 }
 
@@ -138,10 +130,6 @@ impl KotoIterator for Split {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
 }
 
 impl Iterator for Split {
@@ -198,10 +186,6 @@ impl KotoIterator for SplitWith {
             start: self.start,
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
     }
 }
 

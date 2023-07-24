@@ -109,23 +109,86 @@ print! x()
 check! 8
 ```
 
+### `@next`
+
+The `@next` meta key allows for values to behave as iterators.
+
+Whenever the runtime needs to produce an iterator from a value, it will first 
+check the value for an implementation of `@next`.
+
+The `@next` function will be called repeatedly during iteration, 
+with the returned value being used as the iterator output. 
+When the returned value is `null` then the iterator will stop producing output. 
+
+```koto
+no_next =
+  foo: 42
+  bar: 99
+
+print! no_next.to_tuple()
+check! (('foo', 42), ('bar', 99))
+
+with_next = 
+  start: 10
+  end: 15
+  @next: || 
+    if self.start < self.end
+      result = self.start
+      self.start += 1
+      result
+    else 
+      null
+  
+print! with_next.to_tuple()
+check! (10, 11, 12, 13, 14)
+```
+
+### `@next_back`
+
+The `@next_back` meta key is used by
+[`iterator.reversed`](../../core/iterator/#reversed) when producing a reversed
+iterator. 
+
+An implementation of `@next_back` is only looked for if `@next` is also 
+implemented.
+
+```koto
+iter =
+  foo: 0
+  @next: || self.foo += 1
+  @next_back: || self.foo -= 1
+
+print! iter
+  .skip 3
+  .reversed()
+  .take 3
+  .to_tuple()
+check! (2, 1, 0)
+```
+
 ### `@iterator`
 
-The `@iterator` meta key defines how iterators should be made when the value is
-used in an iterable context. The function returns an iterable value that is used
-instead of the default behaviour of iterating over the map's entries.
+The `@iterator` meta key defines how iterators should be created when the value 
+is used in an iterable context. 
+The function returns an iterable value that is then used during iterator 
+operations.
 
 ```koto
 foo = |n|
-  data: n
-  @iterator: || 0..=self.data
+  @iterator: || 
+    yield n + 1
+    yield n + 2
+    yield n + 3
 
-print! (foo 5).to_tuple()
-check! (0, 1, 2, 3, 4, 5)
+print! (foo 0).to_tuple()
+check! (1, 2, 3)
 
-print! (foo -3).to_list()
-check! [0, -1, -2, -3]
+print! (foo 100).to_list()
+check! [101, 102, 103]
 ```
+
+Note that this key will be ignored if the value also implements `@next`, 
+which implies that the value is _already_ an iterator. 
 
 ### `@display`
 

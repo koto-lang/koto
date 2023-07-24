@@ -411,6 +411,8 @@ impl Vm {
 
     /// Provides the result of running a unary operation on a Value
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
+        use UnaryOp::*;
+
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
         let value_register = result_register + 1;
@@ -419,10 +421,23 @@ impl Vm {
         self.value_stack.push(value); // value_register
 
         match op {
-            UnaryOp::Display => self.run_display(result_register, value_register)?,
-            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register, false)?,
-            UnaryOp::Negate => self.run_negate(result_register, value_register)?,
-            UnaryOp::Not => self.run_not(result_register, value_register)?,
+            Display => self.run_display(result_register, value_register)?,
+            Negate => self.run_negate(result_register, value_register)?,
+            Not => self.run_not(result_register, value_register)?,
+            Iterator => self.run_make_iterator(result_register, value_register, false)?,
+            Next => self.run_iterator_next(Some(result_register), value_register, 0, false)?,
+            NextBack => match self.clone_register(value_register) {
+                value if value.contains_meta_key(&NextBack.into()) => {
+                    let op = value.get_meta_value(&NextBack.into()).unwrap();
+                    if !op.is_callable() {
+                        return type_error("Callable function from @next_back", &op);
+                    }
+                    self.call_overloaded_unary_op(result_register, value_register, op)?
+                }
+                unexpected => {
+                    return type_error("Value with an implementation of @next_back", &unexpected)
+                }
+            },
         }
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -517,32 +532,29 @@ impl Vm {
     pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
         use Value::*;
 
-        // If the value implements @iterator, first evaluate @iterator and then use the result
-        let value = match value {
-            Map(m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                self.run_unary_op(UnaryOp::Iterator, Map(m))?
+        match value {
+            _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
+                ValueIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
-            External(e) if e.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                self.run_unary_op(UnaryOp::Iterator, External(e))?
+            _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                // If the value implements @iterator,
+                // first evaluate @iterator and then make an iterator from the result
+                let iterator_call_result = self.run_unary_op(UnaryOp::Iterator, value)?;
+                self.make_iterator(iterator_call_result)
             }
-            _ => value,
-        };
-
-        let result = match value {
-            Range(r) => ValueIterator::with_range(r)?,
-            List(l) => ValueIterator::with_list(l),
-            Tuple(t) => ValueIterator::with_tuple(t),
-            Str(s) => ValueIterator::with_string(s),
-            Map(m) => ValueIterator::with_map(m),
-            Iterator(i) => i,
+            Iterator(i) => Ok(i),
+            Range(r) => ValueIterator::with_range(r),
+            List(l) => Ok(ValueIterator::with_list(l)),
+            Tuple(t) => Ok(ValueIterator::with_tuple(t)),
+            Str(s) => Ok(ValueIterator::with_string(s)),
+            Map(m) => Ok(ValueIterator::with_map(m)),
             unexpected => {
-                return runtime_error!(
+                runtime_error!(
                     "expected iterable value, found '{}'",
                     unexpected.type_as_string(),
                 )
             }
-        };
-        Ok(result)
+        }
     }
 
     /// Runs any tests that are contained in the map's @tests meta entry
@@ -900,8 +912,7 @@ impl Vm {
                 let display_op = MetaKey::UnaryOp(UnaryOp::Display);
                 match &thrown_value {
                     Str(_) => {}
-                    Map(m) if m.contains_meta_key(&display_op) => {}
-                    External(v) if v.contains_meta_key(&display_op) => {}
+                    _ if thrown_value.contains_meta_key(&display_op) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
@@ -1102,6 +1113,20 @@ impl Vm {
         let iterable = self.clone_register(iterable_register);
 
         let iterator = match iterable {
+            _ if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
+                ValueIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
+            }
+            _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
+                    if op.is_callable() || matches!(op, Generator(_)) {
+                        return self.call_overloaded_unary_op(result, iterable_register, op);
+                    } else {
+                        return type_error("Callable function from @iterator", &op);
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
             Iterator(_) => iterable,
             Range(r) if temp_iterator && r.is_bounded() => iterable,
             Tuple(_) | Str(_) | TemporaryTuple(_) if temp_iterator => {
@@ -1113,15 +1138,7 @@ impl Vm {
             List(list) => ValueIterator::with_list(list).into(),
             Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
             Str(s) => ValueIterator::with_string(s).into(),
-            Map(map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let op = map.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                return self.call_overloaded_unary_op(result, iterable_register, op);
-            }
             Map(map) => ValueIterator::with_map(map).into(),
-            External(v) if v.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let op = v.get_meta_value(&UnaryOp::Iterator.into()).unwrap();
-                return self.call_overloaded_unary_op(result, iterable_register, op);
-            }
             unexpected => {
                 return type_error("Iterable while making iterator", &unexpected);
             }
@@ -1140,65 +1157,93 @@ impl Vm {
     ) -> InstructionResult {
         use Value::*;
 
-        let output = if let Iterator(iterator) = self.get_register_mut(iterable_register) {
-            match iterator.next() {
-                Some(ValueIteratorOutput::Value(value)) => Some(value),
-                Some(ValueIteratorOutput::ValuePair(first, second)) => {
-                    if let Some(result) = result_register {
-                        if output_is_temporary {
-                            self.set_register(result + 1, first);
-                            self.set_register(result + 2, second);
-                            Some(TemporaryTuple(RegisterSlice {
-                                start: result + 1,
-                                count: 2,
-                            }))
+        let output = match self.clone_register(iterable_register) {
+            Iterator(mut iterator) => {
+                match iterator.next() {
+                    Some(ValueIteratorOutput::Value(value)) => Some(value),
+                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                        if let Some(result) = result_register {
+                            if output_is_temporary {
+                                self.set_register(result + 1, first);
+                                self.set_register(result + 2, second);
+                                Some(TemporaryTuple(RegisterSlice {
+                                    start: result + 1,
+                                    count: 2,
+                                }))
+                            } else {
+                                Some(Tuple(vec![first, second].into()))
+                            }
                         } else {
-                            Some(Tuple(vec![first, second].into()))
+                            // The output is going to be ignored, but we use Some here to indicate that
+                            // iteration should continue.
+                            Some(Null)
                         }
-                    } else {
-                        // The output is going to be ignored, but we use Some here to indicate that
-                        // iteration should continue.
-                        Some(Null)
                     }
+                    Some(ValueIteratorOutput::Error(error)) => {
+                        return runtime_error!(error.to_string());
+                    }
+                    None => None,
                 }
-                Some(ValueIteratorOutput::Error(error)) => {
-                    return runtime_error!(error.to_string());
-                }
-                None => None,
             }
-        } else {
-            // The iterable isn't an Iterator, but can be a temporary value used during unpacking
-            let (output, new_iterable) = match self.clone_register(iterable_register) {
-                Range(mut r) => {
-                    let output = r.pop_front()?;
-                    (output.map(Value::from), Range(r))
+            iterable if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
+                let op = iterable.get_meta_value(&UnaryOp::Next.into()).unwrap();
+                if !op.is_callable() {
+                    return type_error("Callable function from @next", &op);
                 }
-                Tuple(mut t) => {
-                    let output = t.pop_front();
-                    (output, Tuple(t))
-                }
-                Str(mut s) => {
-                    let output = s.pop_front();
-                    (output.map(Value::from), Str(s))
-                }
-                TemporaryTuple(RegisterSlice { start, count }) => {
-                    if count > 0 {
-                        (
-                            Some(self.clone_register(start)),
-                            TemporaryTuple(RegisterSlice {
-                                start: start + 1,
-                                count: count - 1,
-                            }),
-                        )
-                    } else {
-                        (None, TemporaryTuple(RegisterSlice { start, count }))
+                let old_frame_count = self.call_stack.len();
+                let call_result_register = self.next_register();
+                self.call_overloaded_unary_op(call_result_register, iterable_register, op)?;
+                if self.call_stack.len() == old_frame_count {
+                    // If the call stack is the same size,
+                    // then the result will be in the result register
+                    Some(self.clone_register(call_result_register))
+                } else {
+                    self.frame_mut().execution_barrier = true;
+                    match self.execute_instructions() {
+                        Ok(Null) => None,
+                        Ok(output) => Some(output),
+                        Err(error) => {
+                            self.pop_frame(Value::Null)?;
+                            return Err(error);
+                        }
                     }
                 }
-                unexpected => return type_error("Iterator", &unexpected),
-            };
+            }
+            other => {
+                // The iterable isn't an Iterator, but might be a temporary value that's being used
+                // during unpacking.
+                let (output, new_iterable) = match other {
+                    Range(mut r) => {
+                        let output = r.pop_front()?;
+                        (output.map(Value::from), Range(r))
+                    }
+                    Tuple(mut t) => {
+                        let output = t.pop_front();
+                        (output, Tuple(t))
+                    }
+                    Str(mut s) => {
+                        let output = s.pop_front();
+                        (output.map(Value::from), Str(s))
+                    }
+                    TemporaryTuple(RegisterSlice { start, count }) => {
+                        if count > 0 {
+                            (
+                                Some(self.clone_register(start)),
+                                TemporaryTuple(RegisterSlice {
+                                    start: start + 1,
+                                    count: count - 1,
+                                }),
+                            )
+                        } else {
+                            (None, TemporaryTuple(RegisterSlice { start, count }))
+                        }
+                    }
+                    unexpected => return type_error("Iterator", &unexpected),
+                };
 
-            self.set_register(iterable_register, new_iterable);
-            output
+                self.set_register(iterable_register, new_iterable);
+                output
+            }
         };
 
         match (output, result_register) {
@@ -1221,12 +1266,12 @@ impl Vm {
         Ok(())
     }
 
-    fn run_temp_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
+    fn run_temp_index(&mut self, result: u8, value: u8, index: i8) -> InstructionResult {
         use Value::*;
 
         let index_op = BinaryOp::Index.into();
 
-        let result = match self.get_register(value) {
+        let result_value = match self.get_register(value) {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
                 list.data().get(index).cloned().unwrap_or(Null)
@@ -1244,18 +1289,14 @@ impl Vm {
                     Null
                 }
             }
-            Map(map) if map.contains_meta_key(&index_op) => {
-                let op = map.get_meta_value(&index_op).unwrap();
-                return self.call_overloaded_binary_op(register, value, index.into(), op);
-            }
-            External(v) if v.contains_meta_key(&index_op) => {
+            v if v.contains_meta_key(&index_op) => {
                 let op = v.get_meta_value(&index_op).unwrap();
-                return self.call_overloaded_binary_op(register, value, index.into(), op);
+                return self.call_overloaded_binary_op(result, value, index.into(), op);
             }
             unexpected => return type_error("indexable value", unexpected),
         };
 
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
@@ -1376,12 +1417,8 @@ impl Vm {
 
         let result_value = match &self.get_register(value) {
             Number(n) => Number(-n),
-            Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(Negate)) => {
-                let op = map.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
-            }
-            External(v) if v.contains_meta_key(&MetaKey::UnaryOp(Negate)) => {
-                let op = v.get_meta_value(&MetaKey::UnaryOp(Negate)).unwrap();
+            v if v.contains_meta_key(&Negate.into()) => {
+                let op = v.get_meta_value(&Negate.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             unexpected => return type_error("negatable value", unexpected),
@@ -1397,12 +1434,8 @@ impl Vm {
         let result_value = match &self.get_register(value) {
             Null => Bool(true),
             Bool(b) if !b => Bool(true),
-            Map(map) if map.contains_meta_key(&MetaKey::UnaryOp(Not)) => {
-                let op = map.get_meta_value(&MetaKey::UnaryOp(Not)).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
-            }
-            External(v) if v.contains_meta_key(&MetaKey::UnaryOp(Not)) => {
-                let op = v.get_meta_value(&MetaKey::UnaryOp(Not)).unwrap();
+            v if v.contains_meta_key(&Not.into()) => {
+                let op = v.get_meta_value(&Not.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             _ => Bool(false), // All other values coerce to true, so return false
@@ -1413,14 +1446,10 @@ impl Vm {
     }
 
     fn run_display(&mut self, result: u8, value: u8) -> InstructionResult {
-        use {UnaryOp::Display, Value::*};
+        use UnaryOp::Display;
 
         match self.clone_register(value) {
-            Map(map) if map.contains_meta_key(&Display.into()) => {
-                let op = map.get_meta_value(&Display.into()).unwrap();
-                self.call_overloaded_unary_op(result, value, op)
-            }
-            External(v) if v.contains_meta_key(&Display.into()) => {
+            v if v.contains_meta_key(&Display.into()) => {
                 let op = v.get_meta_value(&Display.into()).unwrap();
                 self.call_overloaded_unary_op(result, value, op)
             }
@@ -1448,15 +1477,10 @@ impl Vm {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Add, {
-                    return self.binary_op_error(lhs_value, rhs_value, "+");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Add, {
-                    return self.binary_op_error(lhs_value, rhs_value, "+");
-                })
+            (v, _) if v.contains_meta_key(&Add.into()) => {
+                let op = v.get_meta_value(&Add.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
         };
@@ -1472,15 +1496,10 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Subtract, {
-                    return self.binary_op_error(lhs_value, rhs_value, "-");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Subtract, {
-                    return self.binary_op_error(lhs_value, rhs_value, "-");
-                })
+            (v, _) if v.contains_meta_key(&Subtract.into()) => {
+                let op = v.get_meta_value(&Subtract.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
         };
@@ -1497,15 +1516,10 @@ impl Vm {
 
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Multiply, {
-                    return self.binary_op_error(lhs_value, rhs_value, "*");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Multiply, {
-                    return self.binary_op_error(lhs_value, rhs_value, "*");
-                })
+            (v, _) if v.contains_meta_key(&Multiply.into()) => {
+                let op = v.get_meta_value(&Multiply.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
         };
@@ -1521,15 +1535,10 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Divide, {
-                    return self.binary_op_error(lhs_value, rhs_value, "/");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Divide, {
-                    return self.binary_op_error(lhs_value, rhs_value, "/");
-                })
+            (v, _) if v.contains_meta_key(&Divide.into()) => {
+                let op = v.get_meta_value(&Divide.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
         };
@@ -1550,15 +1559,10 @@ impl Vm {
                 Number(f64::NAN.into())
             }
             (Number(a), Number(b)) => Number(a % b),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Remainder, {
-                    return self.binary_op_error(lhs_value, rhs_value, "%");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Remainder, {
-                    return self.binary_op_error(lhs_value, rhs_value, "%");
-                })
+            (v, _) if v.contains_meta_key(&Remainder.into()) => {
+                let op = v.get_meta_value(&Remainder.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
         };
@@ -1574,18 +1578,12 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a + b),
-            (Map(map), _) => {
+            (v, _) if v.contains_meta_key(&AddAssign.into()) => {
+                let op = v.get_meta_value(&AddAssign.into()).unwrap();
+                let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, AddAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "+=");
-                });
-            }
-            (External(e), _) => {
-                let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, AddAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "+=");
-                });
+                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
         };
@@ -1601,17 +1599,12 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
-            (Map(map), _) => {
+            (v, _) if v.contains_meta_key(&SubtractAssign.into()) => {
+                let op = v.get_meta_value(&SubtractAssign.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, SubtractAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "-=");
-                })
-            }
-            (External(e), _) => {
-                let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, SubtractAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "-=");
-                })
+                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "-="),
         };
@@ -1627,17 +1620,12 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
-            (Map(map), _) => {
+            (v, _) if v.contains_meta_key(&MultiplyAssign.into()) => {
+                let op = v.get_meta_value(&MultiplyAssign.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, MultiplyAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "*=");
-                })
-            }
-            (External(e), _) => {
-                let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, MultiplyAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "*=");
-                })
+                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "*="),
         };
@@ -1653,17 +1641,12 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
-            (Map(map), _) => {
+            (v, _) if v.contains_meta_key(&DivideAssign.into()) => {
+                let op = v.get_meta_value(&DivideAssign.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, DivideAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "/=");
-                })
-            }
-            (External(e), _) => {
-                let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, DivideAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "/=");
-                })
+                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "/="),
         };
@@ -1679,17 +1662,12 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a % b),
-            (Map(map), _) => {
+            (v, _) if v.contains_meta_key(&RemainderAssign.into()) => {
+                let op = v.get_meta_value(&RemainderAssign.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, map, RemainderAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "%=");
-                })
-            }
-            (External(e), _) => {
-                let unused = self.next_register();
-                call_binary_op_or_else!(self, unused, lhs, rhs_value, e, RemainderAssign, {
-                    return self.binary_op_error(lhs_value, rhs_value, "%=");
-                })
+                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "%="),
         };
@@ -1706,15 +1684,10 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Less, {
-                    return self.binary_op_error(lhs_value, rhs_value, "<");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Less, {
-                    return self.binary_op_error(lhs_value, rhs_value, "<");
-                })
+            (v, _) if v.contains_meta_key(&Less.into()) => {
+                let op = v.get_meta_value(&Less.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
@@ -1731,15 +1704,10 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, LessOrEqual, {
-                    return self.binary_op_error(lhs_value, rhs_value, "<=");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, LessOrEqual, {
-                    return self.binary_op_error(lhs_value, rhs_value, "<=");
-                })
+            (v, _) if v.contains_meta_key(&LessOrEqual.into()) => {
+                let op = v.get_meta_value(&LessOrEqual.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
@@ -1756,15 +1724,10 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Greater, {
-                    return self.binary_op_error(lhs_value, rhs_value, ">");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Greater, {
-                    return self.binary_op_error(lhs_value, rhs_value, ">");
-                })
+            (v, _) if v.contains_meta_key(&Greater.into()) => {
+                let op = v.get_meta_value(&Greater.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
@@ -1781,15 +1744,10 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
-            (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, GreaterOrEqual, {
-                    return self.binary_op_error(lhs_value, rhs_value, ">=");
-                })
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, GreaterOrEqual, {
-                    return self.binary_op_error(lhs_value, rhs_value, ">=");
-                })
+            (v, _) if v.contains_meta_key(&GreaterOrEqual.into()) => {
+                let op = v.get_meta_value(&GreaterOrEqual.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
@@ -1821,16 +1779,19 @@ impl Vm {
                 let b = b.clone();
                 self.compare_value_ranges(&a, &b)?
             }
+            (v, _) if v.contains_meta_key(&Equal.into()) => {
+                let op = v.get_meta_value(&Equal.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+            }
             (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Equal, {
-                    if let Map(rhs_map) = rhs_value {
-                        let a = map.clone();
-                        let b = rhs_map.clone();
-                        self.compare_value_maps(a, b)?
-                    } else {
-                        false
-                    }
-                })
+                if let Map(rhs_map) = rhs_value {
+                    let a = map.clone();
+                    let b = rhs_map.clone();
+                    self.compare_value_maps(a, b)?
+                } else {
+                    false
+                }
             }
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
@@ -1851,9 +1812,6 @@ impl Vm {
             }
             (SimpleFunction(a), SimpleFunction(b)) => {
                 a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, Equal, false)
             }
             _ => false,
         };
@@ -1886,16 +1844,19 @@ impl Vm {
                 let b = b.clone();
                 !self.compare_value_ranges(&a, &b)?
             }
+            (v, _) if v.contains_meta_key(&NotEqual.into()) => {
+                let op = v.get_meta_value(&NotEqual.into()).unwrap();
+                let rhs_value = rhs_value.clone();
+                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+            }
             (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, NotEqual, {
-                    if let Map(rhs_map) = rhs_value {
-                        let a = map.clone();
-                        let b = rhs_map.clone();
-                        !self.compare_value_maps(a, b)?
-                    } else {
-                        true
-                    }
-                })
+                if let Map(rhs_map) = rhs_value {
+                    let a = map.clone();
+                    let b = rhs_map.clone();
+                    !self.compare_value_maps(a, b)?
+                } else {
+                    true
+                }
             }
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
@@ -1913,9 +1874,6 @@ impl Vm {
                 } else {
                     true
                 }
-            }
-            (External(e), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, e, NotEqual, true)
             }
             _ => true,
         };
@@ -1993,8 +1951,7 @@ impl Vm {
         }
 
         // Set up the call registers at the end of the stack
-        let stack_len = self.value_stack.len();
-        let frame_base = (stack_len - self.register_base()) as u8;
+        let frame_base = self.new_frame_base()?;
         self.value_stack.push(Value::Null); // frame_base
         self.call_callable(
             result_register,
@@ -2020,8 +1977,7 @@ impl Vm {
         }
 
         // Set up the call registers at the end of the stack
-        let stack_len = self.value_stack.len();
-        let frame_base = (stack_len - self.register_base()) as u8;
+        let frame_base = self.new_frame_base()?;
         self.value_stack.push(Value::Null); // frame_base
         self.value_stack.push(rhs); // arg
         self.call_callable(
@@ -2244,18 +2200,6 @@ impl Vm {
         Ok(index)
     }
 
-    // fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
-    //     if start > end {
-    //         runtime_error!(
-    //             "Indexing with a descending range isn't supported, start: {start}, end: {end}"
-    //         )
-    //     } else if start > size || end > size {
-    //         runtime_error!("Index out of bounds, start: {start}, end: {end}, size: {size}")
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-    //
     fn run_index(
         &mut self,
         result_register: u8,
@@ -2471,7 +2415,10 @@ impl Vm {
                 }
 
                 // Iterator fallback?
-                if access_result.is_none() && map.contains_meta_key(&UnaryOp::Iterator.into()) {
+                if access_result.is_none()
+                    && (map.contains_meta_key(&UnaryOp::Iterator.into())
+                        || map.contains_meta_key(&UnaryOp::Next.into()))
+                {
                     access_result = Some(self.get_core_op(
                         &key,
                         &self.context.core_lib.iterator,
@@ -2529,12 +2476,6 @@ impl Vm {
             maybe_op => maybe_op,
         };
 
-        // if let Some(op) = maybe_op {
-        //     Ok(op)
-        // } else {
-        //     runtime_error!("'{key}' not found in '{module_name}'")
-        // }
-        //
         let result = match maybe_op {
             Some(op) => match op {
                 // Core module functions accessed in a lookup need to be invoked as
@@ -2841,26 +2782,15 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
-            Map(ref map) if map.contains_meta_key(&MetaKey::Call) => {
+            ref v if v.contains_meta_key(&MetaKey::Call) => {
+                let f = v.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the map as the instance by placing it in the frame base,
                 // and then passing it into call_callable
                 let instance = function.clone();
                 self.set_register(frame_base, instance);
                 self.call_callable(
                     result_register,
-                    map.get_meta_value(&MetaKey::Call).unwrap(),
-                    frame_base,
-                    call_arg_count,
-                    Some(frame_base),
-                    temp_tuple_values,
-                )
-            }
-            External(ref v) if v.contains_meta_key(&MetaKey::Call) => {
-                let instance = function.clone();
-                self.set_register(frame_base, instance);
-                self.call_callable(
-                    result_register,
-                    v.get_meta_value(&MetaKey::Call).unwrap(),
+                    f,
                     frame_base,
                     call_arg_count,
                     Some(frame_base),
@@ -3089,6 +3019,11 @@ impl Vm {
                 runtime_error!("pop_frame: Empty call stack")
             }
         }
+    }
+
+    fn new_frame_base(&self) -> Result<u8, RuntimeError> {
+        u8::try_from(self.value_stack.len() - self.register_base())
+            .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
     }
 
     fn register_base(&self) -> usize {

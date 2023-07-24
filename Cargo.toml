@@ -1,5 +1,6 @@
 [workspace]
 members = ["core/*", "examples/*", "libs/*"]
+resolver = "2"
 
 [workspace.dependencies]
 # Statistics-driven micro-benchmarking library

@@ -459,14 +459,38 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
-    result.add_fn("next", |vm, args| match vm.get_args(args) {
-        [Iterator(i)] => match i.clone().next().map(collect_pair) {
+    result.add_fn("next", |vm, args| {
+        let mut iter = match vm.get_args(args) {
+            [Iterator(i)] => i.clone(),
+            [iterable] if iterable.is_iterable() => vm.make_iterator(iterable.clone())?,
+            unexpected => {
+                return type_error_with_slice("an iterable value as argument", unexpected)
+            }
+        };
+
+        match iter.next().map(collect_pair) {
             Some(Output::Value(value)) => Ok(value),
             Some(Output::Error(error)) => Err(error),
             None => Ok(Value::Null),
             _ => unreachable!(),
-        },
-        unexpected => type_error_with_slice("an Iterator as argument", unexpected),
+        }
+    });
+
+    result.add_fn("next_back", |vm, args| {
+        let mut iter = match vm.get_args(args) {
+            [Iterator(i)] => i.clone(),
+            [iterable] if iterable.is_iterable() => vm.make_iterator(iterable.clone())?,
+            unexpected => {
+                return type_error_with_slice("an iterable value as argument", unexpected)
+            }
+        };
+
+        match iter.next_back().map(collect_pair) {
+            Some(Output::Value(value)) => Ok(value),
+            Some(Output::Error(error)) => Err(error),
+            None => Ok(Value::Null),
+            _ => unreachable!(),
+        }
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {

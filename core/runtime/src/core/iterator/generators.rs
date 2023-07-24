@@ -24,10 +24,6 @@ impl KotoIterator for Repeat {
         };
         ValueIterator::new(result)
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
 }
 
 impl Iterator for Repeat {
@@ -61,10 +57,6 @@ impl KotoIterator for RepeatN {
             value: self.value.clone(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
     }
 }
 
@@ -105,10 +97,6 @@ impl KotoIterator for Generate {
             vm: self.vm.spawn_shared_vm(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
     }
 }
 
@@ -151,10 +139,6 @@ impl KotoIterator for GenerateN {
             vm: self.vm.spawn_shared_vm(),
         };
         ValueIterator::new(result)
-    }
-
-    fn might_have_side_effects(&self) -> bool {
-        true
     }
 }
 

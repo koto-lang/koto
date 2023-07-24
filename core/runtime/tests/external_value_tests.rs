@@ -5,14 +5,14 @@ mod external_values {
 
     #[derive(Clone, Copy, Debug)]
     struct TestData {
-        x: f64,
+        x: i64,
     }
 
     impl TestData {
-        fn make_value(x: f64) -> Value {
+        fn make_value(x: i64) -> Value {
             Value::External(External::with_shared_meta_map(
                 Self { x },
-                EXTERNAL_META.with(|meta| meta.clone()),
+                TEST_DATA_META.with(|meta| meta.clone()),
             ))
         }
     }
@@ -24,10 +24,10 @@ mod external_values {
     }
 
     thread_local! {
-        static EXTERNAL_META: PtrMut<MetaMap> = make_external_meta_map();
+        static TEST_DATA_META: PtrMut<MetaMap> = make_test_data_meta_map();
     }
 
-    fn make_external_meta_map() -> PtrMut<MetaMap> {
+    fn make_test_data_meta_map() -> PtrMut<MetaMap> {
         use Value::{Bool, External, Null, Number};
         use {BinaryOp::*, UnaryOp::*};
 
@@ -39,7 +39,7 @@ mod external_values {
                         Ok(TestData::make_value(context.data()?.x $op b.x))
                     }
                     [Number(n)] => {
-                        Ok(TestData::make_value(context.data()?.x $op f64::from(n)))
+                        Ok(TestData::make_value(context.data()?.x $op i64::from(n)))
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -57,7 +57,7 @@ mod external_values {
                         context.ok_value()
                     }
                     [Number(n)] => {
-                        context.data_mut()?.x $op f64::from(n);
+                        context.data_mut()?.x $op i64::from(n);
                         context.ok_value()
                     }
                     unexpected => {
@@ -77,7 +77,7 @@ mod external_values {
                     }
                     [Number(n)] => {
                         #[allow(clippy::float_cmp)]
-                        Ok(Bool(context.data()?.x $op f64::from(n)))
+                        Ok(Bool(context.data()?.x $op i64::from(n)))
                     }
                     unexpected => {
                         type_error_with_slice("a TestExternal or Number", unexpected)
@@ -111,24 +111,24 @@ mod external_values {
             .function(NotEqual, comparison_op!(!=))
             .function(Index, |context| match context.args {
                 [Number(index)] => {
-                    let index = usize::from(index);
-                    let result = context.data()?.x + index as f64;
+                    let index = i64::from(index);
+                    let result = context.data()?.x + index;
                     Ok(result.into())
                 }
                 unexpected => type_error_with_slice("Number", unexpected),
             })
             .function(Iterator, |context| {
-                Ok(ValueIterator::with_std_forward_iter(
-                    ((context.data()?.x as usize)..).map(|n| ValueIteratorOutput::Value(n.into())),
-                )
-                .into())
+                let vm = context.vm.spawn_shared_vm();
+                let test_iterator = TestIterator::make_value(context.data()?.x);
+                let iter = ValueIterator::with_meta_next(vm, test_iterator)?;
+                Ok(iter.into())
             })
             .function(MetaKey::Call, |context| {
                 Ok(Number(context.data()?.x.into()))
             })
             .function("to_number", |context| Ok(Number(context.data()?.x.into())))
             .function("invert", |context| {
-                context.data_mut()?.x *= -1.0;
+                context.data_mut()?.x *= -1;
                 Ok(Null)
             })
             .function("set_all_instances", |context| match context.args {
@@ -143,11 +143,52 @@ mod external_values {
                 let mut data = context.data_mut()?;
                 for arg in context.args.iter() {
                     match arg {
-                        Number(n) => data.x += f64::from(n),
+                        Number(n) => data.x += i64::from(n),
                         other => return type_error("Number", other),
                     }
                 }
                 Ok(Null)
+            })
+            .build()
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    struct TestIterator {
+        x: i64,
+    }
+
+    impl TestIterator {
+        fn make_value(x: i64) -> Value {
+            Value::External(External::with_shared_meta_map(
+                Self { x },
+                TEST_ITER_META.with(|meta| meta.clone()),
+            ))
+        }
+    }
+
+    impl ExternalData for TestIterator {
+        fn make_copy(&self) -> PtrMut<dyn ExternalData> {
+            make_data_ptr(*self)
+        }
+    }
+
+    thread_local! {
+        static TEST_ITER_META: PtrMut<MetaMap> = make_test_iter_meta_map();
+    }
+
+    fn make_test_iter_meta_map() -> PtrMut<MetaMap> {
+        use UnaryOp::*;
+
+        MetaMapBuilder::<TestIterator>::new("TestIterator")
+            .function(Next, |context| {
+                let mut iter = context.data_mut()?;
+                iter.x += 1;
+                Ok(iter.x.into())
+            })
+            .function(NextBack, |context| {
+                let mut iter = context.data_mut()?;
+                iter.x -= 1;
+                Ok(iter.x.into())
             })
             .build()
     }
@@ -227,6 +268,32 @@ x = -x
 x.to_number()
 ";
             test_script_with_external(script, 123);
+        }
+    }
+
+    mod iterator {
+        use super::*;
+
+        #[test]
+        fn multi_assignment() {
+            let script = "
+x = make_external 10
+a, b, c = x
+a, b, c
+";
+            test_script_with_external(script, number_tuple(&[11, 12, 13]));
+        }
+
+        #[test]
+        fn bidirectional() {
+            let script = "
+make_external(10)
+  .skip(3)
+  .reversed()
+  .take(3)
+  .to_tuple()
+";
+            test_script_with_external(script, number_tuple(&[12, 11, 10]));
         }
     }
 
@@ -375,25 +442,15 @@ x[23]
 ";
             test_script_with_external(script, 123);
         }
+    }
 
-        #[test]
-        fn multi_assignment_via_iterator() {
-            let script = "
-x = make_external 10
-a, b, c = x
-a, b, c
-";
-            test_script_with_external(script, number_tuple(&[10, 11, 12]));
-        }
-
-        #[test]
-        fn call() {
-            let script = "
+    #[test]
+    fn call() {
+        let script = "
 x = make_external 256
 x()
 ";
-            test_script_with_external(script, 256);
-        }
+        test_script_with_external(script, 256);
     }
 
     mod temporaries {

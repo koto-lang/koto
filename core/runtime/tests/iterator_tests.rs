@@ -37,6 +37,25 @@ y.next()
         }
     }
 
+    mod chunks {
+        use super::*;
+
+        #[test]
+        fn chunks_with_generator() {
+            let script = "
+generator = || 
+  for i in 1..=4
+    yield i
+generator()
+  .chunks 2
+  .skip 1
+  .flatten()
+  .to_tuple()
+";
+            test_script(script, number_tuple(&[3, 4]));
+        }
+    }
+
     mod cycle {
         use super::*;
 
@@ -178,6 +197,20 @@ y.next()
 
     mod windows {
         use super::*;
+
+        #[test]
+        fn windows_with_a_generator() {
+            let script = "
+generator = ||
+  for i in 1..=4
+    yield i
+generator()
+  .windows 2
+  .flatten()
+  .to_tuple()
+";
+            test_script(script, number_tuple(&[1, 2, 2, 3, 3, 4]));
+        }
 
         #[test]
         fn windows_in_for_loop() {

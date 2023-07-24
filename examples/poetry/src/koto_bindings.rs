@@ -57,10 +57,6 @@ impl KotoIterator for PoetryIter {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::new(self.clone())
     }
-
-    fn might_have_side_effects(&self) -> bool {
-        false
-    }
 }
 
 impl Iterator for PoetryIter {

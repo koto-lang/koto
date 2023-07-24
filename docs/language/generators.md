@@ -44,6 +44,7 @@ Inserting an adaptor into the `iterator` module makes it available in any iterat
 iterator.every_other = ||
   n = 0
   loop
+    # self is the iterator being adapted
     match self.next()
       # Exit when there are no more values 
       # produced by the iterator
