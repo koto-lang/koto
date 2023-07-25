@@ -48,6 +48,20 @@ where
     }
 }
 
+impl TryFrom<ValueIteratorOutput> for Value {
+    type Error = RuntimeError;
+
+    fn try_from(iterator_output: ValueIteratorOutput) -> Result<Self, Self::Error> {
+        match iterator_output {
+            ValueIteratorOutput::Value(value) => Ok(value),
+            ValueIteratorOutput::ValuePair(first, second) => {
+                Ok(Value::Tuple(vec![first, second].into()))
+            }
+            ValueIteratorOutput::Error(error) => Err(error),
+        }
+    }
+}
+
 /// The iterator value type used in Koto
 #[derive(Clone)]
 pub struct ValueIterator(PtrMut<dyn KotoIterator>);

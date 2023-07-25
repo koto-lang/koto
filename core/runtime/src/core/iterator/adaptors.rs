@@ -3,7 +3,7 @@
 use {
     super::collect_pair,
     crate::{prelude::*, ValueIteratorOutput as Output},
-    std::{error, fmt},
+    std::{collections::VecDeque, error, fmt},
 };
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -98,22 +98,18 @@ impl Iterator for Chunks {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Make a copy of the iterator, positioned at the start of the next chunk
-        let result_iter = self.iter.make_copy();
-        // Is there at least one element in the chunk?
-        if self.iter.next().is_some() {
-            // Skip the input iterator to the end of the chunk
-            // (one element from the chunk has already been consumed).
-            if self.chunk_size > 1 {
-                self.iter.nth(self.chunk_size - 2);
-            }
+        let mut chunk = None;
 
-            // Make the chunk iterator by using a Take adaptor.
-            let chunk_iter = Take::new(result_iter, self.chunk_size);
-            Some(Output::Value(ValueIterator::new(chunk_iter).into()))
-        } else {
-            None
+        for output in self.iter.clone().take(self.chunk_size) {
+            match Value::try_from(output) {
+                Ok(value) => chunk
+                    .get_or_insert_with(|| Vec::with_capacity(self.chunk_size))
+                    .push(value),
+                Err(error) => return Some(Output::Error(error)),
+            }
         }
+
+        chunk.map(|chunk| ValueTuple::from(chunk).into())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -166,15 +162,24 @@ impl error::Error for ChunksError {}
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
     iter: ValueIterator,
-    current_cycle: ValueIterator,
+    cache: Vec<Value>,
+    cycle_index: usize,
 }
 
 impl Cycle {
     /// Creates a new [Cycle] adaptor
-    pub fn new(iterator: ValueIterator) -> Self {
+    pub fn new(iter: ValueIterator) -> Self {
+        let (lower_bound, _) = iter.size_hint();
+        let size_hint = if lower_bound < usize::MAX {
+            lower_bound
+        } else {
+            0
+        };
+
         Self {
-            iter: iterator.make_copy(),
-            current_cycle: iterator,
+            iter,
+            cache: Vec::with_capacity(size_hint),
+            cycle_index: 0,
         }
     }
 }
@@ -183,7 +188,8 @@ impl KotoIterator for Cycle {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
-            current_cycle: self.current_cycle.make_copy(),
+            cache: self.cache.clone(),
+            cycle_index: self.cycle_index,
         };
         ValueIterator::new(result)
     }
@@ -193,12 +199,23 @@ impl Iterator for Cycle {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.current_cycle.next() {
-            None => {
-                self.current_cycle = self.iter.make_copy();
-                self.current_cycle.next()
+        if let Some(output) = self.iter.next() {
+            match Value::try_from(output) {
+                Ok(value) => {
+                    self.cache.push(value.clone());
+                    Some(value.into())
+                }
+                Err(error) => Some(Output::Error(error)),
             }
-            other => other,
+        } else if self.cache.is_empty() {
+            None
+        } else {
+            if self.cycle_index == self.cache.len() {
+                self.cycle_index = 0;
+            }
+            let result = self.cache[self.cycle_index].clone();
+            self.cycle_index += 1;
+            Some(result.into())
         }
     }
 
@@ -775,7 +792,7 @@ impl Iterator for Take {
 /// An iterator that splits the incoming iterator into overlapping iterators of size N
 pub struct Windows {
     iter: ValueIterator,
-    end_iter: ValueIterator,
+    cache: VecDeque<Value>,
     window_size: usize,
 }
 
@@ -785,15 +802,9 @@ impl Windows {
         if window_size < 1 {
             Err(WindowsError::WindowSizeMustBeAtLeastOne)
         } else {
-            let mut end_iter = iter.make_copy();
-            // Skip the end iterator to 'one before the last' of the first window
-            if window_size > 1 {
-                end_iter.nth(window_size - 2);
-            }
-
             Ok(Self {
                 iter,
-                end_iter,
+                cache: VecDeque::with_capacity(window_size),
                 window_size,
             })
         }
@@ -804,7 +815,7 @@ impl KotoIterator for Windows {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
-            end_iter: self.end_iter.make_copy(),
+            cache: self.cache.clone(),
             window_size: self.window_size,
         };
         ValueIterator::new(result)
@@ -815,16 +826,22 @@ impl Iterator for Windows {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // The end iterator is positioned just before the end of the window,
-        // if next() outputs a value then there's at least one more window.
-        if self.end_iter.next().is_some() {
-            // Make the next window by using a Take adaptor.
-            let window_iter = Take::new(self.iter.make_copy(), self.window_size);
+        self.cache.pop_front();
 
-            // Move the input iterator to the start of the next window
-            self.iter.next();
+        while self.cache.len() < self.window_size {
+            if let Some(output) = self.iter.next() {
+                match Value::try_from(output) {
+                    Ok(value) => self.cache.push_back(value),
+                    Err(error) => return Some(Output::Error(error)),
+                }
+            } else {
+                break;
+            }
+        }
 
-            Some(Output::Value(ValueIterator::new(window_iter).into()))
+        if self.cache.len() == self.window_size {
+            let result: Vec<_> = self.cache.iter().cloned().collect();
+            Some(ValueTuple::from(result).into())
         } else {
             None
         }
@@ -914,4 +931,4 @@ impl Iterator for Zip {
     }
 }
 
-// See runtime/tests/iterator_adaptor_tests.rs for tests
+// For tests, see runtime/tests/iterator_tests.rs

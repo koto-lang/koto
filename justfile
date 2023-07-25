@@ -1,7 +1,7 @@
 checks: fmt clippy test doc wasm
 
 clippy:
-  cargo clippy --workspace --all-features
+  cargo clippy --workspace --all-features -- -D warnings
 
 doc:
   cargo doc --workspace --exclude koto_cli

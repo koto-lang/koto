@@ -82,20 +82,16 @@ check! (1, 2, 3, 4, 5)
 ```
 
 Returns an iterator that splits up the input data into chunks of size `N`,
-where each chunk is provided as an iterator over the chunk's elements.
+where each chunk is provided as a Tuple.
 The final chunk may have fewer than `N` elements.
-
-Note that the input value should be an iterable value that has a defined range,
-e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ### Example
 
 ```koto
 print! 1..=10
   .chunks 3
-  .each |chunk| chunk.to_list()
   .to_list()
-check! [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
+check! [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10)]
 ```
 
 ## consume
@@ -160,8 +156,11 @@ check! 50
 |Iterable| -> Iterator
 ```
 
-Takes an Iterable and returns a new iterator that endlessly repeats the output
-of the iterable.
+Takes an Iterable and returns a new iterator that endlessly repeats the
+iterable's output.
+
+The iterable's output gets cached, which may result in a large amount of memory
+being used if the cycle has a long length.
 
 ### Example
 
@@ -898,22 +897,17 @@ check! ['a', 42, (-1, -2)]
 ```
 
 Returns an iterator that splits up the input data into overlapping windows of
-size `N`, where each window is provided as an iterator over the chunk's
-elements.
+size `N`, where each window is provided as a Tuple.
 
 If the input has fewer than `N` elements then no windows will be produced.
-
-Note that the input value should be an iterable value that has a defined range,
-e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ### Example
 
 ```koto
 print! 1..=5
-  .windows(3)
-  .each iterator.to_list
+  .windows 3
   .to_list(),
-check! [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
+check! [(1, 2, 3), (2, 3, 4), (3, 4, 5)]
 ```
 
 ## zip

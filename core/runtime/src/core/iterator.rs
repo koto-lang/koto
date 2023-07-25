@@ -757,7 +757,7 @@ pub(crate) fn collect_pair(iterator_output: Output) -> Output {
 }
 
 pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> RuntimeResult {
-    match iterator_output.map(collect_pair) {
+    match iterator_output {
         Some(Output::Value(value)) => Ok(value),
         Some(Output::ValuePair(first, second)) => Ok(Value::Tuple(vec![first, second].into())),
         Some(Output::Error(error)) => Err(error),
