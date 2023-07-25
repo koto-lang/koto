@@ -162,15 +162,24 @@ impl error::Error for ChunksError {}
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
     iter: ValueIterator,
-    current_cycle: ValueIterator,
+    cache: Vec<Value>,
+    cycle_index: usize,
 }
 
 impl Cycle {
     /// Creates a new [Cycle] adaptor
-    pub fn new(iterator: ValueIterator) -> Self {
+    pub fn new(iter: ValueIterator) -> Self {
+        let (lower_bound, _) = iter.size_hint();
+        let size_hint = if lower_bound < usize::MAX {
+            lower_bound
+        } else {
+            0
+        };
+
         Self {
-            iter: iterator.make_copy(),
-            current_cycle: iterator,
+            iter,
+            cache: Vec::with_capacity(size_hint),
+            cycle_index: 0,
         }
     }
 }
@@ -179,7 +188,8 @@ impl KotoIterator for Cycle {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
-            current_cycle: self.current_cycle.make_copy(),
+            cache: self.cache.clone(),
+            cycle_index: self.cycle_index,
         };
         ValueIterator::new(result)
     }
@@ -189,12 +199,23 @@ impl Iterator for Cycle {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.current_cycle.next() {
-            None => {
-                self.current_cycle = self.iter.make_copy();
-                self.current_cycle.next()
+        if let Some(output) = self.iter.next() {
+            match Value::try_from(output) {
+                Ok(value) => {
+                    self.cache.push(value.clone());
+                    Some(value.into())
+                }
+                Err(error) => Some(Output::Error(error)),
             }
-            other => other,
+        } else if self.cache.is_empty() {
+            None
+        } else {
+            if self.cycle_index == self.cache.len() {
+                self.cycle_index = 0;
+            }
+            let result = self.cache[self.cycle_index].clone();
+            self.cycle_index += 1;
+            Some(result.into())
         }
     }
 

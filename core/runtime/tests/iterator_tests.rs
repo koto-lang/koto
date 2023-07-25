@@ -79,6 +79,14 @@ generator()
         use super::*;
 
         #[test]
+        fn empty_input() {
+            let script = "
+[].cycle().next()
+";
+            test_script(script, Value::Null);
+        }
+
+        #[test]
         fn make_copy() {
             let script = "
 x = (1..=3).cycle()
@@ -89,6 +97,18 @@ x.next() # 3
 y.next()
 ";
             test_script(script, 2);
+        }
+
+        #[test]
+        fn with_peekable() {
+            let script = "
+(1..=3)
+  .peekable()
+  .cycle()
+  .take 7
+  .to_tuple()
+";
+            test_script(script, number_tuple(&[1, 2, 3, 1, 2, 3, 1]));
         }
     }
 
@@ -191,8 +211,6 @@ y.next()
 
         #[test]
         fn peek() {
-            use Value::Null;
-
             let script = "
 i = (1, 2, 3).peekable()
 result = []

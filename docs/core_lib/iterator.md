@@ -156,8 +156,11 @@ check! 50
 |Iterable| -> Iterator
 ```
 
-Takes an Iterable and returns a new iterator that endlessly repeats the output
-of the iterable.
+Takes an Iterable and returns a new iterator that endlessly repeats the
+iterable's output.
+
+The iterable's output gets cached, which may result in a large amount of memory
+being used if the cycle has a long length.
 
 ### Example
 
