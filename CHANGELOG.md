@@ -89,6 +89,8 @@ The Koto project adheres to
 
 - The various `.copy`/`.deep_copy` module functions have been merged into 
   `koto.copy`/`koto.deep_copy`, which have also been added to the prelude.
+- `iterator.chunks`, `.cycle`, and `.windows` now cache initial iterator output
+  rather than relying on copying the adapted iterator.
 
 #### Internals
 
