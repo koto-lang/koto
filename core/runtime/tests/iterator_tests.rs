@@ -73,7 +73,6 @@ generator()
                 ]),
             );
         }
-
     }
 
     mod cycle {
@@ -314,7 +313,7 @@ y.next()
         use super::*;
 
         #[test]
-        fn windows_with_a_generator() {
+        fn with_a_generator() {
             let script = "
 generator = ||
   for i in 1..=4
@@ -328,7 +327,7 @@ generator()
         }
 
         #[test]
-        fn windows_in_for_loop() {
+        fn in_for_loop() {
             let script = "
 result = []
 for a, b in (1..=5).windows(2)
@@ -337,6 +336,25 @@ for a, b in (1..=5).windows(2)
 result
 ";
             test_script(script, number_list(&[1, 2, 2, 3, 3, 4, 4, 5]));
+        }
+
+        #[test]
+        fn with_peekable() {
+            let script = "
+(1..=5)
+  .peekable()
+  .windows 3
+  .each |w| w.to_tuple()
+  .to_tuple()
+";
+            test_script(
+                script,
+                value_tuple(&[
+                    number_tuple(&[1, 2, 3]),
+                    number_tuple(&[2, 3, 4]),
+                    number_tuple(&[3, 4, 5]),
+                ]),
+            );
         }
     }
 
