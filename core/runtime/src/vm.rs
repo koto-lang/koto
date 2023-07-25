@@ -697,77 +697,55 @@ impl Vm {
         &mut self,
         instruction: Instruction,
     ) -> Result<ControlFlow, RuntimeError> {
-        use Value::*;
+        use Instruction::*;
 
         let mut control_flow = ControlFlow::Continue;
 
         match instruction {
-            Instruction::Error { message } => runtime_error!(message),
-            Instruction::Copy { target, source } => {
-                self.set_register(target, self.clone_register(source));
-                Ok(())
-            }
-            Instruction::SetNull { register } => {
-                self.set_register(register, Null);
-                Ok(())
-            }
-            Instruction::SetBool { register, value } => {
-                self.set_register(register, Bool(value));
-                Ok(())
-            }
-            Instruction::SetNumber { register, value } => {
-                self.set_register(register, Number(value.into()));
-                Ok(())
-            }
-            Instruction::LoadFloat { register, constant } => {
+            Error { message } => runtime_error!(message)?,
+            Copy { target, source } => self.set_register(target, self.clone_register(source)),
+            SetNull { register } => self.set_register(register, Value::Null),
+            SetBool { register, value } => self.set_register(register, value.into()),
+            SetNumber { register, value } => self.set_register(register, value.into()),
+            LoadFloat { register, constant } => {
                 let n = self.reader.chunk.constants.get_f64(constant);
-                self.set_register(register, Number(n.into()));
-                Ok(())
+                self.set_register(register, n.into());
             }
-            Instruction::LoadInt { register, constant } => {
+            LoadInt { register, constant } => {
                 let n = self.reader.chunk.constants.get_i64(constant);
-                self.set_register(register, Number(n.into()));
-                Ok(())
+                self.set_register(register, n.into());
             }
-            Instruction::LoadString { register, constant } => {
+            LoadString { register, constant } => {
                 let string = self.value_string_from_constant(constant);
-                self.set_register(register, Str(string));
-                Ok(())
+                self.set_register(register, string.into());
             }
-            Instruction::LoadNonLocal { register, constant } => {
-                self.run_load_non_local(register, constant)
-            }
-            Instruction::ValueExport { name, value } => self.run_value_export(name, value),
-            Instruction::Import { register } => self.run_import(register),
-            Instruction::MakeTempTuple {
+            LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
+            ValueExport { name, value } => self.run_value_export(name, value)?,
+            Import { register } => self.run_import(register)?,
+            MakeTempTuple {
                 register,
                 start,
                 count,
-            } => {
-                self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
-                Ok(())
+            } => self.set_register(
+                register,
+                Value::TemporaryTuple(RegisterSlice { start, count }),
+            ),
+            TempTupleToTuple { register, source } => {
+                self.run_temp_tuple_to_tuple(register, source)?
             }
-            Instruction::TempTupleToTuple { register, source } => {
-                self.run_temp_tuple_to_tuple(register, source)
-            }
-            Instruction::MakeMap {
+            MakeMap {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::SequenceStart {
+            } => self.set_register(register, ValueMap::with_capacity(size_hint).into()),
+            SequenceStart {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, SequenceBuilder(Vec::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::SequencePush { sequence, value } => {
-                self.run_sequence_push(sequence, value)
-            }
-            Instruction::SequencePushN {
+            } => self.set_register(
+                register,
+                Value::SequenceBuilder(Vec::with_capacity(size_hint)),
+            ),
+            SequencePush { sequence, value } => self.run_sequence_push(sequence, value)?,
+            SequencePushN {
                 sequence,
                 start,
                 count,
@@ -775,43 +753,40 @@ impl Vm {
                 for value_register in start..(start + count) {
                     self.run_sequence_push(sequence, value_register)?;
                 }
-                Ok(())
             }
-            Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
-            Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
-            Instruction::StringStart {
+            SequenceToList { sequence } => self.run_sequence_to_list(sequence)?,
+            SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence)?,
+            StringStart {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, StringBuilder(String::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::StringPush { register, value } => self.run_string_push(register, value),
-            Instruction::StringFinish { register } => self.run_string_finish(register),
-            Instruction::Range {
+            } => self.set_register(
+                register,
+                Value::StringBuilder(String::with_capacity(size_hint)),
+            ),
+            StringPush { register, value } => self.run_string_push(register, value)?,
+            StringFinish { register } => self.run_string_finish(register)?,
+            Range {
                 register,
                 start,
                 end,
-            } => self.run_make_range(register, Some(start), Some(end), false),
-            Instruction::RangeInclusive {
+            } => self.run_make_range(register, Some(start), Some(end), false)?,
+            RangeInclusive {
                 register,
                 start,
                 end,
-            } => self.run_make_range(register, Some(start), Some(end), true),
-            Instruction::RangeTo { register, end } => {
-                self.run_make_range(register, None, Some(end), false)
+            } => self.run_make_range(register, Some(start), Some(end), true)?,
+            RangeTo { register, end } => self.run_make_range(register, None, Some(end), false)?,
+            RangeToInclusive { register, end } => {
+                self.run_make_range(register, None, Some(end), true)?
             }
-            Instruction::RangeToInclusive { register, end } => {
-                self.run_make_range(register, None, Some(end), true)
+            RangeFrom { register, start } => {
+                self.run_make_range(register, Some(start), None, false)?
             }
-            Instruction::RangeFrom { register, start } => {
-                self.run_make_range(register, Some(start), None, false)
+            RangeFull { register } => self.run_make_range(register, None, None, false)?,
+            MakeIterator { register, iterable } => {
+                self.run_make_iterator(register, iterable, true)?
             }
-            Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
-            Instruction::MakeIterator { register, iterable } => {
-                self.run_make_iterator(register, iterable, true)
-            }
-            Instruction::SimpleFunction {
+            SimpleFunction {
                 register,
                 arg_count,
                 size,
@@ -823,52 +798,38 @@ impl Vm {
                 });
                 self.set_register(register, result);
                 self.jump_ip(size);
-                Ok(())
             }
-            Instruction::Function { .. } => {
-                self.run_make_function(instruction);
-                Ok(())
-            }
-            Instruction::Capture {
+            Function { .. } => self.run_make_function(instruction),
+            Capture {
                 function,
                 target,
                 source,
-            } => self.run_capture_value(function, target, source),
-            Instruction::Negate { register, value } => self.run_negate(register, value),
-            Instruction::Not { register, value } => self.run_not(register, value),
-            Instruction::Add { register, lhs, rhs } => self.run_add(register, lhs, rhs),
-            Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
-            Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
-            Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
-            Instruction::Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs),
-            Instruction::AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs),
-            Instruction::SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs),
-            Instruction::MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs),
-            Instruction::DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs),
-            Instruction::RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs),
-            Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
-            Instruction::LessOrEqual { register, lhs, rhs } => {
-                self.run_less_or_equal(register, lhs, rhs)
+            } => self.run_capture_value(function, target, source)?,
+            Negate { register, value } => self.run_negate(register, value)?,
+            Not { register, value } => self.run_not(register, value)?,
+            Add { register, lhs, rhs } => self.run_add(register, lhs, rhs)?,
+            Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs)?,
+            Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs)?,
+            Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs)?,
+            Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs)?,
+            AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs)?,
+            SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs)?,
+            MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs)?,
+            DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs)?,
+            RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs)?,
+            Less { register, lhs, rhs } => self.run_less(register, lhs, rhs)?,
+            LessOrEqual { register, lhs, rhs } => self.run_less_or_equal(register, lhs, rhs)?,
+            Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs)?,
+            GreaterOrEqual { register, lhs, rhs } => {
+                self.run_greater_or_equal(register, lhs, rhs)?
             }
-            Instruction::Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs),
-            Instruction::GreaterOrEqual { register, lhs, rhs } => {
-                self.run_greater_or_equal(register, lhs, rhs)
-            }
-            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
-            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
-            Instruction::Jump { offset } => {
-                self.jump_ip(offset);
-                Ok(())
-            }
-            Instruction::JumpBack { offset } => {
-                self.jump_ip_back(offset);
-                Ok(())
-            }
-            Instruction::JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset),
-            Instruction::JumpIfFalse { register, offset } => {
-                self.run_jump_if_false(register, offset)
-            }
-            Instruction::Call {
+            Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs)?,
+            NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs)?,
+            Jump { offset } => self.jump_ip(offset),
+            JumpBack { offset } => self.jump_ip_back(offset),
+            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset)?,
+            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset)?,
+            Call {
                 result,
                 function,
                 frame_base,
@@ -880,8 +841,8 @@ impl Vm {
                 arg_count,
                 None,
                 None,
-            ),
-            Instruction::CallInstance {
+            )?,
+            CallInstance {
                 result,
                 function,
                 frame_base,
@@ -894,135 +855,120 @@ impl Vm {
                 arg_count,
                 Some(instance),
                 None,
-            ),
-            Instruction::Return { register } => {
+            )?,
+            Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
                     // If pop_frame returns a new return_value, then execution should stop.
                     control_flow = ControlFlow::Return(return_value);
                 }
-                Ok(())
             }
-            Instruction::Yield { register } => {
-                control_flow = ControlFlow::Yield(self.clone_register(register));
-                Ok(())
-            }
-            Instruction::Throw { register } => {
+            Yield { register } => control_flow = ControlFlow::Yield(self.clone_register(register)),
+            Throw { register } => {
                 let thrown_value = self.clone_register(register);
 
                 let display_op = MetaKey::UnaryOp(UnaryOp::Display);
                 match &thrown_value {
-                    Str(_) => {}
+                    Value::Str(_) => {}
                     _ if thrown_value.contains_meta_key(&display_op) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
                 };
 
-                Err(RuntimeError::from_koto_value(
+                return Err(RuntimeError::from_koto_value(
                     thrown_value,
                     self.spawn_shared_vm(),
-                ))
+                ));
             }
-            Instruction::Size { register, value } => {
-                self.run_size(register, value);
-                Ok(())
+            Size { register, value } => self.run_size(register, value),
+            IsTuple { register, value } => {
+                let result = matches!(self.get_register(value), Value::Tuple(_));
+                self.set_register(register, result.into());
             }
-            Instruction::IsTuple { register, value } => {
-                let result = matches!(self.get_register(value), Tuple(_));
-                self.set_register(register, Bool(result));
-                Ok(())
+            IsList { register, value } => {
+                let result = matches!(self.get_register(value), Value::List(_));
+                self.set_register(register, result.into());
             }
-            Instruction::IsList { register, value } => {
-                let result = matches!(self.get_register(value), List(_));
-                self.set_register(register, Bool(result));
-                Ok(())
-            }
-            Instruction::IterNext {
+            IterNext {
                 result,
                 iterator,
                 jump_offset,
                 temporary_output,
-            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output),
-            Instruction::TempIndex {
+            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output)?,
+            TempIndex {
                 register,
                 value,
                 index,
-            } => self.run_temp_index(register, value, index),
-            Instruction::SliceFrom {
+            } => self.run_temp_index(register, value, index)?,
+            SliceFrom {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, false),
-            Instruction::SliceTo {
+            } => self.run_slice(register, value, index, false)?,
+            SliceTo {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, true),
-            Instruction::Index {
+            } => self.run_slice(register, value, index, true)?,
+            Index {
                 register,
                 value,
                 index,
-            } => self.run_index(register, value, index),
-            Instruction::SetIndex {
+            } => self.run_index(register, value, index)?,
+            SetIndex {
                 register,
                 index,
                 value,
-            } => self.run_set_index(register, index, value),
-            Instruction::MapInsert {
+            } => self.run_set_index(register, index, value)?,
+            MapInsert {
                 register,
                 key,
                 value,
-            } => self.run_map_insert(register, key, value),
-            Instruction::MetaInsert {
+            } => self.run_map_insert(register, key, value)?,
+            MetaInsert {
                 register,
                 value,
                 id,
-            } => self.run_meta_insert(register, value, id),
-            Instruction::MetaInsertNamed {
+            } => self.run_meta_insert(register, value, id)?,
+            MetaInsertNamed {
                 register,
                 value,
                 id,
                 name,
-            } => self.run_meta_insert_named(register, value, id, name),
-            Instruction::MetaExport { value, id } => self.run_meta_export(value, id),
-            Instruction::MetaExportNamed { id, name, value } => {
-                self.run_meta_export_named(id, name, value)
-            }
-            Instruction::Access {
+            } => self.run_meta_insert_named(register, value, id, name)?,
+            MetaExport { value, id } => self.run_meta_export(value, id)?,
+            MetaExportNamed { id, name, value } => self.run_meta_export_named(id, name, value)?,
+            Access {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, self.value_string_from_constant(key)),
-            Instruction::AccessString {
+            } => self.run_access(register, value, self.value_string_from_constant(key))?,
+            AccessString {
                 register,
                 value,
                 key,
             } => {
                 let key_string = match self.clone_register(key) {
-                    Str(s) => s,
+                    Value::Str(s) => s,
                     other => return type_error("String", &other),
                 };
-                self.run_access(register, value, key_string)
+                self.run_access(register, value, key_string)?;
             }
-            Instruction::TryStart {
+            TryStart {
                 arg_register,
                 catch_offset,
             } => {
                 let catch_ip = self.ip() + catch_offset;
                 self.frame_mut().catch_stack.push((arg_register, catch_ip));
-                Ok(())
             }
-            Instruction::TryEnd => {
+            TryEnd => {
                 self.frame_mut().catch_stack.pop();
-                Ok(())
             }
-            Instruction::Debug { register, constant } => self.run_debug(register, constant),
-            Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
-            Instruction::CheckSizeEqual { register, size } => {
-                self.run_check_size_equal(register, size)
-            }
-            Instruction::CheckSizeMin { register, size } => self.run_check_size_min(register, size),
-        }?;
+            Debug { register, constant } => self.run_debug(register, constant)?,
+            CheckType { register, type_id } => self.run_check_type(register, type_id)?,
+            CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
+            CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
+        }
 
         Ok(control_flow)
     }
