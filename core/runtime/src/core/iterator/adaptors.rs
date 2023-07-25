@@ -98,22 +98,18 @@ impl Iterator for Chunks {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Make a copy of the iterator, positioned at the start of the next chunk
-        let result_iter = self.iter.make_copy();
-        // Is there at least one element in the chunk?
-        if self.iter.next().is_some() {
-            // Skip the input iterator to the end of the chunk
-            // (one element from the chunk has already been consumed).
-            if self.chunk_size > 1 {
-                self.iter.nth(self.chunk_size - 2);
-            }
+        let mut chunk = None;
 
-            // Make the chunk iterator by using a Take adaptor.
-            let chunk_iter = Take::new(result_iter, self.chunk_size);
-            Some(Output::Value(ValueIterator::new(chunk_iter).into()))
-        } else {
-            None
+        for output in self.iter.clone().take(self.chunk_size) {
+            match Value::try_from(output) {
+                Ok(value) => chunk
+                    .get_or_insert_with(|| Vec::with_capacity(self.chunk_size))
+                    .push(value),
+                Err(error) => return Some(Output::Error(error)),
+            }
         }
+
+        chunk.map(|chunk| ValueTuple::from(chunk).into())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -914,4 +910,4 @@ impl Iterator for Zip {
     }
 }
 
-// See runtime/tests/iterator_adaptor_tests.rs for tests
+// For tests, see runtime/tests/iterator_tests.rs

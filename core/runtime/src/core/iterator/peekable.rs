@@ -102,3 +102,5 @@ thread_local! {
     static PEEKABLE_META: PtrMut<MetaMap> = make_peekable_meta_map();
     static PEEKABLE_TYPE_STRING: ValueString = PEEKABLE_TYPE.into();
 }
+
+// For tests, see runtime/tests/iterator_tests.rs

@@ -82,20 +82,16 @@ check! (1, 2, 3, 4, 5)
 ```
 
 Returns an iterator that splits up the input data into chunks of size `N`,
-where each chunk is provided as an iterator over the chunk's elements.
+where each chunk is provided as a Tuple.
 The final chunk may have fewer than `N` elements.
-
-Note that the input value should be an iterable value that has a defined range,
-e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ### Example
 
 ```koto
 print! 1..=10
   .chunks 3
-  .each |chunk| chunk.to_list()
   .to_list()
-check! [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
+check! [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10)]
 ```
 
 ## consume

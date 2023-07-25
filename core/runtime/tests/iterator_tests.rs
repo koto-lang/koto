@@ -41,7 +41,7 @@ y.next()
         use super::*;
 
         #[test]
-        fn chunks_with_generator() {
+        fn with_generator() {
             let script = "
 generator = || 
   for i in 1..=4
@@ -54,6 +54,26 @@ generator()
 ";
             test_script(script, number_tuple(&[3, 4]));
         }
+
+        #[test]
+        fn with_peekable() {
+            let script = "
+(1..=5)
+  .peekable()
+  .chunks 2
+  .each |w| w.to_tuple()
+  .to_tuple()
+";
+            test_script(
+                script,
+                value_tuple(&[
+                    number_tuple(&[1, 2]),
+                    number_tuple(&[3, 4]),
+                    number_tuple(&[5]),
+                ]),
+            );
+        }
+
     }
 
     mod cycle {
