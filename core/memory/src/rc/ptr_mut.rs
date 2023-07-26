@@ -48,6 +48,13 @@ impl<T: ?Sized> PtrMut<T> {
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<'_, T>, BorrowMutError> {
         self.0.try_borrow_mut().map(BorrowMut)
     }
+
+    /// Returns true if the two `PtsMut`s point to the same allocation
+    ///
+    /// See also: [std::rc::Rc::ptr_eq]
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        Rc::ptr_eq(&this.0, &other.0)
+    }
 }
 
 impl<T> From<T> for PtrMut<T> {

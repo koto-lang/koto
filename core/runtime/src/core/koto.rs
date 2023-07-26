@@ -14,7 +14,7 @@ pub fn make_module() -> ValueMap {
     result.add_value("args", Tuple(ValueTuple::default()));
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
-        [Iterator(iter)] => Ok(iter.make_copy().into()),
+        [Iterator(iter)] => Ok(iter.make_copy()?.into()),
         [List(l)] => Ok(ValueList::with_data(l.data().clone()).into()),
         [Map(m)] => {
             let result = ValueMap::with_contents(
@@ -23,13 +23,13 @@ pub fn make_module() -> ValueMap {
             );
             Ok(result.into())
         }
-        [External(v)] => Ok(v.make_copy().into()),
+        [Object(o)] => o.try_borrow().map(|o| o.copy().into()),
         [other] => Ok(other.clone()),
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value] => Ok(value.deep_copy()),
+        [value] => value.deep_copy(),
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 

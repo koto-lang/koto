@@ -7,7 +7,7 @@ use {
         meta_map::meta_id_to_key,
         prelude::*,
         value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
-        DefaultStderr, DefaultStdin, DefaultStdout,
+        DefaultStderr, DefaultStdin, DefaultStdout, Result,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -48,7 +48,7 @@ pub enum ControlFlow {
 }
 
 // Instructions will place their results in registers, there's no Ok type
-pub type InstructionResult = Result<(), RuntimeError>;
+pub type InstructionResult = Result<()>;
 
 fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     let core_lib = CoreLib::default();
@@ -403,7 +403,7 @@ impl Vm {
     }
 
     /// Returns a displayable string for the given value
-    pub fn value_to_string(&mut self, value: &Value) -> Result<String, RuntimeError> {
+    pub fn value_to_string(&mut self, value: &Value) -> Result<String> {
         let mut result = String::new();
         value.display(&mut result, self, KotoDisplayOptions::default())?;
         Ok(result)
@@ -529,7 +529,7 @@ impl Vm {
     }
 
     /// Makes a ValueIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
+    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator> {
         use Value::*;
 
         match value {
@@ -548,6 +548,18 @@ impl Vm {
             Tuple(t) => Ok(ValueIterator::with_tuple(t)),
             Str(s) => Ok(ValueIterator::with_string(s)),
             Map(m) => Ok(ValueIterator::with_map(m)),
+            Object(o) => {
+                use IsIterable::*;
+
+                let o_inner = o.try_borrow()?;
+                match o_inner.is_iterable() {
+                    NotIterable => runtime_error!("{} is not iterable", o_inner.object_type()),
+                    Iterable => o_inner.make_iterator(self),
+                    ForwardIterator | BidirectionalIterator => {
+                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())
+                    }
+                }
+            }
             unexpected => {
                 runtime_error!(
                     "expected iterable value, found '{}'",
@@ -693,10 +705,7 @@ impl Vm {
         Ok(result)
     }
 
-    fn execute_instruction(
-        &mut self,
-        instruction: Instruction,
-    ) -> Result<ControlFlow, RuntimeError> {
+    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow> {
         use Instruction::*;
 
         let mut control_flow = ControlFlow::Continue;
@@ -1085,6 +1094,19 @@ impl Vm {
             Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
             Str(s) => ValueIterator::with_string(s).into(),
             Map(map) => ValueIterator::with_map(map).into(),
+            Object(o) => {
+                use IsIterable::*;
+                let o_inner = o.try_borrow()?;
+                match o_inner.is_iterable() {
+                    NotIterable => {
+                        return runtime_error!("{} is not iterable", o_inner.object_type())
+                    }
+                    Iterable => o_inner.make_iterator(self)?.into(),
+                    ForwardIterator | BidirectionalIterator => {
+                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
+                    }
+                }
+            }
             unexpected => {
                 return type_error("Iterable while making iterator", &unexpected);
             }
@@ -1361,13 +1383,14 @@ impl Vm {
     fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
         use {UnaryOp::Negate, Value::*};
 
-        let result_value = match &self.get_register(value) {
+        let result_value = match self.clone_register(value) {
             Number(n) => Number(-n),
             v if v.contains_meta_key(&Negate.into()) => {
                 let op = v.get_meta_value(&Negate.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            unexpected => return type_error("negatable value", unexpected),
+            Object(o) => o.try_borrow()?.negate(self)?,
+            unexpected => return type_error("negatable value", &unexpected),
         };
         self.set_register(result, result_value);
 
@@ -1428,6 +1451,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.add(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
         };
 
@@ -1447,6 +1471,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
         };
 
@@ -1467,6 +1492,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
         };
 
@@ -1486,6 +1512,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
         };
 
@@ -1510,6 +1537,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
         };
         self.set_register(result, result_value);
@@ -1522,20 +1550,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a + b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a + b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&AddAssign.into()) => {
                 let op = v.get_meta_value(&AddAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.add_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.add_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "+="),
+        }
     }
 
     fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1543,20 +1576,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a - b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a - b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&SubtractAssign.into()) => {
                 let op = v.get_meta_value(&SubtractAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "-="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.subtract_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.subtract_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "-="),
+        }
     }
 
     fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1564,20 +1602,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a * b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a * b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&MultiplyAssign.into()) => {
                 let op = v.get_meta_value(&MultiplyAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "*="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.multiply_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.multiply_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "*="),
+        }
     }
 
     fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1585,20 +1628,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a / b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a / b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&DivideAssign.into()) => {
                 let op = v.get_meta_value(&DivideAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "/="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.divide_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.divide_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "/="),
+        }
     }
 
     fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1606,20 +1654,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a % b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a % b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&RemainderAssign.into()) => {
                 let op = v.get_meta_value(&RemainderAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "%="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.remainder_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.remainder_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "%="),
+        }
     }
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1635,6 +1688,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
         self.set_register(result, result_value);
@@ -1655,6 +1709,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
         self.set_register(result, result_value);
@@ -1675,6 +1730,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
         self.set_register(result, result_value);
@@ -1695,6 +1751,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
         self.set_register(result, result_value);
@@ -1739,6 +1796,7 @@ impl Vm {
                     false
                 }
             }
+            (Object(o), _) => o.try_borrow()?.equal(rhs_value)?,
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
                     match (&a.captures, &b.captures) {
@@ -1804,6 +1862,7 @@ impl Vm {
                     true
                 }
             }
+            (Object(o), _) => o.try_borrow()?.not_equal(rhs_value)?,
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
                     match (&a.captures, &b.captures) {
@@ -1829,11 +1888,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of lists and tuples
-    fn compare_value_ranges(
-        &mut self,
-        range_a: &[Value],
-        range_b: &[Value],
-    ) -> Result<bool, RuntimeError> {
+    fn compare_value_ranges(&mut self, range_a: &[Value], range_b: &[Value]) -> Result<bool> {
         if range_a.len() != range_b.len() {
             return Ok(false);
         }
@@ -1855,11 +1910,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of maps
-    fn compare_value_maps(
-        &mut self,
-        map_a: ValueMap,
-        map_b: ValueMap,
-    ) -> Result<bool, RuntimeError> {
+    fn compare_value_maps(&mut self, map_a: ValueMap, map_b: ValueMap) -> Result<bool> {
         if map_a.len() != map_b.len() {
             return Ok(false);
         }
@@ -1962,7 +2013,7 @@ impl Vm {
     fn run_import(&mut self, import_register: u8) -> InstructionResult {
         let import_name = match self.clone_register(import_register) {
             Value::Str(s) => s,
-            value @ Value::Map(_) | value @ Value::External(_) => {
+            value @ Value::Map(_) => {
                 self.set_register(import_register, value);
                 return Ok(());
             }
@@ -2132,7 +2183,7 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize, RuntimeError> {
+    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize> {
         let index = usize::from(n);
 
         if n < 0.0 {
@@ -2189,10 +2240,9 @@ impl Vm {
                     return runtime_error!("Unable to index {}", value.type_as_string());
                 });
             }
-            (External(e), index) => {
-                call_binary_op_or_else!(self, result_register, value_register, index, e, Index, {
-                    return runtime_error!("Unable to index {}", value.type_as_string());
-                });
+            (Object(o), index) => {
+                let result = o.try_borrow()?.index(&index)?;
+                self.set_register(result_register, result);
             }
             (unexpected_value, unexpected_index) => {
                 return runtime_error!(
@@ -2382,13 +2432,13 @@ impl Vm {
                     );
                 }
             }
-            External(e) => match e.get_meta_value(&MetaKey::Named(key_string.clone())) {
-                Some(value) => self.set_register(result_register, value),
-                None => {
+            Object(o) => {
+                let o = o.try_borrow()?;
+                if let Some(value) = o.lookup(&key) {
+                    self.set_register(result_register, value);
+                } else {
                     // Iterator fallback?
-                    if e.contains_meta_key(&UnaryOp::Iterator.into())
-                        || e.contains_meta_key(&UnaryOp::Next.into())
-                    {
+                    if !matches!(o.is_iterable(), IsIterable::NotIterable) {
                         let iterator_op = self.get_core_op(
                             &key,
                             &self.context.core_lib.iterator,
@@ -2397,13 +2447,10 @@ impl Vm {
                         )?;
                         self.set_register(result_register, iterator_op);
                     } else {
-                        return runtime_error!(
-                            "'{key_string}' not found in '{}'",
-                            accessed_value.type_as_string()
-                        );
+                        return runtime_error!("'{key}' not found in '{}'", o.object_type());
                     }
                 }
-            },
+            }
             unexpected => return type_error("Value that supports '.' access", unexpected),
         }
 
@@ -2492,6 +2539,35 @@ impl Vm {
             Ok(value) => {
                 self.set_register(result_register, value);
                 // External function calls don't use the push/pop frame mechanism,
+                // so drop the function args here now that the call has been completed.
+                self.truncate_registers(frame_base);
+            }
+            Err(error) => return Err(error),
+        }
+
+        Ok(())
+    }
+
+    fn call_object(
+        &mut self,
+        result_register: u8,
+        object: Object,
+        frame_base: u8,
+        call_arg_count: u8,
+        // instance_register: Option<u8>,
+    ) -> InstructionResult {
+        let result = object.try_borrow_mut()?.call(
+            self,
+            &ArgRegisters {
+                register: frame_base + 1,
+                count: call_arg_count,
+            },
+        );
+
+        match result {
+            Ok(value) => {
+                self.set_register(result_register, value);
+                // Object calls don't use the push/pop frame mechanism,
                 // so drop the function args here now that the call has been completed.
                 self.truncate_registers(frame_base);
             }
@@ -2730,6 +2806,7 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
+            Object(object) => self.call_object(result_register, object, frame_base, call_arg_count),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the map as the instance by placing it in the frame base,
@@ -2942,7 +3019,7 @@ impl Vm {
         self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, RuntimeError> {
+    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>> {
         self.truncate_registers(0);
 
         match self.call_stack.pop() {
@@ -2969,7 +3046,7 @@ impl Vm {
         }
     }
 
-    fn new_frame_base(&self) -> Result<u8, RuntimeError> {
+    fn new_frame_base(&self) -> Result<u8> {
         u8::try_from(self.value_stack.len() - self.register_base())
             .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
     }
@@ -3097,14 +3174,14 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
 // any iterators that it finds. This makes simple generators copyable, although any captured or
 // contained iterators in the generator VM will have shared state. This behaviour is noted in the
 // documentation for iterator.copy and should hopefully be sufficient.
-pub(crate) fn clone_generator_vm(vm: &Vm) -> Vm {
+pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
     let mut result = vm.clone();
     for value in result.value_stack.iter_mut() {
         if let Value::Iterator(ref mut i) = value {
-            *i = i.make_copy()
+            *i = i.make_copy()?;
         }
     }
-    result
+    Ok(result)
 }
 
 /// The ways in which a function's arguments will be treated when called externally

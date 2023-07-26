@@ -2,6 +2,7 @@ use {
     crate::{
         external_function::{ArgRegisters, ExternalFunction},
         prelude::*,
+        Result,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
@@ -181,7 +182,7 @@ impl ValueMap {
 }
 
 impl KotoDisplay for ValueMap {
-    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
                 Value::Str(display_result) => s.push_str(&display_result),
@@ -206,7 +207,7 @@ impl KotoDisplay for ValueMap {
             s.push('}');
         }
 
-        Ok(().into())
+        Ok(())
     }
 }
 

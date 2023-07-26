@@ -1,5 +1,5 @@
 use {
-    crate::prelude::*,
+    crate::{prelude::*, Result},
     std::{
         fmt,
         hash::{Hash, Hasher},
@@ -207,7 +207,7 @@ impl fmt::Display for ValueString {
 }
 
 impl KotoDisplay for ValueString {
-    fn display(&self, s: &mut String, _vm: &mut Vm, options: KotoDisplayOptions) -> RuntimeResult {
+    fn display(&self, s: &mut String, _vm: &mut Vm, options: KotoDisplayOptions) -> Result<()> {
         if options.contained_value {
             s.push('\'');
             s.push_str(self);
@@ -215,7 +215,7 @@ impl KotoDisplay for ValueString {
         } else {
             s.push_str(self);
         }
-        Ok(().into())
+        Ok(())
     }
 }
 

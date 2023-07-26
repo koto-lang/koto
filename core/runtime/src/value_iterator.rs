@@ -1,6 +1,6 @@
 use {
-    crate::prelude::*,
-    std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc},
+    crate::{prelude::*, Result},
+    std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc, result::Result as StdResult},
 };
 
 /// The trait used to implement iterators in Koto
@@ -8,7 +8,7 @@ use {
 /// See `ValueIterator`.
 pub trait KotoIterator: Iterator<Item = ValueIteratorOutput> {
     /// Returns a copy of the iterator that (when possible), will produce the same output
-    fn make_copy(&self) -> ValueIterator;
+    fn make_copy(&self) -> Result<ValueIterator>;
 
     /// Returns true if the iterator supports reversed iteration via `next_back`
     fn is_bidirectional(&self) -> bool {
@@ -51,7 +51,7 @@ where
 impl TryFrom<ValueIteratorOutput> for Value {
     type Error = RuntimeError;
 
-    fn try_from(iterator_output: ValueIteratorOutput) -> Result<Self, Self::Error> {
+    fn try_from(iterator_output: ValueIteratorOutput) -> StdResult<Self, Self::Error> {
         match iterator_output {
             ValueIteratorOutput::Value(value) => Ok(value),
             ValueIteratorOutput::ValuePair(first, second) => {
@@ -95,7 +95,7 @@ impl ValueIterator {
     }
 
     /// Creates a new ValueIterator from a Range
-    pub fn with_range(range: IntRange) -> Result<Self, RuntimeError> {
+    pub fn with_range(range: IntRange) -> Result<Self> {
         Ok(Self::new(RangeIterator::new(range)?))
     }
 
@@ -125,15 +125,19 @@ impl ValueIterator {
     }
 
     /// Creates a new ValueIterator from a Value that has an implementation of `@next`
-    pub fn with_meta_next(vm: Vm, iterator: Value) -> Result<Self, RuntimeError> {
+    pub fn with_meta_next(vm: Vm, iterator: Value) -> Result<Self> {
         Ok(Self::new(MetaIterator::new(vm, iterator)?))
+    }
+
+    /// Creates a new ValueIterator from an Object that implements [KotoIterator]
+    pub fn with_object(vm: Vm, o: Object) -> Result<Self> {
+        Ok(Self::new(ObjectIterator::new(vm, o)?))
     }
 
     /// Makes a copy of the iterator
     ///
     /// See [KotoIterator::make_copy]
-    #[must_use]
-    pub fn make_copy(&self) -> Self {
+    pub fn make_copy(&self) -> Result<Self> {
         self.0.borrow().make_copy()
     }
 
@@ -188,7 +192,7 @@ struct RangeIterator {
 }
 
 impl RangeIterator {
-    fn new(range: IntRange) -> Result<Self, RuntimeError> {
+    fn new(range: IntRange) -> Result<Self> {
         use Ordering::*;
 
         match (range.start, range.end) {
@@ -218,8 +222,8 @@ impl RangeIterator {
 }
 
 impl KotoIterator for RangeIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -290,8 +294,8 @@ impl ListIterator {
 }
 
 impl KotoIterator for ListIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -337,8 +341,8 @@ impl TupleIterator {
 }
 
 impl KotoIterator for TupleIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -389,8 +393,8 @@ impl MapIterator {
 }
 
 impl KotoIterator for MapIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -434,7 +438,7 @@ struct MetaIterator {
 }
 
 impl MetaIterator {
-    fn new(vm: Vm, iterator: Value) -> Result<Self, RuntimeError> {
+    fn new(vm: Vm, iterator: Value) -> Result<Self> {
         match iterator.get_meta_value(&UnaryOp::Next.into()) {
             Some(op) if op.is_callable() => {}
             Some(op) => return type_error("Callable function from @next", &op),
@@ -456,8 +460,8 @@ impl MetaIterator {
 }
 
 impl KotoIterator for MetaIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -488,6 +492,61 @@ impl Iterator for MetaIterator {
     }
 }
 
+#[derive(Clone)]
+struct ObjectIterator {
+    vm: Vm,
+    object: Object,
+}
+
+impl ObjectIterator {
+    fn new(vm: Vm, object: Object) -> Result<Self> {
+        use IsIterable::*;
+
+        if matches!(
+            object.try_borrow()?.is_iterable(),
+            ForwardIterator | BidirectionalIterator
+        ) {
+            Ok(Self { vm, object })
+        } else {
+            runtime_error!("{} is not an iterator", object.try_borrow()?.object_type())
+        }
+    }
+}
+
+impl KotoIterator for ObjectIterator {
+    fn make_copy(&self) -> Result<ValueIterator> {
+        let copy = Self {
+            vm: self.vm.spawn_shared_vm(),
+            object: self.object.try_borrow()?.copy(),
+        };
+        Ok(ValueIterator::new(copy))
+    }
+
+    fn is_bidirectional(&self) -> bool {
+        self.object.try_borrow().map_or(false, |o| {
+            matches!(o.is_iterable(), IsIterable::BidirectionalIterator)
+        })
+    }
+
+    fn next_back(&mut self) -> Option<ValueIteratorOutput> {
+        match self.object.try_borrow_mut() {
+            Ok(mut o) => o.iterator_next_back(&mut self.vm),
+            Err(e) => Some(ValueIteratorOutput::Error(e)),
+        }
+    }
+}
+
+impl Iterator for ObjectIterator {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.object.try_borrow_mut() {
+            Ok(mut o) => o.iterator_next(&mut self.vm),
+            Err(e) => Some(ValueIteratorOutput::Error(e)),
+        }
+    }
+}
+
 /// An iterator that yields the characters contained in the string
 #[derive(Clone)]
 pub struct StringIterator(ValueString);
@@ -499,8 +558,8 @@ impl StringIterator {
 }
 
 impl KotoIterator for StringIterator {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -542,9 +601,9 @@ impl GeneratorIterator {
 }
 
 impl KotoIterator for GeneratorIterator {
-    fn make_copy(&self) -> ValueIterator {
-        let new_vm = crate::vm::clone_generator_vm(&self.vm);
-        ValueIterator::with_vm(new_vm)
+    fn make_copy(&self) -> Result<ValueIterator> {
+        let new_vm = crate::vm::clone_generator_vm(&self.vm)?;
+        Ok(ValueIterator::with_vm(new_vm))
     }
 }
 
@@ -575,8 +634,8 @@ impl<T> KotoIterator for StdForwardIterator<T>
 where
     T: Iterator<Item = Output> + Clone + 'static,
 {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 }
 
@@ -603,8 +662,8 @@ impl<T> KotoIterator for StdDoubleEndedIterator<T>
 where
     T: DoubleEndedIterator<Item = Output> + Clone + 'static,
 {
-    fn make_copy(&self) -> ValueIterator {
-        ValueIterator::new(self.clone())
+    fn make_copy(&self) -> Result<ValueIterator> {
+        Ok(ValueIterator::new(self.clone()))
     }
 
     fn is_bidirectional(&self) -> bool {

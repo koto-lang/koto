@@ -15,15 +15,17 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("generator", |vm, args| {
-        match vm.get_args(args) {
+        let rng = match vm.get_args(args) {
             // No seed, make RNG from entropy
-            [] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::from_entropy())),
+            [] => ChaCha8Rng::from_entropy(),
             // RNG from seed
-            [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::seed_from_u64(
-                n.to_bits(),
-            ))),
-            unexpected => type_error_with_slice("an optional seed Number as argument", unexpected),
-        }
+            [Value::Number(n)] => ChaCha8Rng::seed_from_u64(n.to_bits()),
+            unexpected => {
+                return type_error_with_slice("an optional seed Number as argument", unexpected)
+            }
+        };
+
+        Ok(ChaChaRng::make_value(rng))
     });
 
     result.add_fn("number", |_, _| {
@@ -41,30 +43,12 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-thread_local! {
-    static RNG_META: PtrMut<MetaMap> = make_rng_meta_map();
-
-    static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
-}
-
-fn make_rng_meta_map() -> PtrMut<MetaMap> {
-    MetaMapBuilder::<ChaChaRng>::new("Rng")
-        .function("bool", |context| context.data_mut()?.gen_bool())
-        .function("number", |context| context.data_mut()?.gen_number())
-        .function("pick", |context| context.data_mut()?.pick(context.args))
-        .function("seed", |context| context.data_mut()?.seed(context.args))
-        .build()
-}
-
 #[derive(Clone, Debug)]
 struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
-    fn make_external_value(rng: ChaCha8Rng) -> Value {
-        let result =
-            External::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
-
-        Value::External(result)
+    fn make_value(rng: ChaCha8Rng) -> Value {
+        Object::from(Self(rng)).into()
     }
 
     fn gen_bool(&mut self) -> RuntimeResult {
@@ -117,16 +101,31 @@ impl ChaChaRng {
     }
 }
 
-impl ExternalData for ChaChaRng {
-    fn data_type(&self) -> ValueString {
-        TYPE_RNG.with(|x| x.clone())
+impl KotoType for ChaChaRng {
+    const TYPE: &'static str = "Rng";
+}
+
+impl KotoObject for ChaChaRng {
+    fn object_type(&self) -> ValueString {
+        RNG_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(self.clone())
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        RNG_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 }
 
+fn rng_entries() -> DataMap {
+    ObjectEntryBuilder::<ChaChaRng>::new()
+        .method("bool", |ctx| ctx.instance_mut()?.gen_bool())
+        .method("number", |ctx| ctx.instance_mut()?.gen_number())
+        .method("pick", |ctx| ctx.instance_mut()?.pick(ctx.args))
+        .method("seed", |ctx| ctx.instance_mut()?.seed(ctx.args))
+        .build()
+}
+
 thread_local! {
-    static TYPE_RNG: ValueString = "Rng".into();
+    static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
+    static RNG_TYPE_STRING: ValueString = ChaChaRng::TYPE.into();
+    static RNG_ENTRIES: DataMap = rng_entries();
 }

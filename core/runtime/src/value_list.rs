@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, Result};
 
 /// The underlying Vec type used by [ValueList]
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
@@ -45,7 +45,7 @@ impl ValueList {
 }
 
 impl KotoDisplay for ValueList {
-    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> Result<()> {
         s.push('[');
         for (i, value) in self.data().iter().enumerate() {
             if i > 0 {
@@ -61,6 +61,6 @@ impl KotoDisplay for ValueList {
         }
         s.push(']');
 
-        Ok(().into())
+        Ok(())
     }
 }

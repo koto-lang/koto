@@ -14,10 +14,10 @@ use {
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 
-/// The meta map used by [ValueMap](crate::ValueMap) and [External](crate::External)
+/// The meta map used by [ValueMap](crate::ValueMap)
 ///
-/// Each ValueMap and External contains a metamap,
-/// which allows for customized value behaviour by implementing [MetaKeys](crate::MetaKey).
+/// Each ValueMap contains a metamap, which allows for customized value behaviour by implementing
+/// [MetaKeys](crate::MetaKey).
 #[derive(Clone, Debug, Default)]
 pub struct MetaMap(MetaMapType);
 
@@ -83,10 +83,7 @@ pub enum MetaKey {
     ///
     /// e.g. `@meta my_named_key`
     ///
-    /// This allows for named entries to be included in the meta map,
-    /// which is particularly useful in [External](crate::External) metamaps.
-    ///
-    /// Named entries also have use in [ValueMaps][crate::ValueMap] where shared named items can be
+    /// Named entries are used in [ValueMaps][crate::ValueMap], so that shared named items can be
     /// made available without them being inserted into the map's contents.
     Named(ValueString),
     /// A test function
