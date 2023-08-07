@@ -177,6 +177,12 @@ impl Deref for ValueString {
     }
 }
 
+impl AsRef<str> for ValueString {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl From<&str> for ValueString {
     fn from(s: &str) -> Self {
         Self::new(s.into())
@@ -207,13 +213,18 @@ impl fmt::Display for ValueString {
 }
 
 impl KotoDisplay for ValueString {
-    fn display(&self, s: &mut String, _vm: &mut Vm, options: KotoDisplayOptions) -> Result<()> {
+    fn display(
+        &self,
+        s: &mut StringBuilder,
+        _vm: &mut Vm,
+        options: KotoDisplayOptions,
+    ) -> Result<()> {
         if options.contained_value {
-            s.push('\'');
-            s.push_str(self);
-            s.push('\'');
+            s.append('\'');
+            s.append(self);
+            s.append('\'');
         } else {
-            s.push_str(self);
+            s.append(self);
         }
         Ok(())
     }

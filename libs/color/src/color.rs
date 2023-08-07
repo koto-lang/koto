@@ -176,8 +176,8 @@ impl KotoObject for Color {
         COLOR_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut String, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.push_str(&self.to_string());
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(self.to_string());
         Ok(())
     }
 

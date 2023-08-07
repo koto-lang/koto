@@ -53,18 +53,17 @@ pub fn make_module() -> ValueMap {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
             let mut display_vm = None;
-            let mut node_string = String::new();
             for node in nodes {
                 match node {
                     Str(s) => path.push(s.as_str()),
                     other => {
-                        node_string.clear();
+                        let mut node_string = StringBuilder::default();
                         other.display(
                             &mut node_string,
                             display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
                             KotoDisplayOptions::default(),
                         )?;
-                        path.push(&node_string);
+                        path.push(&node_string.build());
                     }
                 }
             }
@@ -209,8 +208,8 @@ impl KotoObject for File {
         FILE_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut String, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.push_str(&format!("{}({})", Self::TYPE, self.id()));
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(format!("{}({})", Self::TYPE, self.id()));
         Ok(())
     }
 }
@@ -256,20 +255,20 @@ fn file_entries() -> DataMap {
         })
         .method("write", |ctx| match ctx.args {
             [value] => {
-                let mut string_to_write = String::new();
+                let mut string_to_write = crate::StringBuilder::default();
                 value.display(
                     &mut string_to_write,
                     &mut ctx.vm.spawn_shared_vm(),
                     KotoDisplayOptions::default(),
                 )?;
                 ctx.instance_mut()?
-                    .write(string_to_write.as_bytes())
+                    .write(string_to_write.build().as_bytes())
                     .map(|_| Null)
             }
             unexpected => type_error_with_slice("a single argument", unexpected),
         })
         .method("write_line", |ctx| {
-            let mut string_to_write = String::new();
+            let mut string_to_write = crate::StringBuilder::default();
             match ctx.args {
                 [] => {}
                 [value] => {
@@ -281,9 +280,9 @@ fn file_entries() -> DataMap {
                 }
                 unexpected => return type_error_with_slice("a single argument", unexpected),
             };
-            string_to_write.push('\n');
+            string_to_write.append('\n');
             ctx.instance_mut()?
-                .write(string_to_write.as_bytes())
+                .write(string_to_write.build().as_bytes())
                 .map(|_| Null)
         })
         .build()

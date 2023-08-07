@@ -11,6 +11,7 @@ mod int_range;
 mod meta_map;
 mod object;
 mod stdio;
+mod string_builder;
 mod value_iterator;
 mod value_key;
 mod value_list;
@@ -35,6 +36,7 @@ pub use {
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
+    string_builder::StringBuilder,
     value::{FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,

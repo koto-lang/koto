@@ -45,11 +45,16 @@ impl ValueList {
 }
 
 impl KotoDisplay for ValueList {
-    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> Result<()> {
-        s.push('[');
+    fn display(
+        &self,
+        s: &mut StringBuilder,
+        vm: &mut Vm,
+        _options: KotoDisplayOptions,
+    ) -> Result<()> {
+        s.append('[');
         for (i, value) in self.data().iter().enumerate() {
             if i > 0 {
-                s.push_str(", ");
+                s.append(", ");
             }
             value.display(
                 s,
@@ -59,7 +64,7 @@ impl KotoDisplay for ValueList {
                 },
             )?;
         }
-        s.push(']');
+        s.append(']');
 
         Ok(())
     }

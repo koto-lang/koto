@@ -85,8 +85,8 @@ impl KotoObject for DateTime {
         DATETIME_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut String, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.push_str(&self.format("%F %T").to_string());
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(self.format("%F %T").to_string());
         Ok(())
     }
 }
@@ -155,8 +155,8 @@ impl KotoObject for Timer {
         TIMER_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut String, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.push_str(&format!("{}({:.3}s)", Self::TYPE, self.elapsed_seconds()));
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(format!("{}({:.3}s)", Self::TYPE, self.elapsed_seconds()));
         Ok(())
     }
 

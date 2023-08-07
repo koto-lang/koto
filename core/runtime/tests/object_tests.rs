@@ -90,8 +90,13 @@ mod objects {
             TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
         }
 
-        fn display(&self, out: &mut String, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-            out.push_str(&format!("{}: {}", Self::TYPE, self.x));
+        fn display(
+            &self,
+            out: &mut StringBuilder,
+            _: &mut Vm,
+            _: KotoDisplayOptions,
+        ) -> Result<()> {
+            out.append(format!("{}: {}", Self::TYPE, self.x));
             Ok(())
         }
 

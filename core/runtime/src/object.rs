@@ -47,8 +47,13 @@ pub trait KotoObject: KotoCopyable + Downcast {
     /// displayed.
     ///
     /// The [KotoDisplayOptions] provide context that might alter the ideal string representation.
-    fn display(&self, out: &mut String, _vm: &mut Vm, _options: KotoDisplayOptions) -> Result<()> {
-        out.push_str(&self.object_type());
+    fn display(
+        &self,
+        out: &mut StringBuilder,
+        _vm: &mut Vm,
+        _options: KotoDisplayOptions,
+    ) -> Result<()> {
+        out.append(self.object_type());
         Ok(())
     }
 

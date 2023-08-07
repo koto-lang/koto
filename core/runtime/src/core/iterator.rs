@@ -677,11 +677,11 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
-            let mut result = String::with_capacity(size_hint);
+            let mut result = crate::StringBuilder::with_capacity(size_hint);
             let mut display_vm = None;
             for output in iterator.map(collect_pair) {
                 match output {
-                    Output::Value(Str(s)) => result.push_str(&s),
+                    Output::Value(Str(s)) => result.append(s),
                     Output::Value(value) => {
                         value.display(
                             &mut result,
@@ -694,7 +694,7 @@ pub fn make_module() -> ValueMap {
                 };
             }
 
-            Ok(result.into())
+            Ok(result.build().into())
         }
         unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });

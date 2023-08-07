@@ -404,9 +404,9 @@ impl Vm {
 
     /// Returns a displayable string for the given value
     pub fn value_to_string(&mut self, value: &Value) -> Result<String> {
-        let mut result = String::new();
+        let mut result = StringBuilder::default();
         value.display(&mut result, self, KotoDisplayOptions::default())?;
-        Ok(result)
+        Ok(result.build())
     }
 
     /// Provides the result of running a unary operation on a Value
@@ -770,7 +770,7 @@ impl Vm {
                 size_hint,
             } => self.set_register(
                 register,
-                Value::StringBuilder(String::with_capacity(size_hint)),
+                Value::StringBuilder(StringBuilder::with_capacity(size_hint)),
             ),
             StringPush { register, value } => self.run_string_push(register, value)?,
             StringFinish { register } => self.run_string_finish(register)?,
@@ -1423,10 +1423,10 @@ impl Vm {
                 self.call_overloaded_unary_op(result, value, op)
             }
             other => {
-                let mut display_string = String::new();
+                let mut display_string = StringBuilder::default();
                 match other.display(&mut display_string, self, KotoDisplayOptions::default()) {
                     Ok(_) => {
-                        self.set_register(result, display_string.into());
+                        self.set_register(result, display_string.build().into());
                         Ok(())
                     }
                     Err(_) => runtime_error!("Failed to get display value"),
@@ -2949,7 +2949,7 @@ impl Vm {
         match display_result {
             Value::Str(string) => match self.get_register_mut(register) {
                 Value::StringBuilder(builder) => {
-                    builder.push_str(&string);
+                    builder.append(string);
                     Ok(())
                 }
                 other => type_error("StringBuilder", other),
@@ -2963,7 +2963,7 @@ impl Vm {
         match self.remove_register(register) {
             Value::StringBuilder(result) => {
                 // Make a ValueString out of the string builder's contents
-                self.set_register(register, Value::Str(ValueString::from(result)));
+                self.set_register(register, result.build().into());
                 Ok(())
             }
             other => type_error("StringBuilder", &other),

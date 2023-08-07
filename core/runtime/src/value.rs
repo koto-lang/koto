@@ -71,7 +71,7 @@ pub enum Value {
     /// The string builder used during string interpolation
     ///
     /// Note: this is intended for internal use only.
-    StringBuilder(String),
+    StringBuilder(StringBuilder),
 }
 
 impl Value {
@@ -223,7 +223,12 @@ impl Value {
 }
 
 impl KotoDisplay for Value {
-    fn display(&self, out: &mut String, vm: &mut Vm, options: KotoDisplayOptions) -> Result<()> {
+    fn display(
+        &self,
+        out: &mut StringBuilder,
+        vm: &mut Vm,
+        options: KotoDisplayOptions,
+    ) -> Result<()> {
         use Value::*;
         let result = match self {
             Null => out.write_str("null"),
@@ -238,7 +243,7 @@ impl KotoDisplay for Value {
                 write!(out, "TemporaryTuple [{start}..{}]", start + count)
             }
             SequenceBuilder(_) => out.write_str("SequenceBuilder"),
-            StringBuilder(sb) => write!(out, "StringBuilder({sb})"),
+            StringBuilder(_) => write!(out, "StringBuilder"),
             Str(s) => return s.display(out, vm, options),
             List(l) => return l.display(out, vm, options),
             Tuple(t) => return t.display(out, vm, options),

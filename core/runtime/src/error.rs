@@ -93,7 +93,7 @@ impl fmt::Display for RuntimeError {
         let message = match &self.error {
             StringError(s) => s.clone(),
             KotoError { thrown_value, vm } => {
-                let mut message = String::new();
+                let mut message = StringBuilder::default();
                 if thrown_value
                     .display(
                         &mut message,
@@ -102,7 +102,7 @@ impl fmt::Display for RuntimeError {
                     )
                     .is_ok()
                 {
-                    message
+                    message.build()
                 } else {
                     "Unable to get error message".to_string()
                 }
