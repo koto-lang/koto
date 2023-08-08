@@ -22,12 +22,16 @@ impl KotoObject for Rect {
         RECT_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        (*self).into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         RECT_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.append(self.to_string());
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(self.to_string());
         Ok(())
     }
 

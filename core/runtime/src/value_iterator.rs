@@ -22,7 +22,7 @@ pub trait KotoIterator: Iterator<Item = ValueIteratorOutput> {
 }
 
 /// The output type for iterators in Koto
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ValueIteratorOutput {
     /// A single value
     Value(Value),

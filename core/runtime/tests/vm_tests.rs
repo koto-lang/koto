@@ -2474,9 +2474,13 @@ iterator.every_other = ||
         fn escaped_backslash() {
             test_script(r#""\\""#, string("\\"));
         }
+    }
+
+    mod string_interpolation {
+        use super::*;
 
         #[test]
-        fn interpolated_id() {
+        fn id() {
             let script = "
 x = 1
 '$x + $x'
@@ -2485,7 +2489,7 @@ x = 1
         }
 
         #[test]
-        fn interpolated_id_from_capture() {
+        fn id_from_capture() {
             let script = "
 x = 1
 f = || '$x.$x'
@@ -2495,7 +2499,7 @@ f()
         }
 
         #[test]
-        fn interpolated_expression() {
+        fn expression() {
             let script = "
 x = 100
 'sqrt(x): ${x.sqrt()}'
@@ -2504,7 +2508,7 @@ x = 100
         }
 
         #[test]
-        fn interpolated_expression_nested() {
+        fn nested_expression() {
             let script = "
 'foo${': ${42}'}'
 ";
@@ -2512,7 +2516,7 @@ x = 100
         }
 
         #[test]
-        fn interpolated_expression_inline_map() {
+        fn inline_map() {
             let script = "
 foo = |m| m.size()
 '${foo {bar: 42, baz: 99}}!'
@@ -2521,7 +2525,7 @@ foo = |m| m.size()
         }
 
         #[test]
-        fn interpolated_expression_using_capture() {
+        fn using_capture() {
             let script = "
 x = 10
 f = || 'x * 2 == ${x * 2}'
@@ -2565,7 +2569,7 @@ m.'key$x'
         }
 
         #[test]
-        fn interpolated_string_with_value_with_overloaded_display() {
+        fn value_with_overloaded_display() {
             let script = "
 foo = {@display: || 'Foo'}
 '$foo'
@@ -2574,11 +2578,40 @@ foo = {@display: || 'Foo'}
         }
 
         #[test]
-        fn interpolated_string_with_multiple_expressions_in_curly_braces() {
+        fn multiple_expressions() {
             let script = "
 '${1, 2, 3}'
 ";
             test_script(script, string("(1, 2, 3)"));
+        }
+
+        #[test]
+        fn recursive_list() {
+            let script = "
+x = [1, 2]
+x.push x
+'$x'
+";
+            test_script(script, string("[1, 2, [...]]"));
+        }
+
+        #[test]
+        fn recursive_map() {
+            let script = "
+x = {foo: 1, bar: 2}
+x.baz = x
+'$x'
+";
+            test_script(script, string("{foo: 1, bar: 2, baz: {...}}"));
+        }
+
+        #[test]
+        fn strings_in_tuples() {
+            let script = "
+x = ('foo', 'bar')
+'$x'
+";
+            test_script(script, string("('foo', 'bar')"));
         }
     }
 

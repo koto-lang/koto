@@ -50,18 +50,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
-            let mut display_vm = None;
+
             for node in nodes {
                 match node {
                     Str(s) => path.push(s.as_str()),
                     other => {
-                        let mut node_string = StringBuilder::default();
-                        other.display(
-                            &mut node_string,
-                            display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
-                            KotoDisplayOptions::default(),
-                        )?;
-                        path.push(&node_string.build());
+                        let mut display_context = DisplayContext::with_vm(vm);
+                        other.display(&mut display_context)?;
+                        path.push(&display_context.result());
                     }
                 }
             }
@@ -202,12 +198,16 @@ impl KotoObject for File {
         FILE_TYPE_STRING.with(|t| t.clone())
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         FILE_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
-        out.append(format!("{}({})", Self::TYPE, self.id()));
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(format!("{}({})", Self::TYPE, self.id()));
         Ok(())
     }
 }
@@ -253,34 +253,24 @@ fn file_entries() -> DataMap {
         })
         .method("write", |ctx| match ctx.args {
             [value] => {
-                let mut string_to_write = crate::StringBuilder::default();
-                value.display(
-                    &mut string_to_write,
-                    &mut ctx.vm.spawn_shared_vm(),
-                    KotoDisplayOptions::default(),
-                )?;
+                let mut display_context = DisplayContext::with_vm(ctx.vm);
+                value.display(&mut display_context)?;
                 ctx.instance_mut()?
-                    .write(string_to_write.build().as_bytes())
+                    .write(display_context.result().as_bytes())
                     .map(|_| Null)
             }
             unexpected => type_error_with_slice("a single argument", unexpected),
         })
         .method("write_line", |ctx| {
-            let mut string_to_write = crate::StringBuilder::default();
+            let mut display_context = DisplayContext::with_vm(ctx.vm);
             match ctx.args {
                 [] => {}
-                [value] => {
-                    value.display(
-                        &mut string_to_write,
-                        &mut ctx.vm.spawn_shared_vm(),
-                        KotoDisplayOptions::default(),
-                    )?;
-                }
+                [value] => value.display(&mut display_context)?,
                 unexpected => return type_error_with_slice("a single argument", unexpected),
             };
-            string_to_write.append('\n');
+            display_context.append('\n');
             ctx.instance_mut()?
-                .write(string_to_write.build().as_bytes())
+                .write(display_context.result().as_bytes())
                 .map(|_| Null)
         })
         .build()

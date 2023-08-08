@@ -1,11 +1,11 @@
 use crate::{prelude::*, ExternalFunction, Result};
 use downcast_rs::{impl_downcast, Downcast};
-use std::{cell::RefCell, fmt, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
 /// See also: [Object].
-pub trait KotoObject: KotoCopyable + Downcast {
+pub trait KotoObject: Downcast {
     /// The type of the Object as a [ValueString]
     ///
     /// A typical pattern will be to implement [KotoType] for use with [ObjectEntryBuilder],
@@ -29,6 +29,10 @@ pub trait KotoObject: KotoCopyable + Downcast {
     ///     fn object_type(&self) -> ValueString {
     ///         FOO_TYPE_STRING.with(|t| t.clone())
     ///     }
+    ///
+    ///     fn copy(&self) -> Object {
+    ///         Object::from(self.clone())
+    ///     }
     /// }
     ///
     /// thread_local! {
@@ -37,27 +41,29 @@ pub trait KotoObject: KotoCopyable + Downcast {
     /// ```
     fn object_type(&self) -> ValueString;
 
+    /// How the object should behave when called from `koto.copy`
+    ///
+    /// A default implementation can't be provided here, but a typical implementation will look
+    /// similar to: `Object::from(self.clone())`
+    fn copy(&self) -> Object;
+
+    /// How the object should behave when called from `koto.deep_copy`
+    ///
+    /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
+    /// by the object (see [Value::deep_copy]).
+    fn deep_copy(&self) -> Object {
+        self.copy()
+    }
+
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
     /// By default, the object's type is used as the display string.
     ///
-    /// A VM is provided as an argument in case the object contains other Koto values that should be
-    /// displayed.
-    ///
-    /// The [KotoDisplayOptions] provide context that might alter the ideal string representation.
-    fn display(
-        &self,
-        out: &mut StringBuilder,
-        _vm: &mut Vm,
-        _options: KotoDisplayOptions,
-    ) -> Result<()> {
-        out.append(self.object_type());
+    /// The [DisplayContext] is used to append strings to the result, and also provides context
+    /// about any parent containers.
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(self.object_type());
         Ok(())
-    }
-
-    /// Called when the object should be displayed in a debugging context
-    fn debug(&self) -> ValueString {
-        self.object_type()
     }
 
     /// Returns a [Value] corresponding to the specified key within the object
@@ -211,36 +217,8 @@ pub trait KotoObject: KotoCopyable + Downcast {
 
 impl_downcast!(KotoObject);
 
-impl fmt::Debug for dyn KotoObject {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.debug())
-    }
-}
-
-/// Defines how copies of [KotoObject]s should be made
-///
-/// A blanket default implementation is provided for any [KotoObject] that implements [Clone].
-pub trait KotoCopyable {
-    /// How the object should behave when called from `koto.copy`
-    fn copy(&self) -> Object;
-
-    /// How the object should behave when called from `koto.deep_copy`
-    ///
-    /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
-    /// by the object (see [Value::deep_copy]).
-    fn deep_copy(&self) -> Object {
-        self.copy()
-    }
-}
-
-impl<T: Clone + KotoObject> KotoCopyable for T {
-    fn copy(&self) -> Object {
-        self.clone().into()
-    }
-}
-
 /// A wrapper for [KotoObject]s used in the Koto runtime
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Object {
     object: PtrMut<dyn KotoObject>,
 }
@@ -280,7 +258,7 @@ impl Object {
             .map_err(|_| make_runtime_error!("Incorrect object type"))
     }
 
-    /// Checks if the provided object is the same instance as this one
+    /// Returns true if the provided object occupies the same memory address
     pub fn is_same_instance(&self, other: &Self) -> bool {
         PtrMut::ptr_eq(&self.object, &other.object)
     }
@@ -319,6 +297,10 @@ pub trait KotoType {
 /// impl KotoObject for Foo {
 ///     fn object_type(&self) -> ValueString {
 ///         FOO_TYPE_STRING.with(|t| t.clone())
+///     }
+///
+///     fn copy(&self) -> Object {
+///         self.clone().into()
 ///     }
 ///
 ///     fn lookup(&self, key: &ValueKey) -> Option<Value> {

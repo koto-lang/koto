@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use koto_bytecode::Chunk;
 use koto_parser::format_error_with_excerpt;
-use std::{cell::RefCell, error, fmt, ops::DerefMut};
+use std::{cell::RefCell, error, fmt};
 
 /// A chunk and ip in a call stack where an error was thrown
 #[derive(Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct ErrorFrame {
 }
 
 /// The different error types that can be thrown by the Koto runtime
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) enum RuntimeErrorType {
     /// A runtime error message
     StringError(String),
@@ -27,6 +27,33 @@ pub(crate) enum RuntimeErrorType {
         // which expectes an immutable self reference.
         vm: RefCell<Vm>,
     },
+}
+
+impl fmt::Display for RuntimeErrorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use RuntimeErrorType::*;
+
+        match self {
+            StringError(s) => f.write_str(s),
+            KotoError { thrown_value, vm } => {
+                let vm = vm.borrow();
+                let mut display_context = DisplayContext::with_vm(&vm);
+
+                let message = if thrown_value.display(&mut display_context).is_ok() {
+                    display_context.result()
+                } else {
+                    "Unable to get error message".to_string()
+                };
+                f.write_str(&message)
+            }
+        }
+    }
+}
+
+impl fmt::Debug for RuntimeErrorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
 }
 
 /// An error thrown by the Koto runtime
@@ -86,28 +113,9 @@ impl From<&str> for RuntimeError {
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use RuntimeErrorType::*;
+        let message = self.error.to_string();
 
-        let message = match &self.error {
-            StringError(s) => s.clone(),
-            KotoError { thrown_value, vm } => {
-                let mut message = StringBuilder::default();
-                if thrown_value
-                    .display(
-                        &mut message,
-                        vm.borrow_mut().deref_mut(),
-                        KotoDisplayOptions::default(),
-                    )
-                    .is_ok()
-                {
-                    message.build()
-                } else {
-                    "Unable to get error message".to_string()
-                }
-            }
-        };
-
-        if f.alternate() {
+        if f.alternate() || self.trace.is_empty() {
             f.write_str(&message)
         } else {
             let mut first_frame = true;
@@ -182,7 +190,7 @@ macro_rules! runtime_error {
 /// Creates an error that describes a type mismatch
 pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T> {
     runtime_error!(
-        "Expected {expected_str}, but found {}.",
+        "Expected {expected_str}, but found {}",
         unexpected.type_as_string().as_str()
     )
 }
@@ -207,5 +215,5 @@ pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[Value]) -> Res
         }
     };
 
-    runtime_error!("Expected {expected_str}, but found {message}.")
+    runtime_error!("Expected {expected_str}, but found {message}")
 }

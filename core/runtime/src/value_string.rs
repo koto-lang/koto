@@ -147,6 +147,18 @@ impl ValueString {
         // Safety: bounds have already been checked in new_with_bounds / with_bounds
         unsafe { self.string.get_unchecked(self.bounds.clone()) }
     }
+
+    /// Renders the string to the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        if ctx.is_contained() {
+            ctx.append('\'');
+            ctx.append(self);
+            ctx.append('\'');
+        } else {
+            ctx.append(self);
+        }
+        Ok(())
+    }
 }
 
 impl PartialEq<&str> for ValueString {
@@ -207,24 +219,6 @@ impl fmt::Debug for ValueString {
 impl fmt::Display for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
-    }
-}
-
-impl KotoDisplay for ValueString {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        _vm: &mut Vm,
-        options: KotoDisplayOptions,
-    ) -> Result<()> {
-        if options.contained_value {
-            s.append('\'');
-            s.append(self);
-            s.append('\'');
-        } else {
-            s.append(self);
-        }
-        Ok(())
     }
 }
 

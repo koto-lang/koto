@@ -4,7 +4,7 @@ use crate::{prelude::*, Result};
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 /// The Koto runtime's List type
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct ValueList(PtrMut<ValueVec>);
 
 impl ValueList {
@@ -42,30 +42,28 @@ impl ValueList {
     pub fn data_mut(&self) -> BorrowMut<ValueVec> {
         self.0.borrow_mut()
     }
-}
 
-impl KotoDisplay for ValueList {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        vm: &mut Vm,
-        _options: KotoDisplayOptions,
-    ) -> Result<()> {
-        s.append('[');
-        for (i, value) in self.data().iter().enumerate() {
-            if i > 0 {
-                s.append(", ");
+    /// Renders the list to the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append('[');
+
+        let id = PtrMut::address(&self.0);
+        if ctx.is_in_parents(id) {
+            ctx.append("...");
+        } else {
+            ctx.push_container(id);
+
+            for (i, value) in self.data().iter().enumerate() {
+                if i > 0 {
+                    ctx.append(", ");
+                }
+                value.display(ctx)?;
             }
-            value.display(
-                s,
-                vm,
-                KotoDisplayOptions {
-                    contained_value: true,
-                },
-            )?;
-        }
-        s.append(']');
 
+            ctx.pop_container();
+        }
+
+        ctx.append(']');
         Ok(())
     }
 }

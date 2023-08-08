@@ -19,7 +19,7 @@ type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<KotoHasher>>;
 /// The (ValueKey -> Value) 'data' hashmap used by the Koto runtime
 ///
 /// See also: [ValueMap]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct DataMap(DataMapType);
 
 impl DataMap {
@@ -53,7 +53,7 @@ impl FromIterator<(ValueKey, Value)> for DataMap {
 }
 
 /// The Map value type used in Koto
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct ValueMap {
     data: PtrMut<DataMap>,
     meta: Option<PtrMut<MetaMap>>,
@@ -177,39 +177,52 @@ impl ValueMap {
     pub fn is_empty(&self) -> bool {
         self.data().is_empty()
     }
-}
 
-impl KotoDisplay for ValueMap {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        vm: &mut Vm,
-        _options: KotoDisplayOptions,
-    ) -> Result<()> {
+    /// Returns true if the provided ValueMap occupies the same memory address
+    pub fn is_same_instance(&self, other: &Self) -> bool {
+        PtrMut::ptr_eq(&self.data, &other.data)
+    }
+
+    /// Renders the map to the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
+            let mut vm = ctx
+                .vm()
+                .ok_or_else(|| make_runtime_error!("Missing VM in map display op"))?
+                .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
                 Value::Str(display_result) => {
-                    s.append(display_result);
+                    ctx.append(display_result);
                 }
                 unexpected => return type_error("String as @display result", &unexpected),
             }
         } else {
-            s.append('{');
-            for (i, (key, value)) in self.data().iter().enumerate() {
-                if i > 0 {
-                    s.append(", ");
+            ctx.append('{');
+
+            let id = PtrMut::address(&self.data);
+
+            if ctx.is_in_parents(id) {
+                ctx.append("...");
+            } else {
+                ctx.push_container(id);
+
+                for (i, (key, value)) in self.data().iter().enumerate() {
+                    if i > 0 {
+                        ctx.append(", ");
+                    }
+
+                    let mut key_ctx = DisplayContext::default();
+                    key.value().display(&mut key_ctx)?;
+                    ctx.append(key_ctx.result());
+                    ctx.append(": ");
+
+                    value.display(ctx)?;
                 }
-                key.value().display(s, vm, KotoDisplayOptions::default())?;
-                s.append(": ");
-                value.display(
-                    s,
-                    vm,
-                    KotoDisplayOptions {
-                        contained_value: true,
-                    },
-                )?;
+
+                ctx.pop_container();
             }
-            s.append('}');
+
+            ctx.append('}');
         }
 
         Ok(())

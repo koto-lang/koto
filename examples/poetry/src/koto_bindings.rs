@@ -27,6 +27,10 @@ impl KotoObject for Poetry {
         Self::TYPE.into()
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn is_iterable(&self) -> IsIterable {
         IsIterable::ForwardIterator
     }

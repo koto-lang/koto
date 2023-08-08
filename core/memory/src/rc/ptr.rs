@@ -1,5 +1,7 @@
 use std::{fmt, ops::Deref, rc::Rc};
 
+use super::Address;
+
 /// An immutable pointer to a value in allocated memory
 #[derive(Debug, Default)]
 pub struct Ptr<T: ?Sized>(Rc<T>);
@@ -8,6 +10,20 @@ impl<T> Ptr<T> {
     /// Moves the value into newly allocated memory
     pub fn new(value: T) -> Self {
         Self(Rc::new(value))
+    }
+}
+
+impl<T: ?Sized> Ptr<T> {
+    /// Returns true if the two `Ptr`s point to the same allocation
+    ///
+    /// See also: [std::rc::Rc::ptr_eq]
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        Rc::ptr_eq(&this.0, &other.0)
+    }
+
+    /// Returns the address of the allocated memory
+    pub fn address(this: &Self) -> Address {
+        Rc::as_ptr(&this.0).into()
     }
 }
 

@@ -5,7 +5,7 @@ use koto_bytecode::Chunk;
 use std::fmt::Write;
 
 /// The core Value type for Koto
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub enum Value {
     /// The default type representing the absence of a value
     #[default]
@@ -69,7 +69,7 @@ pub enum Value {
     /// The string builder used during string interpolation
     ///
     /// Note: this is intended for internal use only.
-    StringBuilder(StringBuilder),
+    StringBuilder(String),
 }
 
 impl Value {
@@ -218,35 +218,29 @@ impl Value {
             _ => None,
         }
     }
-}
 
-impl KotoDisplay for Value {
-    fn display(
-        &self,
-        out: &mut StringBuilder,
-        vm: &mut Vm,
-        options: KotoDisplayOptions,
-    ) -> Result<()> {
+    /// Renders the value into the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         use Value::*;
         let result = match self {
-            Null => out.write_str("null"),
-            Bool(b) => write!(out, "{b}"),
-            Number(n) => write!(out, "{n}"),
-            Range(r) => write!(out, "{r}"),
-            SimpleFunction(_) | Function(_) => write!(out, "||"),
-            Generator(_) => out.write_str("Generator"),
-            Iterator(_) => out.write_str("Iterator"),
-            ExternalFunction(_) => out.write_str("||"),
+            Null => write!(ctx, "null"),
+            Bool(b) => write!(ctx, "{b}"),
+            Number(n) => write!(ctx, "{n}"),
+            Range(r) => write!(ctx, "{r}"),
+            SimpleFunction(_) | Function(_) => write!(ctx, "||"),
+            Generator(_) => write!(ctx, "Generator"),
+            Iterator(_) => write!(ctx, "Iterator"),
+            ExternalFunction(_) => write!(ctx, "||"),
             TemporaryTuple(RegisterSlice { start, count }) => {
-                write!(out, "TemporaryTuple [{start}..{}]", start + count)
+                write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
-            SequenceBuilder(_) => out.write_str("SequenceBuilder"),
-            StringBuilder(_) => write!(out, "StringBuilder"),
-            Str(s) => return s.display(out, vm, options),
-            List(l) => return l.display(out, vm, options),
-            Tuple(t) => return t.display(out, vm, options),
-            Map(m) => return m.display(out, vm, options),
-            Object(o) => return o.try_borrow()?.display(out, vm, options),
+            SequenceBuilder(_) => ctx.write_str("SequenceBuilder"),
+            StringBuilder(_) => write!(ctx, "StringBuilder"),
+            Str(s) => return s.display(ctx),
+            List(l) => return l.display(ctx),
+            Tuple(t) => return t.display(ctx),
+            Map(m) => return m.display(ctx),
+            Object(o) => return o.try_borrow()?.display(ctx),
         };
         if result.is_ok() {
             Ok(())
@@ -368,7 +362,7 @@ pub struct SimpleFunctionInfo {
 /// See also:
 /// * [Value::Function]
 /// * [SimpleFunctionInfo]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
