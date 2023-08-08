@@ -57,7 +57,7 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
                 }
                 Err(e) => {
                     print_chunk(script, vm.chunk());
-                    Err(format!("Error while comparing output value: {e}"))
+                    Err(format!("Error while comparing output value: ({e})"))
                 }
             }
         }

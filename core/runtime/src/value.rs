@@ -5,7 +5,7 @@ use koto_bytecode::Chunk;
 use std::fmt::Write;
 
 /// The core Value type for Koto
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub enum Value {
     /// The default type representing the absence of a value
     #[default]
@@ -362,7 +362,7 @@ pub struct SimpleFunctionInfo {
 /// See also:
 /// * [Value::Function]
 /// * [SimpleFunctionInfo]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,

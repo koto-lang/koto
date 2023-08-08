@@ -38,7 +38,7 @@ macro_rules! call_binary_op_or_else {
     }};
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ControlFlow {
     Continue,
     Return(Value),

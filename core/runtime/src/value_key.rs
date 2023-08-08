@@ -9,7 +9,7 @@ use std::{
 /// The key type used by [DataMap](crate::DataMap)
 ///
 /// Only hashable values can be used as keys, see [Value::is_hashable]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ValueKey(Value);
 
 impl ValueKey {

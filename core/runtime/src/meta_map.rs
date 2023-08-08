@@ -16,7 +16,7 @@ type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 ///
 /// Each ValueMap contains a metamap, which allows for customized value behaviour by implementing
 /// [MetaKeys](crate::MetaKey).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct MetaMap(MetaMapType);
 
 impl MetaMap {

@@ -4,7 +4,7 @@ use crate::{prelude::*, Result};
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 /// The Koto runtime's List type
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct ValueList(PtrMut<ValueVec>);
 
 impl ValueList {

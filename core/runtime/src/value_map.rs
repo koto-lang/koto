@@ -19,7 +19,7 @@ type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<KotoHasher>>;
 /// The (ValueKey -> Value) 'data' hashmap used by the Koto runtime
 ///
 /// See also: [ValueMap]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct DataMap(DataMapType);
 
 impl DataMap {
@@ -53,7 +53,7 @@ impl FromIterator<(ValueKey, Value)> for DataMap {
 }
 
 /// The Map value type used in Koto
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct ValueMap {
     data: PtrMut<DataMap>,
     meta: Option<PtrMut<MetaMap>>,

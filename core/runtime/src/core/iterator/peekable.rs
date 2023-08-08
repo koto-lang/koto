@@ -4,7 +4,7 @@ use super::iter_output_to_result;
 use crate::{prelude::*, Result, ValueIteratorOutput as Output};
 
 /// A double-ended peekable iterator for Koto
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Peekable {
     iter: ValueIterator,
     peeked_front: Option<Value>,

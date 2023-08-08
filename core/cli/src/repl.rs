@@ -271,8 +271,7 @@ impl Repl {
                             Err(e) => {
                                 print_wrapped!(
                                     stdout,
-                                    "Error while getting display string for value '{:?}' - {}",
-                                    result,
+                                    "Error while getting display string for return value ({})",
                                     e
                                 )?;
                             }

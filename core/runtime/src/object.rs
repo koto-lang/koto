@@ -1,6 +1,6 @@
 use crate::{prelude::*, ExternalFunction, Result};
 use downcast_rs::{impl_downcast, Downcast};
-use std::{cell::RefCell, fmt, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
@@ -46,11 +46,6 @@ pub trait KotoObject: KotoCopyable + Downcast {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.object_type());
         Ok(())
-    }
-
-    /// Called when the object should be displayed in a debugging context
-    fn debug(&self) -> ValueString {
-        self.object_type()
     }
 
     /// Returns a [Value] corresponding to the specified key within the object
@@ -204,12 +199,6 @@ pub trait KotoObject: KotoCopyable + Downcast {
 
 impl_downcast!(KotoObject);
 
-impl fmt::Debug for dyn KotoObject {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.debug())
-    }
-}
-
 /// Defines how copies of [KotoObject]s should be made
 ///
 /// A blanket default implementation is provided for any [KotoObject] that implements [Clone].
@@ -233,7 +222,7 @@ impl<T: Clone + KotoObject> KotoCopyable for T {
 }
 
 /// A wrapper for [KotoObject]s used in the Koto runtime
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Object {
     object: PtrMut<dyn KotoObject>,
 }
