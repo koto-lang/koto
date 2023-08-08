@@ -1,10 +1,17 @@
+//! A collection of tests that validate REPL-like usage of Koto
+//!
+//! The main difference between the normal mode is that top-level IDs get automatically exported so
+//! that each REPL entry can be compiled and executed as a separate chunk.
+//! The exports map gets populated with any top-level assigned IDs, and is then made available to
+//! each subsequent chunk.
+
 use {koto::prelude::*, std::rc::Rc};
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
     let output = PtrMut::from(String::new());
 
     let mut koto = Koto::with_settings(KotoSettings {
-        repl_mode: true,
+        export_top_level_ids: true,
         stdout: Rc::new(OutputCapture {
             output: output.clone(),
         }),

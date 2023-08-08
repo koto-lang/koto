@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use {
-    koto_bytecode::{Chunk, Loader},
+    koto_bytecode::{Chunk, CompilerSettings, Loader},
     koto_runtime::{prelude::*, Value::*},
     std::{cell::RefCell, rc::Rc},
 };
@@ -30,7 +30,7 @@ pub fn test_script(script: &str, expected_output: impl Into<Value>) {
 
 pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> Result<(), String> {
     let mut loader = Loader::default();
-    let chunk = match loader.compile_script(script, &None) {
+    let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {
             print_chunk(script, vm.chunk());

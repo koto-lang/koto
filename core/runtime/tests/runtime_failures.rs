@@ -1,6 +1,6 @@
 mod runtime {
     use {
-        koto_bytecode::{Chunk, Loader},
+        koto_bytecode::{Chunk, CompilerSettings, Loader},
         koto_runtime::Vm,
     };
 
@@ -15,7 +15,7 @@ mod runtime {
         };
 
         let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None) {
+        let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
                 print_chunk(script, vm.chunk());

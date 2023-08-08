@@ -1,6 +1,7 @@
 use {
     crate::prelude::*,
     dunce::canonicalize,
+    koto_bytecode::CompilerSettings,
     koto_runtime::ModuleImportedCallback,
     std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
@@ -73,14 +74,14 @@ pub struct KotoSettings {
     pub run_tests: bool,
     /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
-    /// Whether or not Koto should be run in REPL mode
+    /// Whether or not top-level identifiers should be automatically exported
     ///
     /// The default behaviour in Koto is that `export` expressions are required to make a value
     /// available outside of the current module.
     ///
-    /// REPL mode will export all top-level items without requiring `export`, allowing for
-    /// incremental compilation and execution of expressions that should share declared values.
-    pub repl_mode: bool,
+    /// This is used by the REPL, allowing for incremental compilation and execution of expressions
+    /// that need to share declared values.
+    pub export_top_level_ids: bool,
     /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
     /// The runtime's stdout
@@ -141,7 +142,7 @@ impl Default for KotoSettings {
         Self {
             run_tests: true,
             run_import_tests: true,
-            repl_mode: false,
+            export_top_level_ids: false,
             stdin: default_vm_settings.stdin,
             stdout: default_vm_settings.stdout,
             stderr: default_vm_settings.stderr,
@@ -154,7 +155,7 @@ impl Default for KotoSettings {
 pub struct Koto {
     runtime: Vm,
     run_tests: bool,
-    repl_mode: bool,
+    export_top_level_ids: bool,
     script_path: Option<PathBuf>,
     chunk: Option<Ptr<Chunk>>,
 }
@@ -182,7 +183,7 @@ impl Koto {
                 module_imported_callback: settings.module_imported_callback,
             }),
             run_tests: settings.run_tests,
-            repl_mode: settings.repl_mode,
+            export_top_level_ids: settings.export_top_level_ids,
             chunk: None,
             script_path: None,
         }
@@ -192,16 +193,15 @@ impl Koto {
     ///
     /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
     pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>, KotoError> {
-        let compile_result = if self.repl_mode {
-            self.runtime.loader().borrow_mut().compile_repl(script)
-        } else {
-            self.runtime
-                .loader()
-                .borrow_mut()
-                .compile_script(script, &self.script_path)
-        };
+        let result = self.runtime.loader().borrow_mut().compile_script(
+            script,
+            &self.script_path,
+            CompilerSettings {
+                export_top_level_ids: self.export_top_level_ids,
+            },
+        );
 
-        match compile_result {
+        match result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
                 Ok(chunk)
@@ -241,32 +241,28 @@ impl Koto {
     fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
-        if self.repl_mode {
-            Ok(result)
-        } else {
-            if self.run_tests {
-                let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
-                match maybe_tests {
-                    Some(Value::Map(tests)) => {
-                        self.runtime.run_tests(tests)?;
-                    }
-                    Some(other) => {
-                        return Err(KotoError::InvalidTestsType(
-                            other.type_as_string().to_string(),
-                        ));
-                    }
-                    None => {}
+        if self.run_tests {
+            let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
+            match maybe_tests {
+                Some(Value::Map(tests)) => {
+                    self.runtime.run_tests(tests)?;
                 }
+                Some(other) => {
+                    return Err(KotoError::InvalidTestsType(
+                        other.type_as_string().to_string(),
+                    ));
+                }
+                None => {}
             }
+        }
 
-            let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
-            if let Some(main) = maybe_main {
-                self.runtime
-                    .run_function(main, CallArgs::None)
-                    .map_err(|e| e.into())
-            } else {
-                Ok(result)
-            }
+        let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
+        if let Some(main) = maybe_main {
+            self.runtime
+                .run_function(main, CallArgs::None)
+                .map_err(|e| e.into())
+        } else {
+            Ok(result)
         }
     }
 
