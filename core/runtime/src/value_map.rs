@@ -182,46 +182,47 @@ impl ValueMap {
     pub fn is_same_instance(&self, other: &Self) -> bool {
         PtrMut::ptr_eq(&self.data, &other.data)
     }
-}
 
-impl KotoDisplay for ValueMap {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        vm: &mut Vm,
-        ctx: &mut KotoDisplayOptions,
-    ) -> Result<()> {
+    /// Renders the map to the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
+            let mut vm = ctx
+                .vm()
+                .ok_or_else(|| make_runtime_error!("Missing VM in map display op"))?
+                .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
                 Value::Str(display_result) => {
-                    s.append(display_result);
+                    ctx.append(display_result);
                 }
                 unexpected => return type_error("String as @display result", &unexpected),
             }
         } else {
-            s.append('{');
+            ctx.append('{');
 
             let id = PtrMut::address(&self.data);
 
             if ctx.is_in_parents(id) {
-                s.append("...");
+                ctx.append("...");
             } else {
                 ctx.push_container(id);
 
                 for (i, (key, value)) in self.data().iter().enumerate() {
                     if i > 0 {
-                        s.append(", ");
+                        ctx.append(", ");
                     }
-                    key.value()
-                        .display(s, vm, &mut KotoDisplayOptions::default())?;
-                    s.append(": ");
-                    value.display(s, vm, ctx)?;
+
+                    let mut key_ctx = DisplayContext::default();
+                    key.value().display(&mut key_ctx)?;
+                    ctx.append(key_ctx.result());
+                    ctx.append(": ");
+
+                    value.display(ctx)?;
                 }
 
                 ctx.pop_container();
             }
 
-            s.append('}');
+            ctx.append('}');
         }
 
         Ok(())

@@ -58,6 +58,25 @@ impl ValueTuple {
             None
         }
     }
+
+    /// Renders the tuple into the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        let id = Ptr::address(&self.data);
+        ctx.push_container(id);
+        ctx.append('(');
+
+        for (i, value) in self.iter().enumerate() {
+            if i > 0 {
+                ctx.append(", ");
+            }
+            value.display(ctx)?;
+        }
+
+        ctx.append(')');
+        ctx.pop_container();
+
+        Ok(())
+    }
 }
 
 impl Deref for ValueTuple {
@@ -75,31 +94,6 @@ impl Default for ValueTuple {
             data: Vec::default().into(),
             bounds: Range::default(),
         }
-    }
-}
-
-impl KotoDisplay for ValueTuple {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        vm: &mut Vm,
-        ctx: &mut KotoDisplayOptions,
-    ) -> Result<()> {
-        let id = Ptr::address(&self.data);
-        ctx.push_container(id);
-        s.append('(');
-
-        for (i, value) in self.iter().enumerate() {
-            if i > 0 {
-                s.append(", ");
-            }
-            value.display(s, vm, ctx)?;
-        }
-
-        s.append(')');
-        ctx.pop_container();
-
-        Ok(())
     }
 }
 

@@ -677,24 +677,17 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
-            let mut result = crate::StringBuilder::with_capacity(size_hint);
-            let mut display_vm = None;
+            let mut display_context = DisplayContext::with_vm_and_capacity(vm, size_hint);
             for output in iterator.map(collect_pair) {
                 match output {
-                    Output::Value(Str(s)) => result.append(s),
-                    Output::Value(value) => {
-                        value.display(
-                            &mut result,
-                            display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
-                            &mut KotoDisplayOptions::default(),
-                        )?;
-                    }
+                    Output::Value(Str(s)) => display_context.append(s),
+                    Output::Value(value) => value.display(&mut display_context)?,
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
                 };
             }
 
-            Ok(result.build().into())
+            Ok(display_context.result().into())
         }
         unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });

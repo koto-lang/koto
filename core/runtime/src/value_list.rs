@@ -42,34 +42,28 @@ impl ValueList {
     pub fn data_mut(&self) -> BorrowMut<ValueVec> {
         self.0.borrow_mut()
     }
-}
 
-impl KotoDisplay for ValueList {
-    fn display(
-        &self,
-        s: &mut StringBuilder,
-        vm: &mut Vm,
-        ctx: &mut KotoDisplayOptions,
-    ) -> Result<()> {
-        s.append('[');
+    /// Renders the list to the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append('[');
 
         let id = PtrMut::address(&self.0);
         if ctx.is_in_parents(id) {
-            s.append("...");
+            ctx.append("...");
         } else {
             ctx.push_container(id);
 
             for (i, value) in self.data().iter().enumerate() {
                 if i > 0 {
-                    s.append(", ");
+                    ctx.append(", ");
                 }
-                value.display(s, vm, ctx)?;
+                value.display(ctx)?;
             }
 
             ctx.pop_container();
         }
 
-        s.append(']');
+        ctx.append(']');
         Ok(())
     }
 }

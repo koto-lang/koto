@@ -41,17 +41,10 @@ pub trait KotoObject: KotoCopyable + Downcast {
     ///
     /// By default, the object's type is used as the display string.
     ///
-    /// A VM is provided as an argument in case the object contains other Koto values that should be
-    /// displayed.
-    ///
-    /// The [KotoDisplayOptions] provide context that might alter the ideal string representation.
-    fn display(
-        &self,
-        out: &mut StringBuilder,
-        _vm: &mut Vm,
-        _options: &mut KotoDisplayOptions,
-    ) -> Result<()> {
-        out.append(self.object_type());
+    /// The [DisplayContext] is used to append strings to the result, and also provides context
+    /// about any parent containers.
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(self.object_type());
         Ok(())
     }
 

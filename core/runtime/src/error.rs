@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use koto_bytecode::Chunk;
 use koto_parser::format_error_with_excerpt;
-use std::{cell::RefCell, error, fmt, ops::DerefMut};
+use std::{cell::RefCell, error, fmt};
 
 /// A chunk and ip in a call stack where an error was thrown
 #[derive(Clone, Debug)]
@@ -91,16 +91,11 @@ impl fmt::Display for RuntimeError {
         let message = match &self.error {
             StringError(s) => s.clone(),
             KotoError { thrown_value, vm } => {
-                let mut message = StringBuilder::default();
-                if thrown_value
-                    .display(
-                        &mut message,
-                        vm.borrow_mut().deref_mut(),
-                        &mut KotoDisplayOptions::default(),
-                    )
-                    .is_ok()
-                {
-                    message.build()
+                let vm = vm.borrow();
+                let mut display_context = DisplayContext::with_vm(&vm);
+
+                if thrown_value.display(&mut display_context).is_ok() {
+                    display_context.result()
                 } else {
                     "Unable to get error message".to_string()
                 }
