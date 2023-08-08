@@ -19,7 +19,6 @@ impl ExampleTestRunner {
         Self {
             output: output.clone(),
             koto: Koto::with_settings(KotoSettings {
-                repl_mode: false,
                 stdout: Rc::new(OutputCapture {
                     output: output.clone(),
                 }),

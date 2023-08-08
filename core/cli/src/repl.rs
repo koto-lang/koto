@@ -59,7 +59,7 @@ pub struct Repl {
 
 impl Repl {
     pub fn with_settings(repl_settings: ReplSettings, mut koto_settings: KotoSettings) -> Self {
-        koto_settings.repl_mode = true;
+        koto_settings.export_top_level_ids = true;
 
         let koto = Koto::with_settings(koto_settings);
 

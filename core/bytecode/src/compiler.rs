@@ -368,7 +368,10 @@ type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
 #[derive(Default)]
 pub struct CompilerSettings {
     /// Causes all top level identifiers to be exported
-    pub repl_mode: bool,
+    ///
+    /// This is used by the REPL to automatically export values so that they're available between
+    /// chunks.
+    pub export_top_level_ids: bool,
 }
 
 /// The compiler used by the Koto language
@@ -1045,7 +1048,7 @@ impl Compiler {
     }
 
     fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
-        if self.settings.repl_mode && self.frame_stack.len() == 1 {
+        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             Scope::Export
         } else {
             target.scope
@@ -1437,8 +1440,8 @@ impl Compiler {
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
 
-                            // If we're in repl mode then re-export the imported id
-                            if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                            // Should we export the imported ID?
+                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
                                 self.compile_value_export(*import_id, import_register)?;
                             }
                         }
@@ -1490,8 +1493,8 @@ impl Compiler {
                         if result.is_some() {
                             imported.push(import_register);
                         } else {
-                            // If we're in repl mode then re-export the imported id
-                            if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                            // Should we export the imported ID?
+                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
                                 self.compile_value_export(*import_id, import_register)?;
                             }
                         }
@@ -1837,6 +1840,14 @@ impl Compiler {
 
             self.push_op(op, &[lhs.register, rhs.register]);
 
+            // If the LHS is a top-level ID and the export flag is enabled, then export the result
+            if let Node::Id(id) = lhs_node.node {
+                if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                    self.compile_value_export(id, lhs.register)?;
+                }
+            }
+
+            // If there's a result register, then copy the result into it
             let result = if let Some(result) = result {
                 self.push_op(Op::Copy, &[result.register, lhs.register]);
                 Some(result)
@@ -3786,7 +3797,7 @@ impl Compiler {
 
         self.truncate_register_stack(stack_count)?;
 
-        if self.settings.repl_mode && self.frame_stack.len() == 1 {
+        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
                 if let Node::Id(id) = &ast.node(*arg).node {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {

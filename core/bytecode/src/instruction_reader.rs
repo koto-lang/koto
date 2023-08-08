@@ -451,7 +451,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "LoadNonLocal\tresult: {register}\tconstant: {constant}")
             }
             ValueExport { name, value } => {
-                write!(f, "ValueExport\tname: {name}\tvalue: {value}")
+                write!(f, "ValueExport\tname: {name}\t\tvalue: {value}")
             }
             Import { register } => write!(f, "Import\t\tregister: {register}"),
             MakeTempTuple {

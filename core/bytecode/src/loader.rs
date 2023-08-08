@@ -132,18 +132,14 @@ impl Loader {
         }
     }
 
-    /// Compiles a script in REPL mode
-    pub fn compile_repl(&mut self, script: &str) -> Result<Ptr<Chunk>, LoaderError> {
-        self.compile(script, None, CompilerSettings { repl_mode: true })
-    }
-
     /// Compiles a script
     pub fn compile_script(
         &mut self,
         script: &str,
         script_path: &Option<PathBuf>,
+        settings: CompilerSettings,
     ) -> Result<Ptr<Chunk>, LoaderError> {
-        self.compile(script, script_path.clone(), CompilerSettings::default())
+        self.compile(script, script_path.clone(), settings)
     }
 
     /// Finds a module from its name, and then compiles it
