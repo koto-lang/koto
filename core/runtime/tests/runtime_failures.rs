@@ -1,8 +1,6 @@
 mod runtime {
-    use {
-        koto_bytecode::{Chunk, CompilerSettings, Loader},
-        koto_runtime::Vm,
-    };
+    use koto_bytecode::{Chunk, CompilerSettings, Loader};
+    use koto_runtime::Vm;
 
     fn check_script_fails(script: &str) {
         let mut vm = Vm::default();

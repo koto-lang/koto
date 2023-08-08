@@ -1,11 +1,9 @@
-use {
-    crate::InstructionReader,
-    koto_memory::Ptr,
-    koto_parser::{ConstantPool, Span},
-    std::{
-        fmt::{self, Write},
-        path::PathBuf,
-    },
+use crate::InstructionReader;
+use koto_memory::Ptr;
+use koto_parser::{ConstantPool, Span};
+use std::{
+    fmt::{self, Write},
+    path::PathBuf,
 };
 
 /// Debug information for a Koto program

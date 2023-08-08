@@ -1,8 +1,6 @@
-use {
-    criterion::{criterion_group, criterion_main, Criterion},
-    koto::Koto,
-    std::{fs::read_to_string, path::PathBuf},
-};
+use criterion::{criterion_group, criterion_main, Criterion};
+use koto::Koto;
+use std::{fs::read_to_string, path::PathBuf};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]

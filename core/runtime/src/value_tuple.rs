@@ -1,7 +1,5 @@
-use {
-    crate::{prelude::*, Result},
-    std::ops::{Deref, Range},
-};
+use crate::{prelude::*, Result};
+use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
 #[derive(Clone, Debug)]

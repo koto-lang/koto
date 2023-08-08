@@ -1,10 +1,8 @@
 //! The `map` core library module
 
-use {
-    super::iterator::adaptors,
-    crate::{prelude::*, value_sort::compare_values},
-    std::cmp::Ordering,
-};
+use super::iterator::adaptors;
+use crate::{prelude::*, value_sort::compare_values};
+use std::cmp::Ordering;
 
 /// Initializes the `map` core library module
 pub fn make_module() -> ValueMap {

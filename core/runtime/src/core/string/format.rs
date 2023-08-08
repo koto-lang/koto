@@ -2,11 +2,9 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use {
-    crate::{runtime_error, RuntimeError, UnaryOp, Value, Vm},
-    koto_lexer::{is_id_continue, is_id_start},
-    std::{iter::Peekable, str::Chars},
-};
+use crate::{runtime_error, RuntimeError, UnaryOp, Value, Vm};
+use koto_lexer::{is_id_continue, is_id_start};
+use std::{iter::Peekable, str::Chars};
 
 #[derive(Debug, PartialEq, Eq)]
 enum FormatToken<'a> {
@@ -416,10 +414,8 @@ fn value_to_string(
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        crate::{DataMap, ValueMap},
-    };
+    use super::*;
+    use crate::{DataMap, ValueMap};
 
     fn spec_with_precision(precision: u32) -> FormatSpec {
         FormatSpec {

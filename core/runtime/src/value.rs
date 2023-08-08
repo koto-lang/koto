@@ -1,10 +1,8 @@
 //! The core value type used in the Koto runtime
 
-use {
-    crate::{prelude::*, ExternalFunction, Result},
-    koto_bytecode::Chunk,
-    std::fmt::Write,
-};
+use crate::{prelude::*, ExternalFunction, Result};
+use koto_bytecode::Chunk;
+use std::fmt::Write;
 
 /// The core Value type for Koto
 #[derive(Clone, Debug, Default)]

@@ -4,17 +4,15 @@ mod buffered_file;
 
 pub use buffered_file::BufferedFile;
 
-use {
-    super::string::format,
-    crate::{prelude::*, Result},
-    std::{
-        cell::RefCell,
-        fmt, fs,
-        io::{self, BufRead, Read, Seek, SeekFrom, Write},
-        ops::Deref,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+use super::string::format;
+use crate::{prelude::*, Result};
+use std::{
+    cell::RefCell,
+    fmt, fs,
+    io::{self, BufRead, Read, Seek, SeekFrom, Write},
+    ops::Deref,
+    path::{Path, PathBuf},
+    rc::Rc,
 };
 
 /// The initializer for the io module

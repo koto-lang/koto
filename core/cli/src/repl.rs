@@ -1,21 +1,19 @@
-use {
-    crate::help::Help,
-    crossterm::{
-        cursor,
-        event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
-        execute, queue, style,
-        terminal::{self, ClearType},
-        tty::IsTty,
-        Result,
-    },
-    koto::{bytecode::Chunk, Koto, KotoSettings},
-    std::{
-        cmp::Ordering,
-        fmt,
-        io::{self, Stdout, Write},
-    },
-    unicode_width::UnicodeWidthChar,
+use crate::help::Help;
+use crossterm::{
+    cursor,
+    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
+    execute, queue, style,
+    terminal::{self, ClearType},
+    tty::IsTty,
+    Result,
 };
+use koto::{bytecode::Chunk, Koto, KotoSettings};
+use std::{
+    cmp::Ordering,
+    fmt,
+    io::{self, Stdout, Write},
+};
+use unicode_width::UnicodeWidthChar;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

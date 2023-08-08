@@ -1,10 +1,8 @@
-use {
-    crate::prelude::*,
-    std::{
-        fmt,
-        hash::{Hash, Hasher},
-        rc::Rc,
-    },
+use crate::prelude::*;
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    rc::Rc,
 };
 
 /// An function that's defined outside of the Koto runtime

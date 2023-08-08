@@ -6,7 +6,9 @@ mod rect;
 mod vec2;
 mod vec3;
 
-pub use {rect::Rect, vec2::Vec2, vec3::Vec3};
+pub use rect::Rect;
+pub use vec2::Vec2;
+pub use vec3::Vec3;
 
 use koto_runtime::prelude::*;
 

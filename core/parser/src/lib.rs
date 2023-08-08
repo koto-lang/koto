@@ -9,12 +9,12 @@ mod error;
 mod node;
 mod parser;
 
-pub use {
+pub use crate::{
     ast::*,
     constant_index::{ConstantIndex, ConstantIndexTryFromOutOfRange},
     constant_pool::{Constant, ConstantPool},
     error::{format_error_with_excerpt, ParserError},
-    koto_lexer::{Position, Span},
     node::*,
     parser::Parser,
 };
+pub use koto_lexer::{Position, Span};

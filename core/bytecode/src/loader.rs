@@ -1,11 +1,9 @@
-use {
-    crate::{Chunk, Compiler, CompilerError, CompilerSettings},
-    dunce::canonicalize,
-    koto_memory::Ptr,
-    koto_parser::{format_error_with_excerpt, Parser, ParserError},
-    rustc_hash::FxHasher,
-    std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf},
-};
+use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
+use dunce::canonicalize;
+use koto_memory::Ptr;
+use koto_parser::{format_error_with_excerpt, Parser, ParserError};
+use rustc_hash::FxHasher;
+use std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf};
 
 /// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]

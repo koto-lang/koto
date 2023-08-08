@@ -1,12 +1,10 @@
 mod help;
 mod repl;
 
-use {
-    crossterm::tty::IsTty,
-    koto::{bytecode::Chunk, Koto, KotoSettings},
-    repl::{Repl, ReplSettings},
-    std::{fs, io},
-};
+use crossterm::tty::IsTty;
+use koto::{bytecode::Chunk, Koto, KotoSettings};
+use repl::{Repl, ReplSettings};
+use std::{fs, io};
 
 #[cfg(all(jemalloc, not(debug_assertions), not(target_env = "msvc")))]
 #[global_allocator]

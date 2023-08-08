@@ -1,10 +1,8 @@
 #![allow(unused)]
 
-use {
-    koto_bytecode::{Chunk, CompilerSettings, Loader},
-    koto_runtime::{prelude::*, Value::*},
-    std::{cell::RefCell, rc::Rc},
-};
+use koto_bytecode::{Chunk, CompilerSettings, Loader};
+use koto_runtime::{prelude::*, Value::*};
+use std::{cell::RefCell, rc::Rc};
 
 pub fn test_script(script: &str, expected_output: impl Into<Value>) {
     let output = PtrMut::from(String::new());

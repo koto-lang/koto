@@ -1,12 +1,10 @@
 mod runtime_test_utils;
 
 mod vm {
-    use {
-        crate::runtime_test_utils::{
-            number, number_list, number_tuple, run_script_with_vm, string, test_script, value_tuple,
-        },
-        koto_runtime::{prelude::*, Value::*},
+    use crate::runtime_test_utils::{
+        number, number_list, number_tuple, run_script_with_vm, string, test_script, value_tuple,
     };
+    use koto_runtime::{prelude::*, Value::*};
 
     mod literals {
         use super::*;

@@ -1,4 +1,5 @@
-use {crate::Ptr, koto_bytecode::Chunk};
+use crate::Ptr;
+use koto_bytecode::Chunk;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Frame {

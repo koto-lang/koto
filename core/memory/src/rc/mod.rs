@@ -3,4 +3,5 @@
 mod ptr;
 mod ptr_mut;
 
-pub use {ptr::*, ptr_mut::*};
+pub use ptr::*;
+pub use ptr_mut::*;

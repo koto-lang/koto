@@ -1,6 +1,8 @@
 //! A Koto language module for working with JSON data
 
-use {koto_runtime::prelude::*, koto_serialize::SerializableValue, serde_json::Value as JsonValue};
+use koto_runtime::prelude::*;
+use koto_serialize::SerializableValue;
+use serde_json::Value as JsonValue;
 
 pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> {
     let result = match value {

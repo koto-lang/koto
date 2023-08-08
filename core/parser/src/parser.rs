@@ -1,17 +1,14 @@
 #![cfg_attr(feature = "panic_on_parser_error", allow(unreachable_code))]
 
-use {
-    crate::{
-        constant_pool::ConstantPoolBuilder,
-        error::{
-            ErrorType as ParserErrorType, ExpectedIndentation, InternalError, ParserError,
-            SyntaxError,
-        },
-        *,
+use crate::{
+    constant_pool::ConstantPoolBuilder,
+    error::{
+        ErrorType as ParserErrorType, ExpectedIndentation, InternalError, ParserError, SyntaxError,
     },
-    koto_lexer::{Lexer, Span, Token},
-    std::{collections::HashSet, str::FromStr},
+    *,
 };
+use koto_lexer::{Lexer, Span, Token};
+use std::{collections::HashSet, str::FromStr};
 
 // Contains info about the current frame, representing either the module's top level or a function
 #[derive(Debug, Default)]
@@ -2793,7 +2790,8 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<Option<(AstString, Span, ExpressionContext)>, ParserError> {
-        use {SyntaxError::*, Token::*};
+        use SyntaxError::*;
+        use Token::*;
 
         match self.peek_token_with_context(context) {
             Some(PeekInfo {

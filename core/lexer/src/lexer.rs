@@ -1,9 +1,7 @@
-use {
-    crate::{Position, Span},
-    std::{iter::Peekable, str::Chars},
-    unicode_width::UnicodeWidthChar,
-    unicode_xid::UnicodeXID,
-};
+use crate::{Position, Span};
+use std::{iter::Peekable, str::Chars};
+use unicode_width::UnicodeWidthChar;
+use unicode_xid::UnicodeXID;
 
 /// The tokens that can emerge from the lexer
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

@@ -1,4 +1,5 @@
-use {crate::Poetry, koto::prelude::*};
+use crate::Poetry;
+use koto::prelude::*;
 
 pub fn make_module() -> ValueMap {
     let result = ValueMap::new();

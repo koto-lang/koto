@@ -1,13 +1,11 @@
 //! A collection of string iterators
 
-use {
-    crate::{
-        make_runtime_error,
-        value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
-        CallArgs, Result, Value, ValueString, Vm,
-    },
-    unicode_segmentation::UnicodeSegmentation,
+use crate::{
+    make_runtime_error,
+    value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
+    CallArgs, Result, Value, ValueString, Vm,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
 #[derive(Clone)]

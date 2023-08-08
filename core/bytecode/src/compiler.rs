@@ -1,13 +1,11 @@
-use {
-    crate::{DebugInfo, FunctionFlags, Op, TypeId},
-    koto_parser::{
-        AssignTarget, Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp,
-        ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node,
-        Scope, Span, StringNode, SwitchArm,
-    },
-    smallvec::SmallVec,
-    std::{collections::HashSet, error, fmt},
+use crate::{DebugInfo, FunctionFlags, Op, TypeId};
+use koto_parser::{
+    AssignTarget, Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp,
+    ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope,
+    Span, StringNode, SwitchArm,
 };
+use smallvec::SmallVec;
+use std::{collections::HashSet, error, fmt};
 
 /// The error type used to report errors during compilation
 #[derive(Clone, Debug)]

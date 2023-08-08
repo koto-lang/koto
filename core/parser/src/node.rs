@@ -1,7 +1,5 @@
-use {
-    crate::{ast::AstIndex, ConstantIndex},
-    std::fmt,
-};
+use crate::{ast::AstIndex, ConstantIndex};
+use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///

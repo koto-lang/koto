@@ -844,7 +844,8 @@ fn run_iterator_comparison_by_key(
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
 fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) -> RuntimeResult {
-    use {InvertResult::*, Value::Bool};
+    use InvertResult::*;
+    use Value::Bool;
 
     let comparison_result = vm.run_binary_op(BinaryOp::Less, a.clone(), b.clone())?;
 
@@ -869,7 +870,8 @@ fn compare_values_with_key(
     b_and_key: (Value, Value),
     invert_result: InvertResult,
 ) -> Result<(Value, Value), RuntimeError> {
-    use {InvertResult::*, Value::Bool};
+    use InvertResult::*;
+    use Value::Bool;
 
     let comparison_result =
         vm.run_binary_op(BinaryOp::Less, a_and_key.1.clone(), b_and_key.1.clone())?;

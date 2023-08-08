@@ -1,12 +1,10 @@
-use {
-    crate::{ConstantIndex, ConstantIndexTryFromOutOfRange},
-    koto_memory::Ptr,
-    std::{
-        collections::{hash_map::DefaultHasher, HashMap},
-        fmt,
-        hash::{Hash, Hasher},
-        ops::Range,
-    },
+use crate::{ConstantIndex, ConstantIndexTryFromOutOfRange};
+use koto_memory::Ptr;
+use std::{
+    collections::{hash_map::DefaultHasher, HashMap},
+    fmt,
+    hash::{Hash, Hasher},
+    ops::Range,
 };
 
 // An entry in the list of constants contained in a [ConstantPool]

@@ -1,12 +1,10 @@
-use {
-    crate::{prelude::*, Result},
-    std::{
-        fmt,
-        hash::{Hash, Hasher},
-        ops::{Deref, Range},
-    },
-    unicode_segmentation::UnicodeSegmentation,
+use crate::{prelude::*, Result};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    ops::{Deref, Range},
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The String type used by the Koto runtime
 ///

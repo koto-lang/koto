@@ -3,10 +3,10 @@
 pub mod format;
 pub mod iterators;
 
-use {
-    super::iterator::collect_pair, crate::prelude::*, std::convert::TryFrom,
-    unicode_segmentation::UnicodeSegmentation,
-};
+use super::iterator::collect_pair;
+use crate::prelude::*;
+use std::convert::TryFrom;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Initializes the `string` core library module
 pub fn make_module() -> ValueMap {

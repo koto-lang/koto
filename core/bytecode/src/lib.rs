@@ -9,7 +9,7 @@ mod instruction_reader;
 mod loader;
 mod op;
 
-pub use {
+pub use crate::{
     chunk::{Chunk, DebugInfo},
     compiler::{Compiler, CompilerError, CompilerSettings},
     instruction_reader::{FunctionFlags, Instruction, InstructionReader, TypeId},

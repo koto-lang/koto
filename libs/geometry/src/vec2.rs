@@ -1,9 +1,7 @@
-use {
-    koto_runtime::{prelude::*, Result},
-    std::{
-        fmt,
-        ops::{self, Deref},
-    },
+use koto_runtime::{prelude::*, Result};
+use std::{
+    fmt,
+    ops::{self, Deref},
 };
 
 type Inner = nannou_core::geom::DVec2;

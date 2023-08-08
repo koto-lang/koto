@@ -1,9 +1,7 @@
 //! The `koto` core library module
 
-use {
-    crate::prelude::*,
-    std::hash::{Hash, Hasher},
-};
+use crate::prelude::*;
+use std::hash::{Hash, Hasher};
 
 /// Initializes the `koto` core library module
 pub fn make_module() -> ValueMap {

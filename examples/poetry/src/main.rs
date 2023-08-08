@@ -1,20 +1,18 @@
 mod koto_bindings;
 mod poetry;
 
-use {
-    hotwatch::{
-        blocking::{Flow, Hotwatch},
-        Event,
-    },
-    koto::{Koto, KotoSettings},
-    poetry::*,
-    std::{
-        error::Error,
-        fmt, fs,
-        path::{Path, PathBuf},
-        str::FromStr,
-        time::Duration,
-    },
+use hotwatch::{
+    blocking::{Flow, Hotwatch},
+    Event,
+};
+use koto::{Koto, KotoSettings};
+use poetry::*;
+use std::{
+    error::Error,
+    fmt, fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
 };
 
 #[derive(Debug)]

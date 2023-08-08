@@ -1,9 +1,7 @@
-use {
-    crate::{Chunk, Op},
-    koto_memory::Ptr,
-    koto_parser::{ConstantIndex, MetaKeyId},
-    std::fmt,
-};
+use crate::{Chunk, Op};
+use koto_memory::Ptr;
+use koto_parser::{ConstantIndex, MetaKeyId};
+use std::fmt;
 
 #[derive(Debug)]
 #[repr(u8)]
