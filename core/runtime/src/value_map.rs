@@ -2,6 +2,7 @@ use {
     crate::{
         external_function::{ArgRegisters, ExternalFunction},
         prelude::*,
+        Result,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
@@ -17,7 +18,7 @@ pub type KotoHasher = FxHasher;
 
 type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<KotoHasher>>;
 
-/// The underlying ValueKey -> Value 'data' hash map used in Koto
+/// The (ValueKey -> Value) 'data' hashmap used by the Koto runtime
 ///
 /// See also: [ValueMap]
 #[derive(Clone, Debug, Default)]
@@ -181,20 +182,27 @@ impl ValueMap {
 }
 
 impl KotoDisplay for ValueMap {
-    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
+    fn display(
+        &self,
+        s: &mut StringBuilder,
+        vm: &mut Vm,
+        _options: KotoDisplayOptions,
+    ) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
-                Value::Str(display_result) => s.push_str(&display_result),
+                Value::Str(display_result) => {
+                    s.append(display_result);
+                }
                 unexpected => return type_error("String as @display result", &unexpected),
             }
         } else {
-            s.push('{');
+            s.append('{');
             for (i, (key, value)) in self.data().iter().enumerate() {
                 if i > 0 {
-                    s.push_str(", ");
+                    s.append(", ");
                 }
                 key.value().display(s, vm, KotoDisplayOptions::default())?;
-                s.push_str(": ");
+                s.append(": ");
                 value.display(
                     s,
                     vm,
@@ -203,10 +211,10 @@ impl KotoDisplay for ValueMap {
                     },
                 )?;
             }
-            s.push('}');
+            s.append('}');
         }
 
-        Ok(().into())
+        Ok(())
     }
 }
 

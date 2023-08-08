@@ -1,6 +1,9 @@
 //! A double-ended peekable iterator for Koto
 
-use {super::iter_output_to_result, crate::prelude::*};
+use {
+    super::iter_output_to_result,
+    crate::{prelude::*, Result, ValueIteratorOutput as Output},
+};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone, Debug)]
@@ -8,16 +11,6 @@ pub struct Peekable {
     iter: ValueIterator,
     peeked_front: Option<Value>,
     peeked_back: Option<Value>,
-}
-
-impl ExternalData for Peekable {
-    fn data_type(&self) -> ValueString {
-        PEEKABLE_TYPE_STRING.with(|x| x.clone())
-    }
-
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(self.clone())
-    }
 }
 
 impl Peekable {
@@ -32,16 +25,13 @@ impl Peekable {
 
     /// Makes an instance of Peekable along with a meta map that allows it be used as a Koto Value
     pub fn make_value(iter: ValueIterator) -> Value {
-        Value::External(External::with_shared_meta_map(
-            Self::new(iter),
-            PEEKABLE_META.with(|meta| meta.clone()),
-        ))
+        Object::from(Self::new(iter)).into()
     }
 
-    fn peek(&mut self) -> RuntimeResult {
+    fn peek(&mut self) -> Result<Value> {
         match self.peeked_front.clone() {
             Some(peeked) => Ok(peeked),
-            None => match self.next()? {
+            None => match iter_output_to_result(self.next())? {
                 Value::Null => Ok(Value::Null),
                 peeked => {
                     self.peeked_front = Some(peeked.clone());
@@ -51,10 +41,10 @@ impl Peekable {
         }
     }
 
-    fn peek_back(&mut self) -> RuntimeResult {
+    fn peek_back(&mut self) -> Result<Value> {
         match self.peeked_back.clone() {
             Some(peeked) => Ok(peeked),
-            None => match self.next_back()? {
+            None => match iter_output_to_result(self.next_back())? {
                 Value::Null => Ok(Value::Null),
                 peeked => {
                     self.peeked_back = Some(peeked.clone());
@@ -64,43 +54,71 @@ impl Peekable {
         }
     }
 
-    fn next(&mut self) -> RuntimeResult {
-        match self.peeked_front.take() {
-            Some(value) => Ok(value),
-            None => match iter_output_to_result(self.iter.next())? {
-                Value::Null => Ok(self.peeked_back.take().unwrap_or(Value::Null)),
-                other => Ok(other),
-            },
-        }
+    fn next(&mut self) -> Option<Output> {
+        self.peeked_front.take().map(Output::Value).or_else(|| {
+            self.iter
+                .next()
+                .or_else(|| self.peeked_back.take().map(Output::Value))
+        })
     }
 
-    fn next_back(&mut self) -> RuntimeResult {
-        match self.peeked_back.take() {
-            Some(value) => Ok(value),
-            None => match iter_output_to_result(self.iter.next_back())? {
-                Value::Null => Ok(self.peeked_front.take().unwrap_or(Value::Null)),
-                other => Ok(other),
-            },
-        }
+    fn next_back(&mut self) -> Option<Output> {
+        self.peeked_back.take().map(Output::Value).or_else(|| {
+            self.iter
+                .next_back()
+                .or_else(|| self.peeked_front.take().map(Output::Value))
+        })
     }
 }
 
-fn make_peekable_meta_map() -> PtrMut<MetaMap> {
-    use UnaryOp::*;
+impl KotoType for Peekable {
+    const TYPE: &'static str = "Peekable";
+}
 
-    MetaMapBuilder::<Peekable>::new(PEEKABLE_TYPE)
-        .function("peek", |context| context.data_mut()?.peek())
-        .function("peek_back", |context| context.data_mut()?.peek_back())
-        .function(Next, |context| context.data_mut()?.next())
-        .function(NextBack, |context| context.data_mut()?.next_back())
+impl KotoObject for Peekable {
+    fn object_type(&self) -> ValueString {
+        PEEKABLE_TYPE_STRING.with(|t| t.clone())
+    }
+
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        PEEKABLE_ENTRIES.with(|entries| entries.get(key).cloned())
+    }
+
+    fn is_iterable(&self) -> IsIterable {
+        if self.iter.is_bidirectional() {
+            IsIterable::BidirectionalIterator
+        } else {
+            IsIterable::ForwardIterator
+        }
+    }
+
+    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<Output> {
+        self.peeked_front.take().map(Output::Value).or_else(|| {
+            self.iter
+                .next()
+                .or_else(|| self.peeked_back.take().map(Output::Value))
+        })
+    }
+
+    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<Output> {
+        self.peeked_back.take().map(Output::Value).or_else(|| {
+            self.iter
+                .next_back()
+                .or_else(|| self.peeked_front.take().map(Output::Value))
+        })
+    }
+}
+
+fn peekable_entries() -> DataMap {
+    ObjectEntryBuilder::<Peekable>::new()
+        .method("peek", |context| context.instance_mut()?.peek())
+        .method("peek_back", |context| context.instance_mut()?.peek_back())
         .build()
 }
 
-const PEEKABLE_TYPE: &str = "Peekable";
-
 thread_local! {
-    static PEEKABLE_META: PtrMut<MetaMap> = make_peekable_meta_map();
-    static PEEKABLE_TYPE_STRING: ValueString = PEEKABLE_TYPE.into();
+    static PEEKABLE_TYPE_STRING: ValueString = Peekable::TYPE.into();
+    static PEEKABLE_ENTRIES: DataMap = peekable_entries();
 }
 
 // For tests, see runtime/tests/iterator_tests.rs

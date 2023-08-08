@@ -60,71 +60,60 @@ macro_rules! impl_arithmetic_ops {
 }
 
 #[macro_export]
-macro_rules! koto_arithmetic_op {
-    ($type:ident, $op:tt) => {
-        |context| match context.args {
-            [Value::External(b)] if b.has_data::<$type>() =>{
-                let b = b.data::<$type>().unwrap();
-                Ok((*context.data()? $op *b).into())
-            }
-            [Value::Number(n)] => Ok((*context.data()? $op f64::from(n)).into()),
-            unexpected => {
-                type_error_with_slice(&format!("a {} or Number", stringify!($type)), unexpected)
-            }
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! koto_arithmetic_assign_op {
-    ($type:ident, $op:tt) => {
-        |context| match context.args {
-            [Value::External(b)] if b.has_data::<$type>() =>{
-                let b: $type = *b.data::<$type>().unwrap().deref();
-                *context.data_mut()? $op b;
-                context.ok_value()
-            }
-            [Value::Number(n)] => {
-                *context.data_mut()? $op f64::from(n);
-                context.ok_value()
-            }
-            unexpected => {
-                type_error_with_slice(&format!("a {} or Number", stringify!($type)), unexpected)
+macro_rules! geometry_arithmetic_op {
+    ($self:ident, $rhs:expr, $op:tt) => {
+        {
+            match $rhs {
+                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                    let rhs = rhs.cast::<Self>().unwrap();
+                    Ok((*$self $op *rhs).into())
+                }
+                Value::Number(n) => {
+                    Ok((*$self $op f64::from(n)).into())
+                }
+                unexpected => {
+                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                }
             }
         }
     }
 }
 
 #[macro_export]
-macro_rules! koto_comparison_op {
-    ($type:ident, $op:tt) => {
-        |context| match context.args {
-            [Value::External(b)] if b.has_data::<$type>() =>{
-                let b = b.data::<$type>().unwrap();
-                Ok((*context.data()? $op *b).into())
+macro_rules! geometry_arithmetic_assign_op {
+    ($self:ident, $rhs:expr, $op:tt) => {
+        {
+            match $rhs {
+                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                    let rhs = rhs.cast::<Self>().unwrap();
+                    *$self $op *rhs;
+                    Ok(())
+                }
+                Value::Number(n) => {
+                    *$self $op f64::from(n);
+                    Ok(())
+                }
+                unexpected => {
+                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                }
             }
-            unexpected => type_error_with_slice(&format!("a {}", stringify!($type)), unexpected),
         }
     }
 }
 
 #[macro_export]
-macro_rules! add_ops {
-    ($type:ident, $builder:expr) => {{
-        use {BinaryOp::*, UnaryOp::*};
-
-        $builder
-            .function(Display, |context| Ok(context.data()?.to_string().into()))
-            .function(Negate, |context| Ok($type::from(-(*context.data()?)).into()))
-            .function(Add, koto_arithmetic_op!($type, +))
-            .function(Subtract, koto_arithmetic_op!($type, -))
-            .function(Multiply, koto_arithmetic_op!($type, *))
-            .function(Divide, koto_arithmetic_op!($type, /))
-            .function(AddAssign, koto_arithmetic_assign_op!($type, +=))
-            .function(SubtractAssign, koto_arithmetic_assign_op!($type, -=))
-            .function(MultiplyAssign, koto_arithmetic_assign_op!($type, *=))
-            .function(DivideAssign, koto_arithmetic_assign_op!($type, /=))
-            .function(Equal, koto_comparison_op!($type, ==))
-            .function(NotEqual, koto_comparison_op!($type, !=))
-    }}
+macro_rules! geometry_comparison_op {
+    ($self:ident, $rhs:expr, $op:tt) => {
+        {
+            match $rhs {
+                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                    let rhs = rhs.cast::<Self>().unwrap();
+                    Ok(*$self $op *rhs)
+                }
+                unexpected => {
+                    type_error(&format!("a {}", Self::TYPE), unexpected)
+                }
+            }
+        }
+    }
 }

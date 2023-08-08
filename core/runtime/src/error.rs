@@ -93,7 +93,7 @@ impl fmt::Display for RuntimeError {
         let message = match &self.error {
             StringError(s) => s.clone(),
             KotoError { thrown_value, vm } => {
-                let mut message = String::new();
+                let mut message = StringBuilder::default();
                 if thrown_value
                     .display(
                         &mut message,
@@ -102,7 +102,7 @@ impl fmt::Display for RuntimeError {
                     )
                     .is_ok()
                 {
-                    message
+                    message.build()
                 } else {
                     "Unable to get error message".to_string()
                 }
@@ -143,8 +143,10 @@ impl fmt::Display for RuntimeError {
 
 impl error::Error for RuntimeError {}
 
-/// The main return type used in the Koto runtime
-pub type RuntimeResult = Result<Value, RuntimeError>;
+/// The Result type used by the Koto Runtime
+pub type Result<T> = std::result::Result<T, RuntimeError>;
+/// The return type typically used in runtime operations
+pub type RuntimeResult = Result<Value>;
 
 /// Creates a [RuntimeError] from a provided message
 ///
@@ -180,7 +182,7 @@ macro_rules! runtime_error {
 }
 
 /// Creates an error that describes a type mismatch
-pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
+pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T> {
     runtime_error!(
         "Expected {expected_str}, but found {}.",
         unexpected.type_as_string().as_str()
@@ -188,10 +190,7 @@ pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, Runtim
 }
 
 /// Creates an error that describes a type mismatch with a slice of [Value]s
-pub fn type_error_with_slice<T>(
-    expected_str: &str,
-    unexpected: &[Value],
-) -> Result<T, RuntimeError> {
+pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[Value]) -> Result<T> {
     let message = match unexpected {
         [] => "no args".to_string(),
         [single_arg] => single_arg.type_as_string().to_string(),

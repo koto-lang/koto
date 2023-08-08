@@ -49,7 +49,8 @@ The Koto project adheres to
 
 #### Internals
 
-- `MetaMapBuilder` is now available to simplify the creation of `MetaMap`s. 
+- The `KotoObject` trait has been introduced to simplify creating custom object 
+  types, replacing `ExternalValue`.
 - Preludes are now available in the `koto` and `koto_runtime` crates.
 - `Ptr<T>` and `PtrMut<T>` wrappers have been introduced as the core memory
   types for the runtime, replacing uses of `Rc<T>` and `Rc<RefCell<T>>`.
@@ -96,7 +97,7 @@ The Koto project adheres to
 
 - `Value` no longer implements `fmt::Display`, instead `value_to_string` can be
   called on `Koto` or the Vm to get a string.
-- `Value::ExternalValue` is now `Value::External`.
+- `Value::ExternalValue` has been replaced by `Value::Object`.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
 - Type strings and strings returned by `KotoFile` implementations are now 
@@ -136,8 +137,6 @@ The Koto project adheres to
     # You can use:
     "hello"[2..4]
     ```
-- The `Value::ExternalData` variant has been removed, `ExternalValue` can be
-  used instead. 
 
 ### Fixed
 

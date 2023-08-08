@@ -2,7 +2,7 @@
 
 use crate::{
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
-    CallArgs, Value, Vm,
+    CallArgs, Result, Value, Vm,
 };
 
 /// An iterator that repeatedly yields the same value
@@ -18,11 +18,11 @@ impl Repeat {
 }
 
 impl KotoIterator for Repeat {
-    fn make_copy(&self) -> ValueIterator {
+    fn make_copy(&self) -> Result<ValueIterator> {
         let result = Self {
             value: self.value.clone(),
         };
-        ValueIterator::new(result)
+        Ok(ValueIterator::new(result))
     }
 }
 
@@ -51,12 +51,12 @@ impl RepeatN {
 }
 
 impl KotoIterator for RepeatN {
-    fn make_copy(&self) -> ValueIterator {
+    fn make_copy(&self) -> Result<ValueIterator> {
         let result = Self {
             remaining: self.remaining,
             value: self.value.clone(),
         };
-        ValueIterator::new(result)
+        Ok(ValueIterator::new(result))
     }
 }
 
@@ -91,12 +91,12 @@ impl Generate {
 }
 
 impl KotoIterator for Generate {
-    fn make_copy(&self) -> ValueIterator {
+    fn make_copy(&self) -> Result<ValueIterator> {
         let result = Self {
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::new(result)
+        Ok(ValueIterator::new(result))
     }
 }
 
@@ -132,13 +132,13 @@ impl GenerateN {
 }
 
 impl KotoIterator for GenerateN {
-    fn make_copy(&self) -> ValueIterator {
+    fn make_copy(&self) -> Result<ValueIterator> {
         let result = Self {
             remaining: self.remaining,
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::new(result)
+        Ok(ValueIterator::new(result))
     }
 }
 

@@ -7,7 +7,7 @@ use {
         meta_map::meta_id_to_key,
         prelude::*,
         value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
-        DefaultStderr, DefaultStdin, DefaultStdout,
+        DefaultStderr, DefaultStdin, DefaultStdout, Result,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -48,7 +48,7 @@ pub enum ControlFlow {
 }
 
 // Instructions will place their results in registers, there's no Ok type
-pub type InstructionResult = Result<(), RuntimeError>;
+pub type InstructionResult = Result<()>;
 
 fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     let core_lib = CoreLib::default();
@@ -403,10 +403,10 @@ impl Vm {
     }
 
     /// Returns a displayable string for the given value
-    pub fn value_to_string(&mut self, value: &Value) -> Result<String, RuntimeError> {
-        let mut result = String::new();
+    pub fn value_to_string(&mut self, value: &Value) -> Result<String> {
+        let mut result = StringBuilder::default();
         value.display(&mut result, self, KotoDisplayOptions::default())?;
-        Ok(result)
+        Ok(result.build())
     }
 
     /// Provides the result of running a unary operation on a Value
@@ -529,7 +529,7 @@ impl Vm {
     }
 
     /// Makes a ValueIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
+    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator> {
         use Value::*;
 
         match value {
@@ -548,6 +548,18 @@ impl Vm {
             Tuple(t) => Ok(ValueIterator::with_tuple(t)),
             Str(s) => Ok(ValueIterator::with_string(s)),
             Map(m) => Ok(ValueIterator::with_map(m)),
+            Object(o) => {
+                use IsIterable::*;
+
+                let o_inner = o.try_borrow()?;
+                match o_inner.is_iterable() {
+                    NotIterable => runtime_error!("{} is not iterable", o_inner.object_type()),
+                    Iterable => o_inner.make_iterator(self),
+                    ForwardIterator | BidirectionalIterator => {
+                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())
+                    }
+                }
+            }
             unexpected => {
                 runtime_error!(
                     "expected iterable value, found '{}'",
@@ -693,81 +705,56 @@ impl Vm {
         Ok(result)
     }
 
-    fn execute_instruction(
-        &mut self,
-        instruction: Instruction,
-    ) -> Result<ControlFlow, RuntimeError> {
-        use Value::*;
+    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow> {
+        use Instruction::*;
 
         let mut control_flow = ControlFlow::Continue;
 
         match instruction {
-            Instruction::Error { message } => runtime_error!(message),
-            Instruction::Copy { target, source } => {
-                self.set_register(target, self.clone_register(source));
-                Ok(())
-            }
-            Instruction::SetNull { register } => {
-                self.set_register(register, Null);
-                Ok(())
-            }
-            Instruction::SetBool { register, value } => {
-                self.set_register(register, Bool(value));
-                Ok(())
-            }
-            Instruction::SetNumber { register, value } => {
-                self.set_register(register, Number(value.into()));
-                Ok(())
-            }
-            Instruction::LoadFloat { register, constant } => {
+            Error { message } => runtime_error!(message)?,
+            Copy { target, source } => self.set_register(target, self.clone_register(source)),
+            SetNull { register } => self.set_register(register, Value::Null),
+            SetBool { register, value } => self.set_register(register, value.into()),
+            SetNumber { register, value } => self.set_register(register, value.into()),
+            LoadFloat { register, constant } => {
                 let n = self.reader.chunk.constants.get_f64(constant);
-                self.set_register(register, Number(n.into()));
-                Ok(())
+                self.set_register(register, n.into());
             }
-            Instruction::LoadInt { register, constant } => {
+            LoadInt { register, constant } => {
                 let n = self.reader.chunk.constants.get_i64(constant);
-                self.set_register(register, Number(n.into()));
-                Ok(())
+                self.set_register(register, n.into());
             }
-            Instruction::LoadString { register, constant } => {
+            LoadString { register, constant } => {
                 let string = self.value_string_from_constant(constant);
-                self.set_register(register, Str(string));
-                Ok(())
+                self.set_register(register, string.into());
             }
-            Instruction::LoadNonLocal { register, constant } => {
-                self.run_load_non_local(register, constant)
-            }
-            Instruction::ValueExport { name, value } => self.run_value_export(name, value),
-            Instruction::Import { register } => self.run_import(register),
-            Instruction::MakeTempTuple {
+            LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
+            ValueExport { name, value } => self.run_value_export(name, value)?,
+            Import { register } => self.run_import(register)?,
+            MakeTempTuple {
                 register,
                 start,
                 count,
-            } => {
-                self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
-                Ok(())
+            } => self.set_register(
+                register,
+                Value::TemporaryTuple(RegisterSlice { start, count }),
+            ),
+            TempTupleToTuple { register, source } => {
+                self.run_temp_tuple_to_tuple(register, source)?
             }
-            Instruction::TempTupleToTuple { register, source } => {
-                self.run_temp_tuple_to_tuple(register, source)
-            }
-            Instruction::MakeMap {
+            MakeMap {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::SequenceStart {
+            } => self.set_register(register, ValueMap::with_capacity(size_hint).into()),
+            SequenceStart {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, SequenceBuilder(Vec::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::SequencePush { sequence, value } => {
-                self.run_sequence_push(sequence, value)
-            }
-            Instruction::SequencePushN {
+            } => self.set_register(
+                register,
+                Value::SequenceBuilder(Vec::with_capacity(size_hint)),
+            ),
+            SequencePush { sequence, value } => self.run_sequence_push(sequence, value)?,
+            SequencePushN {
                 sequence,
                 start,
                 count,
@@ -775,43 +762,40 @@ impl Vm {
                 for value_register in start..(start + count) {
                     self.run_sequence_push(sequence, value_register)?;
                 }
-                Ok(())
             }
-            Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
-            Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
-            Instruction::StringStart {
+            SequenceToList { sequence } => self.run_sequence_to_list(sequence)?,
+            SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence)?,
+            StringStart {
                 register,
                 size_hint,
-            } => {
-                self.set_register(register, StringBuilder(String::with_capacity(size_hint)));
-                Ok(())
-            }
-            Instruction::StringPush { register, value } => self.run_string_push(register, value),
-            Instruction::StringFinish { register } => self.run_string_finish(register),
-            Instruction::Range {
+            } => self.set_register(
+                register,
+                Value::StringBuilder(StringBuilder::with_capacity(size_hint)),
+            ),
+            StringPush { register, value } => self.run_string_push(register, value)?,
+            StringFinish { register } => self.run_string_finish(register)?,
+            Range {
                 register,
                 start,
                 end,
-            } => self.run_make_range(register, Some(start), Some(end), false),
-            Instruction::RangeInclusive {
+            } => self.run_make_range(register, Some(start), Some(end), false)?,
+            RangeInclusive {
                 register,
                 start,
                 end,
-            } => self.run_make_range(register, Some(start), Some(end), true),
-            Instruction::RangeTo { register, end } => {
-                self.run_make_range(register, None, Some(end), false)
+            } => self.run_make_range(register, Some(start), Some(end), true)?,
+            RangeTo { register, end } => self.run_make_range(register, None, Some(end), false)?,
+            RangeToInclusive { register, end } => {
+                self.run_make_range(register, None, Some(end), true)?
             }
-            Instruction::RangeToInclusive { register, end } => {
-                self.run_make_range(register, None, Some(end), true)
+            RangeFrom { register, start } => {
+                self.run_make_range(register, Some(start), None, false)?
             }
-            Instruction::RangeFrom { register, start } => {
-                self.run_make_range(register, Some(start), None, false)
+            RangeFull { register } => self.run_make_range(register, None, None, false)?,
+            MakeIterator { register, iterable } => {
+                self.run_make_iterator(register, iterable, true)?
             }
-            Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
-            Instruction::MakeIterator { register, iterable } => {
-                self.run_make_iterator(register, iterable, true)
-            }
-            Instruction::SimpleFunction {
+            SimpleFunction {
                 register,
                 arg_count,
                 size,
@@ -823,52 +807,38 @@ impl Vm {
                 });
                 self.set_register(register, result);
                 self.jump_ip(size);
-                Ok(())
             }
-            Instruction::Function { .. } => {
-                self.run_make_function(instruction);
-                Ok(())
-            }
-            Instruction::Capture {
+            Function { .. } => self.run_make_function(instruction),
+            Capture {
                 function,
                 target,
                 source,
-            } => self.run_capture_value(function, target, source),
-            Instruction::Negate { register, value } => self.run_negate(register, value),
-            Instruction::Not { register, value } => self.run_not(register, value),
-            Instruction::Add { register, lhs, rhs } => self.run_add(register, lhs, rhs),
-            Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
-            Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
-            Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
-            Instruction::Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs),
-            Instruction::AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs),
-            Instruction::SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs),
-            Instruction::MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs),
-            Instruction::DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs),
-            Instruction::RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs),
-            Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
-            Instruction::LessOrEqual { register, lhs, rhs } => {
-                self.run_less_or_equal(register, lhs, rhs)
+            } => self.run_capture_value(function, target, source)?,
+            Negate { register, value } => self.run_negate(register, value)?,
+            Not { register, value } => self.run_not(register, value)?,
+            Add { register, lhs, rhs } => self.run_add(register, lhs, rhs)?,
+            Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs)?,
+            Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs)?,
+            Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs)?,
+            Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs)?,
+            AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs)?,
+            SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs)?,
+            MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs)?,
+            DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs)?,
+            RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs)?,
+            Less { register, lhs, rhs } => self.run_less(register, lhs, rhs)?,
+            LessOrEqual { register, lhs, rhs } => self.run_less_or_equal(register, lhs, rhs)?,
+            Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs)?,
+            GreaterOrEqual { register, lhs, rhs } => {
+                self.run_greater_or_equal(register, lhs, rhs)?
             }
-            Instruction::Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs),
-            Instruction::GreaterOrEqual { register, lhs, rhs } => {
-                self.run_greater_or_equal(register, lhs, rhs)
-            }
-            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
-            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
-            Instruction::Jump { offset } => {
-                self.jump_ip(offset);
-                Ok(())
-            }
-            Instruction::JumpBack { offset } => {
-                self.jump_ip_back(offset);
-                Ok(())
-            }
-            Instruction::JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset),
-            Instruction::JumpIfFalse { register, offset } => {
-                self.run_jump_if_false(register, offset)
-            }
-            Instruction::Call {
+            Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs)?,
+            NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs)?,
+            Jump { offset } => self.jump_ip(offset),
+            JumpBack { offset } => self.jump_ip_back(offset),
+            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset)?,
+            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset)?,
+            Call {
                 result,
                 function,
                 frame_base,
@@ -880,8 +850,8 @@ impl Vm {
                 arg_count,
                 None,
                 None,
-            ),
-            Instruction::CallInstance {
+            )?,
+            CallInstance {
                 result,
                 function,
                 frame_base,
@@ -894,135 +864,120 @@ impl Vm {
                 arg_count,
                 Some(instance),
                 None,
-            ),
-            Instruction::Return { register } => {
+            )?,
+            Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
                     // If pop_frame returns a new return_value, then execution should stop.
                     control_flow = ControlFlow::Return(return_value);
                 }
-                Ok(())
             }
-            Instruction::Yield { register } => {
-                control_flow = ControlFlow::Yield(self.clone_register(register));
-                Ok(())
-            }
-            Instruction::Throw { register } => {
+            Yield { register } => control_flow = ControlFlow::Yield(self.clone_register(register)),
+            Throw { register } => {
                 let thrown_value = self.clone_register(register);
 
                 let display_op = MetaKey::UnaryOp(UnaryOp::Display);
                 match &thrown_value {
-                    Str(_) => {}
+                    Value::Str(_) => {}
                     _ if thrown_value.contains_meta_key(&display_op) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
                 };
 
-                Err(RuntimeError::from_koto_value(
+                return Err(RuntimeError::from_koto_value(
                     thrown_value,
                     self.spawn_shared_vm(),
-                ))
+                ));
             }
-            Instruction::Size { register, value } => {
-                self.run_size(register, value);
-                Ok(())
+            Size { register, value } => self.run_size(register, value),
+            IsTuple { register, value } => {
+                let result = matches!(self.get_register(value), Value::Tuple(_));
+                self.set_register(register, result.into());
             }
-            Instruction::IsTuple { register, value } => {
-                let result = matches!(self.get_register(value), Tuple(_));
-                self.set_register(register, Bool(result));
-                Ok(())
+            IsList { register, value } => {
+                let result = matches!(self.get_register(value), Value::List(_));
+                self.set_register(register, result.into());
             }
-            Instruction::IsList { register, value } => {
-                let result = matches!(self.get_register(value), List(_));
-                self.set_register(register, Bool(result));
-                Ok(())
-            }
-            Instruction::IterNext {
+            IterNext {
                 result,
                 iterator,
                 jump_offset,
                 temporary_output,
-            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output),
-            Instruction::TempIndex {
+            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output)?,
+            TempIndex {
                 register,
                 value,
                 index,
-            } => self.run_temp_index(register, value, index),
-            Instruction::SliceFrom {
+            } => self.run_temp_index(register, value, index)?,
+            SliceFrom {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, false),
-            Instruction::SliceTo {
+            } => self.run_slice(register, value, index, false)?,
+            SliceTo {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, true),
-            Instruction::Index {
+            } => self.run_slice(register, value, index, true)?,
+            Index {
                 register,
                 value,
                 index,
-            } => self.run_index(register, value, index),
-            Instruction::SetIndex {
+            } => self.run_index(register, value, index)?,
+            SetIndex {
                 register,
                 index,
                 value,
-            } => self.run_set_index(register, index, value),
-            Instruction::MapInsert {
+            } => self.run_set_index(register, index, value)?,
+            MapInsert {
                 register,
                 key,
                 value,
-            } => self.run_map_insert(register, key, value),
-            Instruction::MetaInsert {
+            } => self.run_map_insert(register, key, value)?,
+            MetaInsert {
                 register,
                 value,
                 id,
-            } => self.run_meta_insert(register, value, id),
-            Instruction::MetaInsertNamed {
+            } => self.run_meta_insert(register, value, id)?,
+            MetaInsertNamed {
                 register,
                 value,
                 id,
                 name,
-            } => self.run_meta_insert_named(register, value, id, name),
-            Instruction::MetaExport { value, id } => self.run_meta_export(value, id),
-            Instruction::MetaExportNamed { id, name, value } => {
-                self.run_meta_export_named(id, name, value)
-            }
-            Instruction::Access {
+            } => self.run_meta_insert_named(register, value, id, name)?,
+            MetaExport { value, id } => self.run_meta_export(value, id)?,
+            MetaExportNamed { id, name, value } => self.run_meta_export_named(id, name, value)?,
+            Access {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, self.value_string_from_constant(key)),
-            Instruction::AccessString {
+            } => self.run_access(register, value, self.value_string_from_constant(key))?,
+            AccessString {
                 register,
                 value,
                 key,
             } => {
                 let key_string = match self.clone_register(key) {
-                    Str(s) => s,
+                    Value::Str(s) => s,
                     other => return type_error("String", &other),
                 };
-                self.run_access(register, value, key_string)
+                self.run_access(register, value, key_string)?;
             }
-            Instruction::TryStart {
+            TryStart {
                 arg_register,
                 catch_offset,
             } => {
                 let catch_ip = self.ip() + catch_offset;
                 self.frame_mut().catch_stack.push((arg_register, catch_ip));
-                Ok(())
             }
-            Instruction::TryEnd => {
+            TryEnd => {
                 self.frame_mut().catch_stack.pop();
-                Ok(())
             }
-            Instruction::Debug { register, constant } => self.run_debug(register, constant),
-            Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
-            Instruction::CheckSizeEqual { register, size } => {
-                self.run_check_size_equal(register, size)
-            }
-            Instruction::CheckSizeMin { register, size } => self.run_check_size_min(register, size),
-        }?;
+            Debug { register, constant } => self.run_debug(register, constant)?,
+            CheckType { register, type_id } => self.run_check_type(register, type_id)?,
+            CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
+            CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
+        }
 
         Ok(control_flow)
     }
@@ -1139,6 +1094,19 @@ impl Vm {
             Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
             Str(s) => ValueIterator::with_string(s).into(),
             Map(map) => ValueIterator::with_map(map).into(),
+            Object(o) => {
+                use IsIterable::*;
+                let o_inner = o.try_borrow()?;
+                match o_inner.is_iterable() {
+                    NotIterable => {
+                        return runtime_error!("{} is not iterable", o_inner.object_type())
+                    }
+                    Iterable => o_inner.make_iterator(self)?.into(),
+                    ForwardIterator | BidirectionalIterator => {
+                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
+                    }
+                }
+            }
             unexpected => {
                 return type_error("Iterable while making iterator", &unexpected);
             }
@@ -1415,13 +1383,14 @@ impl Vm {
     fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
         use {UnaryOp::Negate, Value::*};
 
-        let result_value = match &self.get_register(value) {
+        let result_value = match self.clone_register(value) {
             Number(n) => Number(-n),
             v if v.contains_meta_key(&Negate.into()) => {
                 let op = v.get_meta_value(&Negate.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            unexpected => return type_error("negatable value", unexpected),
+            Object(o) => o.try_borrow()?.negate(self)?,
+            unexpected => return type_error("negatable value", &unexpected),
         };
         self.set_register(result, result_value);
 
@@ -1454,10 +1423,10 @@ impl Vm {
                 self.call_overloaded_unary_op(result, value, op)
             }
             other => {
-                let mut display_string = String::new();
+                let mut display_string = StringBuilder::default();
                 match other.display(&mut display_string, self, KotoDisplayOptions::default()) {
                     Ok(_) => {
-                        self.set_register(result, display_string.into());
+                        self.set_register(result, display_string.build().into());
                         Ok(())
                     }
                     Err(_) => runtime_error!("Failed to get display value"),
@@ -1482,6 +1451,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.add(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
         };
 
@@ -1501,6 +1471,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
         };
 
@@ -1521,6 +1492,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
         };
 
@@ -1540,6 +1512,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
         };
 
@@ -1564,6 +1537,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
             _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
         };
         self.set_register(result, result_value);
@@ -1576,20 +1550,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a + b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a + b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&AddAssign.into()) => {
                 let op = v.get_meta_value(&AddAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "+="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.add_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.add_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "+="),
+        }
     }
 
     fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1597,20 +1576,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a - b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a - b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&SubtractAssign.into()) => {
                 let op = v.get_meta_value(&SubtractAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "-="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.subtract_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.subtract_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "-="),
+        }
     }
 
     fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1618,20 +1602,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a * b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a * b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&MultiplyAssign.into()) => {
                 let op = v.get_meta_value(&MultiplyAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "*="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.multiply_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.multiply_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "*="),
+        }
     }
 
     fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1639,20 +1628,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a / b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a / b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&DivideAssign.into()) => {
                 let op = v.get_meta_value(&DivideAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "/="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.divide_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.divide_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "/="),
+        }
     }
 
     fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1660,20 +1654,25 @@ impl Vm {
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a % b),
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a % b));
+                Ok(())
+            }
             (v, _) if v.contains_meta_key(&RemainderAssign.into()) => {
                 let op = v.get_meta_value(&RemainderAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                return self.call_overloaded_binary_op(unused, lhs, rhs_value, op);
+                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
             }
-            _ => return self.binary_op_error(lhs_value, rhs_value, "%="),
-        };
-
-        self.set_register(lhs, result_value);
-        Ok(())
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.remainder_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.remainder_assign(rhs_value),
+            _ => self.binary_op_error(lhs_value, rhs_value, "%="),
+        }
     }
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
@@ -1689,6 +1688,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
         self.set_register(result, result_value);
@@ -1709,6 +1709,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
         self.set_register(result, result_value);
@@ -1729,6 +1730,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
         self.set_register(result, result_value);
@@ -1749,6 +1751,7 @@ impl Vm {
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
+            (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
         self.set_register(result, result_value);
@@ -1793,6 +1796,7 @@ impl Vm {
                     false
                 }
             }
+            (Object(o), _) => o.try_borrow()?.equal(rhs_value)?,
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
                     match (&a.captures, &b.captures) {
@@ -1858,6 +1862,7 @@ impl Vm {
                     true
                 }
             }
+            (Object(o), _) => o.try_borrow()?.not_equal(rhs_value)?,
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
                     match (&a.captures, &b.captures) {
@@ -1883,11 +1888,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of lists and tuples
-    fn compare_value_ranges(
-        &mut self,
-        range_a: &[Value],
-        range_b: &[Value],
-    ) -> Result<bool, RuntimeError> {
+    fn compare_value_ranges(&mut self, range_a: &[Value], range_b: &[Value]) -> Result<bool> {
         if range_a.len() != range_b.len() {
             return Ok(false);
         }
@@ -1909,11 +1910,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of maps
-    fn compare_value_maps(
-        &mut self,
-        map_a: ValueMap,
-        map_b: ValueMap,
-    ) -> Result<bool, RuntimeError> {
+    fn compare_value_maps(&mut self, map_a: ValueMap, map_b: ValueMap) -> Result<bool> {
         if map_a.len() != map_b.len() {
             return Ok(false);
         }
@@ -2016,7 +2013,7 @@ impl Vm {
     fn run_import(&mut self, import_register: u8) -> InstructionResult {
         let import_name = match self.clone_register(import_register) {
             Value::Str(s) => s,
-            value @ Value::Map(_) | value @ Value::External(_) => {
+            value @ Value::Map(_) => {
                 self.set_register(import_register, value);
                 return Ok(());
             }
@@ -2186,7 +2183,7 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize, RuntimeError> {
+    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize> {
         let index = usize::from(n);
 
         if n < 0.0 {
@@ -2243,10 +2240,9 @@ impl Vm {
                     return runtime_error!("Unable to index {}", value.type_as_string());
                 });
             }
-            (External(e), index) => {
-                call_binary_op_or_else!(self, result_register, value_register, index, e, Index, {
-                    return runtime_error!("Unable to index {}", value.type_as_string());
-                });
+            (Object(o), index) => {
+                let result = o.try_borrow()?.index(&index)?;
+                self.set_register(result_register, result);
             }
             (unexpected_value, unexpected_index) => {
                 return runtime_error!(
@@ -2436,13 +2432,13 @@ impl Vm {
                     );
                 }
             }
-            External(e) => match e.get_meta_value(&MetaKey::Named(key_string.clone())) {
-                Some(value) => self.set_register(result_register, value),
-                None => {
+            Object(o) => {
+                let o = o.try_borrow()?;
+                if let Some(value) = o.lookup(&key) {
+                    self.set_register(result_register, value);
+                } else {
                     // Iterator fallback?
-                    if e.contains_meta_key(&UnaryOp::Iterator.into())
-                        || e.contains_meta_key(&UnaryOp::Next.into())
-                    {
+                    if !matches!(o.is_iterable(), IsIterable::NotIterable) {
                         let iterator_op = self.get_core_op(
                             &key,
                             &self.context.core_lib.iterator,
@@ -2451,13 +2447,10 @@ impl Vm {
                         )?;
                         self.set_register(result_register, iterator_op);
                     } else {
-                        return runtime_error!(
-                            "'{key_string}' not found in '{}'",
-                            accessed_value.type_as_string()
-                        );
+                        return runtime_error!("'{key}' not found in '{}'", o.object_type());
                     }
                 }
-            },
+            }
             unexpected => return type_error("Value that supports '.' access", unexpected),
         }
 
@@ -2546,6 +2539,35 @@ impl Vm {
             Ok(value) => {
                 self.set_register(result_register, value);
                 // External function calls don't use the push/pop frame mechanism,
+                // so drop the function args here now that the call has been completed.
+                self.truncate_registers(frame_base);
+            }
+            Err(error) => return Err(error),
+        }
+
+        Ok(())
+    }
+
+    fn call_object(
+        &mut self,
+        result_register: u8,
+        object: Object,
+        frame_base: u8,
+        call_arg_count: u8,
+        // instance_register: Option<u8>,
+    ) -> InstructionResult {
+        let result = object.try_borrow_mut()?.call(
+            self,
+            &ArgRegisters {
+                register: frame_base + 1,
+                count: call_arg_count,
+            },
+        );
+
+        match result {
+            Ok(value) => {
+                self.set_register(result_register, value);
+                // Object calls don't use the push/pop frame mechanism,
                 // so drop the function args here now that the call has been completed.
                 self.truncate_registers(frame_base);
             }
@@ -2784,6 +2806,7 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
+            Object(object) => self.call_object(result_register, object, frame_base, call_arg_count),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the map as the instance by placing it in the frame base,
@@ -2926,7 +2949,7 @@ impl Vm {
         match display_result {
             Value::Str(string) => match self.get_register_mut(register) {
                 Value::StringBuilder(builder) => {
-                    builder.push_str(&string);
+                    builder.append(string);
                     Ok(())
                 }
                 other => type_error("StringBuilder", other),
@@ -2940,7 +2963,7 @@ impl Vm {
         match self.remove_register(register) {
             Value::StringBuilder(result) => {
                 // Make a ValueString out of the string builder's contents
-                self.set_register(register, Value::Str(ValueString::from(result)));
+                self.set_register(register, result.build().into());
                 Ok(())
             }
             other => type_error("StringBuilder", &other),
@@ -2996,7 +3019,7 @@ impl Vm {
         self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, RuntimeError> {
+    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>> {
         self.truncate_registers(0);
 
         match self.call_stack.pop() {
@@ -3023,7 +3046,7 @@ impl Vm {
         }
     }
 
-    fn new_frame_base(&self) -> Result<u8, RuntimeError> {
+    fn new_frame_base(&self) -> Result<u8> {
         u8::try_from(self.value_stack.len() - self.register_base())
             .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
     }
@@ -3151,14 +3174,14 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
 // any iterators that it finds. This makes simple generators copyable, although any captured or
 // contained iterators in the generator VM will have shared state. This behaviour is noted in the
 // documentation for iterator.copy and should hopefully be sufficient.
-pub(crate) fn clone_generator_vm(vm: &Vm) -> Vm {
+pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
     let mut result = vm.clone();
     for value in result.value_stack.iter_mut() {
         if let Value::Iterator(ref mut i) = value {
-            *i = i.make_copy()
+            *i = i.make_copy()?;
         }
     }
-    result
+    Ok(result)
 }
 
 /// The ways in which a function's arguments will be treated when called externally

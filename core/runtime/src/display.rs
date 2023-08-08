@@ -1,4 +1,4 @@
-use crate::{RuntimeResult, Vm};
+use crate::{Result, StringBuilder, Vm};
 
 /// A trait for Koto runtime values that need custom display behaviour
 pub trait KotoDisplay {
@@ -6,7 +6,12 @@ pub trait KotoDisplay {
     ///
     /// The VM needs to be provided so that values with custom @display implementations will be
     /// displayed correcty.
-    fn display(&self, s: &mut String, vm: &mut Vm, options: KotoDisplayOptions) -> RuntimeResult;
+    fn display(
+        &self,
+        s: &mut StringBuilder,
+        vm: &mut Vm,
+        options: KotoDisplayOptions,
+    ) -> Result<()>;
 }
 
 /// Options for the [KotoDisplay] trait

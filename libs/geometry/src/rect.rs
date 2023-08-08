@@ -1,71 +1,10 @@
 use {
     crate::Vec2,
-    koto_runtime::prelude::*,
+    koto_runtime::{prelude::*, Result},
     std::{fmt, ops::Deref},
 };
 
 type Inner = nannou_core::geom::Rect<f64>;
-
-fn make_rect_meta_map() -> PtrMut<MetaMap> {
-    use {BinaryOp::*, UnaryOp::*, Value::*};
-
-    MetaMapBuilder::<Rect>::new("Rect")
-        .function("left", |context| Ok(context.data()?.left().into()))
-        .function("right", |context| Ok(context.data()?.right().into()))
-        .function("top", |context| Ok(context.data()?.top().into()))
-        .function("bottom", |context| Ok(context.data()?.bottom().into()))
-        .function("width", |context| Ok(context.data()?.w().into()))
-        .function("height", |context| Ok(context.data()?.h().into()))
-        .function("center", |context| {
-            Ok(Vec2::from(context.data()?.xy()).into())
-        })
-        .function("x", |context| Ok(context.data()?.x().into()))
-        .function("y", |context| Ok(context.data()?.y().into()))
-        .function("contains", |context| match context.args {
-            [External(p)] if p.has_data::<Vec2>() => {
-                let p = p.data::<Vec2>().unwrap();
-                let result = context.data()?.contains(p.inner());
-                Ok(result.into())
-            }
-            unexpected => type_error_with_slice("Vec2", unexpected),
-        })
-        .function("set_center", |context| {
-            let (x, y) = match context.args {
-                [Number(x), Number(y)] => (x.into(), y.into()),
-                [External(p)] if p.has_data::<Vec2>() => {
-                    let p = p.data::<Vec2>().unwrap();
-                    (p.x, p.y)
-                }
-                unexpected => return type_error_with_slice("two Numbers or a Vec2", unexpected),
-            };
-            let mut r = context.data_mut()?;
-            r.0 = Inner::from_x_y_w_h(x, y, r.w(), r.h());
-            context.ok_value()
-        })
-        .function(Display, |context| Ok(context.data()?.to_string().into()))
-        .function(Equal, koto_comparison_op!(Rect, ==))
-        .function(NotEqual, koto_comparison_op!(Rect, !=))
-        .function(UnaryOp::Iterator, |context| {
-            let r = *context.data()?;
-            let iter = (0..=3).map(move |i| {
-                let result = match i {
-                    0 => r.x(),
-                    1 => r.y(),
-                    2 => r.w(),
-                    3 => r.h(),
-                    _ => unreachable!(),
-                };
-                result.into()
-            });
-            Ok(ValueIterator::with_std_iter(iter).into())
-        })
-        .build()
-}
-
-thread_local! {
-    static RECT_META: PtrMut<MetaMap> = make_rect_meta_map();
-    static TYPE_RECT: ValueString = "Rect".into();
-}
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Rect(Inner);
@@ -76,14 +15,94 @@ impl Rect {
     }
 }
 
-impl ExternalData for Rect {
-    fn data_type(&self) -> ValueString {
-        TYPE_RECT.with(|x| x.clone())
+impl KotoType for Rect {
+    const TYPE: &'static str = "Rect";
+}
+
+impl KotoObject for Rect {
+    fn object_type(&self) -> ValueString {
+        RECT_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(*self)
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        RECT_ENTRIES.with(|entries| entries.get(key).cloned())
     }
+
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(self.to_string());
+        Ok(())
+    }
+
+    fn equal(&self, rhs: &Value) -> Result<bool> {
+        geometry_comparison_op!(self, rhs, ==)
+    }
+
+    fn not_equal(&self, rhs: &Value) -> Result<bool> {
+        geometry_comparison_op!(self, rhs, !=)
+    }
+
+    fn is_iterable(&self) -> IsIterable {
+        IsIterable::Iterable
+    }
+
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+        let r = *self;
+
+        let iter = (0..=3).map(move |i| {
+            let result = match i {
+                0 => r.x(),
+                1 => r.y(),
+                2 => r.w(),
+                3 => r.h(),
+                _ => unreachable!(),
+            };
+            ValueIteratorOutput::Value(result.into())
+        });
+
+        Ok(ValueIterator::with_std_iter(iter))
+    }
+}
+
+fn make_rect_entries() -> DataMap {
+    use Value::*;
+
+    ObjectEntryBuilder::<Rect>::new()
+        .method("left", |ctx| Ok(ctx.instance()?.left().into()))
+        .method("right", |ctx| Ok(ctx.instance()?.right().into()))
+        .method("top", |ctx| Ok(ctx.instance()?.top().into()))
+        .method("bottom", |ctx| Ok(ctx.instance()?.bottom().into()))
+        .method("width", |ctx| Ok(ctx.instance()?.w().into()))
+        .method("height", |ctx| Ok(ctx.instance()?.h().into()))
+        .method("center", |ctx| Ok(Vec2::from(ctx.instance()?.xy()).into()))
+        .method("x", |ctx| Ok(ctx.instance()?.x().into()))
+        .method("y", |ctx| Ok(ctx.instance()?.y().into()))
+        .method("contains", |ctx| match ctx.args {
+            [Object(p)] if p.is_a::<Vec2>() => {
+                let p = p.cast::<Vec2>().unwrap();
+                let result = ctx.instance()?.contains(p.inner());
+                Ok(result.into())
+            }
+            unexpected => type_error_with_slice("Vec2", unexpected),
+        })
+        .method("set_center", |ctx| {
+            let (x, y) = match ctx.args {
+                [Number(x), Number(y)] => (x.into(), y.into()),
+                [Object(p)] if p.is_a::<Vec2>() => {
+                    let p = p.cast::<Vec2>().unwrap();
+                    (p.x, p.y)
+                }
+                unexpected => return type_error_with_slice("two Numbers or a Vec2", unexpected),
+            };
+            let mut r = ctx.instance_mut()?;
+            r.0 = Inner::from_x_y_w_h(x, y, r.w(), r.h());
+            ctx.instance_result()
+        })
+        .build()
+}
+
+thread_local! {
+    static RECT_TYPE_STRING: ValueString = Rect::TYPE.into();
+    static RECT_ENTRIES: DataMap = make_rect_entries();
 }
 
 impl Deref for Rect {
@@ -108,13 +127,12 @@ impl From<(f64, f64, f64, f64)> for Rect {
 
 impl From<Rect> for Value {
     fn from(point: Rect) -> Self {
-        let meta = RECT_META.with(|meta| meta.clone());
-        External::with_shared_meta_map(point, meta).into()
+        Object::from(point).into()
     }
 }
 
 impl fmt::Display for Rect {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let r = &self.0;
         write!(
             f,

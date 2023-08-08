@@ -535,7 +535,7 @@ check! null
 
 ### See Also
 
-- [`iterator.next_back`](#next_back)
+- [`iterator.next_back`](#next-back)
 
 ## next_back
 
@@ -630,7 +630,7 @@ check! a
 
 #### See Also
 
-- [`iterator.peek_back`](#peek_back)
+- [`iterator.next_back`](#next-back)
 
 ## position
 

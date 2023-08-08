@@ -4,7 +4,7 @@ clippy:
   cargo clippy --workspace --all-features -- -D warnings
 
 doc:
-  cargo doc --workspace --exclude koto_cli
+  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli
 
 fmt:
   cargo fmt --all -- --check

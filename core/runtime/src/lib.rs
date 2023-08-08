@@ -5,13 +5,13 @@
 mod display;
 mod error;
 mod external_function;
-mod external_value;
 mod file;
 mod frame;
 mod int_range;
 mod meta_map;
-mod meta_map_builder;
+mod object;
 mod stdio;
+mod string_builder;
 mod value_iterator;
 mod value_key;
 mod value_list;
@@ -28,15 +28,15 @@ pub mod value;
 
 pub use {
     display::{KotoDisplay, KotoDisplayOptions},
-    error::{type_error, type_error_with_slice, RuntimeError, RuntimeResult},
-    external_function::ExternalFunction,
-    external_value::{make_data_ptr, External, ExternalData},
+    error::{type_error, type_error_with_slice, Result, RuntimeError, RuntimeResult},
+    external_function::{ArgRegisters, ExternalFunction},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
     koto_memory::{Borrow, BorrowMut, Ptr, PtrMut},
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
-    meta_map_builder::MetaMapBuilder,
+    object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
+    string_builder::StringBuilder,
     value::{FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,

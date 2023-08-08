@@ -4,11 +4,9 @@ mod buffered_file;
 
 pub use buffered_file::BufferedFile;
 
-use crate::external_value::make_data_ptr;
-
 use {
     super::string::format,
-    crate::prelude::*,
+    crate::{prelude::*, Result},
     std::{
         cell::RefCell,
         fmt, fs,
@@ -55,18 +53,17 @@ pub fn make_module() -> ValueMap {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
             let mut display_vm = None;
-            let mut node_string = String::new();
             for node in nodes {
                 match node {
                     Str(s) => path.push(s.as_str()),
                     other => {
-                        node_string.clear();
+                        let mut node_string = StringBuilder::default();
                         other.display(
                             &mut node_string,
                             display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
                             KotoDisplayOptions::default(),
                         )?;
-                        path.push(&node_string);
+                        path.push(&node_string.build());
                     }
                 }
             }
@@ -164,84 +161,6 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-thread_local! {
-    /// The meta map used by Files
-    pub static FILE_META: PtrMut<MetaMap> = make_file_meta_map();
-}
-
-fn make_file_meta_map() -> PtrMut<MetaMap> {
-    use Value::{Null, Number};
-
-    MetaMapBuilder::<File>::new("File")
-        .function("flush", |context| context.data_mut()?.flush().map(|_| Null))
-        .function("path", |context| context.data()?.path().map(Value::from))
-        .function("read_line", |context| {
-            context.data_mut()?.read_line().map(|result| match result {
-                Some(result) => {
-                    if !result.is_empty() {
-                        let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
-                        result[..result.len() - newline_bytes].into()
-                    } else {
-                        Null
-                    }
-                }
-                None => Null,
-            })
-        })
-        .function("read_to_string", |context| {
-            context.data_mut()?.read_to_string().map(Value::from)
-        })
-        .function("seek", |context| match context.args {
-            [Number(n)] => {
-                if *n < 0.0 {
-                    return runtime_error!("Negative seek positions not allowed");
-                }
-                context.data_mut()?.seek(n.into()).map(|_| Null)
-            }
-            unexpected => {
-                type_error_with_slice("a non-negative Number as the seek position", unexpected)
-            }
-        })
-        .function("write", |context| match context.args {
-            [value] => {
-                let mut string_to_write = String::new();
-                value.display(
-                    &mut string_to_write,
-                    &mut context.vm.spawn_shared_vm(),
-                    KotoDisplayOptions::default(),
-                )?;
-                context
-                    .data_mut()?
-                    .write(string_to_write.as_bytes())
-                    .map(|_| Null)
-            }
-            unexpected => type_error_with_slice("a single argument", unexpected),
-        })
-        .function("write_line", |context| {
-            let mut string_to_write = String::new();
-            match context.args {
-                [] => {}
-                [value] => {
-                    value.display(
-                        &mut string_to_write,
-                        &mut context.vm.spawn_shared_vm(),
-                        KotoDisplayOptions::default(),
-                    )?;
-                }
-                unexpected => return type_error_with_slice("a single argument", unexpected),
-            };
-            string_to_write.push('\n');
-            context
-                .data_mut()?
-                .write(string_to_write.as_bytes())
-                .map(|_| Null)
-        })
-        .function(UnaryOp::Display, |context| {
-            Ok(format!("File({})", context.data()?.0.id()).into())
-        })
-        .build()
-}
-
 /// The File type used in the io module
 #[derive(Clone)]
 pub struct File(Rc<dyn KotoFile>);
@@ -260,37 +179,118 @@ impl File {
     where
         T: Read + Write + Seek + 'static,
     {
-        let result = External::with_shared_meta_map(
-            Self(Rc::new(BufferedSystemFile::new(file, path))),
-            Self::meta(),
-        );
-        Value::External(result)
+        Self(Rc::new(BufferedSystemFile::new(file, path))).into()
     }
 
     fn stderr(vm: &Vm) -> Value {
-        let result = External::with_shared_meta_map(Self(vm.stderr().clone()), Self::meta());
-        Value::External(result)
+        Self(vm.stderr().clone()).into()
     }
 
     fn stdin(vm: &Vm) -> Value {
-        let result = External::with_shared_meta_map(Self(vm.stdin().clone()), Self::meta());
-        Value::External(result)
+        Self(vm.stdin().clone()).into()
     }
 
     fn stdout(vm: &Vm) -> Value {
-        let result = External::with_shared_meta_map(Self(vm.stdout().clone()), Self::meta());
-        Value::External(result)
-    }
-
-    fn meta() -> PtrMut<MetaMap> {
-        FILE_META.with(|meta| meta.clone())
+        Self(vm.stdout().clone()).into()
     }
 }
 
-impl ExternalData for File {
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(self.clone())
+impl KotoType for File {
+    const TYPE: &'static str = "File";
+}
+
+impl KotoObject for File {
+    fn object_type(&self) -> ValueString {
+        FILE_TYPE_STRING.with(|t| t.clone())
     }
+
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        FILE_ENTRIES.with(|entries| entries.get(key).cloned())
+    }
+
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(format!("{}({})", Self::TYPE, self.id()));
+        Ok(())
+    }
+}
+
+impl From<File> for Value {
+    fn from(file: File) -> Self {
+        Object::from(file).into()
+    }
+}
+
+fn file_entries() -> DataMap {
+    use Value::*;
+
+    ObjectEntryBuilder::<File>::new()
+        .method("flush", |ctx| ctx.instance_mut()?.flush().map(|_| Null))
+        .method("path", |ctx| ctx.instance()?.path().map(Value::from))
+        .method("read_line", |ctx| {
+            ctx.instance_mut()?.read_line().map(|result| match result {
+                Some(result) => {
+                    if !result.is_empty() {
+                        let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                        result[..result.len() - newline_bytes].into()
+                    } else {
+                        Null
+                    }
+                }
+                None => Null,
+            })
+        })
+        .method("read_to_string", |ctx| {
+            ctx.instance_mut()?.read_to_string().map(Value::from)
+        })
+        .method("seek", |ctx| match ctx.args {
+            [Number(n)] => {
+                if *n < 0.0 {
+                    return runtime_error!("Negative seek positions not allowed");
+                }
+                ctx.instance_mut()?.seek(n.into()).map(|_| Null)
+            }
+            unexpected => {
+                type_error_with_slice("a non-negative Number as the seek position", unexpected)
+            }
+        })
+        .method("write", |ctx| match ctx.args {
+            [value] => {
+                let mut string_to_write = crate::StringBuilder::default();
+                value.display(
+                    &mut string_to_write,
+                    &mut ctx.vm.spawn_shared_vm(),
+                    KotoDisplayOptions::default(),
+                )?;
+                ctx.instance_mut()?
+                    .write(string_to_write.build().as_bytes())
+                    .map(|_| Null)
+            }
+            unexpected => type_error_with_slice("a single argument", unexpected),
+        })
+        .method("write_line", |ctx| {
+            let mut string_to_write = crate::StringBuilder::default();
+            match ctx.args {
+                [] => {}
+                [value] => {
+                    value.display(
+                        &mut string_to_write,
+                        &mut ctx.vm.spawn_shared_vm(),
+                        KotoDisplayOptions::default(),
+                    )?;
+                }
+                unexpected => return type_error_with_slice("a single argument", unexpected),
+            };
+            string_to_write.append('\n');
+            ctx.instance_mut()?
+                .write(string_to_write.build().as_bytes())
+                .map(|_| Null)
+        })
+        .build()
+}
+
+thread_local! {
+    static FILE_TYPE_STRING: ValueString = File::TYPE.into();
+    static FILE_ENTRIES: DataMap = file_entries();
 }
 
 struct BufferedSystemFile<T>
@@ -321,11 +321,11 @@ where
         self.path.to_string_lossy().to_string().into()
     }
 
-    fn path(&self) -> Result<ValueString, RuntimeError> {
+    fn path(&self) -> Result<ValueString> {
         Ok(self.id())
     }
 
-    fn seek(&self, position: u64) -> Result<(), RuntimeError> {
+    fn seek(&self, position: u64) -> Result<()> {
         self.file
             .borrow_mut()
             .seek(SeekFrom::Start(position))
@@ -338,7 +338,7 @@ impl<T> KotoRead for BufferedSystemFile<T>
 where
     T: Read + Write,
 {
-    fn read_line(&self) -> Result<Option<String>, RuntimeError> {
+    fn read_line(&self) -> Result<Option<String>> {
         let mut buffer = String::new();
         match self
             .file
@@ -351,7 +351,7 @@ where
         }
     }
 
-    fn read_to_string(&self) -> Result<String, RuntimeError> {
+    fn read_to_string(&self) -> Result<String> {
         let mut buffer = String::new();
         self.file
             .borrow_mut()
@@ -365,19 +365,19 @@ impl<T> KotoWrite for BufferedSystemFile<T>
 where
     T: Read + Write,
 {
-    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+    fn write(&self, bytes: &[u8]) -> Result<()> {
         self.file.borrow_mut().write(bytes).map_err(map_io_err)?;
         Ok(())
     }
 
-    fn write_line(&self, text: &str) -> Result<(), RuntimeError> {
+    fn write_line(&self, text: &str) -> Result<()> {
         let mut borrowed = self.file.borrow_mut();
         borrowed.write(text.as_bytes()).map_err(map_io_err)?;
         borrowed.write("\n".as_bytes()).map_err(map_io_err)?;
         Ok(())
     }
 
-    fn flush(&self) -> Result<(), RuntimeError> {
+    fn flush(&self) -> Result<()> {
         self.file.borrow_mut().flush().map_err(map_io_err)
     }
 }

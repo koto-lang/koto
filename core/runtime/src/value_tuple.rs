@@ -1,5 +1,5 @@
 use {
-    crate::prelude::*,
+    crate::{prelude::*, Result},
     std::ops::{Deref, Range},
 };
 
@@ -81,11 +81,16 @@ impl Default for ValueTuple {
 }
 
 impl KotoDisplay for ValueTuple {
-    fn display(&self, s: &mut String, vm: &mut Vm, _options: KotoDisplayOptions) -> RuntimeResult {
-        s.push('(');
+    fn display(
+        &self,
+        s: &mut StringBuilder,
+        vm: &mut Vm,
+        _options: KotoDisplayOptions,
+    ) -> Result<()> {
+        s.append('(');
         for (i, value) in self.iter().enumerate() {
             if i > 0 {
-                s.push_str(", ");
+                s.append(", ");
             }
             value.display(
                 s,
@@ -95,9 +100,9 @@ impl KotoDisplay for ValueTuple {
                 },
             )?;
         }
-        s.push(')');
+        s.append(')');
 
-        Ok(().into())
+        Ok(())
     }
 }
 

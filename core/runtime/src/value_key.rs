@@ -8,7 +8,7 @@ use {
     },
 };
 
-/// The key type used by [ValueMap](crate::ValueMap)
+/// The key type used by [DataMap](crate::DataMap)
 ///
 /// Only hashable values can be used as keys, see [Value::is_hashable]
 #[derive(Clone, Debug)]

@@ -67,7 +67,8 @@ impl Hash for ExternalFunction {
 
 /// The start register and argument count for arguments when an ExternalFunction is called
 ///
-/// [Vm::args] should be called with this struct to retrieve the corresponding slice of [Value]s.
+/// [Vm::get_args] should be called with this struct to retrieve the corresponding
+/// slice of [Value]s.
 #[allow(missing_docs)]
 pub struct ArgRegisters {
     pub register: u8,

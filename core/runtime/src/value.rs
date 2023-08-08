@@ -1,7 +1,7 @@
 //! The core value type used in the Koto runtime
 
 use {
-    crate::{prelude::*, ExternalFunction},
+    crate::{prelude::*, ExternalFunction, Result},
     koto_bytecode::Chunk,
     std::fmt::Write,
 };
@@ -52,8 +52,8 @@ pub enum Value {
     /// The iterator type used in Koto
     Iterator(ValueIterator),
 
-    /// A value type that's defined outside of the Koto runtime
-    External(External),
+    /// An object with behaviour defined via the [KotoObject] trait
+    Object(Object),
 
     /// A tuple of values that are packed into a contiguous series of registers
     ///
@@ -71,38 +71,47 @@ pub enum Value {
     /// The string builder used during string interpolation
     ///
     /// Note: this is intended for internal use only.
-    StringBuilder(String),
+    StringBuilder(StringBuilder),
 }
 
 impl Value {
     /// Returns a recursive 'deep copy' of a Value
     ///
     /// This is used by koto.deep_copy.
-    pub fn deep_copy(&self) -> Value {
+    pub fn deep_copy(&self) -> RuntimeResult {
         use Value::*;
 
-        match &self {
+        let result = match &self {
             List(l) => {
-                let result = l.data().iter().map(|v| v.deep_copy()).collect::<ValueVec>();
+                let result = l
+                    .data()
+                    .iter()
+                    .map(|v| v.deep_copy())
+                    .collect::<Result<_>>()?;
                 List(ValueList::with_data(result))
             }
             Tuple(t) => {
-                let result = t.iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
+                let result = t
+                    .iter()
+                    .map(|v| v.deep_copy())
+                    .collect::<Result<Vec<_>>>()?;
                 Tuple(result.into())
             }
             Map(m) => {
                 let data = m
                     .data()
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.deep_copy()))
-                    .collect();
+                    .map(|(k, v)| v.deep_copy().map(|v| (k.clone(), v)))
+                    .collect::<Result<_>>()?;
                 let meta = m.meta_map().map(|meta| meta.borrow().clone());
                 Map(ValueMap::with_contents(data, meta))
             }
-            Iterator(i) => Iterator(i.make_copy()),
-            External(v) => External(v.make_copy()),
+            Iterator(i) => Iterator(i.make_copy()?),
+            Object(o) => Object(o.try_borrow()?.copy()),
             _ => self.clone(),
-        }
+        };
+
+        Ok(result)
     }
 
     /// Returns true if the value has function-like callable behaviour
@@ -111,7 +120,6 @@ impl Value {
         match self {
             SimpleFunction(_) | Function(_) | ExternalFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
-            External(v) => v.contains_meta_key(&MetaKey::Call),
             _ => false,
         }
     }
@@ -133,12 +141,9 @@ impl Value {
         use Value::*;
         match self {
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
-            External(v)
-                if v.contains_meta_key(&UnaryOp::Iterator.into())
-                    || v.contains_meta_key(&UnaryOp::Next.into()) =>
-            {
-                true
-            }
+            Object(o) => o.try_borrow().map_or(false, |o| {
+                !matches!(o.is_iterable(), IsIterable::NotIterable)
+            }),
             _ => false,
         }
     }
@@ -187,7 +192,10 @@ impl Value {
             SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
             Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
             ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
-            External(value) => value.value_type(),
+            Object(o) => o.try_borrow().map_or_else(
+                |_| "Error: object already borrowed".into(),
+                |o| o.object_type(),
+            ),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
             SequenceBuilder(_) => TYPE_SEQUENCE_BUILDER.with(|x| x.clone()),
@@ -200,7 +208,6 @@ impl Value {
         use Value::*;
         match &self {
             Map(m) => m.contains_meta_key(key),
-            External(e) => e.contains_meta_key(key),
             _ => false,
         }
     }
@@ -210,37 +217,41 @@ impl Value {
         use Value::*;
         match &self {
             Map(m) => m.get_meta_value(key),
-            External(e) => e.get_meta_value(key),
             _ => None,
         }
     }
 }
 
 impl KotoDisplay for Value {
-    fn display(&self, s: &mut String, vm: &mut Vm, options: KotoDisplayOptions) -> RuntimeResult {
+    fn display(
+        &self,
+        out: &mut StringBuilder,
+        vm: &mut Vm,
+        options: KotoDisplayOptions,
+    ) -> Result<()> {
         use Value::*;
         let result = match self {
-            Null => s.write_str("null"),
-            Bool(b) => write!(s, "{b}"),
-            Number(n) => write!(s, "{n}"),
-            Range(r) => write!(s, "{r}"),
-            SimpleFunction(_) | Function(_) => write!(s, "||"),
-            Generator(_) => s.write_str("Generator"),
-            Iterator(_) => s.write_str("Iterator"),
-            ExternalFunction(_) => s.write_str("||"),
+            Null => out.write_str("null"),
+            Bool(b) => write!(out, "{b}"),
+            Number(n) => write!(out, "{n}"),
+            Range(r) => write!(out, "{r}"),
+            SimpleFunction(_) | Function(_) => write!(out, "||"),
+            Generator(_) => out.write_str("Generator"),
+            Iterator(_) => out.write_str("Iterator"),
+            ExternalFunction(_) => out.write_str("||"),
             TemporaryTuple(RegisterSlice { start, count }) => {
-                write!(s, "TemporaryTuple [{start}..{}]", start + count)
+                write!(out, "TemporaryTuple [{start}..{}]", start + count)
             }
-            SequenceBuilder(_) => s.write_str("SequenceBuilder"),
-            StringBuilder(sb) => write!(s, "StringBuilder({sb})"),
-            Str(value_string) => return value_string.display(s, vm, options),
-            List(l) => return l.display(s, vm, options),
-            Tuple(t) => return t.display(s, vm, options),
-            Map(m) => return m.display(s, vm, options),
-            External(v) => return v.display(s, vm, options),
+            SequenceBuilder(_) => out.write_str("SequenceBuilder"),
+            StringBuilder(_) => write!(out, "StringBuilder"),
+            Str(s) => return s.display(out, vm, options),
+            List(l) => return l.display(out, vm, options),
+            Tuple(t) => return t.display(out, vm, options),
+            Map(m) => return m.display(out, vm, options),
+            Object(o) => return o.try_borrow()?.display(out, vm, options),
         };
         if result.is_ok() {
-            Ok(Null)
+            Ok(())
         } else {
             runtime_error!("Failed to write to string")
         }
@@ -327,9 +338,9 @@ impl From<ValueMap> for Value {
     }
 }
 
-impl From<External> for Value {
-    fn from(value: External) -> Self {
-        Self::External(value)
+impl From<Object> for Value {
+    fn from(value: Object) -> Self {
+        Self::Object(value)
     }
 }
 

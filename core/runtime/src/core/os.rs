@@ -1,6 +1,11 @@
 //! The `os` core library module
 
-use {crate::prelude::*, chrono::prelude::*, instant::Instant, std::ops::Deref};
+use {
+    crate::{prelude::*, Result},
+    chrono::prelude::*,
+    instant::Instant,
+    std::ops::Deref,
+};
 
 /// Initializes the `os` core library module
 pub fn make_module() -> ValueMap {
@@ -28,13 +33,20 @@ pub fn make_module() -> ValueMap {
 }
 
 /// The underlying data type returned by `os.time()`
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DateTime(chrono::DateTime<Local>);
+
+impl Deref for DateTime {
+    type Target = chrono::DateTime<Local>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
-        let result = External::with_shared_meta_map(Self(time), Self::meta_map());
-        Value::External(result)
+        Object::from(Self(time)).into()
     }
 
     fn now() -> Value {
@@ -58,76 +70,58 @@ impl DateTime {
             None => runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
+}
 
-    fn meta_map() -> PtrMut<MetaMap> {
-        SYSTEM_TIME_META.with(|meta| meta.clone())
+impl KotoType for DateTime {
+    const TYPE: &'static str = "DateTime";
+}
+
+impl KotoObject for DateTime {
+    fn object_type(&self) -> ValueString {
+        DATETIME_TYPE_STRING.with(|t| t.clone())
+    }
+
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        DATETIME_ENTRIES.with(|entries| entries.get(key).cloned())
+    }
+
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(self.format("%F %T").to_string());
+        Ok(())
     }
 }
 
-impl ExternalData for DateTime {
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(self.clone())
-    }
-}
-
-impl Deref for DateTime {
-    type Target = chrono::DateTime<Local>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-thread_local! {
-    /// The meta map used by [DateTime]
-    pub static SYSTEM_TIME_META: PtrMut<MetaMap> = make_system_time_meta_map();
-}
-
-fn make_system_time_meta_map() -> PtrMut<MetaMap> {
-    MetaMapBuilder::<DateTime>::new("DateTime")
-        .function(UnaryOp::Display, |context| {
-            Ok(context.data()?.format("%F %T").to_string().into())
-        })
-        .function("day", |context| Ok(context.data()?.day().into()))
-        .function("hour", |context| Ok(context.data()?.hour().into()))
-        .function("minute", |context| Ok(context.data()?.minute().into()))
-        .function("month", |context| Ok(context.data()?.month().into()))
-        .function("second", |context| Ok(context.data()?.second().into()))
-        .function("nanosecond", |context| {
-            Ok(context.data()?.nanosecond().into())
-        })
-        .function("timestamp", |context| {
-            let seconds = context.data()?.timestamp() as f64;
-            let sub_nanos = context.data()?.timestamp_subsec_nanos();
+fn datetime_entries() -> DataMap {
+    ObjectEntryBuilder::<DateTime>::new()
+        .method("day", |ctx| Ok(ctx.instance()?.day().into()))
+        .method("hour", |ctx| Ok(ctx.instance()?.hour().into()))
+        .method("minute", |ctx| Ok(ctx.instance()?.minute().into()))
+        .method("month", |ctx| Ok(ctx.instance()?.month().into()))
+        .method("second", |ctx| Ok(ctx.instance()?.second().into()))
+        .method("nanosecond", |ctx| Ok(ctx.instance()?.nanosecond().into()))
+        .method("timestamp", |ctx| {
+            let seconds = ctx.instance()?.timestamp() as f64;
+            let sub_nanos = ctx.instance()?.timestamp_subsec_nanos();
             Ok((seconds + sub_nanos as f64 / 1.0e9).into())
         })
-        .function("timezone_offset", |context| {
-            Ok(context.data()?.offset().local_minus_utc().into())
+        .method("timezone_offset", |ctx| {
+            Ok(ctx.instance()?.offset().local_minus_utc().into())
         })
-        .function("timezone_string", |context| {
-            Ok(context.data()?.format("%z").to_string().into())
+        .method("timezone_string", |ctx| {
+            Ok(ctx.instance()?.format("%z").to_string().into())
         })
-        .function("year", |context| Ok(context.data()?.year().into()))
+        .method("year", |ctx| Ok(ctx.instance()?.year().into()))
         .build()
 }
 
+thread_local! {
+    static DATETIME_TYPE_STRING: ValueString = DateTime::TYPE.into();
+    static DATETIME_ENTRIES: DataMap = datetime_entries();
+}
+
 /// The underlying data type returned by `os.start_timer()`
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Timer(Instant);
-
-impl Timer {
-    fn now() -> Value {
-        let meta = TIMER_META.with(|meta| meta.clone());
-        let result = External::with_shared_meta_map(Self(Instant::now()), meta);
-        Value::External(result)
-    }
-}
-
-impl ExternalData for Timer {
-    fn make_copy(&self) -> PtrMut<dyn ExternalData> {
-        make_data_ptr(self.clone())
-    }
-}
 
 impl Deref for Timer {
     type Target = Instant;
@@ -137,33 +131,62 @@ impl Deref for Timer {
     }
 }
 
-thread_local! {
-    /// The meta map used by [Timer]
-    pub static TIMER_META: PtrMut<MetaMap> = make_timer_meta_map();
+impl Timer {
+    fn now() -> Value {
+        let timer = Self(Instant::now());
+        Object::from(timer).into()
+    }
+
+    fn elapsed_seconds(&self) -> f64 {
+        self.elapsed().as_secs_f64()
+    }
 }
 
-fn make_timer_meta_map() -> PtrMut<MetaMap> {
-    use Value::External;
+impl KotoType for Timer {
+    const TYPE: &'static str = "Timer";
+}
 
-    MetaMapBuilder::<Timer>::new("Timer")
-        .function(UnaryOp::Display, |context| {
-            Ok(format!("Timer({:.3}s)", context.data()?.elapsed().as_secs_f64()).into())
-        })
-        .function(BinaryOp::Subtract, |context| match context.args {
-            [External(b)] if b.has_data::<Timer>() => {
-                let b = b.data::<Timer>().unwrap();
-                let a = context.data()?;
-                let result = if a.0 >= b.0 {
-                    a.0.duration_since(b.0).as_secs_f64()
+impl KotoObject for Timer {
+    fn object_type(&self) -> ValueString {
+        TIMER_TYPE_STRING.with(|t| t.clone())
+    }
+
+    fn lookup(&self, key: &ValueKey) -> Option<Value> {
+        TIMER_ENTRIES.with(|entries| entries.get(key).cloned())
+    }
+
+    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+        out.append(format!("{}({:.3}s)", Self::TYPE, self.elapsed_seconds()));
+        Ok(())
+    }
+
+    fn subtract(&self, rhs: &Value) -> Result<Value> {
+        match rhs {
+            Value::Object(o) if o.is_a::<Self>() => {
+                let rhs = o.cast::<Self>().unwrap();
+
+                let result = if self.0 >= rhs.0 {
+                    self.duration_since(rhs.0).as_secs_f64()
                 } else {
-                    -(b.0.duration_since(a.0).as_secs_f64())
+                    -(rhs.duration_since(self.0).as_secs_f64())
                 };
+
                 Ok(result.into())
             }
-            unexpected => type_error_with_slice("Timer", unexpected),
-        })
-        .function("elapsed", |context| {
-            Ok(context.data()?.0.elapsed().as_secs_f64().into())
+            unexpected => type_error(Self::TYPE, unexpected),
+        }
+    }
+}
+
+fn named_timer_entries() -> DataMap {
+    ObjectEntryBuilder::<Timer>::new()
+        .method("elapsed", |ctx| {
+            Ok(ctx.instance()?.elapsed_seconds().into())
         })
         .build()
+}
+
+thread_local! {
+    static TIMER_TYPE_STRING: ValueString = Timer::TYPE.into();
+    static TIMER_ENTRIES: DataMap = named_timer_entries();
 }
