@@ -5,7 +5,7 @@ use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
 /// See also: [Object].
-pub trait KotoObject: KotoCopyable + Downcast {
+pub trait KotoObject: Downcast {
     /// The type of the Object as a [ValueString]
     ///
     /// A typical pattern will be to implement [KotoType] for use with [ObjectEntryBuilder],
@@ -29,6 +29,10 @@ pub trait KotoObject: KotoCopyable + Downcast {
     ///     fn object_type(&self) -> ValueString {
     ///         FOO_TYPE_STRING.with(|t| t.clone())
     ///     }
+    ///
+    ///     fn copy(&self) -> Object {
+    ///         Object::from(self.clone())
+    ///     }
     /// }
     ///
     /// thread_local! {
@@ -36,6 +40,20 @@ pub trait KotoObject: KotoCopyable + Downcast {
     /// }
     /// ```
     fn object_type(&self) -> ValueString;
+
+    /// How the object should behave when called from `koto.copy`
+    ///
+    /// A default implementation can't be provided here, but a typical implementation will look
+    /// similar to: `Object::from(self.clone())`
+    fn copy(&self) -> Object;
+
+    /// How the object should behave when called from `koto.deep_copy`
+    ///
+    /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
+    /// by the object (see [Value::deep_copy]).
+    fn deep_copy(&self) -> Object {
+        self.copy()
+    }
 
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
@@ -199,28 +217,6 @@ pub trait KotoObject: KotoCopyable + Downcast {
 
 impl_downcast!(KotoObject);
 
-/// Defines how copies of [KotoObject]s should be made
-///
-/// A blanket default implementation is provided for any [KotoObject] that implements [Clone].
-pub trait KotoCopyable {
-    /// How the object should behave when called from `koto.copy`
-    fn copy(&self) -> Object;
-
-    /// How the object should behave when called from `koto.deep_copy`
-    ///
-    /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
-    /// by the object (see [Value::deep_copy]).
-    fn deep_copy(&self) -> Object {
-        self.copy()
-    }
-}
-
-impl<T: Clone + KotoObject> KotoCopyable for T {
-    fn copy(&self) -> Object {
-        self.clone().into()
-    }
-}
-
 /// A wrapper for [KotoObject]s used in the Koto runtime
 #[derive(Clone)]
 pub struct Object {
@@ -301,6 +297,10 @@ pub trait KotoType {
 /// impl KotoObject for Foo {
 ///     fn object_type(&self) -> ValueString {
 ///         FOO_TYPE_STRING.with(|t| t.clone())
+///     }
+///
+///     fn copy(&self) -> Object {
+///         self.clone().into()
 ///     }
 ///
 ///     fn lookup(&self, key: &ValueKey) -> Option<Value> {

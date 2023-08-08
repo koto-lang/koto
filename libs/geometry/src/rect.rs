@@ -22,6 +22,10 @@ impl KotoObject for Rect {
         RECT_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        (*self).into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         RECT_ENTRIES.with(|entries| entries.get(key).cloned())
     }

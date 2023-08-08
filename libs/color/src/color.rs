@@ -170,6 +170,10 @@ impl KotoObject for Color {
         COLOR_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        (*self).into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         COLOR_ENTRIES.with(|entries| entries.get(key).cloned())
     }

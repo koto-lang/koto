@@ -198,6 +198,10 @@ impl KotoObject for File {
         FILE_TYPE_STRING.with(|t| t.clone())
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         FILE_ENTRIES.with(|entries| entries.get(key).cloned())
     }

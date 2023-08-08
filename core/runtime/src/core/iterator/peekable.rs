@@ -78,6 +78,10 @@ impl KotoObject for Peekable {
         PEEKABLE_TYPE_STRING.with(|t| t.clone())
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         PEEKABLE_ENTRIES.with(|entries| entries.get(key).cloned())
     }

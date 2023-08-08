@@ -28,6 +28,10 @@ impl KotoObject for Vec2 {
         VEC2_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        (*self).into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         VEC2_ENTRIES.with(|entries| entries.get(key).cloned())
     }

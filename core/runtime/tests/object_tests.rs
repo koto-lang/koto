@@ -88,6 +88,10 @@ mod objects {
             TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
         }
 
+        fn copy(&self) -> Object {
+            (*self).into()
+        }
+
         fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
             ctx.append(format!("{}: {}", Self::TYPE, self.x));
             Ok(())
@@ -241,6 +245,10 @@ mod objects {
     impl KotoObject for TestIterator {
         fn object_type(&self) -> ValueString {
             TEST_ITERATOR_TYPE_STRING.with(|s| s.clone())
+        }
+
+        fn copy(&self) -> Object {
+            (*self).into()
         }
 
         fn is_iterable(&self) -> IsIterable {

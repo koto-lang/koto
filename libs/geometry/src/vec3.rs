@@ -23,6 +23,10 @@ impl KotoObject for Vec3 {
         VEC3_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        (*self).into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         VEC3_ENTRIES.with(|entries| entries.get(key).cloned())
     }

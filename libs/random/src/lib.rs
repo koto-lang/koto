@@ -108,6 +108,10 @@ impl KotoObject for ChaChaRng {
         RNG_TYPE_STRING.with(|s| s.clone())
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         RNG_ENTRIES.with(|entries| entries.get(key).cloned())
     }

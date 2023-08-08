@@ -79,6 +79,10 @@ impl KotoObject for DateTime {
         DATETIME_TYPE_STRING.with(|t| t.clone())
     }
 
+    fn copy(&self) -> Object {
+        self.clone().into()
+    }
+
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
         DATETIME_ENTRIES.with(|entries| entries.get(key).cloned())
     }
@@ -147,6 +151,10 @@ impl KotoType for Timer {
 impl KotoObject for Timer {
     fn object_type(&self) -> ValueString {
         TIMER_TYPE_STRING.with(|t| t.clone())
+    }
+
+    fn copy(&self) -> Object {
+        self.clone().into()
     }
 
     fn lookup(&self, key: &ValueKey) -> Option<Value> {
