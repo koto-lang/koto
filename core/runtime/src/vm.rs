@@ -403,7 +403,7 @@ impl Vm {
     /// Returns a displayable string for the given value
     pub fn value_to_string(&mut self, value: &Value) -> Result<String> {
         let mut result = StringBuilder::default();
-        value.display(&mut result, self, KotoDisplayOptions::default())?;
+        value.display(&mut result, self, &mut KotoDisplayOptions::default())?;
         Ok(result.build())
     }
 
@@ -1424,7 +1424,11 @@ impl Vm {
             }
             other => {
                 let mut display_string = StringBuilder::default();
-                match other.display(&mut display_string, self, KotoDisplayOptions::default()) {
+                match other.display(
+                    &mut display_string,
+                    self,
+                    &mut KotoDisplayOptions::default(),
+                ) {
                     Ok(_) => {
                         self.set_register(result, display_string.build().into());
                         Ok(())

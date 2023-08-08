@@ -686,7 +686,7 @@ pub fn make_module() -> ValueMap {
                         value.display(
                             &mut result,
                             display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
-                            KotoDisplayOptions::default(),
+                            &mut KotoDisplayOptions::default(),
                         )?;
                     }
                     Output::Error(error) => return Err(error),

@@ -96,7 +96,7 @@ impl fmt::Display for RuntimeError {
                     .display(
                         &mut message,
                         vm.borrow_mut().deref_mut(),
-                        KotoDisplayOptions::default(),
+                        &mut KotoDisplayOptions::default(),
                     )
                     .is_ok()
                 {

@@ -49,7 +49,7 @@ pub trait KotoObject: KotoCopyable + Downcast {
         &self,
         out: &mut StringBuilder,
         _vm: &mut Vm,
-        _options: KotoDisplayOptions,
+        _options: &mut KotoDisplayOptions,
     ) -> Result<()> {
         out.append(self.object_type());
         Ok(())
@@ -280,7 +280,7 @@ impl Object {
             .map_err(|_| make_runtime_error!("Incorrect object type"))
     }
 
-    /// Checks if the provided object is the same instance as this one
+    /// Returns true if the provided object occupies the same memory address
     pub fn is_same_instance(&self, other: &Self) -> bool {
         PtrMut::ptr_eq(&self.object, &other.object)
     }

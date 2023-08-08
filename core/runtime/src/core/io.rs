@@ -59,7 +59,7 @@ pub fn make_module() -> ValueMap {
                         other.display(
                             &mut node_string,
                             display_vm.get_or_insert_with(|| vm.spawn_shared_vm()),
-                            KotoDisplayOptions::default(),
+                            &mut KotoDisplayOptions::default(),
                         )?;
                         path.push(&node_string.build());
                     }
@@ -206,7 +206,12 @@ impl KotoObject for File {
         FILE_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+    fn display(
+        &self,
+        out: &mut StringBuilder,
+        _: &mut Vm,
+        _: &mut KotoDisplayOptions,
+    ) -> Result<()> {
         out.append(format!("{}({})", Self::TYPE, self.id()));
         Ok(())
     }
@@ -257,7 +262,7 @@ fn file_entries() -> DataMap {
                 value.display(
                     &mut string_to_write,
                     &mut ctx.vm.spawn_shared_vm(),
-                    KotoDisplayOptions::default(),
+                    &mut KotoDisplayOptions::default(),
                 )?;
                 ctx.instance_mut()?
                     .write(string_to_write.build().as_bytes())
@@ -273,7 +278,7 @@ fn file_entries() -> DataMap {
                     value.display(
                         &mut string_to_write,
                         &mut ctx.vm.spawn_shared_vm(),
-                        KotoDisplayOptions::default(),
+                        &mut KotoDisplayOptions::default(),
                     )?;
                 }
                 unexpected => return type_error_with_slice("a single argument", unexpected),

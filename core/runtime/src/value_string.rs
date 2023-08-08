@@ -215,9 +215,9 @@ impl KotoDisplay for ValueString {
         &self,
         s: &mut StringBuilder,
         _vm: &mut Vm,
-        options: KotoDisplayOptions,
+        ctx: &mut KotoDisplayOptions,
     ) -> Result<()> {
-        if options.contained_value {
+        if ctx.is_contained() {
             s.append('\'');
             s.append(self);
             s.append('\'');

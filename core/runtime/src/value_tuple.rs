@@ -83,22 +83,21 @@ impl KotoDisplay for ValueTuple {
         &self,
         s: &mut StringBuilder,
         vm: &mut Vm,
-        _options: KotoDisplayOptions,
+        ctx: &mut KotoDisplayOptions,
     ) -> Result<()> {
+        let id = Ptr::address(&self.data);
+        ctx.push_container(id);
         s.append('(');
+
         for (i, value) in self.iter().enumerate() {
             if i > 0 {
                 s.append(", ");
             }
-            value.display(
-                s,
-                vm,
-                KotoDisplayOptions {
-                    contained_value: true,
-                },
-            )?;
+            value.display(s, vm, ctx)?;
         }
+
         s.append(')');
+        ctx.pop_container();
 
         Ok(())
     }

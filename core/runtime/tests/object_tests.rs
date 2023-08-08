@@ -92,7 +92,7 @@ mod objects {
             &self,
             out: &mut StringBuilder,
             _: &mut Vm,
-            _: KotoDisplayOptions,
+            _: &mut KotoDisplayOptions,
         ) -> Result<()> {
             out.append(format!("{}: {}", Self::TYPE, self.x));
             Ok(())

@@ -26,7 +26,12 @@ impl KotoObject for Rect {
         RECT_ENTRIES.with(|entries| entries.get(key).cloned())
     }
 
-    fn display(&self, out: &mut StringBuilder, _: &mut Vm, _: KotoDisplayOptions) -> Result<()> {
+    fn display(
+        &self,
+        out: &mut StringBuilder,
+        _: &mut Vm,
+        _: &mut KotoDisplayOptions,
+    ) -> Result<()> {
         out.append(self.to_string());
         Ok(())
     }

@@ -5,6 +5,8 @@ use std::{
     rc::Rc,
 };
 
+use super::Address;
+
 /// A mutable pointer to a value in allocated memory
 #[derive(Debug, Default)]
 pub struct PtrMut<T: ?Sized>(Rc<RefCell<T>>);
@@ -48,12 +50,19 @@ impl<T: ?Sized> PtrMut<T> {
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<'_, T>, BorrowMutError> {
         self.0.try_borrow_mut().map(BorrowMut)
     }
+}
 
-    /// Returns true if the two `PtsMut`s point to the same allocation
+impl<T: ?Sized> PtrMut<T> {
+    /// Returns true if the two `PtrMut`s point to the same allocation
     ///
     /// See also: [std::rc::Rc::ptr_eq]
     pub fn ptr_eq(this: &Self, other: &Self) -> bool {
         Rc::ptr_eq(&this.0, &other.0)
+    }
+
+    /// Returns the address of the allocated memory
+    pub fn address(this: &Self) -> Address {
+        Rc::as_ptr(&this.0).into()
     }
 }
 

@@ -177,6 +177,11 @@ impl ValueMap {
     pub fn is_empty(&self) -> bool {
         self.data().is_empty()
     }
+
+    /// Returns true if the provided ValueMap occupies the same memory address
+    pub fn is_same_instance(&self, other: &Self) -> bool {
+        PtrMut::ptr_eq(&self.data, &other.data)
+    }
 }
 
 impl KotoDisplay for ValueMap {
@@ -184,7 +189,7 @@ impl KotoDisplay for ValueMap {
         &self,
         s: &mut StringBuilder,
         vm: &mut Vm,
-        _options: KotoDisplayOptions,
+        ctx: &mut KotoDisplayOptions,
     ) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
@@ -195,20 +200,27 @@ impl KotoDisplay for ValueMap {
             }
         } else {
             s.append('{');
-            for (i, (key, value)) in self.data().iter().enumerate() {
-                if i > 0 {
-                    s.append(", ");
+
+            let id = PtrMut::address(&self.data);
+
+            if ctx.is_in_parents(id) {
+                s.append("...");
+            } else {
+                ctx.push_container(id);
+
+                for (i, (key, value)) in self.data().iter().enumerate() {
+                    if i > 0 {
+                        s.append(", ");
+                    }
+                    key.value()
+                        .display(s, vm, &mut KotoDisplayOptions::default())?;
+                    s.append(": ");
+                    value.display(s, vm, ctx)?;
                 }
-                key.value().display(s, vm, KotoDisplayOptions::default())?;
-                s.append(": ");
-                value.display(
-                    s,
-                    vm,
-                    KotoDisplayOptions {
-                        contained_value: true,
-                    },
-                )?;
+
+                ctx.pop_container();
             }
+
             s.append('}');
         }
 

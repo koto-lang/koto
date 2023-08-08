@@ -49,23 +49,27 @@ impl KotoDisplay for ValueList {
         &self,
         s: &mut StringBuilder,
         vm: &mut Vm,
-        _options: KotoDisplayOptions,
+        ctx: &mut KotoDisplayOptions,
     ) -> Result<()> {
         s.append('[');
-        for (i, value) in self.data().iter().enumerate() {
-            if i > 0 {
-                s.append(", ");
-            }
-            value.display(
-                s,
-                vm,
-                KotoDisplayOptions {
-                    contained_value: true,
-                },
-            )?;
-        }
-        s.append(']');
 
+        let id = PtrMut::address(&self.0);
+        if ctx.is_in_parents(id) {
+            s.append("...");
+        } else {
+            ctx.push_container(id);
+
+            for (i, value) in self.data().iter().enumerate() {
+                if i > 0 {
+                    s.append(", ");
+                }
+                value.display(s, vm, ctx)?;
+            }
+
+            ctx.pop_container();
+        }
+
+        s.append(']');
         Ok(())
     }
 }

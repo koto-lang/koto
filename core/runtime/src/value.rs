@@ -225,7 +225,7 @@ impl KotoDisplay for Value {
         &self,
         out: &mut StringBuilder,
         vm: &mut Vm,
-        options: KotoDisplayOptions,
+        options: &mut KotoDisplayOptions,
     ) -> Result<()> {
         use Value::*;
         let result = match self {
