@@ -1840,6 +1840,14 @@ impl Compiler {
 
             self.push_op(op, &[lhs.register, rhs.register]);
 
+            // If the LHS is a top-level ID and the export flag is enabled, then export the result
+            if let Node::Id(id) = lhs_node.node {
+                if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                    self.compile_value_export(id, lhs.register)?;
+                }
+            }
+
+            // If there's a result register, then copy the result into it
             let result = if let Some(result) = result {
                 self.push_op(Op::Copy, &[result.register, lhs.register]);
                 Some(result)

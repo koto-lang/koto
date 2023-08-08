@@ -127,4 +127,22 @@ x: 3
     fn multi_assign() {
         run_repl_mode_test(&[("x, y = 1, 2", ""), ("print x + y", " 3")]);
     }
+
+    #[test]
+    fn add_assign_number() {
+        run_repl_mode_test(&[
+            ("print x = 1", "1"),
+            ("print x += 1", "2"),
+            ("print x += 1", "3"),
+        ]);
+    }
+
+    #[test]
+    fn subtract_assign_number() {
+        run_repl_mode_test(&[
+            ("print x = 1", "1"),
+            ("print x -= 1", "0"),
+            ("print x -= 1", "-1"),
+        ]);
+    }
 }
