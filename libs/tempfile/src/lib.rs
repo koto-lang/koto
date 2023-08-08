@@ -1,12 +1,10 @@
 //! A Koto language module for working with temporary files
 
-use {
-    koto_runtime::{
-        core::io::{map_io_err, File},
-        ValueMap,
-    },
-    tempfile::NamedTempFile,
+use koto_runtime::{
+    core::io::{map_io_err, File},
+    ValueMap,
 };
+use tempfile::NamedTempFile;
 
 pub fn make_module() -> ValueMap {
     let result = ValueMap::new();

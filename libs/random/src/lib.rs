@@ -1,11 +1,9 @@
 //! A random number module for the Koto language
 
-use {
-    koto_runtime::prelude::*,
-    rand::{Rng, SeedableRng},
-    rand_chacha::ChaCha8Rng,
-    std::cell::RefCell,
-};
+use koto_runtime::prelude::*;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
+use std::cell::RefCell;
 
 pub fn make_module() -> ValueMap {
     let result = ValueMap::new();

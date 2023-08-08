@@ -1,7 +1,5 @@
-use {
-    crate::{error::*, ConstantPool, Node},
-    koto_lexer::Span,
-};
+use crate::{error::*, ConstantPool, Node};
+use koto_lexer::Span;
 
 /// The index type used by nodes in the [Ast]
 pub type AstIndex = u32;

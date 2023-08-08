@@ -1,7 +1,5 @@
-use {
-    crate::{prelude::*, Result},
-    std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc, result::Result as StdResult},
-};
+use crate::{prelude::*, Result};
+use std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
 ///

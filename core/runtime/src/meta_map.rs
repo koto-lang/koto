@@ -1,15 +1,13 @@
-use {
-    crate::{
-        external_function::{ArgRegisters, ExternalFunction},
-        prelude::*,
-    },
-    indexmap::{Equivalent, IndexMap},
-    koto_parser::MetaKeyId,
-    std::{
-        fmt,
-        hash::{BuildHasherDefault, Hash},
-        ops::{Deref, DerefMut},
-    },
+use crate::{
+    external_function::{ArgRegisters, ExternalFunction},
+    prelude::*,
+};
+use indexmap::{Equivalent, IndexMap};
+use koto_parser::MetaKeyId;
+use std::{
+    fmt,
+    hash::{BuildHasherDefault, Hash},
+    ops::{Deref, DerefMut},
 };
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
@@ -232,7 +230,8 @@ pub enum UnaryOp {
 
 /// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
 pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey, String> {
-    use {BinaryOp::*, UnaryOp::*};
+    use BinaryOp::*;
+    use UnaryOp::*;
 
     let result = match id {
         MetaKeyId::Add => MetaKey::BinaryOp(Add),

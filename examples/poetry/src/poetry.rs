@@ -1,8 +1,6 @@
-use {
-    indexmap::IndexMap,
-    rand::{seq::SliceRandom, thread_rng, Rng},
-    std::rc::Rc,
-};
+use indexmap::IndexMap;
+use rand::{seq::SliceRandom, thread_rng, Rng};
+use std::rc::Rc;
 
 /// A basic Markov chain,
 #[derive(Clone, Debug, Default)]

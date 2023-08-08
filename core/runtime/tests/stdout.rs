@@ -1,11 +1,9 @@
 mod runtime_test_utils;
 
-use {
-    crate::runtime_test_utils::TestStdout,
-    koto_bytecode::{Chunk, CompilerSettings, Loader},
-    koto_runtime::prelude::*,
-    std::rc::Rc,
-};
+use crate::runtime_test_utils::TestStdout;
+use koto_bytecode::{Chunk, CompilerSettings, Loader};
+use koto_runtime::prelude::*;
+use std::rc::Rc;
 
 mod vm {
     use super::*;

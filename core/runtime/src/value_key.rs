@@ -1,11 +1,9 @@
-use {
-    crate::prelude::*,
-    indexmap::Equivalent,
-    std::{
-        cmp::Ordering,
-        fmt,
-        hash::{Hash, Hasher},
-    },
+use crate::prelude::*;
+use indexmap::Equivalent;
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
 };
 
 /// The key type used by [DataMap](crate::DataMap)

@@ -1,7 +1,5 @@
-use {
-    koto::prelude::*,
-    std::{fs::read_to_string, path::PathBuf},
-};
+use koto::prelude::*;
+use std::{fs::read_to_string, path::PathBuf};
 
 fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool) {
     let mut koto = Koto::with_settings(KotoSettings {

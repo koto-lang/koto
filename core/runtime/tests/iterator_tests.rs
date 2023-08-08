@@ -1,6 +1,7 @@
 mod runtime_test_utils;
 
-use {crate::runtime_test_utils::*, koto_runtime::Value};
+use crate::runtime_test_utils::*;
+use koto_runtime::Value;
 
 mod iterator {
     use super::*;

@@ -1,8 +1,6 @@
-use {
-    crate::{prelude::*, ExternalFunction, Result},
-    downcast_rs::{impl_downcast, Downcast},
-    std::{cell::RefCell, fmt, marker::PhantomData, rc::Rc},
-};
+use crate::{prelude::*, ExternalFunction, Result};
+use downcast_rs::{impl_downcast, Downcast};
+use std::{cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///

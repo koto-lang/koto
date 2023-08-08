@@ -1,10 +1,8 @@
-use {
-    koto_runtime::{prelude::*, Result},
-    nannou_core::geom::DVec3,
-    std::{
-        fmt,
-        ops::{self, Deref},
-    },
+use koto_runtime::{prelude::*, Result};
+use nannou_core::geom::DVec3;
+use std::{
+    fmt,
+    ops::{self, Deref},
 };
 
 #[derive(Copy, Clone, PartialEq)]

@@ -1,11 +1,9 @@
 //! The `os` core library module
 
-use {
-    crate::{prelude::*, Result},
-    chrono::prelude::*,
-    instant::Instant,
-    std::ops::Deref,
-};
+use crate::{prelude::*, Result};
+use chrono::prelude::*;
+use instant::Instant;
+use std::ops::Deref;
 
 /// Initializes the `os` core library module
 pub fn make_module() -> ValueMap {

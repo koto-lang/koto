@@ -1,9 +1,7 @@
-use {
-    koto_runtime::{prelude::*, Result},
-    std::{
-        fmt,
-        ops::{self, Deref, DerefMut},
-    },
+use koto_runtime::{prelude::*, Result};
+use std::{
+    fmt,
+    ops::{self, Deref, DerefMut},
 };
 
 type Inner = palette::rgb::LinSrgba;

@@ -1,10 +1,8 @@
-use {
-    koto::prelude::*,
-    std::{
-        ops::Deref,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+use koto::prelude::*;
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+    rc::Rc,
 };
 
 struct ExampleTestRunner {

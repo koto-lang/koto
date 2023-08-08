@@ -26,13 +26,12 @@ pub mod core;
 pub mod prelude;
 pub mod value;
 
-pub use {
+pub use crate::{
     display::{KotoDisplay, KotoDisplayOptions},
     error::{type_error, type_error_with_slice, Result, RuntimeError, RuntimeResult},
     external_function::{ArgRegisters, ExternalFunction},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,
-    koto_memory::{Borrow, BorrowMut, Ptr, PtrMut},
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
@@ -47,3 +46,4 @@ pub use {
     value_tuple::ValueTuple,
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };
+pub use koto_memory::{Borrow, BorrowMut, Ptr, PtrMut};

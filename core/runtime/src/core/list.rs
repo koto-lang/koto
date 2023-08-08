@@ -1,13 +1,11 @@
 //! The `list` core library module
 
-use {
-    super::iterator::collect_pair,
-    crate::{
-        prelude::*,
-        value_sort::{compare_values, sort_values},
-    },
-    std::{cmp::Ordering, ops::DerefMut},
+use super::iterator::collect_pair;
+use crate::{
+    prelude::*,
+    value_sort::{compare_values, sort_values},
 };
+use std::{cmp::Ordering, ops::DerefMut};
 
 /// Initializes the `list` core library module
 pub fn make_module() -> ValueMap {

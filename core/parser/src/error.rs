@@ -1,10 +1,8 @@
-use {
-    koto_lexer::{Position, Span},
-    std::{
-        error,
-        fmt::{self, Write},
-        path::PathBuf,
-    },
+use koto_lexer::{Position, Span};
+use std::{
+    error,
+    fmt::{self, Write},
+    path::PathBuf,
 };
 
 /// An error that represents a problem with the Parser's internal logic, rather than a user error

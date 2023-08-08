@@ -1,16 +1,14 @@
-use {
-    crate::{
-        external_function::{ArgRegisters, ExternalFunction},
-        prelude::*,
-        Result,
-    },
-    indexmap::IndexMap,
-    rustc_hash::FxHasher,
-    std::{
-        hash::BuildHasherDefault,
-        iter::IntoIterator,
-        ops::{Deref, DerefMut},
-    },
+use crate::{
+    external_function::{ArgRegisters, ExternalFunction},
+    prelude::*,
+    Result,
+};
+use indexmap::IndexMap;
+use rustc_hash::FxHasher;
+use std::{
+    hash::BuildHasherDefault,
+    iter::IntoIterator,
+    ops::{Deref, DerefMut},
 };
 
 /// The hasher used throughout the Koto runtime

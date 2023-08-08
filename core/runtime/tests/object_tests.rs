@@ -1,10 +1,8 @@
 mod runtime_test_utils;
 
 mod objects {
-    use {
-        crate::runtime_test_utils::*,
-        koto_runtime::{prelude::*, Result},
-    };
+    use crate::runtime_test_utils::*;
+    use koto_runtime::{prelude::*, Result};
 
     #[derive(Clone, Copy, Debug)]
     struct TestObject {
@@ -374,7 +372,8 @@ make_object(10)
     }
 
     mod binary_op {
-        use {super::*, Value::Bool};
+        use super::*;
+        use Value::Bool;
 
         #[test]
         fn add() {

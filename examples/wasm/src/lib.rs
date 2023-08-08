@@ -1,4 +1,5 @@
-use {koto::prelude::*, wasm_bindgen::prelude::*};
+use koto::prelude::*;
+use wasm_bindgen::prelude::*;
 
 // Captures output from Koto in a String
 #[derive(Debug)]
@@ -81,7 +82,8 @@ pub fn compile_and_run(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use {super::*, wasm_bindgen_test::wasm_bindgen_test};
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
     fn one_plus_one() {

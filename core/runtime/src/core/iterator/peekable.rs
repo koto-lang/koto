@@ -1,9 +1,7 @@
 //! A double-ended peekable iterator for Koto
 
-use {
-    super::iter_output_to_result,
-    crate::{prelude::*, Result, ValueIteratorOutput as Output},
-};
+use super::iter_output_to_result;
+use crate::{prelude::*, Result, ValueIteratorOutput as Output};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone, Debug)]

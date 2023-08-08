@@ -1,10 +1,8 @@
-use {
-    crate::prelude::*,
-    dunce::canonicalize,
-    koto_bytecode::CompilerSettings,
-    koto_runtime::ModuleImportedCallback,
-    std::{error::Error, fmt, path::PathBuf, rc::Rc},
-};
+use crate::prelude::*;
+use dunce::canonicalize;
+use koto_bytecode::CompilerSettings;
+use koto_runtime::ModuleImportedCallback;
+use std::{error::Error, fmt, path::PathBuf, rc::Rc};
 
 /// The error type returned by [Koto] operations
 #[allow(missing_docs)]

@@ -1,9 +1,7 @@
-use {
-    crate::prelude::*,
-    koto_bytecode::Chunk,
-    koto_parser::format_error_with_excerpt,
-    std::{cell::RefCell, error, fmt, ops::DerefMut},
-};
+use crate::prelude::*;
+use koto_bytecode::Chunk;
+use koto_parser::format_error_with_excerpt;
+use std::{cell::RefCell, error, fmt, ops::DerefMut};
 
 /// A chunk and ip in a call stack where an error was thrown
 #[derive(Clone, Debug)]

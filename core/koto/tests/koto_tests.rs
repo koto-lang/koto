@@ -1,11 +1,9 @@
-use {
-    koto::prelude::*,
-    std::{
-        cell::RefCell,
-        fs::read_to_string,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+use koto::prelude::*;
+use std::{
+    cell::RefCell,
+    fs::read_to_string,
+    path::{Path, PathBuf},
+    rc::Rc,
 };
 
 fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths: &[PathBuf]) {

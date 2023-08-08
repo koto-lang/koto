@@ -1,11 +1,9 @@
 //! Adapators used by the `iterator` core library module
 
-use {
-    super::collect_pair,
-    crate::{prelude::*, Result, ValueIteratorOutput as Output},
-    std::{collections::VecDeque, error, fmt, result::Result as StdResult},
-    thiserror::Error,
-};
+use super::collect_pair;
+use crate::{prelude::*, Result, ValueIteratorOutput as Output};
+use std::{collections::VecDeque, error, fmt, result::Result as StdResult};
+use thiserror::Error;
 
 /// An iterator that links the output of two iterators together in a chained sequence
 pub struct Chain {

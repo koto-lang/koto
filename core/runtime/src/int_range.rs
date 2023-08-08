@@ -1,7 +1,5 @@
-use {
-    crate::prelude::*,
-    std::{cmp::Ordering, fmt, hash::Hash, ops::Range},
-};
+use crate::prelude::*;
+use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 
 /// The integer range type used by the Koto runtime
 ///

@@ -1,6 +1,8 @@
 //! A Koto language module for working with TOML data
 
-use {koto_runtime::prelude::*, koto_serialize::SerializableValue, toml::Value as Toml};
+use koto_runtime::prelude::*;
+use koto_serialize::SerializableValue;
+use toml::Value as Toml;
 
 pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     let result = match value {

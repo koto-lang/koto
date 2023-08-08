@@ -1,11 +1,9 @@
-use {
-    crate::Value,
-    std::{
-        cmp::Ordering,
-        fmt,
-        hash::{Hash, Hasher},
-        ops,
-    },
+use crate::Value;
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    ops,
 };
 
 /// The Number type used by the Koto runtime

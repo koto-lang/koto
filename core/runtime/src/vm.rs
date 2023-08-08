@@ -1,25 +1,23 @@
-use {
-    crate::{
-        core::CoreLib,
-        error::RuntimeErrorType,
-        external_function::{self, ArgRegisters, ExternalFunction},
-        frame::Frame,
-        meta_map::meta_id_to_key,
-        prelude::*,
-        value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
-        DefaultStderr, DefaultStdin, DefaultStdout, Result,
-    },
-    koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId},
-    koto_parser::{ConstantIndex, MetaKeyId},
-    rustc_hash::FxHasher,
-    std::{
-        cell::RefCell,
-        collections::HashMap,
-        fmt,
-        hash::BuildHasherDefault,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+use crate::{
+    core::CoreLib,
+    error::RuntimeErrorType,
+    external_function::{self, ArgRegisters, ExternalFunction},
+    frame::Frame,
+    meta_map::meta_id_to_key,
+    prelude::*,
+    value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
+    DefaultStderr, DefaultStdin, DefaultStdout, Result,
+};
+use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
+use koto_parser::{ConstantIndex, MetaKeyId};
+use rustc_hash::FxHasher;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt,
+    hash::BuildHasherDefault,
+    path::{Path, PathBuf},
+    rc::Rc,
 };
 
 macro_rules! call_binary_op_or_else {
@@ -1381,7 +1379,8 @@ impl Vm {
     }
 
     fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
-        use {UnaryOp::Negate, Value::*};
+        use UnaryOp::Negate;
+        use Value::*;
 
         let result_value = match self.clone_register(value) {
             Number(n) => Number(-n),
@@ -1398,7 +1397,8 @@ impl Vm {
     }
 
     fn run_not(&mut self, result: u8, value: u8) -> InstructionResult {
-        use {UnaryOp::Not, Value::*};
+        use UnaryOp::Not;
+        use Value::*;
 
         let result_value = match &self.get_register(value) {
             Null => Bool(true),
@@ -1436,7 +1436,8 @@ impl Vm {
     }
 
     fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Add, Value::*};
+        use BinaryOp::Add;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1460,7 +1461,8 @@ impl Vm {
     }
 
     fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Subtract, Value::*};
+        use BinaryOp::Subtract;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1480,7 +1482,8 @@ impl Vm {
     }
 
     fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Multiply, Value::*};
+        use BinaryOp::Multiply;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1501,7 +1504,8 @@ impl Vm {
     }
 
     fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Divide, Value::*};
+        use BinaryOp::Divide;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1521,7 +1525,8 @@ impl Vm {
     }
 
     fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Remainder, Value::*};
+        use BinaryOp::Remainder;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1546,7 +1551,8 @@ impl Vm {
     }
 
     fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::AddAssign, Value::*};
+        use BinaryOp::AddAssign;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1572,7 +1578,8 @@ impl Vm {
     }
 
     fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::SubtractAssign, Value::*};
+        use BinaryOp::SubtractAssign;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1598,7 +1605,8 @@ impl Vm {
     }
 
     fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::MultiplyAssign, Value::*};
+        use BinaryOp::MultiplyAssign;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1624,7 +1632,8 @@ impl Vm {
     }
 
     fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::DivideAssign, Value::*};
+        use BinaryOp::DivideAssign;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1650,7 +1659,8 @@ impl Vm {
     }
 
     fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::RemainderAssign, Value::*};
+        use BinaryOp::RemainderAssign;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1676,7 +1686,8 @@ impl Vm {
     }
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Less, Value::*};
+        use BinaryOp::Less;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1697,7 +1708,8 @@ impl Vm {
     }
 
     fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::LessOrEqual, Value::*};
+        use BinaryOp::LessOrEqual;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1718,7 +1730,8 @@ impl Vm {
     }
 
     fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Greater, Value::*};
+        use BinaryOp::Greater;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1739,7 +1752,8 @@ impl Vm {
     }
 
     fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::GreaterOrEqual, Value::*};
+        use BinaryOp::GreaterOrEqual;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1760,7 +1774,8 @@ impl Vm {
     }
 
     fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Equal, Value::*};
+        use BinaryOp::Equal;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1826,7 +1841,8 @@ impl Vm {
     }
 
     fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::NotEqual, Value::*};
+        use BinaryOp::NotEqual;
+        use Value::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -2203,7 +2219,8 @@ impl Vm {
         value_register: u8,
         index_register: u8,
     ) -> InstructionResult {
-        use {BinaryOp::Index, Value::*};
+        use BinaryOp::Index;
+        use Value::*;
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);

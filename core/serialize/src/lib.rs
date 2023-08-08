@@ -1,9 +1,7 @@
 //! Serde serialization support for Koto value types
 
-use {
-    koto_runtime::Value,
-    serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer},
-};
+use koto_runtime::Value;
+use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 
 /// A newtype that allows us to implement support for Serde serialization
 pub struct SerializableValue<'a>(pub &'a Value);

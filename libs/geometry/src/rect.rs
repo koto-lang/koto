@@ -1,8 +1,6 @@
-use {
-    crate::Vec2,
-    koto_runtime::{prelude::*, Result},
-    std::{fmt, ops::Deref},
-};
+use crate::Vec2;
+use koto_runtime::{prelude::*, Result};
+use std::{fmt, ops::Deref};
 
 type Inner = nannou_core::geom::Rect<f64>;
 
