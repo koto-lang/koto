@@ -1,6 +1,7 @@
 //! The `tuple` core library module
 
-use crate::{prelude::*, value_sort::sort_values, Result};
+use super::value_sort::sort_values;
+use crate::{prelude::*, Result};
 
 /// Initializes the `tuple` core library module
 pub fn make_module() -> ValueMap {

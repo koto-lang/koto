@@ -10,8 +10,7 @@ use std::{
 /// See [Value::ExternalFunction]
 pub struct ExternalFunction {
     /// The function implementation that should be called when calling the external function
-    ///
-    ///
+    //
     // Once Trait aliases are stabilized this can be simplified a bit,
     // see: https://github.com/rust-lang/rust/issues/55628
     #[allow(clippy::type_complexity)]

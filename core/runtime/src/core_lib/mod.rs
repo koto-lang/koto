@@ -11,6 +11,7 @@ pub mod range;
 pub mod string;
 pub mod test;
 pub mod tuple;
+mod value_sort;
 
 use crate::ValueMap;
 

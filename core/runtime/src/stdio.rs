@@ -1,4 +1,4 @@
-use crate::{core::io::map_io_err, KotoFile, KotoRead, KotoWrite, RuntimeError, ValueString};
+use crate::{core_lib::io::map_io_err, KotoFile, KotoRead, KotoWrite, RuntimeError, ValueString};
 use std::io::{self, Read, Write};
 
 /// The default stdin used in Koto

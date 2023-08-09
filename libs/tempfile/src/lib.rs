@@ -1,7 +1,7 @@
 //! A Koto language module for working with temporary files
 
 use koto_runtime::{
-    core::io::{map_io_err, File},
+    core_lib::io::{map_io_err, File},
     ValueMap,
 };
 use tempfile::NamedTempFile;

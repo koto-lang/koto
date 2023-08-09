@@ -1,8 +1,4 @@
-use crate::{
-    external_function::{ArgRegisters, ExternalFunction},
-    prelude::*,
-    Result,
-};
+use crate::{prelude::*, Result};
 use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{

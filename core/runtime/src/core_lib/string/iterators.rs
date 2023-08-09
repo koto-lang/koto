@@ -1,9 +1,8 @@
 //! A collection of string iterators
 
 use crate::{
-    make_runtime_error,
-    value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
-    CallArgs, Result, Value, ValueString, Vm,
+    make_runtime_error, CallArgs, KotoIterator, Result, Value, ValueIterator,
+    ValueIteratorOutput as Output, ValueString, Vm,
 };
 use unicode_segmentation::UnicodeSegmentation;
 

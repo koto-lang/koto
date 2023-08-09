@@ -1,12 +1,13 @@
 use crate::{
-    core::CoreLib,
+    core_lib::CoreLib,
     error::RuntimeErrorType,
-    external_function::{self, ArgRegisters, ExternalFunction},
     frame::Frame,
-    meta_map::meta_id_to_key,
     prelude::*,
-    value::{FunctionInfo, RegisterSlice, SimpleFunctionInfo},
-    DefaultStderr, DefaultStdin, DefaultStdout, Result,
+    types::{
+        self, meta_id_to_key,
+        value::{RegisterSlice, SimpleFunctionInfo},
+    },
+    DefaultStderr, DefaultStdin, DefaultStdout, FunctionInfo, Result,
 };
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
@@ -2479,7 +2480,7 @@ impl Vm {
                 // ...where it needs to behave as an instance function.
                 // There's surely a cleaner way to achieve this, but this will do for now...
                 ExternalFunction(f) => {
-                    let f_as_instance_function = external_function::ExternalFunction {
+                    let f_as_instance_function = types::ExternalFunction {
                         is_instance_function: true,
                         ..f
                     };
