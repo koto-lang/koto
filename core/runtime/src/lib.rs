@@ -4,8 +4,7 @@
 
 mod display_context;
 mod error;
-mod file;
-mod stdio;
+mod io;
 mod types;
 mod vm;
 
@@ -15,8 +14,7 @@ pub mod prelude;
 pub use crate::{
     display_context::DisplayContext,
     error::{type_error, type_error_with_slice, Result, RuntimeError},
-    file::{KotoFile, KotoRead, KotoWrite},
-    stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
+    io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
         ArgRegisters, BinaryOp, DataMap, ExternalFunction, FunctionInfo, IntRange, IsIterable,
         KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap, MethodContext, Object,
