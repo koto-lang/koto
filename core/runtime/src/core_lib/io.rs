@@ -1,11 +1,7 @@
 //! The `io` core library module
 
-mod buffered_file;
-
-pub use buffered_file::BufferedFile;
-
 use super::string::format;
-use crate::{prelude::*, Result};
+use crate::{prelude::*, BufferedFile, Result};
 use std::{
     cell::RefCell,
     fmt, fs,

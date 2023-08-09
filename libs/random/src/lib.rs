@@ -1,6 +1,6 @@
 //! A random number module for the Koto language
 
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Result};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::cell::RefCell;
@@ -49,15 +49,15 @@ impl ChaChaRng {
         Object::from(Self(rng)).into()
     }
 
-    fn gen_bool(&mut self) -> RuntimeResult {
+    fn gen_bool(&mut self) -> Result<Value> {
         Ok(self.0.gen::<bool>().into())
     }
 
-    fn gen_number(&mut self) -> RuntimeResult {
+    fn gen_number(&mut self) -> Result<Value> {
         Ok(self.0.gen::<f64>().into())
     }
 
-    fn pick(&mut self, args: &[Value]) -> RuntimeResult {
+    fn pick(&mut self, args: &[Value]) -> Result<Value> {
         use Value::*;
 
         match args {
@@ -87,7 +87,7 @@ impl ChaChaRng {
         }
     }
 
-    fn seed(&mut self, args: &[Value]) -> RuntimeResult {
+    fn seed(&mut self, args: &[Value]) -> Result<Value> {
         use Value::*;
         match args {
             [Number(n)] => {

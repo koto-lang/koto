@@ -1,6 +1,7 @@
 //! The `tuple` core library module
 
-use crate::{prelude::*, value_sort::sort_values};
+use super::value_sort::sort_values;
+use crate::{prelude::*, Result};
 
 /// Initializes the `tuple` core library module
 pub fn make_module() -> ValueMap {
@@ -88,6 +89,6 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn expected_tuple_error(unexpected: &[Value]) -> RuntimeResult {
+fn expected_tuple_error(unexpected: &[Value]) -> Result<Value> {
     type_error_with_slice("a Tuple as argument", unexpected)
 }

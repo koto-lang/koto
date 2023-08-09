@@ -1177,9 +1177,9 @@ impl Compiler {
             .compile_node(ResultRegister::Any, rhs_node, ast)?
             .unwrap();
 
-        // If the result is needed then prepare a tuple in the result register
-        if let Some(result) = result {
-            self.push_op(SequenceStart, &[result.register, targets.len() as u8]);
+        // If the result is needed then prepare the creation of a tuple
+        if result.is_some() {
+            self.push_op(SequenceStart, &[targets.len() as u8]);
         }
 
         // If the RHS is a single value then convert it into an iterator
@@ -1214,8 +1214,8 @@ impl Compiler {
                             // needs to be committed.
                             self.commit_local_register(*target_register)?;
 
-                            if let Some(result) = result {
-                                self.push_op(SequencePush, &[result.register, *target_register]);
+                            if result.is_some() {
+                                self.push_op(SequencePush, &[*target_register]);
                             }
                         }
                         (None, Scope::Export) => {
@@ -1229,8 +1229,8 @@ impl Compiler {
 
                             self.compile_value_export(*id_index, value_register)?;
 
-                            if let Some(result) = result {
-                                self.push_op(SequencePush, &[result.register, value_register]);
+                            if result.is_some() {
+                                self.push_op(SequencePush, &[value_register]);
                             }
 
                             self.pop_register()?; // value_register
@@ -1261,14 +1261,14 @@ impl Compiler {
                         ast,
                     )?;
 
-                    if let Some(result) = result {
-                        self.push_op(SequencePush, &[result.register, value_register]);
+                    if result.is_some() {
+                        self.push_op(SequencePush, &[value_register]);
                     }
 
                     self.pop_register()?; // value_register
                 }
                 Node::Wildcard(_) => {
-                    if let Some(result) = result {
+                    if result.is_some() {
                         let value_register = self.push_register()?;
 
                         if rhs_is_temp_tuple {
@@ -1277,7 +1277,7 @@ impl Compiler {
                             self.push_op(IterUnpack, &[value_register, iter_register]);
                         }
 
-                        self.push_op(SequencePush, &[result.register, value_register]);
+                        self.push_op(SequencePush, &[value_register]);
 
                         self.pop_register()?; // value_register
                     } else if !rhs_is_temp_tuple {
@@ -1531,9 +1531,9 @@ impl Compiler {
                 [] => return compiler_error!(self, "Missing item to import"),
                 [single_item] => self.push_op(Copy, &[result.register, *single_item]),
                 _ => {
-                    self.push_op(SequenceStart, &[result.register, imported.len() as u8]);
+                    self.push_op(SequenceStart, &[imported.len() as u8]);
                     for item in imported.iter() {
-                        self.push_op(SequencePush, &[result.register, *item]);
+                        self.push_op(SequencePush, &[*item]);
                     }
                     self.push_op(SequenceToTuple, &[result.register]);
                 }
@@ -2037,14 +2037,14 @@ impl Compiler {
                 }
             }
             _ => {
-                if let Some(result) = result {
+                if result.is_some() {
                     if size_hint <= u8::MAX as usize {
-                        self.push_op(Op::StringStart, &[result.register, size_hint as u8]);
+                        self.push_op(Op::StringStart, &[size_hint as u8]);
                     } else {
                         // Limit the size hint to u32::MAX, u64 size hinting can be added later if
                         // it would be useful in practice.
                         let size_hint = size_hint.min(u32::MAX as usize) as u32;
-                        self.push_op(Op::StringStart32, &[result.register]);
+                        self.push_op(Op::StringStart32, &[]);
                         self.push_bytes(&size_hint.to_le_bytes());
                     }
                 }
@@ -2052,20 +2052,17 @@ impl Compiler {
                 for node in nodes.iter() {
                     match node {
                         StringNode::Literal(constant_index) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
                                 let node_register = self.push_register()?;
 
                                 self.compile_load_string_constant(node_register, *constant_index);
-                                self.push_op_without_span(
-                                    Op::StringPush,
-                                    &[result.register, node_register],
-                                );
+                                self.push_op_without_span(Op::StringPush, &[node_register]);
 
                                 self.pop_register()?;
                             }
                         }
                         StringNode::Expr(expression_node) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
                                 let expression_result = self
                                     .compile_node(
                                         ResultRegister::Any,
@@ -2076,7 +2073,7 @@ impl Compiler {
 
                                 self.push_op_without_span(
                                     Op::StringPush,
-                                    &[result.register, expression_result.register],
+                                    &[expression_result.register],
                                 );
 
                                 if expression_result.is_temporary {
@@ -2159,10 +2156,10 @@ impl Compiler {
             Some(result) => {
                 match elements.len() {
                     size_hint if size_hint <= u8::MAX as usize => {
-                        self.push_op(SequenceStart, &[result.register, size_hint as u8]);
+                        self.push_op(SequenceStart, &[size_hint as u8]);
                     }
                     size_hint if size_hint <= u32::MAX as usize => {
-                        self.push_op(SequenceStart32, &[result.register]);
+                        self.push_op(SequenceStart32, &[]);
                         self.push_bytes(&(size_hint as u32).to_le_bytes());
                     }
                     overflow => {
@@ -2181,10 +2178,7 @@ impl Compiler {
                         let element = self
                             .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
                             .unwrap();
-                        self.push_op_without_span(
-                            SequencePush,
-                            &[result.register, element.register],
-                        );
+                        self.push_op_without_span(SequencePush, &[element.register]);
                         if element.is_temporary {
                             self.pop_register()?;
                         }
@@ -2206,7 +2200,7 @@ impl Compiler {
 
                             self.push_op_without_span(
                                 SequencePushN,
-                                &[result.register, start_register, elements_batch.len() as u8],
+                                &[start_register, elements_batch.len() as u8],
                             );
 
                             self.truncate_register_stack(stack_count)?;

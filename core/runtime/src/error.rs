@@ -151,8 +151,6 @@ impl error::Error for RuntimeError {}
 
 /// The Result type used by the Koto Runtime
 pub type Result<T> = std::result::Result<T, RuntimeError>;
-/// The return type typically used in runtime operations
-pub type RuntimeResult = Result<Value>;
 
 /// Creates a [RuntimeError] from a provided message
 ///

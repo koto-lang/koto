@@ -4,7 +4,7 @@ pub mod format;
 pub mod iterators;
 
 use super::iterator::collect_pair;
-use crate::prelude::*;
+use crate::{prelude::*, Result};
 use std::convert::TryFrom;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -188,10 +188,10 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn expected_string_error(unexpected: &[Value]) -> RuntimeResult {
+fn expected_string_error(unexpected: &[Value]) -> Result<Value> {
     type_error_with_slice("a String as argument", unexpected)
 }
 
-fn expected_two_strings_error(unexpected: &[Value]) -> RuntimeResult {
+fn expected_two_strings_error(unexpected: &[Value]) -> Result<Value> {
     type_error_with_slice("two Strings as arguments", unexpected)
 }

@@ -4,7 +4,7 @@ mod color;
 
 pub use color::Color;
 
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Result};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -39,17 +39,17 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn named(name: &str) -> RuntimeResult {
+fn named(name: &str) -> Result<Value> {
     match Color::named(name) {
         Some(c) => Ok(c.into()),
         None => Ok(Value::Null),
     }
 }
 
-fn rgb(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber) -> RuntimeResult {
+fn rgb(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber) -> Result<Value> {
     Ok(Color::rgb(r.into(), g.into(), b.into()).into())
 }
 
-fn rgba(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber, a: &ValueNumber) -> RuntimeResult {
+fn rgba(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber, a: &ValueNumber) -> Result<Value> {
     Ok(Color::rgba(r.into(), g.into(), b.into(), a.into()).into())
 }

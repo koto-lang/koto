@@ -1,7 +1,4 @@
-use crate::{
-    external_function::{ArgRegisters, ExternalFunction},
-    prelude::*,
-};
+use crate::{prelude::*, Result};
 use indexmap::{Equivalent, IndexMap};
 use koto_parser::MetaKeyId;
 use std::{
@@ -29,7 +26,7 @@ impl MetaMap {
     pub fn add_fn(
         &mut self,
         key: MetaKey,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
     ) {
         self.0.insert(
             key,
@@ -41,7 +38,7 @@ impl MetaMap {
     pub fn add_instance_fn(
         &mut self,
         key: MetaKey,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
     ) {
         self.0
             .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
@@ -229,7 +226,7 @@ pub enum UnaryOp {
 }
 
 /// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
-pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey, String> {
+pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey> {
     use BinaryOp::*;
     use UnaryOp::*;
 
@@ -258,17 +255,19 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Call => MetaKey::Call,
-        MetaKeyId::Named => {
-            MetaKey::Named(name.ok_or_else(|| "Missing name for named meta entry".to_string())?)
-        }
+        MetaKeyId::Named => MetaKey::Named(
+            name.ok_or_else(|| make_runtime_error!("Missing name for named meta entry"))?,
+        ),
         MetaKeyId::Tests => MetaKey::Tests,
-        MetaKeyId::Test => MetaKey::Test(name.ok_or_else(|| "Missing name for test".to_string())?),
+        MetaKeyId::Test => {
+            MetaKey::Test(name.ok_or_else(|| make_runtime_error!("Missing name for test"))?)
+        }
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,
         MetaKeyId::Main => MetaKey::Main,
         MetaKeyId::Type => MetaKey::Type,
         MetaKeyId::Base => MetaKey::Base,
-        MetaKeyId::Invalid => return Err("Invalid MetaKeyId".to_string()),
+        MetaKeyId::Invalid => return runtime_error!("Invalid MetaKeyId"),
     };
 
     Ok(result)

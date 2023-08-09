@@ -376,7 +376,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
     pub fn method<Key, F>(self, key: Key, f: F) -> Self
     where
         Key: Into<ValueKey> + Clone,
-        F: Fn(MethodContext<T>) -> RuntimeResult + Clone + 'static,
+        F: Fn(MethodContext<T>) -> Result<Value> + Clone + 'static,
     {
         self.method_aliased(&[key], f)
     }
@@ -388,7 +388,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
     pub fn method_aliased<Key, F>(mut self, keys: &[Key], f: F) -> Self
     where
         Key: Into<ValueKey> + Clone,
-        F: Fn(MethodContext<T>) -> RuntimeResult + Clone + 'static,
+        F: Fn(MethodContext<T>) -> Result<Value> + Clone + 'static,
     {
         let wrapped_function = move |vm: &mut Vm, args: &ArgRegisters| match vm.get_args(args) {
             [Value::Object(o), extra_args @ ..] => f(MethodContext::new(o, extra_args, vm)),
@@ -443,7 +443,7 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
     }
 
     /// Helper for methods that need to return a clone of the instance as the method result
-    pub fn instance_result(&self) -> RuntimeResult {
+    pub fn instance_result(&self) -> Result<Value> {
         Ok(self.object.clone().into())
     }
 }

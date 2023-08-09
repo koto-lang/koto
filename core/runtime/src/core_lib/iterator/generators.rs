@@ -1,8 +1,7 @@
 //! Generators used by the `iterator` core library module
 
 use crate::{
-    value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
-    CallArgs, Result, Value, Vm,
+    CallArgs, KotoIterator, Result, Value, ValueIterator, ValueIteratorOutput as Output, Vm,
 };
 
 /// An iterator that repeatedly yields the same value

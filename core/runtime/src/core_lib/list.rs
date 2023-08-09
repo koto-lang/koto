@@ -1,10 +1,10 @@
 //! The `list` core library module
 
-use super::iterator::collect_pair;
-use crate::{
-    prelude::*,
+use super::{
+    iterator::collect_pair,
     value_sort::{compare_values, sort_values},
 };
+use crate::prelude::*;
 use std::{cmp::Ordering, ops::DerefMut};
 
 /// Initializes the `list` core library module

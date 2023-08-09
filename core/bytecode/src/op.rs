@@ -149,55 +149,55 @@ pub enum Op {
     /// `[*target, *iterable]`
     MakeIterator,
 
-    /// Makes a SequenceBuilder with a u8 size hint
+    /// Starts a new sequence with a u8 size hint
     ///
-    /// `[*target, size hint]`
+    /// `[size hint]`
     SequenceStart,
 
-    /// Makes a SequenceBuilder with a u32 size hint
+    /// Starts a new sequence with a u32 size hint
     ///
-    /// `[*target, size hint[4]]`
+    /// `[size hint[4]]`
     SequenceStart32,
 
-    /// Pushes a single value to the end of a SequenceBuilder
+    /// Pushes a single value to the end of the current sequence
     ///
-    /// `[*target, *value]`
+    /// `[*value]`
     SequencePush,
 
-    /// Pushes values from consecutive registers to the end of a SequenceBuilder
+    /// Pushes values from consecutive registers to the end of the current sequence
     ///
-    /// `[*target, *start, value count]`
+    /// `[*start, value count]`
     SequencePushN,
 
-    /// Converts a SequenceBuilder into a List
+    /// Converts the current sequence into a List
     ///
     /// `[*register]`
     SequenceToList,
 
-    /// Converts a SequenceBuilder into a Tuple
+    /// Converts the current sequence into a Tuple
     ///
     /// `[*register]`
     SequenceToTuple,
 
-    /// Makes a StringBuilder with a u8 size hint
+    /// Starts the construction of a new string with a u8 size hint
     ///
-    /// `[*target, size hint]`
+    /// `[size hint]`
     StringStart,
 
-    /// Makes a StringBuilder with a u32 size hint
+    /// Starts the construction of a new string with a u32 size hint
     ///
-    /// `[*target, size hint[4]]`
+    /// `[size hint[4]]`
     StringStart32,
 
-    /// Pushes a value to the end of a StringBuilder
+    /// Pushes a value to the end of the current string
     ///
-    /// Strings will have their contents added directly to the StringBuilder
-    /// Other values will be formatted to a string and then added to the StrignBuilder.
+    /// Strings will have their contents added directly to the string being built.
+    /// Other values will be formatted and then added to the string.
     ///
-    /// `[*target, *value]`
+    /// `[*value]`
     StringPush,
 
-    /// Replaces a StringBuilder with a String containing the builder's contents
+    /// Places the finished string in the target register
     ///
     /// `[*target]`
     StringFinish,

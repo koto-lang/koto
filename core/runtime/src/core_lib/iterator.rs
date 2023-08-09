@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{prelude::*, ValueIteratorOutput as Output};
+use crate::{prelude::*, Result, ValueIteratorOutput as Output};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> ValueMap {
@@ -749,7 +749,7 @@ pub(crate) fn collect_pair(iterator_output: Output) -> Output {
     }
 }
 
-pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> RuntimeResult {
+pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<Value> {
     match iterator_output {
         Some(Output::Value(value)) => Ok(value),
         Some(Output::ValuePair(first, second)) => Ok(Value::Tuple(vec![first, second].into())),
@@ -763,7 +763,7 @@ fn fold_with_operator(
     iterable: Value,
     initial_value: Value,
     operator: BinaryOp,
-) -> RuntimeResult {
+) -> Result<Value> {
     let mut result = initial_value;
 
     for output in vm.make_iterator(iterable)?.map(collect_pair) {
@@ -783,7 +783,7 @@ fn run_iterator_comparison(
     vm: &mut Vm,
     iterable: Value,
     invert_result: InvertResult,
-) -> RuntimeResult {
+) -> Result<Value> {
     let mut result: Option<Value> = None;
 
     for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
@@ -809,7 +809,7 @@ fn run_iterator_comparison_by_key(
     iterable: Value,
     key_fn: Value,
     invert_result: InvertResult,
-) -> RuntimeResult {
+) -> Result<Value> {
     let mut result_and_key: Option<(Value, Value)> = None;
 
     for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
@@ -836,7 +836,7 @@ fn run_iterator_comparison_by_key(
 // Compares two values using BinaryOp::Less
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
-fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) -> RuntimeResult {
+fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) -> Result<Value> {
     use InvertResult::*;
     use Value::Bool;
 
@@ -862,7 +862,7 @@ fn compare_values_with_key(
     a_and_key: (Value, Value),
     b_and_key: (Value, Value),
     invert_result: InvertResult,
-) -> Result<(Value, Value), RuntimeError> {
+) -> Result<(Value, Value)> {
     use InvertResult::*;
     use Value::Bool;
 

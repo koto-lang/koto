@@ -51,7 +51,7 @@ impl DateTime {
         Self::with_chrono_datetime(Local::now())
     }
 
-    fn from_seconds(seconds: f64, maybe_offset: Option<i64>) -> RuntimeResult {
+    fn from_seconds(seconds: f64, maybe_offset: Option<i64>) -> Result<Value> {
         let seconds_i64 = seconds as i64;
         let sub_nanos = (seconds.fract() * 1.0e9) as u32;
         let offset = match maybe_offset {

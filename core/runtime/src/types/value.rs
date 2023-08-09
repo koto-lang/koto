@@ -60,23 +60,13 @@ pub enum Value {
     ///
     /// Note: this is intended for internal use only.
     TemporaryTuple(RegisterSlice),
-
-    /// The builder used while building lists or tuples
-    ///
-    /// Note: this is intended for internal use only.
-    SequenceBuilder(Vec<Value>),
-
-    /// The string builder used during string interpolation
-    ///
-    /// Note: this is intended for internal use only.
-    StringBuilder(String),
 }
 
 impl Value {
     /// Returns a recursive 'deep copy' of a Value
     ///
     /// This is used by koto.deep_copy.
-    pub fn deep_copy(&self) -> RuntimeResult {
+    pub fn deep_copy(&self) -> Result<Value> {
         use Value::*;
 
         let result = match &self {
@@ -196,8 +186,6 @@ impl Value {
             ),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
-            SequenceBuilder(_) => TYPE_SEQUENCE_BUILDER.with(|x| x.clone()),
-            StringBuilder(_) => TYPE_STRING_BUILDER.with(|x| x.clone()),
         }
     }
 
@@ -234,8 +222,6 @@ impl Value {
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
-            SequenceBuilder(_) => ctx.write_str("SequenceBuilder"),
-            StringBuilder(_) => write!(ctx, "StringBuilder"),
             Str(s) => return s.display(ctx),
             List(l) => return l.display(ctx),
             Tuple(t) => return t.display(ctx),
@@ -266,8 +252,6 @@ thread_local! {
     static TYPE_EXTERNAL_FUNCTION: ValueString = "ExternalFunction".into();
     static TYPE_ITERATOR: ValueString = "Iterator".into();
     static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
-    static TYPE_SEQUENCE_BUILDER: ValueString = "SequenceBuilder".into();
-    static TYPE_STRING_BUILDER: ValueString = "StringBuilder".into();
 }
 
 impl From<()> for Value {
