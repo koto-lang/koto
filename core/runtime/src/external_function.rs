@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -15,7 +15,7 @@ pub struct ExternalFunction {
     // Once Trait aliases are stabilized this can be simplified a bit,
     // see: https://github.com/rust-lang/rust/issues/55628
     #[allow(clippy::type_complexity)]
-    pub function: Rc<dyn Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static>,
+    pub function: Rc<dyn Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static>,
     /// True if the function should behave as an instance function
     pub is_instance_function: bool,
 }
@@ -23,7 +23,7 @@ pub struct ExternalFunction {
 impl ExternalFunction {
     /// Creates a new external function
     pub fn new(
-        function: impl Fn(&mut Vm, &ArgRegisters) -> RuntimeResult + 'static,
+        function: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {

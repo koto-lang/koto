@@ -27,7 +27,7 @@ pub mod value;
 
 pub use crate::{
     display_context::DisplayContext,
-    error::{type_error, type_error_with_slice, Result, RuntimeError, RuntimeResult},
+    error::{type_error, type_error_with_slice, Result, RuntimeError},
     external_function::{ArgRegisters, ExternalFunction},
     file::{KotoFile, KotoRead, KotoWrite},
     int_range::IntRange,

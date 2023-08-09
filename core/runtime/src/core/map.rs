@@ -1,7 +1,7 @@
 //! The `map` core library module
 
 use super::iterator::adaptors;
-use crate::{prelude::*, value_sort::compare_values};
+use crate::{prelude::*, value_sort::compare_values, Result};
 use std::cmp::Ordering;
 
 /// Initializes the `map` core library module
@@ -189,7 +189,7 @@ pub fn make_module() -> ValueMap {
                                 cache: &mut DataMap,
                                 key: &ValueKey,
                                 value: &Value|
-             -> RuntimeResult {
+             -> Result<Value> {
                 let value = vm.run_function(
                     f.clone(),
                     CallArgs::Separate(&[key.value().clone(), value.clone()]),
@@ -289,7 +289,7 @@ fn do_map_update(
     default: Value,
     f: Value,
     vm: &mut Vm,
-) -> RuntimeResult {
+) -> Result<Value> {
     if !map.data().contains_key(&key) {
         map.data_mut().insert(key.clone(), default);
     }

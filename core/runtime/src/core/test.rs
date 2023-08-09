@@ -1,6 +1,6 @@
 //! The `test` core library module
 
-use crate::prelude::*;
+use crate::{prelude::*, Result};
 
 /// Initializes the `test` core library module
 pub fn make_module() -> ValueMap {
@@ -89,7 +89,7 @@ fn f64_near(a: f64, b: f64, allowed_diff: f64) -> bool {
     (a - b).abs() <= allowed_diff
 }
 
-fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: f64) -> RuntimeResult {
+fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: f64) -> Result<Value> {
     if f64_near(a.into(), b.into(), allowed_diff) {
         Ok(Value::Null)
     } else {

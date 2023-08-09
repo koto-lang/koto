@@ -263,7 +263,7 @@ impl Vm {
     }
 
     /// Runs the provided [Chunk], returning the resulting [Value]
-    pub fn run(&mut self, chunk: Ptr<Chunk>) -> RuntimeResult {
+    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<Value> {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
@@ -285,7 +285,7 @@ impl Vm {
     ///
     /// This is currently used to support generators, which yield incremental results and then
     /// leave the VM in a suspended state.
-    pub fn continue_running(&mut self) -> RuntimeResult {
+    pub fn continue_running(&mut self) -> Result<Value> {
         if self.call_stack.is_empty() {
             Ok(Value::Null)
         } else {
@@ -294,7 +294,7 @@ impl Vm {
     }
 
     /// Runs a function with some given arguments
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> RuntimeResult {
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> Result<Value> {
         self.call_and_run_function(None, function, args)
     }
 
@@ -304,7 +304,7 @@ impl Vm {
         instance: Value,
         function: Value,
         args: CallArgs,
-    ) -> RuntimeResult {
+    ) -> Result<Value> {
         self.call_and_run_function(Some(instance), function, args)
     }
 
@@ -313,7 +313,7 @@ impl Vm {
         instance: Option<Value>,
         function: Value,
         args: CallArgs,
-    ) -> RuntimeResult {
+    ) -> Result<Value> {
         if !function.is_callable() {
             return runtime_error!("run_function: the provided value isn't a function");
         }
@@ -421,7 +421,7 @@ impl Vm {
     }
 
     /// Provides the result of running a unary operation on a Value
-    pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
+    pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> Result<Value> {
         use UnaryOp::*;
 
         let old_frame_count = self.call_stack.len();
@@ -469,7 +469,7 @@ impl Vm {
     }
 
     /// Provides the result of running a binary operation on a pair of Values
-    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
+    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> Result<Value> {
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
         let lhs_register = result_register + 1;
@@ -583,7 +583,7 @@ impl Vm {
     /// Runs any tests that are contained in the map's @tests meta entry
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
+    pub fn run_tests(&mut self, tests: ValueMap) -> Result<Value> {
         use Value::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
@@ -659,7 +659,7 @@ impl Vm {
         Ok(Null)
     }
 
-    fn execute_instructions(&mut self) -> RuntimeResult {
+    fn execute_instructions(&mut self) -> Result<Value> {
         let mut result = Value::Null;
 
         self.instruction_ip = self.ip();
@@ -2481,7 +2481,7 @@ impl Vm {
         module: &ValueMap,
         iterator_fallback: bool,
         module_name: &str,
-    ) -> RuntimeResult {
+    ) -> Result<Value> {
         use Value::*;
 
         let maybe_op = match module.data().get(key).cloned() {

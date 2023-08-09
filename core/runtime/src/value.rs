@@ -66,7 +66,7 @@ impl Value {
     /// Returns a recursive 'deep copy' of a Value
     ///
     /// This is used by koto.deep_copy.
-    pub fn deep_copy(&self) -> RuntimeResult {
+    pub fn deep_copy(&self) -> Result<Value> {
         use Value::*;
 
         let result = match &self {
