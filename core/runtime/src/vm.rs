@@ -154,14 +154,19 @@ impl Default for VmSettings {
 /// The Koto runtime's virtual machine
 #[derive(Clone)]
 pub struct Vm {
+    // The exports map for the current module
     exports: ValueMap,
+    // Context shared by all VMs in the runtime
     context: Rc<VmContext>,
+    // The VM's instruction reader, containing a pointer to the bytecode chunk that's being executed
     reader: InstructionReader,
-    value_stack: Vec<Value>,
+    // The VM's register stack
+    registers: Vec<Value>,
+    // The VM's call stack
     call_stack: Vec<Frame>,
-    // A stack of sequences that are under construction
+    // A stack of sequences that are currently under construction
     sequence_builders: Vec<Vec<Value>>,
-    // A stack of strings that are under construction
+    // A stack of strings that are currently under construction
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: usize,
@@ -180,7 +185,7 @@ impl Vm {
             exports: ValueMap::default(),
             context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
-            value_stack: Vec::with_capacity(32),
+            registers: Vec::with_capacity(32),
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -200,7 +205,7 @@ impl Vm {
             exports: self.exports.clone(),
             context: self.context.clone(),
             reader: self.reader.clone(),
-            value_stack: Vec::with_capacity(8),
+            registers: Vec::with_capacity(8),
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -262,8 +267,8 @@ impl Vm {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
-        self.value_stack.push(Value::Null); // result register
-        self.value_stack.push(Value::Null); // instance register
+        self.registers.push(Value::Null); // result register
+        self.registers.push(Value::Null); // instance register
         self.push_frame(chunk, 0, frame_base, result_register);
 
         // Ensure that execution stops here if an error is thrown
@@ -322,16 +327,16 @@ impl Vm {
             None
         };
 
-        self.value_stack.push(Value::Null); // result register
-        self.value_stack.push(instance.unwrap_or_default()); // frame base
+        self.registers.push(Value::Null); // result register
+        self.registers.push(instance.unwrap_or_default()); // frame base
         let (args_count, temp_tuple_values) = match args {
             CallArgs::None => (0, None),
             CallArgs::Single(arg) => {
-                self.value_stack.push(arg);
+                self.registers.push(arg);
                 (1, None)
             }
             CallArgs::Separate(args) => {
-                self.value_stack.extend_from_slice(args);
+                self.registers.extend_from_slice(args);
                 (args.len() as u8, None)
             }
             CallArgs::AsTuple(args) => {
@@ -366,12 +371,12 @@ impl Vm {
                             count: args.len() as u8,
                         });
 
-                        self.value_stack.push(temp_tuple);
+                        self.registers.push(temp_tuple);
                         (1, Some(args))
                     }
                     _ => {
                         let tuple_contents = Vec::from(args);
-                        self.value_stack.push(Value::Tuple(tuple_contents.into()));
+                        self.registers.push(Value::Tuple(tuple_contents.into()));
                         (1, None)
                     }
                 }
@@ -423,8 +428,8 @@ impl Vm {
         let result_register = self.next_register();
         let value_register = result_register + 1;
 
-        self.value_stack.push(Value::Null); // result_register
-        self.value_stack.push(value); // value_register
+        self.registers.push(Value::Null); // result_register
+        self.registers.push(value); // value_register
 
         match op {
             Display => self.run_display(result_register, value_register)?,
@@ -470,9 +475,9 @@ impl Vm {
         let lhs_register = result_register + 1;
         let rhs_register = result_register + 2;
 
-        self.value_stack.push(Value::Null); // result register
-        self.value_stack.push(lhs);
-        self.value_stack.push(rhs);
+        self.registers.push(Value::Null); // result register
+        self.registers.push(lhs);
+        self.registers.push(rhs);
 
         match op {
             BinaryOp::Add => self.run_add(result_register, lhs_register, rhs_register)?,
@@ -1955,13 +1960,13 @@ impl Vm {
     ) -> InstructionResult {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
-        if self.register_index(result_register) >= self.value_stack.len() {
+        if self.register_index(result_register) >= self.registers.len() {
             self.set_register(result_register, Value::Null);
         }
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.value_stack.push(Value::Null); // frame_base
+        self.registers.push(Value::Null); // frame_base
         self.call_callable(
             result_register,
             op,
@@ -1981,14 +1986,14 @@ impl Vm {
     ) -> InstructionResult {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
-        if self.register_index(result_register) >= self.value_stack.len() {
+        if self.register_index(result_register) >= self.registers.len() {
             self.set_register(result_register, Value::Null);
         }
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.value_stack.push(Value::Null); // frame_base
-        self.value_stack.push(rhs); // arg
+        self.registers.push(Value::Null); // frame_base
+        self.registers.push(rhs); // arg
         self.call_callable(
             result_register,
             op,
@@ -2667,15 +2672,13 @@ impl Vm {
         // Place any captures in the registers following the arguments
         if let Some(captures) = captures {
             generator_vm
-                .value_stack
+                .registers
                 .extend(captures.data().iter().cloned())
         }
 
         // Place any temp tuple values in the registers following the args and captures
         if let Some(temp_tuple_values) = temp_tuple_values {
-            generator_vm
-                .value_stack
-                .extend_from_slice(temp_tuple_values);
+            generator_vm.registers.extend_from_slice(temp_tuple_values);
         }
 
         // The args have been cloned into the generator vm, so at this point they can be removed
@@ -2734,22 +2737,22 @@ impl Vm {
 
         // Ensure that any temporary registers used to prepare the call args have been removed
         // from the value stack.
-        self.value_stack
+        self.registers
             .truncate(arg_base_index + call_arg_count as usize);
         // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
-        self.value_stack
+        self.registers
             .resize(arg_base_index + function_arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
-            self.value_stack.extend(captures.data().iter().cloned());
+            self.registers.extend(captures.data().iter().cloned());
         }
 
         // Place any temp tuple values in the registers following the args and captures
         if let Some(temp_tuple_values) = temp_tuple_values {
-            self.value_stack.extend_from_slice(temp_tuple_values);
+            self.registers.extend_from_slice(temp_tuple_values);
         }
 
         // Set up a new frame for the called function
@@ -2783,12 +2786,12 @@ impl Vm {
                 // self is in the frame base, args start at register 1
                 let arg_base_index = self.register_index(frame_base) + 1;
                 // Remove any temporary registers used to prepare the call args
-                self.value_stack
+                self.registers
                     .truncate(arg_base_index + call_arg_count as usize);
                 // Ensure that registers have been filled with Null for any missing args.
                 // If there are extra args, truncating is OK at this point (variadic calls aren't
                 // available for SimpleFunction).
-                self.value_stack
+                self.registers
                     .resize(arg_base_index + function_arg_count as usize, Value::Null);
 
                 // Set up a new frame for the called function
@@ -3043,7 +3046,7 @@ impl Vm {
     }
 
     fn new_frame_base(&self) -> Result<u8> {
-        u8::try_from(self.value_stack.len() - self.register_base())
+        u8::try_from(self.registers.len() - self.register_base())
             .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
     }
 
@@ -3060,17 +3063,17 @@ impl Vm {
 
     // Returns the register id that corresponds to the next push to the value stack
     fn next_register(&self) -> u8 {
-        (self.value_stack.len() - self.register_base()) as u8
+        (self.registers.len() - self.register_base()) as u8
     }
 
     fn set_register(&mut self, register: u8, value: Value) {
         let index = self.register_index(register);
 
-        if index >= self.value_stack.len() {
-            self.value_stack.resize(index + 1, Value::Null);
+        if index >= self.registers.len() {
+            self.registers.resize(index + 1, Value::Null);
         }
 
-        self.value_stack[index] = value;
+        self.registers[index] = value;
     }
 
     fn clone_register(&self, register: u8) -> Value {
@@ -3079,7 +3082,7 @@ impl Vm {
 
     fn get_register(&self, register: u8) -> &Value {
         let index = self.register_index(register);
-        match self.value_stack.get(index) {
+        match self.registers.get(index) {
             Some(value) => value,
             None => {
                 panic!(
@@ -3092,26 +3095,25 @@ impl Vm {
 
     fn get_register_safe(&self, register: u8) -> Option<&Value> {
         let index = self.register_index(register);
-        self.value_stack.get(index)
+        self.registers.get(index)
     }
 
     fn get_register_mut(&mut self, register: u8) -> &mut Value {
         let index = self.register_index(register);
-        &mut self.value_stack[index]
+        &mut self.registers[index]
     }
 
     fn register_slice(&self, register: u8, count: u8) -> &[Value] {
         if count > 0 {
             let start = self.register_index(register);
-            &self.value_stack[start..start + count as usize]
+            &self.registers[start..start + count as usize]
         } else {
             &[]
         }
     }
 
     fn truncate_registers(&mut self, len: u8) {
-        self.value_stack
-            .truncate(self.register_base() + len as usize);
+        self.registers.truncate(self.register_base() + len as usize);
     }
 
     /// Returns the register slice corresponding to the given ArgRegisters
@@ -3165,7 +3167,7 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
 // documentation for iterator.copy and should hopefully be sufficient.
 pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
     let mut result = vm.clone();
-    for value in result.value_stack.iter_mut() {
+    for value in result.registers.iter_mut() {
         if let Value::Iterator(ref mut i) = value {
             *i = i.make_copy()?;
         }
