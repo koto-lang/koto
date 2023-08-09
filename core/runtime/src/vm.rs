@@ -45,9 +45,6 @@ pub enum ControlFlow {
     Yield(Value),
 }
 
-// Instructions will place their results in registers, there's no Ok type
-pub type InstructionResult = Result<()>;
-
 fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     let core_lib = CoreLib::default();
 
@@ -981,11 +978,7 @@ impl Vm {
         Ok(control_flow)
     }
 
-    fn run_load_non_local(
-        &mut self,
-        register: u8,
-        constant_index: ConstantIndex,
-    ) -> InstructionResult {
+    fn run_load_non_local(&mut self, register: u8, constant_index: ConstantIndex) -> Result<()> {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
@@ -1003,14 +996,14 @@ impl Vm {
         }
     }
 
-    fn run_value_export(&mut self, name_register: u8, value_register: u8) -> InstructionResult {
+    fn run_value_export(&mut self, name_register: u8, value_register: u8) -> Result<()> {
         let name = ValueKey::try_from(self.clone_register(name_register))?;
         let value = self.clone_register(value_register);
         self.exports.data_mut().insert(name, value);
         Ok(())
     }
 
-    fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> InstructionResult {
+    fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
             Value::TemporaryTuple(temp_registers) => {
                 let tuple = ValueTuple::from(
@@ -1029,7 +1022,7 @@ impl Vm {
         start_register: Option<u8>,
         end_register: Option<u8>,
         inclusive: bool,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::Number;
 
         let start = match start_register.map(|register| self.get_register(register)) {
@@ -1061,7 +1054,7 @@ impl Vm {
         result: u8,
         iterable_register: u8,
         temp_iterator: bool,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::*;
 
         let iterable = self.clone_register(iterable_register);
@@ -1121,7 +1114,7 @@ impl Vm {
         iterable_register: u8,
         jump_offset: usize,
         output_is_temporary: bool,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::*;
 
         let output = match self.clone_register(iterable_register) {
@@ -1233,7 +1226,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_temp_index(&mut self, result: u8, value: u8, index: i8) -> InstructionResult {
+    fn run_temp_index(&mut self, result: u8, value: u8, index: i8) -> Result<()> {
         use Value::*;
 
         let index_op = BinaryOp::Index.into();
@@ -1268,13 +1261,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_slice(
-        &mut self,
-        register: u8,
-        value: u8,
-        index: i8,
-        is_slice_to: bool,
-    ) -> InstructionResult {
+    fn run_slice(&mut self, register: u8, value: u8, index: i8, is_slice_to: bool) -> Result<()> {
         use Value::*;
 
         let result = match self.get_register(value) {
@@ -1350,12 +1337,7 @@ impl Vm {
         }
     }
 
-    fn run_capture_value(
-        &mut self,
-        function: u8,
-        capture_index: u8,
-        value: u8,
-    ) -> InstructionResult {
+    fn run_capture_value(&mut self, function: u8, capture_index: u8, value: u8) -> Result<()> {
         if let Some(function) = self.get_register_safe(function) {
             let capture_list = match function {
                 Value::Function(f) => &f.captures,
@@ -1379,7 +1361,7 @@ impl Vm {
         }
     }
 
-    fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
+    fn run_negate(&mut self, result: u8, value: u8) -> Result<()> {
         use UnaryOp::Negate;
         use Value::*;
 
@@ -1397,7 +1379,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_not(&mut self, result: u8, value: u8) -> InstructionResult {
+    fn run_not(&mut self, result: u8, value: u8) -> Result<()> {
         use UnaryOp::Not;
         use Value::*;
 
@@ -1415,7 +1397,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_display(&mut self, result: u8, value: u8) -> InstructionResult {
+    fn run_display(&mut self, result: u8, value: u8) -> Result<()> {
         use UnaryOp::Display;
 
         match self.clone_register(value) {
@@ -1436,7 +1418,7 @@ impl Vm {
         }
     }
 
-    fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Add;
         use Value::*;
 
@@ -1461,7 +1443,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Subtract;
         use Value::*;
 
@@ -1482,7 +1464,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Multiply;
         use Value::*;
 
@@ -1504,7 +1486,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Divide;
         use Value::*;
 
@@ -1525,7 +1507,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Remainder;
         use Value::*;
 
@@ -1551,7 +1533,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::AddAssign;
         use Value::*;
 
@@ -1578,7 +1560,7 @@ impl Vm {
         }
     }
 
-    fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::SubtractAssign;
         use Value::*;
 
@@ -1605,7 +1587,7 @@ impl Vm {
         }
     }
 
-    fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::MultiplyAssign;
         use Value::*;
 
@@ -1632,7 +1614,7 @@ impl Vm {
         }
     }
 
-    fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::DivideAssign;
         use Value::*;
 
@@ -1659,7 +1641,7 @@ impl Vm {
         }
     }
 
-    fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::RemainderAssign;
         use Value::*;
 
@@ -1686,7 +1668,7 @@ impl Vm {
         }
     }
 
-    fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Less;
         use Value::*;
 
@@ -1708,7 +1690,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::LessOrEqual;
         use Value::*;
 
@@ -1730,7 +1712,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Greater;
         use Value::*;
 
@@ -1752,7 +1734,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::GreaterOrEqual;
         use Value::*;
 
@@ -1774,7 +1756,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Equal;
         use Value::*;
 
@@ -1841,7 +1823,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::NotEqual;
         use Value::*;
 
@@ -1957,7 +1939,7 @@ impl Vm {
         result_register: u8,
         value_register: u8,
         op: Value,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.registers.len() {
@@ -1983,7 +1965,7 @@ impl Vm {
         lhs_register: u8,
         rhs: Value,
         op: Value,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.registers.len() {
@@ -2004,7 +1986,7 @@ impl Vm {
         )
     }
 
-    fn run_jump_if_true(&mut self, register: u8, offset: usize) -> InstructionResult {
+    fn run_jump_if_true(&mut self, register: u8, offset: usize) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => {}
             Value::Bool(b) if !b => {}
@@ -2013,7 +1995,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_jump_if_false(&mut self, register: u8, offset: usize) -> InstructionResult {
+    fn run_jump_if_false(&mut self, register: u8, offset: usize) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => self.jump_ip(offset),
             Value::Bool(b) if !b => self.jump_ip(offset),
@@ -2027,7 +2009,7 @@ impl Vm {
         self.set_register(register, Value::Number(result.into()));
     }
 
-    fn run_import(&mut self, import_register: u8) -> InstructionResult {
+    fn run_import(&mut self, import_register: u8) -> Result<()> {
         let import_name = match self.clone_register(import_register) {
             Value::Str(s) => s,
             value @ Value::Map(_) => {
@@ -2166,7 +2148,7 @@ impl Vm {
         indexable_register: u8,
         index_register: u8,
         value_register: u8,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::*;
 
         let indexable = self.clone_register(indexable_register);
@@ -2219,7 +2201,7 @@ impl Vm {
         result_register: u8,
         value_register: u8,
         index_register: u8,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use BinaryOp::Index;
         use Value::*;
 
@@ -2279,7 +2261,7 @@ impl Vm {
         map_register: u8,
         key_register: u8,
         value_register: u8,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let key = ValueKey::try_from(self.clone_register(key_register))?;
         let value = self.clone_register(value_register);
 
@@ -2292,12 +2274,7 @@ impl Vm {
         }
     }
 
-    fn run_meta_insert(
-        &mut self,
-        map_register: u8,
-        value: u8,
-        meta_id: MetaKeyId,
-    ) -> InstructionResult {
+    fn run_meta_insert(&mut self, map_register: u8, value: u8, meta_id: MetaKeyId) -> Result<()> {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
@@ -2319,7 +2296,7 @@ impl Vm {
         value_register: u8,
         meta_id: MetaKeyId,
         name_register: u8,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let value = self.clone_register(value_register);
 
         let meta_key = match self.clone_register(name_register) {
@@ -2339,7 +2316,7 @@ impl Vm {
         }
     }
 
-    fn run_meta_export(&mut self, value: u8, meta_id: MetaKeyId) -> InstructionResult {
+    fn run_meta_export(&mut self, value: u8, meta_id: MetaKeyId) -> Result<()> {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
@@ -2355,7 +2332,7 @@ impl Vm {
         meta_id: MetaKeyId,
         name_register: u8,
         value_register: u8,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let value = self.clone_register(value_register);
 
         let meta_key = match self.clone_register(name_register) {
@@ -2375,7 +2352,7 @@ impl Vm {
         result_register: u8,
         value_register: u8,
         key_string: ValueString,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::*;
 
         let accessed_value = self.clone_register(value_register);
@@ -2525,7 +2502,7 @@ impl Vm {
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let function = external_function.function.as_ref();
 
         let mut call_arg_count = call_arg_count;
@@ -2573,7 +2550,7 @@ impl Vm {
         frame_base: u8,
         call_arg_count: u8,
         // instance_register: Option<u8>,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let result = object.try_borrow_mut()?.call(
             self,
             &ArgRegisters {
@@ -2603,7 +2580,7 @@ impl Vm {
         call_arg_count: u8,
         instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let FunctionInfo {
             chunk,
             ip: function_ip,
@@ -2698,7 +2675,7 @@ impl Vm {
         call_arg_count: u8,
         instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         let FunctionInfo {
             chunk,
             ip: function_ip,
@@ -2769,7 +2746,7 @@ impl Vm {
         call_arg_count: u8,
         instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
-    ) -> InstructionResult {
+    ) -> Result<()> {
         use Value::*;
 
         match function {
@@ -2842,7 +2819,7 @@ impl Vm {
         }
     }
 
-    fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> InstructionResult {
+    fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> Result<()> {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
             Value::Str(s) => s,
@@ -2873,7 +2850,7 @@ impl Vm {
             .write_line(&format!("{prefix}{expression_string}: {value_string}"))
     }
 
-    fn run_check_type(&self, register: u8, type_id: TypeId) -> InstructionResult {
+    fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<()> {
         let value = self.get_register(register);
         match type_id {
             TypeId::List => {
@@ -2890,7 +2867,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_check_size_equal(&self, register: u8, expected_size: usize) -> InstructionResult {
+    fn run_check_size_equal(&self, register: u8, expected_size: usize) -> Result<()> {
         let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
@@ -2902,7 +2879,7 @@ impl Vm {
         }
     }
 
-    fn run_check_size_min(&self, register: u8, expected_size: usize) -> InstructionResult {
+    fn run_check_size_min(&self, register: u8, expected_size: usize) -> Result<()> {
         let value_size = self.get_register(register).size();
 
         if value_size >= expected_size {
@@ -2914,7 +2891,7 @@ impl Vm {
         }
     }
 
-    fn run_sequence_push(&mut self, value_register: u8) -> InstructionResult {
+    fn run_sequence_push(&mut self, value_register: u8) -> Result<()> {
         let value = self.clone_register(value_register);
         if let Some(builder) = self.sequence_builders.last_mut() {
             builder.push(value);
@@ -2924,7 +2901,7 @@ impl Vm {
         }
     }
 
-    fn run_sequence_to_list(&mut self, register: u8) -> InstructionResult {
+    fn run_sequence_to_list(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
             let list = ValueList::with_data(ValueVec::from_vec(result));
             self.set_register(register, list.into());
@@ -2934,7 +2911,7 @@ impl Vm {
         }
     }
 
-    fn run_sequence_to_tuple(&mut self, register: u8) -> InstructionResult {
+    fn run_sequence_to_tuple(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
             self.set_register(register, ValueTuple::from(result).into());
             Ok(())
@@ -2943,7 +2920,7 @@ impl Vm {
         }
     }
 
-    fn run_string_push(&mut self, value_register: u8) -> InstructionResult {
+    fn run_string_push(&mut self, value_register: u8) -> Result<()> {
         let value = self.clone_register(value_register);
 
         match self.run_unary_op(UnaryOp::Display, value)? {
@@ -2959,7 +2936,7 @@ impl Vm {
         }
     }
 
-    fn run_string_finish(&mut self, register: u8) -> InstructionResult {
+    fn run_string_finish(&mut self, register: u8) -> Result<()> {
         // Move the string builder out of its register to avoid cloning the string data
         if let Some(result) = self.string_builders.pop() {
             self.set_register(register, result.into());
@@ -3136,7 +3113,7 @@ impl Vm {
             .unwrap()
     }
 
-    fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
+    fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> Result<()> {
         runtime_error!(
             "Unable to perform operation '{op}' with '{}' and '{}'",
             lhs.type_as_string(),
