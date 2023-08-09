@@ -161,6 +161,8 @@ pub struct Vm {
     call_stack: Vec<Frame>,
     // A stack of sequences that are under construction
     sequence_builders: Vec<Vec<Value>>,
+    // A stack of strings that are under construction
+    string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: usize,
 }
@@ -181,6 +183,7 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
+            string_builders: Vec::new(),
             instruction_ip: 0,
         }
     }
@@ -200,6 +203,7 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
+            string_builders: Vec::new(),
             instruction_ip: 0,
         }
     }
@@ -759,14 +763,10 @@ impl Vm {
             }
             SequenceToList { register } => self.run_sequence_to_list(register)?,
             SequenceToTuple { register } => self.run_sequence_to_tuple(register)?,
-            StringStart {
-                register,
-                size_hint,
-            } => self.set_register(
-                register,
-                Value::StringBuilder(String::with_capacity(size_hint)),
-            ),
-            StringPush { register, value } => self.run_string_push(register, value)?,
+            StringStart { size_hint } => {
+                self.string_builders.push(String::with_capacity(size_hint))
+            }
+            StringPush { value } => self.run_string_push(value)?,
             StringFinish { register } => self.run_string_finish(register)?,
             Range {
                 register,
@@ -2940,32 +2940,29 @@ impl Vm {
         }
     }
 
-    fn run_string_push(&mut self, register: u8, value_register: u8) -> InstructionResult {
+    fn run_string_push(&mut self, value_register: u8) -> InstructionResult {
         let value = self.clone_register(value_register);
-        let display_result = self.run_unary_op(UnaryOp::Display, value)?;
 
-        // Add the resulting string to the string builder
-        match display_result {
-            Value::Str(string) => match self.get_register_mut(register) {
-                Value::StringBuilder(builder) => {
+        match self.run_unary_op(UnaryOp::Display, value)? {
+            Value::Str(string) => {
+                if let Some(builder) = self.string_builders.last_mut() {
                     builder.push_str(&string);
                     Ok(())
+                } else {
+                    runtime_error!("Missing a string builder")
                 }
-                other => type_error("StringBuilder", other),
-            },
+            }
             other => type_error("String", &other),
         }
     }
 
     fn run_string_finish(&mut self, register: u8) -> InstructionResult {
         // Move the string builder out of its register to avoid cloning the string data
-        match self.remove_register(register) {
-            Value::StringBuilder(result) => {
-                // Make a ValueString out of the string builder's contents
-                self.set_register(register, result.into());
-                Ok(())
-            }
-            other => type_error("StringBuilder", &other),
+        if let Some(result) = self.string_builders.pop() {
+            self.set_register(register, result.into());
+            Ok(())
+        } else {
+            runtime_error!("Missing a string builder")
         }
     }
 
@@ -3078,13 +3075,6 @@ impl Vm {
 
     fn clone_register(&self, register: u8) -> Value {
         self.get_register(register).clone()
-    }
-
-    // Moves a value out of the stack, replacing it with Null
-    fn remove_register(&mut self, register: u8) -> Value {
-        let index = self.register_index(register);
-        self.value_stack.push(Value::Null);
-        self.value_stack.swap_remove(index)
     }
 
     fn get_register(&self, register: u8) -> &Value {

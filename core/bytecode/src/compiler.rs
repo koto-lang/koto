@@ -2037,14 +2037,14 @@ impl Compiler {
                 }
             }
             _ => {
-                if let Some(result) = result {
+                if result.is_some() {
                     if size_hint <= u8::MAX as usize {
-                        self.push_op(Op::StringStart, &[result.register, size_hint as u8]);
+                        self.push_op(Op::StringStart, &[size_hint as u8]);
                     } else {
                         // Limit the size hint to u32::MAX, u64 size hinting can be added later if
                         // it would be useful in practice.
                         let size_hint = size_hint.min(u32::MAX as usize) as u32;
-                        self.push_op(Op::StringStart32, &[result.register]);
+                        self.push_op(Op::StringStart32, &[]);
                         self.push_bytes(&size_hint.to_le_bytes());
                     }
                 }
@@ -2052,20 +2052,17 @@ impl Compiler {
                 for node in nodes.iter() {
                     match node {
                         StringNode::Literal(constant_index) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
                                 let node_register = self.push_register()?;
 
                                 self.compile_load_string_constant(node_register, *constant_index);
-                                self.push_op_without_span(
-                                    Op::StringPush,
-                                    &[result.register, node_register],
-                                );
+                                self.push_op_without_span(Op::StringPush, &[node_register]);
 
                                 self.pop_register()?;
                             }
                         }
                         StringNode::Expr(expression_node) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
                                 let expression_result = self
                                     .compile_node(
                                         ResultRegister::Any,
@@ -2076,7 +2073,7 @@ impl Compiler {
 
                                 self.push_op_without_span(
                                     Op::StringPush,
-                                    &[result.register, expression_result.register],
+                                    &[expression_result.register],
                                 );
 
                                 if expression_result.is_temporary {

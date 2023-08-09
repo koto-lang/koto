@@ -179,25 +179,25 @@ pub enum Op {
     /// `[*register]`
     SequenceToTuple,
 
-    /// Makes a StringBuilder with a u8 size hint
+    /// Starts the construction of a new string with a u8 size hint
     ///
-    /// `[*target, size hint]`
+    /// `[size hint]`
     StringStart,
 
-    /// Makes a StringBuilder with a u32 size hint
+    /// Starts the construction of a new string with a u32 size hint
     ///
-    /// `[*target, size hint[4]]`
+    /// `[size hint[4]]`
     StringStart32,
 
-    /// Pushes a value to the end of a StringBuilder
+    /// Pushes a value to the end of the current string
     ///
-    /// Strings will have their contents added directly to the StringBuilder
-    /// Other values will be formatted to a string and then added to the StrignBuilder.
+    /// Strings will have their contents added directly to the string being built.
+    /// Other values will be formatted and then added to the string.
     ///
-    /// `[*target, *value]`
+    /// `[*value]`
     StringPush,
 
-    /// Replaces a StringBuilder with a String containing the builder's contents
+    /// Places the finished string in the target register
     ///
     /// `[*target]`
     StringFinish,
