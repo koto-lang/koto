@@ -3,7 +3,20 @@ use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
 #[derive(Clone)]
-pub struct ValueTuple {
+pub struct ValueTuple(Inner);
+
+// Either the full tuple, or a slice
+//
+// By heap-allocating slice bounds we can keep ValueTuple's size down to 16 bytes; otherwise it
+// would have a size of 32 bytes.
+#[derive(Clone)]
+enum Inner {
+    Full(Ptr<[Value]>),
+    Slice(Ptr<TupleSlice>),
+}
+
+#[derive(Clone)]
+struct TupleSlice {
     data: Ptr<[Value]>,
     bounds: Range<usize>,
 }
@@ -15,14 +28,20 @@ impl ValueTuple {
     /// (i.e. instead of relative to the underlying shared tuple data), so it follows that the
     /// result will always be a subset of the input tuple.
     pub fn make_sub_tuple(&self, mut new_bounds: Range<usize>) -> Option<Self> {
-        new_bounds.start += self.bounds.start;
-        new_bounds.end += self.bounds.start;
+        let slice = match &self.0 {
+            Inner::Full(data) => TupleSlice::from(data.clone()),
+            Inner::Slice(slice) => slice.deref().clone(),
+        };
 
-        if new_bounds.end <= self.bounds.end && self.data.get(new_bounds.clone()).is_some() {
-            Some(Self {
-                data: self.data.clone(),
+        new_bounds.start += slice.bounds.start;
+        new_bounds.end += slice.bounds.start;
+
+        if new_bounds.end <= slice.bounds.end && slice.get(new_bounds.clone()).is_some() {
+            let result = TupleSlice {
+                data: slice.data.clone(),
                 bounds: new_bounds,
-            })
+            };
+            Some(result.into())
         } else {
             None
         }
@@ -38,11 +57,26 @@ impl ValueTuple {
     /// The internal bounds of the tuple are adjusted to 'remove' the first element;
     /// no change is made to the underlying tuple data.
     pub fn pop_front(&mut self) -> Option<Value> {
-        if let Some(value) = self.first().cloned() {
-            self.bounds.start += 1;
-            Some(value)
-        } else {
-            None
+        match &mut self.0 {
+            Inner::Full(data) => {
+                if let Some(value) = data.first().cloned() {
+                    *self = Self::from(TupleSlice {
+                        data: data.clone(),
+                        bounds: 1..data.len(),
+                    });
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+            Inner::Slice(slice) => {
+                if let Some(value) = slice.first().cloned() {
+                    Ptr::make_mut(slice).bounds.start += 1;
+                    Some(value)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -51,17 +85,35 @@ impl ValueTuple {
     /// The internal bounds of the tuple are adjusted to 'remove' the first element;
     /// no change is made to the underlying tuple data.
     pub fn pop_back(&mut self) -> Option<Value> {
-        if let Some(value) = self.last().cloned() {
-            self.bounds.end -= 1;
-            Some(value)
-        } else {
-            None
+        match &mut self.0 {
+            Inner::Full(data) => {
+                if let Some(value) = data.last().cloned() {
+                    *self = Self::from(TupleSlice {
+                        data: data.clone(),
+                        bounds: 0..data.len() - 1,
+                    });
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+            Inner::Slice(slice) => {
+                if let Some(value) = slice.last().cloned() {
+                    Ptr::make_mut(slice).bounds.end -= 1;
+                    Some(value)
+                } else {
+                    None
+                }
+            }
         }
     }
 
     /// Renders the tuple into the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        let id = Ptr::address(&self.data);
+        let id = Ptr::address(match &self.0 {
+            Inner::Full(data) => data,
+            Inner::Slice(slice) => &slice.data,
+        });
         ctx.push_container(id);
         ctx.append('(');
 
@@ -83,36 +135,49 @@ impl Deref for ValueTuple {
     type Target = [Value];
 
     fn deref(&self) -> &[Value] {
-        // Safety: bounds have already been checked in the From impls and make_sub_tuple
-        unsafe { self.data.get_unchecked(self.bounds.clone()) }
+        match &self.0 {
+            Inner::Full(data) => data,
+            Inner::Slice(slice) => slice.deref(),
+        }
     }
 }
 
 impl Default for ValueTuple {
     fn default() -> Self {
-        Self {
-            data: Vec::default().into(),
-            bounds: Range::default(),
-        }
+        Vec::new().into()
     }
 }
 
 impl From<&[Value]> for ValueTuple {
     fn from(data: &[Value]) -> Self {
-        let bounds = 0..data.len();
-        Self {
-            data: data.into(),
-            bounds,
-        }
+        Self(Inner::Full(data.into()))
     }
 }
 
 impl From<Vec<Value>> for ValueTuple {
     fn from(data: Vec<Value>) -> Self {
+        Self(Inner::Full(data.into()))
+    }
+}
+
+impl Deref for TupleSlice {
+    type Target = [Value];
+
+    fn deref(&self) -> &[Value] {
+        // Safety: bounds have already been checked in the From impls and make_sub_tuple
+        unsafe { self.data.get_unchecked(self.bounds.clone()) }
+    }
+}
+
+impl From<Ptr<[Value]>> for TupleSlice {
+    fn from(data: Ptr<[Value]>) -> Self {
         let bounds = 0..data.len();
-        Self {
-            data: data.into(),
-            bounds,
-        }
+        Self { data, bounds }
+    }
+}
+
+impl From<TupleSlice> for ValueTuple {
+    fn from(slice: TupleSlice) -> Self {
+        Self(Inner::Slice(slice.into()))
     }
 }

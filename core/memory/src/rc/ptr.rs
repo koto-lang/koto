@@ -27,6 +27,19 @@ impl<T: ?Sized> Ptr<T> {
     }
 }
 
+impl<T: Clone> Ptr<T> {
+    /// Makes a mutable reference into the owned `T`
+    ///
+    /// If the pointer has the only reference to the value, then the reference will be returned.
+    /// Otherwise a clone of the value will be made to ensure uniqueness before returning the
+    /// reference.
+    ///
+    /// See also: [std::rc::Rc::make_mut]
+    pub fn make_mut(this: &mut Self) -> &mut T {
+        Rc::make_mut(&mut this.0)
+    }
+}
+
 impl<T> From<T> for Ptr<T> {
     fn from(value: T) -> Self {
         Self::new(value)
