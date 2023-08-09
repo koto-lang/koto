@@ -5,7 +5,6 @@
 mod display_context;
 mod error;
 mod file;
-mod frame;
 mod stdio;
 mod types;
 mod vm;
