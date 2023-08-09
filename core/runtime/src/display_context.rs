@@ -16,7 +16,7 @@ pub struct DisplayContext<'a> {
 }
 
 impl<'a> DisplayContext<'a> {
-    /// TODO
+    /// Makes a display context with the given VM
     pub fn with_vm(vm: &'a Vm) -> Self {
         Self {
             result: String::default(),
@@ -25,7 +25,7 @@ impl<'a> DisplayContext<'a> {
         }
     }
 
-    /// TODO
+    /// Makes a display context with the given VM and reserved capacity
     pub fn with_vm_and_capacity(vm: &'a Vm, capacity: usize) -> Self {
         Self {
             result: String::with_capacity(capacity),
