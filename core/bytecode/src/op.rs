@@ -149,32 +149,32 @@ pub enum Op {
     /// `[*target, *iterable]`
     MakeIterator,
 
-    /// Makes a SequenceBuilder with a u8 size hint
+    /// Starts a new sequence with a u8 size hint
     ///
-    /// `[*target, size hint]`
+    /// `[size hint]`
     SequenceStart,
 
-    /// Makes a SequenceBuilder with a u32 size hint
+    /// Starts a new sequence with a u32 size hint
     ///
-    /// `[*target, size hint[4]]`
+    /// `[size hint[4]]`
     SequenceStart32,
 
-    /// Pushes a single value to the end of a SequenceBuilder
+    /// Pushes a single value to the end of the current sequence
     ///
-    /// `[*target, *value]`
+    /// `[*value]`
     SequencePush,
 
-    /// Pushes values from consecutive registers to the end of a SequenceBuilder
+    /// Pushes values from consecutive registers to the end of the current sequence
     ///
-    /// `[*target, *start, value count]`
+    /// `[*start, value count]`
     SequencePushN,
 
-    /// Converts a SequenceBuilder into a List
+    /// Converts the current sequence into a List
     ///
     /// `[*register]`
     SequenceToList,
 
-    /// Converts a SequenceBuilder into a Tuple
+    /// Converts the current sequence into a Tuple
     ///
     /// `[*register]`
     SequenceToTuple,

@@ -126,23 +126,20 @@ pub enum Instruction {
         size_hint: usize,
     },
     SequenceStart {
-        register: u8,
         size_hint: usize,
     },
     SequencePush {
-        sequence: u8,
         value: u8,
     },
     SequencePushN {
-        sequence: u8,
         start: u8,
         count: u8,
     },
     SequenceToList {
-        sequence: u8,
+        register: u8,
     },
     SequenceToTuple {
-        sequence: u8,
+        register: u8,
     },
     Range {
         register: u8,
@@ -467,26 +464,15 @@ impl fmt::Debug for Instruction {
                 register,
                 size_hint,
             } => write!(f, "MakeMap\t\tresult: {register}\tsize_hint: {size_hint}"),
-            SequenceStart {
-                register,
-                size_hint,
-            } => write!(
-                f,
-                "SequenceStart\tresult: {register}\tsize_hint: {size_hint}"
-            ),
-            SequencePush { sequence, value } => {
-                write!(f, "SequencePush\tsequence: {sequence}\tvalue: {value}")
+            SequenceStart { size_hint } => write!(f, "SequenceStart\tsize_hint: {size_hint}"),
+            SequencePush { value } => {
+                write!(f, "SequencePush\tvalue: {value}")
             }
-            SequencePushN {
-                sequence,
-                start,
-                count,
-            } => write!(
-                f,
-                "SequencePushN\tsequence: {sequence}\tstart: {start}\tcount: {count}",
-            ),
-            SequenceToList { sequence } => write!(f, "SequenceToList\tsequence: {sequence}"),
-            SequenceToTuple { sequence } => write!(f, "SequenceToTuple\tsequence: {sequence}"),
+            SequencePushN { start, count } => {
+                write!(f, "SequencePushN\tstart: {start}\tcount: {count}",)
+            }
+            SequenceToList { register } => write!(f, "SequenceToList\tregister: {register}"),
+            SequenceToTuple { register } => write!(f, "SequenceToTuple\tregister: {register}"),
             Range {
                 register,
                 start,
@@ -1040,27 +1026,21 @@ impl Iterator for InstructionReader {
                 size_hint: get_u32!() as usize,
             }),
             Op::SequenceStart => Some(SequenceStart {
-                register: get_u8!(),
                 size_hint: get_u8!() as usize,
             }),
             Op::SequenceStart32 => Some(SequenceStart {
-                register: get_u8!(),
                 size_hint: get_u32!() as usize,
             }),
-            Op::SequencePush => Some(SequencePush {
-                sequence: get_u8!(),
-                value: get_u8!(),
-            }),
+            Op::SequencePush => Some(SequencePush { value: get_u8!() }),
             Op::SequencePushN => Some(SequencePushN {
-                sequence: get_u8!(),
                 start: get_u8!(),
                 count: get_u8!(),
             }),
             Op::SequenceToList => Some(SequenceToList {
-                sequence: get_u8!(),
+                register: get_u8!(),
             }),
             Op::SequenceToTuple => Some(SequenceToTuple {
-                sequence: get_u8!(),
+                register: get_u8!(),
             }),
             Op::Range => Some(Range {
                 register: get_u8!(),

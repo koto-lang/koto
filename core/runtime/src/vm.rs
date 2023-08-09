@@ -159,6 +159,8 @@ pub struct Vm {
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
+    // A stack of sequences that are under construction
+    sequence_builders: Vec<Vec<Value>>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: usize,
 }
@@ -177,7 +179,8 @@ impl Vm {
             context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
-            call_stack: vec![],
+            call_stack: Vec::new(),
+            sequence_builders: Vec::new(),
             instruction_ip: 0,
         }
     }
@@ -195,7 +198,8 @@ impl Vm {
             context: self.context.clone(),
             reader: self.reader.clone(),
             value_stack: Vec::with_capacity(8),
-            call_stack: vec![],
+            call_stack: Vec::new(),
+            sequence_builders: Vec::new(),
             instruction_ip: 0,
         }
     }
@@ -744,25 +748,17 @@ impl Vm {
                 register,
                 size_hint,
             } => self.set_register(register, ValueMap::with_capacity(size_hint).into()),
-            SequenceStart {
-                register,
-                size_hint,
-            } => self.set_register(
-                register,
-                Value::SequenceBuilder(Vec::with_capacity(size_hint)),
-            ),
-            SequencePush { sequence, value } => self.run_sequence_push(sequence, value)?,
-            SequencePushN {
-                sequence,
-                start,
-                count,
-            } => {
+            SequenceStart { size_hint } => {
+                self.sequence_builders.push(Vec::with_capacity(size_hint))
+            }
+            SequencePush { value } => self.run_sequence_push(value)?,
+            SequencePushN { start, count } => {
                 for value_register in start..(start + count) {
-                    self.run_sequence_push(sequence, value_register)?;
+                    self.run_sequence_push(value_register)?;
                 }
             }
-            SequenceToList { sequence } => self.run_sequence_to_list(sequence)?,
-            SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence)?,
+            SequenceToList { register } => self.run_sequence_to_list(register)?,
+            SequenceToTuple { register } => self.run_sequence_to_tuple(register)?,
             StringStart {
                 register,
                 size_hint,
@@ -2915,46 +2911,32 @@ impl Vm {
         }
     }
 
-    fn run_sequence_push(
-        &mut self,
-        sequence_register: u8,
-        value_register: u8,
-    ) -> InstructionResult {
+    fn run_sequence_push(&mut self, value_register: u8) -> InstructionResult {
         let value = self.clone_register(value_register);
-        match self.get_register_mut(sequence_register) {
-            Value::SequenceBuilder(builder) => {
-                builder.push(value);
-                Ok(())
-            }
-            other => {
-                runtime_error!(
-                    "SequencePush: Expected SequenceBuilder, found '{}'",
-                    other.type_as_string()
-                )
-            }
+        if let Some(builder) = self.sequence_builders.last_mut() {
+            builder.push(value);
+            Ok(())
+        } else {
+            runtime_error!("Missing a sequence buider")
         }
     }
 
     fn run_sequence_to_list(&mut self, register: u8) -> InstructionResult {
-        // Move the sequence builder out of its register to avoid cloning the Vec
-        match self.remove_register(register) {
-            Value::SequenceBuilder(result) => {
-                let list = ValueList::with_data(ValueVec::from_vec(result));
-                self.set_register(register, Value::List(list));
-                Ok(())
-            }
-            other => type_error("SequenceBuilder", &other),
+        if let Some(result) = self.sequence_builders.pop() {
+            let list = ValueList::with_data(ValueVec::from_vec(result));
+            self.set_register(register, list.into());
+            Ok(())
+        } else {
+            runtime_error!("Missing a sequence buider")
         }
     }
 
     fn run_sequence_to_tuple(&mut self, register: u8) -> InstructionResult {
-        // Move the sequence builder out of its register to avoid cloning the Vec
-        match self.remove_register(register) {
-            Value::SequenceBuilder(result) => {
-                self.set_register(register, Value::Tuple(ValueTuple::from(result)));
-                Ok(())
-            }
-            other => type_error("SequenceBuilder", &other),
+        if let Some(result) = self.sequence_builders.pop() {
+            self.set_register(register, ValueTuple::from(result).into());
+            Ok(())
+        } else {
+            runtime_error!("Missing a sequence buider")
         }
     }
 
