@@ -45,40 +45,6 @@ pub enum ControlFlow {
     Yield(Value),
 }
 
-fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
-    let core_lib = CoreLib::default();
-
-    let prelude = ValueMap::default();
-    prelude.add_map("io", core_lib.io.clone());
-    prelude.add_map("iterator", core_lib.iterator.clone());
-    prelude.add_map("koto", core_lib.koto.clone());
-    prelude.add_map("list", core_lib.list.clone());
-    prelude.add_map("map", core_lib.map.clone());
-    prelude.add_map("os", core_lib.os.clone());
-    prelude.add_map("number", core_lib.number.clone());
-    prelude.add_map("range", core_lib.range.clone());
-    prelude.add_map("string", core_lib.string.clone());
-    prelude.add_map("test", core_lib.test.clone());
-    prelude.add_map("tuple", core_lib.tuple.clone());
-
-    macro_rules! default_import {
-        ($name:expr, $module:ident) => {{
-            prelude.add_value($name, core_lib.$module.data().get($name).unwrap().clone());
-        }};
-    }
-
-    default_import!("assert", test);
-    default_import!("assert_eq", test);
-    default_import!("assert_ne", test);
-    default_import!("assert_near", test);
-    default_import!("print", io);
-    default_import!("copy", koto);
-    default_import!("deep_copy", koto);
-    default_import!("type", koto);
-
-    (core_lib, prelude)
-}
-
 /// State shared between concurrent VMs
 struct VmContext {
     // The settings that were used to initialize the runtime
@@ -101,11 +67,11 @@ impl Default for VmContext {
 
 impl VmContext {
     fn with_settings(settings: VmSettings) -> Self {
-        let (core_lib, prelude) = setup_core_lib_and_prelude();
+        let core_lib = CoreLib::default();
 
         Self {
             settings,
-            prelude,
+            prelude: core_lib.prelude(),
             core_lib,
             loader: RefCell::new(Loader::default()),
             imported_modules: RefCell::new(ModuleCache::default()),
