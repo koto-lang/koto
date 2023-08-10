@@ -46,6 +46,12 @@ impl<T> From<T> for Ptr<T> {
     }
 }
 
+impl<T: ?Sized> From<Box<T>> for Ptr<T> {
+    fn from(boxed: Box<T>) -> Self {
+        Self(boxed.into())
+    }
+}
+
 impl<T: ?Sized> From<Rc<T>> for Ptr<T> {
     fn from(inner: Rc<T>) -> Self {
         Self(inner)
