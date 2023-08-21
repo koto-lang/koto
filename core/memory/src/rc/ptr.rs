@@ -1,4 +1,10 @@
-use std::{fmt, ops::Deref, rc::Rc};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    ops::Deref,
+    rc::Rc,
+};
 
 use super::Address;
 
@@ -106,8 +112,29 @@ impl<T: ?Sized + PartialEq> PartialEq for Ptr<T> {
     }
 }
 
+impl<T: ?Sized + Eq> Eq for Ptr<T> {}
+
 impl<T: ?Sized + fmt::Display> fmt::Display for Ptr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl<T: ?Sized + Hash> Hash for Ptr<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl<T: ?Sized + Ord> Ord for Ptr<T> {
+    #[inline]
+    fn cmp(&self, other: &Ptr<T>) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T: ?Sized + PartialOrd> PartialOrd for Ptr<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }

@@ -4,20 +4,97 @@ use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 /// The integer range type used by the Koto runtime
 ///
 /// See [Value::Range]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IntRange {
-    /// The optional start of the range
-    pub start: Option<isize>,
-    /// The optional end of the range, along with a flag for inclusive ranges
-    pub end: Option<(isize, bool)>,
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct IntRange(Inner);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+enum Inner {
+    Unbounded,
+    From {
+        start: i64,
+    },
+    To {
+        end: i64,
+        inclusive: bool,
+    },
+    Bounded {
+        start: i32,
+        end: i32,
+        inclusive: bool,
+    },
+    // Placing ranges with i64 bounds to the heap allows the size of IntRange to be 16 bytes
+    BoundedLarge(Ptr<Bounded64>),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+struct Bounded64 {
+    start: i64,
+    end: i64,
+    inclusive: bool,
+}
+
+impl From<Bounded64> for Inner {
+    fn from(range: Bounded64) -> Self {
+        Self::BoundedLarge(Ptr::new(range))
+    }
 }
 
 impl IntRange {
+    /// Initializes a From range
+    pub fn from(start: i64) -> Self {
+        Self(Inner::From { start })
+    }
+
+    /// Initializes a To range
+    pub fn to(end: i64, inclusive: bool) -> Self {
+        Self(Inner::To { end, inclusive })
+    }
+
     /// Initializes a range with the given bounds
-    pub fn with_bounds(start: isize, end: isize, inclusive: bool) -> Self {
-        Self {
-            start: Some(start),
-            end: Some((end, inclusive)),
+    pub fn bounded(start: i64, end: i64, inclusive: bool) -> Self {
+        match (i32::try_from(start), i32::try_from(end)) {
+            (Ok(start), Ok(end)) => Self(Inner::Bounded {
+                start,
+                end,
+                inclusive,
+            }),
+            _ => Self(
+                Bounded64 {
+                    start,
+                    end,
+                    inclusive,
+                }
+                .into(),
+            ),
+        }
+    }
+
+    /// Initializes an unbounded range
+    pub fn unbounded() -> Self {
+        Self(Inner::Unbounded)
+    }
+
+    /// Returns the start of the range
+    pub fn start(&self) -> Option<i64> {
+        use Inner::*;
+        match &self.0 {
+            From { start } => Some(*start),
+            Bounded { start, .. } => Some(*start as i64),
+            BoundedLarge(r) => Some(r.start),
+            _ => None,
+        }
+    }
+
+    /// Returns the end of the range
+    ///
+    /// The return value includes flag stating whether or not the range end is inclusive or not.
+    pub fn end(&self) -> Option<(i64, bool)> {
+        use Inner::*;
+        match &self.0 {
+            To { end, inclusive } => Some((*end, *inclusive)),
+            Bounded { end, inclusive, .. } => Some((*end as i64, *inclusive)),
+            BoundedLarge(r) => Some((r.end, r.inclusive)),
+            _ => None,
         }
     }
 
@@ -25,51 +102,39 @@ impl IntRange {
     ///
     /// No clamping of the range boundaries is performed (as in [IntRange::indices]),
     /// so negative indices will be preserved.
-    pub fn as_sorted_range(&self) -> Range<isize> {
-        use std::isize::{MAX, MIN};
+    pub fn as_sorted_range(&self) -> Range<i64> {
+        use std::i64::{MAX, MIN};
+        use Inner::*;
 
-        match (self.start, self.end) {
-            (Some(start), Some((end, inclusive))) => match (start <= end, inclusive) {
-                (true, true) => start..end + 1,
-                (true, false) => start..end,
-                (false, true) => end..start + 1,
-                (false, false) => end + 1..start + 1,
-            },
-            (Some(start), None) => start..MAX,
-            (None, Some((end, inclusive))) => {
-                if inclusive {
-                    MIN..end + 1
-                } else {
-                    MIN..end
-                }
+        let sort_bounded = |start, end, inclusive| {
+            if start < end {
+                (start, if inclusive { end + 1 } else { end })
+            } else {
+                (if inclusive { end } else { end + 1 }, start + 1)
             }
-            (None, None) => MIN..MAX,
-        }
+        };
+
+        let (start, end) = {
+            match &self.0 {
+                From { start } => (*start, MAX),
+                To { end, inclusive } => (MIN, if *inclusive { *end + 1 } else { *end }),
+                Bounded {
+                    start,
+                    end,
+                    inclusive,
+                } => sort_bounded(*start as i64, *end as i64, *inclusive),
+                BoundedLarge(r) => sort_bounded(r.start, r.end, r.inclusive),
+                Unbounded => (MIN, MAX),
+            }
+        };
+
+        start..end
     }
 
     /// Returns true if the provided number is within the range
     pub fn contains(&self, n: ValueNumber) -> bool {
-        let n: isize = if n < 0.0 { n.floor() } else { n.ceil() }.into();
-        match (self.start, self.end) {
-            (None, None) => true,
-            (None, Some((end, true))) => n <= end,
-            (None, Some((end, false))) => n < end,
-            (Some(start), None) => n >= start,
-            (Some(start), Some((end, true))) => {
-                if start <= end {
-                    n >= start && n <= end
-                } else {
-                    n <= start && n >= end
-                }
-            }
-            (Some(start), Some((end, false))) => {
-                if start <= end {
-                    n >= start && n < end
-                } else {
-                    n <= start && n > end
-                }
-            }
-        }
+        let n: i64 = if n < 0.0 { n.floor() } else { n.ceil() }.into();
+        self.as_sorted_range().contains(&n)
     }
 
     /// Returns the range translated into non-negative indices, suitable for container access
@@ -80,20 +145,15 @@ impl IntRange {
     /// If the start value is `None` then the resulting start index will be `0`.
     /// If the end value is `None` then the resulting end index will be `max_index`.
     pub fn indices(&self, max_index: usize) -> Range<usize> {
-        let start = self
-            .start
-            .map_or(0, |start| (start.max(0) as usize).min(max_index));
-
-        let end = self.end.map_or(max_index, |(end, inclusive)| {
-            let end = if inclusive { end + 1 } else { end } as usize;
-            end.clamp(0, max_index)
-        });
-
-        start..end
+        let max_index = max_index as i64;
+        let range = self.as_sorted_range();
+        let start = range.start.clamp(0, max_index);
+        let end = range.end.clamp(start, max_index);
+        (start as usize)..(end as usize)
     }
 
     /// Returns the intersection of two ranges
-    pub fn intersection(&self, other: IntRange) -> Option<Self> {
+    pub fn intersection(&self, other: &IntRange) -> Option<Self> {
         let this = self.as_sorted_range();
         // let mut result = Self::with_bounds(start, end, inclusive);
         let other = other.as_sorted_range();
@@ -102,7 +162,7 @@ impl IntRange {
             return None;
         }
 
-        Some(Self::with_bounds(
+        Some(Self::bounded(
             this.start.max(other.start),
             this.end.min(other.end),
             false,
@@ -111,8 +171,11 @@ impl IntRange {
 
     /// Returns true if the range's start is less than or equal to its end
     pub fn is_ascending(&self) -> bool {
-        match (self.start, self.end) {
-            (Some(start), Some((end, _))) => start <= end,
+        use Inner::*;
+        match &self.0 {
+            To { end, .. } => *end > 0,
+            Bounded { start, end, .. } => *start <= *end,
+            BoundedLarge(r) => r.start <= r.end,
             _ => true,
         }
     }
@@ -121,8 +184,9 @@ impl IntRange {
     ///
     /// Descending ranges have a non-negative size, i.e. the size is equal to `start - end`.
     pub fn size(&self) -> Option<usize> {
-        if self.start.is_some() && self.end.is_some() {
-            Some(self.as_sorted_range().len())
+        if self.is_bounded() {
+            let range = self.as_sorted_range();
+            Some((range.end - range.start) as usize)
         } else {
             None
         }
@@ -130,34 +194,135 @@ impl IntRange {
 
     /// Returns true if the range has defined start and end boundaries
     pub fn is_bounded(&self) -> bool {
-        self.start.is_some() && self.end.is_some()
+        use Inner::*;
+        matches!(self.0, Bounded { .. } | BoundedLarge { .. })
     }
 
     /// Removes and returns the first element in the range.
     ///
-    /// This is used in the VM to iterate over temporary ranges.
+    /// This is used by RangeIterator and in the VM to iterate over temporary ranges.
     ///
     /// Returns an error if the range is not bounded.
-    pub fn pop_front(&mut self) -> Result<Option<isize>, RuntimeError> {
-        let result = match (self.start, self.end) {
-            (Some(start), Some((end, inclusive))) => match (start.cmp(&end), inclusive) {
-                (Ordering::Less, _) => {
-                    self.start = Some(start + 1);
-                    Some(start)
+    pub fn pop_front(&mut self) -> Result<Option<i64>, RuntimeError> {
+        use Inner::*;
+        use Ordering::*;
+
+        let result = match &mut self.0 {
+            Bounded {
+                start,
+                end,
+                inclusive,
+            } => match start.cmp(&end) {
+                Less => {
+                    let result = *start as i64;
+                    *start += 1;
+                    Some(result)
                 }
-                (Ordering::Greater, _) => {
-                    self.start = Some(start - 1);
-                    Some(start)
+                Greater => {
+                    let result = *start as i64;
+                    *start -= 1;
+                    Some(result)
                 }
-                // An inclusive range, with start == end
-                (Ordering::Equal, true) => {
-                    self.end = Some((end, false));
-                    Some(start)
+                Equal => {
+                    if *inclusive {
+                        let result = *start as i64;
+                        *inclusive = false; // Allow iteration to stop
+                        Some(result)
+                    } else {
+                        None
+                    }
                 }
-                // The range is exhausted
-                (Ordering::Equal, false) => None,
             },
+            BoundedLarge(r) => {
+                let r = Ptr::make_mut(r);
+                match r.start.cmp(&r.end) {
+                    Less => {
+                        let result = r.start;
+                        r.start += 1;
+                        Some(result)
+                    }
+                    Greater => {
+                        let result = r.start;
+                        r.start -= 1;
+                        Some(result)
+                    }
+                    Equal => {
+                        if r.inclusive {
+                            let result = r.start;
+                            r.inclusive = false; // Allow iteration to stop
+                            Some(result)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
             _ => return runtime_error!("IntRange::pop_front can only be used with bounded ranges"),
+        };
+
+        Ok(result)
+    }
+
+    /// Removes and returns the first element in the range.
+    ///
+    /// This is used by RangeIterator and in the VM to iterate over temporary ranges.
+    ///
+    /// Returns an error if the range is not bounded.
+    pub fn pop_back(&mut self) -> Result<Option<i64>, RuntimeError> {
+        use Inner::*;
+        use Ordering::*;
+
+        let result = match &mut self.0 {
+            Bounded {
+                start,
+                end,
+                inclusive,
+            } => match start.cmp(&end) {
+                Less => {
+                    let result = *end as i64;
+                    *end -= 1;
+                    Some(result)
+                }
+                Greater => {
+                    let result = *start as i64;
+                    *start -= 1;
+                    Some(result)
+                }
+                Equal => {
+                    if *inclusive {
+                        let result = *start as i64;
+                        *inclusive = false; // Allow iteration to stop
+                        Some(result)
+                    } else {
+                        None
+                    }
+                }
+            },
+            BoundedLarge(r) => {
+                let r = Ptr::make_mut(r);
+                match r.start.cmp(&r.end) {
+                    Less => {
+                        let result = r.end;
+                        r.end += 1;
+                        Some(result)
+                    }
+                    Greater => {
+                        let result = r.start;
+                        r.start -= 1;
+                        Some(result)
+                    }
+                    Equal => {
+                        if r.inclusive {
+                            let result = r.start;
+                            r.inclusive = false; // Allow iteration to stop
+                            Some(result)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            _ => return runtime_error!("IntRange::pop_back can only be used with bounded ranges"),
         };
 
         Ok(result)
@@ -166,17 +331,16 @@ impl IntRange {
 
 impl fmt::Display for IntRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(start) = self.start {
+        if let Some(start) = self.start() {
             write!(f, "{start}")?;
         }
 
         f.write_str("..")?;
 
-        if let Some((end, inclusive)) = self.end {
+        if let Some((end, inclusive)) = self.end() {
             if inclusive {
                 f.write_str("=")?;
             }
-
             write!(f, "{end}")?;
         }
 
@@ -189,75 +353,55 @@ mod tests {
     use super::*;
 
     #[test]
+    fn size_of() {
+        assert_eq!(std::mem::size_of::<IntRange>(), 16);
+    }
+
+    #[test]
     fn as_sorted_range() {
-        use std::isize::{MAX, MIN};
+        use std::i64::{MAX, MIN};
 
-        assert_eq!(
-            10..20,
-            IntRange::with_bounds(10, 20, false).as_sorted_range()
-        );
-        assert_eq!(
-            10..21,
-            IntRange::with_bounds(10, 20, true).as_sorted_range()
-        );
-        assert_eq!(
-            11..21,
-            IntRange::with_bounds(20, 10, false).as_sorted_range()
-        );
-        assert_eq!(
-            10..21,
-            IntRange::with_bounds(20, 10, true).as_sorted_range()
-        );
+        assert_eq!(10..20, IntRange::bounded(10, 20, false).as_sorted_range());
+        assert_eq!(10..21, IntRange::bounded(10, 20, true).as_sorted_range());
+        assert_eq!(11..21, IntRange::bounded(20, 10, false).as_sorted_range());
+        assert_eq!(10..21, IntRange::bounded(20, 10, true).as_sorted_range());
 
-        assert_eq!(
-            10..MAX,
-            IntRange {
-                start: Some(10),
-                end: None
-            }
-            .as_sorted_range(),
-        );
-        assert_eq!(
-            MIN..10,
-            IntRange {
-                start: None,
-                end: Some((10, false))
-            }
-            .as_sorted_range(),
-        );
+        assert_eq!(10..MAX, IntRange::from(10).as_sorted_range(),);
+        assert_eq!(MIN..10, IntRange::to(10, false).as_sorted_range(),);
     }
 
     #[test]
     fn intersection() {
         assert_eq!(
-            Some(IntRange::with_bounds(15, 20, false)),
-            IntRange::with_bounds(10, 20, false).intersection(IntRange::with_bounds(15, 25, false))
+            Some(IntRange::bounded(15, 20, false)),
+            IntRange::bounded(10, 20, false).intersection(&IntRange::bounded(15, 25, false))
         );
         assert_eq!(
-            Some(IntRange::with_bounds(200, 201, false)),
-            IntRange::with_bounds(100, 200, true)
-                .intersection(IntRange::with_bounds(300, 200, true))
+            Some(IntRange::bounded(200, 201, false)),
+            IntRange::bounded(100, 200, true).intersection(&IntRange::bounded(300, 200, true))
         );
         assert_eq!(
             None,
-            IntRange::with_bounds(100, 200, false)
-                .intersection(IntRange::with_bounds(0, 50, false))
+            IntRange::bounded(100, 200, false).intersection(&IntRange::bounded(0, 50, false))
         );
     }
 
     #[test]
     fn is_ascending() {
-        assert!(IntRange::with_bounds(10, 20, false).is_ascending());
-        assert!(!IntRange::with_bounds(30, 20, false).is_ascending());
-        assert!(IntRange {
-            start: None,
-            end: Some((1, true))
-        }
-        .is_ascending());
-        assert!(IntRange {
-            start: Some(20),
-            end: None
-        }
-        .is_ascending());
+        assert!(IntRange::bounded(10, 20, false).is_ascending());
+        assert!(!IntRange::bounded(30, 20, false).is_ascending());
+        assert!(IntRange::to(1, true).is_ascending());
+        assert!(IntRange::from(20).is_ascending());
+    }
+
+    #[test]
+    fn bounded_large() {
+        let start_big = 2_i64.pow(42);
+        let end_big = 2_i64.pow(43);
+        assert!(IntRange::bounded(start_big, end_big, false).is_ascending());
+        assert_eq!(
+            IntRange::bounded(start_big, end_big, false).size().unwrap(),
+            (end_big - start_big) as usize
+        );
     }
 }
