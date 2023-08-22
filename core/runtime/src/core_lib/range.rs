@@ -22,18 +22,18 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("end", |vm, args| match vm.get_args(args) {
-        [Range(r)] => Ok(r.end.map_or(Null, |(end, _inclusive)| end.into())),
+        [Range(r)] => Ok(r.end().map_or(Null, |(end, _inclusive)| end.into())),
         unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
     result.add_fn("expanded", |vm, args| match vm.get_args(args) {
-        [Range(r), Number(n)] => match (r.start, r.end) {
+        [Range(r), Number(n)] => match (r.start(), r.end()) {
             (Some(start), Some((end, inclusive))) => {
-                let n = isize::from(n);
+                let n = i64::from(n);
                 let result = if r.is_ascending() {
-                    IntRange::with_bounds(start - n, end + n, inclusive)
+                    IntRange::bounded(start - n, end + n, inclusive)
                 } else {
-                    IntRange::with_bounds(start + n, end - n, inclusive)
+                    IntRange::bounded(start + n, end - n, inclusive)
                 };
                 Ok(result.into())
             }
@@ -43,12 +43,12 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("intersection", |vm, args| match vm.get_args(args) {
-        [Range(a), Range(b)] => Ok(a.intersection(*b).map_or(Null, |result| result.into())),
+        [Range(a), Range(b)] => Ok(a.intersection(b).map_or(Null, |result| result.into())),
         unexpected => type_error_with_slice("two Ranges", unexpected),
     });
 
     result.add_fn("is_inclusive", |vm, args| match vm.get_args(args) {
-        [Range(r)] => Ok(r.end.map_or(false, |(_end, inclusive)| inclusive).into()),
+        [Range(r)] => Ok(r.end().map_or(false, |(_end, inclusive)| inclusive).into()),
         unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
@@ -61,32 +61,32 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("start", |vm, args| match vm.get_args(args) {
-        [Range(r)] => Ok(r.start.map_or(Null, |start| start.into())),
+        [Range(r)] => Ok(r.start().map_or(Null, Value::from)),
         unexpected => type_error_with_slice("a Range as argument", unexpected),
     });
 
     result.add_fn("union", |vm, args| match vm.get_args(args) {
         [Range(r), Number(n)] => {
-            let n = isize::from(n);
-            match (r.start, r.end) {
+            let n = i64::from(n);
+            match (r.start(), r.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let result = if start <= end {
-                        IntRange::with_bounds(start.min(n), end.max(n + 1), inclusive)
+                        IntRange::bounded(start.min(n), end.max(n + 1), inclusive)
                     } else {
-                        IntRange::with_bounds(start.max(n), end.min(n - 1), inclusive)
+                        IntRange::bounded(start.max(n), end.min(n - 1), inclusive)
                     };
                     Ok(result.into())
                 }
                 _ => runtime_error!("range.union can't be used with '{r}'"),
             }
         }
-        [Range(a), Range(b)] => match (a.start, a.end) {
+        [Range(a), Range(b)] => match (a.start(), a.end()) {
             (Some(start), Some((end, inclusive))) => {
                 let r_b = b.as_sorted_range();
                 let result = if start <= end {
-                    IntRange::with_bounds(start.min(r_b.start), end.max(r_b.end), inclusive)
+                    IntRange::bounded(start.min(r_b.start), end.max(r_b.end), inclusive)
                 } else {
-                    IntRange::with_bounds(start.max(r_b.end - 1), end.min(r_b.start), inclusive)
+                    IntRange::bounded(start.max(r_b.end - 1), end.min(r_b.start), inclusive)
                 };
                 Ok(result.into())
             }

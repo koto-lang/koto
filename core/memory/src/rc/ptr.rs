@@ -1,4 +1,10 @@
-use std::{fmt, ops::Deref, rc::Rc};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    ops::Deref,
+    rc::Rc,
+};
 
 use super::Address;
 
@@ -27,9 +33,28 @@ impl<T: ?Sized> Ptr<T> {
     }
 }
 
+impl<T: Clone> Ptr<T> {
+    /// Makes a mutable reference into the owned `T`
+    ///
+    /// If the pointer has the only reference to the value, then the reference will be returned.
+    /// Otherwise a clone of the value will be made to ensure uniqueness before returning the
+    /// reference.
+    ///
+    /// See also: [std::rc::Rc::make_mut]
+    pub fn make_mut(this: &mut Self) -> &mut T {
+        Rc::make_mut(&mut this.0)
+    }
+}
+
 impl<T> From<T> for Ptr<T> {
     fn from(value: T) -> Self {
         Self::new(value)
+    }
+}
+
+impl<T: ?Sized> From<Box<T>> for Ptr<T> {
+    fn from(boxed: Box<T>) -> Self {
+        Self(boxed.into())
     }
 }
 
@@ -87,8 +112,29 @@ impl<T: ?Sized + PartialEq> PartialEq for Ptr<T> {
     }
 }
 
+impl<T: ?Sized + Eq> Eq for Ptr<T> {}
+
 impl<T: ?Sized + fmt::Display> fmt::Display for Ptr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl<T: ?Sized + Hash> Hash for Ptr<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl<T: ?Sized + Ord> Ord for Ptr<T> {
+    #[inline]
+    fn cmp(&self, other: &Ptr<T>) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T: ?Sized + PartialOrd> PartialOrd for Ptr<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }

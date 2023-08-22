@@ -594,6 +594,8 @@ impl Vm {
                         }
                     }
 
+                    dbg!(&test_name);
+
                     let test_result =
                         self.run_instance_function(self_arg.clone(), test, CallArgs::None);
 
@@ -991,19 +993,19 @@ impl Vm {
     ) -> Result<()> {
         use Value::Number;
 
-        let start = match start_register.map(|register| self.get_register(register)) {
-            Some(Number(n)) => Some(isize::from(n)),
-            None => None,
-            Some(unexpected) => return type_error("Number for range start", unexpected),
-        };
+        let start = start_register.map(|r| self.get_register(r));
+        let end = end_register.map(|r| self.get_register(r));
 
-        let end = match end_register.map(|register| self.get_register(register)) {
-            Some(Number(n)) => Some((isize::from(n), inclusive)),
-            None => None,
-            Some(unexpected) => return type_error("Number for range end", unexpected),
+        let range = match (start, end) {
+            (Some(Number(start)), Some(Number(end))) => {
+                IntRange::bounded(start.into(), end.into(), inclusive)
+            }
+            (Some(Number(start)), None) => IntRange::from(start.into()),
+            (None, Some(Number(end))) => IntRange::to(end.into(), inclusive),
+            (Some(unexpected), _) => return type_error("Number for range start", unexpected),
+            (_, Some(unexpected)) => return type_error("Number for range end", unexpected),
+            (None, None) => IntRange::unbounded(),
         };
-
-        let range = IntRange { start, end };
 
         self.set_register(register, range.into());
         Ok(())
@@ -1041,7 +1043,7 @@ impl Vm {
                 }
             }
             Iterator(_) => iterable,
-            Range(r) if temp_iterator && r.is_bounded() => iterable,
+            Range(ref r) if temp_iterator && r.is_bounded() => iterable,
             Tuple(_) | Str(_) | TemporaryTuple(_) if temp_iterator => {
                 // Immutable sequences can be iterated over directly when used in temporary
                 // situations like argument unpacking.

@@ -60,7 +60,7 @@ impl DerefMut for MetaMap {
 }
 
 /// The key type used by [MetaMaps](crate::MetaMap)
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub enum MetaKey {
     /// A binary operation
     ///

@@ -434,6 +434,18 @@ y.next()
 mod string {
     use super::*;
 
+    mod graphemes {
+        use super::*;
+
+        #[test]
+        fn next_back() {
+            let script = "
+'abc'.next_back()
+";
+            test_script(script, "c");
+        }
+    }
+
     mod bytes {
         use super::*;
 
