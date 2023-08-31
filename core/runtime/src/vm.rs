@@ -594,8 +594,6 @@ impl Vm {
                         }
                     }
 
-                    dbg!(&test_name);
-
                     let test_result =
                         self.run_instance_function(self_arg.clone(), test, CallArgs::None);
 
@@ -2517,7 +2515,6 @@ impl Vm {
         object: Object,
         frame_base: u8,
         call_arg_count: u8,
-        // instance_register: Option<u8>,
     ) -> Result<()> {
         let result = object.try_borrow_mut()?.call(
             self,
