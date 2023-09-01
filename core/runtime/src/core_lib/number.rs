@@ -6,7 +6,7 @@ use crate::prelude::*;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.number");
 
     macro_rules! number_fn {
         ($fn:ident) => {

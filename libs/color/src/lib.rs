@@ -9,7 +9,7 @@ use koto_runtime::{prelude::*, Result};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let mut result = ValueMap::with_type("color");
 
     result.add_fn("named", |vm, args| match vm.get_args(args) {
         [Str(s)] => named(s),

@@ -15,7 +15,7 @@ use koto_runtime::prelude::*;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("geometry");
 
     result.add_fn("rect", |vm, args| {
         let (x, y, width, height) = match vm.get_args(args) {

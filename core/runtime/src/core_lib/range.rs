@@ -6,7 +6,7 @@ use crate::prelude::*;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.range");
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Range(r), Number(n)] => Ok(r.contains(*n).into()),

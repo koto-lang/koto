@@ -41,7 +41,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("json");
 
     result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match serde_json::from_str(s) {

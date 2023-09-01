@@ -8,7 +8,7 @@ use std::cmp::Ordering;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.map");
 
     result.add_fn("clear", |vm, args| match vm.get_args(args) {
         [Map(m)] => {

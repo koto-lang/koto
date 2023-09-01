@@ -36,7 +36,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("toml");
 
     result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match toml::from_str(s) {

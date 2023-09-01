@@ -61,6 +61,13 @@ impl ValueMap {
         Self::default()
     }
 
+    /// Creates an empty ValueMap, with a MetaMap containing the given @type string
+    pub fn with_type(type_name: &str) -> Self {
+        let mut meta = MetaMap::default();
+        meta.insert(MetaKey::Type, type_name.into());
+        Self::with_contents(DataMap::default(), Some(meta))
+    }
+
     /// Creates an empty ValueMap with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self::with_contents(DataMap::with_capacity(capacity), None)

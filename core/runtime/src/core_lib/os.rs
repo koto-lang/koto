@@ -9,7 +9,7 @@ use std::ops::Deref;
 pub fn make_module() -> ValueMap {
     use Value::Number;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.os");
 
     result.add_fn("name", |_, _| Ok(std::env::consts::OS.into()));
 

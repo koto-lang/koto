@@ -7,7 +7,7 @@ use koto_runtime::{
 use tempfile::NamedTempFile;
 
 pub fn make_module() -> ValueMap {
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("temp_file");
 
     result.add_fn("temp_file", {
         |_, _| match NamedTempFile::new().map_err(map_io_err) {

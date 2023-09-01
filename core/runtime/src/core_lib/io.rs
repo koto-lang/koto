@@ -15,7 +15,7 @@ use std::{
 pub fn make_module() -> ValueMap {
     use Value::{Bool, Null, Str};
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.io");
 
     result.add_fn("create", {
         move |vm, args| match vm.get_args(args) {

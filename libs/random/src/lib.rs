@@ -6,7 +6,7 @@ use rand_chacha::ChaCha8Rng;
 use std::cell::RefCell;
 
 pub fn make_module() -> ValueMap {
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("random");
 
     result.add_fn("bool", |_, _| {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_bool())

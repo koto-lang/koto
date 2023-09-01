@@ -12,7 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.string");
 
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {

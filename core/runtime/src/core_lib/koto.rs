@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.koto");
 
     result.add_value("args", Tuple(ValueTuple::default()));
 

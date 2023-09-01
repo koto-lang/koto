@@ -6,7 +6,7 @@ use crate::{prelude::*, Result};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.test");
 
     result.add_fn("assert", |vm, args| {
         for value in vm.get_args(args).iter() {

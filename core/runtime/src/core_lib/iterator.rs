@@ -10,7 +10,7 @@ use crate::{prelude::*, Result, ValueIteratorOutput as Output};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.iterator");
 
     result.add_fn("all", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {

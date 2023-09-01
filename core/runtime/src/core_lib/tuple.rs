@@ -7,7 +7,7 @@ use crate::{prelude::*, Result};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.tuple");
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Tuple(t), value] => {

@@ -11,7 +11,7 @@ use std::{cmp::Ordering, ops::DerefMut};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("core.list");
 
     result.add_fn("clear", |vm, args| match vm.get_args(args) {
         [List(l)] => {
