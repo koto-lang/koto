@@ -12,242 +12,285 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::with_type("core.iterator");
 
-    result.add_fn("all", |vm, args| match vm.get_args(args) {
-        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let iterable = iterable.clone();
-            let predicate = predicate.clone();
+    result.add_fn("all", |ctx| {
+        let expected_error = "an iterable and predicate function";
 
-            for output in vm.make_iterator(iterable)? {
-                let predicate_result = match output {
-                    Output::Value(value) => {
-                        vm.run_function(predicate.clone(), CallArgs::Single(value))
-                    }
-                    Output::ValuePair(a, b) => {
-                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
-                    }
-                    Output::Error(error) => return Err(error),
-                };
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
 
-                match predicate_result {
-                    Ok(Bool(result)) => {
-                        if !result {
-                            return Ok(false.into());
+                for output in ctx.vm.make_iterator(iterable)? {
+                    let predicate_result = match output {
+                        Output::Value(value) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::ValuePair(a, b) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                        Output::Error(error) => return Err(error),
+                    };
+
+                    match predicate_result {
+                        Ok(Bool(result)) => {
+                            if !result {
+                                return Ok(false.into());
+                            }
                         }
-                    }
-                    Ok(unexpected) => {
-                        return type_error("a Bool to be returned from the predicate", &unexpected)
-                    }
-                    error @ Err(_) => return error,
-                }
-            }
-
-            Ok(true.into())
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and predicate Function as arguments",
-            unexpected,
-        ),
-    });
-
-    result.add_fn("any", |vm, args| match vm.get_args(args) {
-        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let iterable = iterable.clone();
-            let predicate = predicate.clone();
-
-            for output in vm.make_iterator(iterable)? {
-                let predicate_result = match output {
-                    Output::Value(value) => {
-                        vm.run_function(predicate.clone(), CallArgs::Single(value))
-                    }
-                    Output::ValuePair(a, b) => {
-                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
-                    }
-                    Output::Error(error) => return Err(error),
-                };
-
-                match predicate_result {
-                    Ok(Bool(result)) => {
-                        if result {
-                            return Ok(true.into());
+                        Ok(unexpected) => {
+                            return type_error(
+                                "a Bool to be returned from the predicate",
+                                &unexpected,
+                            )
                         }
+                        error @ Err(_) => return error,
                     }
-                    Ok(unexpected) => {
-                        return type_error("a Bool to be returned from the predicate", &unexpected)
+                }
+
+                Ok(true.into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("any", |ctx| {
+        let expected_error = "an iterable and predicate function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
+
+                for output in ctx.vm.make_iterator(iterable)? {
+                    let predicate_result = match output {
+                        Output::Value(value) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::ValuePair(a, b) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                        Output::Error(error) => return Err(error),
+                    };
+
+                    match predicate_result {
+                        Ok(Bool(result)) => {
+                            if result {
+                                return Ok(true.into());
+                            }
+                        }
+                        Ok(unexpected) => {
+                            return type_error(
+                                "a Bool to be returned from the predicate",
+                                &unexpected,
+                            )
+                        }
+                        Err(error) => return Err(error),
                     }
-                    Err(error) => return Err(error),
+                }
+
+                Ok(false.into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("chain", |ctx| {
+        let expected_error = "two iterable values";
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
+                let iterable_a = iterable_a.clone();
+                let iterable_b = iterable_b.clone();
+                let result = ValueIterator::new(adaptors::Chain::new(
+                    ctx.vm.make_iterator(iterable_a)?,
+                    ctx.vm.make_iterator(iterable_b)?,
+                ));
+
+                Ok(Iterator(result))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("chunks", |ctx| {
+        let expected_error = "an iterable and a chunk size greater than zero";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [Number(n)]) => {
+                let iterable = iterable.clone();
+                let n = *n;
+                match adaptors::Chunks::new(ctx.vm.make_iterator(iterable)?, n.into()) {
+                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Err(e) => runtime_error!("iterator.chunks: {}", e),
                 }
             }
-
-            Ok(false.into())
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "an iterable value and predicate Function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("chain", |vm, args| match vm.get_args(args) {
-        [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let iterable_a = iterable_a.clone();
-            let iterable_b = iterable_b.clone();
-            let result = ValueIterator::new(adaptors::Chain::new(
-                vm.make_iterator(iterable_a)?,
-                vm.make_iterator(iterable_b)?,
-            ));
+    result.add_fn("consume", |ctx| {
+        let expected_error = "an iterable value (and optional consumer function)";
 
-            Ok(Iterator(result))
-        }
-        unexpected => type_error_with_slice("two iterable values as arguments", unexpected),
-    });
-
-    result.add_fn("chunks", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let n = *n;
-            match adaptors::Chunks::new(vm.make_iterator(iterable)?, n.into()) {
-                Ok(result) => Ok(ValueIterator::new(result).into()),
-                Err(e) => runtime_error!("iterator.chunks: {}", e),
-            }
-        }
-        unexpected => type_error_with_slice(
-            "a value with a range (like a List or String), \
-             and a chunk size greater than zero as arguments",
-            unexpected,
-        ),
-    });
-
-    result.add_fn("consume", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            for output in vm.make_iterator(iterable)? {
-                if let Output::Error(error) = output {
-                    return Err(error);
-                }
-            }
-            Ok(Null)
-        }
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iterable = iterable.clone();
-            let f = f.clone();
-            for output in vm.make_iterator(iterable)? {
-                match output {
-                    Output::Value(value) => {
-                        vm.run_function(f.clone(), CallArgs::Single(value))?;
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                for output in ctx.vm.make_iterator(iterable)? {
+                    if let Output::Error(error) = output {
+                        return Err(error);
                     }
-                    Output::ValuePair(a, b) => {
-                        vm.run_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
+                }
+                Ok(Null)
+            }
+            (iterable, [f]) if f.is_callable() => {
+                let iterable = iterable.clone();
+                let f = f.clone();
+                for output in ctx.vm.make_iterator(iterable)? {
+                    match output {
+                        Output::Value(value) => {
+                            ctx.vm.run_function(f.clone(), CallArgs::Single(value))?;
+                        }
+                        Output::ValuePair(a, b) => {
+                            ctx.vm.run_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
+                        }
+                        Output::Error(error) => return Err(error),
                     }
-                    Output::Error(error) => return Err(error),
                 }
+                Ok(Null)
             }
-            Ok(Null)
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "an Iterable Value (and optional Function) as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("count", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let mut result = 0;
-            for output in vm.make_iterator(iterable)? {
-                if let Output::Error(error) = output {
-                    return Err(error);
+    result.add_fn("count", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let mut result = 0;
+                for output in ctx.vm.make_iterator(iterable)? {
+                    if let Output::Error(error) = output {
+                        return Err(error);
+                    }
+                    result += 1;
                 }
-                result += 1;
+                Ok(Number(result.into()))
             }
-            Ok(Number(result.into()))
-        }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
-    });
-
-    result.add_fn("each", |vm, args| match vm.get_args(args) {
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iterable = iterable.clone();
-            let f = f.clone();
-            let result = adaptors::Each::new(vm.make_iterator(iterable)?, f, vm.spawn_shared_vm());
-
-            Ok(ValueIterator::new(result).into())
-        }
-        unexpected => {
-            type_error_with_slice("an iterable value and a Function as arguments", unexpected)
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
 
-    result.add_fn("cycle", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let result = adaptors::Cycle::new(vm.make_iterator(iterable)?);
+    result.add_fn("each", |ctx| {
+        let expected_error = "an iterable and function";
 
-            Ok(ValueIterator::new(result).into())
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [f]) if f.is_callable() => {
+                let iterable = iterable.clone();
+                let f = f.clone();
+                let result = adaptors::Each::new(
+                    ctx.vm.make_iterator(iterable)?,
+                    f,
+                    ctx.vm.spawn_shared_vm(),
+                );
+
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let result = adaptors::Enumerate::new(vm.make_iterator(iterable)?);
-            Ok(ValueIterator::new(result).into())
+    result.add_fn("cycle", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let result = adaptors::Cycle::new(ctx.vm.make_iterator(iterable)?);
+
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("find", |vm, args| match vm.get_args(args) {
-        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let iterable = iterable.clone();
-            let predicate = predicate.clone();
+    result.add_fn("enumerate", |ctx| {
+        let expected_error = "an iterable";
 
-            for output in vm.make_iterator(iterable)?.map(collect_pair) {
-                match output {
-                    Output::Value(value) => {
-                        match vm.run_function(predicate.clone(), CallArgs::Single(value.clone())) {
-                            Ok(Bool(result)) => {
-                                if result {
-                                    return Ok(value);
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("find", |ctx| {
+        let expected_error = "an iterable and a predicate function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
+
+                for output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
+                    match output {
+                        Output::Value(value) => {
+                            match ctx
+                                .vm
+                                .run_function(predicate.clone(), CallArgs::Single(value.clone()))
+                            {
+                                Ok(Bool(result)) => {
+                                    if result {
+                                        return Ok(value);
+                                    }
                                 }
+                                Ok(unexpected) => {
+                                    return type_error(
+                                        "a Bool to be returned from the predicate",
+                                        &unexpected,
+                                    )
+                                }
+                                Err(error) => return Err(error),
                             }
-                            Ok(unexpected) => {
-                                return type_error(
-                                    "a Bool to be returned from the predicate",
-                                    &unexpected,
-                                )
-                            }
-                            Err(error) => return Err(error),
                         }
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
                     }
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
                 }
+
+                Ok(Null)
             }
-
-            Ok(Null)
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "an iterable value and a predicate Function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("flatten", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let result = adaptors::Flatten::new(vm.make_iterator(iterable)?, vm.spawn_shared_vm());
+    result.add_fn("flatten", |ctx| {
+        let expected_error = "an iterable";
 
-            Ok(ValueIterator::new(result).into())
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let result = adaptors::Flatten::new(
+                    ctx.vm.make_iterator(iterable)?,
+                    ctx.vm.spawn_shared_vm(),
+                );
+
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("fold", |vm, args| {
-        match vm.get_args(args) {
-            [iterable, result, f] if iterable.is_iterable() && f.is_callable() => {
+    result.add_fn("fold", |ctx| {
+        let expected_error = "an iterable, initial value, and folding function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [result, f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let result = result.clone();
                 let f = f.clone();
-                let mut iter = vm.make_iterator(iterable)?;
+                let mut iter = ctx.vm.make_iterator(iterable)?;
 
                 match iter
                     .borrow_internals(|iterator| {
@@ -255,7 +298,7 @@ pub fn make_module() -> ValueMap {
                         for value in iterator.map(collect_pair) {
                             match value {
                                 Output::Value(value) => {
-                                    match vm.run_function(
+                                    match ctx.vm.run_function(
                                         f.clone(),
                                         CallArgs::Separate(&[fold_result, value]),
                                     ) {
@@ -278,278 +321,298 @@ pub fn make_module() -> ValueMap {
                     _ => unreachable!(),
                 }
             }
-            unexpected => type_error_with_slice(
-                "an iterable value, initial value, and folding Function as arguments",
-                unexpected,
-            ),
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
 
-    result.add_fn("generate", |vm, args| match vm.get_args(args) {
+    result.add_fn("generate", |ctx| match ctx.args() {
         [f] if f.is_callable() => {
-            let result = generators::Generate::new(f.clone(), vm.spawn_shared_vm());
+            let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
             Ok(ValueIterator::new(result).into())
         }
         [Number(n), f] if f.is_callable() => {
-            let result = generators::GenerateN::new(n.into(), f.clone(), vm.spawn_shared_vm());
+            let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
             Ok(ValueIterator::new(result).into())
         }
         unexpected => type_error_with_slice("(Function), or (Number, Function)", unexpected),
     });
 
-    result.add_fn("intersperse", |vm, args| match vm.get_args(args) {
-        [iterable, separator_fn] if iterable.is_iterable() && separator_fn.is_callable() => {
-            let iterable = iterable.clone();
-            let separator_fn = separator_fn.clone();
-            let result = adaptors::IntersperseWith::new(
-                vm.make_iterator(iterable)?,
-                separator_fn,
-                vm.spawn_shared_vm(),
-            );
+    result.add_fn("intersperse", |ctx| {
+        let expected_error = "an iterable and a separator";
 
-            Ok(ValueIterator::new(result).into())
-        }
-        [iterable, separator] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let separator = separator.clone();
-            let result = adaptors::Intersperse::new(vm.make_iterator(iterable)?, separator);
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [separator_fn]) if separator_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let separator_fn = separator_fn.clone();
+                let result = adaptors::IntersperseWith::new(
+                    ctx.vm.make_iterator(iterable)?,
+                    separator_fn,
+                    ctx.vm.spawn_shared_vm(),
+                );
 
-            Ok(ValueIterator::new(result).into())
-        }
-        unexpected => {
-            type_error_with_slice("an iterable value and separator as arguments", unexpected)
-        }
-    });
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            Ok(Iterator(vm.make_iterator(iterable)?))
-        }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
-    });
-
-    result.add_fn("keep", |vm, args| match vm.get_args(args) {
-        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let iterable = iterable.clone();
-            let predicate = predicate.clone();
-            let result =
-                adaptors::Keep::new(vm.make_iterator(iterable)?, predicate, vm.spawn_shared_vm());
-            Ok(ValueIterator::new(result).into())
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and a predicate Function as arguments",
-            unexpected,
-        ),
-    });
-
-    result.add_fn("last", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let mut result = Null;
-
-            let mut iter = vm.make_iterator(iterable)?.map(collect_pair);
-            for output in &mut iter {
-                match output {
-                    Output::Value(value) => result = value,
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
-                }
+                Ok(ValueIterator::new(result).into())
             }
+            (iterable, [separator]) => {
+                let iterable = iterable.clone();
+                let separator = separator.clone();
+                let result = adaptors::Intersperse::new(ctx.vm.make_iterator(iterable)?, separator);
 
-            Ok(result)
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("max", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            run_iterator_comparison(vm, iterable, InvertResult::Yes)
+    result.add_fn("iter", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                Ok(Iterator(ctx.vm.make_iterator(iterable)?))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
-            let iterable = iterable.clone();
-            let key_fn = key_fn.clone();
-            run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::Yes)
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and an optional key function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("min", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            run_iterator_comparison(vm, iterable, InvertResult::No)
+    result.add_fn("keep", |ctx| {
+        let expected_error = "an iterable and a predicate function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
+                let result = adaptors::Keep::new(
+                    ctx.vm.make_iterator(iterable)?,
+                    predicate,
+                    ctx.vm.spawn_shared_vm(),
+                );
+                Ok(ValueIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
-            let iterable = iterable.clone();
-            let key_fn = key_fn.clone();
-            run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::No)
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and an optional key function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("min_max", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let mut result = None;
+    result.add_fn("last", |ctx| {
+        let expected_error = "an iterable";
 
-            for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
-                match iter_output {
-                    Output::Value(value) => {
-                        result = Some(match result {
-                            Some((min, max)) => (
-                                compare_values(vm, min, value.clone(), InvertResult::No)?,
-                                compare_values(vm, max, value, InvertResult::Yes)?,
-                            ),
-                            None => (value.clone(), value),
-                        })
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let mut result = Null;
+
+                let mut iter = ctx.vm.make_iterator(iterable)?.map(collect_pair);
+                for output in &mut iter {
+                    match output {
+                        Output::Value(value) => result = value,
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
                     }
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
                 }
+
+                Ok(result)
             }
-
-            Ok(result.map_or(Null, |(min, max)| Tuple(vec![min, max].into())))
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
-            let iterable = iterable.clone();
-            let key_fn = key_fn.clone();
-            let mut result = None;
-
-            for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
-                match iter_output {
-                    Output::Value(value) => {
-                        let key =
-                            vm.run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
-                        let value_and_key = (value, key);
-
-                        result = Some(match result {
-                            Some((min_and_key, max_and_key)) => (
-                                compare_values_with_key(
-                                    vm,
-                                    min_and_key,
-                                    value_and_key.clone(),
-                                    InvertResult::No,
-                                )?,
-                                compare_values_with_key(
-                                    vm,
-                                    max_and_key,
-                                    value_and_key,
-                                    InvertResult::Yes,
-                                )?,
-                            ),
-                            None => (value_and_key.clone(), value_and_key),
-                        })
-                    }
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(), // value pairs have been collected in collect_pair
-                }
-            }
-
-            Ok(result.map_or(Null, |((min, _), (max, _))| Tuple(vec![min, max].into())))
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and an optional key function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("next", |vm, args| {
-        let mut iter = match vm.get_args(args) {
-            [Iterator(i)] => i.clone(),
-            [iterable] if iterable.is_iterable() => vm.make_iterator(iterable.clone())?,
-            unexpected => {
-                return type_error_with_slice("an iterable value as argument", unexpected)
+    result.add_fn("max", |ctx| {
+        let expected_error = "an iterable and an optional key function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                run_iterator_comparison(ctx.vm, iterable, InvertResult::Yes)
             }
+            (iterable, [key_fn]) if key_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let key_fn = key_fn.clone();
+                run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::Yes)
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("min", |ctx| {
+        let expected_error = "an iterable and an optional key function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                run_iterator_comparison(ctx.vm, iterable, InvertResult::No)
+            }
+            (iterable, [key_fn]) if key_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let key_fn = key_fn.clone();
+                run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::No)
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("min_max", |ctx| {
+        let expected_error = "an iterable and an optional key function";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let mut result = None;
+
+                for iter_output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
+                    match iter_output {
+                        Output::Value(value) => {
+                            result = Some(match result {
+                                Some((min, max)) => (
+                                    compare_values(ctx.vm, min, value.clone(), InvertResult::No)?,
+                                    compare_values(ctx.vm, max, value, InvertResult::Yes)?,
+                                ),
+                                None => (value.clone(), value),
+                            })
+                        }
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
+                    }
+                }
+
+                Ok(result.map_or(Null, |(min, max)| Tuple(vec![min, max].into())))
+            }
+            (iterable, [key_fn]) if key_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let key_fn = key_fn.clone();
+                let mut result = None;
+
+                for iter_output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
+                    match iter_output {
+                        Output::Value(value) => {
+                            let key = ctx
+                                .vm
+                                .run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
+                            let value_and_key = (value, key);
+
+                            result = Some(match result {
+                                Some((min_and_key, max_and_key)) => (
+                                    compare_values_with_key(
+                                        ctx.vm,
+                                        min_and_key,
+                                        value_and_key.clone(),
+                                        InvertResult::No,
+                                    )?,
+                                    compare_values_with_key(
+                                        ctx.vm,
+                                        max_and_key,
+                                        value_and_key,
+                                        InvertResult::Yes,
+                                    )?,
+                                ),
+                                None => (value_and_key.clone(), value_and_key),
+                            })
+                        }
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(), // value pairs have been collected in collect_pair
+                    }
+                }
+
+                Ok(result.map_or(Null, |((min, _), (max, _))| Tuple(vec![min, max].into())))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("next", |ctx| {
+        let mut iter = match (ctx.instance(), ctx.args()) {
+            // No need to call make_iterator when the argument is already an Iterator
+            (Some(Iterator(i)), []) => i.clone(),
+            (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
+                ctx.vm.make_iterator(iterable.clone())?
+            }
+            (_, unexpected) => return type_error_with_slice("an iterable", unexpected),
         };
 
         iter_output_to_result(iter.next())
     });
 
-    result.add_fn("next_back", |vm, args| {
-        let mut iter = match vm.get_args(args) {
-            [Iterator(i)] => i.clone(),
-            [iterable] if iterable.is_iterable() => vm.make_iterator(iterable.clone())?,
-            unexpected => {
-                return type_error_with_slice("an iterable value as argument", unexpected)
+    result.add_fn("next_back", |ctx| {
+        let mut iter = match (ctx.instance(), ctx.args()) {
+            (Some(Iterator(i)), []) => i.clone(),
+            (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
+                ctx.vm.make_iterator(iterable.clone())?
             }
+            (_, unexpected) => return type_error_with_slice("an iterable", unexpected),
         };
 
         iter_output_to_result(iter.next_back())
     });
 
-    result.add_fn("peekable", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            Ok(peekable::Peekable::make_value(vm.make_iterator(iterable)?))
+    result.add_fn("peekable", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                Ok(peekable::Peekable::make_value(
+                    ctx.vm.make_iterator(iterable)?,
+                ))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("position", |vm, args| match vm.get_args(args) {
-        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let iterable = iterable.clone();
-            let predicate = predicate.clone();
+    result.add_fn("position", |ctx| {
+        let expected_error = "an iterable and a predicate function";
 
-            for (i, output) in vm.make_iterator(iterable)?.enumerate() {
-                let predicate_result = match output {
-                    Output::Value(value) => {
-                        vm.run_function(predicate.clone(), CallArgs::Single(value))
-                    }
-                    Output::ValuePair(a, b) => {
-                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
-                    }
-                    Output::Error(error) => return Err(error),
-                };
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
 
-                match predicate_result {
-                    Ok(Bool(result)) => {
-                        if result {
-                            return Ok(i.into());
+                for (i, output) in ctx.vm.make_iterator(iterable)?.enumerate() {
+                    let predicate_result = match output {
+                        Output::Value(value) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::ValuePair(a, b) => ctx
+                            .vm
+                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                        Output::Error(error) => return Err(error),
+                    };
+
+                    match predicate_result {
+                        Ok(Bool(result)) => {
+                            if result {
+                                return Ok(i.into());
+                            }
                         }
+                        Ok(unexpected) => {
+                            return type_error_with_slice(
+                                "a Bool to be returned from the predicate",
+                                &[unexpected],
+                            )
+                        }
+                        Err(error) => return Err(error),
                     }
-                    Ok(unexpected) => {
-                        return type_error_with_slice(
-                            "a Bool to be returned from the predicate",
-                            &[unexpected],
-                        )
-                    }
-                    Err(error) => return Err(error),
                 }
-            }
 
-            Ok(Null)
+                Ok(Null)
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "an iterable value and a predicate Function as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("product", |vm, args| {
-        let (iterable, initial_value) = match vm.get_args(args) {
-            [iterable] if iterable.is_iterable() => (iterable.clone(), Value::Number(1.into())),
-            [iterable, initial_value] if iterable.is_iterable() => {
-                (iterable.clone(), initial_value.clone())
-            }
-            unexpected => {
-                return type_error_with_slice(
-                    "an iterable value and optional initial value as arguments",
-                    unexpected,
-                )
+    result.add_fn("product", |ctx| {
+        let (iterable, initial_value) = {
+            let expected_error = "an iterable and optional initial value";
+
+            match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+                (iterable, []) => (iterable.clone(), Value::Number(1.into())),
+                (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
+                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
         };
 
-        fold_with_operator(vm, iterable, initial_value, BinaryOp::Multiply)
+        fold_with_operator(ctx.vm, iterable, initial_value, BinaryOp::Multiply)
     });
 
-    result.add_fn("repeat", |vm, args| match vm.get_args(args) {
+    result.add_fn("repeat", |ctx| match ctx.args() {
         [value] => {
             let result = generators::Repeat::new(value.clone());
             Ok(ValueIterator::new(result).into())
@@ -561,182 +624,204 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("(Value), or (Number, Value)", unexpected),
     });
 
-    result.add_fn("reversed", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            match adaptors::Reversed::new(vm.make_iterator(iterable)?) {
-                Ok(result) => Ok(ValueIterator::new(result).into()),
-                Err(e) => runtime_error!("iterator.reversed: {}", e),
-            }
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and non-negative number as arguments",
-            unexpected,
-        ),
-    });
+    result.add_fn("reversed", |ctx| {
+        let expected_error = "an iterable and non-negative number";
 
-    result.add_fn("skip", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
-            let iterable = iterable.clone();
-            let n = *n;
-            let mut iter = vm.make_iterator(iterable)?;
-
-            for _ in 0..n.into() {
-                if let Some(Output::Error(error)) = iter.next() {
-                    return Err(error);
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                match adaptors::Reversed::new(ctx.vm.make_iterator(iterable)?) {
+                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Err(e) => runtime_error!("iterator.reversed: {}", e),
                 }
             }
-
-            Ok(Iterator(iter))
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "an iterable value and non-negative number as arguments",
-            unexpected,
-        ),
     });
 
-    result.add_fn("sum", |vm, args| {
-        let (iterable, initial_value) = match vm.get_args(args) {
-            [iterable] if iterable.is_iterable() => (iterable.clone(), Value::Number(0.into())),
-            [iterable, initial_value] if iterable.is_iterable() => {
-                (iterable.clone(), initial_value.clone())
+    result.add_fn("skip", |ctx| {
+        let expected_error = "an iterable and non-negative number";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [Number(n)]) if *n >= 0.0 => {
+                let iterable = iterable.clone();
+                let n = *n;
+                let mut iter = ctx.vm.make_iterator(iterable)?;
+
+                for _ in 0..n.into() {
+                    if let Some(Output::Error(error)) = iter.next() {
+                        return Err(error);
+                    }
+                }
+
+                Ok(Iterator(iter))
             }
-            unexpected => {
-                return type_error_with_slice(
-                    "an iterable value and optional initial value as arguments",
-                    unexpected,
-                )
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("sum", |ctx| {
+        let (iterable, initial_value) = {
+            let expected_error = "an iterable and optional initial value";
+
+            match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+                (iterable, []) => (iterable.clone(), Value::Number(0.into())),
+                (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
+                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
         };
 
-        fold_with_operator(vm, iterable, initial_value, BinaryOp::Add)
+        fold_with_operator(ctx.vm, iterable, initial_value, BinaryOp::Add)
     });
 
-    result.add_fn("take", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
-            let iterable = iterable.clone();
-            let n = *n;
-            let result = adaptors::Take::new(vm.make_iterator(iterable)?, n.into());
-            Ok(ValueIterator::new(result).into())
-        }
-        unexpected => type_error_with_slice(
-            "an iterable value and non-negative number as arguments",
-            unexpected,
-        ),
-    });
+    result.add_fn("take", |ctx| {
+        let expected_error = "an iterable and non-negative number";
 
-    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            let (size_hint, _) = iterator.size_hint();
-            let mut result = ValueVec::with_capacity(size_hint);
-
-            for output in iterator.map(collect_pair) {
-                match output {
-                    Output::Value(value) => result.push(value),
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
-                }
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [Number(n)]) if *n >= 0.0 => {
+                let iterable = iterable.clone();
+                let n = *n;
+                let result = adaptors::Take::new(ctx.vm.make_iterator(iterable)?, n.into());
+                Ok(ValueIterator::new(result).into())
             }
-
-            Ok(List(ValueList::with_data(result)))
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("to_map", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            let (size_hint, _) = iterator.size_hint();
-            let mut result = DataMap::with_capacity(size_hint);
+    result.add_fn("to_list", |ctx| {
+        let expected_error = "an iterable";
 
-            for output in iterator {
-                let (key, value) = match output {
-                    Output::ValuePair(key, value) => (key, value),
-                    Output::Value(Tuple(t)) if t.len() == 2 => {
-                        let key = t[0].clone();
-                        let value = t[1].clone();
-                        (key, value)
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let iterator = ctx.vm.make_iterator(iterable)?;
+                let (size_hint, _) = iterator.size_hint();
+                let mut result = ValueVec::with_capacity(size_hint);
+
+                for output in iterator.map(collect_pair) {
+                    match output {
+                        Output::Value(value) => result.push(value),
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
                     }
-                    Output::Value(value) => (value, Null),
-                    Output::Error(error) => return Err(error),
-                };
+                }
 
-                result.insert(ValueKey::try_from(key)?, value);
+                Ok(List(ValueList::with_data(result)))
             }
-
-            Ok(Map(ValueMap::with_data(result)))
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            let (size_hint, _) = iterator.size_hint();
-            let mut display_context = DisplayContext::with_vm_and_capacity(vm, size_hint);
-            for output in iterator.map(collect_pair) {
-                match output {
-                    Output::Value(Str(s)) => display_context.append(s),
-                    Output::Value(value) => value.display(&mut display_context)?,
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
-                };
-            }
+    result.add_fn("to_map", |ctx| {
+        let expected_error = "an iterable";
 
-            Ok(display_context.result().into())
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let iterator = ctx.vm.make_iterator(iterable)?;
+                let (size_hint, _) = iterator.size_hint();
+                let mut result = DataMap::with_capacity(size_hint);
+
+                for output in iterator {
+                    let (key, value) = match output {
+                        Output::ValuePair(key, value) => (key, value),
+                        Output::Value(Tuple(t)) if t.len() == 2 => {
+                            let key = t[0].clone();
+                            let value = t[1].clone();
+                            (key, value)
+                        }
+                        Output::Value(value) => (value, Null),
+                        Output::Error(error) => return Err(error),
+                    };
+
+                    result.insert(ValueKey::try_from(key)?, value);
+                }
+
+                Ok(Map(ValueMap::with_data(result)))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let iterator = vm.make_iterator(iterable)?;
-            let (size_hint, _) = iterator.size_hint();
-            let mut result = Vec::with_capacity(size_hint);
+    result.add_fn("to_string", |ctx| {
+        let expected_error = "an iterable";
 
-            for output in iterator.map(collect_pair) {
-                match output {
-                    Output::Value(value) => result.push(value),
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let iterator = ctx.vm.make_iterator(iterable)?;
+                let (size_hint, _) = iterator.size_hint();
+                let mut display_context = DisplayContext::with_vm_and_capacity(ctx.vm, size_hint);
+                for output in iterator.map(collect_pair) {
+                    match output {
+                        Output::Value(Str(s)) => display_context.append(s),
+                        Output::Value(value) => value.display(&mut display_context)?,
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
+                    };
+                }
+
+                Ok(display_context.result().into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("to_tuple", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                let iterator = ctx.vm.make_iterator(iterable)?;
+                let (size_hint, _) = iterator.size_hint();
+                let mut result = Vec::with_capacity(size_hint);
+
+                for output in iterator.map(collect_pair) {
+                    match output {
+                        Output::Value(value) => result.push(value),
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
+                    }
+                }
+
+                Ok(Tuple(result.into()))
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("windows", |ctx| {
+        let expected_error = "an iterable and a chunnk size greater than zero";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [Number(n)]) => {
+                let iterable = iterable.clone();
+                let n = *n;
+                match adaptors::Windows::new(ctx.vm.make_iterator(iterable)?, n.into()) {
+                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Err(e) => runtime_error!("iterator.windows: {}", e),
                 }
             }
-
-            Ok(Tuple(result.into()))
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice("an iterable value as argument", unexpected),
     });
 
-    result.add_fn("windows", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_iterable() => {
-            let iterable = iterable.clone();
-            let n = *n;
-            match adaptors::Windows::new(vm.make_iterator(iterable)?, n.into()) {
-                Ok(result) => Ok(ValueIterator::new(result).into()),
-                Err(e) => runtime_error!("iterator.windows: {}", e),
+    result.add_fn("zip", |ctx| {
+        let expected_error = "an iterable";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
+                let iterable_a = iterable_a.clone();
+                let iterable_b = iterable_b.clone();
+                let result = adaptors::Zip::new(
+                    ctx.vm.make_iterator(iterable_a)?,
+                    ctx.vm.make_iterator(iterable_b)?,
+                );
+                Ok(ValueIterator::new(result).into())
             }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
-        unexpected => type_error_with_slice(
-            "a value with a range (like a List or String), \
-             and a chunk size greater than zero as arguments",
-            unexpected,
-        ),
-    });
-
-    result.add_fn("zip", |vm, args| match vm.get_args(args) {
-        [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let iterable_a = iterable_a.clone();
-            let iterable_b = iterable_b.clone();
-            let result =
-                adaptors::Zip::new(vm.make_iterator(iterable_a)?, vm.make_iterator(iterable_b)?);
-            Ok(ValueIterator::new(result).into())
-        }
-        unexpected => type_error_with_slice("two iterable values as arguments", unexpected),
     });
 
     result

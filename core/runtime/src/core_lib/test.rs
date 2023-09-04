@@ -8,8 +8,8 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::with_type("core.test");
 
-    result.add_fn("assert", |vm, args| {
-        for value in vm.get_args(args).iter() {
+    result.add_fn("assert", |ctx| {
+        for value in ctx.args().iter() {
             match value {
                 Bool(b) => {
                     if !b {
@@ -22,18 +22,18 @@ pub fn make_module() -> ValueMap {
         Ok(Null)
     });
 
-    result.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_eq", |ctx| match ctx.args() {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
+            let result = ctx.vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
                     runtime_error!(
                         "Assertion failed, '{}' is not equal to '{}'",
-                        vm.value_to_string(&a)?,
-                        vm.value_to_string(&b)?,
+                        ctx.vm.value_to_string(&a)?,
+                        ctx.vm.value_to_string(&b)?,
                     )
                 }
                 Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
@@ -43,18 +43,20 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("two Values", unexpected),
     });
 
-    result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_ne", |ctx| match ctx.args() {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = vm.run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
+            let result = ctx
+                .vm
+                .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
                     runtime_error!(
                         "Assertion failed, '{}' should not be equal to '{}'",
-                        vm.value_to_string(&a)?,
-                        vm.value_to_string(&b)?
+                        ctx.vm.value_to_string(&a)?,
+                        ctx.vm.value_to_string(&b)?
                     )
                 }
                 Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
@@ -64,7 +66,7 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("two Values", unexpected),
     });
 
-    result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_near", |ctx| match ctx.args() {
         [Number(a), Number(b)] => number_near(*a, *b, 1.0e-12),
         [Number(a), Number(b), Number(allowed_diff)] => number_near(*a, *b, allowed_diff.into()),
         unexpected => type_error_with_slice(
@@ -74,10 +76,10 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
-    result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
+    result.add_fn("run_tests", |ctx| match ctx.args() {
         [Map(tests)] => {
             let tests = tests.clone();
-            vm.run_tests(tests)
+            ctx.vm.run_tests(tests)
         }
         unexpected => type_error_with_slice("a Map as argument", unexpected),
     });

@@ -2,10 +2,10 @@
 
 #[doc(inline)]
 pub use crate::{
-    make_runtime_error, runtime_error, type_error, type_error_with_slice, ArgRegisters, BinaryOp,
-    Borrow, BorrowMut, CallArgs, DataMap, DisplayContext, ExternalFunction, IntRange, IsIterable,
-    KotoFile, KotoHasher, KotoIterator, KotoObject, KotoRead, KotoType, KotoWrite, MetaKey,
-    MetaMap, Object, ObjectEntryBuilder, Ptr, PtrMut, RuntimeError, UnaryOp, Value, ValueIterator,
-    ValueIteratorOutput, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple,
-    ValueVec, Vm, VmSettings,
+    make_runtime_error, runtime_error, type_error, type_error_with_slice, BinaryOp, Borrow,
+    BorrowMut, CallArgs, CallContext, DataMap, DisplayContext, ExternalFunction, IntRange,
+    IsIterable, KotoFile, KotoHasher, KotoIterator, KotoObject, KotoRead, KotoType, KotoWrite,
+    MetaKey, MetaMap, Object, ObjectEntryBuilder, Ptr, PtrMut, RuntimeError, UnaryOp, Value,
+    ValueIterator, ValueIteratorOutput, ValueKey, ValueList, ValueMap, ValueNumber, ValueString,
+    ValueTuple, ValueVec, Vm, VmSettings,
 };

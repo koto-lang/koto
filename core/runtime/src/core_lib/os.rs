@@ -11,11 +11,11 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::with_type("core.os");
 
-    result.add_fn("name", |_, _| Ok(std::env::consts::OS.into()));
+    result.add_fn("name", |_| Ok(std::env::consts::OS.into()));
 
-    result.add_fn("start_timer", |_, _| Ok(Timer::now()));
+    result.add_fn("start_timer", |_| Ok(Timer::now()));
 
-    result.add_fn("time", |vm, args| match vm.get_args(args) {
+    result.add_fn("time", |ctx| match ctx.args() {
         [] => Ok(DateTime::now()),
         [Number(seconds)] => DateTime::from_seconds(seconds.into(), None),
         [Number(seconds), Number(offset)] => {

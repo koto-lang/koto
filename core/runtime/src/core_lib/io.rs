@@ -18,7 +18,7 @@ pub fn make_module() -> ValueMap {
     let result = ValueMap::with_type("core.io");
 
     result.add_fn("create", {
-        move |vm, args| match vm.get_args(args) {
+        move |ctx| match ctx.args() {
             [Str(path)] => {
                 let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
@@ -30,7 +30,7 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("current_dir", |_, _| {
+    result.add_fn("current_dir", |_| {
         let result = match std::env::current_dir() {
             Ok(path) => Str(path.to_string_lossy().to_string().into()),
             Err(_) => Null,
@@ -38,12 +38,12 @@ pub fn make_module() -> ValueMap {
         Ok(result)
     });
 
-    result.add_fn("exists", |vm, args| match vm.get_args(args) {
+    result.add_fn("exists", |ctx| match ctx.args() {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
         unexpected => type_error_with_slice("a path String as argument", unexpected),
     });
 
-    result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
+    result.add_fn("extend_path", |ctx| match ctx.args() {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
 
@@ -51,7 +51,7 @@ pub fn make_module() -> ValueMap {
                 match node {
                     Str(s) => path.push(s.as_str()),
                     other => {
-                        let mut display_context = DisplayContext::with_vm(vm);
+                        let mut display_context = DisplayContext::with_vm(ctx.vm);
                         other.display(&mut display_context)?;
                         path.push(&display_context.result());
                     }
@@ -66,7 +66,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("open", {
-        |vm, args| match vm.get_args(args) {
+        |ctx| match ctx.args() {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
@@ -78,28 +78,31 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("print", |vm, args| {
-        let result = match vm.get_args(args) {
-            [Str(s)] => vm.stdout().write_line(s.as_str()),
+    result.add_fn("print", |ctx| {
+        let result = match ctx.args() {
+            [Str(s)] => ctx.vm.stdout().write_line(s.as_str()),
             [Str(format), format_args @ ..] => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
-                match format::format_string(vm, &format, &format_args) {
-                    Ok(result) => vm.stdout().write_line(&result),
+                match format::format_string(ctx.vm, &format, &format_args) {
+                    Ok(result) => ctx.vm.stdout().write_line(&result),
                     Err(error) => Err(error),
                 }
             }
             [value] => {
                 let value = value.clone();
-                match vm.run_unary_op(crate::UnaryOp::Display, value)? {
-                    Str(s) => vm.stdout().write_line(s.as_str()),
+                match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {
+                    Str(s) => ctx.vm.stdout().write_line(s.as_str()),
                     unexpected => return type_error("string from @display", &unexpected),
                 }
             }
             values @ [_, ..] => {
                 let tuple_data = Vec::from(values);
-                match vm.run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))? {
-                    Str(s) => vm.stdout().write_line(s.as_str()),
+                match ctx
+                    .vm
+                    .run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))?
+                {
+                    Str(s) => ctx.vm.stdout().write_line(s.as_str()),
                     unexpected => return type_error("string from @display", &unexpected),
                 }
             }
@@ -114,7 +117,7 @@ pub fn make_module() -> ValueMap {
         result.map(|_| Null)
     });
 
-    result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("read_to_string", |ctx| match ctx.args() {
         [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
             Ok(result) => Ok(result.into()),
             Err(error) => {
@@ -125,7 +128,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove_file", {
-        |vm, args| match vm.get_args(args) {
+        |ctx| match ctx.args() {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
                 match fs::remove_file(path) {
@@ -140,12 +143,12 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("stderr", |vm, _| Ok(File::stderr(vm)));
-    result.add_fn("stdin", |vm, _| Ok(File::stdin(vm)));
-    result.add_fn("stdout", |vm, _| Ok(File::stdout(vm)));
+    result.add_fn("stderr", |ctx| Ok(File::stderr(ctx.vm)));
+    result.add_fn("stdin", |ctx| Ok(File::stdin(ctx.vm)));
+    result.add_fn("stdout", |ctx| Ok(File::stdout(ctx.vm)));
 
     result.add_fn("temp_dir", {
-        |_, _| Ok(std::env::temp_dir().to_string_lossy().as_ref().into())
+        |_| Ok(std::env::temp_dir().to_string_lossy().as_ref().into())
     });
 
     result

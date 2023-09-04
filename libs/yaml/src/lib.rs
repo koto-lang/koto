@@ -47,7 +47,7 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::with_type("yaml");
 
-    result.add_fn("from_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("from_string", |ctx| match ctx.args() {
         [Str(s)] => match serde_yaml::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
@@ -58,7 +58,7 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a String as argument", unexpected),
     });
 
-    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("to_string", |ctx| match ctx.args() {
         [value] => match serde_yaml::to_string(&SerializableValue(value)) {
             Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("yaml.to_string: {}", e),

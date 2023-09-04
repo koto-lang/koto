@@ -5,7 +5,7 @@ pub fn make_module() -> ValueMap {
     let result = ValueMap::with_type("poetry");
 
     result.add_fn("new", {
-        |vm, args| match vm.get_args(args) {
+        |ctx| match ctx.args() {
             [Value::Str(text)] => {
                 let mut poetry = Poetry::default();
                 poetry.add_source_material(text);

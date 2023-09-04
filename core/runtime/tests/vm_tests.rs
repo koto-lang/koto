@@ -918,8 +918,8 @@ x
             let prelude = vm.prelude();
 
             prelude.add_value("test_value", 42.into());
-            prelude.add_fn("assert", |vm, args| {
-                for value in vm.get_args(args).iter() {
+            prelude.add_fn("assert", |ctx| {
+                for value in ctx.args().iter() {
                     match value {
                         Bool(b) => {
                             if !b {

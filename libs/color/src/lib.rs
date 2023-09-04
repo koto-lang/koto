@@ -9,26 +9,27 @@ use koto_runtime::{prelude::*, Result};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::with_type("color");
+    let mut result = ValueMap::default();
 
-    result.add_fn("named", |vm, args| match vm.get_args(args) {
+    result.add_fn("named", |ctx| match ctx.args() {
         [Str(s)] => named(s),
         unexpected => type_error_with_slice("a String", unexpected),
     });
 
-    result.add_fn("rgb", |vm, args| match vm.get_args(args) {
+    result.add_fn("rgb", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
         unexpected => type_error_with_slice("3 Numbers", unexpected),
     });
 
-    result.add_fn("rgba", |vm, args| match vm.get_args(args) {
+    result.add_fn("rgba", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),
         unexpected => type_error_with_slice("4 Numbers", unexpected),
     });
 
     let mut meta = MetaMap::default();
 
-    meta.add_fn(MetaKey::Call, |vm, args| match vm.get_args(args) {
+    meta.insert(MetaKey::Type, "color".into());
+    meta.add_fn(MetaKey::Call, |ctx| match ctx.args() {
         [Str(s)] => named(s),
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
         [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),

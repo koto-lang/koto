@@ -111,7 +111,7 @@ mod objects {
             }
         }
 
-        fn call(&mut self, _vm: &mut Vm, _args: &ArgRegisters) -> Result<Value> {
+        fn call(&mut self, _ctx: &mut CallContext) -> Result<Value> {
             Ok(self.x.into())
         }
 
@@ -274,7 +274,7 @@ mod objects {
         let vm = Vm::default();
         let prelude = vm.prelude();
 
-        prelude.add_fn("make_object", |vm, args| match vm.get_args(args) {
+        prelude.add_fn("make_object", |ctx| match ctx.args() {
             [Value::Number(x)] => Ok(TestObject::make_value(x.into())),
             _ => runtime_error!("make_object: Expected a Number"),
         });

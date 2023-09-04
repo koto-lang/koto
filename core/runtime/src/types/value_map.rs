@@ -144,17 +144,8 @@ impl ValueMap {
     }
 
     /// Adds a function to the ValueMap's data map
-    pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
-    }
-
-    /// Adds an instance function to the ValueMap's data map
-    pub fn add_instance_fn(
-        &self,
-        id: &str,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
-    ) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
+    pub fn add_fn(&self, id: &str, f: impl Fn(&mut CallContext) -> Result<Value> + 'static) {
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f)));
     }
 
     /// Adds a map to the ValueMap's data map

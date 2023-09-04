@@ -38,7 +38,7 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::with_type("toml");
 
-    result.add_fn("from_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("from_string", |ctx| match ctx.args() {
         [Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
@@ -49,7 +49,7 @@ pub fn make_module() -> ValueMap {
         unexpected => type_error_with_slice("a String as argument", unexpected),
     });
 
-    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("to_string", |ctx| match ctx.args() {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("toml.to_string: {e}"),

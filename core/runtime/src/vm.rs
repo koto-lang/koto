@@ -3,7 +3,7 @@ use crate::{
     error::RuntimeErrorType,
     prelude::*,
     types::{
-        self, meta_id_to_key,
+        meta_id_to_key,
         value::{RegisterSlice, SimpleFunctionInfo},
     },
     DefaultStderr, DefaultStdin, DefaultStdout, FunctionInfo, Result,
@@ -2350,7 +2350,7 @@ impl Vm {
                     let maybe_value = lookup_map.data().get(&key).cloned();
                     match maybe_value {
                         Some(value) => access_result = Some(value),
-                        // map module fallback when there's no metamap
+                        // Fallback to the map module when there's no metamap
                         None if lookup_map.meta_map().is_none() => {
                             core_op!(map, true);
                             return Ok(());
@@ -2425,40 +2425,16 @@ impl Vm {
         iterator_fallback: bool,
         module_name: &str,
     ) -> Result<Value> {
-        use Value::*;
-
         let maybe_op = match module.data().get(key).cloned() {
             None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
             maybe_op => maybe_op,
         };
 
-        let result = match maybe_op {
-            Some(op) => match op {
-                // Core module functions accessed in a lookup need to be invoked as
-                // if they were declared as instance functions, so that they can receive
-                // the parent instance as a self argument.
-                // e.g.
-                // A function in string that can be called as:
-                //   string.lines my_string
-                // can also be called as:
-                //   my_string.lines()
-                // ...where it needs to behave as an instance function.
-                // There's surely a cleaner way to achieve this, but this will do for now...
-                ExternalFunction(f) => {
-                    let f_as_instance_function = types::ExternalFunction {
-                        is_instance_function: true,
-                        ..f
-                    };
-                    ExternalFunction(f_as_instance_function)
-                }
-                other => other,
-            },
-            None => {
-                return runtime_error!("'{key}' not found in '{module_name}'");
-            }
-        };
-
-        Ok(result)
+        if let Some(result) = maybe_op {
+            Ok(result)
+        } else {
+            runtime_error!("'{key}' not found in '{module_name}'")
+        }
     }
 
     fn call_external_function(
@@ -2471,30 +2447,12 @@ impl Vm {
     ) -> Result<()> {
         let function = external_function.function.as_ref();
 
-        let mut call_arg_count = call_arg_count;
-
-        let adjusted_frame_base = if external_function.is_instance_function {
-            if let Some(instance_register) = instance_register {
-                if instance_register != frame_base {
-                    let instance = self.clone_register(instance_register);
-                    self.set_register(frame_base, instance);
-                }
-                call_arg_count += 1;
-                frame_base
-            } else {
-                return runtime_error!("Expected self for external instance function");
-            }
-        } else {
-            frame_base + 1
-        };
-
-        let result = (*function)(
+        let result = (*function)(&mut CallContext::new(
             self,
-            &ArgRegisters {
-                register: adjusted_frame_base,
-                count: call_arg_count,
-            },
-        );
+            instance_register,
+            frame_base + 1,
+            call_arg_count,
+        ));
 
         match result {
             Ok(value) => {
@@ -2515,14 +2473,14 @@ impl Vm {
         object: Object,
         frame_base: u8,
         call_arg_count: u8,
+        instance_register: Option<u8>,
     ) -> Result<()> {
-        let result = object.try_borrow_mut()?.call(
+        let result = object.try_borrow_mut()?.call(&mut CallContext::new(
             self,
-            &ArgRegisters {
-                register: frame_base + 1,
-                count: call_arg_count,
-            },
-        );
+            instance_register,
+            frame_base + 1,
+            call_arg_count,
+        ));
 
         match result {
             Ok(value) => {
@@ -2764,7 +2722,13 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
-            Object(object) => self.call_object(result_register, object, frame_base, call_arg_count),
+            Object(object) => self.call_object(
+                result_register,
+                object,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the map as the instance by placing it in the frame base,
@@ -3022,7 +2986,7 @@ impl Vm {
         self.get_register(register).clone()
     }
 
-    fn get_register(&self, register: u8) -> &Value {
+    pub(crate) fn get_register(&self, register: u8) -> &Value {
         let index = self.register_index(register);
         match self.registers.get(index) {
             Some(value) => value,
@@ -3035,7 +2999,7 @@ impl Vm {
         }
     }
 
-    fn get_register_safe(&self, register: u8) -> Option<&Value> {
+    pub(crate) fn get_register_safe(&self, register: u8) -> Option<&Value> {
         let index = self.register_index(register);
         self.registers.get(index)
     }
@@ -3045,7 +3009,7 @@ impl Vm {
         &mut self.registers[index]
     }
 
-    fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[Value] {
         if count > 0 {
             let start = self.register_index(register);
             &self.registers[start..start + count as usize]
@@ -3056,13 +3020,6 @@ impl Vm {
 
     fn truncate_registers(&mut self, len: u8) {
         self.registers.truncate(self.register_base() + len as usize);
-    }
-
-    /// Returns the register slice corresponding to the given ArgRegisters
-    ///
-    /// This is called by external functions when they need access to the call's arguments.
-    pub fn get_args(&self, args: &ArgRegisters) -> &[Value] {
-        self.register_slice(args.register, args.count)
     }
 
     fn get_constant_str(&self, constant_index: ConstantIndex) -> &str {

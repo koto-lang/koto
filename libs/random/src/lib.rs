@@ -8,12 +8,12 @@ use std::cell::RefCell;
 pub fn make_module() -> ValueMap {
     let result = ValueMap::with_type("random");
 
-    result.add_fn("bool", |_, _| {
+    result.add_fn("bool", |_| {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_bool())
     });
 
-    result.add_fn("generator", |vm, args| {
-        let rng = match vm.get_args(args) {
+    result.add_fn("generator", |ctx| {
+        let rng = match ctx.args() {
             // No seed, make RNG from entropy
             [] => ChaCha8Rng::from_entropy(),
             // RNG from seed
@@ -26,16 +26,16 @@ pub fn make_module() -> ValueMap {
         Ok(ChaChaRng::make_value(rng))
     });
 
-    result.add_fn("number", |_, _| {
+    result.add_fn("number", |_| {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_number())
     });
 
-    result.add_fn("pick", |vm, args| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().pick(vm.get_args(args)))
+    result.add_fn("pick", |ctx| {
+        THREAD_RNG.with(|rng| rng.borrow_mut().pick(ctx.args()))
     });
 
-    result.add_fn("seed", |vm, args| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().seed(vm.get_args(args)))
+    result.add_fn("seed", |ctx| {
+        THREAD_RNG.with(|rng| rng.borrow_mut().seed(ctx.args()))
     });
 
     result

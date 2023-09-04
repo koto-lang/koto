@@ -16,7 +16,7 @@ pub use crate::{
     error::{type_error, type_error_with_slice, Result, RuntimeError},
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
-        ArgRegisters, BinaryOp, DataMap, ExternalFunction, FunctionInfo, IntRange, IsIterable,
+        BinaryOp, CallContext, DataMap, ExternalFunction, FunctionInfo, IntRange, IsIterable,
         KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap, MethodContext, Object,
         ObjectEntryBuilder, SimpleFunctionInfo, UnaryOp, Value, ValueIterator, ValueIteratorOutput,
         ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
