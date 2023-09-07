@@ -394,8 +394,8 @@ mod tests {
 
     #[test]
     fn test_value_mem_size() {
-        // All Value variants should have a size of <= 32 bytes, and with the variant flag the
-        // total size of Value should not be greater than 40 bytes.
-        assert!(std::mem::size_of::<Value>() <= 40);
+        // All Value variants should have a size of <= 16 bytes, and with the variant flag the
+        // total size of Value will be <= 24 bytes.
+        assert!(std::mem::size_of::<Value>() <= 24);
     }
 }
