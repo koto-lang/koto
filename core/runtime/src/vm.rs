@@ -132,7 +132,7 @@ pub struct Vm {
     // A stack of strings that are currently under construction
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
-    instruction_ip: usize,
+    instruction_ip: u32,
 }
 
 impl Default for Vm {
@@ -768,7 +768,7 @@ impl Vm {
                     arg_count,
                 });
                 self.set_register(register, result);
-                self.jump_ip(size);
+                self.jump_ip(size as u32);
             }
             Function { .. } => self.run_make_function(instruction),
             Capture {
@@ -796,10 +796,10 @@ impl Vm {
             }
             Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs)?,
             NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs)?,
-            Jump { offset } => self.jump_ip(offset),
-            JumpBack { offset } => self.jump_ip_back(offset),
-            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset)?,
-            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset)?,
+            Jump { offset } => self.jump_ip(offset as u32),
+            JumpBack { offset } => self.jump_ip_back(offset as u32),
+            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset as u32)?,
+            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset as u32)?,
             Call {
                 result,
                 function,
@@ -929,7 +929,7 @@ impl Vm {
                 arg_register,
                 catch_offset,
             } => {
-                let catch_ip = self.ip() + catch_offset;
+                let catch_ip = self.ip() + catch_offset as u32;
                 self.frame_mut().catch_stack.push((arg_register, catch_ip));
             }
             TryEnd => {
@@ -1078,7 +1078,7 @@ impl Vm {
         &mut self,
         result_register: Option<u8>,
         iterable_register: u8,
-        jump_offset: usize,
+        jump_offset: u16,
         output_is_temporary: bool,
     ) -> Result<()> {
         use Value::*;
@@ -1182,10 +1182,10 @@ impl Vm {
             (None, Some(register)) => {
                 // The iterator is finished, so jump to the provided offset
                 self.set_register(register, Null);
-                self.jump_ip(jump_offset);
+                self.jump_ip(jump_offset as u32);
             }
             (None, None) => {
-                self.jump_ip(jump_offset);
+                self.jump_ip(jump_offset as u32);
             }
         }
 
@@ -1296,7 +1296,7 @@ impl Vm {
                     Function(Ptr::new(function))
                 };
 
-                self.jump_ip(size);
+                self.jump_ip(size as u32);
                 self.set_register(register, value);
             }
             _ => unreachable!(),
@@ -1952,7 +1952,7 @@ impl Vm {
         )
     }
 
-    fn run_jump_if_true(&mut self, register: u8, offset: usize) -> Result<()> {
+    fn run_jump_if_true(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => {}
             Value::Bool(b) if !b => {}
@@ -1961,7 +1961,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_jump_if_false(&mut self, register: u8, offset: usize) -> Result<()> {
+    fn run_jump_if_false(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => self.jump_ip(offset),
             Value::Bool(b) if !b => self.jump_ip(offset),
@@ -2837,24 +2837,27 @@ impl Vm {
         self.reader.chunk.clone()
     }
 
-    fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: usize) {
-        self.reader = InstructionReader { chunk, ip };
+    fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: u32) {
+        self.reader = InstructionReader {
+            chunk,
+            ip: ip as usize,
+        };
     }
 
-    fn ip(&self) -> usize {
-        self.reader.ip
+    fn ip(&self) -> u32 {
+        self.reader.ip as u32
     }
 
-    fn set_ip(&mut self, ip: usize) {
-        self.reader.ip = ip;
+    fn set_ip(&mut self, ip: u32) {
+        self.reader.ip = ip as usize;
     }
 
-    fn jump_ip(&mut self, offset: usize) {
-        self.reader.ip += offset;
+    fn jump_ip(&mut self, offset: u32) {
+        self.reader.ip += offset as usize;
     }
 
-    fn jump_ip_back(&mut self, offset: usize) {
-        self.reader.ip -= offset;
+    fn jump_ip_back(&mut self, offset: u32) {
+        self.reader.ip -= offset as usize;
     }
 
     fn frame(&self) -> &Frame {
@@ -2865,7 +2868,7 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: usize, frame_base: u8, return_register: u8) {
+    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: u32, frame_base: u8, return_register: u8) {
         let return_ip = self.ip();
         let previous_frame_base = if let Some(frame) = self.call_stack.last_mut() {
             frame.return_register_and_ip = Some((return_register, return_ip));
@@ -3058,11 +3061,11 @@ struct Frame {
     // Call arguments followed by local values are in registers starting from index 1.
     pub register_base: usize,
     // When returning to this frame, the ip that produced the most recently read instruction
-    pub return_instruction_ip: usize,
+    pub return_instruction_ip: u32,
     // When returning to this frame, the register for the return value and the ip to resume from.
-    pub return_register_and_ip: Option<(u8, usize)>,
+    pub return_register_and_ip: Option<(u8, u32)>,
     // A stack of catch points for handling errors
-    pub catch_stack: Vec<(u8, usize)>, // catch error register, catch ip
+    pub catch_stack: Vec<(u8, u32)>, // catch error register, catch ip
     // True if the frame should prevent execution from continuing after the frame is exited.
     // e.g.
     //   - a function is being called externally from the VM

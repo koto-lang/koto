@@ -399,7 +399,15 @@ impl Compiler {
             compiler.compile_node(ResultRegister::None, entry_point, ast)?;
         }
 
-        Ok((compiler.bytes.into(), compiler.debug_info))
+        if compiler.bytes.len() <= u32::MAX as usize {
+            Ok((compiler.bytes.into(), compiler.debug_info))
+        } else {
+            compiler_error!(
+                compiler,
+                "The compiled bytecode is larger than the maximum size of 4GB (compiled bytes: {})",
+                compiler.bytes.len()
+            )
+        }
     }
 
     fn compile_node(
@@ -3931,7 +3939,7 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
-        self.debug_info.push(self.bytes.len(), self.span());
+        self.debug_info.push(self.bytes.len() as u32, self.span());
         self.push_op_without_span(op, bytes);
     }
 
@@ -3945,7 +3953,7 @@ impl Compiler {
     }
 
     fn push_bytes_with_span(&mut self, bytes: &[u8], span: Span) {
-        self.debug_info.push(self.bytes.len(), span);
+        self.debug_info.push(self.bytes.len() as u32, span);
         self.bytes.extend_from_slice(bytes);
     }
 

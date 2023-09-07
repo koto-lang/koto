@@ -326,7 +326,7 @@ impl From<ValueIterator> for Value {
     }
 }
 
-/// A plain and simple function
+/// A Koto function with simple properties
 ///
 /// See also:
 /// * [Value::SimpleFunction]
@@ -336,12 +336,12 @@ pub struct SimpleFunctionInfo {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
-    pub ip: usize,
+    pub ip: u32,
     /// The expected number of arguments for the function
     pub arg_count: u8,
 }
 
-/// A fully-featured function with all the bells and whistles
+/// A fully-featured Koto function
 ///
 /// See also:
 /// * [Value::Function]
@@ -351,7 +351,7 @@ pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
-    pub ip: usize,
+    pub ip: u32,
     /// The expected number of arguments for the function.
     pub arg_count: u8,
     /// If the function is variadic, then extra args will be captured in a tuple.

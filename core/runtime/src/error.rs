@@ -7,7 +7,7 @@ use std::{cell::RefCell, error, fmt};
 #[derive(Clone, Debug)]
 pub struct ErrorFrame {
     chunk: Ptr<Chunk>,
-    instruction: usize,
+    instruction: u32,
 }
 
 /// The different error types that can be thrown by the Koto runtime
@@ -81,7 +81,7 @@ impl RuntimeError {
     }
 
     /// Extends the error stack with the given [Chunk] and ip
-    pub(crate) fn extend_trace(&mut self, chunk: Ptr<Chunk>, instruction: usize) {
+    pub(crate) fn extend_trace(&mut self, chunk: Ptr<Chunk>, instruction: u32) {
         self.trace.push(ErrorFrame { chunk, instruction });
     }
 
