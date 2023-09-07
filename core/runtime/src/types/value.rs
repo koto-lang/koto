@@ -36,7 +36,7 @@ pub enum Value {
     SimpleFunction(SimpleFunctionInfo),
 
     /// A callable function with less simple properties, e.g. captures, variadic arguments, etc.
-    Function(FunctionInfo),
+    Function(Ptr<FunctionInfo>),
 
     /// A function that's defined outside of the Koto runtime
     ExternalFunction(ExternalFunction),
@@ -45,7 +45,7 @@ pub enum Value {
     ///
     /// A [Vm](crate::Vm) gets spawned for the function to run in, which pauses each time a yield
     /// instruction is encountered. See Vm::call_generator and Iterable::Generator.
-    Generator(FunctionInfo),
+    Generator(Ptr<FunctionInfo>),
 
     /// The iterator type used in Koto
     Iterator(ValueIterator),
@@ -374,9 +374,7 @@ pub struct FunctionInfo {
     //    function, so a ValueList is a reasonable choice.
     // Q. What about using Ptr<[Value]> for non-recursive functions, or Option<Value> for
     //    non-recursive functions with a single capture?
-    // A. These could be potential optimizations to investigate at some point, but would involve
-    //    placing FunctionInfo behind a Ptr due to its increased size, so it's not clear if there
-    //    would be an overall performance win.
+    // A. These could be worth investigating, but for now the ValueList will do.
     pub captures: Option<ValueList>,
 }
 

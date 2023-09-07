@@ -304,11 +304,9 @@ impl Vm {
             }
             CallArgs::AsTuple(args) => {
                 match &function {
-                    Value::Function(FunctionInfo {
-                        arg_is_unpacked_tuple,
-                        captures,
-                        ..
-                    }) if *arg_is_unpacked_tuple && (args.len() as u8) < u8::MAX => {
+                    Value::Function(f)
+                        if f.arg_is_unpacked_tuple && (args.len() as u8) < u8::MAX =>
+                    {
                         // If the function has a single arg which is an unpacked tuple,
                         // then the tuple contents can go into a temporary tuple.
                         //
@@ -323,8 +321,10 @@ impl Vm {
                         // already in. This is redundant work, but more efficient than allocating a
                         // non-temporary Tuple for the values.
 
-                        let capture_count =
-                            captures.as_ref().map_or(0, |captures| captures.len() as u8);
+                        let capture_count = f
+                            .captures
+                            .as_ref()
+                            .map_or(0, |captures| captures.len() as u8);
 
                         let temp_tuple = Value::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
@@ -1291,9 +1291,9 @@ impl Vm {
                 };
 
                 let value = if generator {
-                    Generator(function)
+                    Generator(Ptr::new(function))
                 } else {
-                    Function(function)
+                    Function(Ptr::new(function))
                 };
 
                 self.jump_ip(size);
@@ -2473,35 +2473,26 @@ impl Vm {
     fn call_generator(
         &mut self,
         result_register: u8,
-        function: FunctionInfo,
+        f: &FunctionInfo,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
-        let FunctionInfo {
-            chunk,
-            ip: function_ip,
-            arg_count: function_arg_count,
-            variadic,
-            captures,
-            arg_is_unpacked_tuple: _unused,
-        } = function;
-
         // Spawn a VM for the generator
         let mut generator_vm = self.spawn_shared_vm();
         // Push a frame for running the generator function
         generator_vm.push_frame(
-            chunk,
-            function_ip,
+            f.chunk.clone(),
+            f.ip,
             0, // arguments will be copied starting in register 0
             0,
         );
 
-        let expected_arg_count = if variadic {
-            function_arg_count - 1
+        let expected_arg_count = if f.variadic {
+            f.arg_count - 1
         } else {
-            function_arg_count
+            f.arg_count
         };
 
         // Place the instance in the first register of the generator vm
@@ -2530,7 +2521,7 @@ impl Vm {
         }
 
         // Check for variadic arguments, and validate argument count
-        if variadic {
+        if f.variadic {
             let variadic_register = expected_arg_count + arg_offset;
             if call_arg_count >= expected_arg_count {
                 // Capture the varargs into a tuple and place them in the
@@ -2545,7 +2536,7 @@ impl Vm {
             }
         }
         // Place any captures in the registers following the arguments
-        if let Some(captures) = captures {
+        if let Some(captures) = &f.captures {
             generator_vm
                 .registers
                 .extend(captures.data().iter().cloned())
@@ -2568,25 +2559,16 @@ impl Vm {
     fn call_function(
         &mut self,
         result_register: u8,
-        function: FunctionInfo,
+        f: &FunctionInfo,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
-        let FunctionInfo {
-            chunk,
-            ip: function_ip,
-            arg_count: function_arg_count,
-            variadic,
-            captures,
-            arg_is_unpacked_tuple: _unused,
-        } = function;
-
-        let expected_arg_count = if variadic {
-            function_arg_count - 1
+        let expected_arg_count = if f.variadic {
+            f.arg_count - 1
         } else {
-            function_arg_count
+            f.arg_count
         };
 
         // Clone the instance register into the first register of the frame
@@ -2595,7 +2577,7 @@ impl Vm {
             .unwrap_or_default();
         self.set_register(frame_base, instance);
 
-        if variadic && call_arg_count >= expected_arg_count {
+        if f.variadic && call_arg_count >= expected_arg_count {
             // The last defined arg is the start of the var_args,
             // e.g. f = |x, y, z...|
             // arg index 2 is the first vararg, and where the tuple will be placed
@@ -2618,9 +2600,9 @@ impl Vm {
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.registers
-            .resize(arg_base_index + function_arg_count as usize, Value::Null);
+            .resize(arg_base_index + f.arg_count as usize, Value::Null);
 
-        if let Some(captures) = captures {
+        if let Some(captures) = &f.captures {
             // Copy the captures list into the registers following the args
             self.registers.extend(captures.data().iter().cloned());
         }
@@ -2631,7 +2613,7 @@ impl Vm {
         }
 
         // Set up a new frame for the called function
-        self.push_frame(chunk, function_ip, frame_base, result_register);
+        self.push_frame(f.chunk.clone(), f.ip, frame_base, result_register);
 
         Ok(())
     }
@@ -2676,7 +2658,7 @@ impl Vm {
             }
             Function(function_info) => self.call_function(
                 result_register,
-                function_info,
+                &function_info,
                 frame_base,
                 call_arg_count,
                 instance_register,
@@ -2684,7 +2666,7 @@ impl Vm {
             ),
             Generator(function_info) => self.call_generator(
                 result_register,
-                function_info,
+                &function_info,
                 frame_base,
                 call_arg_count,
                 instance_register,
