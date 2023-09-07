@@ -2437,60 +2437,35 @@ impl Vm {
         }
     }
 
-    fn call_external_function(
+    fn call_external(
         &mut self,
         result_register: u8,
-        external_function: ExternalFunction,
+        callable: ExternalCallable,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
     ) -> Result<()> {
-        let function = external_function.function.as_ref();
-
-        let result = (*function)(&mut CallContext::new(
+        let mut call_context = CallContext::new(
             self,
             instance_register,
+            // The frame base register goes unused for external function calls,
+            // instead the instance register is accessed directly via the call context.
             frame_base + 1,
             call_arg_count,
-        ));
+        );
 
-        match result {
-            Ok(value) => {
-                self.set_register(result_register, value);
-                // External function calls don't use the push/pop frame mechanism,
-                // so drop the function args here now that the call has been completed.
-                self.truncate_registers(frame_base);
+        let result = match callable {
+            ExternalCallable::Function(f) => {
+                let function = f.function.as_ref();
+                (*function)(&mut call_context)
             }
-            Err(error) => return Err(error),
-        }
+            ExternalCallable::Object(o) => o.try_borrow_mut()?.call(&mut call_context),
+        }?;
 
-        Ok(())
-    }
-
-    fn call_object(
-        &mut self,
-        result_register: u8,
-        object: Object,
-        frame_base: u8,
-        call_arg_count: u8,
-        instance_register: Option<u8>,
-    ) -> Result<()> {
-        let result = object.try_borrow_mut()?.call(&mut CallContext::new(
-            self,
-            instance_register,
-            frame_base + 1,
-            call_arg_count,
-        ));
-
-        match result {
-            Ok(value) => {
-                self.set_register(result_register, value);
-                // Object calls don't use the push/pop frame mechanism,
-                // so drop the function args here now that the call has been completed.
-                self.truncate_registers(frame_base);
-            }
-            Err(error) => return Err(error),
-        }
+        self.set_register(result_register, result);
+        // External function calls don't use the push/pop frame mechanism,
+        // so drop the call args here now that the call has been completed.
+        self.truncate_registers(frame_base);
 
         Ok(())
     }
@@ -2715,16 +2690,16 @@ impl Vm {
                 instance_register,
                 temp_tuple_values,
             ),
-            ExternalFunction(external_function) => self.call_external_function(
+            ExternalFunction(external_function) => self.call_external(
                 result_register,
-                external_function,
+                ExternalCallable::Function(external_function),
                 frame_base,
                 call_arg_count,
                 instance_register,
             ),
-            Object(object) => self.call_object(
+            Object(object) => self.call_external(
                 result_register,
-                object,
+                ExternalCallable::Object(object),
                 frame_base,
                 call_arg_count,
                 instance_register,
@@ -3126,4 +3101,10 @@ impl Frame {
             execution_barrier: false,
         }
     }
+}
+
+// See Vm::call_external
+enum ExternalCallable {
+    Function(ExternalFunction),
+    Object(Object),
 }
