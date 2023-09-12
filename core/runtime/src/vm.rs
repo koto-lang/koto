@@ -3,10 +3,10 @@ use crate::{
     error::RuntimeErrorType,
     prelude::*,
     types::{
-        self, meta_id_to_key,
-        value::{RegisterSlice, SimpleFunctionInfo},
+        meta_id_to_key,
+        value::{FunctionInfo, RegisterSlice},
     },
-    DefaultStderr, DefaultStdin, DefaultStdout, FunctionInfo, Result,
+    CaptureFunctionInfo, DefaultStderr, DefaultStdin, DefaultStdout, Result,
 };
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
@@ -132,7 +132,7 @@ pub struct Vm {
     // A stack of strings that are currently under construction
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
-    instruction_ip: usize,
+    instruction_ip: u32,
 }
 
 impl Default for Vm {
@@ -292,7 +292,7 @@ impl Vm {
 
         self.registers.push(Value::Null); // result register
         self.registers.push(instance.unwrap_or_default()); // frame base
-        let (args_count, temp_tuple_values) = match args {
+        let (arg_count, temp_tuple_values) = match args {
             CallArgs::None => (0, None),
             CallArgs::Single(arg) => {
                 self.registers.push(arg);
@@ -303,34 +303,36 @@ impl Vm {
                 (args.len() as u8, None)
             }
             CallArgs::AsTuple(args) => {
+                // If the function has a single arg which is an unpacked tuple,
+                // then the tuple contents can go into a temporary tuple.
+                //
+                // The temp tuple goes into the first arg register, the function's captures
+                // follow, and then the temp tuple contents can be placed in the registers
+                // following the captures. The captures and temp tuple contents are added
+                // to the value stack in call_function/call_generator, here we only need to
+                // add the temp tuple itself.
+                //
+                // At runtime the unpacking instructions will still be executed, resulting
+                // in the tuple values being unpacked into the same registers that they're
+                // already in. This is redundant work, but more efficient than allocating a
+                // non-temporary Tuple for the values.
                 match &function {
-                    Value::Function(FunctionInfo {
-                        arg_is_unpacked_tuple,
-                        captures,
-                        ..
-                    }) if *arg_is_unpacked_tuple && (args.len() as u8) < u8::MAX => {
-                        // If the function has a single arg which is an unpacked tuple,
-                        // then the tuple contents can go into a temporary tuple.
-                        //
-                        // The temp tuple goes into the first arg register, the function's captures
-                        // follow, and then the temp tuple contents can be placed in the registers
-                        // following the captures. The captures and temp tuple contents are added
-                        // to the value stack in call_function/call_generator, here we only need to
-                        // add the temp tuple itself.
-                        //
-                        // At runtime the unpacking instructions will still be executed, resulting
-                        // in the tuple values being unpacked into the same registers that they're
-                        // already in. This is redundant work, but more efficient than allocating a
-                        // non-temporary Tuple for the values.
-
-                        let capture_count =
-                            captures.as_ref().map_or(0, |captures| captures.len() as u8);
-
+                    Value::Function(f) if f.arg_is_unpacked_tuple => {
+                        let temp_tuple = Value::TemporaryTuple(RegisterSlice {
+                            // The unpacked tuple contents go into the registers after the
+                            // the temp tuple and instance registers.
+                            start: 2,
+                            count: args.len() as u8,
+                        });
+                        self.registers.push(temp_tuple);
+                        (1, Some(args))
+                    }
+                    Value::CaptureFunction(f) if f.info.arg_is_unpacked_tuple => {
                         let temp_tuple = Value::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
                             // captures, which are placed after the temp tuple and instance
                             // registers.
-                            start: capture_count + 2,
+                            start: f.captures.len() as u8 + 2,
                             count: args.len() as u8,
                         });
 
@@ -349,11 +351,13 @@ impl Vm {
         let old_frame_count = self.call_stack.len();
 
         self.call_callable(
-            result_register,
+            &CallInfo {
+                result_register,
+                frame_base,
+                arg_count,
+                instance_register,
+            },
             function,
-            frame_base,
-            args_count,
-            instance_register,
             temp_tuple_values,
         )?;
 
@@ -594,8 +598,6 @@ impl Vm {
                         }
                     }
 
-                    dbg!(&test_name);
-
                     let test_result =
                         self.run_instance_function(self_arg.clone(), test, CallArgs::None);
 
@@ -759,19 +761,6 @@ impl Vm {
             MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable, true)?
             }
-            SimpleFunction {
-                register,
-                arg_count,
-                size,
-            } => {
-                let result = Value::SimpleFunction(SimpleFunctionInfo {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                });
-                self.set_register(register, result);
-                self.jump_ip(size);
-            }
             Function { .. } => self.run_make_function(instruction),
             Capture {
                 function,
@@ -798,21 +787,23 @@ impl Vm {
             }
             Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs)?,
             NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs)?,
-            Jump { offset } => self.jump_ip(offset),
-            JumpBack { offset } => self.jump_ip_back(offset),
-            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset)?,
-            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset)?,
+            Jump { offset } => self.jump_ip(offset as u32),
+            JumpBack { offset } => self.jump_ip_back(offset as u32),
+            JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset as u32)?,
+            JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset as u32)?,
             Call {
                 result,
                 function,
                 frame_base,
                 arg_count,
             } => self.call_callable(
-                result,
+                &CallInfo {
+                    result_register: result,
+                    frame_base,
+                    arg_count,
+                    instance_register: None,
+                },
                 self.clone_register(function),
-                frame_base,
-                arg_count,
-                None,
                 None,
             )?,
             CallInstance {
@@ -822,11 +813,13 @@ impl Vm {
                 arg_count,
                 instance,
             } => self.call_callable(
-                result,
+                &CallInfo {
+                    result_register: result,
+                    frame_base,
+                    arg_count,
+                    instance_register: Some(instance),
+                },
                 self.clone_register(function),
-                frame_base,
-                arg_count,
-                Some(instance),
                 None,
             )?,
             Return { register } => {
@@ -931,7 +924,7 @@ impl Vm {
                 arg_register,
                 catch_offset,
             } => {
-                let catch_ip = self.ip() + catch_offset;
+                let catch_ip = self.ip() + catch_offset as u32;
                 self.frame_mut().catch_stack.push((arg_register, catch_ip));
             }
             TryEnd => {
@@ -1033,10 +1026,10 @@ impl Vm {
             }
             _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
-                    if op.is_callable() || matches!(op, Generator(_)) {
+                    if op.is_callable() || op.is_generator() {
                         return self.call_overloaded_unary_op(result, iterable_register, op);
                     } else {
-                        return type_error("Callable function from @iterator", &op);
+                        return type_error("callable function from @iterator", &op);
                     }
                 } else {
                     unreachable!()
@@ -1080,7 +1073,7 @@ impl Vm {
         &mut self,
         result_register: Option<u8>,
         iterable_register: u8,
-        jump_offset: usize,
+        jump_offset: u16,
         output_is_temporary: bool,
     ) -> Result<()> {
         use Value::*;
@@ -1184,10 +1177,10 @@ impl Vm {
             (None, Some(register)) => {
                 // The iterator is finished, so jump to the provided offset
                 self.set_register(register, Null);
-                self.jump_ip(jump_offset);
+                self.jump_ip(jump_offset as u32);
             }
             (None, None) => {
-                self.jump_ip(jump_offset);
+                self.jump_ip(jump_offset as u32);
             }
         }
 
@@ -1274,31 +1267,28 @@ impl Vm {
                 arg_is_unpacked_tuple,
                 size,
             } => {
-                // Initialize the function's captures with Null
-                let captures = if capture_count > 0 {
-                    let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Null);
-                    Some(ValueList::with_data(captures))
-                } else {
-                    None
-                };
-
-                let function = FunctionInfo {
+                let info = FunctionInfo {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
                     variadic,
-                    captures,
                     arg_is_unpacked_tuple,
+                    generator,
                 };
 
-                let value = if generator {
-                    Generator(function)
+                let value = if capture_count > 0 {
+                    // Initialize the function's captures with Null
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Null);
+                    CaptureFunction(Ptr::new(CaptureFunctionInfo {
+                        info,
+                        captures: ValueList::with_data(captures),
+                    }))
                 } else {
-                    Function(function)
+                    Function(info)
                 };
 
-                self.jump_ip(size);
+                self.jump_ip(size as u32);
                 self.set_register(register, value);
             }
             _ => unreachable!(),
@@ -1307,18 +1297,12 @@ impl Vm {
 
     fn run_capture_value(&mut self, function: u8, capture_index: u8, value: u8) -> Result<()> {
         if let Some(function) = self.get_register_safe(function) {
-            let capture_list = match function {
-                Value::Function(f) => &f.captures,
-                Value::Generator(g) => &g.captures,
-                unexpected => return type_error("Function while capturing value", unexpected),
-            };
-
-            match capture_list {
-                Some(capture_list) => {
-                    capture_list.data_mut()[capture_index as usize] = self.clone_register(value);
+            match function {
+                Value::CaptureFunction(f) => {
+                    f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
                     Ok(())
                 }
-                None => runtime_error!("Missing capture list for function"),
+                unexpected => type_error("Function while capturing value", unexpected),
             }
         } else {
             // e.g. x = (1..10).find |n| n == x
@@ -1763,26 +1747,18 @@ impl Vm {
                 }
             }
             (Object(o), _) => o.try_borrow()?.equal(rhs_value)?,
-            (Function(a), Function(b)) => {
-                if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
-                    match (&a.captures, &b.captures) {
-                        (None, None) => true,
-                        (Some(captures_a), Some(captures_b)) => {
-                            let captures_a = captures_a.clone();
-                            let captures_b = captures_b.clone();
-                            let data_a = captures_a.data();
-                            let data_b = captures_b.data();
-                            self.compare_value_ranges(&data_a, &data_b)?
-                        }
-                        _ => false,
-                    }
+            (CaptureFunction(a), CaptureFunction(b)) => {
+                if a.info == b.info {
+                    let captures_a = a.captures.clone();
+                    let captures_b = b.captures.clone();
+                    let data_a = captures_a.data();
+                    let data_b = captures_b.data();
+                    self.compare_value_ranges(&data_a, &data_b)?
                 } else {
                     false
                 }
             }
-            (SimpleFunction(a), SimpleFunction(b)) => {
-                a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count
-            }
+            (Function(a), Function(b)) => a == b,
             _ => false,
         };
 
@@ -1830,19 +1806,13 @@ impl Vm {
                 }
             }
             (Object(o), _) => o.try_borrow()?.not_equal(rhs_value)?,
-            (Function(a), Function(b)) => {
-                if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
-                    match (&a.captures, &b.captures) {
-                        (None, None) => false,
-                        (Some(captures_a), Some(captures_b)) => {
-                            let captures_a = captures_a.clone();
-                            let captures_b = captures_b.clone();
-                            let data_a = captures_a.data();
-                            let data_b = captures_b.data();
-                            !self.compare_value_ranges(&data_a, &data_b)?
-                        }
-                        _ => true,
-                    }
+            (CaptureFunction(a), CaptureFunction(b)) => {
+                if a.info == b.info {
+                    let captures_a = a.captures.clone();
+                    let captures_b = b.captures.clone();
+                    let data_a = captures_a.data();
+                    let data_b = captures_b.data();
+                    !self.compare_value_ranges(&data_a, &data_b)?
                 } else {
                     true
                 }
@@ -1918,11 +1888,13 @@ impl Vm {
         let frame_base = self.new_frame_base()?;
         self.registers.push(Value::Null); // frame_base
         self.call_callable(
-            result_register,
+            &CallInfo {
+                result_register,
+                frame_base,
+                arg_count: 0,
+                instance_register: Some(value_register),
+            },
             op,
-            frame_base,
-            0, // 0 args
-            Some(value_register),
             None,
         )
     }
@@ -1945,16 +1917,18 @@ impl Vm {
         self.registers.push(Value::Null); // frame_base
         self.registers.push(rhs); // arg
         self.call_callable(
-            result_register,
+            &CallInfo {
+                result_register,
+                frame_base,
+                arg_count: 1, // 1 arg, the rhs value
+                instance_register: Some(lhs_register),
+            },
             op,
-            frame_base,
-            1, // 1 arg, the rhs value
-            Some(lhs_register),
             None,
         )
     }
 
-    fn run_jump_if_true(&mut self, register: u8, offset: usize) -> Result<()> {
+    fn run_jump_if_true(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => {}
             Value::Bool(b) if !b => {}
@@ -1963,7 +1937,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_jump_if_false(&mut self, register: u8, offset: usize) -> Result<()> {
+    fn run_jump_if_false(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
             Value::Null => self.jump_ip(offset),
             Value::Bool(b) if !b => self.jump_ip(offset),
@@ -2352,7 +2326,7 @@ impl Vm {
                     let maybe_value = lookup_map.data().get(&key).cloned();
                     match maybe_value {
                         Some(value) => access_result = Some(value),
-                        // map module fallback when there's no metamap
+                        // Fallback to the map module when there's no metamap
                         None if lookup_map.meta_map().is_none() => {
                             core_op!(map, true);
                             return Ok(());
@@ -2427,155 +2401,70 @@ impl Vm {
         iterator_fallback: bool,
         module_name: &str,
     ) -> Result<Value> {
-        use Value::*;
-
         let maybe_op = match module.data().get(key).cloned() {
             None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
             maybe_op => maybe_op,
         };
 
-        let result = match maybe_op {
-            Some(op) => match op {
-                // Core module functions accessed in a lookup need to be invoked as
-                // if they were declared as instance functions, so that they can receive
-                // the parent instance as a self argument.
-                // e.g.
-                // A function in string that can be called as:
-                //   string.lines my_string
-                // can also be called as:
-                //   my_string.lines()
-                // ...where it needs to behave as an instance function.
-                // There's surely a cleaner way to achieve this, but this will do for now...
-                ExternalFunction(f) => {
-                    let f_as_instance_function = types::ExternalFunction {
-                        is_instance_function: true,
-                        ..f
-                    };
-                    ExternalFunction(f_as_instance_function)
-                }
-                other => other,
-            },
-            None => {
-                return runtime_error!("'{key}' not found in '{module_name}'");
-            }
-        };
-
-        Ok(result)
-    }
-
-    fn call_external_function(
-        &mut self,
-        result_register: u8,
-        external_function: ExternalFunction,
-        frame_base: u8,
-        call_arg_count: u8,
-        instance_register: Option<u8>,
-    ) -> Result<()> {
-        let function = external_function.function.as_ref();
-
-        let mut call_arg_count = call_arg_count;
-
-        let adjusted_frame_base = if external_function.is_instance_function {
-            if let Some(instance_register) = instance_register {
-                if instance_register != frame_base {
-                    let instance = self.clone_register(instance_register);
-                    self.set_register(frame_base, instance);
-                }
-                call_arg_count += 1;
-                frame_base
-            } else {
-                return runtime_error!("Expected self for external instance function");
-            }
+        if let Some(result) = maybe_op {
+            Ok(result)
         } else {
-            frame_base + 1
-        };
-
-        let result = (*function)(
-            self,
-            &ArgRegisters {
-                register: adjusted_frame_base,
-                count: call_arg_count,
-            },
-        );
-
-        match result {
-            Ok(value) => {
-                self.set_register(result_register, value);
-                // External function calls don't use the push/pop frame mechanism,
-                // so drop the function args here now that the call has been completed.
-                self.truncate_registers(frame_base);
-            }
-            Err(error) => return Err(error),
+            runtime_error!("'{key}' not found in '{module_name}'")
         }
-
-        Ok(())
     }
 
-    fn call_object(
-        &mut self,
-        result_register: u8,
-        object: Object,
-        frame_base: u8,
-        call_arg_count: u8,
-        // instance_register: Option<u8>,
-    ) -> Result<()> {
-        let result = object.try_borrow_mut()?.call(
+    fn call_external(&mut self, call_info: &CallInfo, callable: ExternalCallable) -> Result<()> {
+        let mut call_context = CallContext::new(
             self,
-            &ArgRegisters {
-                register: frame_base + 1,
-                count: call_arg_count,
-            },
+            call_info.instance_register,
+            // The frame base register goes unused for external function calls,
+            // instead the instance register is accessed directly via the call context.
+            call_info.frame_base + 1,
+            call_info.arg_count,
         );
 
-        match result {
-            Ok(value) => {
-                self.set_register(result_register, value);
-                // Object calls don't use the push/pop frame mechanism,
-                // so drop the function args here now that the call has been completed.
-                self.truncate_registers(frame_base);
+        let result = match callable {
+            ExternalCallable::Function(f) => {
+                let function = f.function.as_ref();
+                (*function)(&mut call_context)
             }
-            Err(error) => return Err(error),
-        }
+            ExternalCallable::Object(o) => o.try_borrow_mut()?.call(&mut call_context),
+        }?;
+
+        self.set_register(call_info.result_register, result);
+        // External function calls don't use the push/pop frame mechanism,
+        // so drop the call args here now that the call has been completed.
+        self.truncate_registers(call_info.frame_base);
 
         Ok(())
     }
 
     fn call_generator(
         &mut self,
-        result_register: u8,
-        function: FunctionInfo,
-        frame_base: u8,
-        call_arg_count: u8,
-        instance_register: Option<u8>,
+        call_info: &CallInfo,
+        f: &FunctionInfo,
+        captures: Option<&ValueList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
-        let FunctionInfo {
-            chunk,
-            ip: function_ip,
-            arg_count: function_arg_count,
-            variadic,
-            captures,
-            arg_is_unpacked_tuple: _unused,
-        } = function;
-
         // Spawn a VM for the generator
         let mut generator_vm = self.spawn_shared_vm();
         // Push a frame for running the generator function
         generator_vm.push_frame(
-            chunk,
-            function_ip,
+            f.chunk.clone(),
+            f.ip,
             0, // arguments will be copied starting in register 0
             0,
         );
 
-        let expected_arg_count = if variadic {
-            function_arg_count - 1
+        let expected_arg_count = if f.variadic {
+            f.arg_count - 1
         } else {
-            function_arg_count
+            f.arg_count
         };
 
         // Place the instance in the first register of the generator vm
-        let instance = instance_register
+        let instance = call_info
+            .instance_register
             .map(|register| self.clone_register(register))
             .unwrap_or_default();
         generator_vm.set_register(0, instance);
@@ -2584,7 +2473,10 @@ impl Vm {
 
         // Copy any regular (non-variadic) arguments into the generator vm
         for (arg_index, arg) in self
-            .register_slice(frame_base + 1, expected_arg_count.min(call_arg_count))
+            .register_slice(
+                call_info.frame_base + 1,
+                expected_arg_count.min(call_info.arg_count),
+            )
             .iter()
             .cloned()
             .enumerate()
@@ -2593,20 +2485,20 @@ impl Vm {
         }
 
         // Ensure that registers for missing arguments are set to Null
-        if call_arg_count < expected_arg_count {
-            for arg_index in call_arg_count..expected_arg_count {
+        if call_info.arg_count < expected_arg_count {
+            for arg_index in call_info.arg_count..expected_arg_count {
                 generator_vm.set_register(arg_index + arg_offset, Value::Null);
             }
         }
 
         // Check for variadic arguments, and validate argument count
-        if variadic {
+        if f.variadic {
             let variadic_register = expected_arg_count + arg_offset;
-            if call_arg_count >= expected_arg_count {
+            if call_info.arg_count >= expected_arg_count {
                 // Capture the varargs into a tuple and place them in the
                 // generator vm's last arg register
-                let varargs_start = frame_base + 1 + expected_arg_count;
-                let varargs_count = call_arg_count - expected_arg_count;
+                let varargs_start = call_info.frame_base + 1 + expected_arg_count;
+                let varargs_count = call_info.arg_count - expected_arg_count;
                 let varargs =
                     Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
                 generator_vm.set_register(variadic_register, varargs);
@@ -2627,68 +2519,65 @@ impl Vm {
         }
 
         // The args have been cloned into the generator vm, so at this point they can be removed
-        self.truncate_registers(frame_base);
+        self.truncate_registers(call_info.frame_base);
 
         // Wrap the generator vm in an iterator and place it in the result register
-        self.set_register(result_register, ValueIterator::with_vm(generator_vm).into());
+        self.set_register(
+            call_info.result_register,
+            ValueIterator::with_vm(generator_vm).into(),
+        );
 
         Ok(())
     }
 
     fn call_function(
         &mut self,
-        result_register: u8,
-        function: FunctionInfo,
-        frame_base: u8,
-        call_arg_count: u8,
-        instance_register: Option<u8>,
+        call_info: &CallInfo,
+        f: &FunctionInfo,
+        captures: Option<&ValueList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
-        let FunctionInfo {
-            chunk,
-            ip: function_ip,
-            arg_count: function_arg_count,
-            variadic,
-            captures,
-            arg_is_unpacked_tuple: _unused,
-        } = function;
+        if f.generator {
+            return self.call_generator(call_info, f, captures, temp_tuple_values);
+        }
 
-        let expected_arg_count = if variadic {
-            function_arg_count - 1
+        let expected_arg_count = if f.variadic {
+            f.arg_count - 1
         } else {
-            function_arg_count
+            f.arg_count
         };
 
         // Clone the instance register into the first register of the frame
-        let instance = instance_register
+        let instance = call_info
+            .instance_register
             .map(|register| self.clone_register(register))
             .unwrap_or_default();
-        self.set_register(frame_base, instance);
+        self.set_register(call_info.frame_base, instance);
 
-        if variadic && call_arg_count >= expected_arg_count {
+        if f.variadic && call_info.arg_count >= expected_arg_count {
             // The last defined arg is the start of the var_args,
             // e.g. f = |x, y, z...|
             // arg index 2 is the first vararg, and where the tuple will be placed
-            let arg_base = frame_base + 1;
+            let arg_base = call_info.frame_base + 1;
             let varargs_start = arg_base + expected_arg_count;
-            let varargs_count = call_arg_count - expected_arg_count;
+            let varargs_count = call_info.arg_count - expected_arg_count;
             let varargs = Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
             self.set_register(varargs_start, varargs);
             self.truncate_registers(varargs_start + 1);
         }
 
         // self is in the frame base register, arguments start from register frame_base + 1
-        let arg_base_index = self.register_index(frame_base) + 1;
+        let arg_base_index = self.register_index(call_info.frame_base) + 1;
 
         // Ensure that any temporary registers used to prepare the call args have been removed
         // from the value stack.
         self.registers
-            .truncate(arg_base_index + call_arg_count as usize);
+            .truncate(arg_base_index + call_info.arg_count as usize);
         // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.registers
-            .resize(arg_base_index + function_arg_count as usize, Value::Null);
+            .resize(arg_base_index + f.arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2701,85 +2590,43 @@ impl Vm {
         }
 
         // Set up a new frame for the called function
-        self.push_frame(chunk, function_ip, frame_base, result_register);
+        self.push_frame(
+            f.chunk.clone(),
+            f.ip,
+            call_info.frame_base,
+            call_info.result_register,
+        );
 
         Ok(())
     }
 
     fn call_callable(
         &mut self,
-        result_register: u8,
+        info: &CallInfo,
         function: Value,
-        frame_base: u8,
-        call_arg_count: u8,
-        instance_register: Option<u8>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
         use Value::*;
 
         match function {
-            SimpleFunction(SimpleFunctionInfo {
-                chunk,
-                ip: function_ip,
-                arg_count: function_arg_count,
-            }) => {
-                let instance = instance_register
-                    .map(|register| self.clone_register(register))
-                    .unwrap_or_default();
-                self.set_register(frame_base, instance);
-
-                // self is in the frame base, args start at register 1
-                let arg_base_index = self.register_index(frame_base) + 1;
-                // Remove any temporary registers used to prepare the call args
-                self.registers
-                    .truncate(arg_base_index + call_arg_count as usize);
-                // Ensure that registers have been filled with Null for any missing args.
-                // If there are extra args, truncating is OK at this point (variadic calls aren't
-                // available for SimpleFunction).
-                self.registers
-                    .resize(arg_base_index + function_arg_count as usize, Value::Null);
-
-                // Set up a new frame for the called function
-                self.push_frame(chunk, function_ip, frame_base, result_register);
-
-                Ok(())
+            Function(f) => self.call_function(info, &f, None, temp_tuple_values),
+            CaptureFunction(f) => {
+                self.call_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
-            Function(function_info) => self.call_function(
-                result_register,
-                function_info,
-                frame_base,
-                call_arg_count,
-                instance_register,
-                temp_tuple_values,
-            ),
-            Generator(function_info) => self.call_generator(
-                result_register,
-                function_info,
-                frame_base,
-                call_arg_count,
-                instance_register,
-                temp_tuple_values,
-            ),
-            ExternalFunction(external_function) => self.call_external_function(
-                result_register,
-                external_function,
-                frame_base,
-                call_arg_count,
-                instance_register,
-            ),
-            Object(object) => self.call_object(result_register, object, frame_base, call_arg_count),
+            ExternalFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
+            Object(o) => self.call_external(info, ExternalCallable::Object(o)),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the map as the instance by placing it in the frame base,
                 // and then passing it into call_callable
                 let instance = function.clone();
-                self.set_register(frame_base, instance);
+                self.set_register(info.frame_base, instance);
                 self.call_callable(
-                    result_register,
+                    &CallInfo {
+                        instance_register: Some(info.frame_base),
+                        ..*info
+                    },
                     f,
-                    frame_base,
-                    call_arg_count,
-                    Some(frame_base),
                     temp_tuple_values,
                 )
             }
@@ -2919,24 +2766,27 @@ impl Vm {
         self.reader.chunk.clone()
     }
 
-    fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: usize) {
-        self.reader = InstructionReader { chunk, ip };
+    fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: u32) {
+        self.reader = InstructionReader {
+            chunk,
+            ip: ip as usize,
+        };
     }
 
-    fn ip(&self) -> usize {
-        self.reader.ip
+    fn ip(&self) -> u32 {
+        self.reader.ip as u32
     }
 
-    fn set_ip(&mut self, ip: usize) {
-        self.reader.ip = ip;
+    fn set_ip(&mut self, ip: u32) {
+        self.reader.ip = ip as usize;
     }
 
-    fn jump_ip(&mut self, offset: usize) {
-        self.reader.ip += offset;
+    fn jump_ip(&mut self, offset: u32) {
+        self.reader.ip += offset as usize;
     }
 
-    fn jump_ip_back(&mut self, offset: usize) {
-        self.reader.ip -= offset;
+    fn jump_ip_back(&mut self, offset: u32) {
+        self.reader.ip -= offset as usize;
     }
 
     fn frame(&self) -> &Frame {
@@ -2947,7 +2797,7 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: usize, frame_base: u8, return_register: u8) {
+    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: u32, frame_base: u8, return_register: u8) {
         let return_ip = self.ip();
         let previous_frame_base = if let Some(frame) = self.call_stack.last_mut() {
             frame.return_register_and_ip = Some((return_register, return_ip));
@@ -3025,7 +2875,7 @@ impl Vm {
         self.get_register(register).clone()
     }
 
-    fn get_register(&self, register: u8) -> &Value {
+    pub(crate) fn get_register(&self, register: u8) -> &Value {
         let index = self.register_index(register);
         match self.registers.get(index) {
             Some(value) => value,
@@ -3038,7 +2888,7 @@ impl Vm {
         }
     }
 
-    fn get_register_safe(&self, register: u8) -> Option<&Value> {
+    pub(crate) fn get_register_safe(&self, register: u8) -> Option<&Value> {
         let index = self.register_index(register);
         self.registers.get(index)
     }
@@ -3048,7 +2898,7 @@ impl Vm {
         &mut self.registers[index]
     }
 
-    fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[Value] {
         if count > 0 {
             let start = self.register_index(register);
             &self.registers[start..start + count as usize]
@@ -3059,13 +2909,6 @@ impl Vm {
 
     fn truncate_registers(&mut self, len: u8) {
         self.registers.truncate(self.register_base() + len as usize);
-    }
-
-    /// Returns the register slice corresponding to the given ArgRegisters
-    ///
-    /// This is called by external functions when they need access to the call's arguments.
-    pub fn get_args(&self, args: &ArgRegisters) -> &[Value] {
-        self.register_slice(args.register, args.count)
     }
 
     fn get_constant_str(&self, constant_index: ConstantIndex) -> &str {
@@ -3147,11 +2990,11 @@ struct Frame {
     // Call arguments followed by local values are in registers starting from index 1.
     pub register_base: usize,
     // When returning to this frame, the ip that produced the most recently read instruction
-    pub return_instruction_ip: usize,
+    pub return_instruction_ip: u32,
     // When returning to this frame, the register for the return value and the ip to resume from.
-    pub return_register_and_ip: Option<(u8, usize)>,
+    pub return_register_and_ip: Option<(u8, u32)>,
     // A stack of catch points for handling errors
-    pub catch_stack: Vec<(u8, usize)>, // catch error register, catch ip
+    pub catch_stack: Vec<(u8, u32)>, // catch error register, catch ip
     // True if the frame should prevent execution from continuing after the frame is exited.
     // e.g.
     //   - a function is being called externally from the VM
@@ -3172,4 +3015,18 @@ impl Frame {
             execution_barrier: false,
         }
     }
+}
+
+// See Vm::call_external
+enum ExternalCallable {
+    Function(ExternalFunction),
+    Object(Object),
+}
+
+// See Vm::call_callable
+struct CallInfo {
+    result_register: u8,
+    frame_base: u8,
+    arg_count: u8,
+    instance_register: Option<u8>,
 }

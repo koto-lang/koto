@@ -170,11 +170,6 @@ pub enum Instruction {
         register: u8,
         iterable: u8,
     },
-    SimpleFunction {
-        register: u8,
-        arg_count: u8,
-        size: usize,
-    },
     Function {
         register: u8,
         arg_count: u8,
@@ -182,7 +177,7 @@ pub enum Instruction {
         variadic: bool,
         generator: bool,
         arg_is_unpacked_tuple: bool,
-        size: usize,
+        size: u16,
     },
     Capture {
         function: u8,
@@ -273,18 +268,18 @@ pub enum Instruction {
         rhs: u8,
     },
     Jump {
-        offset: usize,
+        offset: u16,
     },
     JumpBack {
-        offset: usize,
+        offset: u16,
     },
     JumpIfTrue {
         register: u8,
-        offset: usize,
+        offset: u16,
     },
     JumpIfFalse {
         register: u8,
-        offset: usize,
+        offset: u16,
     },
     Call {
         result: u8,
@@ -315,7 +310,7 @@ pub enum Instruction {
     IterNext {
         result: Option<u8>,
         iterator: u8,
-        jump_offset: usize,
+        jump_offset: u16,
         temporary_output: bool,
     },
     TempIndex {
@@ -388,7 +383,7 @@ pub enum Instruction {
     },
     TryStart {
         arg_register: u8,
-        catch_offset: usize,
+        catch_offset: u16,
     },
     TryEnd,
     Debug {
@@ -495,14 +490,6 @@ impl fmt::Debug for Instruction {
             MakeIterator { register, iterable } => {
                 write!(f, "MakeIterator\tresult: {register}\titerable: {iterable}",)
             }
-            SimpleFunction {
-                register,
-                arg_count,
-                size,
-            } => write!(
-                f,
-                "SimpleFunction\tresult: {register}\targs: {arg_count}\t\tsize: {size}",
-            ),
             Function {
                 register,
                 arg_count,
@@ -1063,23 +1050,12 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 iterable: get_u8!(),
             }),
-            Op::SimpleFunction => {
-                let register = get_u8!();
-                let arg_count = get_u8!();
-                let size = get_u16!() as usize;
-
-                Some(SimpleFunction {
-                    register,
-                    arg_count,
-                    size,
-                })
-            }
             Op::Function => {
                 let register = get_u8!();
                 let arg_count = get_u8!();
                 let capture_count = get_u8!();
                 let flags = FunctionFlags::from_byte(get_u8!());
-                let size = get_u16!() as usize;
+                let size = get_u16!();
 
                 Some(Function {
                     register,
@@ -1179,19 +1155,15 @@ impl Iterator for InstructionReader {
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
-            Op::Jump => Some(Jump {
-                offset: get_u16!() as usize,
-            }),
-            Op::JumpBack => Some(JumpBack {
-                offset: get_u16!() as usize,
-            }),
+            Op::Jump => Some(Jump { offset: get_u16!() }),
+            Op::JumpBack => Some(JumpBack { offset: get_u16!() }),
             Op::JumpIfTrue => Some(JumpIfTrue {
                 register: get_u8!(),
-                offset: get_u16!() as usize,
+                offset: get_u16!(),
             }),
             Op::JumpIfFalse => Some(JumpIfFalse {
                 register: get_u8!(),
-                offset: get_u16!() as usize,
+                offset: get_u16!(),
             }),
             Op::Call => Some(Call {
                 result: get_u8!(),
@@ -1222,19 +1194,19 @@ impl Iterator for InstructionReader {
             Op::IterNext => Some(IterNext {
                 result: Some(get_u8!()),
                 iterator: get_u8!(),
-                jump_offset: get_u16!() as usize,
+                jump_offset: get_u16!(),
                 temporary_output: false,
             }),
             Op::IterNextTemp => Some(IterNext {
                 result: Some(get_u8!()),
                 iterator: get_u8!(),
-                jump_offset: get_u16!() as usize,
+                jump_offset: get_u16!(),
                 temporary_output: true,
             }),
             Op::IterNextQuiet => Some(IterNext {
                 result: None,
                 iterator: get_u8!(),
-                jump_offset: get_u16!() as usize,
+                jump_offset: get_u16!(),
                 temporary_output: false,
             }),
             Op::IterUnpack => Some(IterNext {
@@ -1368,7 +1340,7 @@ impl Iterator for InstructionReader {
             }),
             Op::TryStart => Some(TryStart {
                 arg_register: get_u8!(),
-                catch_offset: get_u16!() as usize,
+                catch_offset: get_u16!(),
             }),
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {

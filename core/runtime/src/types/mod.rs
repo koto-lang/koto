@@ -14,11 +14,11 @@ mod value_string;
 mod value_tuple;
 
 pub use self::{
-    external_function::{ArgRegisters, ExternalFunction},
+    external_function::{CallContext, ExternalFunction},
     int_range::IntRange,
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
-    value::{FunctionInfo, SimpleFunctionInfo, Value},
+    value::{CaptureFunctionInfo, FunctionInfo, Value},
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},

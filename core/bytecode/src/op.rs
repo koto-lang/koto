@@ -202,16 +202,7 @@ pub enum Op {
     /// `[*target]`
     StringFinish,
 
-    /// Makes a SimpleFunction
-    ///
-    /// The N size bytes following this instruction make up the body of the function.
-    ///
-    /// `[*target, arg count, function size[2]]`
-    SimpleFunction,
-
     /// Makes a Function
-    ///
-    /// Like a SimpleFunction, but with extended properties and captured values.
     ///
     /// The flags are a bitfield constructed from [FunctionFlags](crate::FunctionFlags).
     /// The N size bytes following this instruction make up the body of the function.
@@ -575,6 +566,7 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused99,
     Unused100,
     Unused101,
     Unused102,

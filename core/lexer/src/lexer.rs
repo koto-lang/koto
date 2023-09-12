@@ -1048,7 +1048,7 @@ false #
                 (DoubleQuote, None, 6),
                 (NewLine, None, 7),
                 (DoubleQuote, None, 7),
-                (StringLiteral, Some(r#"\\"#), 7),
+                (StringLiteral, Some(r"\\"), 7),
                 (DoubleQuote, None, 7),
                 (NewLine, None, 8),
             ],

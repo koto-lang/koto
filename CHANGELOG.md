@@ -98,6 +98,10 @@ The Koto project adheres to
 - `Value` no longer implements `fmt::Display`, instead `value_to_string` can be
   called on `Koto` or the Vm to get a string.
 - `Value::ExternalValue` has been replaced by `Value::Object`.
+- External functions have been simplified, with a `CallContext` provided that
+  provides access to the VM and its arguments.
+  - Functions that need access to the `self` instance can access it via
+    `CallContext::instance`.
 - `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
 - Type strings and strings returned by `KotoFile` implementations are now 

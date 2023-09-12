@@ -88,9 +88,7 @@ pub trait KotoObject: Downcast {
     }
 
     /// Allows the object to behave as a function
-    ///
-    /// To access the call arguments, use [Vm::get_args] with the provided [ArgRegisters].
-    fn call(&mut self, _vm: &mut Vm, _args: &ArgRegisters) -> Result<Value> {
+    fn call(&mut self, _ctx: &mut CallContext) -> Result<Value> {
         unimplemented_error("@||", self.object_type())
     }
 
@@ -390,15 +388,19 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
         Key: Into<ValueKey> + Clone,
         F: Fn(MethodContext<T>) -> Result<Value> + Clone + 'static,
     {
-        let wrapped_function = move |vm: &mut Vm, args: &ArgRegisters| match vm.get_args(args) {
-            [Value::Object(o), extra_args @ ..] => f(MethodContext::new(o, extra_args, vm)),
-            other => type_error_with_slice(&format!("'{}'", T::TYPE), other),
+        let wrapped_function = move |ctx: &mut CallContext| match ctx.instance_and_args(
+            |instance| matches!(instance, Value::Object(_)),
+            &format!("'{}'", T::TYPE),
+        ) {
+            Ok((Value::Object(o), extra_args)) => f(MethodContext::new(o, extra_args, ctx.vm)),
+            Ok((_, other)) => type_error_with_slice(&format!("'{}'", T::TYPE), other),
+            Err(err) => Err(err),
         };
 
         for key in keys {
             self.map.insert(
                 key.clone().into(),
-                Value::ExternalFunction(ExternalFunction::new(wrapped_function.clone(), true)),
+                Value::ExternalFunction(ExternalFunction::new(wrapped_function.clone())),
             );
         }
 

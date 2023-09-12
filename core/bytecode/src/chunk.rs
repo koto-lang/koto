@@ -9,7 +9,7 @@ use std::{
 /// Debug information for a Koto program
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DebugInfo {
-    source_map: Vec<(usize, Span)>,
+    source_map: Vec<(u32, Span)>,
     /// The source of the program that the debug info was derived from
     pub source: String,
 }
@@ -19,7 +19,7 @@ impl DebugInfo {
     ///
     /// Instructions with matching spans share the same entry, so if the span matches the
     /// previously pushed span then this is a no-op.
-    pub fn push(&mut self, ip: usize, span: Span) {
+    pub fn push(&mut self, ip: u32, span: Span) {
         if let Some(entry) = self.source_map.last() {
             if entry.1 == span {
                 // Don't add entries with matching spans, a search is performed in
@@ -32,7 +32,7 @@ impl DebugInfo {
     }
 
     /// Returns a source span for a given instruction pointer
-    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
+    pub fn get_source_span(&self, ip: u32) -> Option<Span> {
         // Find the last entry with an ip less than or equal to the input
         // an upper_bound would nice here, but this isn't currently a performance sensitive function
         // so a scan through the entries will do.
@@ -115,7 +115,7 @@ impl Chunk {
             let instruction_span = reader
                 .chunk
                 .debug_info
-                .get_source_span(ip)
+                .get_source_span(ip as u32)
                 .expect("Missing source span");
 
             let print_source_lines = if let Some(span) = span {

@@ -32,20 +32,14 @@ pub enum Value {
     /// The string type used in Koto
     Str(ValueString),
 
-    /// A callable function with simple properties
-    SimpleFunction(SimpleFunctionInfo),
-
-    /// A callable function with less simple properties, e.g. captures, variadic arguments, etc.
+    /// A Koto function
     Function(FunctionInfo),
+
+    /// A Koto function with captures
+    CaptureFunction(Ptr<CaptureFunctionInfo>),
 
     /// A function that's defined outside of the Koto runtime
     ExternalFunction(ExternalFunction),
-
-    /// A function that produces an Iterator when called
-    ///
-    /// A [Vm](crate::Vm) gets spawned for the function to run in, which pauses each time a yield
-    /// instruction is encountered. See Vm::call_generator and Iterable::Generator.
-    Generator(FunctionInfo),
 
     /// The iterator type used in Koto
     Iterator(ValueIterator),
@@ -106,8 +100,20 @@ impl Value {
     pub fn is_callable(&self) -> bool {
         use Value::*;
         match self {
-            SimpleFunction(_) | Function(_) | ExternalFunction(_) => true,
+            Function(f) if f.generator => false,
+            CaptureFunction(f) if f.info.generator => false,
+            Function(_) | CaptureFunction(_) | ExternalFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
+            _ => false,
+        }
+    }
+
+    /// Returns true if the value is a generator function
+    pub fn is_generator(&self) -> bool {
+        use Value::*;
+        match self {
+            Function(f) if f.generator => true,
+            CaptureFunction(f) if f.info.generator => true,
             _ => false,
         }
     }
@@ -177,8 +183,9 @@ impl Value {
             Map(_) => TYPE_MAP.with(|x| x.clone()),
             Str(_) => TYPE_STRING.with(|x| x.clone()),
             Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
-            SimpleFunction(_) | Function(_) => TYPE_FUNCTION.with(|x| x.clone()),
-            Generator(_) => TYPE_GENERATOR.with(|x| x.clone()),
+            Function(f) if f.generator => TYPE_GENERATOR.with(|x| x.clone()),
+            CaptureFunction(f) if f.info.generator => TYPE_GENERATOR.with(|x| x.clone()),
+            Function(_) | CaptureFunction(_) => TYPE_FUNCTION.with(|x| x.clone()),
             ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
@@ -215,8 +222,7 @@ impl Value {
             Bool(b) => write!(ctx, "{b}"),
             Number(n) => write!(ctx, "{n}"),
             Range(r) => write!(ctx, "{r}"),
-            SimpleFunction(_) | Function(_) => write!(ctx, "||"),
-            Generator(_) => write!(ctx, "Generator"),
+            Function(_) | CaptureFunction(_) => write!(ctx, "||"),
             Iterator(_) => write!(ctx, "Iterator"),
             ExternalFunction(_) => write!(ctx, "||"),
             TemporaryTuple(RegisterSlice { start, count }) => {
@@ -326,42 +332,42 @@ impl From<ValueIterator> for Value {
     }
 }
 
-/// A plain and simple function
-///
-/// See also:
-/// * [Value::SimpleFunction]
-/// * [FunctionInfo]
-#[derive(Clone, Debug)]
-pub struct SimpleFunctionInfo {
-    /// The [Chunk] in which the function can be found.
-    pub chunk: Ptr<Chunk>,
-    /// The start ip of the function.
-    pub ip: usize,
-    /// The expected number of arguments for the function
-    pub arg_count: u8,
-}
-
-/// A fully-featured function with all the bells and whistles
+/// A Koto function
 ///
 /// See also:
 /// * [Value::Function]
-/// * [SimpleFunctionInfo]
-#[derive(Clone)]
+/// * [Value::CaptureFunction]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
-    pub ip: usize,
-    /// The expected number of arguments for the function.
+    pub ip: u32,
+    /// The expected number of arguments for the function
     pub arg_count: u8,
     /// If the function is variadic, then extra args will be captured in a tuple.
     pub variadic: bool,
     /// If the function has a single arg, and that arg is an unpacked tuple
     ///
-    /// This is used to optimize external calls where the caller has a series of args that might be
-    /// unpacked by the function, and it would be wasteful to create a Tuple when it's going to be
+    /// This is used to optimize calls where the caller has a series of args that might be unpacked
+    /// by the function, and it would be wasteful to create a Tuple when it's going to be
     /// immediately unpacked and discarded.
     pub arg_is_unpacked_tuple: bool,
+    /// If the function is a generator, then calling the function will yield an iterator that
+    /// executes the function's body for each iteration step, pausing when a yield instruction is
+    /// encountered. See Vm::call_generator and Iterable::Generator.
+    pub generator: bool,
+}
+
+/// A Koto function with captured values
+///
+/// See also:
+/// * [Value::Function]
+/// * [Value::CaptureFunction]
+#[derive(Clone)]
+pub struct CaptureFunctionInfo {
+    /// The function's properties
+    pub info: FunctionInfo,
     /// The optional list of captures that should be copied into scope when the function is called.
     //
     // Q. Why use a ValueList?
@@ -374,10 +380,8 @@ pub struct FunctionInfo {
     //    function, so a ValueList is a reasonable choice.
     // Q. What about using Ptr<[Value]> for non-recursive functions, or Option<Value> for
     //    non-recursive functions with a single capture?
-    // A. These could be potential optimizations to investigate at some point, but would involve
-    //    placing FunctionInfo behind a Ptr due to its increased size, so it's not clear if there
-    //    would be an overall performance win.
-    pub captures: Option<ValueList>,
+    // A. These could be worth investigating, but for now the ValueList will do.
+    pub captures: ValueList,
 }
 
 /// A slice of a VM's registers
@@ -396,8 +400,8 @@ mod tests {
 
     #[test]
     fn test_value_mem_size() {
-        // All Value variants should have a size of <= 32 bytes, and with the variant flag the
-        // total size of Value should not be greater than 40 bytes.
-        assert!(std::mem::size_of::<Value>() <= 40);
+        // All Value variants should have a size of <= 16 bytes, and with the variant flag the
+        // total size of Value will be <= 24 bytes.
+        assert!(std::mem::size_of::<Value>() <= 24);
     }
 }

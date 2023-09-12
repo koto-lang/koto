@@ -61,6 +61,13 @@ impl ValueMap {
         Self::default()
     }
 
+    /// Creates an empty ValueMap, with a MetaMap containing the given @type string
+    pub fn with_type(type_name: &str) -> Self {
+        let mut meta = MetaMap::default();
+        meta.insert(MetaKey::Type, type_name.into());
+        Self::with_contents(DataMap::default(), Some(meta))
+    }
+
     /// Creates an empty ValueMap with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self::with_contents(DataMap::with_capacity(capacity), None)
@@ -137,17 +144,8 @@ impl ValueMap {
     }
 
     /// Adds a function to the ValueMap's data map
-    pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
-    }
-
-    /// Adds an instance function to the ValueMap's data map
-    pub fn add_instance_fn(
-        &self,
-        id: &str,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
-    ) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
+    pub fn add_fn(&self, id: &str, f: impl Fn(&mut CallContext) -> Result<Value> + 'static) {
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f)));
     }
 
     /// Adds a map to the ValueMap's data map

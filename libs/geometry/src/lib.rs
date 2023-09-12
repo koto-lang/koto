@@ -15,10 +15,10 @@ use koto_runtime::prelude::*;
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let result = ValueMap::new();
+    let result = ValueMap::with_type("geometry");
 
-    result.add_fn("rect", |vm, args| {
-        let (x, y, width, height) = match vm.get_args(args) {
+    result.add_fn("rect", |ctx| {
+        let (x, y, width, height) = match ctx.args() {
             [] => (0.0, 0.0, 0.0, 0.0),
             [Number(x), Number(y), Number(width), Number(height)] => {
                 (x.into(), y.into(), width.into(), height.into())
@@ -29,8 +29,8 @@ pub fn make_module() -> ValueMap {
         Ok(Rect::from_x_y_w_h(x, y, width, height).into())
     });
 
-    result.add_fn("vec2", |vm, args| {
-        let (x, y) = match vm.get_args(args) {
+    result.add_fn("vec2", |ctx| {
+        let (x, y) = match ctx.args() {
             [] => (0.0, 0.0),
             [Number(x)] => (x.into(), 0.0),
             [Number(x), Number(y)] => (x.into(), y.into()),
@@ -43,8 +43,8 @@ pub fn make_module() -> ValueMap {
         Ok(Vec2::new(x, y).into())
     });
 
-    result.add_fn("vec3", |vm, args| {
-        let (x, y, z) = match vm.get_args(args) {
+    result.add_fn("vec3", |ctx| {
+        let (x, y, z) = match ctx.args() {
             [] => (0.0, 0.0, 0.0),
             [Number(x)] => (x.into(), 0.0, 0.0),
             [Number(x), Number(y)] => (x.into(), y.into(), 0.0),

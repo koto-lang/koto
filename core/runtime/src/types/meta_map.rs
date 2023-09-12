@@ -26,22 +26,10 @@ impl MetaMap {
     pub fn add_fn(
         &mut self,
         key: MetaKey,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
-    ) {
-        self.0.insert(
-            key,
-            Value::ExternalFunction(ExternalFunction::new(f, false)),
-        );
-    }
-
-    /// Adds an instance function to the meta map
-    pub fn add_instance_fn(
-        &mut self,
-        key: MetaKey,
-        f: impl Fn(&mut Vm, &ArgRegisters) -> Result<Value> + 'static,
+        f: impl Fn(&mut CallContext) -> Result<Value> + 'static,
     ) {
         self.0
-            .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
+            .insert(key, Value::ExternalFunction(ExternalFunction::new(f)));
     }
 }
 
