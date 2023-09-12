@@ -170,11 +170,6 @@ pub enum Instruction {
         register: u8,
         iterable: u8,
     },
-    SimpleFunction {
-        register: u8,
-        arg_count: u8,
-        size: u16,
-    },
     Function {
         register: u8,
         arg_count: u8,
@@ -495,14 +490,6 @@ impl fmt::Debug for Instruction {
             MakeIterator { register, iterable } => {
                 write!(f, "MakeIterator\tresult: {register}\titerable: {iterable}",)
             }
-            SimpleFunction {
-                register,
-                arg_count,
-                size,
-            } => write!(
-                f,
-                "SimpleFunction\tresult: {register}\targs: {arg_count}\t\tsize: {size}",
-            ),
             Function {
                 register,
                 arg_count,
@@ -1063,17 +1050,6 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 iterable: get_u8!(),
             }),
-            Op::SimpleFunction => {
-                let register = get_u8!();
-                let arg_count = get_u8!();
-                let size = get_u16!();
-
-                Some(SimpleFunction {
-                    register,
-                    arg_count,
-                    size,
-                })
-            }
             Op::Function => {
                 let register = get_u8!();
                 let arg_count = get_u8!();

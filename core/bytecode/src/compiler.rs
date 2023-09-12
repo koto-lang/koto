@@ -2350,14 +2350,10 @@ impl Compiler {
             }
             .as_byte();
 
-            if flags_byte == 0 && capture_count == 0 {
-                self.push_op(SimpleFunction, &[result.register, arg_count]);
-            } else {
-                self.push_op(
-                    Function,
-                    &[result.register, arg_count, capture_count, flags_byte],
-                );
-            }
+            self.push_op(
+                Function,
+                &[result.register, arg_count, capture_count, flags_byte],
+            );
 
             let function_size_ip = self.push_offset_placeholder();
 
