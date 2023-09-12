@@ -353,7 +353,7 @@ fn do_map_update(
 }
 
 fn map_instance_and_args<'a>(
-    ctx: &'a mut CallContext<'_>,
+    ctx: &'a CallContext<'_>,
     expected_error: &str,
 ) -> Result<(&'a Value, &'a [Value])> {
     use Value::Map;

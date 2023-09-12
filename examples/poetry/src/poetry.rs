@@ -22,7 +22,7 @@ impl Poetry {
                     let word: Rc<str> = word.into();
                     self.links
                         .entry(previous.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(word.clone());
                     previous = word;
                 }
