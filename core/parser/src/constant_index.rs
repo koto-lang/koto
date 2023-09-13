@@ -42,6 +42,13 @@ impl From<[u8; 3]> for ConstantIndex {
     }
 }
 
+impl From<u32> for ConstantIndex {
+    fn from(x: u32) -> Self {
+        let bytes = x.to_le_bytes();
+        Self(bytes[0], bytes[1], bytes[2])
+    }
+}
+
 impl TryFrom<usize> for ConstantIndex {
     type Error = ConstantIndexTryFromOutOfRange;
 
@@ -64,6 +71,18 @@ impl From<ConstantIndex> for usize {
 impl From<&ConstantIndex> for usize {
     fn from(x: &ConstantIndex) -> Self {
         usize::from(*x)
+    }
+}
+
+impl From<ConstantIndex> for u32 {
+    fn from(x: ConstantIndex) -> Self {
+        (x.0 as u32) | (x.1 as u32) << 8 | (x.2 as u32) << 16
+    }
+}
+
+impl From<&ConstantIndex> for u32 {
+    fn from(x: &ConstantIndex) -> Self {
+        u32::from(*x)
     }
 }
 
