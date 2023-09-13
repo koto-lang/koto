@@ -46,7 +46,7 @@ mod parser {
         }
     }
 
-    fn constant(index: u8) -> ConstantIndex {
+    fn constant(index: u8) -> u32 {
         ConstantIndex::from(index)
     }
 

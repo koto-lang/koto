@@ -1,4 +1,3 @@
-use crate::{ConstantIndex, ConstantIndexTryFromOutOfRange};
 use koto_memory::Ptr;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
@@ -6,6 +5,11 @@ use std::{
     hash::{Hash, Hasher},
     ops::Range,
 };
+
+use crate::error::InternalError;
+
+/// The type used to refer to constants in the [ConstantPool]
+pub type ConstantIndex = u32;
 
 // An entry in the list of constants contained in a [ConstantPool]
 #[derive(Clone, Debug, PartialEq)]
@@ -91,7 +95,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't a string at the provided index
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
-        match self.constants.get(usize::from(index)) {
+        match self.constants.get(index as usize) {
             Some(ConstantEntry::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
         }
@@ -101,7 +105,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an f64 at the provided index
     pub fn get_f64(&self, index: ConstantIndex) -> f64 {
-        match self.constants.get(usize::from(index)) {
+        match self.constants.get(index as usize) {
             Some(ConstantEntry::F64(n)) => *n,
             _ => panic!("Invalid index"),
         }
@@ -111,7 +115,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an i64 at the provided index
     pub fn get_i64(&self, index: ConstantIndex) -> i64 {
-        match self.constants.get(usize::from(index)) {
+        match self.constants.get(index as usize) {
             Some(ConstantEntry::I64(n)) => *n,
             _ => panic!("Invalid index"),
         }
@@ -195,11 +199,12 @@ pub(crate) struct ConstantPoolBuilder {
 }
 
 impl ConstantPoolBuilder {
-    pub fn add_string(&mut self, s: &str) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
+    pub fn add_string(&mut self, s: &str) -> Result<ConstantIndex, InternalError> {
         match self.string_map.get(s) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.constants.len())?;
+                let result = u32::try_from(self.constants.len())
+                    .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
 
                 let start = self.string_data.len();
                 let end = start + s.len();
@@ -214,13 +219,14 @@ impl ConstantPoolBuilder {
         }
     }
 
-    pub fn add_f64(&mut self, n: f64) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
+    pub fn add_f64(&mut self, n: f64) -> Result<ConstantIndex, InternalError> {
         let n_u64 = n.to_bits();
 
         match self.float_map.get(&n_u64) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.constants.len())?;
+                let result = u32::try_from(self.constants.len())
+                    .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
                 self.constants.push(ConstantEntry::F64(n));
                 n_u64.hash(&mut self.hasher);
                 self.float_map.insert(n_u64, result);
@@ -229,11 +235,12 @@ impl ConstantPoolBuilder {
         }
     }
 
-    pub fn add_i64(&mut self, n: i64) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
+    pub fn add_i64(&mut self, n: i64) -> Result<ConstantIndex, InternalError> {
         match self.int_map.get(&n) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.constants.len())?;
+                let result = u32::try_from(self.constants.len())
+                    .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
                 self.constants.push(ConstantEntry::I64(n));
                 n.hash(&mut self.hasher);
                 self.int_map.insert(n, result);
@@ -243,7 +250,7 @@ impl ConstantPoolBuilder {
     }
 
     pub fn get_str(&self, index: ConstantIndex) -> &str {
-        match self.constants.get(usize::from(index)) {
+        match self.constants.get(index as usize) {
             Some(ConstantEntry::Str(range)) => {
                 // Safety: The bounds have already been checked while the pool is being prepared
                 unsafe { self.string_data.get_unchecked(range.clone()) }
@@ -286,8 +293,8 @@ mod tests {
 
         let pool = builder.build();
 
-        assert_eq!(s1, pool.get_str(ConstantIndex::from(0_u8)));
-        assert_eq!(s2, pool.get_str(ConstantIndex::from(1_u8)));
+        assert_eq!(s1, pool.get_str(0));
+        assert_eq!(s2, pool.get_str(1));
 
         assert_eq!(2, pool.size());
     }
@@ -308,11 +315,8 @@ mod tests {
 
         let pool = builder.build();
 
-        assert_eq!(n1, pool.get_i64(ConstantIndex::from(0_u8)));
-        assert!(floats_are_equal(
-            n2,
-            pool.get_f64(ConstantIndex::from(1_u8))
-        ));
+        assert_eq!(n1, pool.get_i64(0));
+        assert!(floats_are_equal(n2, pool.get_f64(1)));
 
         assert_eq!(2, pool.size());
     }
@@ -333,13 +337,10 @@ mod tests {
 
         let pool = builder.build();
 
-        assert!(floats_are_equal(
-            n1,
-            pool.get_f64(ConstantIndex::from(0_u8))
-        ));
-        assert_eq!(s1, pool.get_str(ConstantIndex::from(1_u8)));
-        assert_eq!(n2, pool.get_i64(ConstantIndex::from(2_u8)));
-        assert_eq!(s2, pool.get_str(ConstantIndex::from(3_u8)));
+        assert!(floats_are_equal(n1, pool.get_f64(0)));
+        assert_eq!(s1, pool.get_str(1));
+        assert_eq!(n2, pool.get_i64(2));
+        assert_eq!(s2, pool.get_str(3));
 
         assert_eq!(4, pool.size());
     }

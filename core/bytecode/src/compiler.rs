@@ -468,14 +468,14 @@ impl Compiler {
             Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(result.register, u32::from(constant), LoadFloat);
+                    self.compile_constant_op(result.register, *constant, LoadFloat);
                 }
                 result
             }
             Node::Int(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(result.register, u32::from(constant), LoadInt);
+                    self.compile_constant_op(result.register, *constant, LoadInt);
                 }
                 result
             }
@@ -767,7 +767,7 @@ impl Compiler {
                     .unwrap();
 
                 self.push_op(Debug, &[expression_register.register]);
-                self.push_var_u32(expression_string.into());
+                self.push_var_u32(*expression_string);
 
                 if let Some(result) = result {
                     self.push_op(Copy, &[result.register, expression_register.register]);
