@@ -35,7 +35,7 @@ macro_rules! make_compiler_error {
 
 macro_rules! compiler_error {
     ($compiler:expr, $error:expr) => {
-        Err(make_compiler_error!($compiler.span(), String::from($error)))
+        Err(make_compiler_error!($compiler.span(), format!($error)))
     };
     ($compiler:expr, $error:expr, $($args:expr),+ $(,)?) => {
         Err(make_compiler_error!($compiler.span(), format!($error, $($args),+)))
@@ -3928,8 +3928,9 @@ impl Compiler {
             }
             Err(_) => compiler_error!(
                 self,
-                "Jump offset is too large, {} is larger than the maximum of {}.
-                 Try breaking up this part of the program a bit."
+                "Jump offset is too large, {offset} is larger than the maximum of {}.
+                 Try breaking up this part of the program a bit.",
+                u16::MAX,
             ),
         }
     }
