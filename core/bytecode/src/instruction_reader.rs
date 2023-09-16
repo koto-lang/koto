@@ -1,6 +1,6 @@
 use crate::{Chunk, Op};
 use koto_memory::Ptr;
-use koto_parser::{ConstantIndex, MetaKeyId};
+use koto_parser::MetaKeyId;
 use std::fmt;
 
 #[derive(Debug)]
@@ -91,19 +91,19 @@ pub enum Instruction {
     },
     LoadFloat {
         register: u8,
-        constant: ConstantIndex,
+        constant: u32,
     },
     LoadInt {
         register: u8,
-        constant: ConstantIndex,
+        constant: u32,
     },
     LoadString {
         register: u8,
-        constant: ConstantIndex,
+        constant: u32,
     },
     LoadNonLocal {
         register: u8,
-        constant: ConstantIndex,
+        constant: u32,
     },
     ValueExport {
         name: u8,
@@ -123,10 +123,10 @@ pub enum Instruction {
     },
     MakeMap {
         register: u8,
-        size_hint: usize,
+        size_hint: u32,
     },
     SequenceStart {
-        size_hint: usize,
+        size_hint: u32,
     },
     SequencePush {
         value: u8,
@@ -374,7 +374,7 @@ pub enum Instruction {
     Access {
         register: u8,
         value: u8,
-        key: ConstantIndex,
+        key: u32,
     },
     AccessString {
         register: u8,
@@ -388,7 +388,7 @@ pub enum Instruction {
     TryEnd,
     Debug {
         register: u8,
-        constant: ConstantIndex,
+        constant: u32,
     },
     CheckType {
         register: u8,
@@ -403,7 +403,7 @@ pub enum Instruction {
         size: usize,
     },
     StringStart {
-        size_hint: usize,
+        size_hint: u32,
     },
     StringPush {
         value: u8,
@@ -810,84 +810,48 @@ impl Iterator for InstructionReader {
             }};
         }
 
-        macro_rules! get_u32 {
+        macro_rules! get_var_u32 {
             () => {{
                 #[cfg(not(debug_assertions))]
                 {
-                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 4) };
-                    self.ip += 4;
-                    u32::from_le_bytes(bytes.try_into().unwrap())
+                    let mut result = 0;
+                    let mut shift_amount = 0;
+                    loop {
+                        let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
+                        self.ip += 1;
+                        result |= (*byte as u32 & 0x7f) << shift_amount;
+                        if byte & 0x8 == 0 {
+                            break;
+                        } else {
+                            shift_amount += 7;
+                        }
+                    }
+                    result
                 }
 
                 #[cfg(debug_assertions)]
                 {
-                    match self.chunk.bytes.get(self.ip..self.ip + 4) {
-                        Some(u32_bytes) => {
-                            self.ip += 4;
-                            u32::from_le_bytes(u32_bytes.try_into().unwrap())
-                        }
-                        None => {
-                            return Some(Error {
-                                message: format!("Expected 4 bytes at position {}", self.ip),
-                            });
-                        }
-                    }
-                }
-            }};
-        }
-
-        macro_rules! get_u16_constant {
-            () => {{
-                #[cfg(not(debug_assertions))]
-                {
-                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
-                    self.ip += 2;
-                    let bytes: [u8; 2] = bytes.try_into().unwrap();
-                    ConstantIndex::from(bytes)
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
-                        Some(bytes) => {
-                            self.ip += 2;
-                            let bytes: [u8; 2] = bytes.try_into().unwrap();
-                            ConstantIndex::from(bytes)
-                        }
-                        None => {
-                            return Some(Error {
-                                message: format!("Expected 2 bytes at position {}", self.ip),
-                            });
+                    let mut result = 0;
+                    let mut shift_amount = 0;
+                    loop {
+                        match self.chunk.bytes.get(self.ip) {
+                            Some(byte) => {
+                                self.ip += 1;
+                                result |= (*byte as u32 & 0x7f) << shift_amount;
+                                if byte & 0x80 == 0 {
+                                    break;
+                                } else {
+                                    shift_amount += 7;
+                                }
+                            }
+                            None => {
+                                return Some(Error {
+                                    message: format!("Expected byte at position {}", self.ip),
+                                });
+                            }
                         }
                     }
-                }
-            }};
-        }
-
-        macro_rules! get_u24_constant {
-            () => {{
-                #[cfg(not(debug_assertions))]
-                {
-                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 3) };
-                    self.ip += 3;
-                    let bytes: [u8; 3] = bytes.try_into().unwrap();
-                    ConstantIndex::from(bytes)
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    match self.chunk.bytes.get(self.ip..self.ip + 3) {
-                        Some(bytes) => {
-                            self.ip += 3;
-                            let bytes: [u8; 3] = bytes.try_into().unwrap();
-                            ConstantIndex::from(bytes)
-                        }
-                        None => {
-                            return Some(Error {
-                                message: format!("Expected 3 bytes at position {}", self.ip),
-                            });
-                        }
-                    }
+                    result
                 }
             }};
         }
@@ -934,51 +898,19 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
-            }),
-            Op::LoadFloat16 => Some(LoadFloat {
-                register: get_u8!(),
-                constant: get_u16_constant!(),
-            }),
-            Op::LoadFloat24 => Some(LoadFloat {
-                register: get_u8!(),
-                constant: get_u24_constant!(),
+                constant: get_var_u32!(),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
-            }),
-            Op::LoadInt16 => Some(LoadInt {
-                register: get_u8!(),
-                constant: get_u16_constant!(),
-            }),
-            Op::LoadInt24 => Some(LoadInt {
-                register: get_u8!(),
-                constant: get_u24_constant!(),
+                constant: get_var_u32!(),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
-            }),
-            Op::LoadString16 => Some(LoadString {
-                register: get_u8!(),
-                constant: get_u16_constant!(),
-            }),
-            Op::LoadString24 => Some(LoadString {
-                register: get_u8!(),
-                constant: get_u24_constant!(),
+                constant: get_var_u32!(),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
-            }),
-            Op::LoadNonLocal16 => Some(LoadNonLocal {
-                register: get_u8!(),
-                constant: get_u16_constant!(),
-            }),
-            Op::LoadNonLocal24 => Some(LoadNonLocal {
-                register: get_u8!(),
-                constant: get_u24_constant!(),
+                constant: get_var_u32!(),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -998,17 +930,10 @@ impl Iterator for InstructionReader {
             }),
             Op::MakeMap => Some(MakeMap {
                 register: get_u8!(),
-                size_hint: get_u8!() as usize,
-            }),
-            Op::MakeMap32 => Some(MakeMap {
-                register: get_u8!(),
-                size_hint: get_u32!() as usize,
+                size_hint: get_var_u32!(),
             }),
             Op::SequenceStart => Some(SequenceStart {
-                size_hint: get_u8!() as usize,
-            }),
-            Op::SequenceStart32 => Some(SequenceStart {
-                size_hint: get_u32!() as usize,
+                size_hint: get_var_u32!(),
             }),
             Op::SequencePush => Some(SequencePush { value: get_u8!() }),
             Op::SequencePushN => Some(SequencePushN {
@@ -1321,17 +1246,7 @@ impl Iterator for InstructionReader {
             Op::Access => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
-                key: ConstantIndex::from(get_u8!()),
-            }),
-            Op::Access16 => Some(Access {
-                register: get_u8!(),
-                value: get_u8!(),
-                key: get_u16_constant!(),
-            }),
-            Op::Access24 => Some(Access {
-                register: get_u8!(),
-                value: get_u8!(),
-                key: get_u24_constant!(),
+                key: get_var_u32!(),
             }),
             Op::AccessString => Some(AccessString {
                 register: get_u8!(),
@@ -1345,7 +1260,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: get_u24_constant!(),
+                constant: get_var_u32!(),
             }),
             Op::CheckType => {
                 let register = get_u8!();
@@ -1365,10 +1280,7 @@ impl Iterator for InstructionReader {
                 size: get_u8!() as usize,
             }),
             Op::StringStart => Some(StringStart {
-                size_hint: get_u8!() as usize,
-            }),
-            Op::StringStart32 => Some(StringStart {
-                size_hint: get_u32!() as usize,
+                size_hint: get_var_u32!(),
             }),
             Op::StringPush => Some(StringPush { value: get_u8!() }),
             Op::StringFinish => Some(StringFinish {

@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, ConstantIndex};
+use crate::{ast::AstIndex, constant_pool::ConstantIndex};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -17,7 +17,7 @@ pub enum Node {
     Id(ConstantIndex),
 
     /// A meta identifier, e.g. `@display` or `@test my_test`
-    Meta(MetaKeyId, Option<ConstantIndex>),
+    Meta(MetaKeyId, Option<u32>),
 
     /// A lookup node, and optionally the node that follows it in the lookup chain
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
@@ -27,7 +27,7 @@ pub enum Node {
     /// Calls with parentheses or on temporary values are parsed as Lookups
     NamedCall {
         /// The id of the function to be called
-        id: ConstantIndex,
+        id: u32,
         /// The arguments to pass to the function
         args: Vec<AstIndex>,
     },
@@ -42,10 +42,10 @@ pub enum Node {
     SmallInt(i16),
 
     /// An integer outside of the range -255..=255
-    Int(ConstantIndex),
+    Int(u32),
 
     /// An float literal
-    Float(ConstantIndex),
+    Float(u32),
 
     /// A string literal
     Str(AstString),
@@ -202,12 +202,12 @@ pub enum Node {
     /// in match expressions.
     ///
     /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
-    Wildcard(Option<ConstantIndex>),
+    Wildcard(Option<u32>),
 
     /// The `...` operator
     ///
     /// Used when capturing variadic arguments, and when unpacking list or tuple values.
-    Ellipsis(Option<ConstantIndex>),
+    Ellipsis(Option<u32>),
 
     /// A `for` loop
     For(AstFor),
@@ -255,7 +255,7 @@ pub enum Node {
     /// A debug expression
     Debug {
         /// The stored string of the debugged expression to be used when printing the result
-        expression_string: ConstantIndex,
+        expression_string: u32,
         /// The expression that should be debugged
         expression: AstIndex,
     },
@@ -328,7 +328,7 @@ pub struct Function {
     /// Any ID (or lookup root) that's accessed in a function and which wasn't previously assigned
     /// locally, is either an export or the value needs to be captured. The compiler takes care of
     /// determining if an access is a capture or not at the moment the function is created.
-    pub accessed_non_locals: Vec<ConstantIndex>,
+    pub accessed_non_locals: Vec<u32>,
     /// The function's body
     pub body: AstIndex,
     /// A flag that indicates if the function arguments end with a variadic `...` argument
@@ -355,7 +355,7 @@ pub struct AstString {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StringNode {
     /// A string literal
-    Literal(ConstantIndex),
+    Literal(u32),
     /// An expression that should be evaluated and inserted into the string
     Expr(AstIndex),
 }
@@ -462,7 +462,7 @@ pub enum LookupNode {
     /// The root of the lookup chain
     Root(AstIndex),
     /// A `.` access using an identifier
-    Id(ConstantIndex),
+    Id(u32),
     /// A `.` access using a string
     Str(AstString),
     /// An index operation using square `[]` brackets.
@@ -631,13 +631,13 @@ impl TryFrom<u8> for MetaKeyId {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MapKey {
     /// An identifier
-    Id(ConstantIndex),
+    Id(u32),
     /// A string
     Str(AstString),
     /// A meta key
     ///
     /// Some meta keys require an additional identifier, e.g. @test test_name
-    Meta(MetaKeyId, Option<ConstantIndex>),
+    Meta(MetaKeyId, Option<u32>),
 }
 
 /// The type of quotation mark used in a string literal
@@ -656,7 +656,7 @@ pub enum ImportItemNode {
     /// e.g. import foo.bar
     ///                 ^ Id(bar)
     ///             ^ Id(foo)
-    Id(ConstantIndex),
+    Id(u32),
     /// A string node
     ///
     /// e.g. import "foo/bar"

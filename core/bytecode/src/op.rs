@@ -5,7 +5,12 @@
 /// [InstructionReader](crate::InstructionReader).
 ///
 /// In the comments for each operation, the additional bytes are specified inside square brackets.
-/// Bytes prefixed with * show that the byte is referring to a register.
+/// - Bytes prefixed with * show that the byte is referring to a register.
+/// - Values prefixed with @ indicate a variable-sized integer.
+///   - The 7 least significant bits are included in the integer.
+///   - The 8th bit in a byte is a continuation flag.
+///   - Continuation bits are shifted by N*7 and included in the resulting integer.
+///   - Currently only (up to) 32 bits are used, and integers are unsigned.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 #[allow(missing_docs)] // Allowed for the UnusedX ops
@@ -52,63 +57,23 @@ pub enum Op {
 
     /// Loads an f64 constant into a register
     ///
-    /// `[*target, constant]`
+    /// `[*target, @constant]`
     LoadFloat,
-
-    /// Loads an f64 constant with a u16 index into a register
-    ///
-    /// `[*target, constant[2]]`
-    LoadFloat16,
-
-    /// Loads an f64 constant with a u24 index into a register
-    ///
-    /// `[*target, constant[3]]`
-    LoadFloat24,
 
     /// Loads an i64 constant into a register
     ///
-    /// `[*target, constant]`
+    /// `[*target, @constant]`
     LoadInt,
-
-    /// Loads an i64 constant with a u16 index into a register
-    ///
-    /// `[*target, constant[2]]`
-    LoadInt16,
-
-    /// Loads an i64 constant with a u24 index into a register
-    ///
-    /// `[*target, constant[3]]`
-    LoadInt24,
 
     /// Loads a string constant into a register
     ///
-    /// `[*target, constant]`
+    /// `[*target, @constant]`
     LoadString,
-
-    /// Loads a string constant with a u16 index into a register
-    ///
-    /// `[*target, constant[2]]`
-    LoadString16,
-
-    /// Loads a string constant with a u24 index into a register
-    ///
-    /// `[*target, constant[3]]`
-    LoadString24,
 
     /// Loads a non-local value into a register
     ///
-    /// `[*target, constant]`
+    /// `[*target, @constant]`
     LoadNonLocal,
-
-    /// Loads a non-local value with a u16 id index into a register
-    ///
-    /// `[*target, constant[2]]`
-    LoadNonLocal16,
-
-    /// Loads a non-local value with a u24 id index into a register
-    ///
-    /// `[*target, constant[3]]`
-    LoadNonLocal24,
 
     /// Imports a value
     ///
@@ -136,28 +101,18 @@ pub enum Op {
 
     /// Makes an empty map with the given size hint
     ///
-    /// `[*target, size hint]`
+    /// `[*target, @size hint]`
     MakeMap,
-
-    /// Makes an empty map with the given u32 size hint
-    ///
-    /// `[*target, size hint[4]]`
-    MakeMap32,
 
     /// Makes an Iterator out of an iterable value
     ///
     /// `[*target, *iterable]`
     MakeIterator,
 
-    /// Starts a new sequence with a u8 size hint
+    /// Starts a new sequence with the given size hint
     ///
-    /// `[size hint]`
+    /// `[@size hint]`
     SequenceStart,
-
-    /// Starts a new sequence with a u32 size hint
-    ///
-    /// `[size hint[4]]`
-    SequenceStart32,
 
     /// Pushes a single value to the end of the current sequence
     ///
@@ -179,15 +134,10 @@ pub enum Op {
     /// `[*register]`
     SequenceToTuple,
 
-    /// Starts the construction of a new string with a u8 size hint
+    /// Starts the construction of a new string with a given size hint
     ///
-    /// `[size hint]`
+    /// `[@size hint]`
     StringStart,
-
-    /// Starts the construction of a new string with a u32 size hint
-    ///
-    /// `[size hint[4]]`
-    StringStart32,
 
     /// Pushes a value to the end of the current string
     ///
@@ -488,18 +438,8 @@ pub enum Op {
 
     /// Accesses a contained value via a constant key
     ///
-    /// `[*target, constant]`
+    /// `[*target, @constant]`
     Access,
-
-    /// Accesses a contained value via a u16 constant key
-    ///
-    /// `[*target, constant[2]]`
-    Access16,
-
-    /// Accesses a contained value via a u24 constant key
-    ///
-    /// `[*target, constant[3]]`
-    Access24,
 
     /// Access a contained value via a string key
     ///
@@ -539,7 +479,7 @@ pub enum Op {
 
     /// Displays the contents of a value along with the source expression that produced it
     ///
-    /// `[*value, expression constant[3]]`
+    /// `[*value, @expression constant]`
     Debug,
 
     /// Throws an error if the value doesn't match the expected type
@@ -566,6 +506,19 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused86,
+    Unused87,
+    Unused88,
+    Unused89,
+    Unused90,
+    Unused91,
+    Unused92,
+    Unused93,
+    Unused94,
+    Unused95,
+    Unused96,
+    Unused97,
+    Unused98,
     Unused99,
     Unused100,
     Unused101,

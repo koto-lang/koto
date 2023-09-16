@@ -35,7 +35,7 @@ macro_rules! make_compiler_error {
 
 macro_rules! compiler_error {
     ($compiler:expr, $error:expr) => {
-        Err(make_compiler_error!($compiler.span(), String::from($error)))
+        Err(make_compiler_error!($compiler.span(), format!($error)))
     };
     ($compiler:expr, $error:expr, $($args:expr),+ $(,)?) => {
         Err(make_compiler_error!($compiler.span(), format!($error, $($args),+)))
@@ -468,26 +468,14 @@ impl Compiler {
             Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(
-                        result.register,
-                        *constant,
-                        LoadFloat,
-                        LoadFloat16,
-                        LoadFloat24,
-                    );
+                    self.compile_constant_op(result.register, *constant, LoadFloat);
                 }
                 result
             }
             Node::Int(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(
-                        result.register,
-                        *constant,
-                        LoadInt,
-                        LoadInt16,
-                        LoadInt24,
-                    );
+                    self.compile_constant_op(result.register, *constant, LoadInt);
                 }
                 result
             }
@@ -779,7 +767,7 @@ impl Compiler {
                     .unwrap();
 
                 self.push_op(Debug, &[expression_register.register]);
-                self.push_bytes(&expression_string.bytes());
+                self.push_var_u32(*expression_string);
 
                 if let Some(result) = result {
                     self.push_op(Copy, &[result.register, expression_register.register]);
@@ -1377,37 +1365,33 @@ impl Compiler {
     }
 
     fn compile_load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
-        self.compile_constant_op(
-            result_register,
-            index,
-            Op::LoadString,
-            Op::LoadString16,
-            Op::LoadString24,
-        );
+        self.compile_constant_op(result_register, index, Op::LoadString);
     }
 
     fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
-        self.compile_constant_op(
-            result_register,
-            id,
-            Op::LoadNonLocal,
-            Op::LoadNonLocal16,
-            Op::LoadNonLocal24,
-        );
+        self.compile_constant_op(result_register, id, Op::LoadNonLocal);
     }
 
-    fn compile_constant_op(
-        &mut self,
-        result_register: u8,
-        id: ConstantIndex,
-        op8: Op,
-        op16: Op,
-        op24: Op,
-    ) {
-        match id.bytes() {
-            [byte1, 0, 0] => self.push_op(op8, &[result_register, byte1]),
-            [byte1, byte2, 0] => self.push_op(op16, &[result_register, byte1, byte2]),
-            [byte1, byte2, byte3] => self.push_op(op24, &[result_register, byte1, byte2, byte3]),
+    fn compile_constant_op(&mut self, result_register: u8, id: u32, op: Op) {
+        self.push_op(op, &[result_register]);
+        self.push_var_u32(id);
+    }
+
+    fn push_var_u32(&mut self, mut n: u32) {
+        loop {
+            let mut byte = (n & 0x7f) as u8;
+
+            n >>= 7;
+
+            if n != 0 {
+                byte |= 0x80;
+            }
+
+            self.bytes.push(byte);
+
+            if n == 0 {
+                break;
+            }
         }
     }
 
@@ -1482,7 +1466,7 @@ impl Compiler {
                         for item_node in item.iter() {
                             match item_node {
                                 ImportItemNode::Id(id) => {
-                                    self.compile_access_id(import_register, access_register, *id)?;
+                                    self.compile_access_id(import_register, access_register, *id);
                                 }
                                 ImportItemNode::Str(string) => {
                                     self.compile_access_string(
@@ -1513,7 +1497,7 @@ impl Compiler {
                         for item_node in item.iter() {
                             match item_node {
                                 ImportItemNode::Id(id) => {
-                                    self.compile_access_id(import_register, access_register, *id)?;
+                                    self.compile_access_id(import_register, access_register, *id);
                                 }
                                 ImportItemNode::Str(string) => {
                                     self.compile_access_string(
@@ -1570,7 +1554,7 @@ impl Compiler {
                 for nested_item in nested.iter() {
                     match nested_item {
                         ImportItemNode::Id(id) => {
-                            self.compile_access_id(result_register, result_register, *id)?
+                            self.compile_access_id(result_register, result_register, *id)
                         }
                         ImportItemNode::Str(string) => self.compile_access_string(
                             result_register,
@@ -2046,15 +2030,10 @@ impl Compiler {
             }
             _ => {
                 if result.is_some() {
-                    if size_hint <= u8::MAX as usize {
-                        self.push_op(Op::StringStart, &[size_hint as u8]);
-                    } else {
-                        // Limit the size hint to u32::MAX, u64 size hinting can be added later if
-                        // it would be useful in practice.
-                        let size_hint = size_hint.min(u32::MAX as usize) as u32;
-                        self.push_op(Op::StringStart32, &[]);
-                        self.push_bytes(&size_hint.to_le_bytes());
-                    }
+                    self.push_op(Op::StringStart, &[]);
+                    // Limit the size hint to u32::MAX, u64 size hinting can be added later if
+                    // it would be useful in practice.
+                    self.push_var_u32(size_hint as u32);
                 }
 
                 for node in nodes.iter() {
@@ -2162,19 +2141,16 @@ impl Compiler {
 
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
-                match elements.len() {
-                    size_hint if size_hint <= u8::MAX as usize => {
-                        self.push_op(SequenceStart, &[size_hint as u8]);
+                match u32::try_from(elements.len()) {
+                    Ok(size_hint) => {
+                        self.push_op(SequenceStart, &[]);
+                        self.push_var_u32(size_hint);
                     }
-                    size_hint if size_hint <= u32::MAX as usize => {
-                        self.push_op(SequenceStart32, &[]);
-                        self.push_bytes(&(size_hint as u32).to_le_bytes());
-                    }
-                    overflow => {
+                    Err(_) => {
                         return compiler_error!(
                             self,
                             "Too many list elements, {} is greater than the maximum of {}",
-                            overflow,
+                            elements.len(),
                             u32::MAX
                         );
                     }
@@ -2244,19 +2220,16 @@ impl Compiler {
 
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
-                match entries.len() {
-                    size_hint if size_hint <= u8::MAX as usize => {
-                        self.push_op(MakeMap, &[result.register, size_hint as u8]);
+                match u32::try_from(entries.len()) {
+                    Ok(size_hint) => {
+                        self.push_op(MakeMap, &[result.register]);
+                        self.push_var_u32(size_hint);
                     }
-                    size_hint if size_hint <= u32::MAX as usize => {
-                        self.push_op(MakeMap32, &[result.register]);
-                        self.push_bytes(&(size_hint as u32).to_le_bytes());
-                    }
-                    overflow => {
+                    Err(_) => {
                         return compiler_error!(
                             self,
                             "Too many map entries, {} is greater than the maximum of {}",
-                            overflow,
+                            entries.len(),
                             u32::MAX
                         );
                     }
@@ -2501,7 +2474,7 @@ impl Compiler {
 
                     let node_register = self.push_register()?;
                     node_registers.push(node_register);
-                    self.compile_access_id(node_register, parent_register, *id)?;
+                    self.compile_access_id(node_register, parent_register, *id);
                 }
                 LookupNode::Str(ref lookup_string) => {
                     // Access by string
@@ -2632,7 +2605,7 @@ impl Compiler {
         // If rhs is Some and rhs_op is None, then it's a simple assignment
         match &last_node {
             LookupNode::Id(id) if !simple_assignment => {
-                self.compile_access_id(access_register, parent_register, *id)?;
+                self.compile_access_id(access_register, parent_register, *id);
                 node_registers.push(access_register);
             }
             LookupNode::Str(_) if !simple_assignment => {
@@ -2818,21 +2791,9 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_access_id(
-        &mut self,
-        result: u8,
-        value: u8,
-        key: ConstantIndex,
-    ) -> Result<(), CompilerError> {
-        use Op::*;
-
-        match key.bytes() {
-            [byte1, 0, 0] => self.push_op(Access, &[result, value, byte1]),
-            [byte1, byte2, 0] => self.push_op(Access16, &[result, value, byte1, byte2]),
-            [byte1, byte2, byte3] => self.push_op(Access24, &[result, value, byte1, byte2, byte3]),
-        }
-
-        Ok(())
+    fn compile_access_id(&mut self, result: u8, value: u8, key: ConstantIndex) {
+        self.push_op(Op::Access, &[result, value]);
+        self.push_var_u32(key);
     }
 
     fn compile_access_string(
@@ -3928,8 +3889,9 @@ impl Compiler {
             }
             Err(_) => compiler_error!(
                 self,
-                "Jump offset is too large, {} is larger than the maximum of {}.
-                 Try breaking up this part of the program a bit."
+                "Jump offset is too large, {offset} is larger than the maximum of {}.
+                 Try breaking up this part of the program a bit.",
+                u16::MAX,
             ),
         }
     }

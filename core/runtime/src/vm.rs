@@ -723,10 +723,10 @@ impl Vm {
             MakeMap {
                 register,
                 size_hint,
-            } => self.set_register(register, ValueMap::with_capacity(size_hint).into()),
-            SequenceStart { size_hint } => {
-                self.sequence_builders.push(Vec::with_capacity(size_hint))
-            }
+            } => self.set_register(register, ValueMap::with_capacity(size_hint as usize).into()),
+            SequenceStart { size_hint } => self
+                .sequence_builders
+                .push(Vec::with_capacity(size_hint as usize)),
             SequencePush { value } => self.run_sequence_push(value)?,
             SequencePushN { start, count } => {
                 for value_register in start..(start + count) {
@@ -735,9 +735,9 @@ impl Vm {
             }
             SequenceToList { register } => self.run_sequence_to_list(register)?,
             SequenceToTuple { register } => self.run_sequence_to_tuple(register)?,
-            StringStart { size_hint } => {
-                self.string_builders.push(String::with_capacity(size_hint))
-            }
+            StringStart { size_hint } => self
+                .string_builders
+                .push(String::with_capacity(size_hint as usize)),
             StringPush { value } => self.run_string_push(value)?,
             StringFinish { register } => self.run_string_finish(register)?,
             Range {
@@ -939,7 +939,7 @@ impl Vm {
         Ok(control_flow)
     }
 
-    fn run_load_non_local(&mut self, register: u8, constant_index: ConstantIndex) -> Result<()> {
+    fn run_load_non_local(&mut self, register: u8, constant_index: u32) -> Result<()> {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
