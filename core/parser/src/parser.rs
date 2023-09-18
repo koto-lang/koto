@@ -866,7 +866,7 @@ impl<'source> Parser<'source> {
                 }
                 Token::Throw => self.parse_throw_expression(),
                 Token::Debug => self.parse_debug_expression(),
-                Token::From | Token::Import => self.parse_import_expression(context),
+                Token::From | Token::Import => self.parse_import(context),
                 Token::Export => self.parse_export(context),
                 Token::Try => self.parse_try_expression(context),
                 Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
@@ -2616,26 +2616,28 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    fn parse_import_expression(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<AstIndex, ParserError> {
-        let from_import = match self.consume_token_with_context(context) {
-            Some((Token::From, _)) => true,
-            Some((Token::Import, _)) => false,
+    fn parse_import(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        let importing_from = match self.peek_token_with_context(context) {
+            Some(peeked) if peeked.token == Token::Import => false,
+            Some(peeked) if peeked.token == Token::From => true,
             _ => return self.error(InternalError::UnexpectedToken),
         };
 
         let start_span = self.current_span();
+        let from_context = ExpressionContext::restricted();
 
-        let from = if from_import {
-            let from = match self.parse_import_items()?.as_slice() {
+        self.consume_token_with_context(&from_context);
+
+        let from = if importing_from {
+            // Parse the from module path: a nested path is allowed, but only a single path
+            let from = match self.parse_import_items(true, &from_context)?.as_slice() {
                 [from] => from.clone(),
                 _ => return self.error(SyntaxError::ImportFromExpressionHasTooManyItems),
             };
 
-            if self.consume_next_token_on_same_line() != Some(Token::Import) {
-                return self.error(SyntaxError::ExpectedImportKeywordAfterFrom);
+            match self.consume_token_with_context(&from_context) {
+                Some((op, _)) if op == Token::Import => {}
+                _ => return self.error(SyntaxError::ExpectedImportAfterFrom),
             }
 
             from
@@ -2643,41 +2645,43 @@ impl<'source> Parser<'source> {
             vec![]
         };
 
-        let items = self.parse_import_items()?;
-
-        if let Some(token) = self.peek_next_token_on_same_line() {
-            if !token.is_newline() {
-                return self
-                    .consume_token_and_error(SyntaxError::UnexpectedTokenInImportExpression);
-            }
-        }
+        // Nested items aren't allowed, flatten the returned items into a single vec
+        let items: Vec<ImportItemNode> = self
+            .parse_import_items(false, &ExpressionContext::permissive())?
+            .into_iter()
+            .flatten()
+            .collect();
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            match item.last() {
-                Some(ImportItemNode::Id(id)) => {
+            match item {
+                ImportItemNode::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(*id);
                 }
-                Some(ImportItemNode::Str(_)) => {}
-                None => return self.error(InternalError::ExpectedIdInImportItem),
-            };
+                ImportItemNode::Str(_) => {}
+            }
         }
 
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
-    // Helper for parse_import_expression(), parses a series of import items
+    // Helper for parse_import(), parses a series of import items
     // e.g.
-    //   import foo.bar, 'baz', x.'y'
-    //   #      ^ You are here
-    fn parse_import_items(&mut self) -> Result<Vec<Vec<ImportItemNode>>, ParserError> {
+    //   from baz.qux import foo, 'bar', 'x'
+    //   #    ^ You are here, with nested items allowed
+    //   #                   ^ Or here, with nested items disallowed
+    fn parse_import_items(
+        &mut self,
+        allow_nested_items: bool,
+        context: &ExpressionContext,
+    ) -> Result<Vec<Vec<ImportItemNode>>, ParserError> {
         let mut items = vec![];
-        let item_context = ExpressionContext::permissive();
+        let mut context = *context;
 
         loop {
-            let item_root = match self.parse_id(&item_context)? {
+            let item_root = match self.parse_id(&context)? {
                 Some((id, _)) => ImportItemNode::Id(id),
-                None => match self.parse_string(&item_context)? {
+                None => match self.parse_string(&context)? {
                     Some((import_string, _span, _string_context)) => {
                         ImportItemNode::Str(import_string)
                     }
@@ -2687,29 +2691,37 @@ impl<'source> Parser<'source> {
 
             let mut item = vec![item_root];
 
-            while self.peek_token() == Some(Token::Dot) {
-                self.consume_token();
+            if allow_nested_items {
+                while self.peek_token() == Some(Token::Dot) {
+                    self.consume_token();
 
-                match self.parse_id(&ExpressionContext::restricted())? {
-                    Some((id, _)) => item.push(ImportItemNode::Id(id)),
-                    None => match self.parse_string(&ExpressionContext::restricted())? {
-                        Some((node_string, _span, _string_context)) => {
-                            item.push(ImportItemNode::Str(node_string));
-                        }
-                        None => {
-                            return self
-                                .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
-                        }
-                    },
+                    match self.parse_id(&ExpressionContext::restricted())? {
+                        Some((id, _)) => item.push(ImportItemNode::Id(id)),
+                        None => match self.parse_string(&ExpressionContext::restricted())? {
+                            Some((node_string, _span, _string_context)) => {
+                                item.push(ImportItemNode::Str(node_string));
+                            }
+                            None => {
+                                return self
+                                    .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
+                            }
+                        },
+                    }
                 }
             }
 
             items.push(item);
 
-            if self.peek_next_token_on_same_line() != Some(Token::Comma) {
-                break;
+            match self.peek_token_with_context(&context) {
+                Some(peeked) if peeked.token == Token::Comma => {
+                    if let Some((_, new_context)) = self.consume_token_with_context(&context) {
+                        context = new_context.with_expected_indentation(
+                            Indentation::GreaterOrEqual(self.current_indent()),
+                        );
+                    }
+                }
+                _ => break,
             }
-            self.consume_next_token_on_same_line();
         }
 
         if items.is_empty() {

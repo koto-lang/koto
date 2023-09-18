@@ -3150,7 +3150,7 @@ dog('Fido').speak()
         fn import_after_local_assignment() {
             let script = "
 x = 123
-y = import test.assert
+y = from test import assert
 x";
             test_script(script, 123);
         }

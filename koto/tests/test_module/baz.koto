@@ -1,6 +1,6 @@
 # This file is imported by ./main.koto
 
-import number.pi, test.assert_eq
+from number import pi
 assert_eq pi, pi
 
 export qux = null

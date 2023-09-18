@@ -134,14 +134,14 @@ pub enum Node {
     /// An import expression
     ///
     /// Each import item is defined as a series of [ImportItemNode]s,
-    /// e.g. `from foo.fun import baz.bar, caz.car.cax`
+    /// e.g. `from foo.bar import baz, 'qux'
     Import {
-        /// The series of items to import
-        items: Vec<Vec<ImportItemNode>>,
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
         from: Vec<ImportItemNode>,
+        /// The series of items to import
+        items: Vec<ImportItemNode>,
     },
 
     /// An assignment expression

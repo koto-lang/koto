@@ -73,7 +73,7 @@ pub enum SyntaxError {
     ExpectedFunctionArgsEnd,
     ExpectedIdInImportExpression,
     ExpectedIfCondition,
-    ExpectedImportKeywordAfterFrom,
+    ExpectedImportAfterFrom,
     ExpectedImportModuleId,
     ExpectedIndentedLookupContinuation,
     ExpectedIndexEnd,
@@ -275,7 +275,7 @@ impl fmt::Display for SyntaxError {
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
             ExpectedIfCondition => f.write_str("Expected condition after 'if'"),
-            ExpectedImportKeywordAfterFrom => f.write_str("Expected 'import' after 'from' ID"),
+            ExpectedImportAfterFrom => f.write_str("Expected import after from"),
             ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
             ExpectedIndentedLookupContinuation => {
                 f.write_str("Expected indented lookup continuation")

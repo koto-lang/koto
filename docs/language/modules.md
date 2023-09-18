@@ -5,7 +5,9 @@
 Module items can be brought into the current scope using `import`.
 
 ```koto
-import list.last, number.abs
+from list import last
+from number import abs
+
 x = [1, 2, 3]
 print! last x
 check! 3
@@ -30,8 +32,8 @@ check! 3
 Imported items can be assigned to alternative names.
 
 ```koto
-list_size = import list.size
-tuple_size = import tuple.size
+list_size = from list import size
+tuple_size = from tuple import size
 print! list_size [1, 2]
 check! 2
 print! tuple_size (3, 2, 1)
@@ -52,7 +54,7 @@ export say_hello = |name| 'Hello, $name!'
 ##################
 ##################
 
-import my_module.say_hello
+from my_module import say_hello
 
 say_hello 'Koto'
 check! 'Hello, Koto!' 
@@ -88,7 +90,7 @@ export say_hello = |name| 'Hello, $name!'
 ##################
 ##################
 
-import my_module.say_hello
+from my_module import say_hello
 check! Testing...
 check! Successfully initialized `my_module`
 

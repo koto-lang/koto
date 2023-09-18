@@ -85,6 +85,8 @@ The Koto project adheres to
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 
+- Import nested items directly is no longer allowed
+  - e.g. `import foo.bar` now needs to be written as `from foo import bar`.
 
 ### Libs
 

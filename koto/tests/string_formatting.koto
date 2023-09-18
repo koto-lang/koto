@@ -1,4 +1,4 @@
-import number.pi
+from number import pi
 
 @tests =
   @test format: ||

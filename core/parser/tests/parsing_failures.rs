@@ -363,4 +363,23 @@ switch
             }
         }
     }
+
+    mod import {
+        use super::*;
+
+        #[test]
+        fn nested_import() {
+            check_parsing_fails("import foo.bar");
+        }
+
+        #[test]
+        fn multiple_from_items() {
+            check_parsing_fails("from bar, baz import foo");
+        }
+
+        #[test]
+        fn from_after_import() {
+            check_parsing_fails("import foo from bar");
+        }
+    }
 }

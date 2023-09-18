@@ -29,7 +29,7 @@ Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 assert_near 0.acos(), pi / 2
 assert_eq 1.acos(), 0
@@ -79,7 +79,7 @@ Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 assert_eq 0.asin(), 0
 assert_near 1.asin(), pi / 2
@@ -111,7 +111,7 @@ Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 assert_eq 0.atan(), 0
 assert_near 1.atan(), pi / 4
@@ -150,7 +150,7 @@ Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 x, y = 1, 1
 
@@ -221,9 +221,7 @@ Returns the cosine of the number.
 print! 0.cos()
 check! 1.0
 
-import number.pi
-
-print! pi.cos()
+print! number.pi.cos()
 check! -1.0
 ```
 
@@ -422,9 +420,7 @@ Returns the natural logarithm of the number.
 print! 1.ln()
 check! 0.0
 
-from number import e
-
-print! e.ln()
+print! number.e.ln()
 check! 1.0
 ```
 
@@ -583,7 +579,7 @@ Converts degrees into radians.
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 assert_near 90.radians(), pi / 2
 assert_near 360.radians(), pi * 2
@@ -685,7 +681,7 @@ Returns the sine of the number.
 ### Example
 
 ```koto
-import number.pi
+from number import pi
 
 print! (pi * 0.5).sin()
 check! 1.0

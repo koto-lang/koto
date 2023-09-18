@@ -27,23 +27,18 @@ import test_module
     assert_eq (test_module.square 9), 81
 
   @test assign_import_item: ||
-    x = import test_module.bar
+    x = from test_module import bar
     assert_eq x, -1
 
-  @test import_nested_item_directly: ||
-    import test_module.baz.qux
+  @test import_item_from_nested_module: ||
+    from test_module.baz import qux
     assert_eq qux, "O_o"
 
-  @test import_nested_item_indirectly: ||
+  @test import_nested_item_incrementally: ||
     import test_module
-    import test_module.baz
-    import baz.qux
+    from test_module import baz
+    from baz import qux
     assert_eq qux, "O_o"
-
-  @test import_multiple_items: ||
-    a, b = import test_module.foo, test_module.bar
-    assert_eq a, 42
-    assert_eq b, -1
 
   @test import_multiple_items_with_from: ||
     x, y = from test_module import foo, bar
@@ -64,7 +59,7 @@ import test_module
   @test tests_should_be_run_when_importing_a_module: ||
     # Tests will be run when importing a module when the 'run import tests' setting is set
     # in the runtime.
-    import test_module.tests_were_run
+    from test_module import tests_were_run
     assert tests_were_run
 
   @test dynamic_exported_value: ||

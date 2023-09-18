@@ -4254,14 +4254,14 @@ assert_eq x, "hello"
         }
 
         #[test]
-        fn import_module() {
+        fn import_single_item() {
             let source = "import foo";
             check_ast(
                 source,
                 &[
                     Import {
                         from: vec![],
-                        items: vec![vec![import_id(0)]],
+                        items: vec![import_id(0)],
                     },
                     MainBlock {
                         body: vec![0],
@@ -4273,14 +4273,14 @@ assert_eq x, "hello"
         }
 
         #[test]
-        fn import_item() {
-            let source = "import foo.bar";
+        fn import_from_module() {
+            let source = "from foo import bar";
             check_ast(
                 source,
                 &[
                     Import {
-                        from: vec![],
-                        items: vec![vec![import_id(0), import_id(1)]],
+                        from: vec![import_id(0)],
+                        items: vec![import_id(1)],
                     },
                     MainBlock {
                         body: vec![0],
@@ -4293,14 +4293,14 @@ assert_eq x, "hello"
 
         #[test]
         fn import_item_used_in_assignment() {
-            let source = "x = import foo.bar";
+            let source = "x = from foo import bar";
             check_ast(
                 source,
                 &[
                     Id(constant(0)),
                     Import {
-                        from: vec![],
-                        items: vec![vec![import_id(1), import_id(2)]],
+                        from: vec![import_id(1)],
+                        items: vec![import_id(2)],
                     },
                     Assign {
                         target: AssignTarget {
@@ -4324,16 +4324,29 @@ assert_eq x, "hello"
 
         #[test]
         fn import_items() {
-            let source = "import foo, 'bar', baz";
-            check_ast(
-                source,
+            let sources = [
+                "import foo, 'bar', baz",
+                "
+import
+  foo,
+  'bar',
+  baz,
+",
+                "
+import foo,
+  'bar', baz
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Import {
                         from: vec![],
                         items: vec![
-                            vec![import_id(0)],
-                            vec![import_string(1, QuotationMark::Single)],
-                            vec![import_id(2)],
+                            import_id(0),
+                            import_string(1, QuotationMark::Single),
+                            import_id(2),
                         ],
                     },
                     MainBlock {
@@ -4351,13 +4364,23 @@ assert_eq x, "hello"
 
         #[test]
         fn import_items_from() {
-            let source = "from foo import bar, baz";
-            check_ast(
-                source,
+            let sources = [
+                "from foo import bar, baz",
+                "
+from foo import
+  bar, baz
+",
+                "
+from foo import bar,
+                baz,
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Import {
                         from: vec![import_id(0)],
-                        items: vec![vec![import_id(1)], vec![import_id(2)]],
+                        items: vec![import_id(1), import_id(2)],
                     },
                     MainBlock {
                         body: vec![0],
@@ -4374,13 +4397,13 @@ assert_eq x, "hello"
 
         #[test]
         fn import_nested_items() {
-            let source = "from 'foo'.bar import abc.def, xyz";
+            let source = "from 'foo'.bar import abc, xyz";
             check_ast(
                 source,
                 &[
                     Import {
                         from: vec![import_string(0, QuotationMark::Single), import_id(1)],
-                        items: vec![vec![import_id(2), import_id(3)], vec![import_id(4)]],
+                        items: vec![import_id(2), import_id(3)],
                     },
                     MainBlock {
                         body: vec![0],
@@ -4391,7 +4414,6 @@ assert_eq x, "hello"
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                     Constant::Str("abc"),
-                    Constant::Str("def"),
                     Constant::Str("xyz"),
                 ]),
             )
