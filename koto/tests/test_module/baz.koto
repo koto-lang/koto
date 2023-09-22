@@ -7,4 +7,4 @@ export qux = null
 
 @main = ||
   # Redefine qux to check that main has been called
-  export qux = "O_o"
+  export qux = 'O_o'

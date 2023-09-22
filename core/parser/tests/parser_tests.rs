@@ -405,10 +405,7 @@ x = [
                     SmallInt(0), // 5
                     List(vec![1, 2, 3, 4, 5]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 6,
                     },
                     MainBlock {
@@ -463,10 +460,7 @@ x =
                         (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
                     ]), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 1,
-                            scope: Scope::Local,
-                        },
+                        target: 1,
                         expression: 5,
                     },
                     MainBlock {
@@ -540,10 +534,7 @@ x"#;
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),          // @-: -1
                     ]), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 5,
                     },
                     Id(constant(0)),
@@ -576,10 +567,7 @@ x =
                         Some(1),
                     )]), // "foo", 42
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 2,
                     },
                     MainBlock {
@@ -610,10 +598,7 @@ x =
                         (MapKey::Id(constant(1)), Some(2)), // foo: ...
                     ]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 3,
                     },
                     MainBlock {
@@ -650,10 +635,7 @@ x =
                         (MapKey::Meta(MetaKeyId::Named, Some(constant(1))), Some(3)),
                     ]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -686,14 +668,12 @@ x =
                         (MapKey::Meta(MetaKeyId::Test, Some(constant(0))), Some(3)),
                     ]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Export,
-                        },
+                        target: 0,
                         expression: 4,
                     }, // 5
+                    Export(5),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -783,19 +763,13 @@ min..max
                     Id(constant(0)),
                     SmallInt(0),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 1,
                     },
                     Id(constant(1)),
                     SmallInt(10),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 3,
-                            scope: Scope::Local,
-                        },
+                        target: 3,
                         expression: 4,
                     }, // 5
                     Id(constant(0)),
@@ -1003,54 +977,12 @@ min..max
                     Id(constant(0)),
                     SmallInt(1),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 1,
                     },
                     MainBlock {
                         body: vec![2],
                         local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("a")]),
-            )
-        }
-
-        #[test]
-        fn single_export() {
-            let sources = [
-                "export a = 1 + 1",
-                "
-export a
-  = 1 + 1",
-                "
-export a =
-  1 + 1",
-            ];
-
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    Id(constant(0)),
-                    SmallInt(1),
-                    SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Export,
-                        },
-                        expression: 3,
-                    },
-                    MainBlock {
-                        body: vec![4],
-                        local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("a")]),
@@ -1068,10 +1000,7 @@ export a =
                     SmallInt(0),
                     Tuple(vec![1, 2]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 3,
                     },
                     MainBlock {
@@ -1098,10 +1027,7 @@ export a =
                     Tuple(vec![4, 5]),
                     Tuple(vec![3, 6]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 7,
                     },
                     MainBlock {
@@ -1128,16 +1054,7 @@ export a =
                     SmallInt(0),
                     TempTuple(vec![5, 6]),
                     MultiAssign {
-                        targets: vec![
-                            AssignTarget {
-                                target_index: 0,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 4,
-                                scope: Scope::Local,
-                            },
-                        ],
+                        targets: vec![0, 4],
                         expression: 7,
                     },
                     MainBlock {
@@ -1165,16 +1082,7 @@ x";
                     SmallInt(0),
                     TempTuple(vec![2, 3]),
                     MultiAssign {
-                        targets: vec![
-                            AssignTarget {
-                                target_index: 0,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 1,
-                                scope: Scope::Local,
-                            },
-                        ],
+                        targets: vec![0, 1],
                         expression: 4,
                     }, // 5
                     Id(constant(0)),
@@ -1206,20 +1114,7 @@ x";
                     )),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     MultiAssign {
-                        targets: vec![
-                            AssignTarget {
-                                target_index: 0,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 1,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 2,
-                                scope: Scope::Local,
-                            },
-                        ],
+                        targets: vec![0, 1, 2],
                         expression: 5,
                     },
                     MainBlock {
@@ -1283,6 +1178,47 @@ x %= 4";
                     }, // 15
                 ],
                 Some(&[Constant::Str("x")]),
+            )
+        }
+    }
+
+    mod export {
+        use super::*;
+
+        #[test]
+        fn export_assignment() {
+            let sources = [
+                "export a = 1 + 1",
+                "
+export a
+  = 1 + 1",
+                "
+export a =
+  1 + 1",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    Id(constant(0)),
+                    SmallInt(1),
+                    SmallInt(1),
+                    BinaryOp {
+                        op: AstBinaryOp::Add,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Assign {
+                        target: 0,
+                        expression: 3,
+                    },
+                    Export(4), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
             )
         }
     }
@@ -1470,10 +1406,7 @@ x %= 4";
                         rhs: 3,
                     },
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -1529,10 +1462,7 @@ a =
                         rhs: 4,
                     }, // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 5,
                     },
                     MainBlock {
@@ -1586,10 +1516,7 @@ a = (1
                         rhs: 5,
                     },
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 6,
                     },
                     MainBlock {
@@ -1760,10 +1687,7 @@ a",
                         else_node: Some(7),
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 8,
                     },
                     Id(constant(0)),
@@ -1798,16 +1722,7 @@ a",
                         else_node: Some(8),
                     }),
                     MultiAssign {
-                        targets: vec![
-                            AssignTarget {
-                                target_index: 0,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 1,
-                                scope: Scope::Local,
-                            },
-                        ],
+                        targets: vec![0, 1],
                         expression: 9,
                     }, // 10
                     MainBlock {
@@ -2058,10 +1973,7 @@ a()";
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 2,
                     },
                     Id(constant(0)),
@@ -2184,10 +2096,7 @@ f 42";
                     Id(constant(2)), // y
                     Id(constant(1)), // x
                     Assign {
-                        target: AssignTarget {
-                            target_index: 2,
-                            scope: Scope::Local,
-                        },
+                        target: 2,
                         expression: 3,
                     },
                     Id(constant(2)), // 5
@@ -2201,10 +2110,7 @@ f 42";
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 7,
                     },
                     SmallInt(42),
@@ -2246,10 +2152,7 @@ f 42";
                         is_generator: false,
                     }), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 2,
-                            scope: Scope::Local,
-                        },
+                        target: 2,
                         expression: 5,
                     },
                     Id(constant(1)), // x
@@ -2267,10 +2170,7 @@ f 42";
                         is_generator: false,
                     }), // 10
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 10,
                     },
                     SmallInt(42),
@@ -2494,10 +2394,7 @@ f x";
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -2549,16 +2446,7 @@ f x";
                     Nested(10),
                     TempTuple(vec![6, 11]),
                     MultiAssign {
-                        targets: vec![
-                            AssignTarget {
-                                target_index: 0,
-                                scope: Scope::Local,
-                            },
-                            AssignTarget {
-                                target_index: 1,
-                                scope: Scope::Local,
-                            },
-                        ],
+                        targets: vec![0, 1],
                         expression: 12,
                     },
                     MainBlock {
@@ -2668,10 +2556,7 @@ foo.bar x
                     Lookup((LookupNode::Root(2), Some(3))),
                     Id(constant(2)), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 4,
-                            scope: Scope::Local,
-                        },
+                        target: 4,
                         expression: 5,
                     },
                     Function(koto_parser::Function {
@@ -2725,10 +2610,7 @@ f = ||
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 4,
                     },
                     MainBlock {
@@ -2775,10 +2657,7 @@ f = ||
                         is_generator: false,
                     }), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 5,
                     },
                     MainBlock {
@@ -2814,10 +2693,7 @@ f()";
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     Id(constant(3)),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 5,
-                            scope: Scope::Local,
-                        },
+                        target: 5,
                         expression: 6,
                     },
                     Function(koto_parser::Function {
@@ -2841,10 +2717,7 @@ f()";
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 10,
                     },
                     Id(constant(0)),
@@ -2924,10 +2797,7 @@ f = |n|
                         is_generator: false,
                     }), // ast 15
                     Assign {
-                        target: AssignTarget {
-                            target_index: 2,
-                            scope: Scope::Local,
-                        },
+                        target: 2,
                         expression: 15,
                     },
                     Id(constant(2)),
@@ -2941,10 +2811,7 @@ f = |n|
                         is_generator: false,
                     }),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 19,
                     }, // ast 20
                     MainBlock {
@@ -2980,10 +2847,7 @@ f = |n|
                         rhs: 2,
                     },
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 3,
                     },
                     Id(constant(0)), // 5
@@ -3018,20 +2882,14 @@ f = |n|
                     Id(constant(1)),
                     SmallInt(1),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 1,
-                            scope: Scope::Local,
-                        },
+                        target: 1,
                         expression: 2,
                     },
                     Nested(3),
                     Id(constant(1)), // 5
                     Tuple(vec![4, 5]),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 6,
                     },
                     Function(koto_parser::Function {
@@ -3121,10 +2979,7 @@ y z";
                         args: vec![4, 9],
                     }, // 10
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 10,
                     },
                     Id(constant(0)), // z
@@ -3346,10 +3201,7 @@ y z";
                     Lookup((LookupNode::Index(5), None)),
                     Lookup((LookupNode::Root(4), Some(6))),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 3,
-                            scope: Scope::Local,
-                        },
+                        target: 3,
                         expression: 7,
                     },
                     MainBlock {
@@ -3526,10 +3378,7 @@ x.bar()."baz" = 1
                     Lookup((LookupNode::Root(0), Some(3))),
                     SmallInt(1), // 5
                     Assign {
-                        target: AssignTarget {
-                            target_index: 4,
-                            scope: Scope::Local,
-                        },
+                        target: 4,
                         expression: 5,
                     },
                     MainBlock {
@@ -3845,10 +3694,7 @@ x = ( 0
                     Lookup((LookupNode::Id(constant(1)), Some(5))),
                     Lookup((LookupNode::Root(3), Some(6))),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 7,
                     },
                     MainBlock {
@@ -3897,10 +3743,7 @@ x = [ 0
                     Lookup((LookupNode::Id(constant(1)), Some(5))),
                     Lookup((LookupNode::Root(3), Some(6))),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 7,
                     },
                     MainBlock {
@@ -3955,10 +3798,7 @@ x = { y
                     Lookup((LookupNode::Id(constant(3)), Some(2))),
                     Lookup((LookupNode::Root(1), Some(3))),
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 4,
                     }, // 5
                     MainBlock {
@@ -4303,10 +4143,7 @@ assert_eq x, "hello"
                         items: vec![import_id(2)],
                     },
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 1,
                     },
                     MainBlock {
@@ -4672,10 +4509,7 @@ x = match y
                         ],
                     },
                     Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
+                        target: 0,
                         expression: 7,
                     },
                     MainBlock {

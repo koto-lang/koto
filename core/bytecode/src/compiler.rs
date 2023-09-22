@@ -1,8 +1,8 @@
 use crate::{DebugInfo, FunctionFlags, Op, TypeId};
 use koto_parser::{
-    AssignTarget, Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp,
-    ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope,
-    Span, StringNode, SwitchArm,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
+    Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span, StringNode,
+    SwitchArm,
 };
 use smallvec::SmallVec;
 use std::{collections::HashSet, error, fmt};
@@ -593,10 +593,11 @@ impl Compiler {
                 self.compile_named_call(result_register, *id, args, None, ast)?
             }
             Node::Import { from, items } => {
-                self.compile_import_expression(result_register, from, items, ast)?
+                self.compile_import(result_register, from, items, ast)?
             }
+            Node::Export(expression) => self.compile_export(result_register, *expression, ast)?,
             Node::Assign { target, expression } => {
-                self.compile_assign(result_register, target, *expression, ast)?
+                self.compile_assign(result_register, *target, *expression, false, ast)?
             }
             Node::MultiAssign {
                 targets,
@@ -1041,28 +1042,19 @@ impl Compiler {
         Ok(result)
     }
 
-    fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
-        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-            Scope::Export
-        } else {
-            target.scope
-        }
+    fn force_export_assignment(&self) -> bool {
+        self.settings.export_top_level_ids && self.frame_stack.len() == 1
     }
 
     fn local_register_for_assign_target(
         &mut self,
-        target: &AssignTarget,
+        target: AstIndex,
         ast: &Ast,
     ) -> Result<Option<u8>, CompilerError> {
-        let result = match self.scope_for_assign_target(target) {
-            Scope::Local => match &ast.node(target.target_index).node {
-                Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
-                Node::Lookup(_) | Node::Wildcard(_) => None,
-                unexpected => {
-                    return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
-                }
-            },
-            _ => None,
+        let result = match &ast.node(target).node {
+            Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
+            Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
+            unexpected => return compiler_error!(self, "Expected Id in AST, found {}", unexpected),
         };
 
         Ok(result)
@@ -1071,8 +1063,9 @@ impl Compiler {
     fn compile_assign(
         &mut self,
         result_register: ResultRegister,
-        target: &AssignTarget,
+        target: AstIndex,
         expression: AstIndex,
+        export_assignment: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -1087,23 +1080,20 @@ impl Compiler {
             .compile_node(value_result_register, ast.node(expression), ast)?
             .unwrap();
 
-        let target_node = ast.node(target.target_index);
+        let target_node = ast.node(target);
         self.span_stack.push(*ast.span(target_node.span));
 
         match &target_node.node {
             Node::Id(id_index) => {
-                match self.scope_for_assign_target(target) {
-                    Scope::Local => {
-                        if !value_register.is_temporary {
-                            // To ensure that exported rhs ids with the same name as a local that's
-                            // currently being assigned can be loaded correctly, only commit the
-                            // reserved local as assigned after the rhs has been compiled.
-                            self.commit_local_register(value_register.register)?;
-                        }
-                    }
-                    Scope::Export => {
-                        self.compile_value_export(*id_index, value_register.register)?;
-                    }
+                if !value_register.is_temporary {
+                    // To ensure that exported rhs ids with the same name as a local that's
+                    // currently being assigned can be loaded correctly, only commit the
+                    // reserved local as assigned after the rhs has been compiled.
+                    self.commit_local_register(value_register.register)?;
+                }
+
+                if export_assignment || self.force_export_assignment() {
+                    self.compile_value_export(*id_index, value_register.register)?;
                 }
             }
             Node::Lookup(lookup) => {
@@ -1144,7 +1134,7 @@ impl Compiler {
     fn compile_multi_assign(
         &mut self,
         result_register: ResultRegister,
-        targets: &[AssignTarget],
+        targets: &[AstIndex],
         expression: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -1164,7 +1154,7 @@ impl Compiler {
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
             .iter()
-            .map(|target| self.local_register_for_assign_target(target, ast))
+            .map(|target| self.local_register_for_assign_target(*target, ast))
             .collect::<Result<Vec<_>, _>>()?;
 
         let rhs_node = ast.node(expression);
@@ -1194,49 +1184,27 @@ impl Compiler {
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
-            match &ast.node(target.target_index).node {
+            match &ast.node(*target).node {
                 Node::Id(id_index) => {
-                    match (target_register, self.scope_for_assign_target(target)) {
-                        (Some(target_register), Scope::Local) => {
-                            if rhs_is_temp_tuple {
-                                self.push_op(
-                                    TempIndex,
-                                    &[*target_register, iter_register, i as u8],
-                                );
-                            } else {
-                                self.push_op(IterUnpack, &[*target_register, iter_register]);
-                            }
-                            // The register was reserved before the RHS was compiled, and now it
-                            // needs to be committed.
-                            self.commit_local_register(*target_register)?;
+                    let target_register =
+                        target_register.expect("Missing target register for assignment");
+                    if rhs_is_temp_tuple {
+                        self.push_op(TempIndex, &[target_register, iter_register, i as u8]);
+                    } else {
+                        self.push_op(IterUnpack, &[target_register, iter_register]);
+                    }
+                    // The register was reserved before the RHS was compiled, and now it
+                    // needs to be committed.
+                    self.commit_local_register(target_register)?;
 
-                            if result.is_some() {
-                                self.push_op(SequencePush, &[*target_register]);
-                            }
-                        }
-                        (None, Scope::Export) => {
-                            let value_register = self.push_register()?;
+                    // Multi-assignments typically aren't exported, but exporting
+                    // assignments might be forced, e.g. in REPL mode.
+                    if self.force_export_assignment() {
+                        self.compile_value_export(*id_index, target_register)?;
+                    }
 
-                            if rhs_is_temp_tuple {
-                                self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
-                            } else {
-                                self.push_op(IterUnpack, &[value_register, iter_register]);
-                            }
-
-                            self.compile_value_export(*id_index, value_register)?;
-
-                            if result.is_some() {
-                                self.push_op(SequencePush, &[value_register]);
-                            }
-
-                            self.pop_register()?; // value_register
-                        }
-                        _ => {
-                            // Either the scope is local, so there should be a reserved target
-                            // register, or the scope is export, so there shouldn't be a
-                            // reserved register.
-                            unreachable!();
-                        }
+                    if result.is_some() {
+                        self.push_op(SequencePush, &[target_register]);
                     }
                 }
                 Node::Lookup(lookup) => {
@@ -1395,7 +1363,7 @@ impl Compiler {
         }
     }
 
-    fn compile_import_expression(
+    fn compile_import(
         &mut self,
         result_register: ResultRegister,
         from: &[ImportItemNode],
@@ -1506,6 +1474,22 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
+    }
+
+    fn compile_export(
+        &mut self,
+        result_register: ResultRegister,
+        expression: AstIndex,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let expression_node = ast.node(expression);
+
+        match &expression_node.node {
+            Node::Assign { target, expression } => {
+                self.compile_assign(result_register, *target, *expression, true, ast)
+            }
+            unexpected => compiler_error!(self, "Expected ID for export, found {unexpected}"),
+        }
     }
 
     fn compile_from(

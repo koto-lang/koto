@@ -568,12 +568,9 @@ impl<'source> Parser<'source> {
             _ => *context,
         };
 
-        if let Some(assignment_expression) = self.parse_assign_expression(
-            expression_start,
-            previous_expressions,
-            Scope::Local,
-            &context,
-        )? {
+        if let Some(assignment_expression) =
+            self.parse_assign_expression(expression_start, previous_expressions, &context)?
+        {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(&context) {
             if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
@@ -654,7 +651,6 @@ impl<'source> Parser<'source> {
         &mut self,
         lhs: AstIndex,
         previous_lhs: &[AstIndex],
-        scope: Scope,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
         match self
@@ -669,19 +665,15 @@ impl<'source> Parser<'source> {
 
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
-            match (self.ast.node(*lhs_expression).node.clone(), scope) {
-                (Node::Id(id_index), Scope::Local) => {
+            match self.ast.node(*lhs_expression).node.clone() {
+                Node::Id(id_index) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                (Node::Id(_) | Node::Lookup(_) | Node::Wildcard(_), _) => {}
-                (Node::Meta { .. }, Scope::Export) => {}
+                Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => {}
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
             }
 
-            targets.push(AssignTarget {
-                target_index: *lhs_expression,
-                scope,
-            });
+            targets.push(*lhs_expression);
         }
 
         if targets.is_empty() {
@@ -779,13 +771,8 @@ impl<'source> Parser<'source> {
                         )
                     } else {
                         let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
-                        match self.parse_assign_expression(
-                            meta_key,
-                            &[],
-                            Scope::Export,
-                            &meta_context,
-                        )? {
-                            Some(result) => Ok(result),
+                        match self.parse_assign_expression(meta_key, &[], &meta_context)? {
+                            Some(result) => self.push_node(Node::Export(result)),
                             None => self.consume_token_and_error(
                                 SyntaxError::ExpectedAssignmentAfterMetaKey,
                             ),
@@ -1628,11 +1615,11 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(SyntaxError::ExpectedExportExpression);
         };
 
-        // Return the exported assignment expression, or the exported id.
-        // e.g. `export foo = bar`, or simply `export foo`
-        match self.parse_assign_expression(export_id, &[], Scope::Export, context)? {
-            Some(result) => Ok(result),
-            None => Ok(export_id),
+        // Return the exported assignment expression
+        // e.g. `export foo = bar`
+        match self.parse_assign_expression(export_id, &[], context)? {
+            Some(result) => self.push_node(Node::Export(result)),
+            None => self.consume_token_and_error(SyntaxError::ExpectedExportAssignment),
         }
     }
 
