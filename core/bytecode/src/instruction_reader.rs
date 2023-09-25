@@ -820,7 +820,7 @@ impl Iterator for InstructionReader {
                         let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
                         self.ip += 1;
                         result |= (*byte as u32 & 0x7f) << shift_amount;
-                        if byte & 0x8 == 0 {
+                        if byte & 0x80 == 0 {
                             break;
                         } else {
                             shift_amount += 7;
