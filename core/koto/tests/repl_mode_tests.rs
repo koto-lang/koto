@@ -95,7 +95,7 @@ mod repl_mode {
     #[test]
     fn import_print() {
         run_repl_mode_test(&[
-            ("print2 = import io.print", ""),
+            ("print2 = from io import print", ""),
             ("print2 'hello!'", "hello!"),
         ]);
     }

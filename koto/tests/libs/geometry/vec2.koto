@@ -1,4 +1,5 @@
-import geometry.vec2, number.pi
+from geometry import vec2
+from number import pi
 
 @tests =
   @test vec2: ||

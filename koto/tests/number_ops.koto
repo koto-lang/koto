@@ -1,4 +1,4 @@
-from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau,
+from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau
 
 @tests =
   @test abs: ||

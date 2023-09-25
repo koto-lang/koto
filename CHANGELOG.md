@@ -27,6 +27,12 @@ The Koto project adheres to
   - Values that implement `@[]` can now be used in unpacking assignment
     expressions.
   - `@next` and `@next_back` meta keys have been added to enable custom iterators.
+- `export` can now be used with maps as well as single-value assignments.
+  - e.g. 
+    ```koto
+    a, b, c = 1, 2, 3
+    export { a, b, c, foo: 42 }
+    ```
 
 #### Libs
 
@@ -85,6 +91,8 @@ The Koto project adheres to
 - `File`s now implement `@display`, showing their paths.
 - `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
     avoiding unnecessary copies. 
+- Import nested items directly is no longer allowed
+  - e.g. `import foo.bar` now needs to be written as `from foo import bar`.
 
 ### Libs
 

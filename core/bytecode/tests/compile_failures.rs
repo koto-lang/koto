@@ -76,5 +76,25 @@ continue
 ";
             check_compilation_fails(source);
         }
+
+        mod export {
+            use super::*;
+
+            #[test]
+            fn id_without_assignment() {
+                let source = "
+export x
+";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn list() {
+                let source = "
+export [1, 2, 3]
+";
+                check_compilation_fails(source);
+            }
+        }
     }
 }

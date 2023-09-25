@@ -64,6 +64,7 @@ pub enum SyntaxError {
     ExpectedElseIfCondition,
     ExpectedEndOfLine,
     ExpectedExportExpression,
+    ExpectedExportAssignment,
     ExpectedExpression,
     ExpectedExpressionInMainBlock,
     ExpectedForArgs,
@@ -73,7 +74,7 @@ pub enum SyntaxError {
     ExpectedFunctionArgsEnd,
     ExpectedIdInImportExpression,
     ExpectedIfCondition,
-    ExpectedImportKeywordAfterFrom,
+    ExpectedImportAfterFrom,
     ExpectedImportModuleId,
     ExpectedIndentedLookupContinuation,
     ExpectedIndexEnd,
@@ -266,6 +267,7 @@ impl fmt::Display for SyntaxError {
             ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
             ExpectedEndOfLine => f.write_str("Expected end of line"),
             ExpectedExportExpression => f.write_str("Expected ID to export"),
+            ExpectedExportAssignment => f.write_str("Expected assignment after exported ID"),
             ExpectedExpression => f.write_str("Expected expression"),
             ExpectedExpressionInMainBlock => f.write_str("Expected expression"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
@@ -275,7 +277,7 @@ impl fmt::Display for SyntaxError {
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
             ExpectedIfCondition => f.write_str("Expected condition after 'if'"),
-            ExpectedImportKeywordAfterFrom => f.write_str("Expected 'import' after 'from' ID"),
+            ExpectedImportAfterFrom => f.write_str("Expected import after from"),
             ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
             ExpectedIndentedLookupContinuation => {
                 f.write_str("Expected indented lookup continuation")

@@ -1,8 +1,8 @@
 use crate::{DebugInfo, FunctionFlags, Op, TypeId};
 use koto_parser::{
-    AssignTarget, Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp,
-    ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope,
-    Span, StringNode, SwitchArm,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
+    Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span, StringNode,
+    SwitchArm,
 };
 use smallvec::SmallVec;
 use std::{collections::HashSet, error, fmt};
@@ -483,7 +483,7 @@ impl Compiler {
             Node::List(elements) => {
                 self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
             }
-            Node::Map(entries) => self.compile_make_map(result_register, entries, ast)?,
+            Node::Map(entries) => self.compile_make_map(result_register, entries, false, ast)?,
             Node::Self_ => {
                 // self is always in register 0
                 match result_register {
@@ -593,10 +593,11 @@ impl Compiler {
                 self.compile_named_call(result_register, *id, args, None, ast)?
             }
             Node::Import { from, items } => {
-                self.compile_import_expression(result_register, from, items, ast)?
+                self.compile_import(result_register, from, items, ast)?
             }
+            Node::Export(expression) => self.compile_export(result_register, *expression, ast)?,
             Node::Assign { target, expression } => {
-                self.compile_assign(result_register, target, *expression, ast)?
+                self.compile_assign(result_register, *target, *expression, false, ast)?
             }
             Node::MultiAssign {
                 targets,
@@ -1022,10 +1023,10 @@ impl Compiler {
                     Some(result)
                 }
                 None => {
-                    // TODO Under what conditions do we get into this branch?
-                    let register = self.push_register()?;
-                    self.push_op(SetNull, &[register]);
-                    Some(CompileResult::with_temporary(register))
+                    return compiler_error!(
+                        self,
+                        "Internal error: missing result register for empty block"
+                    );
                 }
             },
             [expression] => self.compile_node(result_register, ast.node(*expression), ast)?,
@@ -1041,28 +1042,19 @@ impl Compiler {
         Ok(result)
     }
 
-    fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
-        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-            Scope::Export
-        } else {
-            target.scope
-        }
+    fn force_export_assignment(&self) -> bool {
+        self.settings.export_top_level_ids && self.frame_stack.len() == 1
     }
 
     fn local_register_for_assign_target(
         &mut self,
-        target: &AssignTarget,
+        target: AstIndex,
         ast: &Ast,
     ) -> Result<Option<u8>, CompilerError> {
-        let result = match self.scope_for_assign_target(target) {
-            Scope::Local => match &ast.node(target.target_index).node {
-                Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
-                Node::Lookup(_) | Node::Wildcard(_) => None,
-                unexpected => {
-                    return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
-                }
-            },
-            _ => None,
+        let result = match &ast.node(target).node {
+            Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
+            Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
+            unexpected => return compiler_error!(self, "Expected Id in AST, found {}", unexpected),
         };
 
         Ok(result)
@@ -1071,8 +1063,9 @@ impl Compiler {
     fn compile_assign(
         &mut self,
         result_register: ResultRegister,
-        target: &AssignTarget,
+        target: AstIndex,
         expression: AstIndex,
+        export_assignment: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -1087,23 +1080,20 @@ impl Compiler {
             .compile_node(value_result_register, ast.node(expression), ast)?
             .unwrap();
 
-        let target_node = ast.node(target.target_index);
+        let target_node = ast.node(target);
         self.span_stack.push(*ast.span(target_node.span));
 
         match &target_node.node {
             Node::Id(id_index) => {
-                match self.scope_for_assign_target(target) {
-                    Scope::Local => {
-                        if !value_register.is_temporary {
-                            // To ensure that exported rhs ids with the same name as a local that's
-                            // currently being assigned can be loaded correctly, only commit the
-                            // reserved local as assigned after the rhs has been compiled.
-                            self.commit_local_register(value_register.register)?;
-                        }
-                    }
-                    Scope::Export => {
-                        self.compile_value_export(*id_index, value_register.register)?;
-                    }
+                if !value_register.is_temporary {
+                    // To ensure that exported rhs ids with the same name as a local that's
+                    // currently being assigned can be loaded correctly, only commit the
+                    // reserved local as assigned after the rhs has been compiled.
+                    self.commit_local_register(value_register.register)?;
+                }
+
+                if export_assignment || self.force_export_assignment() {
+                    self.compile_value_export(*id_index, value_register.register)?;
                 }
             }
             Node::Lookup(lookup) => {
@@ -1144,7 +1134,7 @@ impl Compiler {
     fn compile_multi_assign(
         &mut self,
         result_register: ResultRegister,
-        targets: &[AssignTarget],
+        targets: &[AstIndex],
         expression: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -1164,7 +1154,7 @@ impl Compiler {
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
             .iter()
-            .map(|target| self.local_register_for_assign_target(target, ast))
+            .map(|target| self.local_register_for_assign_target(*target, ast))
             .collect::<Result<Vec<_>, _>>()?;
 
         let rhs_node = ast.node(expression);
@@ -1194,49 +1184,27 @@ impl Compiler {
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
-            match &ast.node(target.target_index).node {
+            match &ast.node(*target).node {
                 Node::Id(id_index) => {
-                    match (target_register, self.scope_for_assign_target(target)) {
-                        (Some(target_register), Scope::Local) => {
-                            if rhs_is_temp_tuple {
-                                self.push_op(
-                                    TempIndex,
-                                    &[*target_register, iter_register, i as u8],
-                                );
-                            } else {
-                                self.push_op(IterUnpack, &[*target_register, iter_register]);
-                            }
-                            // The register was reserved before the RHS was compiled, and now it
-                            // needs to be committed.
-                            self.commit_local_register(*target_register)?;
+                    let target_register =
+                        target_register.expect("Missing target register for assignment");
+                    if rhs_is_temp_tuple {
+                        self.push_op(TempIndex, &[target_register, iter_register, i as u8]);
+                    } else {
+                        self.push_op(IterUnpack, &[target_register, iter_register]);
+                    }
+                    // The register was reserved before the RHS was compiled, and now it
+                    // needs to be committed.
+                    self.commit_local_register(target_register)?;
 
-                            if result.is_some() {
-                                self.push_op(SequencePush, &[*target_register]);
-                            }
-                        }
-                        (None, Scope::Export) => {
-                            let value_register = self.push_register()?;
+                    // Multi-assignments typically aren't exported, but exporting
+                    // assignments might be forced, e.g. in REPL mode.
+                    if self.force_export_assignment() {
+                        self.compile_value_export(*id_index, target_register)?;
+                    }
 
-                            if rhs_is_temp_tuple {
-                                self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
-                            } else {
-                                self.push_op(IterUnpack, &[value_register, iter_register]);
-                            }
-
-                            self.compile_value_export(*id_index, value_register)?;
-
-                            if result.is_some() {
-                                self.push_op(SequencePush, &[value_register]);
-                            }
-
-                            self.pop_register()?; // value_register
-                        }
-                        _ => {
-                            // Either the scope is local, so there should be a reserved target
-                            // register, or the scope is export, so there shouldn't be a
-                            // reserved register.
-                            unreachable!();
-                        }
+                    if result.is_some() {
+                        self.push_op(SequencePush, &[target_register]);
                     }
                 }
                 Node::Lookup(lookup) => {
@@ -1395,11 +1363,11 @@ impl Compiler {
         }
     }
 
-    fn compile_import_expression(
+    fn compile_import(
         &mut self,
         result_register: ResultRegister,
         from: &[ImportItemNode],
-        items: &[Vec<ImportItemNode>],
+        items: &[ImportItemNode],
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -1412,8 +1380,8 @@ impl Compiler {
 
         if from.is_empty() {
             for item in items.iter() {
-                match item.last() {
-                    Some(ImportItemNode::Id(import_id)) => {
+                match item {
+                    ImportItemNode::Id(import_id) => {
                         if result.is_some() {
                             // The result of the import expression is being assigned,
                             // so import the item into a temporary register.
@@ -1436,22 +1404,21 @@ impl Compiler {
                             }
                         }
                     }
-                    Some(ImportItemNode::Str(_)) => {
+                    ImportItemNode::Str(_) => {
                         let import_register = self.push_register()?;
                         self.compile_import_item(import_register, item, ast)?;
                         imported.push(import_register);
                     }
-                    None => return compiler_error!(self, "Missing ID in import item"),
                 };
             }
         } else {
             let from_register = self.push_register()?;
 
-            self.compile_import_item(from_register, from, ast)?;
+            self.compile_from(from_register, from, ast)?;
 
             for item in items.iter() {
-                match item.last() {
-                    Some(ImportItemNode::Id(import_id)) => {
+                match item {
+                    ImportItemNode::Id(import_id) => {
                         let import_register = if result.is_some() {
                             // The result of the import expression is being assigned,
                             // so import the item into a temporary register.
@@ -1461,24 +1428,8 @@ impl Compiler {
                             self.assign_local_register(*import_id)?
                         };
 
-                        // Access the item from from_register, incrementally accessing nested items
-                        let mut access_register = from_register;
-                        for item_node in item.iter() {
-                            match item_node {
-                                ImportItemNode::Id(id) => {
-                                    self.compile_access_id(import_register, access_register, *id);
-                                }
-                                ImportItemNode::Str(string) => {
-                                    self.compile_access_string(
-                                        import_register,
-                                        access_register,
-                                        &string.nodes,
-                                        ast,
-                                    )?;
-                                }
-                            }
-                            access_register = import_register;
-                        }
+                        // Access the item from from_register
+                        self.compile_access_id(import_register, from_register, *import_id);
 
                         if result.is_some() {
                             imported.push(import_register);
@@ -1489,31 +1440,19 @@ impl Compiler {
                             }
                         }
                     }
-                    Some(ImportItemNode::Str(_)) => {
+                    ImportItemNode::Str(string) => {
                         let import_register = self.push_register()?;
 
                         // Access the item from from_register, incrementally accessing nested items
-                        let mut access_register = from_register;
-                        for item_node in item.iter() {
-                            match item_node {
-                                ImportItemNode::Id(id) => {
-                                    self.compile_access_id(import_register, access_register, *id);
-                                }
-                                ImportItemNode::Str(string) => {
-                                    self.compile_access_string(
-                                        import_register,
-                                        access_register,
-                                        &string.nodes,
-                                        ast,
-                                    )?;
-                                }
-                            }
-                            access_register = import_register;
-                        }
+                        self.compile_access_string(
+                            import_register,
+                            from_register,
+                            &string.nodes,
+                            ast,
+                        )?;
 
                         imported.push(import_register);
                     }
-                    None => return compiler_error!(self, "Missing ID in import item"),
                 };
             }
         }
@@ -1537,19 +1476,36 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_import_item(
+    fn compile_export(
+        &mut self,
+        result_register: ResultRegister,
+        expression: AstIndex,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let expression_node = ast.node(expression);
+
+        match &expression_node.node {
+            Node::Assign { target, expression } => {
+                self.compile_assign(result_register, *target, *expression, true, ast)
+            }
+            Node::Map(entries) => self.compile_make_map(result_register, entries, true, ast),
+            unexpected => compiler_error!(self, "Expected ID for export, found {unexpected}"),
+        }
+    }
+
+    fn compile_from(
         &mut self,
         result_register: u8,
-        item: &[ImportItemNode],
+        path: &[ImportItemNode],
         ast: &Ast,
     ) -> Result<(), CompilerError> {
-        match item {
+        match path {
             [] => return compiler_error!(self, "Missing item to import"),
             [root] => {
-                self.compile_import_root(result_register, root, ast)?;
+                self.compile_import_item(result_register, root, ast)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_root(result_register, root, ast)?;
+                self.compile_import_item(result_register, root, ast)?;
 
                 for nested_item in nested.iter() {
                     match nested_item {
@@ -1570,9 +1526,9 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_import_root(
+    fn compile_import_item(
         &mut self,
-        import_register: u8,
+        result_register: u8,
         root: &ImportItemNode,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
@@ -1581,20 +1537,20 @@ impl Compiler {
         match root {
             ImportItemNode::Id(id) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
-                    if local_register != import_register {
-                        self.push_op(Copy, &[import_register, local_register]);
+                    if local_register != result_register {
+                        self.push_op(Copy, &[result_register, local_register]);
                     }
                 } else {
                     // If the id isn't a local then it needs to be imported
-                    self.compile_load_string_constant(import_register, *id);
+                    self.compile_load_string_constant(result_register, *id);
                 }
             }
             ImportItemNode::Str(string) => {
-                self.compile_string(ResultRegister::Fixed(import_register), &string.nodes, ast)?;
+                self.compile_string(ResultRegister::Fixed(result_register), &string.nodes, ast)?;
             }
         }
 
-        self.push_op(Import, &[import_register]);
+        self.push_op(Import, &[result_register]);
 
         Ok(())
     }
@@ -2214,67 +2170,65 @@ impl Compiler {
         &mut self,
         result_register: ResultRegister,
         entries: &[(MapKey, Option<AstIndex>)],
+        export_entries: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::*;
+        let result = self.get_result_register(result_register)?;
 
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                match u32::try_from(entries.len()) {
-                    Ok(size_hint) => {
-                        self.push_op(MakeMap, &[result.register]);
-                        self.push_var_u32(size_hint);
-                    }
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Too many map entries, {} is greater than the maximum of {}",
-                            entries.len(),
-                            u32::MAX
-                        );
-                    }
+        // Create the map with an appropriate size hint
+        if let Some(result) = result {
+            match u32::try_from(entries.len()) {
+                Ok(size_hint) => {
+                    self.push_op(Op::MakeMap, &[result.register]);
+                    self.push_var_u32(size_hint);
                 }
-
-                for (key, maybe_value_node) in entries.iter() {
-                    let value = match (key, maybe_value_node) {
-                        (_, Some(value_node)) => {
-                            let value_node = ast.node(*value_node);
-                            self.compile_node(ResultRegister::Any, value_node, ast)?
-                                .unwrap()
-                        }
-                        (MapKey::Id(id), None) => {
-                            match self.frame().get_local_assigned_register(*id) {
-                                Some(register) => CompileResult::with_assigned(register),
-                                None => {
-                                    let register = self.push_register()?;
-                                    self.compile_load_non_local(register, *id);
-                                    CompileResult::with_temporary(register)
-                                }
-                            }
-                        }
-                        _ => return compiler_error!(self, "Value missing for map key"),
-                    };
-
-                    self.compile_map_insert(result.register, value.register, key, ast)?;
-
-                    if value.is_temporary {
-                        self.pop_register()?;
-                    }
+                Err(_) => {
+                    return compiler_error!(
+                        self,
+                        "Too many map entries, {} is greater than the maximum of {}",
+                        entries.len(),
+                        u32::MAX
+                    );
                 }
-
-                Some(result)
             }
-            None => {
-                // Compile the value nodes for side-effects
-                for (_key, value_node) in entries.iter() {
-                    if let Some(value_node) = value_node {
-                        self.compile_node(ResultRegister::None, ast.node(*value_node), ast)?;
-                    }
-                }
+        }
 
-                None
+        // Process the map's entries
+        if result.is_some() || export_entries {
+            let result_register = result.map(|result| result.register);
+
+            for (key, maybe_value_node) in entries.iter() {
+                let value = match (key, maybe_value_node) {
+                    (_, Some(value_node)) => {
+                        let value_node = ast.node(*value_node);
+                        self.compile_node(ResultRegister::Any, value_node, ast)?
+                            .unwrap()
+                    }
+                    (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
+                        Some(register) => CompileResult::with_assigned(register),
+                        None => {
+                            let register = self.push_register()?;
+                            self.compile_load_non_local(register, *id);
+                            CompileResult::with_temporary(register)
+                        }
+                    },
+                    _ => return compiler_error!(self, "Value missing for map key"),
+                };
+
+                self.compile_map_insert(value.register, key, result_register, export_entries, ast)?;
+
+                if value.is_temporary {
+                    self.pop_register()?;
+                }
             }
-        };
+        } else {
+            // The map is unused, but the entry values should be compiled for side-effects
+            for (_key, value_node) in entries.iter() {
+                if let Some(value_node) = value_node {
+                    self.compile_node(ResultRegister::None, ast.node(*value_node), ast)?;
+                }
+            }
+        }
 
         Ok(result)
     }
@@ -2685,9 +2639,10 @@ impl Compiler {
             match &last_node {
                 LookupNode::Id(id) => {
                     self.compile_map_insert(
-                        parent_register,
                         value_register,
                         &MapKey::Id(*id),
+                        Some(parent_register),
+                        false,
                         ast,
                     )?;
                 }
@@ -2752,9 +2707,10 @@ impl Compiler {
 
     fn compile_map_insert(
         &mut self,
-        map_register: u8,
         value_register: u8,
         key: &MapKey,
+        map_register: Option<u8>,
+        export_entry: bool,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         use Op::*;
@@ -2763,13 +2719,35 @@ impl Compiler {
             MapKey::Id(id) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
-                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
+
+                if let Some(map_register) = map_register {
+                    self.push_op_without_span(
+                        MapInsert,
+                        &[map_register, key_register, value_register],
+                    );
+                }
+
+                if export_entry {
+                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                }
+
                 self.pop_register()?;
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
-                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
+
+                if let Some(map_register) = map_register {
+                    self.push_op_without_span(
+                        MapInsert,
+                        &[map_register, key_register, value_register],
+                    );
+                }
+
+                if export_entry {
+                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                }
+
                 self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
@@ -2777,13 +2755,30 @@ impl Compiler {
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
                     self.compile_load_string_constant(name_register, *name);
-                    self.push_op_without_span(
-                        MetaInsertNamed,
-                        &[map_register, key, name_register, value_register],
-                    );
+
+                    if let Some(map_register) = map_register {
+                        self.push_op_without_span(
+                            MetaInsertNamed,
+                            &[map_register, key, name_register, value_register],
+                        );
+                    }
+
+                    if export_entry {
+                        self.push_op_without_span(
+                            MetaExportNamed,
+                            &[key, name_register, value_register],
+                        );
+                    }
+
                     self.pop_register()?;
                 } else {
-                    self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
+                    if let Some(map_register) = map_register {
+                        self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
+                    }
+
+                    if export_entry {
+                        self.push_op(MetaExport, &[key, value_register]);
+                    }
                 }
             }
         }

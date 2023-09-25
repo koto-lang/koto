@@ -134,22 +134,27 @@ pub enum Node {
     /// An import expression
     ///
     /// Each import item is defined as a series of [ImportItemNode]s,
-    /// e.g. `from foo.fun import baz.bar, caz.car.cax`
+    /// e.g. `from foo.bar import baz, 'qux'
     Import {
-        /// The series of items to import
-        items: Vec<Vec<ImportItemNode>>,
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
         from: Vec<ImportItemNode>,
+        /// The series of items to import
+        items: Vec<ImportItemNode>,
     },
+
+    /// An export expression
+    ///
+    /// The export item will be a map literal, with each map entry added to the exports map
+    Export(AstIndex),
 
     /// An assignment expression
     ///
     /// Used for single-assignment, multiple-assignment is represented by [Node::MultiAssign].
     Assign {
         /// The target of the assignment
-        target: AssignTarget,
+        target: AstIndex,
         /// The expression to be assigned
         expression: AstIndex,
     },
@@ -159,7 +164,7 @@ pub enum Node {
     /// e.g. `x, y = foo()`, or `foo, bar, baz = 1, 2, 3`
     MultiAssign {
         /// The targets of the assignment
-        targets: Vec<AssignTarget>,
+        targets: Vec<AstIndex>,
         /// The expression to be assigned
         expression: AstIndex,
     },
@@ -289,6 +294,7 @@ impl fmt::Display for Node {
             Function(_) => write!(f, "Function"),
             NamedCall { .. } => write!(f, "NamedCall"),
             Import { .. } => write!(f, "Import"),
+            Export(_) => write!(f, "Export"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
             UnaryOp { .. } => write!(f, "UnaryOp"),
@@ -430,19 +436,6 @@ pub struct AstTry {
     pub finally_block: Option<AstIndex>,
 }
 
-/// Specifies the scope of an assignment
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Scope {
-    /// The export scope
-    ///
-    /// This is used in an `export` expression to assign a value to the module's exports map.
-    Export,
-    /// The local scope
-    ///
-    /// This is the default scope used in assignments, producing values that are locally assigned.
-    Local,
-}
-
 /// A node in a lookup chain
 ///
 /// Lookups are any expressions that access a values from identifiers, and then as the lookup chain
@@ -481,15 +474,6 @@ pub enum LookupNode {
         ///   `99 >> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
         with_parens: bool,
     },
-}
-
-/// An assignment target with its associated scope
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AssignTarget {
-    /// The target of the assignment
-    pub target_index: AstIndex,
-    /// The scope of the assignment
-    pub scope: Scope,
 }
 
 /// An arm in a match expression

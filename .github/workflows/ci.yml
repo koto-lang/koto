@@ -33,6 +33,21 @@ jobs:
       - name: Run poetry example
         run: cargo run --example poetry -- -s examples/poetry/scripts/readme.koto
 
+  build_and_test_release:
+    # We don't need to test release builds on all platforms for now
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Test with optimizations
+        run: cargo test --release --workspace --verbose
+
   code_checks:
     runs-on: ubuntu-latest
 

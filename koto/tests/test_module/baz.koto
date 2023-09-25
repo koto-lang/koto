@@ -1,10 +1,14 @@
 # This file is imported by ./main.koto
 
-import number.pi, test.assert_eq
+from number import pi
 assert_eq pi, pi
 
-export qux = null
+local_value = 999
+qux = null
+
+export { qux }
 
 @main = ||
   # Redefine qux to check that main has been called
-  export qux = "O_o"
+  export qux = 'O_o'
+  assert_eq qux, 'O_o'

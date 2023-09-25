@@ -147,7 +147,7 @@ it can be useful to export items programatically.
 Returns the value's hash as an integer, or Null if the value is not hashable.
 
 ```koto
-import koto.hash
+from koto import hash
 
 print! (hash 'hi') == (hash 'bye')
 check! false
