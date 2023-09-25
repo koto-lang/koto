@@ -1221,6 +1221,33 @@ export a =
                 Some(&[Constant::Str("a")]),
             )
         }
+
+        #[test]
+        fn export_map_block() {
+            let source = "
+export 
+  a: 123
+  b: 99
+";
+
+            check_ast(
+                source,
+                &[
+                    SmallInt(123),
+                    SmallInt(99),
+                    Map(vec![
+                        (MapKey::Id(constant(0)), Some(0)), // a: 123
+                        (MapKey::Id(constant(1)), Some(1)), // b: 99
+                    ]),
+                    Export(2),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
     }
 
     mod arithmetic {

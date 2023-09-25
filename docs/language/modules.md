@@ -42,7 +42,9 @@ check! 3
 
 ## `export`
 
-`export` is used to add a value to a module's _exports map_.
+`export` expressions are used to add values to a module's _exports map_.
+
+Single values can be assigned to and exported at the same time:
 
 ```koto,skip_run
 ##################
@@ -60,6 +62,25 @@ say_hello 'Koto'
 check! 'Hello, Koto!' 
 ```
 
+When exporting multiple values, it can be convenient to use map syntax:
+
+```koto,skip_run
+
+##################
+# my_module.koto #
+##################
+
+a, b, c = 1, 2, 3
+
+# Inline maps allow for shorthand syntax
+export { a, b, c, foo: 42 }
+
+# Map blocks can also be used with export
+export 
+  bar: 99
+  baz: 'baz'
+```
+
 ## `@tests` and `@main`
 
 A module can export a `@tests` Map containing `@test` functions, which will be 
@@ -69,8 +90,8 @@ Additionally, a module can export a `@main` function.
 The `@main` function will be called after the module has been compiled and
 initialized, and after exported `@tests` have been successfully run.
 
-Note that because meta entries can't be directly accessed after assignment,
-adding an entry to the module's Meta Map doesn't require `export`.
+Note that because meta entries can't be assigned locally, 
+the use of `export` is optional when adding entries to the module's Meta Map.
 
 ```koto,skip_run
 ##################
@@ -79,10 +100,10 @@ adding an entry to the module's Meta Map doesn't require `export`.
 
 export say_hello = |name| 'Hello, $name!'
 
-@main = ||
+@main = || # Equivalent to export @main =
   print 'Successfully initialized `my_module`'
 
-@tests = 
+@tests =
   @test hello_world: ||
     print 'Testing...'
     assert_eq (say_hello 'World'), 'Hello, World!'

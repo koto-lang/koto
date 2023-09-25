@@ -1607,20 +1607,16 @@ impl<'source> Parser<'source> {
     fn parse_export(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Export
 
-        let export_id = if let Some((constant_index, _)) = self.parse_id(context)? {
-            self.push_node(Node::Id(constant_index))?
-        } else if self.parse_meta_key()?.is_some() {
-            return self.error(SyntaxError::UnnecessaryExportKeywordForMetaKey);
-        } else {
-            return self.consume_token_and_error(SyntaxError::ExpectedExportExpression);
-        };
+        let start_span = self.current_span();
 
-        // Return the exported assignment expression
-        // e.g. `export foo = bar`
-        match self.parse_assign_expression(export_id, &[], context)? {
-            Some(result) => self.push_node(Node::Export(result)),
-            None => self.consume_token_and_error(SyntaxError::ExpectedExportAssignment),
-        }
+        let expression =
+            if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
+                expression
+            } else {
+                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+            };
+
+        self.push_node_with_start_span(Node::Export(expression), start_span)
     }
 
     fn parse_throw_expression(&mut self) -> Result<AstIndex, ParserError> {

@@ -3204,6 +3204,17 @@ x = export y = 10
 x + y";
             test_script(script, 20);
         }
+
+        #[test]
+        fn map_export() {
+            let script = "
+export
+  x: 1
+  y: 2
+x + y
+";
+            test_script(script, 3);
+        }
     }
 
     mod meta_export {

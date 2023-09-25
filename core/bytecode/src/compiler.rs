@@ -483,7 +483,7 @@ impl Compiler {
             Node::List(elements) => {
                 self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
             }
-            Node::Map(entries) => self.compile_make_map(result_register, entries, ast)?,
+            Node::Map(entries) => self.compile_make_map(result_register, entries, false, ast)?,
             Node::Self_ => {
                 // self is always in register 0
                 match result_register {
@@ -1488,6 +1488,7 @@ impl Compiler {
             Node::Assign { target, expression } => {
                 self.compile_assign(result_register, *target, *expression, true, ast)
             }
+            Node::Map(entries) => self.compile_make_map(result_register, entries, true, ast),
             unexpected => compiler_error!(self, "Expected ID for export, found {unexpected}"),
         }
     }
@@ -2169,67 +2170,65 @@ impl Compiler {
         &mut self,
         result_register: ResultRegister,
         entries: &[(MapKey, Option<AstIndex>)],
+        export_entries: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::*;
+        let result = self.get_result_register(result_register)?;
 
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                match u32::try_from(entries.len()) {
-                    Ok(size_hint) => {
-                        self.push_op(MakeMap, &[result.register]);
-                        self.push_var_u32(size_hint);
-                    }
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Too many map entries, {} is greater than the maximum of {}",
-                            entries.len(),
-                            u32::MAX
-                        );
-                    }
+        // Create the map with an appropriate size hint
+        if let Some(result) = result {
+            match u32::try_from(entries.len()) {
+                Ok(size_hint) => {
+                    self.push_op(Op::MakeMap, &[result.register]);
+                    self.push_var_u32(size_hint);
                 }
-
-                for (key, maybe_value_node) in entries.iter() {
-                    let value = match (key, maybe_value_node) {
-                        (_, Some(value_node)) => {
-                            let value_node = ast.node(*value_node);
-                            self.compile_node(ResultRegister::Any, value_node, ast)?
-                                .unwrap()
-                        }
-                        (MapKey::Id(id), None) => {
-                            match self.frame().get_local_assigned_register(*id) {
-                                Some(register) => CompileResult::with_assigned(register),
-                                None => {
-                                    let register = self.push_register()?;
-                                    self.compile_load_non_local(register, *id);
-                                    CompileResult::with_temporary(register)
-                                }
-                            }
-                        }
-                        _ => return compiler_error!(self, "Value missing for map key"),
-                    };
-
-                    self.compile_map_insert(result.register, value.register, key, ast)?;
-
-                    if value.is_temporary {
-                        self.pop_register()?;
-                    }
+                Err(_) => {
+                    return compiler_error!(
+                        self,
+                        "Too many map entries, {} is greater than the maximum of {}",
+                        entries.len(),
+                        u32::MAX
+                    );
                 }
-
-                Some(result)
             }
-            None => {
-                // Compile the value nodes for side-effects
-                for (_key, value_node) in entries.iter() {
-                    if let Some(value_node) = value_node {
-                        self.compile_node(ResultRegister::None, ast.node(*value_node), ast)?;
-                    }
-                }
+        }
 
-                None
+        // Process the map's entries
+        if result.is_some() || export_entries {
+            let result_register = result.map(|result| result.register);
+
+            for (key, maybe_value_node) in entries.iter() {
+                let value = match (key, maybe_value_node) {
+                    (_, Some(value_node)) => {
+                        let value_node = ast.node(*value_node);
+                        self.compile_node(ResultRegister::Any, value_node, ast)?
+                            .unwrap()
+                    }
+                    (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
+                        Some(register) => CompileResult::with_assigned(register),
+                        None => {
+                            let register = self.push_register()?;
+                            self.compile_load_non_local(register, *id);
+                            CompileResult::with_temporary(register)
+                        }
+                    },
+                    _ => return compiler_error!(self, "Value missing for map key"),
+                };
+
+                self.compile_map_insert(value.register, key, result_register, export_entries, ast)?;
+
+                if value.is_temporary {
+                    self.pop_register()?;
+                }
             }
-        };
+        } else {
+            // The map is unused, but the entry values should be compiled for side-effects
+            for (_key, value_node) in entries.iter() {
+                if let Some(value_node) = value_node {
+                    self.compile_node(ResultRegister::None, ast.node(*value_node), ast)?;
+                }
+            }
+        }
 
         Ok(result)
     }
@@ -2640,9 +2639,10 @@ impl Compiler {
             match &last_node {
                 LookupNode::Id(id) => {
                     self.compile_map_insert(
-                        parent_register,
                         value_register,
                         &MapKey::Id(*id),
+                        Some(parent_register),
+                        false,
                         ast,
                     )?;
                 }
@@ -2707,9 +2707,10 @@ impl Compiler {
 
     fn compile_map_insert(
         &mut self,
-        map_register: u8,
         value_register: u8,
         key: &MapKey,
+        map_register: Option<u8>,
+        export_entry: bool,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         use Op::*;
@@ -2718,13 +2719,35 @@ impl Compiler {
             MapKey::Id(id) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
-                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
+
+                if let Some(map_register) = map_register {
+                    self.push_op_without_span(
+                        MapInsert,
+                        &[map_register, key_register, value_register],
+                    );
+                }
+
+                if export_entry {
+                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                }
+
                 self.pop_register()?;
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
-                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
+
+                if let Some(map_register) = map_register {
+                    self.push_op_without_span(
+                        MapInsert,
+                        &[map_register, key_register, value_register],
+                    );
+                }
+
+                if export_entry {
+                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                }
+
                 self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
@@ -2732,13 +2755,30 @@ impl Compiler {
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
                     self.compile_load_string_constant(name_register, *name);
-                    self.push_op_without_span(
-                        MetaInsertNamed,
-                        &[map_register, key, name_register, value_register],
-                    );
+
+                    if let Some(map_register) = map_register {
+                        self.push_op_without_span(
+                            MetaInsertNamed,
+                            &[map_register, key, name_register, value_register],
+                        );
+                    }
+
+                    if export_entry {
+                        self.push_op_without_span(
+                            MetaExportNamed,
+                            &[key, name_register, value_register],
+                        );
+                    }
+
                     self.pop_register()?;
                 } else {
-                    self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
+                    if let Some(map_register) = map_register {
+                        self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
+                    }
+
+                    if export_entry {
+                        self.push_op(MetaExport, &[key, value_register]);
+                    }
                 }
             }
         }

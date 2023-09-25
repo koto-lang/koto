@@ -2,26 +2,19 @@
 
 local_value = 123
 
-export foo = 42
-export bar = -1
+export
+  foo: 42
+  bar: -1
+  square: |x| x * x
+  baz: import baz # Re-export the neighbouring baz module
 
-#-
-Note here that neighbouring baz.koto module is being imported.
+  tests_were_run: false
 
-Re-exporting can be performed by assigning an import directly to an export
--#
-export baz = import baz
+  @tests:
+    @test run_tests: ||
+      export tests_were_run = true
 
-export square = |x| x * x
+    @test local_value_unmodified_by_import: ||
+      assert_eq local_value, 123
 
-export tests_were_run = false
-
-@tests =
-  @test run_tests: ||
-    export tests_were_run = true
-
-  @test local_value_unmodified_by_import: ||
-    assert_eq local_value, 123
-
-@type =
-  'test_module'
+  @type: 'test_module'

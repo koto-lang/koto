@@ -41,11 +41,6 @@ mod parser {
             check_parsing_fails("import foo bar");
         }
 
-        #[test]
-        fn unnecessary_export_with_meta_key() {
-            check_parsing_fails("export @tests = 42");
-        }
-
         mod indentation {
             use super::*;
 
@@ -379,15 +374,6 @@ switch
             #[test]
             fn from_after_import() {
                 check_parsing_fails("import foo from bar");
-            }
-        }
-
-        mod export {
-            use super::*;
-
-            #[test]
-            fn export_id_without_assignment() {
-                check_parsing_fails("export x");
             }
         }
     }
