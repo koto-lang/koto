@@ -1022,10 +1022,10 @@ impl Compiler {
                     Some(result)
                 }
                 None => {
-                    // TODO Under what conditions do we get into this branch?
-                    let register = self.push_register()?;
-                    self.push_op(SetNull, &[register]);
-                    Some(CompileResult::with_temporary(register))
+                    return compiler_error!(
+                        self,
+                        "Internal error: missing result register for empty block"
+                    );
                 }
             },
             [expression] => self.compile_node(result_register, ast.node(*expression), ast)?,
