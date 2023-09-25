@@ -762,14 +762,6 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8 {
             () => {{
-                #[cfg(not(debug_assertions))]
-                {
-                    let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
-                    self.ip += 1;
-                    *byte
-                }
-
-                #[cfg(debug_assertions)]
                 match self.chunk.bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
@@ -786,25 +778,15 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16 {
             () => {{
-                #[cfg(not(debug_assertions))]
-                {
-                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
-                    self.ip += 2;
-                    u16::from_le_bytes(bytes.try_into().unwrap())
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
-                        Some(u16_bytes) => {
-                            self.ip += 2;
-                            u16::from_le_bytes(u16_bytes.try_into().unwrap())
-                        }
-                        None => {
-                            return Some(Error {
-                                message: format!("Expected 2 bytes at position {}", self.ip),
-                            });
-                        }
+                match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                    Some(u16_bytes) => {
+                        self.ip += 2;
+                        u16::from_le_bytes(u16_bytes.try_into().unwrap())
+                    }
+                    None => {
+                        return Some(Error {
+                            message: format!("Expected 2 bytes at position {}", self.ip),
+                        });
                     }
                 }
             }};
@@ -812,47 +794,27 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_var_u32 {
             () => {{
-                #[cfg(not(debug_assertions))]
-                {
-                    let mut result = 0;
-                    let mut shift_amount = 0;
-                    loop {
-                        let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
-                        self.ip += 1;
-                        result |= (*byte as u32 & 0x7f) << shift_amount;
-                        if byte & 0x80 == 0 {
-                            break;
-                        } else {
-                            shift_amount += 7;
-                        }
-                    }
-                    result
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    let mut result = 0;
-                    let mut shift_amount = 0;
-                    loop {
-                        match self.chunk.bytes.get(self.ip) {
-                            Some(byte) => {
-                                self.ip += 1;
-                                result |= (*byte as u32 & 0x7f) << shift_amount;
-                                if byte & 0x80 == 0 {
-                                    break;
-                                } else {
-                                    shift_amount += 7;
-                                }
-                            }
-                            None => {
-                                return Some(Error {
-                                    message: format!("Expected byte at position {}", self.ip),
-                                });
+                let mut result = 0;
+                let mut shift_amount = 0;
+                loop {
+                    match self.chunk.bytes.get(self.ip) {
+                        Some(byte) => {
+                            self.ip += 1;
+                            result |= (*byte as u32 & 0x7f) << shift_amount;
+                            if byte & 0x80 == 0 {
+                                break;
+                            } else {
+                                shift_amount += 7;
                             }
                         }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected byte at position {}", self.ip),
+                            });
+                        }
                     }
-                    result
                 }
+                result
             }};
         }
 
