@@ -6,8 +6,8 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import geometry.vec3
-import number.pi
+from geometry import vec3
+from number import pi
 
 solar_mass = 4 * pi * pi
 days_per_year = 365.24
