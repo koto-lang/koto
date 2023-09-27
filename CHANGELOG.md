@@ -66,7 +66,7 @@ The Koto project adheres to
 
 #### Rust MSRV
 
-- The minimum supported Rust version is now 1.64.
+- The minimum supported Rust version is now the latest stable version.
 
 #### Language
 

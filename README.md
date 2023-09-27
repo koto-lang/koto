@@ -161,3 +161,8 @@ A help system is included in the REPL.  Run `help` for instructions.
 - [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
+
+## MSRV
+
+Koto is still under active development, and is tested against the latest stable
+release of Rust.

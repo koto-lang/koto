@@ -3,8 +3,10 @@ members = ["core/*", "examples/*", "libs/*"]
 resolver = "2"
 
 [workspace.dependencies]
+# Date and time library for Rust
+chrono = "0.4.31"
 # Statistics-driven micro-benchmarking library
-criterion = "0.4.0"
+criterion = "0.5.1"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = "0.22.1"
 # Trait object downcasting support using only safe Rust.
@@ -18,7 +20,9 @@ glam = "0.22.0"
 # A Rust library for conveniently watching and handling file changes.
 hotwatch = "0.4.5"
 # A hash table with consistent order and fast iteration.
-indexmap = "1.9.2"
+indexmap = "2.0.0"
+# A partial replacement for std::time::Instant that works on WASM too.
+instant = "0.1.12"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
 # A Rust allocator backed by jemalloc
@@ -44,7 +48,7 @@ serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 # YAML support for serde
 serde_yaml = "0.8.20"
 # 'Small vector' optimization: store up to a small number of items on the stack
-smallvec = { version = "1.10.0", features = ["const_generics", "union"] }
+smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
 # A library for managing temporary files and directories.
 tempfile = "3.1"
 # A crate for getting the crate binary in an integration test.
