@@ -63,7 +63,7 @@ impl DateTime {
         };
         match NaiveDateTime::from_timestamp_opt(seconds_i64, sub_nanos) {
             Some(utc) => Ok(Self::with_chrono_datetime(
-                chrono::DateTime::<Local>::from_utc(utc, offset),
+                chrono::DateTime::<Local>::from_naive_utc_and_offset(utc, offset),
             )),
             None => runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }

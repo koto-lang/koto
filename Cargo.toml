@@ -3,6 +3,8 @@ members = ["core/*", "examples/*", "libs/*"]
 resolver = "2"
 
 [workspace.dependencies]
+# Date and time library for Rust
+chrono = "0.4.31"
 # Statistics-driven micro-benchmarking library
 criterion = "0.4.0"
 # A crossplatform terminal library for manipulating terminals.
@@ -19,6 +21,8 @@ glam = "0.22.0"
 hotwatch = "0.4.5"
 # A hash table with consistent order and fast iteration.
 indexmap = "1.9.2"
+# A partial replacement for std::time::Instant that works on WASM too.
+instant = "0.1.12"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
 # A Rust allocator backed by jemalloc

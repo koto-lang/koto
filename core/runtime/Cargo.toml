@@ -27,9 +27,9 @@ thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-chrono = "0.4.19"
-instant = "0.1.12"
+chrono = { workspace = true }
+instant = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-chrono = {version = "0.4.19", features = ["wasmbind"]}
-instant = {version = "0.1.12", features = ["wasm-bindgen"]}
+chrono = { workspace = true, features = ["wasmbind"] }
+instant = { workspace = true, features = ["wasm-bindgen"] }
