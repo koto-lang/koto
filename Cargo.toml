@@ -48,7 +48,7 @@ serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 # YAML support for serde
 serde_yaml = "0.8.20"
 # 'Small vector' optimization: store up to a small number of items on the stack
-smallvec = { version = "1.10.0", features = ["const_generics", "union"] }
+smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
 # A library for managing temporary files and directories.
 tempfile = "3.1"
 # A crate for getting the crate binary in an integration test.
