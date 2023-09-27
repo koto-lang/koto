@@ -3,7 +3,6 @@ name = "koto_tempfile"
 version = "0.11.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
-rust-version = "1.64.0"
 license = "MIT"
 description = "A Koto library for working with temporary files"
 homepage = "https://github.com/koto-lang/koto"
