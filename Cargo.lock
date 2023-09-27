@@ -618,7 +618,7 @@ name = "koto_cli"
 version = "0.11.0"
 dependencies = [
  "crossterm",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "jemallocator",
  "koto",
  "koto_color",
@@ -684,7 +684,7 @@ name = "koto_poetry"
 version = "0.11.0"
 dependencies = [
  "hotwatch",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "koto",
  "koto_random",
  "lazy_static",
@@ -709,7 +709,7 @@ version = "0.11.0"
 dependencies = [
  "chrono",
  "downcast-rs",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "instant",
  "koto_bytecode",
  "koto_lexer",
