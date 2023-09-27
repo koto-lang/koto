@@ -10,7 +10,7 @@ concepts introduced in earlier sections.
 
 The code examples make use of `print!` and `check!` placeholders which are
 used by tools to validate that the examples work correctly
-(see the ['docs examples' tests](/src/koto/tests/docs_examples.rs)).
+(see the ['docs examples' tests](/core/koto/tests/docs_examples.rs)).
 The placeholders are then stripped out by the CLI's preprocessor.
 
 - [Getting Started](getting_started.md)
