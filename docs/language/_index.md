@@ -2,8 +2,9 @@
 
 This guide contains a tour of the Koto language, giving an overview of its features.
 
-The markdown files here are the source material for the help topics included in
-the `help` feature of the CLI. 
+The markdown files here are the source material for the 
+[Koto website's language guide](https://koto.dev/docs/next/language),
+and the `help` feature of the CLI. 
 
 The guide can be read from start to finish, with later sections building on
 concepts introduced in earlier sections.
