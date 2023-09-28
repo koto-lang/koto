@@ -5,7 +5,7 @@ authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
 description = "A Koto library with basic geometry types and operations"
-homepage = "https://github.com/koto-lang/koto"
+homepage = "https://koto.dev"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
