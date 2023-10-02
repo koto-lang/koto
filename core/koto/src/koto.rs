@@ -67,6 +67,30 @@ impl From<RuntimeError> for KotoError {
 pub type KotoResult = Result<Value, KotoError>;
 
 /// The main interface for the Koto language.
+///
+/// This provides a high-level API for compiling and executing Koto scripts in a Koto [Vm].
+///
+/// Example:
+///
+/// ```
+/// use koto::prelude::*;
+///
+/// fn main() -> Result<(), KotoError> {
+///     let mut koto = Koto::default();
+///
+///     koto.compile("1 + 2")?;
+///
+///     match koto.run()? {
+///         Value::Number(result) => assert_eq!(result, 3),
+///         other => panic!(
+///             "Unexpected result: {}",
+///             koto.value_to_string(other)?
+///         ),
+///     }
+///
+///     Ok(())
+/// }
+/// ```
 pub struct Koto {
     runtime: Vm,
     run_tests: bool,
