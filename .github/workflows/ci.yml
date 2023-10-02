@@ -60,16 +60,16 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
+      - uses: extractions/setup-just@v1
+
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: just fmt
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: just clippy
 
       - name: Docs
-        run: cargo doc --workspace --exclude koto_cli
-        env:
-          RUSTDOCFLAGS: -Dwarnings
+        run: just doc
 
   wasm:
     runs-on: ubuntu-latest
