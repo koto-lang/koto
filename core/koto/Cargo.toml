@@ -34,3 +34,4 @@ jemallocator = { workspace = true }
 [[bench]]
 name = "koto_benchmark"
 harness = false
+test = true

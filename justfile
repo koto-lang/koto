@@ -13,7 +13,7 @@ temp:
   cargo run -- --tests -i temp.koto
 
 test:
-  cargo test --all-targets
+  cargo test
 
 test_benches:
   cargo test --benches
