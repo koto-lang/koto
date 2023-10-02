@@ -19,6 +19,7 @@ koto_parser = { path = "../parser", version = "^0.11.0" }
 koto_runtime = { path = "../runtime", version = "^0.11.0" }
 
 dunce = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 koto_geometry = { path = "../../libs/geometry", version = "^0.11.0" }

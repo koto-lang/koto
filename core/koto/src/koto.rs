@@ -1,70 +1,8 @@
-use crate::prelude::*;
+use crate::{prelude::*, Error, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
-use std::{error::Error, fmt, path::PathBuf, rc::Rc};
-
-/// The error type returned by [Koto] operations
-#[allow(missing_docs)]
-#[derive(Debug)]
-pub enum KotoError {
-    CompileError(LoaderError),
-    RuntimeError(RuntimeError),
-    NothingToRun,
-    InvalidScriptPath(PathBuf),
-    MissingKotoModuleInPrelude,
-    InvalidTestsType(String),
-    FunctionNotFound(String),
-}
-
-impl KotoError {
-    /// Returns true if the error is a complier 'expected indentation' error
-    ///
-    /// This is useful in the REPL, where an indentation error signals that the expression should be
-    /// continued on an indented line.
-    pub fn is_indentation_error(&self) -> bool {
-        match &self {
-            Self::CompileError(e) => e.is_indentation_error(),
-            _ => false,
-        }
-    }
-}
-
-impl fmt::Display for KotoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use KotoError::*;
-
-        match &self {
-            CompileError(e) => e.fmt(f),
-            RuntimeError(e) => e.fmt(f),
-            NothingToRun => {
-                f.write_str("Missing compiled chunk, call compile() before calling run()")
-            }
-            InvalidScriptPath(path) => {
-                write!(f, "The path '{}' couldn't be found", path.to_string_lossy())
-            }
-            MissingKotoModuleInPrelude => {
-                f.write_str("The koto module wasn't found in the runtime's prelude")
-            }
-            InvalidTestsType(t) => {
-                write!(f, "Expected a Map for the exported 'tests', found '{t}'")
-            }
-            FunctionNotFound(name) => {
-                write!(f, "Function '{name}' not found")
-            }
-        }
-    }
-}
-
-impl Error for KotoError {}
-
-impl From<RuntimeError> for KotoError {
-    fn from(error: RuntimeError) -> Self {
-        Self::RuntimeError(error)
-    }
-}
-
-pub type KotoResult = Result<Value, KotoError>;
+use std::{path::PathBuf, rc::Rc};
 
 /// The main interface for the Koto language.
 ///
@@ -75,7 +13,7 @@ pub type KotoResult = Result<Value, KotoError>;
 /// ```
 /// use koto::prelude::*;
 ///
-/// fn main() -> Result<(), KotoError> {
+/// fn main() -> koto::Result<()> {
 ///     let mut koto = Koto::default();
 ///
 ///     koto.compile("1 + 2")?;
@@ -141,7 +79,7 @@ impl Koto {
     /// Compiles a Koto script, returning the complied chunk if successful
     ///
     /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
-    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>, KotoError> {
+    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>> {
         let result = self.runtime.loader().borrow_mut().compile_script(
             script,
             &self.script_path,
@@ -155,36 +93,36 @@ impl Koto {
                 self.chunk = Some(chunk.clone());
                 Ok(chunk)
             }
-            Err(error) => Err(KotoError::CompileError(error)),
+            Err(error) => Err(Error::CompileError(error)),
         }
     }
 
     /// Runs the chunk last compiled with [compile](Koto::compile)
-    pub fn run(&mut self) -> KotoResult {
+    pub fn run(&mut self) -> Result<Value> {
         let chunk = self.chunk.clone();
         match chunk {
             Some(chunk) => self.run_chunk(chunk),
-            None => Err(KotoError::NothingToRun),
+            None => Err(Error::NothingToRun),
         }
     }
 
     /// Runs a function with the given arguments
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> Result<Value> {
         self.runtime
             .run_function(function, args)
             .map_err(|e| e.into())
     }
 
     /// Runs a function in the runtime's exports map
-    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
+    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> Result<Value> {
         match self.runtime.get_exported_function(function_name) {
             Some(f) => self.run_function(f, args),
-            None => Err(KotoError::FunctionNotFound(function_name.into())),
+            None => Err(Error::FunctionNotFound(function_name.into())),
         }
     }
 
     /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
-    pub fn value_to_string(&mut self, value: Value) -> Result<String, KotoError> {
+    pub fn value_to_string(&mut self, value: Value) -> Result<String> {
         self.runtime.value_to_string(&value).map_err(|e| e.into())
     }
 
@@ -196,7 +134,7 @@ impl Koto {
     }
 
     /// Sets the arguments for the script, accessible via `koto.args()`
-    pub fn set_args(&mut self, args: &[String]) -> Result<(), KotoError> {
+    pub fn set_args(&mut self, args: &[String]) -> Result<()> {
         use Value::{Map, Str, Tuple};
 
         let koto_args = args
@@ -209,12 +147,12 @@ impl Koto {
                 map.add_value("args", Tuple(koto_args.into()));
                 Ok(())
             }
-            _ => Err(KotoError::MissingKotoModuleInPrelude),
+            _ => Err(Error::MissingKotoModuleInPrelude),
         }
     }
 
     /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
-    pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
+    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value> {
         self.set_args(args)?;
         self.run()
     }
@@ -228,13 +166,13 @@ impl Koto {
     }
 
     /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
-    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
+    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<()> {
         use Value::{Map, Null, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
-                let path = canonicalize(path)
-                    .map_err(|_| KotoError::InvalidScriptPath(path.to_owned()))?;
+                let path =
+                    canonicalize(path).map_err(|_| Error::InvalidScriptPath(path.to_owned()))?;
 
                 let script_dir = path
                     .parent()
@@ -258,11 +196,11 @@ impl Koto {
                 map.add_value("script_path", script_path);
                 Ok(())
             }
-            _ => Err(KotoError::MissingKotoModuleInPrelude),
+            _ => Err(Error::MissingKotoModuleInPrelude),
         }
     }
 
-    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> KotoResult {
+    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> Result<Value> {
         let result = self.runtime.run(chunk)?;
 
         if self.run_tests {
@@ -272,9 +210,7 @@ impl Koto {
                     self.runtime.run_tests(tests)?;
                 }
                 Some(other) => {
-                    return Err(KotoError::InvalidTestsType(
-                        other.type_as_string().to_string(),
-                    ));
+                    return Err(Error::InvalidTestsType(other.type_as_string().to_string()));
                 }
                 None => {}
             }

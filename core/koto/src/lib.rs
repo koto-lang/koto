@@ -28,10 +28,13 @@
 
 #![warn(missing_docs)]
 
+mod error;
 mod koto;
 pub mod prelude;
 
-pub use crate::koto::{Koto, KotoError, KotoSettings};
 pub use koto_bytecode as bytecode;
 pub use koto_parser as parser;
 pub use koto_runtime as runtime;
+
+pub use crate::error::{Error, Result};
+pub use crate::koto::{Koto, KotoSettings};

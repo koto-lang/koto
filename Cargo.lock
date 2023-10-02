@@ -607,6 +607,7 @@ dependencies = [
  "koto_runtime",
  "pulldown-cmark",
  "test_bin",
+ "thiserror",
 ]
 
 [[package]]
