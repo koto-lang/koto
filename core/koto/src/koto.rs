@@ -16,14 +16,11 @@ use std::{path::PathBuf, rc::Rc};
 /// fn main() -> koto::Result<()> {
 ///     let mut koto = Koto::default();
 ///
-///     koto.compile("1 + 2")?;
-///
-///     match koto.run()? {
-///         Value::Number(result) => assert_eq!(result, 3),
-///         other => panic!(
-///             "Unexpected result: {}",
-///             koto.value_to_string(other)?
-///         ),
+///     match koto.compile_and_run("1 + 2")? {
+///         Value::Number(result) => {
+///             assert_eq!(result, 3);
+///         }
+///         other => panic!("Unexpected result: {}", koto.value_to_string(other)?),
 ///     }
 ///
 ///     Ok(())
@@ -106,6 +103,14 @@ impl Koto {
         }
     }
 
+    /// Compiles and runs a Koto script, and returns the script's result
+    ///
+    /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).
+    pub fn compile_and_run(&mut self, script: &str) -> Result<Value> {
+        self.compile(script)?;
+        self.run()
+    }
+
     /// Runs a function with the given arguments
     pub fn run_function(&mut self, function: Value, args: CallArgs) -> Result<Value> {
         self.runtime
@@ -121,8 +126,7 @@ impl Koto {
     /// fn main() -> koto::Result<()> {
     ///     let mut koto = Koto::default();
     ///
-    ///     koto.compile("export say_hello = |name| 'Hello, $name!'")?;
-    ///     koto.run()?;
+    ///     koto.compile_and_run("export say_hello = |name| 'Hello, $name!'")?;
     ///
     ///     match koto.run_exported_function("say_hello", CallArgs::Single("World".into()))? {
     ///         Value::Str(result) => assert_eq!(result, "Hello, World!"),
