@@ -122,6 +122,7 @@ The Koto project adheres to
 - Implementing `KotoFile` has been made easier, with the `Display + Debug`
   constraint replaced with a required `id()` function.
 - `KotoError` and `KotoResult` are now `koto::Error` and `koto::Result`.
+- `Koto::run_function_by_name` is now `Koto::run_exported_function`.
 
 ### Removed
 

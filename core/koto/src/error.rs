@@ -27,8 +27,8 @@ pub enum Error {
     #[error("Expected a Map for the exported 'tests', found '{0}'")]
     InvalidTestsType(String),
 
-    #[error("Function '{0}' not found")]
-    FunctionNotFound(String),
+    #[error("Function not found")]
+    FunctionNotFound,
 }
 
 impl Error {

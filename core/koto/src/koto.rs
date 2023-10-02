@@ -114,10 +114,31 @@ impl Koto {
     }
 
     /// Runs a function in the runtime's exports map
-    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> Result<Value> {
+    ///
+    /// ```
+    /// use koto::prelude::*;
+    ///
+    /// fn main() -> koto::Result<()> {
+    ///     let mut koto = Koto::default();
+    ///
+    ///     koto.compile("export say_hello = |name| 'Hello, $name!'")?;
+    ///     koto.run()?;
+    ///
+    ///     match koto.run_exported_function("say_hello", CallArgs::Single("World".into()))? {
+    ///         Value::Str(result) => assert_eq!(result, "Hello, World!"),
+    ///         other => panic!(
+    ///             "Unexpected result: {}",
+    ///             koto.value_to_string(other)?
+    ///         ),
+    ///     }
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn run_exported_function(&mut self, function_name: &str, args: CallArgs) -> Result<Value> {
         match self.runtime.get_exported_function(function_name) {
             Some(f) => self.run_function(f, args),
-            None => Err(Error::FunctionNotFound(function_name.into())),
+            None => Err(Error::FunctionNotFound),
         }
     }
 
