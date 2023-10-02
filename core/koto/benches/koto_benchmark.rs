@@ -34,6 +34,8 @@ impl BenchmarkRunner {
             Err(error) => panic!("{error}"),
         }
 
+        // The benchmark tests will be run when first instantiated,
+        // and can be skipped on subsequent runs
         runtime.set_run_tests(false);
 
         Self {

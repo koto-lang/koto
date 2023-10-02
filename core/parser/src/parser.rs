@@ -2619,7 +2619,7 @@ impl<'source> Parser<'source> {
             };
 
             match self.consume_token_with_context(&from_context) {
-                Some((op, _)) if op == Token::Import => {}
+                Some((Token::Import, _)) => {}
                 _ => return self.error(SyntaxError::ExpectedImportAfterFrom),
             }
 

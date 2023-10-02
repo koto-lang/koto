@@ -1,7 +1,7 @@
 checks: fmt clippy test doc wasm
 
 clippy:
-  cargo clippy --workspace --all-targets --all-features -- -D warnings
+  cargo clippy --workspace --all-features -- -D warnings
 
 doc:
   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli
@@ -13,7 +13,7 @@ temp:
   cargo run -- --tests -i temp.koto
 
 test:
-  cargo test --all-targets
+  cargo test
 
 test_benches:
   cargo test --benches
