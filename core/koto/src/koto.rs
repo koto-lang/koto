@@ -66,6 +66,207 @@ impl From<RuntimeError> for KotoError {
 
 pub type KotoResult = Result<Value, KotoError>;
 
+/// The main interface for the Koto language.
+pub struct Koto {
+    runtime: Vm,
+    run_tests: bool,
+    export_top_level_ids: bool,
+    script_path: Option<PathBuf>,
+    chunk: Option<Ptr<Chunk>>,
+}
+
+impl Default for Koto {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Koto {
+    /// Initializes Koto with the default settings
+    pub fn new() -> Self {
+        Self::with_settings(KotoSettings::default())
+    }
+
+    /// Initializes Koto with the provided settings
+    pub fn with_settings(settings: KotoSettings) -> Self {
+        Self {
+            runtime: Vm::with_settings(VmSettings {
+                stdin: settings.stdin,
+                stdout: settings.stdout,
+                stderr: settings.stderr,
+                run_import_tests: settings.run_import_tests,
+                module_imported_callback: settings.module_imported_callback,
+            }),
+            run_tests: settings.run_tests,
+            export_top_level_ids: settings.export_top_level_ids,
+            chunk: None,
+            script_path: None,
+        }
+    }
+
+    /// Returns a reference to the runtime's prelude
+    pub fn prelude(&self) -> &ValueMap {
+        self.runtime.prelude()
+    }
+
+    /// Returns a reference to the runtime's exports
+    pub fn exports(&self) -> &ValueMap {
+        self.runtime.exports()
+    }
+
+    /// Compiles a Koto script, returning the complied chunk if successful
+    ///
+    /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
+    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>, KotoError> {
+        let result = self.runtime.loader().borrow_mut().compile_script(
+            script,
+            &self.script_path,
+            CompilerSettings {
+                export_top_level_ids: self.export_top_level_ids,
+            },
+        );
+
+        match result {
+            Ok(chunk) => {
+                self.chunk = Some(chunk.clone());
+                Ok(chunk)
+            }
+            Err(error) => Err(KotoError::CompileError(error)),
+        }
+    }
+
+    /// Runs the chunk last compiled with [compile](Koto::compile)
+    pub fn run(&mut self) -> KotoResult {
+        let chunk = self.chunk.clone();
+        match chunk {
+            Some(chunk) => self.run_chunk(chunk),
+            None => Err(KotoError::NothingToRun),
+        }
+    }
+
+    /// Runs a function with the given arguments
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
+        self.runtime
+            .run_function(function, args)
+            .map_err(|e| e.into())
+    }
+
+    /// Runs a function in the runtime's exports map
+    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
+        match self.runtime.get_exported_function(function_name) {
+            Some(f) => self.run_function(f, args),
+            None => Err(KotoError::FunctionNotFound(function_name.into())),
+        }
+    }
+
+    /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
+    pub fn value_to_string(&mut self, value: Value) -> Result<String, KotoError> {
+        self.runtime.value_to_string(&value).map_err(|e| e.into())
+    }
+
+    /// Clears the loader's cached modules
+    ///
+    /// This is useful when a script's dependencies may have changed and need to be recompiled.
+    pub fn clear_module_cache(&mut self) {
+        self.runtime.loader().borrow_mut().clear_cache();
+    }
+
+    /// Sets the arguments for the script, accessible via `koto.args()`
+    pub fn set_args(&mut self, args: &[String]) -> Result<(), KotoError> {
+        use Value::{Map, Str, Tuple};
+
+        let koto_args = args
+            .iter()
+            .map(|arg| Str(arg.as_str().into()))
+            .collect::<Vec<_>>();
+
+        match self.runtime.prelude().data_mut().get("koto") {
+            Some(Map(map)) => {
+                map.add_value("args", Tuple(koto_args.into()));
+                Ok(())
+            }
+            _ => Err(KotoError::MissingKotoModuleInPrelude),
+        }
+    }
+
+    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
+    pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
+        self.set_args(args)?;
+        self.run()
+    }
+
+    /// Enables or disables the `run_tests` setting
+    ///
+    /// Currently this is only used when running benchmarks where tests are run once during setup,
+    /// and then disabled for repeated runs.
+    pub fn set_run_tests(&mut self, enabled: bool) {
+        self.run_tests = enabled;
+    }
+
+    /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
+    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
+        use Value::{Map, Null, Str};
+
+        let (script_dir, script_path) = match &path {
+            Some(path) => {
+                let path = canonicalize(path)
+                    .map_err(|_| KotoError::InvalidScriptPath(path.to_owned()))?;
+
+                let script_dir = path
+                    .parent()
+                    .map(|p| {
+                        let s = p.to_string_lossy();
+                        Str(s.into_owned().into())
+                    })
+                    .unwrap_or(Null);
+                let script_path = Str(path.display().to_string().into());
+
+                (script_dir, script_path)
+            }
+            None => (Null, Null),
+        };
+
+        self.script_path = path;
+
+        match self.runtime.prelude().data_mut().get("koto") {
+            Some(Map(map)) => {
+                map.add_value("script_dir", script_dir);
+                map.add_value("script_path", script_path);
+                Ok(())
+            }
+            _ => Err(KotoError::MissingKotoModuleInPrelude),
+        }
+    }
+
+    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> KotoResult {
+        let result = self.runtime.run(chunk)?;
+
+        if self.run_tests {
+            let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
+            match maybe_tests {
+                Some(Value::Map(tests)) => {
+                    self.runtime.run_tests(tests)?;
+                }
+                Some(other) => {
+                    return Err(KotoError::InvalidTestsType(
+                        other.type_as_string().to_string(),
+                    ));
+                }
+                None => {}
+            }
+        }
+
+        let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
+        if let Some(main) = maybe_main {
+            self.runtime
+                .run_function(main, CallArgs::None)
+                .map_err(|e| e.into())
+        } else {
+            Ok(result)
+        }
+    }
+}
+
 /// Settings used to control the behaviour of the [Koto] runtime
 pub struct KotoSettings {
     /// Whether or not tests should be run when loading a script
@@ -145,205 +346,6 @@ impl Default for KotoSettings {
             stdout: default_vm_settings.stdout,
             stderr: default_vm_settings.stderr,
             module_imported_callback: None,
-        }
-    }
-}
-
-/// The main interface for the Koto language.
-pub struct Koto {
-    runtime: Vm,
-    run_tests: bool,
-    export_top_level_ids: bool,
-    script_path: Option<PathBuf>,
-    chunk: Option<Ptr<Chunk>>,
-}
-
-impl Default for Koto {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Koto {
-    /// Initializes Koto with the default settings
-    pub fn new() -> Self {
-        Self::with_settings(KotoSettings::default())
-    }
-
-    /// Initializes Koto with the provided settings
-    pub fn with_settings(settings: KotoSettings) -> Self {
-        Self {
-            runtime: Vm::with_settings(VmSettings {
-                stdin: settings.stdin,
-                stdout: settings.stdout,
-                stderr: settings.stderr,
-                run_import_tests: settings.run_import_tests,
-                module_imported_callback: settings.module_imported_callback,
-            }),
-            run_tests: settings.run_tests,
-            export_top_level_ids: settings.export_top_level_ids,
-            chunk: None,
-            script_path: None,
-        }
-    }
-
-    /// Compiles a Koto script, returning the complied chunk if successful
-    ///
-    /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
-    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>, KotoError> {
-        let result = self.runtime.loader().borrow_mut().compile_script(
-            script,
-            &self.script_path,
-            CompilerSettings {
-                export_top_level_ids: self.export_top_level_ids,
-            },
-        );
-
-        match result {
-            Ok(chunk) => {
-                self.chunk = Some(chunk.clone());
-                Ok(chunk)
-            }
-            Err(error) => Err(KotoError::CompileError(error)),
-        }
-    }
-
-    /// Clears the loader's cached modules
-    pub fn clear_module_cache(&mut self) {
-        self.runtime.loader().borrow_mut().clear_cache();
-    }
-
-    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
-    pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
-        self.set_args(args)?;
-        self.run()
-    }
-
-    /// Runs the chunk last compiled with [compile](Koto::compile)
-    pub fn run(&mut self) -> KotoResult {
-        let chunk = self.chunk.clone();
-        match chunk {
-            Some(chunk) => self.run_chunk(chunk),
-            None => Err(KotoError::NothingToRun),
-        }
-    }
-
-    /// Enables or disables the `run_tests` setting
-    ///
-    /// Currently this is only used when running benchmarks where tests are run once during setup,
-    /// and then disabled for repeated runs.
-    pub fn set_run_tests(&mut self, enabled: bool) {
-        self.run_tests = enabled;
-    }
-
-    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> KotoResult {
-        let result = self.runtime.run(chunk)?;
-
-        if self.run_tests {
-            let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
-            match maybe_tests {
-                Some(Value::Map(tests)) => {
-                    self.runtime.run_tests(tests)?;
-                }
-                Some(other) => {
-                    return Err(KotoError::InvalidTestsType(
-                        other.type_as_string().to_string(),
-                    ));
-                }
-                None => {}
-            }
-        }
-
-        let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
-        if let Some(main) = maybe_main {
-            self.runtime
-                .run_function(main, CallArgs::None)
-                .map_err(|e| e.into())
-        } else {
-            Ok(result)
-        }
-    }
-
-    /// Runs a function in the runtime's exports map by name
-    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
-        match self.runtime.get_exported_function(function_name) {
-            Some(f) => self.run_function(f, args),
-            None => Err(KotoError::FunctionNotFound(function_name.into())),
-        }
-    }
-
-    /// Runs a function in the runtime's exports map by name
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
-        self.runtime
-            .run_function(function, args)
-            .map_err(|e| e.into())
-    }
-
-    /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
-    pub fn value_to_string(&mut self, value: Value) -> Result<String, KotoError> {
-        self.runtime.value_to_string(&value).map_err(|e| e.into())
-    }
-
-    /// Returns a reference to the runtime's prelude
-    pub fn prelude(&self) -> &ValueMap {
-        self.runtime.prelude()
-    }
-
-    /// Returns a reference to the runtime's exports
-    pub fn exports(&self) -> &ValueMap {
-        self.runtime.exports()
-    }
-
-    /// Sets the arguments for the script, accessible via `koto.args()`
-    pub fn set_args(&mut self, args: &[String]) -> Result<(), KotoError> {
-        use Value::{Map, Str, Tuple};
-
-        let koto_args = args
-            .iter()
-            .map(|arg| Str(arg.as_str().into()))
-            .collect::<Vec<_>>();
-
-        match self.runtime.prelude().data_mut().get("koto") {
-            Some(Map(map)) => {
-                map.add_value("args", Tuple(koto_args.into()));
-                Ok(())
-            }
-            _ => Err(KotoError::MissingKotoModuleInPrelude),
-        }
-    }
-
-    /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
-    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
-        use Value::{Map, Null, Str};
-
-        let (script_dir, script_path) = match &path {
-            Some(path) => {
-                let path = canonicalize(path)
-                    .map_err(|_| KotoError::InvalidScriptPath(path.to_owned()))?;
-
-                let script_dir = path
-                    .parent()
-                    .map(|p| {
-                        let s = p.to_string_lossy();
-                        Str(s.into_owned().into())
-                    })
-                    .unwrap_or(Null);
-                let script_path = Str(path.display().to_string().into());
-
-                (script_dir, script_path)
-            }
-            None => (Null, Null),
-        };
-
-        self.script_path = path;
-
-        match self.runtime.prelude().data_mut().get("koto") {
-            Some(Map(map)) => {
-                map.add_value("script_dir", script_dir);
-                map.add_value("script_path", script_path);
-                Ok(())
-            }
-            _ => Err(KotoError::MissingKotoModuleInPrelude),
         }
     }
 }
