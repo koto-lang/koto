@@ -2963,15 +2963,25 @@ pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
     Ok(result)
 }
 
-/// The ways in which a function's arguments will be treated when called externally
+/// Function call arguments
+///
+/// This enum provides flexibility in how you'd like to pass arguments to a function.
 pub enum CallArgs<'a> {
-    /// No args to be passed to the function
+    /// Indicates that the function will be called without any arguments.
+    ///
+    /// This is used for functions that do not require input from the caller.
     None,
-    /// The function will be called with a single argument
+
+    /// Represents a function call with a single argument.
     Single(Value),
-    /// The arguments will be passed to the function separately
+
+    /// Arguments are provided separately and are passed directly to the function.
     Separate(&'a [Value]),
-    /// The arguments will be collected into a tuple before being passed to the function
+
+    /// Arguments are bundled together as a tuple and then passed to the function.
+    ///
+    /// If the function unpacks the tuple in its arguments list then a temporary tuple will be used,
+    /// which avoids the creation of an allocated tuple.
     AsTuple(&'a [Value]),
 }
 

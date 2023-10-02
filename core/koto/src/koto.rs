@@ -41,12 +41,12 @@ impl Default for Koto {
 }
 
 impl Koto {
-    /// Initializes Koto with the default settings
+    /// Creates a new instance of Koto with default settings
     pub fn new() -> Self {
         Self::with_settings(KotoSettings::default())
     }
 
-    /// Initializes Koto with the provided settings
+    /// Creates a new instance of Koto with the given settings
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
             runtime: Vm::with_settings(VmSettings {
@@ -103,6 +103,12 @@ impl Koto {
         }
     }
 
+    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
+    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value> {
+        self.set_args(args)?;
+        self.run()
+    }
+
     /// Compiles and runs a Koto script, and returns the script's result
     ///
     /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).
@@ -146,7 +152,7 @@ impl Koto {
         }
     }
 
-    /// Converts a [Value] into a [Value::Str] by evaluating `@display` in the runtime
+    /// Converts a [Value] into a [String] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: Value) -> Result<String> {
         self.runtime.value_to_string(&value).map_err(|e| e.into())
     }
@@ -158,7 +164,7 @@ impl Koto {
         self.runtime.loader().borrow_mut().clear_cache();
     }
 
-    /// Sets the arguments for the script, accessible via `koto.args()`
+    /// Sets the arguments that can be accessed from within the script via `koto.args()`
     pub fn set_args(&mut self, args: &[String]) -> Result<()> {
         use Value::{Map, Str, Tuple};
 
@@ -174,12 +180,6 @@ impl Koto {
             }
             _ => Err(Error::MissingKotoModuleInPrelude),
         }
-    }
-
-    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
-    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value> {
-        self.set_args(args)?;
-        self.run()
     }
 
     /// Enables or disables the `run_tests` setting
