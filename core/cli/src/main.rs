@@ -35,7 +35,8 @@ ARGS:
     <args>...    Arguments to pass into the script
 
 ENV VARS:
-    NO_COLOR     When set, colored output will be disabled (enabled by default)
+    KOTO_EDIT_MODE_VI   Enables the VI editing mode (Emacs bindings are enabled by default)
+    NO_COLOR            Disables colored output (enabled by default)
 ",
         version = version_string()
     )

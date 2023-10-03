@@ -75,10 +75,16 @@ impl Repl {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
 
+        let edit_mode = if env::var("KOTO_EDIT_MODE_VI").is_ok() {
+            EditMode::Vi
+        } else {
+            EditMode::Emacs
+        };
+
         let mut editor = DefaultEditor::with_config(
             Config::builder()
                 .max_history_size(MAX_HISTORY_ENTRIES)?
-                .edit_mode(EditMode::Emacs)
+                .edit_mode(edit_mode)
                 .build(),
         )?;
 
