@@ -1,5 +1,5 @@
 use std::{
-    fmt,
+    env, fmt,
     io::{self, Stdout, Write},
     path::PathBuf,
 };
@@ -18,10 +18,10 @@ use crate::help::Help;
 
 macro_rules! print_wrapped {
     ($stdout:expr, $text:expr) => {
-        writeln!($stdout, "{}", wrap_string($text))
+        $stdout.write_all(wrap_string(&format!($text)).as_bytes())
     };
     ($stdout:expr, $text:literal, $($y:expr),+ $(,)?) => {
-        print_wrapped!($stdout, &format!($text, $($y),+))
+        $stdout.write_all(wrap_string(&format!($text, $($y),+)).as_bytes())
     };
 }
 
@@ -44,9 +44,11 @@ pub struct Repl {
     settings: ReplSettings,
     help: Option<Help>,
     editor: DefaultEditor,
+    stdout: Stdout,
     // A buffer of lines for expressions that continue over multiple lines
     continued_lines: Vec<String>,
     indent: usize,
+    colored_output: bool,
 }
 
 fn history_dir() -> Option<PathBuf> {
@@ -84,19 +86,27 @@ impl Repl {
             editor.load_history(&path).ok();
         }
 
+        let stdout = io::stdout();
+
+        let colored_output = if env::var("NO_COLOR").is_ok() {
+            false
+        } else {
+            stdout.is_tty()
+        };
+
         Ok(Self {
             koto,
             settings: repl_settings,
             help: None,
             editor,
+            stdout,
             continued_lines: Vec::new(),
             indent: 0,
+            colored_output,
         })
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mut stdout = io::stdout();
-
         loop {
             let result = if self.continued_lines.is_empty() {
                 self.editor.readline(PROMPT)
@@ -108,18 +118,18 @@ impl Repl {
 
             match result {
                 Ok(line) => {
-                    self.on_line(&line, &mut stdout)?;
+                    self.on_line(&line)?;
                 }
                 Err(ReadlineError::Interrupted) => {
-                    writeln!(stdout, "^C")?;
+                    writeln!(self.stdout, "^C")?;
                     break;
                 }
                 Err(ReadlineError::Eof) => {
-                    writeln!(stdout, "^D")?;
+                    writeln!(self.stdout, "^D")?;
                     break;
                 }
                 Err(err) => {
-                    writeln!(stdout, "Error: {:?}", err)?;
+                    writeln!(self.stdout, "Error: {:?}", err)?;
                     break;
                 }
             }
@@ -134,7 +144,7 @@ impl Repl {
         Ok(())
     }
 
-    fn on_line(&mut self, line: &str, stdout: &mut Stdout) -> Result<()> {
+    fn on_line(&mut self, line: &str) -> Result<()> {
         let input_is_whitespace = line.chars().all(|c| c.is_whitespace());
 
         let mut indent_next_line = false;
@@ -151,14 +161,14 @@ impl Repl {
             match self.koto.compile(&input) {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {
-                        print_wrapped!(stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
+                        print_wrapped!(self.stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
                     }
                     if self.settings.show_instructions {
-                        print_wrapped!(stdout, "Constants\n---------\n{}\n", chunk.constants)?;
+                        print_wrapped!(self.stdout, "Constants\n---------\n{}\n", chunk.constants)?;
 
                         let script_lines = input.lines().collect::<Vec<_>>();
                         print_wrapped!(
-                            stdout,
+                            self.stdout,
                             "Instructions\n------------\n{}",
                             Chunk::instructions_as_string(chunk, &script_lines)
                         )?;
@@ -166,11 +176,11 @@ impl Repl {
                     match self.koto.run() {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
                             Ok(result_string) => {
-                                print_result(stdout, &result_string)?;
+                                self.print_result(&result_string)?;
                             }
                             Err(e) => {
                                 print_wrapped!(
-                                    stdout,
+                                    self.stdout,
                                     "Error while getting display string for return value ({})",
                                     e
                                 )?;
@@ -178,9 +188,9 @@ impl Repl {
                         },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
-                                print_wrapped!(stdout, "{}\n", help)?;
+                                print_wrapped!(self.stdout, "{}\n", help)?;
                             } else {
-                                print_error(stdout, &error)?;
+                                self.print_error(&error)?;
                             }
                         }
                     }
@@ -188,7 +198,7 @@ impl Repl {
                 }
                 Err(compile_error) => {
                     if let Some(help) = self.run_help(&input) {
-                        print_wrapped!(stdout, "{}\n", help)?;
+                        print_wrapped!(self.stdout, "{}\n", help)?;
                         self.continued_lines.clear();
                     } else if compile_error.is_indentation_error()
                         && self.continued_lines.is_empty()
@@ -198,7 +208,7 @@ impl Repl {
                     } else {
                         self.editor.add_history_entry(&input)?;
 
-                        print_error(stdout, &compile_error.to_string())?;
+                        self.print_error(&compile_error.to_string())?;
                         self.continued_lines.clear();
                     }
                 }
@@ -253,6 +263,54 @@ impl Repl {
         let help = self.help.get_or_insert_with(Help::new);
         help.get_help(search)
     }
+
+    fn print_result(&mut self, result: &str) -> Result<()> {
+        if self.colored_output {
+            use style::*;
+
+            execute!(
+                self.stdout,
+                Print(RESULT_PROMPT),
+                SetAttribute(Attribute::Bold),
+                Print(wrap_string_with_prefix(
+                    &format!("{result}\n\n"),
+                    RESULT_PROMPT
+                )),
+                SetAttribute(Attribute::Reset),
+            )?;
+        } else {
+            print_wrapped!(self.stdout, "{RESULT_PROMPT}{result}\n\n")?;
+        }
+
+        Ok(())
+    }
+
+    fn print_error<E>(&mut self, error: &E) -> Result<()>
+    where
+        E: fmt::Display,
+    {
+        if self.colored_output {
+            use style::*;
+
+            execute!(
+                self.stdout,
+                SetForegroundColor(Color::DarkRed),
+                Print("error"),
+                ResetColor,
+                Print(": "),
+                SetAttribute(Attribute::Bold),
+                Print(wrap_string_with_prefix(
+                    &format!("{error:#}\n\n"),
+                    "error: "
+                )),
+                SetAttribute(Attribute::Reset),
+            )?;
+        } else {
+            print_wrapped!(self.stdout, "error: {error:#}\n\n")?;
+        }
+
+        Ok(())
+    }
 }
 
 fn terminal_width() -> usize {
@@ -265,52 +323,4 @@ fn wrap_string(input: &str) -> String {
 
 fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
     textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
-}
-
-fn print_result(stdout: &mut Stdout, result: &str) -> Result<()> {
-    if stdout.is_tty() {
-        use style::*;
-
-        execute!(
-            stdout,
-            Print(RESULT_PROMPT),
-            SetAttribute(Attribute::Bold),
-            Print(wrap_string_with_prefix(
-                &format!("{result}\n\n"),
-                RESULT_PROMPT
-            )),
-            SetAttribute(Attribute::Reset),
-        )?;
-    } else {
-        print_wrapped!(stdout, "{RESULT_CHAR}{result}\n\n")?;
-    }
-
-    Ok(())
-}
-
-fn print_error<E>(stdout: &mut Stdout, error: &E) -> Result<()>
-where
-    E: fmt::Display,
-{
-    if stdout.is_tty() {
-        use style::*;
-
-        execute!(
-            stdout,
-            SetForegroundColor(Color::DarkRed),
-            Print("error"),
-            ResetColor,
-            Print(": "),
-            SetAttribute(Attribute::Bold),
-            Print(wrap_string_with_prefix(
-                &format!("{error:#}\n\n"),
-                "error: "
-            )),
-            SetAttribute(Attribute::Reset),
-        )?;
-    } else {
-        print_wrapped!(stdout, "{error:#}")?;
-    }
-
-    Ok(())
 }

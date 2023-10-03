@@ -22,7 +22,7 @@ USAGE:
     koto [FLAGS] [script] [<args>...]
 
 FLAGS:
-    -e, --eval               Evaluate the script directly (rather than reading it from disk)
+    -e, --eval               Evaluate the script as a string instead of loading it from disk
     -i, --show_instructions  Show compiled instructions annotated with source lines
     -b, --show_bytecode      Show the script's compiled bytecode
     -t, --tests              Run the script's tests before running the script
@@ -33,6 +33,9 @@ FLAGS:
 ARGS:
     <script>     The koto script to run, as a file path, or as a string when --eval is set
     <args>...    Arguments to pass into the script
+
+ENV VARS:
+    NO_COLOR     When set, colored output will be disabled (enabled by default)
 ",
         version = version_string()
     )
