@@ -28,9 +28,11 @@ koto_toml = { path = "../../libs/toml", version = "^0.11.0" }
 koto_yaml = { path = "../../libs/yaml", version = "^0.11.0" }
 
 crossterm = { workspace = true }
+home = { workspace = true }
 indexmap = { workspace = true }
 pico-args = { workspace = true }
 pulldown-cmark = { workspace = true }
+rustyline = { workspace = true }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
 

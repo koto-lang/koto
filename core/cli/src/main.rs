@@ -192,7 +192,8 @@ fn run() -> Result<(), ()> {
                 show_bytecode: args.show_bytecode,
             },
             koto_settings,
-        );
+        )
+        .map_err(|_| ())?;
         repl.run().map_err(|_| ())
     }
 }
