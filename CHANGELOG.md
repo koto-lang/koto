@@ -61,6 +61,15 @@ The Koto project adheres to
 - `Ptr<T>` and `PtrMut<T>` wrappers have been introduced as the core memory
   types for the runtime, replacing uses of `Rc<T>` and `Rc<RefCell<T>>`.
 
+#### REPL
+
+- Added support for disabling colored output with the `NO_COLOR` environment
+  variable.
+- The REPL has been reimplemented with 
+  [rustyline](https://github.com/kkawakam/rustyline)
+  - History is now maintained between sessions.
+  - Emacs / VI key bindings have been added.
+- A `config.koto` file can be written to maintain REPL settings.
 
 ### Changed
 
