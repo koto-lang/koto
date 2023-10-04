@@ -1,264 +1,169 @@
-use crate::help::Help;
-use crossterm::{
-    cursor,
-    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute, queue, style,
-    terminal::{self, ClearType},
-    tty::IsTty,
-    Result,
-};
-use koto::{bytecode::Chunk, Koto, KotoSettings};
 use std::{
-    cmp::Ordering,
     fmt,
     io::{self, Stdout, Write},
+    path::PathBuf,
 };
-use unicode_width::UnicodeWidthChar;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use anyhow::Result;
+use crossterm::{
+    execute, style,
+    terminal::{self},
+    tty::IsTty,
+};
+use koto::prelude::*;
+use rustyline::{error::ReadlineError, Config, DefaultEditor, EditMode};
+
+use crate::help::Help;
+
+macro_rules! print_wrapped {
+    ($stdout:expr, $text:expr) => {
+        $stdout.write_all(wrap_string(&format!($text)).as_bytes())
+    };
+    ($stdout:expr, $text:literal, $($y:expr),+ $(,)?) => {
+        $stdout.write_all(wrap_string(&format!($text, $($y),+)).as_bytes())
+    };
+}
 
 const PROMPT: &str = "» ";
 const CONTINUED_PROMPT: &str = "… ";
 const RESULT_PROMPT: &str = "➝ ";
-
 const INDENT_SIZE: usize = 2;
+const HISTORY_DIR: &str = ".koto";
+const HISTORY_FILE: &str = "repl_history.txt";
+const MAX_HISTORY_ENTRIES: usize = 500;
 
-macro_rules! print_wrapped {
-    ($stdout:expr, $text:expr) => {
-        writeln!($stdout, "{}", wrap_string($text))
-    };
-    ($stdout:expr, $text:literal, $($y:expr),+ $(,)?) => {
-        print_wrapped!($stdout, &format!($text, $($y),+))
-    };
-}
-
-#[derive(Default)]
 pub struct ReplSettings {
     pub show_bytecode: bool,
     pub show_instructions: bool,
+    pub colored_output: bool,
+    pub edit_mode: EditMode,
 }
 
-#[derive(Default)]
 pub struct Repl {
     koto: Koto,
     settings: ReplSettings,
     help: Option<Help>,
-    // The current input line
-    input: Vec<char>,
-    // The index into the input vec, or 1 past the last entry
-    cursor: usize,
+    editor: DefaultEditor,
+    stdout: Stdout,
     // A buffer of lines for expressions that continue over multiple lines
     continued_lines: Vec<String>,
-    // The previously entered lines
-    input_history: Vec<String>,
-    // The current index in the history
-    history_position: Option<usize>,
+    indent: usize,
+    colored_output: bool,
+}
+
+fn history_dir() -> Option<PathBuf> {
+    home::home_dir().map(|mut path| {
+        path.push(HISTORY_DIR);
+        path
+    })
+}
+
+fn history_path() -> Option<PathBuf> {
+    history_dir().map(|mut path| {
+        path.push(HISTORY_FILE);
+        path
+    })
 }
 
 impl Repl {
-    pub fn with_settings(repl_settings: ReplSettings, mut koto_settings: KotoSettings) -> Self {
+    pub fn with_settings(
+        repl_settings: ReplSettings,
+        mut koto_settings: KotoSettings,
+    ) -> Result<Self> {
         koto_settings.export_top_level_ids = true;
 
         let koto = Koto::with_settings(koto_settings);
-
         super::add_modules(&koto);
 
-        Self {
+        let mut editor = DefaultEditor::with_config(
+            Config::builder()
+                .max_history_size(MAX_HISTORY_ENTRIES)?
+                .edit_mode(repl_settings.edit_mode)
+                .build(),
+        )?;
+
+        if let Some(path) = history_path() {
+            editor.load_history(&path).ok();
+        }
+
+        let stdout = io::stdout();
+        let colored_output = repl_settings.colored_output && stdout.is_tty();
+
+        Ok(Self {
             koto,
             settings: repl_settings,
-            ..Self::default()
-        }
+            help: None,
+            editor,
+            stdout,
+            continued_lines: Vec::new(),
+            indent: 0,
+            colored_output,
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mut stdout = io::stdout();
-
-        write!(stdout, "Welcome to Koto v{VERSION}\r\n{PROMPT}").unwrap();
-        stdout.flush().unwrap();
-
         loop {
-            if stdout.is_tty() {
-                terminal::enable_raw_mode()?;
-            }
+            let result = if self.continued_lines.is_empty() {
+                self.editor.readline(PROMPT)
+            } else {
+                let indent = " ".repeat(self.indent);
+                self.editor
+                    .readline_with_initial(CONTINUED_PROMPT, (&indent, ""))
+            };
 
-            if let Event::Key(key_event) = read()? {
-                // Handle the keypress
-                let should_exit = self.on_keypress(key_event, &mut stdout)?;
-
-                if should_exit {
-                    return Ok(());
+            match result {
+                Ok(line) => {
+                    self.on_line(&line)?;
                 }
-
-                // Show the prompt
-                if stdout.is_tty() {
-                    let (_, cursor_y) = cursor::position()?;
-
-                    let prompt = if self.continued_lines.is_empty() {
-                        PROMPT
-                    } else {
-                        CONTINUED_PROMPT
-                    };
-
-                    queue!(
-                        stdout,
-                        cursor::MoveTo(0, cursor_y),
-                        terminal::Clear(ClearType::CurrentLine),
-                        style::Print(prompt),
-                        style::Print(&self.input.iter().collect::<String>()),
-                    )?;
-
-                    // Is the cursor inside the input?
-                    if self.cursor < self.input.len() {
-                        let cursor_x = prompt.len()
-                            + self.input[..self.cursor]
-                                .iter()
-                                .map(|c| c.width().unwrap_or(0))
-                                .sum::<usize>()
-                            - 1;
-
-                        queue!(stdout, cursor::MoveTo(cursor_x as u16, cursor_y))?;
-                    }
-
-                    stdout.flush().unwrap();
+                Err(ReadlineError::Interrupted) => {
+                    writeln!(self.stdout, "^C")?;
+                    break;
+                }
+                Err(ReadlineError::Eof) => {
+                    writeln!(self.stdout, "^D")?;
+                    break;
+                }
+                Err(err) => {
+                    writeln!(self.stdout, "Error: {:?}", err)?;
+                    break;
                 }
             }
         }
+
+        if let Some(mut path) = history_dir() {
+            std::fs::create_dir_all(&path)?;
+            path.push(HISTORY_FILE);
+            self.editor.save_history(&path)?;
+        }
+
+        Ok(())
     }
 
-    // Handles a single input keypress
-    //
-    // Returns true if the REPL should exit
-    fn on_keypress(&mut self, event: KeyEvent, stdout: &mut Stdout) -> Result<bool> {
-        match event.code {
-            KeyCode::Up => {
-                if !self.input_history.is_empty() {
-                    let new_position = match self.history_position {
-                        Some(position) => {
-                            if position > 0 {
-                                position - 1
-                            } else {
-                                0
-                            }
-                        }
-                        None => self.input_history.len() - 1,
-                    };
-                    self.history_position = Some(new_position);
-                    self.input = self.input_history[new_position].chars().collect();
-                    self.cursor = self.input.len();
-                }
-            }
-            KeyCode::Down => {
-                self.history_position = match self.history_position {
-                    Some(position) => {
-                        if position < self.input_history.len() - 1 {
-                            Some(position + 1)
-                        } else {
-                            None
-                        }
-                    }
-                    None => None,
-                };
-                if let Some(position) = self.history_position {
-                    self.input = self.input_history[position].chars().collect();
-                } else {
-                    self.input.clear();
-                }
-                self.cursor = self.input.len();
-            }
-            KeyCode::Left => {
-                if self.cursor > 0 {
-                    self.cursor -= 1;
-                }
-            }
-            KeyCode::Right => {
-                if self.cursor < self.input.len() {
-                    self.cursor += 1;
-                }
-            }
-            KeyCode::Backspace => {
-                if self.cursor > 0 {
-                    self.cursor -= 1;
-                    self.input.remove(self.cursor);
-                }
-            }
-            KeyCode::Delete => {
-                if self.cursor < self.input.len() {
-                    match self.cursor.cmp(&(self.input.len() - 1)) {
-                        Ordering::Less => {
-                            self.input.remove(self.cursor);
-                        }
-                        Ordering::Equal => {
-                            self.input.pop();
-                        }
-                        Ordering::Greater => {}
-                    }
-                }
-            }
-            KeyCode::Enter => self.on_enter(stdout)?,
-            KeyCode::Char(c) if event.modifiers.contains(KeyModifiers::CONTROL) => match c {
-                'c' => {
-                    if self.input.is_empty() {
-                        write!(stdout, "^C\r\n").unwrap();
-                        stdout.flush().unwrap();
-                        if stdout.is_tty() {
-                            terminal::disable_raw_mode()?;
-                        }
-                        return Ok(true);
-                    } else {
-                        self.input.clear();
-                        self.cursor = 0;
-                    }
-                }
-                'd' if self.input.is_empty() => {
-                    write!(stdout, "^D\r\n").unwrap();
-                    stdout.flush().unwrap();
-                    if stdout.is_tty() {
-                        terminal::disable_raw_mode()?;
-                    }
-                    return Ok(true);
-                }
-                _ => {}
-            },
-            KeyCode::Char(c) => {
-                self.input.insert(self.cursor, c);
-                self.cursor += 1;
-            }
-            _ => {}
-        }
-
-        Ok(false)
-    }
-
-    fn on_enter(&mut self, stdout: &mut Stdout) -> Result<()> {
-        if stdout.is_tty() {
-            terminal::disable_raw_mode()?;
-        }
-
-        writeln!(stdout)?;
+    fn on_line(&mut self, line: &str) -> Result<()> {
+        let input_is_whitespace = line.chars().all(|c| c.is_whitespace());
 
         let mut indent_next_line = false;
-
-        let input_is_whitespace = self.input.iter().all(|c| c.is_whitespace());
-        let entered_input = self.input.iter().collect::<String>();
 
         if self.continued_lines.is_empty() || input_is_whitespace {
             let mut input = self.continued_lines.join("\n");
 
             if !input_is_whitespace {
-                input += &entered_input;
+                input += line;
             }
+
+            self.editor.add_history_entry(&input)?;
 
             match self.koto.compile(&input) {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {
-                        print_wrapped!(stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
+                        print_wrapped!(self.stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
                     }
                     if self.settings.show_instructions {
-                        print_wrapped!(stdout, "Constants\n---------\n{}\n", chunk.constants)?;
+                        print_wrapped!(self.stdout, "Constants\n---------\n{}\n", chunk.constants)?;
 
                         let script_lines = input.lines().collect::<Vec<_>>();
                         print_wrapped!(
-                            stdout,
+                            self.stdout,
                             "Instructions\n------------\n{}",
                             Chunk::instructions_as_string(chunk, &script_lines)
                         )?;
@@ -266,11 +171,11 @@ impl Repl {
                     match self.koto.run() {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
                             Ok(result_string) => {
-                                print_result(stdout, &result_string)?;
+                                self.print_result(&result_string)?;
                             }
                             Err(e) => {
                                 print_wrapped!(
-                                    stdout,
+                                    self.stdout,
                                     "Error while getting display string for return value ({})",
                                     e
                                 )?;
@@ -278,9 +183,9 @@ impl Repl {
                         },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
-                                print_wrapped!(stdout, "{}\n", help)?;
+                                print_wrapped!(self.stdout, "{}\n", help)?;
                             } else {
-                                print_error(stdout, &error)?;
+                                self.print_error(&error)?;
                             }
                         }
                     }
@@ -288,22 +193,24 @@ impl Repl {
                 }
                 Err(compile_error) => {
                     if let Some(help) = self.run_help(&input) {
-                        print_wrapped!(stdout, "{}\n", help)?;
+                        print_wrapped!(self.stdout, "{}\n", help)?;
                         self.continued_lines.clear();
                     } else if compile_error.is_indentation_error()
                         && self.continued_lines.is_empty()
                     {
-                        self.continued_lines.push(entered_input.clone());
+                        self.continued_lines.push(line.to_string());
                         indent_next_line = true;
                     } else {
-                        print_error(stdout, &compile_error.to_string())?;
+                        self.editor.add_history_entry(&input)?;
+
+                        self.print_error(&compile_error.to_string())?;
                         self.continued_lines.clear();
                     }
                 }
             }
         } else {
             // We're in a continued expression, so cache the input for execution later
-            self.continued_lines.push(entered_input.clone());
+            self.continued_lines.push(line.to_string());
 
             // Check if we should add indentation on the next line
             let input = self.continued_lines.join("\n");
@@ -314,34 +221,22 @@ impl Repl {
             }
         }
 
-        if !input_is_whitespace
-            && (self.input_history.is_empty()
-                || self.input_history.last().unwrap() != &entered_input)
-        {
-            self.input_history.push(entered_input);
-        }
-
-        let current_indent = if self.continued_lines.is_empty() {
-            0
+        if self.continued_lines.is_empty() {
+            self.indent = 0;
         } else {
-            self.continued_lines
+            let current_indent = self
+                .continued_lines
                 .last()
                 .unwrap()
                 .find(|c: char| !c.is_whitespace())
-                .unwrap_or(0)
+                .unwrap_or(0);
+
+            self.indent = if indent_next_line {
+                current_indent + INDENT_SIZE
+            } else {
+                current_indent
+            };
         };
-
-        let indent = if indent_next_line {
-            current_indent + INDENT_SIZE
-        } else {
-            current_indent
-        };
-
-        self.input.clear();
-        self.input.resize(indent, ' ');
-        self.cursor = self.input.len();
-
-        self.history_position = None;
 
         Ok(())
     }
@@ -363,6 +258,54 @@ impl Repl {
         let help = self.help.get_or_insert_with(Help::new);
         help.get_help(search)
     }
+
+    fn print_result(&mut self, result: &str) -> Result<()> {
+        if self.colored_output {
+            use style::*;
+
+            execute!(
+                self.stdout,
+                Print(RESULT_PROMPT),
+                SetAttribute(Attribute::Bold),
+                Print(wrap_string_with_prefix(
+                    &format!("{result}\n\n"),
+                    RESULT_PROMPT
+                )),
+                SetAttribute(Attribute::Reset),
+            )?;
+        } else {
+            print_wrapped!(self.stdout, "{RESULT_PROMPT}{result}\n\n")?;
+        }
+
+        Ok(())
+    }
+
+    fn print_error<E>(&mut self, error: &E) -> Result<()>
+    where
+        E: fmt::Display,
+    {
+        if self.colored_output {
+            use style::*;
+
+            execute!(
+                self.stdout,
+                SetForegroundColor(Color::DarkRed),
+                Print("error"),
+                ResetColor,
+                Print(": "),
+                SetAttribute(Attribute::Bold),
+                Print(wrap_string_with_prefix(
+                    &format!("{error:#}\n\n"),
+                    "error: "
+                )),
+                SetAttribute(Attribute::Reset),
+            )?;
+        } else {
+            print_wrapped!(self.stdout, "error: {error:#}\n\n")?;
+        }
+
+        Ok(())
+    }
 }
 
 fn terminal_width() -> usize {
@@ -375,48 +318,4 @@ fn wrap_string(input: &str) -> String {
 
 fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
     textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
-}
-
-fn print_result(stdout: &mut Stdout, result: &str) -> Result<()> {
-    if stdout.is_tty() {
-        use style::*;
-
-        execute!(
-            stdout,
-            Print(RESULT_PROMPT),
-            SetAttribute(Attribute::Bold),
-            Print(wrap_string_with_prefix(
-                &format!("{result}\n\n"),
-                RESULT_PROMPT
-            )),
-            SetAttribute(Attribute::Reset),
-        )
-    } else {
-        print_wrapped!(stdout, "{RESULT_CHAR}{result}\n\n")
-    }
-}
-
-fn print_error<E>(stdout: &mut Stdout, error: &E) -> Result<()>
-where
-    E: fmt::Display,
-{
-    if stdout.is_tty() {
-        use style::*;
-
-        execute!(
-            stdout,
-            SetForegroundColor(Color::DarkRed),
-            Print("error"),
-            ResetColor,
-            Print(": "),
-            SetAttribute(Attribute::Bold),
-            Print(wrap_string_with_prefix(
-                &format!("{error:#}\n\n"),
-                "error: "
-            )),
-            SetAttribute(Attribute::Reset),
-        )
-    } else {
-        print_wrapped!(stdout, "{error:#}")
-    }
 }

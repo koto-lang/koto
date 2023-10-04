@@ -27,10 +27,13 @@ koto_tempfile = { path = "../../libs/tempfile", version = "^0.11.0" }
 koto_toml = { path = "../../libs/toml", version = "^0.11.0" }
 koto_yaml = { path = "../../libs/yaml", version = "^0.11.0" }
 
+anyhow = { workspace = true }
 crossterm = { workspace = true }
+home = { workspace = true }
 indexmap = { workspace = true }
 pico-args = { workspace = true }
 pulldown-cmark = { workspace = true }
+rustyline = { workspace = true }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
 

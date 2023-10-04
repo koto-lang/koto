@@ -3,6 +3,8 @@ members = ["core/*", "examples/*", "libs/*"]
 resolver = "2"
 
 [workspace.dependencies]
+# Flexible concrete Error type built on std::error::Error
+anyhow = "1.0.75"
 # Date and time library for Rust
 chrono = "0.4.31"
 # Statistics-driven micro-benchmarking library
@@ -17,6 +19,8 @@ dunce = "1.0.2"
 getrandom = "0.2.4"
 # A simple and fast 3D math library for games and graphics
 glam = "0.22.0"
+# Shared definitions of home directories.
+home = "0.5.5"
 # A Rust library for conveniently watching and handling file changes.
 hotwatch = "0.4.5"
 # A hash table with consistent order and fast iteration.
@@ -41,6 +45,8 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 # A speedy, non-cryptographic hash used in rustc
 rustc-hash = "1.1.0"
+# Rustyline, a readline implementation
+rustyline = "12.0.0"
 # A generic serialization/deserialization framework
 serde = "1.0.0"
 # JSON support for serde
