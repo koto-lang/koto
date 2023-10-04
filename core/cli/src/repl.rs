@@ -1,9 +1,10 @@
 use std::{
-    env, fmt,
+    fmt,
     io::{self, Stdout, Write},
     path::PathBuf,
 };
 
+use anyhow::Result;
 use crossterm::{
     execute, style,
     terminal::{self},
@@ -11,8 +12,6 @@ use crossterm::{
 };
 use koto::prelude::*;
 use rustyline::{error::ReadlineError, Config, DefaultEditor, EditMode};
-
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 use crate::help::Help;
 
@@ -33,10 +32,11 @@ const HISTORY_DIR: &str = ".koto";
 const HISTORY_FILE: &str = "repl_history.txt";
 const MAX_HISTORY_ENTRIES: usize = 500;
 
-#[derive(Default)]
 pub struct ReplSettings {
     pub show_bytecode: bool,
     pub show_instructions: bool,
+    pub colored_output: bool,
+    pub edit_mode: EditMode,
 }
 
 pub struct Repl {
@@ -75,16 +75,10 @@ impl Repl {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
 
-        let edit_mode = if env::var("KOTO_EDIT_MODE_VI").is_ok() {
-            EditMode::Vi
-        } else {
-            EditMode::Emacs
-        };
-
         let mut editor = DefaultEditor::with_config(
             Config::builder()
                 .max_history_size(MAX_HISTORY_ENTRIES)?
-                .edit_mode(edit_mode)
+                .edit_mode(repl_settings.edit_mode)
                 .build(),
         )?;
 
@@ -93,12 +87,7 @@ impl Repl {
         }
 
         let stdout = io::stdout();
-
-        let colored_output = if env::var("NO_COLOR").is_ok() {
-            false
-        } else {
-            stdout.is_tty()
-        };
+        let colored_output = repl_settings.colored_output && stdout.is_tty();
 
         Ok(Self {
             koto,

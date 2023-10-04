@@ -3,6 +3,8 @@ members = ["core/*", "examples/*", "libs/*"]
 resolver = "2"
 
 [workspace.dependencies]
+# Flexible concrete Error type built on std::error::Error
+anyhow = "1.0.75"
 # Date and time library for Rust
 chrono = "0.4.31"
 # Statistics-driven micro-benchmarking library

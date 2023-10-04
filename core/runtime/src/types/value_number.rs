@@ -57,6 +57,11 @@ impl ValueNumber {
         matches!(self, Self::F64(_))
     }
 
+    /// Returns true if the number is represented by an `i64`
+    pub fn is_i64(self) -> bool {
+        matches!(self, Self::I64(_))
+    }
+
     /// Returns true if the integer version of the number is representable by an `f64`
     pub fn is_i64_in_f64_range(&self) -> bool {
         if let Self::I64(n) = *self {
