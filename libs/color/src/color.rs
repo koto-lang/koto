@@ -4,7 +4,7 @@ use std::{
     ops::{self, Deref, DerefMut},
 };
 
-use palette::{rgb::LinSrgba as Inner, Mix};
+use palette::{rgb::LinSrgba as Inner, FromColor, Mix};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Color(Inner);
@@ -332,21 +332,18 @@ impl DerefMut for Color {
     }
 }
 
-impl From<(f32, f32, f32, f32)> for Color {
-    fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
-        Self::rgba(r, g, b, a)
-    }
-}
-
-impl From<Inner> for Color {
-    fn from(c: Inner) -> Self {
-        Self(c)
-    }
-}
-
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
         Object::from(color).into()
+    }
+}
+
+impl<T> From<T> for Color
+where
+    Inner: FromColor<T>,
+{
+    fn from(c: T) -> Self {
+        Self(Inner::from_color(c))
     }
 }
 

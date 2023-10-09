@@ -5,11 +5,28 @@ mod color;
 pub use color::Color;
 
 use koto_runtime::{prelude::*, Result};
+use palette::{Hsl, Hsv};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::default();
+
+    result.add_fn("hsl", |ctx| match ctx.args() {
+        [Number(h), Number(s), Number(l)] => {
+            let hsv = Hsl::new(f32::from(h), f32::from(s), f32::from(l));
+            Ok(Color::from(hsv).into())
+        }
+        unexpected => type_error_with_slice("3 Numbers, with hue specified in degrees", unexpected),
+    });
+
+    result.add_fn("hsv", |ctx| match ctx.args() {
+        [Number(h), Number(s), Number(v)] => {
+            let hsv = Hsv::new(f32::from(h), f32::from(s), f32::from(v));
+            Ok(Color::from(hsv).into())
+        }
+        unexpected => type_error_with_slice("3 Numbers, with hue specified in degrees", unexpected),
+    });
 
     result.add_fn("named", |ctx| match ctx.args() {
         [Str(s)] => named(s),
