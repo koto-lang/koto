@@ -1,5 +1,12 @@
 import color
 
+assert_color_near = |a, b|
+  allowed_error = 1.0e-3
+  assert_near a.r(), b.r(), allowed_error
+  assert_near a.g(), b.g(), allowed_error
+  assert_near a.b(), b.b(), allowed_error
+  assert_near a.a(), b.a(), allowed_error
+
 @tests =
   @test rgb: ||
     assert_eq (color 1, 0, 1), (color.rgb 1, 0, 1)
@@ -9,6 +16,16 @@ import color
     assert_eq (color 1, 0, 1, 0.5), (color.rgba 1, 0, 1, 0.5)
     assert_eq (color 0, 0.5, 0.9, 0.1), (color.rgba 0, 0.5, 0.9, 0.1)
     assert_eq (color.rgb 0.1, 0.2, 0.3), (color.rgba 0.1, 0.2, 0.3, 1)
+
+  @test hsl: ||
+    assert_color_near (color.hsl 0.0, 1.0, 0.5), (color.rgb 1.0, 0.0, 0.0)
+    assert_color_near (color.hsl 270, 1.0, 0.5), (color.rgb 0.5, 0.0, 1.0)
+    assert_color_near (color.hsl 270, 1.0, 0.8), (color.rgb 0.8, 0.6, 1.0)
+
+  @test hsv: ||
+    assert_color_near (color.hsv 180, 0.5, 1.0), (color.rgb 0.5, 1.0, 1.0)
+    assert_color_near (color.hsv 180, 1.0, 1.0), (color.rgb 0.0, 1.0, 1.0)
+    assert_color_near (color.hsv 270, 1.0, 1.0), (color.rgb 0.5, 0.0, 1.0)
 
   @test named: ||
     assert_eq (color 'blue'), (color.named 'blue')
@@ -40,6 +57,12 @@ import color
       .set_a 0.3
     assert_eq c, color.rgba 0.9, 0.1, 0.4, 0.3
 
+  @test mix: ||
+    a = color 'red'
+    b = color 'blue'
+    assert_eq a.mix(b), color.rgba 0.5, 0.0, 0.5, 1.0
+    assert_eq a.mix(b, 0.25), color.rgba 0.75, 0.0, 0.25, 1.0
+    assert_eq a.mix(b, 0.75), color.rgba 0.25, 0.0, 0.75, 1.0
 
   @test arithmetic: ||
     assert_eq color('red') + color('blue'), color 'fuchsia'

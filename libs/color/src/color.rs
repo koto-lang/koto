@@ -4,7 +4,7 @@ use std::{
     ops::{self, Deref, DerefMut},
 };
 
-type Inner = palette::rgb::LinSrgba;
+use palette::{rgb::LinSrgba as Inner, FromColor, Mix};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Color(Inner);
@@ -259,7 +259,7 @@ impl KotoObject for Color {
 }
 
 fn make_color_entries() -> DataMap {
-    use Value::Number;
+    use Value::{Number, Object};
 
     ObjectEntryBuilder::<Color>::new()
         .method_aliased(&["red", "r"], |ctx| Ok(ctx.instance()?.red().into()))
@@ -294,6 +294,22 @@ fn make_color_entries() -> DataMap {
             }
             unexpected => type_error_with_slice("a Number", unexpected),
         })
+        .method("mix", |ctx| match ctx.args {
+            [Object(b)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+
+                Ok(Color::from(a.0.mix(b.0, 0.5)).into())
+            }
+            [Object(b), Number(x)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+                let n = f32::from(x);
+
+                Ok(Color::from(a.0.mix(b.0, n)).into())
+            }
+            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
+        })
         .build()
 }
 
@@ -316,21 +332,18 @@ impl DerefMut for Color {
     }
 }
 
-impl From<(f32, f32, f32, f32)> for Color {
-    fn from((r, g, b, a): (f32, f32, f32, f32)) -> Self {
-        Self::rgba(r, g, b, a)
-    }
-}
-
-impl From<Inner> for Color {
-    fn from(c: Inner) -> Self {
-        Self(c)
-    }
-}
-
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
         Object::from(color).into()
+    }
+}
+
+impl<T> From<T> for Color
+where
+    Inner: FromColor<T>,
+{
+    fn from(c: T) -> Self {
+        Self(Inner::from_color(c))
     }
 }
 
