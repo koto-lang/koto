@@ -4,7 +4,7 @@ use std::{
     ops::{self, Deref, DerefMut},
 };
 
-type Inner = palette::rgb::LinSrgba;
+use palette::{rgb::LinSrgba as Inner, Mix};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Color(Inner);
@@ -259,7 +259,7 @@ impl KotoObject for Color {
 }
 
 fn make_color_entries() -> DataMap {
-    use Value::Number;
+    use Value::{Number, Object};
 
     ObjectEntryBuilder::<Color>::new()
         .method_aliased(&["red", "r"], |ctx| Ok(ctx.instance()?.red().into()))
@@ -293,6 +293,22 @@ fn make_color_entries() -> DataMap {
                 ctx.instance_result()
             }
             unexpected => type_error_with_slice("a Number", unexpected),
+        })
+        .method("mix", |ctx| match ctx.args {
+            [Object(b)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+
+                Ok(Color::from(a.0.mix(b.0, 0.5)).into())
+            }
+            [Object(b), Number(x)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+                let n = f32::from(x);
+
+                Ok(Color::from(a.0.mix(b.0, n)).into())
+            }
+            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
         })
         .build()
 }
