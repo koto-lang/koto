@@ -506,13 +506,13 @@ impl Vm {
         result
     }
 
-    /// Makes a ValueIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator> {
+    /// Makes a KIterator that iterates over the provided value's contents
+    pub fn make_iterator(&mut self, value: Value) -> Result<KIterator> {
         use Value::*;
 
         match value {
             _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
-                ValueIterator::with_meta_next(self.spawn_shared_vm(), value)
+                KIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
             _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 // If the value implements @iterator,
@@ -521,11 +521,11 @@ impl Vm {
                 self.make_iterator(iterator_call_result)
             }
             Iterator(i) => Ok(i),
-            Range(r) => ValueIterator::with_range(r),
-            List(l) => Ok(ValueIterator::with_list(l)),
-            Tuple(t) => Ok(ValueIterator::with_tuple(t)),
-            Str(s) => Ok(ValueIterator::with_string(s)),
-            Map(m) => Ok(ValueIterator::with_map(m)),
+            Range(r) => KIterator::with_range(r),
+            List(l) => Ok(KIterator::with_list(l)),
+            Tuple(t) => Ok(KIterator::with_tuple(t)),
+            Str(s) => Ok(KIterator::with_string(s)),
+            Map(m) => Ok(KIterator::with_map(m)),
             Object(o) => {
                 use IsIterable::*;
 
@@ -534,7 +534,7 @@ impl Vm {
                     NotIterable => runtime_error!("{} is not iterable", o_inner.object_type()),
                     Iterable => o_inner.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
-                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())
+                        KIterator::with_object(self.spawn_shared_vm(), o.clone())
                     }
                 }
             }
@@ -1022,7 +1022,7 @@ impl Vm {
 
         let iterator = match iterable {
             _ if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
-                ValueIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
+                KIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
             }
             _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
@@ -1042,11 +1042,11 @@ impl Vm {
                 // situations like argument unpacking.
                 iterable
             }
-            Range(range) => ValueIterator::with_range(range)?.into(),
-            List(list) => ValueIterator::with_list(list).into(),
-            Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
-            Str(s) => ValueIterator::with_string(s).into(),
-            Map(map) => ValueIterator::with_map(map).into(),
+            Range(range) => KIterator::with_range(range)?.into(),
+            List(list) => KIterator::with_list(list).into(),
+            Tuple(tuple) => KIterator::with_tuple(tuple).into(),
+            Str(s) => KIterator::with_string(s).into(),
+            Map(map) => KIterator::with_map(map).into(),
             Object(o) => {
                 use IsIterable::*;
                 let o_inner = o.try_borrow()?;
@@ -1056,7 +1056,7 @@ impl Vm {
                     }
                     Iterable => o_inner.make_iterator(self)?.into(),
                     ForwardIterator | BidirectionalIterator => {
-                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
+                        KIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
                     }
                 }
             }
@@ -1081,8 +1081,8 @@ impl Vm {
         let output = match self.clone_register(iterable_register) {
             Iterator(mut iterator) => {
                 match iterator.next() {
-                    Some(ValueIteratorOutput::Value(value)) => Some(value),
-                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                    Some(KIteratorOutput::Value(value)) => Some(value),
+                    Some(KIteratorOutput::ValuePair(first, second)) => {
                         if let Some(result) = result_register {
                             if output_is_temporary {
                                 self.set_register(result + 1, first);
@@ -1100,7 +1100,7 @@ impl Vm {
                             Some(Null)
                         }
                     }
-                    Some(ValueIteratorOutput::Error(error)) => {
+                    Some(KIteratorOutput::Error(error)) => {
                         return runtime_error!(error.to_string());
                     }
                     None => None,
@@ -2524,7 +2524,7 @@ impl Vm {
         // Wrap the generator vm in an iterator and place it in the result register
         self.set_register(
             call_info.result_register,
-            ValueIterator::with_vm(generator_vm).into(),
+            KIterator::with_vm(generator_vm).into(),
         );
 
         Ok(())

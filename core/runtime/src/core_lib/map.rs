@@ -56,7 +56,7 @@ pub fn make_module() -> KMap {
                     map_data.reserve(size_hint);
 
                     for output in iterator {
-                        use ValueIteratorOutput as Output;
+                        use KIteratorOutput as Output;
                         let (key, value) = match output {
                             Output::ValuePair(key, value) => (key, value),
                             Output::Value(Value::Tuple(t)) if t.len() == 2 => {
@@ -170,8 +170,8 @@ pub fn make_module() -> KMap {
 
         match map_instance_and_args(ctx, expected_error)? {
             (Value::Map(m), []) => {
-                let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
-                Ok(ValueIterator::new(result).into())
+                let result = adaptors::PairFirst::new(KIterator::with_map(m.clone()));
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -318,8 +318,8 @@ pub fn make_module() -> KMap {
 
         match map_instance_and_args(ctx, expected_error)? {
             (Value::Map(m), []) => {
-                let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
-                Ok(ValueIterator::new(result).into())
+                let result = adaptors::PairSecond::new(KIterator::with_map(m.clone()));
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }

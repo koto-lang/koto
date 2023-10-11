@@ -47,7 +47,7 @@ impl KotoObject for Rect {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let r = *self;
 
         let iter = (0..=3).map(move |i| {
@@ -58,10 +58,10 @@ impl KotoObject for Rect {
                 3 => r.h(),
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 

@@ -240,7 +240,7 @@ impl KotoObject for Color {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let c = *self;
 
         let iter = (0..=3).map(move |i| {
@@ -251,10 +251,10 @@ impl KotoObject for Color {
                 3 => c.alpha(),
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 

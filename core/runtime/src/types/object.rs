@@ -186,8 +186,8 @@ pub trait KotoObject: Downcast {
     ///
     /// If [IsIterable::Iterable] is returned from [is_iterable](Self::is_iterable),
     /// then the runtime will call this function when the object is used in iterable contexts,
-    /// expecting a [ValueIterator] to be returned.
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    /// expecting a [KIterator] to be returned.
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         unimplemented_error("@iterator", self.object_type())
     }
 
@@ -195,20 +195,20 @@ pub trait KotoObject: Downcast {
     ///
     /// If either [ForwardIterator][IsIterable::ForwardIterator] or
     /// [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [ValueIterator]
+    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [ValueIterator::next] is invoked.
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+    /// [KIterator::next] is invoked.
+    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         None
     }
 
     /// Gets the object's next value from the end of an iteration
     ///
     /// If [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [ValueIterator]
+    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [ValueIterator::next_back] is invoked.
-    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+    /// [KIterator::next_back] is invoked.
+    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         None
     }
 }

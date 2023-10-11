@@ -1,19 +1,19 @@
 //! Adapators used by the `iterator` core library module
 
 use super::collect_pair;
-use crate::{prelude::*, Result, ValueIteratorOutput as Output};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 use std::{collections::VecDeque, error, fmt, result::Result as StdResult};
 use thiserror::Error;
 
 /// An iterator that links the output of two iterators together in a chained sequence
 pub struct Chain {
-    iter_a: Option<ValueIterator>,
-    iter_b: ValueIterator,
+    iter_a: Option<KIterator>,
+    iter_b: KIterator,
 }
 
 impl Chain {
     /// Creates a [Chain] adapator from two iterators
-    pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
+    pub fn new(iter_a: KIterator, iter_b: KIterator) -> Self {
         Self {
             iter_a: Some(iter_a),
             iter_b,
@@ -22,7 +22,7 @@ impl Chain {
 }
 
 impl KotoIterator for Chain {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter_a: match &self.iter_a {
                 Some(iter) => Some(iter.make_copy()?),
@@ -30,7 +30,7 @@ impl KotoIterator for Chain {
             },
             iter_b: self.iter_b.make_copy()?,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -71,13 +71,13 @@ impl Iterator for Chain {
 
 /// An iterator that splits the incoming iterator into iterators of size N
 pub struct Chunks {
-    iter: ValueIterator,
+    iter: KIterator,
     chunk_size: usize,
 }
 
 impl Chunks {
     /// Creates a [Chunks] adapator
-    pub fn new(iter: ValueIterator, chunk_size: usize) -> StdResult<Self, ChunksError> {
+    pub fn new(iter: KIterator, chunk_size: usize) -> StdResult<Self, ChunksError> {
         if chunk_size < 1 {
             Err(ChunksError::ChunkSizeMustBeAtLeastOne)
         } else {
@@ -87,12 +87,12 @@ impl Chunks {
 }
 
 impl KotoIterator for Chunks {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             chunk_size: self.chunk_size,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -163,14 +163,14 @@ impl error::Error for ChunksError {}
 
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
-    iter: ValueIterator,
+    iter: KIterator,
     cache: Vec<Value>,
     cycle_index: usize,
 }
 
 impl Cycle {
     /// Creates a new [Cycle] adaptor
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         let (lower_bound, _) = iter.size_hint();
         let size_hint = if lower_bound < usize::MAX {
             lower_bound
@@ -187,13 +187,13 @@ impl Cycle {
 }
 
 impl KotoIterator for Cycle {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             cache: self.cache.clone(),
             cycle_index: self.cycle_index,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -238,14 +238,14 @@ impl Iterator for Cycle {
 
 /// An iterator that runs a function on each output value from the adapted iterator
 pub struct Each {
-    iter: ValueIterator,
+    iter: KIterator,
     function: Value,
     vm: Vm,
 }
 
 impl Each {
     /// Creates a new [Each] adaptor
-    pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, function: Value, vm: Vm) -> Self {
         Self { iter, function, vm }
     }
 
@@ -264,13 +264,13 @@ impl Each {
 }
 
 impl KotoIterator for Each {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -296,24 +296,24 @@ impl Iterator for Each {
 
 /// An iterator that attaches an enumerated iteration position to each value
 pub struct Enumerate {
-    iter: ValueIterator,
+    iter: KIterator,
     index: usize,
 }
 
 impl Enumerate {
     /// Creates a new [Enumerate] adaptor
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         Self { iter, index: 0 }
     }
 }
 
 impl KotoIterator for Enumerate {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             index: self.index,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -342,13 +342,13 @@ impl Iterator for Enumerate {
 /// An iterator that flattens the output of nested iterators
 pub struct Flatten {
     vm: Vm,
-    iter: ValueIterator,
-    nested: Option<ValueIterator>,
+    iter: KIterator,
+    nested: Option<KIterator>,
 }
 
 impl Flatten {
     /// Creates a new [Flatten] adaptor
-    pub fn new(iter: ValueIterator, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, vm: Vm) -> Self {
         Self {
             vm,
             iter,
@@ -358,7 +358,7 @@ impl Flatten {
 }
 
 impl KotoIterator for Flatten {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             vm: self.vm.spawn_shared_vm(),
             iter: self.iter.make_copy()?,
@@ -367,7 +367,7 @@ impl KotoIterator for Flatten {
                 None => None,
             },
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -400,7 +400,7 @@ impl Iterator for Flatten {
 
 /// An iterator that inserts a separator value between each output value from the adapted iterator
 pub struct Intersperse {
-    iter: ValueIterator,
+    iter: KIterator,
     peeked: Option<Output>,
     next_is_separator: bool,
     separator: Value,
@@ -408,7 +408,7 @@ pub struct Intersperse {
 
 impl Intersperse {
     /// Creates a new [Intersperse] adaptor
-    pub fn new(iter: ValueIterator, separator: Value) -> Self {
+    pub fn new(iter: KIterator, separator: Value) -> Self {
         Self {
             iter,
             peeked: None,
@@ -419,14 +419,14 @@ impl Intersperse {
 }
 
 impl KotoIterator for Intersperse {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             peeked: self.peeked.clone(),
             next_is_separator: self.next_is_separator,
             separator: self.separator.clone(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -460,7 +460,7 @@ impl Iterator for Intersperse {
 ///
 /// The separator value is the result of calling a provided separator function.
 pub struct IntersperseWith {
-    iter: ValueIterator,
+    iter: KIterator,
     peeked: Option<Output>,
     next_is_separator: bool,
     separator_function: Value,
@@ -469,7 +469,7 @@ pub struct IntersperseWith {
 
 impl IntersperseWith {
     /// Creates a new [IntersperseWith] adaptor
-    pub fn new(iter: ValueIterator, separator_function: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, separator_function: Value, vm: Vm) -> Self {
         Self {
             iter,
             peeked: None,
@@ -481,7 +481,7 @@ impl IntersperseWith {
 }
 
 impl KotoIterator for IntersperseWith {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             peeked: self.peeked.clone(),
@@ -489,7 +489,7 @@ impl KotoIterator for IntersperseWith {
             separator_function: self.separator_function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -527,7 +527,7 @@ impl Iterator for IntersperseWith {
     }
 }
 
-fn intersperse_size_hint(iter: &ValueIterator, next_is_separator: bool) -> (usize, Option<usize>) {
+fn intersperse_size_hint(iter: &KIterator, next_is_separator: bool) -> (usize, Option<usize>) {
     let (lower, upper) = iter.size_hint();
     let offset = !next_is_separator as usize;
 
@@ -539,14 +539,14 @@ fn intersperse_size_hint(iter: &ValueIterator, next_is_separator: bool) -> (usiz
 
 /// An iterator that skips over values that fail a predicate, and keeps those that pass
 pub struct Keep {
-    iter: ValueIterator,
+    iter: KIterator,
     predicate: Value,
     vm: Vm,
 }
 
 impl Keep {
     /// Creates a new [Keep] adaptor
-    pub fn new(iter: ValueIterator, predicate: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, predicate: Value, vm: Vm) -> Self {
         Self {
             iter,
             predicate,
@@ -556,13 +556,13 @@ impl Keep {
 }
 
 impl KotoIterator for Keep {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -606,22 +606,22 @@ impl Iterator for Keep {
 
 /// An iterator that outputs the first element from any ValuePairs
 pub struct PairFirst {
-    iter: ValueIterator,
+    iter: KIterator,
 }
 
 impl PairFirst {
     /// Creates a new [PairFirst] adaptor
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         Self { iter }
     }
 }
 
 impl KotoIterator for PairFirst {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -642,22 +642,22 @@ impl Iterator for PairFirst {
 
 /// An iterator that outputs the second element from any ValuePairs
 pub struct PairSecond {
-    iter: ValueIterator,
+    iter: KIterator,
 }
 
 impl PairSecond {
     /// Creates a new [PairSecond] adaptor
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         Self { iter }
     }
 }
 
 impl KotoIterator for PairSecond {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -678,12 +678,12 @@ impl Iterator for PairSecond {
 
 /// An iterator adaptor that reverses the output of the input iterator
 pub struct Reversed {
-    iter: ValueIterator,
+    iter: KIterator,
 }
 
 impl Reversed {
     /// Creates a new [Reversed] adaptor
-    pub fn new(iter: ValueIterator) -> StdResult<Self, ReversedError> {
+    pub fn new(iter: KIterator) -> StdResult<Self, ReversedError> {
         if iter.is_bidirectional() {
             Ok(Self {
                 iter: iter.make_copy().map_err(ReversedError::CopyError)?,
@@ -695,11 +695,11 @@ impl Reversed {
 }
 
 impl KotoIterator for Reversed {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -735,13 +735,13 @@ pub enum ReversedError {
 
 /// An iterator that takes up to N values from the adapted iterator, and then stops
 pub struct Take {
-    iter: ValueIterator,
+    iter: KIterator,
     remaining: usize,
 }
 
 impl Take {
     /// Creates a new [Take] adaptor
-    pub fn new(iter: ValueIterator, count: usize) -> Self {
+    pub fn new(iter: KIterator, count: usize) -> Self {
         Self {
             iter,
             remaining: count,
@@ -750,12 +750,12 @@ impl Take {
 }
 
 impl KotoIterator for Take {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             remaining: self.remaining,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -782,14 +782,14 @@ impl Iterator for Take {
 
 /// An iterator that splits the incoming iterator into overlapping iterators of size N
 pub struct Windows {
-    iter: ValueIterator,
+    iter: KIterator,
     cache: VecDeque<Value>,
     window_size: usize,
 }
 
 impl Windows {
     /// Creates a new [Windows] adaptor
-    pub fn new(iter: ValueIterator, window_size: usize) -> StdResult<Self, WindowsError> {
+    pub fn new(iter: KIterator, window_size: usize) -> StdResult<Self, WindowsError> {
         if window_size < 1 {
             Err(WindowsError::WindowSizeMustBeAtLeastOne)
         } else {
@@ -803,13 +803,13 @@ impl Windows {
 }
 
 impl KotoIterator for Windows {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter: self.iter.make_copy()?,
             cache: self.cache.clone(),
             window_size: self.window_size,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -872,24 +872,24 @@ impl error::Error for WindowsError {}
 
 /// An iterator that combines the output of two iterators, 'zipping' output pairs together
 pub struct Zip {
-    iter_a: ValueIterator,
-    iter_b: ValueIterator,
+    iter_a: KIterator,
+    iter_b: KIterator,
 }
 
 impl Zip {
     /// Creates a new [Zip] adaptor
-    pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
+    pub fn new(iter_a: KIterator, iter_b: KIterator) -> Self {
         Self { iter_a, iter_b }
     }
 }
 
 impl KotoIterator for Zip {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             iter_a: self.iter_a.make_copy()?,
             iter_b: self.iter_b.make_copy()?,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 

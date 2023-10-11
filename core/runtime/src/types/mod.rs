@@ -19,7 +19,7 @@ pub use self::{
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
     value::{CaptureFunctionInfo, FunctionInfo, Value},
-    value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
+    value_iterator::{KIterator, KIteratorOutput, KotoIterator},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},
     value_map::{KMap, KotoHasher, ValueMap},

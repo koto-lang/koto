@@ -76,8 +76,8 @@ pub fn make_module() -> KMap {
 
                     for value in iterator.map(collect_pair) {
                         match value {
-                            ValueIteratorOutput::Value(value) => list_data.push(value.clone()),
-                            ValueIteratorOutput::Error(error) => return Err(error),
+                            KIteratorOutput::Value(value) => list_data.push(value.clone()),
+                            KIteratorOutput::Error(error) => return Err(error),
                             _ => unreachable!(),
                         }
                     }

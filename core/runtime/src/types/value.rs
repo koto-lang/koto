@@ -42,7 +42,7 @@ pub enum Value {
     ExternalFunction(ExternalFunction),
 
     /// The iterator type used in Koto
-    Iterator(ValueIterator),
+    Iterator(KIterator),
 
     /// An object with behaviour defined via the [KotoObject] trait
     Object(Object),
@@ -128,7 +128,7 @@ impl Value {
         }
     }
 
-    /// Returns true if a `ValueIterator` can be made from the value
+    /// Returns true if a [KIterator] can be made from the value
     pub fn is_iterable(&self) -> bool {
         use Value::*;
         match self {
@@ -324,8 +324,8 @@ impl From<Object> for Value {
     }
 }
 
-impl From<ValueIterator> for Value {
-    fn from(value: ValueIterator) -> Self {
+impl From<KIterator> for Value {
+    fn from(value: KIterator) -> Self {
         Self::Iterator(value)
     }
 }

@@ -1,8 +1,8 @@
 //! A collection of string iterators
 
 use crate::{
-    make_runtime_error, CallArgs, KotoIterator, Result, Value, ValueIterator,
-    ValueIteratorOutput as Output, ValueString, Vm,
+    make_runtime_error, CallArgs, KIterator, KIteratorOutput as Output, KotoIterator, Result,
+    Value, ValueString, Vm,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -21,8 +21,8 @@ impl Bytes {
 }
 
 impl KotoIterator for Bytes {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -64,8 +64,8 @@ impl Lines {
 }
 
 impl KotoIterator for Lines {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -124,8 +124,8 @@ impl Split {
 }
 
 impl KotoIterator for Split {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -175,14 +175,14 @@ impl SplitWith {
 }
 
 impl KotoIterator for SplitWith {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             input: self.input.clone(),
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
             start: self.start,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 

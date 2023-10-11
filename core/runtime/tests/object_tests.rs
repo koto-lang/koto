@@ -187,8 +187,8 @@ mod objects {
             IsIterable::Iterable
         }
 
-        fn make_iterator(&self, vm: &mut Vm) -> Result<ValueIterator> {
-            ValueIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
+        fn make_iterator(&self, vm: &mut Vm) -> Result<KIterator> {
+            KIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
         }
     }
 
@@ -255,12 +255,12 @@ mod objects {
             IsIterable::BidirectionalIterator
         }
 
-        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
             self.x += 1;
             Some(self.x.into())
         }
 
-        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
             self.x -= 1;
             Some(self.x.into())
         }

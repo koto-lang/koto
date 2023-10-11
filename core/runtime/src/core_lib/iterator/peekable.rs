@@ -1,19 +1,19 @@
 //! A double-ended peekable iterator for Koto
 
 use super::iter_output_to_result;
-use crate::{prelude::*, Result, ValueIteratorOutput as Output};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone)]
 pub struct Peekable {
-    iter: ValueIterator,
+    iter: KIterator,
     peeked_front: Option<Value>,
     peeked_back: Option<Value>,
 }
 
 impl Peekable {
     /// Initializes a Peekable that wraps the given iterator
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         Self {
             iter,
             peeked_front: None,
@@ -22,7 +22,7 @@ impl Peekable {
     }
 
     /// Makes an instance of Peekable along with a meta map that allows it be used as a Koto Value
-    pub fn make_value(iter: ValueIterator) -> Value {
+    pub fn make_value(iter: KIterator) -> Value {
         Object::from(Self::new(iter)).into()
     }
 

@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{prelude::*, Result, ValueIteratorOutput as Output};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {
@@ -98,7 +98,7 @@ pub fn make_module() -> KMap {
             (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
                 let iterable_a = iterable_a.clone();
                 let iterable_b = iterable_b.clone();
-                let result = ValueIterator::new(adaptors::Chain::new(
+                let result = KIterator::new(adaptors::Chain::new(
                     ctx.vm.make_iterator(iterable_a)?,
                     ctx.vm.make_iterator(iterable_b)?,
                 ));
@@ -117,7 +117,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let n = *n;
                 match adaptors::Chunks::new(ctx.vm.make_iterator(iterable)?, n.into()) {
-                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Ok(result) => Ok(KIterator::new(result).into()),
                     Err(e) => runtime_error!("iterator.chunks: {}", e),
                 }
             }
@@ -190,7 +190,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.spawn_shared_vm(),
                 );
 
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -204,7 +204,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let result = adaptors::Cycle::new(ctx.vm.make_iterator(iterable)?);
 
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -217,7 +217,7 @@ pub fn make_module() -> KMap {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -274,7 +274,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.spawn_shared_vm(),
                 );
 
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -326,11 +326,11 @@ pub fn make_module() -> KMap {
     result.add_fn("generate", |ctx| match ctx.args() {
         [f] if f.is_callable() => {
             let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
-            Ok(ValueIterator::new(result).into())
+            Ok(KIterator::new(result).into())
         }
         [Value::Number(n), f] if f.is_callable() => {
             let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
-            Ok(ValueIterator::new(result).into())
+            Ok(KIterator::new(result).into())
         }
         unexpected => type_error_with_slice("(Function), or (Number, Function)", unexpected),
     });
@@ -348,14 +348,14 @@ pub fn make_module() -> KMap {
                     ctx.vm.spawn_shared_vm(),
                 );
 
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (iterable, [separator]) => {
                 let iterable = iterable.clone();
                 let separator = separator.clone();
                 let result = adaptors::Intersperse::new(ctx.vm.make_iterator(iterable)?, separator);
 
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -385,7 +385,7 @@ pub fn make_module() -> KMap {
                     predicate,
                     ctx.vm.spawn_shared_vm(),
                 );
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -617,11 +617,11 @@ pub fn make_module() -> KMap {
     result.add_fn("repeat", |ctx| match ctx.args() {
         [value] => {
             let result = generators::Repeat::new(value.clone());
-            Ok(ValueIterator::new(result).into())
+            Ok(KIterator::new(result).into())
         }
         [value, Value::Number(n)] => {
             let result = generators::RepeatN::new(value.clone(), n.into());
-            Ok(ValueIterator::new(result).into())
+            Ok(KIterator::new(result).into())
         }
         unexpected => type_error_with_slice("(Value), or (Number, Value)", unexpected),
     });
@@ -633,7 +633,7 @@ pub fn make_module() -> KMap {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 match adaptors::Reversed::new(ctx.vm.make_iterator(iterable)?) {
-                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Ok(result) => Ok(KIterator::new(result).into()),
                     Err(e) => runtime_error!("iterator.reversed: {}", e),
                 }
             }
@@ -684,7 +684,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let n = *n;
                 let result = adaptors::Take::new(ctx.vm.make_iterator(iterable)?, n.into());
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -801,7 +801,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let n = *n;
                 match adaptors::Windows::new(ctx.vm.make_iterator(iterable)?, n.into()) {
-                    Ok(result) => Ok(ValueIterator::new(result).into()),
+                    Ok(result) => Ok(KIterator::new(result).into()),
                     Err(e) => runtime_error!("iterator.windows: {}", e),
                 }
             }
@@ -820,7 +820,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.make_iterator(iterable_a)?,
                     ctx.vm.make_iterator(iterable_b)?,
                 );
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }

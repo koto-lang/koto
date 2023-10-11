@@ -96,7 +96,7 @@ impl KotoObject for Vec3 {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let v = *self;
 
         let iter = (0..=2).map(move |i| {
@@ -106,10 +106,10 @@ impl KotoObject for Vec3 {
                 2 => v.z,
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 

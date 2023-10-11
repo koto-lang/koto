@@ -18,7 +18,7 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(is_string, expected_error)? {
             (Value::Str(s), []) => {
                 let result = iterators::Bytes::new(s.clone());
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -28,7 +28,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(Value::Iterator(ValueIterator::with_string(s.clone()))),
+            (Value::Str(s), []) => Ok(Value::Iterator(KIterator::with_string(s.clone()))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -87,7 +87,7 @@ pub fn make_module() -> KMap {
             let mut bytes = Vec::<u8>::with_capacity(size_hint);
 
             for output in iterator.map(collect_pair) {
-                use ValueIteratorOutput as Output;
+                use KIteratorOutput as Output;
                 match output {
                     Output::Value(Value::Number(n)) => match u8::try_from(n.as_i64()) {
                         Ok(byte) => bytes.push(byte),
@@ -122,7 +122,7 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(is_string, expected_error)? {
             (Value::Str(s), []) => {
                 let result = iterators::Lines::new(s.clone());
-                Ok(ValueIterator::new(result).into())
+                Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -155,7 +155,7 @@ pub fn make_module() -> KMap {
             match ctx.instance_and_args(is_string, expected_error)? {
                 (Value::Str(input), [Value::Str(pattern)]) => {
                     let result = iterators::Split::new(input.clone(), pattern.clone());
-                    ValueIterator::new(result)
+                    KIterator::new(result)
                 }
                 (Value::Str(input), [predicate]) if predicate.is_callable() => {
                     let result = iterators::SplitWith::new(
@@ -163,7 +163,7 @@ pub fn make_module() -> KMap {
                         predicate.clone(),
                         ctx.vm.spawn_shared_vm(),
                     );
-                    ValueIterator::new(result)
+                    KIterator::new(result)
                 }
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
