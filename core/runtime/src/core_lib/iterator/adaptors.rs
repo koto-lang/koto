@@ -2,7 +2,7 @@
 
 use super::collect_pair;
 use crate::{prelude::*, KIteratorOutput as Output, Result};
-use std::{collections::VecDeque, error, fmt, result::Result as StdResult};
+use std::{collections::VecDeque, result::Result as StdResult};
 use thiserror::Error;
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -138,28 +138,12 @@ impl Iterator for Chunks {
 }
 
 /// An error that can be returned by [Chunks::new]
+#[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum ChunksError {
+    #[error("the chunk size must be at least 1")]
     ChunkSizeMustBeAtLeastOne,
 }
-
-impl fmt::Display for ChunksError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ChunksError::ChunkSizeMustBeAtLeastOne => {
-                write!(f, "the chunk size must be at least 1")
-            }
-        }
-    }
-}
-
-impl fmt::Debug for ChunksError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
-    }
-}
-
-impl error::Error for ChunksError {}
 
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
@@ -847,28 +831,12 @@ impl Iterator for Windows {
 }
 
 /// An error that can be returned by [Windows::new]
+#[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum WindowsError {
+    #[error("the window size must be at least 1")]
     WindowSizeMustBeAtLeastOne,
 }
-
-impl fmt::Display for WindowsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WindowsError::WindowSizeMustBeAtLeastOne => {
-                write!(f, "the window size must be at least 1")
-            }
-        }
-    }
-}
-
-impl fmt::Debug for WindowsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
-    }
-}
-
-impl error::Error for WindowsError {}
 
 /// An iterator that combines the output of two iterators, 'zipping' output pairs together
 pub struct Zip {
