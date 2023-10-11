@@ -68,7 +68,7 @@ impl Value {
                     .iter()
                     .map(|v| v.deep_copy())
                     .collect::<Result<_>>()?;
-                Value::List(KList::with_data(result))
+                KList::with_data(result).into()
             }
             Value::Tuple(t) => {
                 let result = t
@@ -84,10 +84,10 @@ impl Value {
                     .map(|(k, v)| v.deep_copy().map(|v| (k.clone(), v)))
                     .collect::<Result<_>>()?;
                 let meta = m.meta_map().map(|meta| meta.borrow().clone());
-                Value::Map(KMap::with_contents(data, meta))
+                KMap::with_contents(data, meta).into()
             }
-            Value::Iterator(i) => Value::Iterator(i.make_copy()?),
-            Value::Object(o) => Value::Object(o.try_borrow()?.copy()),
+            Value::Iterator(i) => i.make_copy()?.into(),
+            Value::Object(o) => o.try_borrow()?.copy().into(),
             _ => self.clone(),
         };
 
