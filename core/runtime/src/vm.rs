@@ -1466,7 +1466,7 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
-            (Number(_), Number(ValueNumber::I64(b))) if *b == 0 => {
+            (Number(_), Number(KNumber::I64(b))) if *b == 0 => {
                 // Special case for integer remainder when the divisor is zero,
                 // avoid a panic and return NaN instead.
                 Number(f64::NAN.into())
@@ -2124,7 +2124,7 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize> {
+    fn validate_index(&self, n: KNumber, size: Option<usize>) -> Result<usize> {
         let index = usize::from(n);
 
         if n < 0.0 {

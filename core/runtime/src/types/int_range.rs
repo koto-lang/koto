@@ -132,7 +132,7 @@ impl IntRange {
     }
 
     /// Returns true if the provided number is within the range
-    pub fn contains(&self, n: ValueNumber) -> bool {
+    pub fn contains(&self, n: KNumber) -> bool {
         let n: i64 = if n < 0.0 { n.floor() } else { n.ceil() }.into();
         self.as_sorted_range().contains(&n)
     }

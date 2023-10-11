@@ -23,7 +23,7 @@ pub use self::{
     value_key::ValueKey,
     value_list::{KList, ValueVec},
     value_map::{KMap, KotoHasher, ValueMap},
-    value_number::ValueNumber,
+    value_number::KNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
 };

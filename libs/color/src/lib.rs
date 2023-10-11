@@ -63,10 +63,10 @@ fn named(name: &str) -> Result<Value> {
     }
 }
 
-fn rgb(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber) -> Result<Value> {
+fn rgb(r: &KNumber, g: &KNumber, b: &KNumber) -> Result<Value> {
     Ok(Color::rgb(r.into(), g.into(), b.into()).into())
 }
 
-fn rgba(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber, a: &ValueNumber) -> Result<Value> {
+fn rgba(r: &KNumber, g: &KNumber, b: &KNumber, a: &KNumber) -> Result<Value> {
     Ok(Color::rgba(r.into(), g.into(), b.into(), a.into()).into())
 }

@@ -15,7 +15,7 @@ pub enum Value {
     Bool(bool),
 
     /// A number, represented as either a signed 64 bit integer or float
-    Number(ValueNumber),
+    Number(KNumber),
 
     /// A range with start/end boundaries
     Range(IntRange),
@@ -169,8 +169,8 @@ impl Value {
         match &self {
             Null => TYPE_NULL.with(|x| x.clone()),
             Bool(_) => TYPE_BOOL.with(|x| x.clone()),
-            Number(ValueNumber::F64(_)) => TYPE_FLOAT.with(|x| x.clone()),
-            Number(ValueNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
+            Number(KNumber::F64(_)) => TYPE_FLOAT.with(|x| x.clone()),
+            Number(KNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
@@ -270,8 +270,8 @@ impl From<bool> for Value {
     }
 }
 
-impl From<ValueNumber> for Value {
-    fn from(value: ValueNumber) -> Self {
+impl From<KNumber> for Value {
+    fn from(value: KNumber) -> Self {
         Self::Number(value)
     }
 }
