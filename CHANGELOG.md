@@ -119,10 +119,13 @@ The Koto project adheres to
   provides access to the VM and its arguments.
   - Functions that need access to the `self` instance can access it via
     `CallContext::instance`.
-- `ValueTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
+- The core Koto runtime types have been renamed for consistency, 
+  and now use a `K` prefix to help disambiguate them in context 
+  (e.g. `KIterator` vs. `Iterator`).
+- `KTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
 - Type strings and strings returned by `KotoFile` implementations are now 
-  expected to be `ValueString`s.
+  expected to be `KString`s.
 - `unexpected_type_error_with_slice` has been renamed to
   `type_error_with_slice`, and has had the prefix argument removed.
 - `DataMap::get_with_string` has been replaced with a simplified `ValueKey`
