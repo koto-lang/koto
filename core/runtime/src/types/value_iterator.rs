@@ -103,7 +103,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a Tuple
-    pub fn with_tuple(tuple: ValueTuple) -> Self {
+    pub fn with_tuple(tuple: KTuple) -> Self {
         Self::new(TupleIterator::new(tuple))
     }
 
@@ -298,10 +298,10 @@ impl Iterator for ListIterator {
 }
 
 #[derive(Clone)]
-struct TupleIterator(ValueTuple);
+struct TupleIterator(KTuple);
 
 impl TupleIterator {
-    fn new(tuple: ValueTuple) -> Self {
+    fn new(tuple: KTuple) -> Self {
         Self(tuple)
     }
 }

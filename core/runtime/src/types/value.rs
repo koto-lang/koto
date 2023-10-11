@@ -24,7 +24,7 @@ pub enum Value {
     List(KList),
 
     /// The tuple type used in Koto
-    Tuple(ValueTuple),
+    Tuple(KTuple),
 
     /// The hash map type used in Koto
     Map(KMap),
@@ -306,8 +306,8 @@ impl From<KList> for Value {
     }
 }
 
-impl From<ValueTuple> for Value {
-    fn from(value: ValueTuple) -> Self {
+impl From<KTuple> for Value {
+    fn from(value: KTuple) -> Self {
         Self::Tuple(value)
     }
 }

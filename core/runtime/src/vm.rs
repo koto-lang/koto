@@ -967,9 +967,8 @@ impl Vm {
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
             Value::TemporaryTuple(temp_registers) => {
-                let tuple = ValueTuple::from(
-                    self.register_slice(temp_registers.start, temp_registers.count),
-                );
+                let tuple =
+                    KTuple::from(self.register_slice(temp_registers.start, temp_registers.count));
                 self.set_register(register, Value::Tuple(tuple));
             }
             _ => unreachable!(),
@@ -2728,7 +2727,7 @@ impl Vm {
 
     fn run_sequence_to_tuple(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
-            self.set_register(register, ValueTuple::from(result).into());
+            self.set_register(register, KTuple::from(result).into());
             Ok(())
         } else {
             runtime_error!("Missing a sequence buider")

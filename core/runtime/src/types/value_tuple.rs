@@ -3,11 +3,11 @@ use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
 #[derive(Clone)]
-pub struct ValueTuple(Inner);
+pub struct KTuple(Inner);
 
 // Either the full tuple, or a slice
 //
-// By heap-allocating slice bounds we can keep ValueTuple's size down to 16 bytes; otherwise it
+// By heap-allocating slice bounds we can keep KTuple's size down to 16 bytes; otherwise it
 // would have a size of 32 bytes.
 #[derive(Clone)]
 enum Inner {
@@ -21,7 +21,7 @@ struct TupleSlice {
     bounds: Range<usize>,
 }
 
-impl ValueTuple {
+impl KTuple {
     /// Returns a new tuple with shared data and with restricted bounds
     ///
     /// The provided bounds should have indices relative to the current tuple's bounds
@@ -131,7 +131,7 @@ impl ValueTuple {
     }
 }
 
-impl Deref for ValueTuple {
+impl Deref for KTuple {
     type Target = [Value];
 
     fn deref(&self) -> &[Value] {
@@ -142,19 +142,19 @@ impl Deref for ValueTuple {
     }
 }
 
-impl Default for ValueTuple {
+impl Default for KTuple {
     fn default() -> Self {
         Vec::new().into()
     }
 }
 
-impl From<&[Value]> for ValueTuple {
+impl From<&[Value]> for KTuple {
     fn from(data: &[Value]) -> Self {
         Self(Inner::Full(data.into()))
     }
 }
 
-impl From<Vec<Value>> for ValueTuple {
+impl From<Vec<Value>> for KTuple {
     fn from(data: Vec<Value>) -> Self {
         Self(Inner::Full(data.into()))
     }
@@ -176,7 +176,7 @@ impl From<Ptr<[Value]>> for TupleSlice {
     }
 }
 
-impl From<TupleSlice> for ValueTuple {
+impl From<TupleSlice> for KTuple {
     fn from(slice: TupleSlice) -> Self {
         Self(Inner::Slice(slice.into()))
     }

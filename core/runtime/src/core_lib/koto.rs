@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.koto");
 
-    result.add_value("args", Value::Tuple(ValueTuple::default()));
+    result.add_value("args", Value::Tuple(KTuple::default()));
 
     result.add_fn("copy", |ctx| match ctx.args() {
         [Value::Iterator(iter)] => Ok(iter.make_copy()?.into()),

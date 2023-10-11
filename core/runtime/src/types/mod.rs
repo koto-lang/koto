@@ -25,5 +25,5 @@ pub use self::{
     value_map::{KMap, KotoHasher, ValueMap},
     value_number::KNumber,
     value_string::KString,
-    value_tuple::ValueTuple,
+    value_tuple::KTuple,
 };

@@ -205,7 +205,7 @@ a %= 5
 
         #[test]
         fn empty() {
-            test_script("(,)", Value::Tuple(ValueTuple::default()));
+            test_script("(,)", Value::Tuple(KTuple::default()));
         }
 
         #[test]

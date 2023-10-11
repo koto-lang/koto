@@ -17,9 +17,9 @@ pub use crate::{
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
         BinaryOp, CallContext, CaptureFunctionInfo, ExternalFunction, FunctionInfo, IntRange,
-        IsIterable, KIterator, KIteratorOutput, KList, KMap, KNumber, KString, KotoHasher,
+        IsIterable, KIterator, KIteratorOutput, KList, KMap, KNumber, KString, KTuple, KotoHasher,
         KotoIterator, KotoObject, KotoType, MetaKey, MetaMap, MethodContext, Object,
-        ObjectEntryBuilder, UnaryOp, Value, ValueKey, ValueMap, ValueTuple, ValueVec,
+        ObjectEntryBuilder, UnaryOp, Value, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };

@@ -70,7 +70,7 @@ impl ChaChaRng {
                 match m.data().get_index(index) {
                     Some((key, value)) => {
                         let data = vec![key.value().clone(), value.clone()];
-                        Ok(Tuple(ValueTuple::from(data)))
+                        Ok(Tuple(KTuple::from(data)))
                     }
                     None => unreachable!(), // The index is guaranteed to be within range
                 }

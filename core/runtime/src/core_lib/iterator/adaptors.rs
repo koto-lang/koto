@@ -111,7 +111,7 @@ impl Iterator for Chunks {
             }
         }
 
-        chunk.map(|chunk| ValueTuple::from(chunk).into())
+        chunk.map(|chunk| KTuple::from(chunk).into())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -832,7 +832,7 @@ impl Iterator for Windows {
 
         if self.cache.len() == self.window_size {
             let result: Vec<_> = self.cache.iter().cloned().collect();
-            Some(ValueTuple::from(result).into())
+            Some(KTuple::from(result).into())
         } else {
             None
         }
