@@ -46,7 +46,7 @@ struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
     fn make_value(rng: ChaCha8Rng) -> Value {
-        Object::from(Self(rng)).into()
+        KObject::from(Self(rng)).into()
     }
 
     fn gen_bool(&mut self) -> Result<Value> {
@@ -108,7 +108,7 @@ impl KotoObject for ChaChaRng {
         RNG_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 

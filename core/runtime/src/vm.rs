@@ -3029,7 +3029,7 @@ impl Frame {
 // See Vm::call_external
 enum ExternalCallable {
     Function(ExternalFunction),
-    Object(Object),
+    Object(KObject),
 }
 
 // See Vm::call_callable

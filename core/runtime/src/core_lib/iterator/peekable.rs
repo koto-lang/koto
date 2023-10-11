@@ -23,7 +23,7 @@ impl Peekable {
 
     /// Makes an instance of Peekable along with a meta map that allows it be used as a Koto Value
     pub fn make_value(iter: KIterator) -> Value {
-        Object::from(Self::new(iter)).into()
+        KObject::from(Self::new(iter)).into()
     }
 
     fn peek(&mut self) -> Result<Value> {
@@ -78,7 +78,7 @@ impl KotoObject for Peekable {
         PEEKABLE_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 

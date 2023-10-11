@@ -44,7 +44,7 @@ impl Deref for DateTime {
 
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
-        Object::from(Self(time)).into()
+        KObject::from(Self(time)).into()
     }
 
     fn now() -> Value {
@@ -79,7 +79,7 @@ impl KotoObject for DateTime {
         DATETIME_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -136,7 +136,7 @@ impl Deref for Timer {
 impl Timer {
     fn now() -> Value {
         let timer = Self(Instant::now());
-        Object::from(timer).into()
+        KObject::from(timer).into()
     }
 
     fn elapsed_seconds(&self) -> f64 {
@@ -153,7 +153,7 @@ impl KotoObject for Timer {
         TIMER_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 

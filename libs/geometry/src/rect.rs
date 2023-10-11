@@ -22,7 +22,7 @@ impl KotoObject for Rect {
         RECT_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -129,7 +129,7 @@ impl From<(f64, f64, f64, f64)> for Rect {
 
 impl From<Rect> for Value {
     fn from(point: Rect) -> Self {
-        Object::from(point).into()
+        KObject::from(point).into()
     }
 }
 

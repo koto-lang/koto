@@ -23,7 +23,7 @@ impl KotoObject for Vec3 {
         VEC3_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -152,7 +152,7 @@ impl From<(f64, f64, f64)> for Vec3 {
 
 impl From<Vec3> for Value {
     fn from(vec3: Vec3) -> Self {
-        Object::from(vec3).into()
+        KObject::from(vec3).into()
     }
 }
 

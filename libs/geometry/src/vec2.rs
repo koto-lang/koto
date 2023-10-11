@@ -28,7 +28,7 @@ impl KotoObject for Vec2 {
         VEC2_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -148,7 +148,7 @@ impl From<Inner> for Vec2 {
 
 impl From<Vec2> for Value {
     fn from(point: Vec2) -> Self {
-        Object::from(point).into()
+        KObject::from(point).into()
     }
 }
 

@@ -11,7 +11,7 @@ mod objects {
 
     impl TestObject {
         fn make_value(x: i64) -> Value {
-            Object::from(Self { x }).into()
+            KObject::from(Self { x }).into()
         }
     }
 
@@ -88,7 +88,7 @@ mod objects {
             TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
         }
 
-        fn copy(&self) -> Object {
+        fn copy(&self) -> KObject {
             (*self).into()
         }
 
@@ -233,8 +233,8 @@ mod objects {
     }
 
     impl TestIterator {
-        fn make_object(x: i64) -> Object {
-            Object::from(Self { x })
+        fn make_object(x: i64) -> KObject {
+            KObject::from(Self { x })
         }
     }
 
@@ -247,7 +247,7 @@ mod objects {
             TEST_ITERATOR_TYPE_STRING.with(|s| s.clone())
         }
 
-        fn copy(&self) -> Object {
+        fn copy(&self) -> KObject {
             (*self).into()
         }
 

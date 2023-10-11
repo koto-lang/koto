@@ -170,7 +170,7 @@ impl KotoObject for Color {
         COLOR_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -334,7 +334,7 @@ impl DerefMut for Color {
 
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
-        Object::from(color).into()
+        KObject::from(color).into()
     }
 }
 

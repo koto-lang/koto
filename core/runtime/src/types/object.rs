@@ -4,7 +4,7 @@ use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
-/// See also: [Object].
+/// See also: [KObject].
 pub trait KotoObject: Downcast {
     /// The type of the Object as a [KString]
     ///
@@ -30,8 +30,8 @@ pub trait KotoObject: Downcast {
     ///         FOO_TYPE_STRING.with(|t| t.clone())
     ///     }
     ///
-    ///     fn copy(&self) -> Object {
-    ///         Object::from(self.clone())
+    ///     fn copy(&self) -> KObject {
+    ///         KObject::from(self.clone())
     ///     }
     /// }
     ///
@@ -45,13 +45,13 @@ pub trait KotoObject: Downcast {
     ///
     /// A default implementation can't be provided here, but a typical implementation will look
     /// similar to: `Object::from(self.clone())`
-    fn copy(&self) -> Object;
+    fn copy(&self) -> KObject;
 
     /// How the object should behave when called from `koto.deep_copy`
     ///
     /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
     /// by the object (see [Value::deep_copy]).
-    fn deep_copy(&self) -> Object {
+    fn deep_copy(&self) -> KObject {
         self.copy()
     }
 
@@ -217,11 +217,11 @@ impl_downcast!(KotoObject);
 
 /// A wrapper for [KotoObject]s used in the Koto runtime
 #[derive(Clone)]
-pub struct Object {
+pub struct KObject {
     object: PtrMut<dyn KotoObject>,
 }
 
-impl Object {
+impl KObject {
     /// Checks if the object is of the given type
     pub fn is_a<T: KotoObject>(&self) -> bool {
         match self.object.try_borrow() {
@@ -262,7 +262,7 @@ impl Object {
     }
 }
 
-impl<T: KotoObject> From<T> for Object {
+impl<T: KotoObject> From<T> for KObject {
     fn from(object: T) -> Self {
         Self {
             object: PtrMut::from(Rc::new(RefCell::new(object)) as Rc<RefCell<dyn KotoObject>>),
@@ -297,7 +297,7 @@ pub trait KotoType {
 ///         FOO_TYPE_STRING.with(|t| t.clone())
 ///     }
 ///
-///     fn copy(&self) -> Object {
+///     fn copy(&self) -> KObject {
 ///         self.clone().into()
 ///     }
 ///
@@ -308,7 +308,7 @@ pub trait KotoType {
 ///
 /// impl From<Foo> for Value {
 ///     fn from(foo: Foo) -> Self {
-///         Object::from(foo).into()
+///         KObject::from(foo).into()
 ///     }
 /// }
 ///
@@ -416,14 +416,14 @@ pub struct MethodContext<'a, T> {
     pub vm: &'a Vm,
     // The instance of the object for the method call,
     // accessable via the context's `instance`/`instance_mut` functions
-    object: &'a Object,
+    object: &'a KObject,
     // We want access to `T` in the implementation
     _phantom: PhantomData<T>,
 }
 
 impl<'a, T: KotoObject> MethodContext<'a, T> {
     /// Makes a new method context
-    fn new(object: &'a Object, args: &'a [Value], vm: &'a Vm) -> Self {
+    fn new(object: &'a KObject, args: &'a [Value], vm: &'a Vm) -> Self {
         Self {
             object,
             args,

@@ -197,7 +197,7 @@ impl KotoObject for File {
         FILE_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -213,7 +213,7 @@ impl KotoObject for File {
 
 impl From<File> for Value {
     fn from(file: File) -> Self {
-        Object::from(file).into()
+        KObject::from(file).into()
     }
 }
 

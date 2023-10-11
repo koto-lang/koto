@@ -17,7 +17,7 @@ pub use self::{
     external_function::{CallContext, ExternalFunction},
     int_range::KRange,
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
-    object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
+    object::{IsIterable, KObject, KotoObject, KotoType, MethodContext, ObjectEntryBuilder},
     value::{KCaptureFunction, KFunction, Value},
     value_iterator::{KIterator, KIteratorOutput, KotoIterator},
     value_key::ValueKey,

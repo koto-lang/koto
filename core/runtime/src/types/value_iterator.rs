@@ -128,7 +128,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from an Object that implements [KotoIterator]
-    pub fn with_object(vm: Vm, o: Object) -> Result<Self> {
+    pub fn with_object(vm: Vm, o: KObject) -> Result<Self> {
         Ok(Self::new(ObjectIterator::new(vm, o)?))
     }
 
@@ -461,11 +461,11 @@ impl Iterator for MetaIterator {
 #[derive(Clone)]
 struct ObjectIterator {
     vm: Vm,
-    object: Object,
+    object: KObject,
 }
 
 impl ObjectIterator {
-    fn new(vm: Vm, object: Object) -> Result<Self> {
+    fn new(vm: Vm, object: KObject) -> Result<Self> {
         use IsIterable::*;
 
         if matches!(

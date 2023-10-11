@@ -27,7 +27,7 @@ impl KotoObject for Poetry {
         Self::TYPE.into()
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -43,6 +43,6 @@ impl KotoObject for Poetry {
 
 impl From<Poetry> for Value {
     fn from(poetry: Poetry) -> Self {
-        Object::from(poetry).into()
+        KObject::from(poetry).into()
     }
 }

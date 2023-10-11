@@ -45,7 +45,7 @@ pub enum Value {
     Iterator(KIterator),
 
     /// An object with behaviour defined via the [KotoObject] trait
-    Object(Object),
+    Object(KObject),
 
     /// A tuple of values that are packed into a contiguous series of registers
     ///
@@ -318,8 +318,8 @@ impl From<KMap> for Value {
     }
 }
 
-impl From<Object> for Value {
-    fn from(value: Object) -> Self {
+impl From<KObject> for Value {
+    fn from(value: KObject) -> Self {
         Self::Object(value)
     }
 }
