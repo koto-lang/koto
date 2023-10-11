@@ -2,9 +2,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use koto::Koto;
 use std::{fs::read_to_string, path::PathBuf};
 
-#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 struct BenchmarkRunner {
     runtime: Koto,
