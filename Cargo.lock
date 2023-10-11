@@ -649,6 +649,7 @@ dependencies = [
  "koto_parser",
  "rustc-hash",
  "smallvec",
+ "thiserror",
 ]
 
 [[package]]

@@ -5,24 +5,18 @@ use koto_parser::{
     SwitchArm,
 };
 use smallvec::SmallVec;
-use std::{collections::HashSet, error, fmt};
+use std::collections::HashSet;
+use thiserror::Error;
 
 /// The error type used to report errors during compilation
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
+#[error("{message}")]
 pub struct CompilerError {
     /// The error's message
     pub message: String,
     /// The span in the source where the error occurred
     pub span: Span,
 }
-
-impl fmt::Display for CompilerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", &self.message)
-    }
-}
-
-impl error::Error for CompilerError {}
 
 macro_rules! make_compiler_error {
     ($span:expr, $message:expr) => {{
