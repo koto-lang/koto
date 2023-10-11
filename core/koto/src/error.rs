@@ -10,10 +10,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    CompileError(LoaderError),
+    CompileError(#[from] LoaderError),
 
     #[error(transparent)]
-    RuntimeError(RuntimeError),
+    RuntimeError(#[from] RuntimeError),
 
     #[error("Missing compiled chunk, call compile() before calling run()")]
     NothingToRun,
@@ -41,12 +41,6 @@ impl Error {
             Self::CompileError(e) => e.is_indentation_error(),
             _ => false,
         }
-    }
-}
-
-impl From<RuntimeError> for Error {
-    fn from(error: RuntimeError) -> Self {
-        Self::RuntimeError(error)
     }
 }
 
