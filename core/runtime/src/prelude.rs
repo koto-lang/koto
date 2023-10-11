@@ -4,8 +4,7 @@
 pub use crate::{
     make_runtime_error, runtime_error, type_error, type_error_with_slice, BinaryOp, Borrow,
     BorrowMut, CallArgs, CallContext, DisplayContext, ExternalFunction, IntRange, IsIterable,
-    KIterator, KIteratorOutput, KList, KMap, KNumber, KotoFile, KotoHasher, KotoIterator,
+    KIterator, KIteratorOutput, KList, KMap, KNumber, KString, KotoFile, KotoHasher, KotoIterator,
     KotoObject, KotoRead, KotoType, KotoWrite, MetaKey, MetaMap, Object, ObjectEntryBuilder, Ptr,
-    PtrMut, RuntimeError, UnaryOp, Value, ValueKey, ValueMap, ValueString, ValueTuple, ValueVec,
-    Vm, VmSettings,
+    PtrMut, RuntimeError, UnaryOp, Value, ValueKey, ValueMap, ValueTuple, ValueVec, Vm, VmSettings,
 };

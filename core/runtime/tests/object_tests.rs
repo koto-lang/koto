@@ -84,7 +84,7 @@ mod objects {
     }
 
     impl KotoObject for TestObject {
-        fn object_type(&self) -> ValueString {
+        fn object_type(&self) -> KString {
             TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
         }
 
@@ -223,7 +223,7 @@ mod objects {
     }
 
     thread_local! {
-        static TEST_OBJECT_TYPE_STRING: ValueString = TestObject::TYPE.into();
+        static TEST_OBJECT_TYPE_STRING: KString = TestObject::TYPE.into();
         static TEST_OBJECT_ENTRIES: ValueMap = test_object_entries();
     }
 
@@ -243,7 +243,7 @@ mod objects {
     }
 
     impl KotoObject for TestIterator {
-        fn object_type(&self) -> ValueString {
+        fn object_type(&self) -> KString {
             TEST_ITERATOR_TYPE_STRING.with(|s| s.clone())
         }
 
@@ -267,7 +267,7 @@ mod objects {
     }
 
     thread_local! {
-        static TEST_ITERATOR_TYPE_STRING: ValueString = TestIterator::TYPE.into();
+        static TEST_ITERATOR_TYPE_STRING: KString = TestIterator::TYPE.into();
     }
 
     fn test_object_script(script: &str, expected_output: impl Into<Value>) {

@@ -19,7 +19,7 @@ impl KotoType for Vec3 {
 }
 
 impl KotoObject for Vec3 {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         VEC3_TYPE_STRING.with(|s| s.clone())
     }
 
@@ -126,7 +126,7 @@ fn make_vec3_entries() -> ValueMap {
 }
 
 thread_local! {
-    static VEC3_TYPE_STRING: ValueString = Vec3::TYPE.into();
+    static VEC3_TYPE_STRING: KString = Vec3::TYPE.into();
     static VEC3_ENTRIES: ValueMap = make_vec3_entries();
 }
 

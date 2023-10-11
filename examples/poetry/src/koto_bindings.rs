@@ -23,7 +23,7 @@ impl KotoType for Poetry {
 }
 
 impl KotoObject for Poetry {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         Self::TYPE.into()
     }
 

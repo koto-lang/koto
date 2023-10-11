@@ -193,7 +193,7 @@ impl KotoType for File {
 }
 
 impl KotoObject for File {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         FILE_TYPE_STRING.with(|t| t.clone())
     }
 
@@ -276,7 +276,7 @@ fn file_entries() -> ValueMap {
 }
 
 thread_local! {
-    static FILE_TYPE_STRING: ValueString = File::TYPE.into();
+    static FILE_TYPE_STRING: KString = File::TYPE.into();
     static FILE_ENTRIES: ValueMap = file_entries();
 }
 
@@ -304,11 +304,11 @@ impl<T> KotoFile for BufferedSystemFile<T>
 where
     T: Read + Write + Seek,
 {
-    fn id(&self) -> ValueString {
+    fn id(&self) -> KString {
         self.path.to_string_lossy().to_string().into()
     }
 
-    fn path(&self) -> Result<ValueString> {
+    fn path(&self) -> Result<KString> {
         Ok(self.id())
     }
 

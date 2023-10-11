@@ -30,7 +30,7 @@ pub enum Value {
     Map(KMap),
 
     /// The string type used in Koto
-    Str(ValueString),
+    Str(KString),
 
     /// A Koto function
     Function(FunctionInfo),
@@ -163,8 +163,8 @@ impl Value {
         }
     }
 
-    /// Returns the value's type as a ValueString
-    pub fn type_as_string(&self) -> ValueString {
+    /// Returns the value's type as a [KString]
+    pub fn type_as_string(&self) -> KString {
         use Value::*;
         match &self {
             Null => TYPE_NULL.with(|x| x.clone()),
@@ -241,21 +241,21 @@ impl Value {
 }
 
 thread_local! {
-    static TYPE_NULL: ValueString = "Null".into();
-    static TYPE_BOOL: ValueString = "Bool".into();
-    static TYPE_FLOAT: ValueString = "Float".into();
-    static TYPE_INT: ValueString = "Int".into();
-    static TYPE_LIST: ValueString = "List".into();
-    static TYPE_RANGE: ValueString = "Range".into();
-    static TYPE_MAP: ValueString = "Map".into();
-    static TYPE_OBJECT: ValueString = "Object".into();
-    static TYPE_STRING: ValueString = "String".into();
-    static TYPE_TUPLE: ValueString = "Tuple".into();
-    static TYPE_FUNCTION: ValueString = "Function".into();
-    static TYPE_GENERATOR: ValueString = "Generator".into();
-    static TYPE_EXTERNAL_FUNCTION: ValueString = "ExternalFunction".into();
-    static TYPE_ITERATOR: ValueString = "Iterator".into();
-    static TYPE_TEMPORARY_TUPLE: ValueString = "TemporaryTuple".into();
+    static TYPE_NULL: KString = "Null".into();
+    static TYPE_BOOL: KString = "Bool".into();
+    static TYPE_FLOAT: KString = "Float".into();
+    static TYPE_INT: KString = "Int".into();
+    static TYPE_LIST: KString = "List".into();
+    static TYPE_RANGE: KString = "Range".into();
+    static TYPE_MAP: KString = "Map".into();
+    static TYPE_OBJECT: KString = "Object".into();
+    static TYPE_STRING: KString = "String".into();
+    static TYPE_TUPLE: KString = "Tuple".into();
+    static TYPE_FUNCTION: KString = "Function".into();
+    static TYPE_GENERATOR: KString = "Generator".into();
+    static TYPE_EXTERNAL_FUNCTION: KString = "ExternalFunction".into();
+    static TYPE_ITERATOR: KString = "Iterator".into();
+    static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
 }
 
 impl From<()> for Value {
@@ -294,8 +294,8 @@ impl From<String> for Value {
     }
 }
 
-impl From<ValueString> for Value {
-    fn from(value: ValueString) -> Self {
+impl From<KString> for Value {
+    fn from(value: KString) -> Self {
         Self::Str(value)
     }
 }

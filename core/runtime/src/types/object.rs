@@ -6,13 +6,13 @@ use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 ///
 /// See also: [Object].
 pub trait KotoObject: Downcast {
-    /// The type of the Object as a [ValueString]
+    /// The type of the Object as a [KString]
     ///
     /// A typical pattern will be to implement [KotoType] for use with [ObjectEntryBuilder],
     /// and then defer to [KotoType::TYPE].
     ///
     /// This will be called whenever the object's type is needed by the runtime,
-    /// e.g. when a script calls `koto.type`, so it can make sense to cache a [ValueString],
+    /// e.g. when a script calls `koto.type`, so it can make sense to cache a [KString],
     /// and then return clones of it to avoid creating lots of strings.
     ///
     /// ```
@@ -26,7 +26,7 @@ pub trait KotoObject: Downcast {
     /// }
     ///
     /// impl KotoObject for Foo {
-    ///     fn object_type(&self) -> ValueString {
+    ///     fn object_type(&self) -> KString {
     ///         FOO_TYPE_STRING.with(|t| t.clone())
     ///     }
     ///
@@ -36,10 +36,10 @@ pub trait KotoObject: Downcast {
     /// }
     ///
     /// thread_local! {
-    ///     static FOO_TYPE_STRING: ValueString = Foo::TYPE.into();
+    ///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
     /// }
     /// ```
-    fn object_type(&self) -> ValueString;
+    fn object_type(&self) -> KString;
 
     /// How the object should behave when called from `koto.copy`
     ///
@@ -293,7 +293,7 @@ pub trait KotoType {
 /// }
 ///
 /// impl KotoObject for Foo {
-///     fn object_type(&self) -> ValueString {
+///     fn object_type(&self) -> KString {
 ///         FOO_TYPE_STRING.with(|t| t.clone())
 ///     }
 ///
@@ -334,7 +334,7 @@ pub trait KotoType {
 /// }
 ///
 /// thread_local! {
-///     static FOO_TYPE_STRING: ValueString = Foo::TYPE.into();
+///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
 ///     static FOO_ENTRIES: ValueMap = make_foo_entries();
 /// }
 /// ```
@@ -449,7 +449,7 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
 }
 
 /// Creates an error that describes an unimplemented method
-fn unimplemented_error<T>(method: &str, object_type: ValueString) -> Result<T> {
+fn unimplemented_error<T>(method: &str, object_type: KString) -> Result<T> {
     runtime_error!("{method} is unimplemented for {object_type}")
 }
 

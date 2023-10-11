@@ -2,7 +2,7 @@ use std::fmt;
 
 use koto_memory::Address;
 
-use crate::{ValueString, Vm};
+use crate::{KString, Vm};
 
 /// A helper for converting Koto values to strings
 #[derive(Default)]
@@ -88,8 +88,8 @@ pub enum StringBuilderAppend<'a> {
     Char(char),
     Str(&'a str),
     String(String),
-    ValueString(ValueString),
-    ValueStringRef(&'a ValueString),
+    KString(KString),
+    KStringRef(&'a KString),
 }
 
 impl From<char> for StringBuilderAppend<'_> {
@@ -110,15 +110,15 @@ impl From<String> for StringBuilderAppend<'_> {
     }
 }
 
-impl From<ValueString> for StringBuilderAppend<'_> {
-    fn from(value: ValueString) -> Self {
-        StringBuilderAppend::ValueString(value)
+impl From<KString> for StringBuilderAppend<'_> {
+    fn from(value: KString) -> Self {
+        StringBuilderAppend::KString(value)
     }
 }
 
-impl<'a> From<&'a ValueString> for StringBuilderAppend<'a> {
-    fn from(value: &'a ValueString) -> Self {
-        StringBuilderAppend::ValueStringRef(value)
+impl<'a> From<&'a KString> for StringBuilderAppend<'a> {
+    fn from(value: &'a KString) -> Self {
+        StringBuilderAppend::KStringRef(value)
     }
 }
 
@@ -128,8 +128,8 @@ impl<'a> StringBuilderAppend<'a> {
             StringBuilderAppend::Char(c) => string.push(c),
             StringBuilderAppend::Str(s) => string.push_str(s),
             StringBuilderAppend::String(s) => string.push_str(&s),
-            StringBuilderAppend::ValueString(s) => string.push_str(&s),
-            StringBuilderAppend::ValueStringRef(s) => string.push_str(s),
+            StringBuilderAppend::KString(s) => string.push_str(&s),
+            StringBuilderAppend::KStringRef(s) => string.push_str(s),
         }
     }
 }

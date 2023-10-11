@@ -74,7 +74,7 @@ impl KotoType for Peekable {
 }
 
 impl KotoObject for Peekable {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         PEEKABLE_TYPE_STRING.with(|t| t.clone())
     }
 
@@ -119,7 +119,7 @@ fn peekable_entries() -> ValueMap {
 }
 
 thread_local! {
-    static PEEKABLE_TYPE_STRING: ValueString = Peekable::TYPE.into();
+    static PEEKABLE_TYPE_STRING: KString = Peekable::TYPE.into();
     static PEEKABLE_ENTRIES: ValueMap = peekable_entries();
 }
 

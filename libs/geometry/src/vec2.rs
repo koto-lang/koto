@@ -24,7 +24,7 @@ impl KotoType for Vec2 {
 }
 
 impl KotoObject for Vec2 {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         VEC2_TYPE_STRING.with(|s| s.clone())
     }
 
@@ -128,7 +128,7 @@ fn make_vec2_entries() -> ValueMap {
 }
 
 thread_local! {
-    static VEC2_TYPE_STRING: ValueString = Vec2::TYPE.into();
+    static VEC2_TYPE_STRING: KString = Vec2::TYPE.into();
     static VEC2_ENTRIES: ValueMap = make_vec2_entries();
 }
 

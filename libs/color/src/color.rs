@@ -166,7 +166,7 @@ impl KotoType for Color {
 }
 
 impl KotoObject for Color {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         COLOR_TYPE_STRING.with(|s| s.clone())
     }
 
@@ -314,7 +314,7 @@ fn make_color_entries() -> ValueMap {
 }
 
 thread_local! {
-    static COLOR_TYPE_STRING: ValueString = Color::TYPE.into();
+    static COLOR_TYPE_STRING: KString = Color::TYPE.into();
     static COLOR_ENTRIES: ValueMap = make_color_entries();
 }
 

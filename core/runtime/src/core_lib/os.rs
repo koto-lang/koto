@@ -75,7 +75,7 @@ impl KotoType for DateTime {
 }
 
 impl KotoObject for DateTime {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         DATETIME_TYPE_STRING.with(|t| t.clone())
     }
 
@@ -117,7 +117,7 @@ fn datetime_entries() -> ValueMap {
 }
 
 thread_local! {
-    static DATETIME_TYPE_STRING: ValueString = DateTime::TYPE.into();
+    static DATETIME_TYPE_STRING: KString = DateTime::TYPE.into();
     static DATETIME_ENTRIES: ValueMap = datetime_entries();
 }
 
@@ -149,7 +149,7 @@ impl KotoType for Timer {
 }
 
 impl KotoObject for Timer {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         TIMER_TYPE_STRING.with(|t| t.clone())
     }
 
@@ -193,6 +193,6 @@ fn named_timer_entries() -> ValueMap {
 }
 
 thread_local! {
-    static TIMER_TYPE_STRING: ValueString = Timer::TYPE.into();
+    static TIMER_TYPE_STRING: KString = Timer::TYPE.into();
     static TIMER_ENTRIES: ValueMap = named_timer_entries();
 }

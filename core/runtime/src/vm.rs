@@ -2293,7 +2293,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key_string: ValueString,
+        key_string: KString,
     ) -> Result<()> {
         use Value::*;
 
@@ -2915,11 +2915,11 @@ impl Vm {
         self.reader.chunk.constants.get_str(constant_index)
     }
 
-    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> ValueString {
+    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> KString {
         let constants = &self.reader.chunk.constants;
         let bounds = constants.get_str_bounds(constant_index);
 
-        ValueString::new_with_bounds(constants.string_data().clone(), bounds)
+        KString::new_with_bounds(constants.string_data().clone(), bounds)
             // The bounds have been already checked in the constant pool
             .unwrap()
     }

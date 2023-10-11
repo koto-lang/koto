@@ -129,7 +129,7 @@ pub struct TestStdout {
 }
 
 impl KotoFile for TestStdout {
-    fn id(&self) -> ValueString {
+    fn id(&self) -> KString {
         "_teststdout_".into()
     }
 }

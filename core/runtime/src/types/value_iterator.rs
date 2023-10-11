@@ -113,7 +113,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a String
-    pub fn with_string(s: ValueString) -> Self {
+    pub fn with_string(s: KString) -> Self {
         Self::new(StringIterator::new(s))
     }
 
@@ -515,10 +515,10 @@ impl Iterator for ObjectIterator {
 
 /// An iterator that yields the characters contained in the string
 #[derive(Clone)]
-pub struct StringIterator(ValueString);
+pub struct StringIterator(KString);
 
 impl StringIterator {
-    pub fn new(s: ValueString) -> Self {
+    pub fn new(s: KString) -> Self {
         Self(s)
     }
 }

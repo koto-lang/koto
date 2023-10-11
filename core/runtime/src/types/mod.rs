@@ -24,6 +24,6 @@ pub use self::{
     value_list::{KList, ValueVec},
     value_map::{KMap, KotoHasher, ValueMap},
     value_number::KNumber,
-    value_string::ValueString,
+    value_string::KString,
     value_tuple::ValueTuple,
 };

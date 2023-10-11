@@ -104,7 +104,7 @@ impl KotoType for ChaChaRng {
 }
 
 impl KotoObject for ChaChaRng {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         RNG_TYPE_STRING.with(|s| s.clone())
     }
 
@@ -128,6 +128,6 @@ fn rng_entries() -> ValueMap {
 
 thread_local! {
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
-    static RNG_TYPE_STRING: ValueString = ChaChaRng::TYPE.into();
+    static RNG_TYPE_STRING: KString = ChaChaRng::TYPE.into();
     static RNG_ENTRIES: ValueMap = rng_entries();
 }

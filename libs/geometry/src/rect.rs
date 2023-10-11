@@ -18,7 +18,7 @@ impl KotoType for Rect {
 }
 
 impl KotoObject for Rect {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         RECT_TYPE_STRING.with(|s| s.clone())
     }
 
@@ -103,7 +103,7 @@ fn make_rect_entries() -> ValueMap {
 }
 
 thread_local! {
-    static RECT_TYPE_STRING: ValueString = Rect::TYPE.into();
+    static RECT_TYPE_STRING: KString = Rect::TYPE.into();
     static RECT_ENTRIES: ValueMap = make_rect_entries();
 }
 
