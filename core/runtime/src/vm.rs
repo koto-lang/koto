@@ -2612,7 +2612,7 @@ impl Vm {
             CaptureFunction(f) => {
                 self.call_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
-            ExternalFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
+            NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
             Object(o) => self.call_external(info, ExternalCallable::Object(o)),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
@@ -3028,7 +3028,7 @@ impl Frame {
 
 // See Vm::call_external
 enum ExternalCallable {
-    Function(ExternalFunction),
+    Function(KNativeFunction),
     Object(KObject),
 }
 

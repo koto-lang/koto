@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, ExternalFunction, KMap, Result};
+use crate::{prelude::*, KMap, KNativeFunction, Result};
 use koto_bytecode::Chunk;
 use std::fmt::Write;
 
@@ -38,8 +38,8 @@ pub enum Value {
     /// A Koto function with captures
     CaptureFunction(Ptr<KCaptureFunction>),
 
-    /// A function that's defined outside of the Koto runtime
-    ExternalFunction(ExternalFunction),
+    /// A function that's implemented outside of the Koto runtime
+    NativeFunction(KNativeFunction),
 
     /// The iterator type used in Koto
     Iterator(KIterator),
@@ -100,7 +100,7 @@ impl Value {
         match self {
             Function(f) if f.generator => false,
             CaptureFunction(f) if f.info.generator => false,
-            Function(_) | CaptureFunction(_) | ExternalFunction(_) => true,
+            Function(_) | CaptureFunction(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
             _ => false,
         }
@@ -183,8 +183,9 @@ impl Value {
             Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
             Function(f) if f.generator => TYPE_GENERATOR.with(|x| x.clone()),
             CaptureFunction(f) if f.info.generator => TYPE_GENERATOR.with(|x| x.clone()),
-            Function(_) | CaptureFunction(_) => TYPE_FUNCTION.with(|x| x.clone()),
-            ExternalFunction(_) => TYPE_EXTERNAL_FUNCTION.with(|x| x.clone()),
+            Function(_) | CaptureFunction(_) | NativeFunction(_) => {
+                TYPE_FUNCTION.with(|x| x.clone())
+            }
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
                 |o| o.object_type(),
@@ -222,7 +223,7 @@ impl Value {
             Range(r) => write!(ctx, "{r}"),
             Function(_) | CaptureFunction(_) => write!(ctx, "||"),
             Iterator(_) => write!(ctx, "Iterator"),
-            ExternalFunction(_) => write!(ctx, "||"),
+            NativeFunction(_) => write!(ctx, "||"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
@@ -253,7 +254,6 @@ thread_local! {
     static TYPE_TUPLE: KString = "Tuple".into();
     static TYPE_FUNCTION: KString = "Function".into();
     static TYPE_GENERATOR: KString = "Generator".into();
-    static TYPE_EXTERNAL_FUNCTION: KString = "ExternalFunction".into();
     static TYPE_ITERATOR: KString = "Iterator".into();
     static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
 }

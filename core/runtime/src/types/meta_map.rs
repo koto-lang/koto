@@ -29,7 +29,7 @@ impl MetaMap {
         f: impl Fn(&mut CallContext) -> Result<Value> + 'static,
     ) {
         self.0
-            .insert(key, Value::ExternalFunction(ExternalFunction::new(f)));
+            .insert(key, Value::NativeFunction(KNativeFunction::new(f)));
     }
 }
 

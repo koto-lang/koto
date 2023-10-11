@@ -1,4 +1,4 @@
-use crate::{prelude::*, ExternalFunction, Result};
+use crate::{prelude::*, KNativeFunction, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
@@ -398,7 +398,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
         for key in keys {
             self.map.insert(
                 key.clone().into(),
-                Value::ExternalFunction(ExternalFunction::new(wrapped_function.clone())),
+                Value::NativeFunction(KNativeFunction::new(wrapped_function.clone())),
             );
         }
 

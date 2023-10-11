@@ -145,7 +145,7 @@ impl KMap {
 
     /// Adds a function to the KMap's data map
     pub fn add_fn(&self, id: &str, f: impl Fn(&mut CallContext) -> Result<Value> + 'static) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f)));
+        self.add_value(id, Value::NativeFunction(KNativeFunction::new(f)));
     }
 
     /// Adds a map to the KMap's data map
