@@ -661,16 +661,16 @@ impl Vm {
                         }
                     }
 
-                    if let Some((register, ip)) = recover_register_and_ip {
-                        let catch_value = match error.error {
-                            RuntimeErrorType::KotoError { thrown_value, .. } => thrown_value,
-                            _ => Value::Str(error.to_string().into()),
-                        };
-                        self.set_register(register, catch_value);
-                        self.set_ip(ip);
-                    } else {
+                    let Some((register, ip)) = recover_register_and_ip else {
                         return Err(error);
-                    }
+                    };
+
+                    let catch_value = match error.error {
+                        RuntimeErrorType::KotoError { thrown_value, .. } => thrown_value,
+                        _ => Value::Str(error.to_string().into()),
+                    };
+                    self.set_register(register, catch_value);
+                    self.set_ip(ip);
                 }
             }
 
@@ -1021,14 +1021,13 @@ impl Vm {
                 KIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
             }
             _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
-                    if op.is_callable() || op.is_generator() {
-                        return self.call_overloaded_unary_op(result, iterable_register, op);
-                    } else {
-                        return type_error("callable function from @iterator", &op);
-                    }
-                } else {
+                let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) else {
                     unreachable!()
+                };
+                if op.is_callable() || op.is_generator() {
+                    return self.call_overloaded_unary_op(result, iterable_register, op);
+                } else {
+                    return type_error("callable function from @iterator", &op);
                 }
             }
             Iterator(_) => iterable,
@@ -1292,20 +1291,20 @@ impl Vm {
     }
 
     fn run_capture_value(&mut self, function: u8, capture_index: u8, value: u8) -> Result<()> {
-        if let Some(function) = self.get_register_safe(function) {
-            match function {
-                Value::CaptureFunction(f) => {
-                    f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
-                    Ok(())
-                }
-                unexpected => type_error("Function while capturing value", unexpected),
-            }
-        } else {
+        let Some(function) = self.get_register_safe(function) else {
             // e.g. x = (1..10).find |n| n == x
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
-            runtime_error!("Function not found while attempting to capture a value")
+            return runtime_error!("Function not found while attempting to capture a value");
+        };
+
+        match function {
+            Value::CaptureFunction(f) => {
+                f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
+                Ok(())
+            }
+            unexpected => type_error("Function while capturing value", unexpected),
         }
     }
 
@@ -1849,19 +1848,18 @@ impl Vm {
         }
 
         for (key_a, value_a) in map_a.data().iter() {
-            if let Some(value_b) = map_b.data().get(key_a) {
-                match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
-                    Value::Bool(true) => {}
-                    Value::Bool(false) => return Ok(false),
-                    other => {
-                        return runtime_error!(
-                            "Expected Bool from equality comparison, found '{}'",
-                            other.type_as_string()
-                        );
-                    }
-                }
-            } else {
+            let Some(value_b) = map_b.data().get(key_a).cloned() else {
                 return Ok(false);
+            };
+            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b)? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                other => {
+                    return runtime_error!(
+                        "Expected Bool from equality comparison, found '{}'",
+                        other.type_as_string()
+                    );
+                }
             }
         }
 
@@ -2356,14 +2354,14 @@ impl Vm {
                     )?);
                 }
 
-                if let Some(value) = access_result {
-                    self.set_register(result_register, value);
-                } else {
+                let Some(value) = access_result else {
                     return runtime_error!(
                         "'{key}' not found in '{}'",
                         accessed_value.type_as_string()
                     );
-                }
+                };
+
+                self.set_register(result_register, value);
             }
             Object(o) => {
                 let o = o.try_borrow()?;

@@ -67,7 +67,7 @@ generator()
 ";
             test_script(
                 script,
-                value_tuple(&[
+                tuple(&[
                     number_tuple(&[1, 2]),
                     number_tuple(&[3, 4]),
                     number_tuple(&[5]),
@@ -154,7 +154,7 @@ x.next() # 1, 11
 x.next() # 2, 12
 y.next()
 ";
-            test_script(script, value_tuple(&[1.into(), 11.into()]));
+            test_script(script, tuple(&[1.into(), 11.into()]));
         }
     }
 
@@ -226,7 +226,7 @@ result
 ";
             test_script(
                 script,
-                value_list(&[1.into(), 1.into(), 2.into(), 3.into(), 3.into(), Null, Null]),
+                list(&[1.into(), 1.into(), 2.into(), 3.into(), 3.into(), Null, Null]),
             );
         }
 
@@ -249,7 +249,7 @@ result
 ";
             test_script(
                 script,
-                value_list(&[
+                list(&[
                     1.into(),
                     3.into(),
                     3.into(),
@@ -283,7 +283,7 @@ result
 ";
             test_script(
                 script,
-                value_list(&[
+                list(&[
                     1.into(),
                     3.into(),
                     3.into(),
@@ -307,7 +307,7 @@ result
             let script = "
 [].skip(1).to_tuple()
 ";
-            test_script(script, value_tuple(&[]));
+            test_script(script, tuple(&[]));
         }
     }
 
@@ -368,7 +368,7 @@ result
 ";
             test_script(
                 script,
-                value_tuple(&[
+                tuple(&[
                     number_tuple(&[1, 2, 3]),
                     number_tuple(&[2, 3, 4]),
                     number_tuple(&[3, 4, 5]),
@@ -484,7 +484,7 @@ y.next()
 ";
             test_script(
                 script,
-                value_tuple(&["abc".into(), "def".into(), "xyz".into(), "".into()]),
+                tuple(&["abc".into(), "def".into(), "xyz".into(), "".into()]),
             );
         }
     }

@@ -8,9 +8,8 @@ use repl::{Repl, ReplSettings};
 use rustyline::EditMode;
 use std::{env, fs, io, path::PathBuf};
 
-#[cfg(all(jemalloc, not(debug_assertions), not(target_env = "msvc")))]
 #[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn help_string() -> String {
     format!(

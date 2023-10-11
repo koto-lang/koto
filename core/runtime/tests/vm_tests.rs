@@ -2,7 +2,7 @@ mod runtime_test_utils;
 
 mod vm {
     use crate::runtime_test_utils::{
-        number, number_list, number_tuple, run_script_with_vm, string, test_script, value_tuple,
+        number, number_list, number_tuple, run_script_with_vm, string, test_script, tuple,
     };
     use koto_runtime::prelude::*;
 
@@ -187,16 +187,16 @@ a %= 5
 
         #[test]
         fn range() {
-            test_script("0..10", Value::Range(KRange::bounded(0, 10, false)));
-            test_script("0..-10", Value::Range(KRange::bounded(0, -10, false)));
-            test_script("1 + 1..2 + 2", Value::Range(KRange::bounded(2, 4, false)));
+            test_script("0..10", KRange::bounded(0, 10, false));
+            test_script("0..-10", KRange::bounded(0, -10, false));
+            test_script("1 + 1..2 + 2", KRange::bounded(2, 4, false));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", Value::Range(KRange::bounded(10, 20, true)));
-            test_script("4..=0", Value::Range(KRange::bounded(4, 0, true)));
-            test_script("2 * 2..=3 * 3", Value::Range(KRange::bounded(4, 9, true)));
+            test_script("10..=20", KRange::bounded(10, 20, true));
+            test_script("4..=0", KRange::bounded(4, 0, true));
+            test_script("2 * 2..=3 * 3", KRange::bounded(4, 9, true));
         }
     }
 
@@ -205,7 +205,7 @@ a %= 5
 
         #[test]
         fn empty() {
-            test_script("(,)", Value::Tuple(KTuple::default()));
+            test_script("(,)", KTuple::default());
         }
 
         #[test]
@@ -232,7 +232,7 @@ a %= 5
         fn tuple_of_tuples() {
             test_script(
                 "(1, 2), (3, 4, 5), (6, 7, 8, 9), (0,)",
-                value_tuple(&[
+                tuple(&[
                     number_tuple(&[1, 2]),
                     number_tuple(&[3, 4, 5]),
                     number_tuple(&[6, 7, 8, 9]),
@@ -252,7 +252,7 @@ a %= 5
 
         #[test]
         fn empty() {
-            test_script("[]", Value::List(KList::default()));
+            test_script("[]", KList::default());
         }
 
         #[test]
@@ -428,7 +428,7 @@ x[0], x[1] = -1, 42";
         #[test]
         fn unpack_list() {
             let script = "a, b, c = [7, 8]";
-            test_script(script, value_tuple(&[7.into(), 8.into(), Value::Null]));
+            test_script(script, tuple(&[7.into(), 8.into(), Value::Null]));
         }
 
         #[test]
@@ -436,14 +436,14 @@ x[0], x[1] = -1, 42";
             let script = "a, b, c = [1, 2], [3, 4]";
             test_script(
                 script,
-                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Value::Null]),
+                tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Value::Null]),
             );
         }
 
         #[test]
         fn iterator() {
             let script = "a, b, c = (1, 2).each |x| x * 10";
-            test_script(script, value_tuple(&[10.into(), 20.into(), Value::Null]));
+            test_script(script, tuple(&[10.into(), 20.into(), Value::Null]));
         }
 
         #[test]
@@ -451,7 +451,7 @@ x[0], x[1] = -1, 42";
             let script = "
 x = [1, 2]
 x[0], x[1] = (1, 2).each |x| x * 10";
-            test_script(script, value_tuple(&[10.into(), 20.into()]));
+            test_script(script, tuple(&[10.into(), 20.into()]));
         }
 
         #[test]
@@ -3060,7 +3060,7 @@ x =
 a, b, c = x
 a, b, c
 ";
-            test_script(script, value_tuple(&[10.into(), 20.into(), Value::Null]));
+            test_script(script, tuple(&[10.into(), 20.into(), Value::Null]));
         }
     }
 

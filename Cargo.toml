@@ -29,8 +29,8 @@ indexmap = "2.0.0"
 instant = "0.1.12"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
-# A Rust allocator backed by jemalloc
-jemallocator = { version = "0.5.0" }
+# Performance and security oriented drop-in allocator
+mimalloc = { version = "0.1.39", default-features = false }
 # The core components of nannou - a creative coding framework for Rust.
 nannou_core = "0.18.0"
 # Convert and manage colors with a focus on correctness, flexibility and ease of use.

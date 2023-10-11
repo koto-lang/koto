@@ -8,9 +8,7 @@ use std::cell::RefCell;
 pub fn make_module() -> KMap {
     let result = KMap::with_type("random");
 
-    result.add_fn("bool", |_| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_bool())
-    });
+    result.add_fn("bool", |_| THREAD_RNG.with_borrow_mut(|rng| rng.gen_bool()));
 
     result.add_fn("generator", |ctx| {
         let rng = match ctx.args() {
@@ -27,15 +25,15 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("number", |_| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_number())
+        THREAD_RNG.with_borrow_mut(|rng| rng.gen_number())
     });
 
     result.add_fn("pick", |ctx| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().pick(ctx.args()))
+        THREAD_RNG.with_borrow_mut(|rng| rng.pick(ctx.args()))
     });
 
     result.add_fn("seed", |ctx| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().seed(ctx.args()))
+        THREAD_RNG.with_borrow_mut(|rng| rng.seed(ctx.args()))
     });
 
     result
