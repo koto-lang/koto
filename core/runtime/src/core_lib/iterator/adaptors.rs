@@ -820,13 +820,13 @@ impl Iterator for Windows {
         self.cache.pop_front();
 
         while self.cache.len() < self.window_size {
-            if let Some(output) = self.iter.next() {
-                match Value::try_from(output) {
-                    Ok(value) => self.cache.push_back(value),
-                    Err(error) => return Some(Output::Error(error)),
-                }
-            } else {
+            let Some(output) = self.iter.next() else {
                 break;
+            };
+
+            match Value::try_from(output) {
+                Ok(value) => self.cache.push_back(value),
+                Err(error) => return Some(Output::Error(error)),
             }
         }
 

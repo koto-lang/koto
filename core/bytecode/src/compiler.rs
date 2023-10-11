@@ -2497,27 +2497,25 @@ impl Compiler {
             }
 
             // Is the lookup chain complete?
-            if let Some(next) = next_node_index {
-                let next_lookup_node = ast.node(next);
+            let Some(next) = next_node_index else { break };
 
-                match &next_lookup_node.node {
-                    Node::Lookup((node, next)) => {
-                        lookup_node = node.clone();
-                        next_node_index = *next;
-                    }
-                    other => {
-                        return compiler_error!(
-                            self,
-                            "compile_lookup: invalid node in lookup chain, found {}",
-                            other
-                        )
-                    }
-                };
+            let next_lookup_node = ast.node(next);
 
-                self.span_stack.push(*ast.span(next_lookup_node.span));
-            } else {
-                break;
-            }
+            match &next_lookup_node.node {
+                Node::Lookup((node, next)) => {
+                    lookup_node = node.clone();
+                    next_node_index = *next;
+                }
+                other => {
+                    return compiler_error!(
+                        self,
+                        "compile_lookup: invalid node in lookup chain, found {}",
+                        other
+                    )
+                }
+            };
+
+            self.span_stack.push(*ast.span(next_lookup_node.span));
         }
 
         // The lookup chain is complete, now we need to handle:

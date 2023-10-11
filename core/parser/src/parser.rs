@@ -265,16 +265,16 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(&context).is_some() {
             self.consume_until_token_with_context(&context);
 
-            if let Some(expression) = self.parse_line(&ExpressionContext::permissive())? {
-                body.push(expression);
-
-                match self.peek_next_token_on_same_line() {
-                    Some(Token::NewLine | Token::NewLineIndented) => continue,
-                    None => break,
-                    _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
-                }
-            } else {
+            let Some(expression) = self.parse_line(&ExpressionContext::permissive())? else {
                 return self.consume_token_and_error(SyntaxError::ExpectedExpressionInMainBlock);
+            };
+
+            body.push(expression);
+
+            match self.peek_next_token_on_same_line() {
+                Some(Token::NewLine | Token::NewLineIndented) => continue,
+                None => break,
+                _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
             }
         }
 
@@ -323,24 +323,24 @@ impl<'source> Parser<'source> {
                 ..ExpressionContext::permissive()
             };
 
-            if let Some(expression) = self.parse_line(&line_context)? {
-                block.push(expression);
+            let Some(expression) = self.parse_line(&line_context)? else {
+                break;
+            };
 
-                match self.peek_next_token_on_same_line() {
-                    None => break,
-                    Some(Token::NewLine | Token::NewLineIndented) => {}
-                    _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
-                }
+            block.push(expression);
 
-                // Peek ahead to see if the indented block continues after this line
-                if self.peek_token_with_context(&block_context).is_none() {
-                    break;
-                }
+            match self.peek_next_token_on_same_line() {
+                None => break,
+                Some(Token::NewLine | Token::NewLineIndented) => {}
+                _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
+            }
 
-                self.consume_until_token_with_context(&block_context);
-            } else {
+            // Peek ahead to see if the indented block continues after this line
+            if self.peek_token_with_context(&block_context).is_none() {
                 break;
             }
+
+            self.consume_until_token_with_context(&block_context);
         }
 
         // If the block is a single expression then it doesn't need to be wrapped in a Block node
@@ -376,65 +376,65 @@ impl<'source> Parser<'source> {
             ..*context
         };
 
-        if let Some(first) = self.parse_expression(&expression_context)? {
-            let mut expressions = vec![first];
-            let mut encountered_linebreak = false;
-            let mut encountered_comma = false;
+        let Some(first) = self.parse_expression(&expression_context)? else {
+            return Ok(None);
+        };
 
-            while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
-                self.consume_next_token_on_same_line();
+        let mut expressions = vec![first];
+        let mut encountered_linebreak = false;
+        let mut encountered_comma = false;
 
-                encountered_comma = true;
+        while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
+            self.consume_next_token_on_same_line();
 
-                if !encountered_linebreak && self.current_line_number() > start_line {
-                    // e.g.
-                    //   x, y =
-                    //     1, # <- We're here, and want following values to have matching
-                    //        #    indentation
-                    //     0
-                    expression_context = expression_context
-                        .with_expected_indentation(Indentation::Equal(self.current_indent()));
-                    encountered_linebreak = true;
-                }
+            encountered_comma = true;
 
-                //
-                if let Some(next_expression) =
-                    self.parse_expression_start(&expressions, 0, &expression_context)?
-                {
-                    match self.ast.node(next_expression).node {
-                        Node::Assign { .. }
-                        | Node::MultiAssign { .. }
-                        | Node::For(_)
-                        | Node::While { .. }
-                        | Node::Until { .. } => {
-                            // These nodes will have consumed the parsed expressions,
-                            // so there's no further work to do.
-                            // e.g.
-                            //   x, y for x, y in a, b
-                            //   a, b = c, d
-                            //   a, b, c = x
-                            return Ok(Some(next_expression));
-                        }
-                        _ => {}
+            if !encountered_linebreak && self.current_line_number() > start_line {
+                // e.g.
+                //   x, y =
+                //     1, # <- We're here, and want following values to have matching
+                //        #    indentation
+                //     0
+                expression_context = expression_context
+                    .with_expected_indentation(Indentation::Equal(self.current_indent()));
+                encountered_linebreak = true;
+            }
+
+            //
+            if let Some(next_expression) =
+                self.parse_expression_start(&expressions, 0, &expression_context)?
+            {
+                match self.ast.node(next_expression).node {
+                    Node::Assign { .. }
+                    | Node::MultiAssign { .. }
+                    | Node::For(_)
+                    | Node::While { .. }
+                    | Node::Until { .. } => {
+                        // These nodes will have consumed the parsed expressions,
+                        // so there's no further work to do.
+                        // e.g.
+                        //   x, y for x, y in a, b
+                        //   a, b = c, d
+                        //   a, b, c = x
+                        return Ok(Some(next_expression));
                     }
-
-                    expressions.push(next_expression);
+                    _ => {}
                 }
-            }
 
-            self.frame_mut()?.finalize_id_accesses();
-
-            if expressions.len() == 1 && !encountered_comma {
-                Ok(Some(first))
-            } else {
-                let result = match temp_result {
-                    TempResult::No => Node::Tuple(expressions),
-                    TempResult::Yes => Node::TempTuple(expressions),
-                };
-                Ok(Some(self.push_node(result)?))
+                expressions.push(next_expression);
             }
+        }
+
+        self.frame_mut()?.finalize_id_accesses();
+
+        if expressions.len() == 1 && !encountered_comma {
+            Ok(Some(first))
         } else {
-            Ok(None)
+            let result = match temp_result {
+                TempResult::No => Node::Tuple(expressions),
+                TempResult::Yes => Node::TempTuple(expressions),
+            };
+            Ok(Some(self.push_node(result)?))
         }
     }
 
@@ -457,12 +457,10 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         let result = self.parse_expression_start(&[], min_precedence, context)?;
 
-        let result = match self.peek_next_token_on_same_line() {
-            Some(Token::Range | Token::RangeInclusive) => self.parse_range(result, context)?,
-            _ => result,
-        };
-
-        Ok(result)
+        match self.peek_next_token_on_same_line() {
+            Some(Token::Range | Token::RangeInclusive) => self.parse_range(result, context),
+            _ => Ok(result),
+        }
     }
 
     // Parses a term, and then checks to see if the expression is continued
@@ -716,154 +714,150 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
         let start_indent = self.current_indent();
-        if let Some(peeked) = self.peek_token_with_context(context) {
-            let result = match peeked.token {
-                Token::Null => {
-                    self.consume_token_with_context(context);
-                    self.push_node(Null)
-                }
-                Token::True => {
-                    self.consume_token_with_context(context);
-                    self.push_node(BoolTrue)
-                }
-                Token::False => {
-                    self.consume_token_with_context(context);
-                    self.push_node(BoolFalse)
-                }
-                Token::RoundOpen => self.parse_tuple(context),
-                Token::Number => self.parse_number(false, context),
-                Token::DoubleQuote | Token::SingleQuote => {
-                    let (string, span, string_context) = self.parse_string(context)?.unwrap();
 
-                    if self.peek_token() == Some(Token::Colon) {
-                        self.parse_braceless_map_start(
-                            MapKey::Str(string),
-                            start_span,
-                            &string_context,
-                        )
-                    } else {
-                        let string_node = self.push_node_with_span(Str(string), span)?;
-                        self.check_for_lookup_after_node(string_node, &string_context)
+        let Some(peeked) = self.peek_token_with_context(context) else {
+            return Ok(None);
+        };
+
+        let result = match peeked.token {
+            Token::Null => {
+                self.consume_token_with_context(context);
+                self.push_node(Null)
+            }
+            Token::True => {
+                self.consume_token_with_context(context);
+                self.push_node(BoolTrue)
+            }
+            Token::False => {
+                self.consume_token_with_context(context);
+                self.push_node(BoolFalse)
+            }
+            Token::RoundOpen => self.parse_tuple(context),
+            Token::Number => self.parse_number(false, context),
+            Token::DoubleQuote | Token::SingleQuote => {
+                let (string, span, string_context) = self.parse_string(context)?.unwrap();
+
+                if self.peek_token() == Some(Token::Colon) {
+                    self.parse_braceless_map_start(MapKey::Str(string), start_span, &string_context)
+                } else {
+                    let string_node = self.push_node_with_span(Str(string), span)?;
+                    self.check_for_lookup_after_node(string_node, &string_context)
+                }
+            }
+            Token::Id => self.parse_id_expression(context),
+            Token::Self_ => self.parse_self_expression(context),
+            Token::At => {
+                let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
+
+                let meta_context = self.consume_until_token_with_context(context).unwrap();
+                // Safe to unwrap here, parse_meta_key would error on invalid key
+                let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
+
+                if map_block_allowed
+                    && matches!(
+                        self.peek_token_with_context(context),
+                        Some(PeekInfo {
+                            token: Token::Colon,
+                            ..
+                        })
+                    )
+                {
+                    self.parse_braceless_map_start(
+                        MapKey::Meta(meta_key_id, meta_name),
+                        start_span,
+                        &meta_context,
+                    )
+                } else {
+                    let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
+                    match self.parse_assign_expression(meta_key, &[], &meta_context)? {
+                        Some(result) => self.push_node(Node::Export(result)),
+                        None => self
+                            .consume_token_and_error(SyntaxError::ExpectedAssignmentAfterMetaKey),
                     }
                 }
-                Token::Id => self.parse_id_expression(context),
-                Token::Self_ => self.parse_self_expression(context),
-                Token::At => {
-                    let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
-
-                    let meta_context = self.consume_until_token_with_context(context).unwrap();
-                    // Safe to unwrap here, parse_meta_key would error on invalid key
-                    let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
-
-                    if map_block_allowed
-                        && matches!(
-                            self.peek_token_with_context(context),
-                            Some(PeekInfo {
-                                token: Token::Colon,
-                                ..
-                            })
-                        )
-                    {
-                        self.parse_braceless_map_start(
-                            MapKey::Meta(meta_key_id, meta_name),
-                            start_span,
-                            &meta_context,
-                        )
-                    } else {
-                        let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
-                        match self.parse_assign_expression(meta_key, &[], &meta_context)? {
-                            Some(result) => self.push_node(Node::Export(result)),
-                            None => self.consume_token_and_error(
-                                SyntaxError::ExpectedAssignmentAfterMetaKey,
-                            ),
-                        }
-                    }
+            }
+            Token::Wildcard => self.parse_wildcard(context),
+            Token::SquareOpen => self.parse_list(context),
+            Token::CurlyOpen => self.parse_map_with_braces(context),
+            Token::If => self.parse_if_expression(context),
+            Token::Match => self.parse_match_expression(context),
+            Token::Switch => self.parse_switch_expression(context),
+            Token::Function => self.parse_function(context),
+            Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
+                Some(token) if token.is_whitespace() || token.is_newline() => return Ok(None),
+                Some(Token::Number) => {
+                    self.consume_token_with_context(context); // Token::Subtract
+                    self.parse_number(true, context)
                 }
-                Token::Wildcard => self.parse_wildcard(context),
-                Token::SquareOpen => self.parse_list(context),
-                Token::CurlyOpen => self.parse_map_with_braces(context),
-                Token::If => self.parse_if_expression(context),
-                Token::Match => self.parse_match_expression(context),
-                Token::Switch => self.parse_switch_expression(context),
-                Token::Function => self.parse_function(context),
-                Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
-                    Some(token) if token.is_whitespace() || token.is_newline() => return Ok(None),
-                    Some(Token::Number) => {
-                        self.consume_token_with_context(context); // Token::Subtract
-                        self.parse_number(true, context)
-                    }
-                    Some(_) => {
-                        self.consume_token_with_context(context); // Token::Subtract
-                        if let Some(term) = self.parse_term(&ExpressionContext::restricted())? {
-                            self.push_node(Node::UnaryOp {
-                                op: AstUnaryOp::Negate,
-                                value: term,
-                            })
-                        } else {
-                            self.consume_token_and_error(SyntaxError::ExpectedExpression)
-                        }
-                    }
-                    None => return Ok(None),
-                },
-                Token::Not => {
-                    self.consume_token_with_context(context);
-                    if let Some(expression) = self.parse_expression(&ExpressionContext {
-                        allow_space_separated_call: true,
-                        expected_indentation: Indentation::Greater,
-                        ..*context
-                    })? {
+                Some(_) => {
+                    self.consume_token_with_context(context); // Token::Subtract
+                    if let Some(term) = self.parse_term(&ExpressionContext::restricted())? {
                         self.push_node(Node::UnaryOp {
-                            op: AstUnaryOp::Not,
-                            value: expression,
+                            op: AstUnaryOp::Negate,
+                            value: term,
                         })
                     } else {
                         self.consume_token_and_error(SyntaxError::ExpectedExpression)
                     }
                 }
-                Token::Yield => {
-                    self.consume_token_with_context(context);
-                    if let Some(expression) =
-                        self.parse_expressions(&context.start_new_expression(), TempResult::No)?
-                    {
-                        self.frame_mut()?.contains_yield = true;
-                        self.push_node(Node::Yield(expression))
-                    } else {
-                        self.consume_token_and_error(SyntaxError::ExpectedExpression)
-                    }
+                None => return Ok(None),
+            },
+            Token::Not => {
+                self.consume_token_with_context(context);
+                if let Some(expression) = self.parse_expression(&ExpressionContext {
+                    allow_space_separated_call: true,
+                    expected_indentation: Indentation::Greater,
+                    ..*context
+                })? {
+                    self.push_node(Node::UnaryOp {
+                        op: AstUnaryOp::Not,
+                        value: expression,
+                    })
+                } else {
+                    self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
-                Token::Loop => self.parse_loop_block(context),
-                Token::For => self.parse_for_loop(context),
-                Token::While => self.parse_while_loop(context),
-                Token::Until => self.parse_until_loop(context),
-                Token::Break => {
-                    self.consume_token_with_context(context);
-                    let break_value =
-                        self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
-                    self.push_node(Node::Break(break_value))
+            }
+            Token::Yield => {
+                self.consume_token_with_context(context);
+                if let Some(expression) =
+                    self.parse_expressions(&context.start_new_expression(), TempResult::No)?
+                {
+                    self.frame_mut()?.contains_yield = true;
+                    self.push_node(Node::Yield(expression))
+                } else {
+                    self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
-                Token::Continue => {
-                    self.consume_token_with_context(context);
-                    self.push_node(Node::Continue)
-                }
-                Token::Return => {
-                    self.consume_token_with_context(context);
-                    let return_value =
-                        self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
-                    self.push_node(Node::Return(return_value))
-                }
-                Token::Throw => self.parse_throw_expression(),
-                Token::Debug => self.parse_debug_expression(),
-                Token::From | Token::Import => self.parse_import(context),
-                Token::Export => self.parse_export(context),
-                Token::Try => self.parse_try_expression(context),
-                Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
-                _ => return Ok(None),
-            };
+            }
+            Token::Loop => self.parse_loop_block(context),
+            Token::For => self.parse_for_loop(context),
+            Token::While => self.parse_while_loop(context),
+            Token::Until => self.parse_until_loop(context),
+            Token::Break => {
+                self.consume_token_with_context(context);
+                let break_value =
+                    self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
+                self.push_node(Node::Break(break_value))
+            }
+            Token::Continue => {
+                self.consume_token_with_context(context);
+                self.push_node(Node::Continue)
+            }
+            Token::Return => {
+                self.consume_token_with_context(context);
+                let return_value =
+                    self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
+                self.push_node(Node::Return(return_value))
+            }
+            Token::Throw => self.parse_throw_expression(),
+            Token::Debug => self.parse_debug_expression(),
+            Token::From | Token::Import => self.parse_import(context),
+            Token::Export => self.parse_export(context),
+            Token::Try => self.parse_try_expression(context),
+            Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
+            _ => return Ok(None),
+        };
 
-            result.map(Some)
-        } else {
-            Ok(None)
-        }
+        result.map(Some)
     }
 
     // Parses a function
@@ -1206,35 +1200,35 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
         let start_span = self.current_span();
-        if let Some((constant_index, id_context)) = self.parse_id(context)? {
-            if self.peek_token() == Some(Token::Colon) {
-                self.parse_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
+        let Some((constant_index, id_context)) = self.parse_id(context)? else {
+            return self.consume_token_and_error(InternalError::UnexpectedToken);
+        };
+
+        if self.peek_token() == Some(Token::Colon) {
+            self.parse_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
+        } else {
+            self.frame_mut()?.add_id_access(constant_index);
+
+            let lookup_context = id_context.lookup_start();
+            if self.next_token_is_lookup_start(&lookup_context) {
+                let id_index = self.push_node(Node::Id(constant_index))?;
+                self.parse_lookup(id_index, &lookup_context)
             } else {
-                self.frame_mut()?.add_id_access(constant_index);
+                let start_span = self.current_span();
+                let args = self.parse_call_args(&id_context)?;
 
-                let lookup_context = id_context.lookup_start();
-                if self.next_token_is_lookup_start(&lookup_context) {
-                    let id_index = self.push_node(Node::Id(constant_index))?;
-                    self.parse_lookup(id_index, &lookup_context)
+                if args.is_empty() {
+                    self.push_node(Node::Id(constant_index))
                 } else {
-                    let start_span = self.current_span();
-                    let args = self.parse_call_args(&id_context)?;
-
-                    if args.is_empty() {
-                        self.push_node(Node::Id(constant_index))
-                    } else {
-                        self.push_node_with_start_span(
-                            Node::NamedCall {
-                                id: constant_index,
-                                args,
-                            },
-                            start_span,
-                        )
-                    }
+                    self.push_node_with_start_span(
+                        Node::NamedCall {
+                            id: constant_index,
+                            args,
+                        },
+                        start_span,
+                    )
                 }
             }
-        } else {
-            self.consume_token_and_error(InternalError::UnexpectedToken)
         }
     }
 
@@ -1242,17 +1236,17 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        if let Some((_, self_context)) = self.consume_token_with_context(context) {
-            let lookup_context = self_context.lookup_start();
-            let self_index = self.push_node(Node::Self_)?;
+        let Some((_, self_context)) = self.consume_token_with_context(context) else {
+            return self.error(SyntaxError::ExpectedCloseParen);
+        };
 
-            if self.next_token_is_lookup_start(&lookup_context) {
-                self.parse_lookup(self_index, &lookup_context)
-            } else {
-                Ok(self_index)
-            }
+        let lookup_context = self_context.lookup_start();
+        let self_index = self.push_node(Node::Self_)?;
+
+        if self.next_token_is_lookup_start(&lookup_context) {
+            self.parse_lookup(self_index, &lookup_context)
         } else {
-            self.error(SyntaxError::ExpectedCloseParen)
+            Ok(self_index)
         }
     }
 
@@ -1369,72 +1363,71 @@ impl<'source> Parser<'source> {
                     }
                 }
                 _ => {
-                    if let Some(peeked) = self.peek_token_with_context(&node_context) {
-                        if peeked.token == Token::Dot {
-                            // Indented Dot on the next line?
+                    let Some(peeked) = self.peek_token_with_context(&node_context) else {
+                        break;
+                    };
+                    if peeked.token == Token::Dot {
+                        // Indented Dot on the next line?
 
-                            // Consume up until the Dot,
-                            // which will be picked up on the next iteration
-                            node_context = self
-                                .consume_until_token_with_context(&node_context)
-                                .unwrap();
+                        // Consume up until the Dot,
+                        // which will be picked up on the next iteration
+                        node_context = self
+                            .consume_until_token_with_context(&node_context)
+                            .unwrap();
 
-                            // Check that the next dot is on an indented line
-                            if self.current_line_number() == lookup_line {
-                                // TODO Error here?
-                                break;
-                            }
-
-                            // Starting a new line, so space separated calls are allowed
-                            node_context.allow_space_separated_call = true;
-                        } else {
-                            // Attempt to parse trailing call arguments,
-                            // e.g.
-                            //   x.foo 42, 99
-                            //         ~~~~~~
-                            //
-                            //   x.foo
-                            //     42, 99
-                            //     ~~~~~~
-                            //
-                            //   foo
-                            //     .bar 123
-                            //          ~~~
-                            //     .baz
-                            //       x, y
-                            //       ~~~~
-                            //
-                            //   foo.takes_a_map_arg
-                            //     bar: 42
-                            //     ~~~~~~~
-
-                            // Allow a map block if we're on an indented line
-                            node_context.allow_map_block = peeked.line > lookup_line;
-
-                            let args = self.parse_call_args(&node_context)?;
-
-                            // Now that space separated args have been parsed,
-                            // don't allow any more while we're on the same line.
-                            node_context.allow_space_separated_call = false;
-
-                            if args.is_empty() {
-                                // No arguments found, so we're at the end of the lookup
-                                break;
-                            } else {
-                                lookup.push((
-                                    LookupNode::Call {
-                                        args,
-                                        with_parens: false,
-                                    },
-                                    node_start_span,
-                                ));
-                            }
+                        // Check that the next dot is on an indented line
+                        if self.current_line_number() == lookup_line {
+                            // TODO Error here?
+                            break;
                         }
 
-                        lookup_line = self.current_line_number();
+                        // Starting a new line, so space separated calls are allowed
+                        node_context.allow_space_separated_call = true;
                     } else {
-                        break;
+                        // Attempt to parse trailing call arguments,
+                        // e.g.
+                        //   x.foo 42, 99
+                        //         ~~~~~~
+                        //
+                        //   x.foo
+                        //     42, 99
+                        //     ~~~~~~
+                        //
+                        //   foo
+                        //     .bar 123
+                        //          ~~~
+                        //     .baz
+                        //       x, y
+                        //       ~~~~
+                        //
+                        //   foo.takes_a_map_arg
+                        //     bar: 42
+                        //     ~~~~~~~
+
+                        // Allow a map block if we're on an indented line
+                        node_context.allow_map_block = peeked.line > lookup_line;
+
+                        let args = self.parse_call_args(&node_context)?;
+
+                        // Now that space separated args have been parsed,
+                        // don't allow any more while we're on the same line.
+                        node_context.allow_space_separated_call = false;
+
+                        if args.is_empty() {
+                            // No arguments found, so we're at the end of the lookup
+                            break;
+                        } else {
+                            lookup.push((
+                                LookupNode::Call {
+                                    args,
+                                    with_parens: false,
+                                },
+                                node_start_span,
+                            ));
+                        }
                     }
+
+                    lookup_line = self.current_line_number();
                 }
             }
         }
@@ -1609,12 +1602,9 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
 
-        let expression =
-            if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
-                expression
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-            };
+        let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+        };
 
         self.push_node_with_start_span(Node::Export(expression), start_span)
     }
@@ -1624,12 +1614,9 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
 
-        let expression =
-            if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
-                expression
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-            };
+        let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+        };
 
         self.push_node_with_start_span(Node::Throw(expression), start_span)
     }
@@ -1643,12 +1630,9 @@ impl<'source> Parser<'source> {
 
         let context = ExpressionContext::permissive();
         let expression_source_start = self.lexer.source_position();
-        let expression =
-            if let Some(expression) = self.parse_expressions(&context, TempResult::No)? {
-                expression
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-            };
+        let Some(expression) = self.parse_expressions(&context, TempResult::No)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+        };
 
         let expression_source_end = self.lexer.source_position();
 
@@ -1865,26 +1849,26 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(context).is_some() {
             self.consume_until_token_with_context(context);
 
-            if let Some(key) = self.parse_map_key()? {
-                if self.peek_next_token_on_same_line() == Some(Token::Colon) {
-                    self.consume_next_token_on_same_line();
-
-                    if let Some(value) = self.parse_expression(&ExpressionContext::inline())? {
-                        entries.push((key, Some(value)));
-                    } else {
-                        // If a value wasn't found on the same line as the key,
-                        // look for an indented value
-                        if let Some(value) = self.parse_indented_block()? {
-                            entries.push((key, Some(value)));
-                        } else {
-                            return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
-                        }
-                    }
-                } else {
-                    return self.consume_token_and_error(SyntaxError::ExpectedMapColon);
-                }
-            } else {
+            let Some(key) = self.parse_map_key()? else {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapEntry);
+            };
+
+            if self.peek_next_token_on_same_line() != Some(Token::Colon) {
+                return self.consume_token_and_error(SyntaxError::ExpectedMapColon);
+            };
+
+            self.consume_next_token_on_same_line();
+
+            if let Some(value) = self.parse_expression(&ExpressionContext::inline())? {
+                entries.push((key, Some(value)));
+            } else {
+                // If a value wasn't found on the same line as the key,
+                // look for an indented value
+                if let Some(value) = self.parse_indented_block()? {
+                    entries.push((key, Some(value)));
+                } else {
+                    return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
+                }
             }
         }
 
@@ -1927,45 +1911,45 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(&entry_context).is_some() {
             self.consume_until_token_with_context(&entry_context);
 
-            if let Some(key) = self.parse_map_key()? {
-                if self.peek_token() == Some(Token::Colon) {
-                    self.consume_token();
+            let Some(key) = self.parse_map_key()? else {
+                break;
+            };
 
-                    let value_context = ExpressionContext::permissive();
-                    if self.peek_token_with_context(&value_context).is_none() {
-                        return self.error(SyntaxError::ExpectedMapValue);
-                    }
-                    self.consume_until_token_with_context(&value_context);
+            if self.peek_token() == Some(Token::Colon) {
+                self.consume_token();
 
-                    if let Some(value) = self.parse_expression(&value_context)? {
-                        entries.push((key, Some(value)));
-                    } else {
-                        return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
-                    }
-                } else {
-                    // valueless map entries are allowed in inline maps,
-                    // e.g.
-                    //   bar = -1
-                    //   x = {foo: 42, bar, baz: 99}
-                    match key {
-                        MapKey::Id(id) => self.frame_mut()?.add_id_access(id),
-                        _ => return self.error(SyntaxError::ExpectedMapValue),
-                    }
-                    entries.push((key, None));
+                let value_context = ExpressionContext::permissive();
+                if self.peek_token_with_context(&value_context).is_none() {
+                    return self.error(SyntaxError::ExpectedMapValue);
                 }
+                self.consume_until_token_with_context(&value_context);
 
-                if matches!(
-                    self.peek_token_with_context(&entry_context),
-                    Some(PeekInfo {
-                        token: Token::Comma,
-                        ..
-                    })
-                ) {
-                    self.consume_token_with_context(&entry_context);
-                    entry_context = ExpressionContext::braced_items_continued();
+                if let Some(value) = self.parse_expression(&value_context)? {
+                    entries.push((key, Some(value)));
                 } else {
-                    break;
+                    return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
                 }
+            } else {
+                // valueless map entries are allowed in inline maps,
+                // e.g.
+                //   bar = -1
+                //   x = {foo: 42, bar, baz: 99}
+                match key {
+                    MapKey::Id(id) => self.frame_mut()?.add_id_access(id),
+                    _ => return self.error(SyntaxError::ExpectedMapValue),
+                }
+                entries.push((key, None));
+            }
+
+            if matches!(
+                self.peek_token_with_context(&entry_context),
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                })
+            ) {
+                self.consume_token_with_context(&entry_context);
+                entry_context = ExpressionContext::braced_items_continued();
             } else {
                 break;
             }
@@ -2137,12 +2121,9 @@ impl<'source> Parser<'source> {
     fn parse_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::While
 
-        let condition =
-            if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
-                condition
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedWhileCondition);
-            };
+        let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedWhileCondition);
+        };
 
         match self.parse_indented_block()? {
             Some(body) => self.push_node(Node::While { condition, body }),
@@ -2153,12 +2134,9 @@ impl<'source> Parser<'source> {
     fn parse_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Until
 
-        let condition =
-            if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
-                condition
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedUntilCondition);
-            };
+        let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedUntilCondition);
+        };
 
         match self.parse_indented_block()? {
             Some(body) => self.push_node(Node::Until { condition, body }),
@@ -2180,18 +2158,18 @@ impl<'source> Parser<'source> {
         let mut outer_context =
             context.with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()));
 
-        let condition = match self.parse_expression(&ExpressionContext::inline())? {
-            Some(condition) => condition,
-            None => return self.consume_token_and_error(ExpectedIfCondition),
+        let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
+            return self.consume_token_and_error(ExpectedIfCondition);
         };
 
         if self.peek_next_token_on_same_line() == Some(Token::Then) {
             self.consume_next_token_on_same_line();
-            let then_node =
-                match self.parse_expressions(&ExpressionContext::inline(), TempResult::No)? {
-                    Some(then_node) => then_node,
-                    None => return self.error(ExpectedThenExpression),
-                };
+            let Some(then_node) =
+                self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
+            else {
+                return self.error(ExpectedThenExpression);
+            };
+
             let else_node = if self.peek_next_token_on_same_line() == Some(Token::Else) {
                 self.consume_next_token_on_same_line();
                 match self.parse_expressions(&ExpressionContext::inline(), TempResult::No)? {
@@ -2231,18 +2209,18 @@ impl<'source> Parser<'source> {
                     outer_context = context
                         .with_expected_indentation(Indentation::Equal(self.current_indent()));
 
-                    if let Some(else_if_condition) =
+                    let Some(else_if_condition) =
                         self.parse_expression(&ExpressionContext::inline())?
-                    {
-                        if let Some(else_if_block) = self.parse_indented_block()? {
-                            else_if_blocks.push((else_if_condition, else_if_block));
-                        } else {
-                            return self.consume_token_on_same_line_and_error(
-                                ExpectedIndentation::ElseIfBlock,
-                            );
-                        }
-                    } else {
+                    else {
                         return self.consume_token_and_error(ExpectedElseIfCondition);
+                    };
+
+                    if let Some(else_if_block) = self.parse_indented_block()? {
+                        else_if_blocks.push((else_if_condition, else_if_block));
+                    } else {
+                        return self.consume_token_on_same_line_and_error(
+                            ExpectedIndentation::ElseIfBlock,
+                        );
                     }
                 }
 
@@ -2738,18 +2716,14 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedCatch);
         }
 
-        let catch_arg =
-            if let Some(catch_arg) = self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
-                match catch_arg {
-                    IdOrWildcard::Id(id) => {
-                        self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                        self.push_node(Node::Id(id))?
-                    }
-                    IdOrWildcard::Wildcard(maybe_id) => self.push_node(Node::Wildcard(maybe_id))?,
-                }
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument);
-            };
+        let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
+            Some(IdOrWildcard::Id(id)) => {
+                self.frame_mut()?.ids_assigned_in_frame.insert(id);
+                self.push_node(Node::Id(id))?
+            }
+            Some(IdOrWildcard::Wildcard(maybe_id)) => self.push_node(Node::Wildcard(maybe_id))?,
+            None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
+        };
 
         let Some(catch_block) = self.parse_indented_block()? else {
             return self.consume_token_on_same_line_and_error(ExpectedIndentation::CatchBody);
