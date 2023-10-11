@@ -9,19 +9,14 @@ use std::{
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub enum InternalError {
-    ArgumentsParseFailure,
     AstCapacityOverflow,
     ConstantPoolCapacityOverflow,
-    ExpectedIdInImportItem,
     ExpectedMapColon,
-    ForParseFailure,
     IdParseFailure,
     LookupParseFailure,
     MissingAssignmentTarget,
     MissingFrame,
     NumberParseFailure,
-    RangeParseFailure,
-    UnexpectedIdInExpression,
     UnexpectedToken,
 }
 
@@ -62,13 +57,9 @@ pub enum SyntaxError {
     ExpectedCloseParen,
     ExpectedElseExpression,
     ExpectedElseIfCondition,
-    ExpectedEndOfLine,
-    ExpectedExportExpression,
-    ExpectedExportAssignment,
     ExpectedExpression,
     ExpectedExpressionInMainBlock,
     ExpectedForArgs,
-    ExpectedForCondition,
     ExpectedForInKeyword,
     ExpectedForIterable,
     ExpectedFunctionArgsEnd,
@@ -76,7 +67,6 @@ pub enum SyntaxError {
     ExpectedIfCondition,
     ExpectedImportAfterFrom,
     ExpectedImportModuleId,
-    ExpectedIndentedLookupContinuation,
     ExpectedIndexEnd,
     ExpectedIndexExpression,
     ExpectedListEnd,
@@ -90,9 +80,7 @@ pub enum SyntaxError {
     ExpectedMatchCondition,
     ExpectedMatchExpression,
     ExpectedMatchPattern,
-    ExpectedMetaKey,
     ExpectedMetaId,
-    ExpectedNegatableExpression,
     ExpectedLineBreakBeforeMapBlock,
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
@@ -109,19 +97,14 @@ pub enum SyntaxError {
     SelfArg,
     SwitchElseNotInLastArm,
     UnexpectedCharInNumericEscapeCode,
-    UnexpectedElseIndentation,
-    UnexpectedElseIfIndentation,
     UnexpectedEscapeInString,
-    UnexpectedExportAssignmentOp,
     UnexpectedMatchElse,
     UnexpectedMatchIf,
     UnexpectedMetaKey,
     UnexpectedSwitchElse,
     UnexpectedToken,
     UnexpectedTokenAfterDollarInString,
-    UnexpectedTokenInImportExpression,
     UnicodeEscapeCodeOutOfRange,
-    UnnecessaryExportKeywordForMetaKey,
     UnterminatedNumericEscapeCode,
     UnterminatedString,
 }
@@ -199,25 +182,18 @@ impl fmt::Display for InternalError {
         use InternalError::*;
 
         match self {
-            ArgumentsParseFailure => f.write_str("Failed to parse arguments"),
             AstCapacityOverflow => {
                 f.write_str("There are more nodes in the program than the AST can support")
             }
             ConstantPoolCapacityOverflow => {
                 f.write_str("There are more constants in the program than the runtime can support")
             }
-            ExpectedIdInImportItem => f.write_str("Expected ID in import item"),
             ExpectedMapColon => f.write_str("Expected ':' after map key"),
-            ForParseFailure => f.write_str("Failed to parse for loop"),
             IdParseFailure => f.write_str("Failed to parse ID"),
             LookupParseFailure => f.write_str("Failed to parse lookup"),
             MissingAssignmentTarget => f.write_str("Missing assignment target"),
             MissingFrame => f.write_str("Frame unavailable during parsing"),
             NumberParseFailure => f.write_str("Failed to parse number"),
-            RangeParseFailure => f.write_str("Failed to parse range"),
-            UnexpectedIdInExpression => {
-                f.write_str("Unexpected ID encountered while parsing expression")
-            }
             UnexpectedToken => f.write_str("Unexpected token"),
         }
     }
@@ -265,13 +241,9 @@ impl fmt::Display for SyntaxError {
             ExpectedCloseParen => f.write_str("Expected closing parenthesis ')'"),
             ExpectedElseExpression => f.write_str("Expected expression after 'else'."),
             ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
-            ExpectedEndOfLine => f.write_str("Expected end of line"),
-            ExpectedExportExpression => f.write_str("Expected ID to export"),
-            ExpectedExportAssignment => f.write_str("Expected assignment after exported ID"),
             ExpectedExpression => f.write_str("Expected expression"),
             ExpectedExpressionInMainBlock => f.write_str("Expected expression"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
-            ExpectedForCondition => f.write_str("Expected condition after 'if' in for loop"),
             ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
             ExpectedForIterable => f.write_str("Expected iterable in for loop"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
@@ -279,9 +251,6 @@ impl fmt::Display for SyntaxError {
             ExpectedIfCondition => f.write_str("Expected condition after 'if'"),
             ExpectedImportAfterFrom => f.write_str("Expected import after from"),
             ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
-            ExpectedIndentedLookupContinuation => {
-                f.write_str("Expected indented lookup continuation")
-            }
             ExpectedIndexEnd => f.write_str("Expected index end ']'"),
             ExpectedIndexExpression => f.write_str("Expected index expression"),
             ExpectedListEnd => f.write_str("Expected List end ']'"),
@@ -297,9 +266,7 @@ impl fmt::Display for SyntaxError {
             ExpectedMatchCondition => f.write_str("Expected condition after if in match arm"),
             ExpectedMatchExpression => f.write_str("Expected expression after match"),
             ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
-            ExpectedMetaKey => f.write_str("Expected meta key after @"),
             ExpectedMetaId => f.write_str("Expected id after @meta"),
-            ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
             ExpectedLineBreakBeforeMapBlock => {
                 f.write_str("Expected a line break before starting a map block")
             }
@@ -334,12 +301,7 @@ impl fmt::Display for SyntaxError {
             UnexpectedCharInNumericEscapeCode => {
                 f.write_str("Unexpected character in numeric escape code")
             }
-            UnexpectedElseIndentation => f.write_str("Unexpected indentation for else block"),
-            UnexpectedElseIfIndentation => f.write_str("Unexpected indentation for else if block"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
-            UnexpectedExportAssignmentOp => {
-                f.write_str("Unexpected assignment op for export expression (expected '=')")
-            }
             UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
             UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
             UnexpectedMetaKey => f.write_str("Unexpected meta key"),
@@ -348,14 +310,8 @@ impl fmt::Display for SyntaxError {
             UnexpectedTokenAfterDollarInString => {
                 f.write_str("Unexpected token after $ in string, expected $ID or ${expression}")
             }
-            UnexpectedTokenInImportExpression => {
-                f.write_str("Unexpected token in import expression")
-            }
             UnicodeEscapeCodeOutOfRange => {
                 f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
-            }
-            UnnecessaryExportKeywordForMetaKey => {
-                f.write_str("'export' is unnecessary when assigning to a meta key")
             }
             UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
             UnterminatedString => f.write_str("Unterminated string"),
