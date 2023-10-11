@@ -22,12 +22,12 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
                 .map(json_value_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }
         JsonValue::Object(o) => {
-            let map = ValueMap::with_capacity(o.len());
+            let map = KMap::with_capacity(o.len());
             for (key, value) in o.iter() {
                 map.add_value(key, json_value_to_koto_value(value)?);
             }
@@ -38,13 +38,11 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
     Ok(result)
 }
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("json");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("json");
 
     result.add_fn("from_string", |ctx| match ctx.args() {
-        [Str(s)] => match serde_json::from_str(s) {
+        [Value::Str(s)] => match serde_json::from_str(s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("json.from_string: Error while parsing input: {e}"),

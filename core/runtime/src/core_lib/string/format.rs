@@ -415,7 +415,7 @@ fn value_to_string(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DataMap, ValueMap};
+    use crate::{KMap, ValueMap};
 
     fn spec_with_precision(precision: u32) -> FormatSpec {
         FormatSpec {
@@ -575,10 +575,10 @@ mod tests {
 
         #[test]
         fn identifier_placeholders() {
-            let mut map_data = DataMap::default();
+            let mut map_data = ValueMap::default();
             map_data.insert("x".into(), Value::Number(42.into()));
             map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
-            let map = Value::Map(ValueMap::with_data(map_data));
+            let map = Value::Map(KMap::with_data(map_data));
 
             check_format_output("{x} - {y}", &[map.clone()], "42 - -1");
             check_format_output("{x:.2} - {y:.1}", &[map], "42.00 - -1.0");

@@ -166,11 +166,11 @@ impl KotoType for Color {
 }
 
 impl KotoObject for Color {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         COLOR_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -240,7 +240,7 @@ impl KotoObject for Color {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let c = *self;
 
         let iter = (0..=3).map(move |i| {
@@ -251,14 +251,14 @@ impl KotoObject for Color {
                 3 => c.alpha(),
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 
-fn make_color_entries() -> DataMap {
+fn make_color_entries() -> ValueMap {
     use Value::{Number, Object};
 
     ObjectEntryBuilder::<Color>::new()
@@ -314,8 +314,8 @@ fn make_color_entries() -> DataMap {
 }
 
 thread_local! {
-    static COLOR_TYPE_STRING: ValueString = Color::TYPE.into();
-    static COLOR_ENTRIES: DataMap = make_color_entries();
+    static COLOR_TYPE_STRING: KString = Color::TYPE.into();
+    static COLOR_ENTRIES: ValueMap = make_color_entries();
 }
 
 impl Deref for Color {
@@ -334,7 +334,7 @@ impl DerefMut for Color {
 
 impl From<Color> for Value {
     fn from(color: Color) -> Self {
-        Object::from(color).into()
+        KObject::from(color).into()
     }
 }
 

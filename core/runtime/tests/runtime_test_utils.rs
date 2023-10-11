@@ -112,7 +112,7 @@ where
 }
 
 pub fn value_list(values: &[Value]) -> Value {
-    List(ValueList::from_slice(values))
+    List(KList::from_slice(values))
 }
 
 pub fn value_tuple(values: &[Value]) -> Value {
@@ -129,7 +129,7 @@ pub struct TestStdout {
 }
 
 impl KotoFile for TestStdout {
-    fn id(&self) -> ValueString {
+    fn id(&self) -> KString {
         "_teststdout_".into()
     }
 }

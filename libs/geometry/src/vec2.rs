@@ -24,11 +24,11 @@ impl KotoType for Vec2 {
 }
 
 impl KotoObject for Vec2 {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         VEC2_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -100,7 +100,7 @@ impl KotoObject for Vec2 {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let v = *self;
 
         let iter = (0..=1).map(move |i| {
@@ -109,14 +109,14 @@ impl KotoObject for Vec2 {
                 1 => v.y,
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 
-fn make_vec2_entries() -> DataMap {
+fn make_vec2_entries() -> ValueMap {
     ObjectEntryBuilder::<Vec2>::new()
         .method("angle", |ctx| {
             Ok(Inner::X.angle_between(**ctx.instance()?).into())
@@ -128,8 +128,8 @@ fn make_vec2_entries() -> DataMap {
 }
 
 thread_local! {
-    static VEC2_TYPE_STRING: ValueString = Vec2::TYPE.into();
-    static VEC2_ENTRIES: DataMap = make_vec2_entries();
+    static VEC2_TYPE_STRING: KString = Vec2::TYPE.into();
+    static VEC2_ENTRIES: ValueMap = make_vec2_entries();
 }
 
 impl Deref for Vec2 {
@@ -148,7 +148,7 @@ impl From<Inner> for Vec2 {
 
 impl From<Vec2> for Value {
     fn from(point: Vec2) -> Self {
-        Object::from(point).into()
+        KObject::from(point).into()
     }
 }
 

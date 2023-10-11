@@ -1,18 +1,18 @@
-use crate::{prelude::*, ExternalFunction, Result};
+use crate::{prelude::*, KNativeFunction, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
-/// See also: [Object].
+/// See also: [KObject].
 pub trait KotoObject: Downcast {
-    /// The type of the Object as a [ValueString]
+    /// The type of the Object as a [KString]
     ///
     /// A typical pattern will be to implement [KotoType] for use with [ObjectEntryBuilder],
     /// and then defer to [KotoType::TYPE].
     ///
     /// This will be called whenever the object's type is needed by the runtime,
-    /// e.g. when a script calls `koto.type`, so it can make sense to cache a [ValueString],
+    /// e.g. when a script calls `koto.type`, so it can make sense to cache a [KString],
     /// and then return clones of it to avoid creating lots of strings.
     ///
     /// ```
@@ -26,32 +26,32 @@ pub trait KotoObject: Downcast {
     /// }
     ///
     /// impl KotoObject for Foo {
-    ///     fn object_type(&self) -> ValueString {
+    ///     fn object_type(&self) -> KString {
     ///         FOO_TYPE_STRING.with(|t| t.clone())
     ///     }
     ///
-    ///     fn copy(&self) -> Object {
-    ///         Object::from(self.clone())
+    ///     fn copy(&self) -> KObject {
+    ///         KObject::from(self.clone())
     ///     }
     /// }
     ///
     /// thread_local! {
-    ///     static FOO_TYPE_STRING: ValueString = Foo::TYPE.into();
+    ///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
     /// }
     /// ```
-    fn object_type(&self) -> ValueString;
+    fn object_type(&self) -> KString;
 
     /// How the object should behave when called from `koto.copy`
     ///
     /// A default implementation can't be provided here, but a typical implementation will look
     /// similar to: `Object::from(self.clone())`
-    fn copy(&self) -> Object;
+    fn copy(&self) -> KObject;
 
     /// How the object should behave when called from `koto.deep_copy`
     ///
     /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
     /// by the object (see [Value::deep_copy]).
-    fn deep_copy(&self) -> Object {
+    fn deep_copy(&self) -> KObject {
         self.copy()
     }
 
@@ -75,7 +75,7 @@ pub trait KotoObject: Downcast {
     /// does not match any entry within the object, `None` should be returned.
     ///
     /// The recommended pattern for complex objects is to use an [ObjectEntryBuilder] to create a
-    /// cached [DataMap], which helps to avoid the cost of recreating values for each lookup.
+    /// cached [ValueMap], which helps to avoid the cost of recreating values for each lookup.
     ///
     /// See the [ObjectEntryBuilder] docs for an example.
     fn lookup(&self, _key: &ValueKey) -> Option<Value> {
@@ -186,8 +186,8 @@ pub trait KotoObject: Downcast {
     ///
     /// If [IsIterable::Iterable] is returned from [is_iterable](Self::is_iterable),
     /// then the runtime will call this function when the object is used in iterable contexts,
-    /// expecting a [ValueIterator] to be returned.
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    /// expecting a [KIterator] to be returned.
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         unimplemented_error("@iterator", self.object_type())
     }
 
@@ -195,20 +195,20 @@ pub trait KotoObject: Downcast {
     ///
     /// If either [ForwardIterator][IsIterable::ForwardIterator] or
     /// [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [ValueIterator]
+    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [ValueIterator::next] is invoked.
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+    /// [KIterator::next] is invoked.
+    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         None
     }
 
     /// Gets the object's next value from the end of an iteration
     ///
     /// If [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [ValueIterator]
+    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [ValueIterator::next_back] is invoked.
-    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+    /// [KIterator::next_back] is invoked.
+    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         None
     }
 }
@@ -217,11 +217,11 @@ impl_downcast!(KotoObject);
 
 /// A wrapper for [KotoObject]s used in the Koto runtime
 #[derive(Clone)]
-pub struct Object {
+pub struct KObject {
     object: PtrMut<dyn KotoObject>,
 }
 
-impl Object {
+impl KObject {
     /// Checks if the object is of the given type
     pub fn is_a<T: KotoObject>(&self) -> bool {
         match self.object.try_borrow() {
@@ -262,7 +262,7 @@ impl Object {
     }
 }
 
-impl<T: KotoObject> From<T> for Object {
+impl<T: KotoObject> From<T> for KObject {
     fn from(object: T) -> Self {
         Self {
             object: PtrMut::from(Rc::new(RefCell::new(object)) as Rc<RefCell<dyn KotoObject>>),
@@ -293,11 +293,11 @@ pub trait KotoType {
 /// }
 ///
 /// impl KotoObject for Foo {
-///     fn object_type(&self) -> ValueString {
+///     fn object_type(&self) -> KString {
 ///         FOO_TYPE_STRING.with(|t| t.clone())
 ///     }
 ///
-///     fn copy(&self) -> Object {
+///     fn copy(&self) -> KObject {
 ///         self.clone().into()
 ///     }
 ///
@@ -308,22 +308,20 @@ pub trait KotoType {
 ///
 /// impl From<Foo> for Value {
 ///     fn from(foo: Foo) -> Self {
-///         Object::from(foo).into()
+///         KObject::from(foo).into()
 ///     }
 /// }
 ///
-/// fn make_foo_entries() -> DataMap {
-///     use Value::*;
-///
+/// fn make_foo_entries() -> ValueMap {
 ///     ObjectEntryBuilder::<Foo>::new()
 ///         .method_aliased(&["data", "get_data"], |ctx| Ok(ctx.instance()?.data.into()))
 ///         .method("set_data", |ctx| {
 ///             let new_data = match ctx.args {
-///                 [Object(o)] if o.is_a::<Foo>() => {
+///                 [Value::Object(o)] if o.is_a::<Foo>() => {
 ///                     // .unwrap() is safe here, the is_a guard guarantees a successful cast
 ///                     o.cast::<Foo>().unwrap().data
 ///                 }
-///                 [Number(n)] => n.into(),
+///                 [Value::Number(n)] => n.into(),
 ///                 unexpected => return type_error_with_slice("a Number", unexpected),
 ///             };
 ///
@@ -336,13 +334,13 @@ pub trait KotoType {
 /// }
 ///
 /// thread_local! {
-///     static FOO_TYPE_STRING: ValueString = Foo::TYPE.into();
-///     static FOO_ENTRIES: DataMap = make_foo_entries();
+///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
+///     static FOO_ENTRIES: ValueMap = make_foo_entries();
 /// }
 /// ```
 pub struct ObjectEntryBuilder<T: KotoObject + KotoType> {
     // The map that's being built
-    map: DataMap,
+    map: ValueMap,
     // We want to have T available through the implementation
     _phantom: PhantomData<T>,
 }
@@ -350,7 +348,7 @@ pub struct ObjectEntryBuilder<T: KotoObject + KotoType> {
 impl<T: KotoObject + KotoType> Default for ObjectEntryBuilder<T> {
     fn default() -> Self {
         Self {
-            map: DataMap::default(),
+            map: ValueMap::default(),
             _phantom: PhantomData,
         }
     }
@@ -363,7 +361,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
     }
 
     /// Returns the resulting DataMap, consuming the builder
-    pub fn build(self) -> DataMap {
+    pub fn build(self) -> ValueMap {
         self.map
     }
 
@@ -400,7 +398,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
         for key in keys {
             self.map.insert(
                 key.clone().into(),
-                Value::ExternalFunction(ExternalFunction::new(wrapped_function.clone())),
+                Value::NativeFunction(KNativeFunction::new(wrapped_function.clone())),
             );
         }
 
@@ -418,14 +416,14 @@ pub struct MethodContext<'a, T> {
     pub vm: &'a Vm,
     // The instance of the object for the method call,
     // accessable via the context's `instance`/`instance_mut` functions
-    object: &'a Object,
+    object: &'a KObject,
     // We want access to `T` in the implementation
     _phantom: PhantomData<T>,
 }
 
 impl<'a, T: KotoObject> MethodContext<'a, T> {
     /// Makes a new method context
-    fn new(object: &'a Object, args: &'a [Value], vm: &'a Vm) -> Self {
+    fn new(object: &'a KObject, args: &'a [Value], vm: &'a Vm) -> Self {
         Self {
             object,
             args,
@@ -451,7 +449,7 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
 }
 
 /// Creates an error that describes an unimplemented method
-fn unimplemented_error<T>(method: &str, object_type: ValueString) -> Result<T> {
+fn unimplemented_error<T>(method: &str, object_type: KString) -> Result<T> {
     runtime_error!("{method} is unimplemented for {object_type}")
 }
 

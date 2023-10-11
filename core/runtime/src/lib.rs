@@ -16,11 +16,10 @@ pub use crate::{
     error::{type_error, type_error_with_slice, Result, RuntimeError},
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
-        BinaryOp, CallContext, CaptureFunctionInfo, DataMap, ExternalFunction, FunctionInfo,
-        IntRange, IsIterable, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap,
-        MethodContext, Object, ObjectEntryBuilder, UnaryOp, Value, ValueIterator,
-        ValueIteratorOutput, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple,
-        ValueVec,
+        BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
+        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoHasher,
+        KotoIterator, KotoObject, KotoType, MetaKey, MetaMap, MethodContext, ObjectEntryBuilder,
+        UnaryOp, Value, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };

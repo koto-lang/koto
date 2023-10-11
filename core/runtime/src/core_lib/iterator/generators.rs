@@ -1,8 +1,6 @@
 //! Generators used by the `iterator` core library module
 
-use crate::{
-    CallArgs, KotoIterator, Result, Value, ValueIterator, ValueIteratorOutput as Output, Vm,
-};
+use crate::{CallArgs, KIterator, KIteratorOutput as Output, KotoIterator, Result, Value, Vm};
 
 /// An iterator that repeatedly yields the same value
 pub struct Repeat {
@@ -17,11 +15,11 @@ impl Repeat {
 }
 
 impl KotoIterator for Repeat {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             value: self.value.clone(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -50,12 +48,12 @@ impl RepeatN {
 }
 
 impl KotoIterator for RepeatN {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             remaining: self.remaining,
             value: self.value.clone(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -90,12 +88,12 @@ impl Generate {
 }
 
 impl KotoIterator for Generate {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 
@@ -131,13 +129,13 @@ impl GenerateN {
 }
 
 impl KotoIterator for GenerateN {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             remaining: self.remaining,
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 

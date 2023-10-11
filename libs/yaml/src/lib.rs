@@ -22,12 +22,12 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Runt
                 .map(yaml_value_to_koto_value)
                 .collect::<Result<ValueVec, RuntimeError>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }
         YamlValue::Mapping(mapping) => {
-            let map = ValueMap::with_capacity(mapping.len());
+            let map = KMap::with_capacity(mapping.len());
             for (key, value) in mapping.iter() {
                 let key_as_koto_value = yaml_value_to_koto_value(key)?;
                 map.insert(
@@ -42,13 +42,11 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Runt
     Ok(result)
 }
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("yaml");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("yaml");
 
     result.add_fn("from_string", |ctx| match ctx.args() {
-        [Str(s)] => match serde_yaml::from_str(s) {
+        [Value::Str(s)] => match serde_yaml::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("Error while parsing input: {}", e),

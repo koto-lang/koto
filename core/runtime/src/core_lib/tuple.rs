@@ -4,16 +4,14 @@ use super::value_sort::sort_values;
 use crate::prelude::*;
 
 /// Initializes the `tuple` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.tuple");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.tuple");
 
     result.add_fn("contains", |ctx| {
         let expected_error = "a Tuple and a Value";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), [value]) => {
+            (Value::Tuple(t), [value]) => {
                 let t = t.clone();
                 let value = value.clone();
                 for candidate in t.iter() {
@@ -21,8 +19,8 @@ pub fn make_module() -> ValueMap {
                         .vm
                         .run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone())
                     {
-                        Ok(Bool(false)) => {}
-                        Ok(Bool(true)) => return Ok(true.into()),
+                        Ok(Value::Bool(false)) => {}
+                        Ok(Value::Bool(true)) => return Ok(true.into()),
                         Ok(unexpected) => {
                             return type_error_with_slice(
                                 "a Bool from the equality comparison",
@@ -42,9 +40,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), []) => match t.first() {
+            (Value::Tuple(t), []) => match t.first() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Null),
+                None => Ok(Value::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -55,8 +53,8 @@ pub fn make_module() -> ValueMap {
             let expected_error = "a Tuple and Number (with optional default Value)";
 
             match ctx.instance_and_args(is_tuple, expected_error)? {
-                (Tuple(tuple), [Number(n)]) => (tuple, n, &Null),
-                (Tuple(tuple), [Number(n), default]) => (tuple, n, default),
+                (Value::Tuple(tuple), [Value::Number(n)]) => (tuple, n, &Value::Null),
+                (Value::Tuple(tuple), [Value::Number(n), default]) => (tuple, n, default),
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
         };
@@ -71,9 +69,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), []) => match t.last() {
+            (Value::Tuple(t), []) => match t.last() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Null),
+                None => Ok(Value::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -83,7 +81,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), []) => Ok(Number(t.len().into())),
+            (Value::Tuple(t), []) => Ok(Value::Number(t.len().into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -92,12 +90,12 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), []) => {
+            (Value::Tuple(t), []) => {
                 let mut result = t.to_vec();
 
                 sort_values(ctx.vm, &mut result)?;
 
-                Ok(Tuple(result.into()))
+                Ok(Value::Tuple(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -107,7 +105,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Tuple(t), []) => Ok(List(ValueList::from_slice(t))),
+            (Value::Tuple(t), []) => Ok(Value::List(KList::from_slice(t))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });

@@ -7,8 +7,8 @@ use std::{
 
 /// An function that's defined outside of the Koto runtime
 ///
-/// See [Value::ExternalFunction]
-pub struct ExternalFunction {
+/// See [Value::NativeFunction]
+pub struct KNativeFunction {
     /// The function implementation that should be called when calling the external function
     //
     // Disable a clippy false positive, see https://github.com/rust-lang/rust-clippy/issues/9299
@@ -18,7 +18,7 @@ pub struct ExternalFunction {
     pub function: Rc<dyn Fn(&mut CallContext) -> Result<Value> + 'static>,
 }
 
-impl ExternalFunction {
+impl KNativeFunction {
     /// Creates a new external function
     pub fn new(function: impl Fn(&mut CallContext) -> Result<Value> + 'static) -> Self {
         Self {
@@ -27,7 +27,7 @@ impl ExternalFunction {
     }
 }
 
-impl Clone for ExternalFunction {
+impl Clone for KNativeFunction {
     fn clone(&self) -> Self {
         Self {
             function: self.function.clone(),
@@ -35,20 +35,20 @@ impl Clone for ExternalFunction {
     }
 }
 
-impl fmt::Debug for ExternalFunction {
+impl fmt::Debug for KNativeFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let raw = Rc::into_raw(self.function.clone());
         write!(f, "external function: {raw:?}",)
     }
 }
 
-impl Hash for ExternalFunction {
+impl Hash for KNativeFunction {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_usize(Rc::as_ptr(&self.function) as *const () as usize);
     }
 }
 
-/// The context provided when a call to an [ExternalFunction] is made
+/// The context provided when a call to a [KNativeFunction] is made
 #[allow(missing_docs)]
 pub struct CallContext<'a> {
     /// The VM making the call

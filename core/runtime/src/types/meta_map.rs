@@ -9,9 +9,9 @@ use std::{
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 
-/// The meta map used by [ValueMap](crate::ValueMap)
+/// The meta map used by [KMap](crate::KMap)
 ///
-/// Each ValueMap contains a metamap, which allows for customized value behaviour by implementing
+/// Each KMap contains a metamap, which allows for customized value behaviour by implementing
 /// [MetaKeys](crate::MetaKey).
 #[derive(Clone, Default)]
 pub struct MetaMap(MetaMapType);
@@ -29,7 +29,7 @@ impl MetaMap {
         f: impl Fn(&mut CallContext) -> Result<Value> + 'static,
     ) {
         self.0
-            .insert(key, Value::ExternalFunction(ExternalFunction::new(f)));
+            .insert(key, Value::NativeFunction(KNativeFunction::new(f)));
     }
 }
 
@@ -66,16 +66,16 @@ pub enum MetaKey {
     ///
     /// e.g. `@meta my_named_key`
     ///
-    /// Named entries are used in [ValueMaps][crate::ValueMap], so that shared named items can be
+    /// Named entries are used in [KMaps][crate::KMap], so that shared named items can be
     /// made available without them being inserted into the map's contents.
-    Named(ValueString),
+    Named(KString),
     /// A test function
     ///
     /// e.g. `@test my_test`
-    Test(ValueString),
+    Test(KString),
     /// `@tests`
     ///
-    /// Tests are defined together in a [ValueMap](crate::ValueMap).
+    /// Tests are defined together in a [KMap](crate::KMap).
     Tests,
     /// `@pre_test`
     ///
@@ -91,7 +91,7 @@ pub enum MetaKey {
     Main,
     /// `@type`
     ///
-    /// Used to define a [ValueString](crate::ValueString) that declare the value's type.
+    /// Used to define a [KString](crate::KString) that declare the value's type.
     Type,
     /// `@base`
     ///
@@ -105,8 +105,8 @@ impl From<&str> for MetaKey {
     }
 }
 
-impl From<ValueString> for MetaKey {
-    fn from(name: ValueString) -> Self {
+impl From<KString> for MetaKey {
+    fn from(name: KString) -> Self {
         Self::Named(name)
     }
 }
@@ -214,7 +214,7 @@ pub enum UnaryOp {
 }
 
 /// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
-pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey> {
+pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
     use BinaryOp::*;
     use UnaryOp::*;
 
@@ -271,7 +271,7 @@ impl Equivalent<MetaKey> for str {
     }
 }
 
-impl Equivalent<MetaKey> for ValueString {
+impl Equivalent<MetaKey> for KString {
     fn equivalent(&self, other: &MetaKey) -> bool {
         match &other {
             MetaKey::Named(s) => self == s,

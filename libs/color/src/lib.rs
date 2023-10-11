@@ -7,10 +7,9 @@ pub use color::Color;
 use koto_runtime::{prelude::*, Result};
 use palette::{Hsl, Hsv};
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let mut result = ValueMap::default();
+pub fn make_module() -> KMap {
+    use Value::{Number, Str};
+    let mut result = KMap::default();
 
     result.add_fn("hsl", |ctx| match ctx.args() {
         [Number(h), Number(s), Number(l)] => {
@@ -64,10 +63,10 @@ fn named(name: &str) -> Result<Value> {
     }
 }
 
-fn rgb(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber) -> Result<Value> {
+fn rgb(r: &KNumber, g: &KNumber, b: &KNumber) -> Result<Value> {
     Ok(Color::rgb(r.into(), g.into(), b.into()).into())
 }
 
-fn rgba(r: &ValueNumber, g: &ValueNumber, b: &ValueNumber, a: &ValueNumber) -> Result<Value> {
+fn rgba(r: &KNumber, g: &KNumber, b: &KNumber, a: &KNumber) -> Result<Value> {
     Ok(Color::rgba(r.into(), g.into(), b.into(), a.into()).into())
 }

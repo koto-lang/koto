@@ -1,28 +1,28 @@
 //! A collection of string iterators
 
 use crate::{
-    make_runtime_error, CallArgs, KotoIterator, Result, Value, ValueIterator,
-    ValueIteratorOutput as Output, ValueString, Vm,
+    make_runtime_error, CallArgs, KIterator, KIteratorOutput as Output, KString, KotoIterator,
+    Result, Value, Vm,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
 #[derive(Clone)]
 pub struct Bytes {
-    input: ValueString,
+    input: KString,
     index: usize,
 }
 
 impl Bytes {
     /// Creates a new [Bytes] iterator
-    pub fn new(input: ValueString) -> Self {
+    pub fn new(input: KString) -> Self {
         Self { input, index: 0 }
     }
 }
 
 impl KotoIterator for Bytes {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -52,20 +52,20 @@ impl Iterator for Bytes {
 /// - Empty lines are yielded as empty strings.
 #[derive(Clone)]
 pub struct Lines {
-    input: ValueString,
+    input: KString,
     start: usize,
 }
 
 impl Lines {
     /// Creates a new [Lines] iterator
-    pub fn new(input: ValueString) -> Self {
+    pub fn new(input: KString) -> Self {
         Self { input, start: 0 }
     }
 }
 
 impl KotoIterator for Lines {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -107,14 +107,14 @@ impl Iterator for Lines {
 /// An iterator that splits up a string into parts, separated by a provided pattern
 #[derive(Clone)]
 pub struct Split {
-    input: ValueString,
-    pattern: ValueString,
+    input: KString,
+    pattern: KString,
     start: usize,
 }
 
 impl Split {
     /// Creates a new [Split] iterator
-    pub fn new(input: ValueString, pattern: ValueString) -> Self {
+    pub fn new(input: KString, pattern: KString) -> Self {
         Self {
             input,
             pattern,
@@ -124,8 +124,8 @@ impl Split {
 }
 
 impl KotoIterator for Split {
-    fn make_copy(&self) -> Result<ValueIterator> {
-        Ok(ValueIterator::new(self.clone()))
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
     }
 }
 
@@ -156,7 +156,7 @@ impl Iterator for Split {
 
 /// An iterator that splits up a string into parts, separated when a char passes a predicate
 pub struct SplitWith {
-    input: ValueString,
+    input: KString,
     predicate: Value,
     vm: Vm,
     start: usize,
@@ -164,7 +164,7 @@ pub struct SplitWith {
 
 impl SplitWith {
     /// Creates a new [SplitWith] iterator
-    pub fn new(input: ValueString, predicate: Value, vm: Vm) -> Self {
+    pub fn new(input: KString, predicate: Value, vm: Vm) -> Self {
         Self {
             input,
             predicate,
@@ -175,14 +175,14 @@ impl SplitWith {
 }
 
 impl KotoIterator for SplitWith {
-    fn make_copy(&self) -> Result<ValueIterator> {
+    fn make_copy(&self) -> Result<KIterator> {
         let result = Self {
             input: self.input.clone(),
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
             start: self.start,
         };
-        Ok(ValueIterator::new(result))
+        Ok(KIterator::new(result))
     }
 }
 

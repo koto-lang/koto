@@ -2,11 +2,8 @@ use crate::{
     core_lib::CoreLib,
     error::RuntimeErrorType,
     prelude::*,
-    types::{
-        meta_id_to_key,
-        value::{FunctionInfo, RegisterSlice},
-    },
-    CaptureFunctionInfo, DefaultStderr, DefaultStdin, DefaultStdout, Result,
+    types::{meta_id_to_key, value::RegisterSlice},
+    DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Result,
 };
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
@@ -50,7 +47,7 @@ struct VmContext {
     // The settings that were used to initialize the runtime
     settings: VmSettings,
     // The runtime's prelude
-    prelude: ValueMap,
+    prelude: KMap,
     // The runtime's core library
     core_lib: CoreLib,
     // The module loader used to compile imported modules
@@ -118,7 +115,7 @@ impl Default for VmSettings {
 #[derive(Clone)]
 pub struct Vm {
     // The exports map for the current module
-    exports: ValueMap,
+    exports: KMap,
     // Context shared by all VMs in the runtime
     context: Rc<VmContext>,
     // The VM's instruction reader, containing a pointer to the bytecode chunk that's being executed
@@ -145,7 +142,7 @@ impl Vm {
     /// Initializes a Koto VM with the provided settings
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
-            exports: ValueMap::default(),
+            exports: KMap::default(),
             context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
             registers: Vec::with_capacity(32),
@@ -182,7 +179,7 @@ impl Vm {
     }
 
     /// The prelude, containing items that can be imported within all modules
-    pub fn prelude(&self) -> &ValueMap {
+    pub fn prelude(&self) -> &KMap {
         &self.context.prelude
     }
 
@@ -190,7 +187,7 @@ impl Vm {
     ///
     /// Note that this is the exports map of the active module, so during execution the returned
     /// map will be of the module that's currently being executed.
-    pub fn exports(&self) -> &ValueMap {
+    pub fn exports(&self) -> &KMap {
         &self.exports
     }
 
@@ -506,13 +503,13 @@ impl Vm {
         result
     }
 
-    /// Makes a ValueIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator> {
+    /// Makes a KIterator that iterates over the provided value's contents
+    pub fn make_iterator(&mut self, value: Value) -> Result<KIterator> {
         use Value::*;
 
         match value {
             _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
-                ValueIterator::with_meta_next(self.spawn_shared_vm(), value)
+                KIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
             _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 // If the value implements @iterator,
@@ -521,11 +518,11 @@ impl Vm {
                 self.make_iterator(iterator_call_result)
             }
             Iterator(i) => Ok(i),
-            Range(r) => ValueIterator::with_range(r),
-            List(l) => Ok(ValueIterator::with_list(l)),
-            Tuple(t) => Ok(ValueIterator::with_tuple(t)),
-            Str(s) => Ok(ValueIterator::with_string(s)),
-            Map(m) => Ok(ValueIterator::with_map(m)),
+            Range(r) => KIterator::with_range(r),
+            List(l) => Ok(KIterator::with_list(l)),
+            Tuple(t) => Ok(KIterator::with_tuple(t)),
+            Str(s) => Ok(KIterator::with_string(s)),
+            Map(m) => Ok(KIterator::with_map(m)),
             Object(o) => {
                 use IsIterable::*;
 
@@ -534,7 +531,7 @@ impl Vm {
                     NotIterable => runtime_error!("{} is not iterable", o_inner.object_type()),
                     Iterable => o_inner.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
-                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())
+                        KIterator::with_object(self.spawn_shared_vm(), o.clone())
                     }
                 }
             }
@@ -550,7 +547,7 @@ impl Vm {
     /// Runs any tests that are contained in the map's @tests meta entry
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, tests: ValueMap) -> Result<Value> {
+    pub fn run_tests(&mut self, tests: KMap) -> Result<Value> {
         use Value::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
@@ -723,7 +720,7 @@ impl Vm {
             MakeMap {
                 register,
                 size_hint,
-            } => self.set_register(register, ValueMap::with_capacity(size_hint as usize).into()),
+            } => self.set_register(register, KMap::with_capacity(size_hint as usize).into()),
             SequenceStart { size_hint } => self
                 .sequence_builders
                 .push(Vec::with_capacity(size_hint as usize)),
@@ -967,9 +964,8 @@ impl Vm {
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
             Value::TemporaryTuple(temp_registers) => {
-                let tuple = ValueTuple::from(
-                    self.register_slice(temp_registers.start, temp_registers.count),
-                );
+                let tuple =
+                    KTuple::from(self.register_slice(temp_registers.start, temp_registers.count));
                 self.set_register(register, Value::Tuple(tuple));
             }
             _ => unreachable!(),
@@ -991,13 +987,13 @@ impl Vm {
 
         let range = match (start, end) {
             (Some(Number(start)), Some(Number(end))) => {
-                IntRange::bounded(start.into(), end.into(), inclusive)
+                KRange::bounded(start.into(), end.into(), inclusive)
             }
-            (Some(Number(start)), None) => IntRange::from(start.into()),
-            (None, Some(Number(end))) => IntRange::to(end.into(), inclusive),
+            (Some(Number(start)), None) => KRange::from(start.into()),
+            (None, Some(Number(end))) => KRange::to(end.into(), inclusive),
             (Some(unexpected), _) => return type_error("Number for range start", unexpected),
             (_, Some(unexpected)) => return type_error("Number for range end", unexpected),
-            (None, None) => IntRange::unbounded(),
+            (None, None) => KRange::unbounded(),
         };
 
         self.set_register(register, range.into());
@@ -1022,7 +1018,7 @@ impl Vm {
 
         let iterator = match iterable {
             _ if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
-                ValueIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
+                KIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
             }
             _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 if let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) {
@@ -1042,11 +1038,11 @@ impl Vm {
                 // situations like argument unpacking.
                 iterable
             }
-            Range(range) => ValueIterator::with_range(range)?.into(),
-            List(list) => ValueIterator::with_list(list).into(),
-            Tuple(tuple) => ValueIterator::with_tuple(tuple).into(),
-            Str(s) => ValueIterator::with_string(s).into(),
-            Map(map) => ValueIterator::with_map(map).into(),
+            Range(range) => KIterator::with_range(range)?.into(),
+            List(list) => KIterator::with_list(list).into(),
+            Tuple(tuple) => KIterator::with_tuple(tuple).into(),
+            Str(s) => KIterator::with_string(s).into(),
+            Map(map) => KIterator::with_map(map).into(),
             Object(o) => {
                 use IsIterable::*;
                 let o_inner = o.try_borrow()?;
@@ -1056,7 +1052,7 @@ impl Vm {
                     }
                     Iterable => o_inner.make_iterator(self)?.into(),
                     ForwardIterator | BidirectionalIterator => {
-                        ValueIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
+                        KIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
                     }
                 }
             }
@@ -1081,8 +1077,8 @@ impl Vm {
         let output = match self.clone_register(iterable_register) {
             Iterator(mut iterator) => {
                 match iterator.next() {
-                    Some(ValueIteratorOutput::Value(value)) => Some(value),
-                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                    Some(KIteratorOutput::Value(value)) => Some(value),
+                    Some(KIteratorOutput::ValuePair(first, second)) => {
                         if let Some(result) = result_register {
                             if output_is_temporary {
                                 self.set_register(result + 1, first);
@@ -1100,7 +1096,7 @@ impl Vm {
                             Some(Null)
                         }
                     }
-                    Some(ValueIteratorOutput::Error(error)) => {
+                    Some(KIteratorOutput::Error(error)) => {
                         return runtime_error!(error.to_string());
                     }
                     None => None,
@@ -1231,11 +1227,11 @@ impl Vm {
                 if is_slice_to {
                     list.data()
                         .get(..index)
-                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(KList::from_slice(entries)))
                 } else {
                     list.data()
                         .get(index..)
-                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(KList::from_slice(entries)))
                 }
             }
             Tuple(tuple) => {
@@ -1267,7 +1263,7 @@ impl Vm {
                 arg_is_unpacked_tuple,
                 size,
             } => {
-                let info = FunctionInfo {
+                let info = KFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
@@ -1280,9 +1276,9 @@ impl Vm {
                     // Initialize the function's captures with Null
                     let mut captures = ValueVec::new();
                     captures.resize(capture_count as usize, Null);
-                    CaptureFunction(Ptr::new(CaptureFunctionInfo {
+                    CaptureFunction(Ptr::new(KCaptureFunction {
                         info,
-                        captures: ValueList::with_data(captures),
+                        captures: KList::with_data(captures),
                     }))
                 } else {
                     Function(info)
@@ -1466,7 +1462,7 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
-            (Number(_), Number(ValueNumber::I64(b))) if *b == 0 => {
+            (Number(_), Number(KNumber::I64(b))) if *b == 0 => {
                 // Special case for integer remainder when the divisor is zero,
                 // avoid a panic and return NaN instead.
                 Number(f64::NAN.into())
@@ -1847,7 +1843,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of maps
-    fn compare_value_maps(&mut self, map_a: ValueMap, map_b: ValueMap) -> Result<bool> {
+    fn compare_value_maps(&mut self, map_a: KMap, map_b: KMap) -> Result<bool> {
         if map_a.len() != map_b.len() {
             return Ok(false);
         }
@@ -2023,7 +2019,7 @@ impl Vm {
         // Cache the current exports map and prepare an empty exports map for the module
         // that's being imported.
         let importer_exports = self.exports.clone();
-        self.exports = ValueMap::default();
+        self.exports = KMap::default();
 
         // Execute the following steps in a closure to ensure that cleanup is performed afterwards
         let import_result = {
@@ -2124,7 +2120,7 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize> {
+    fn validate_index(&self, n: KNumber, size: Option<usize>) -> Result<usize> {
         let index = usize::from(n);
 
         if n < 0.0 {
@@ -2157,7 +2153,7 @@ impl Vm {
             }
             (List(l), Range(range)) => self.set_register(
                 result_register,
-                List(ValueList::from_slice(&l.data()[range.indices(l.len())])),
+                List(KList::from_slice(&l.data()[range.indices(l.len())])),
             ),
             (Tuple(t), Number(n)) => {
                 let index = self.validate_index(n, Some(t.len()))?;
@@ -2293,7 +2289,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key_string: ValueString,
+        key_string: KString,
     ) -> Result<()> {
         use Value::*;
 
@@ -2397,7 +2393,7 @@ impl Vm {
     fn get_core_op(
         &self,
         key: &ValueKey,
-        module: &ValueMap,
+        module: &KMap,
         iterator_fallback: bool,
         module_name: &str,
     ) -> Result<Value> {
@@ -2442,8 +2438,8 @@ impl Vm {
     fn call_generator(
         &mut self,
         call_info: &CallInfo,
-        f: &FunctionInfo,
-        captures: Option<&ValueList>,
+        f: &KFunction,
+        captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
         // Spawn a VM for the generator
@@ -2524,7 +2520,7 @@ impl Vm {
         // Wrap the generator vm in an iterator and place it in the result register
         self.set_register(
             call_info.result_register,
-            ValueIterator::with_vm(generator_vm).into(),
+            KIterator::with_vm(generator_vm).into(),
         );
 
         Ok(())
@@ -2533,8 +2529,8 @@ impl Vm {
     fn call_function(
         &mut self,
         call_info: &CallInfo,
-        f: &FunctionInfo,
-        captures: Option<&ValueList>,
+        f: &KFunction,
+        captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
         if f.generator {
@@ -2613,7 +2609,7 @@ impl Vm {
             CaptureFunction(f) => {
                 self.call_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
-            ExternalFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
+            NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
             Object(o) => self.call_external(info, ExternalCallable::Object(o)),
             ref v if v.contains_meta_key(&MetaKey::Call) => {
                 let f = v.get_meta_value(&MetaKey::Call).unwrap();
@@ -2718,7 +2714,7 @@ impl Vm {
 
     fn run_sequence_to_list(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
-            let list = ValueList::with_data(ValueVec::from_vec(result));
+            let list = KList::with_data(ValueVec::from_vec(result));
             self.set_register(register, list.into());
             Ok(())
         } else {
@@ -2728,7 +2724,7 @@ impl Vm {
 
     fn run_sequence_to_tuple(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
-            self.set_register(register, ValueTuple::from(result).into());
+            self.set_register(register, KTuple::from(result).into());
             Ok(())
         } else {
             runtime_error!("Missing a sequence buider")
@@ -2915,11 +2911,11 @@ impl Vm {
         self.reader.chunk.constants.get_str(constant_index)
     }
 
-    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> ValueString {
+    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> KString {
         let constants = &self.reader.chunk.constants;
         let bounds = constants.get_str_bounds(constant_index);
 
-        ValueString::new_with_bounds(constants.string_data().clone(), bounds)
+        KString::new_with_bounds(constants.string_data().clone(), bounds)
             // The bounds have been already checked in the constant pool
             .unwrap()
     }
@@ -2987,8 +2983,8 @@ pub enum CallArgs<'a> {
 
 // A cache of the export maps of imported modules
 //
-// The ValueMap is optional to prevent recursive imports (see Vm::run_import).
-type ModuleCache = HashMap<PathBuf, Option<ValueMap>, BuildHasherDefault<FxHasher>>;
+// The Map is optional to prevent recursive imports (see Vm::run_import).
+type ModuleCache = HashMap<PathBuf, Option<KMap>, BuildHasherDefault<FxHasher>>;
 
 // A frame in the VM's call stack
 #[derive(Clone, Debug)]
@@ -3029,8 +3025,8 @@ impl Frame {
 
 // See Vm::call_external
 enum ExternalCallable {
-    Function(ExternalFunction),
-    Object(Object),
+    Function(KNativeFunction),
+    Object(KObject),
 }
 
 // See Vm::call_callable

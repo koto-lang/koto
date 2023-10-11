@@ -11,7 +11,7 @@ mod objects {
 
     impl TestObject {
         fn make_value(x: i64) -> Value {
-            Object::from(Self { x }).into()
+            KObject::from(Self { x }).into()
         }
     }
 
@@ -84,11 +84,11 @@ mod objects {
     }
 
     impl KotoObject for TestObject {
-        fn object_type(&self) -> ValueString {
+        fn object_type(&self) -> KString {
             TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
         }
 
-        fn copy(&self) -> Object {
+        fn copy(&self) -> KObject {
             (*self).into()
         }
 
@@ -187,12 +187,12 @@ mod objects {
             IsIterable::Iterable
         }
 
-        fn make_iterator(&self, vm: &mut Vm) -> Result<ValueIterator> {
-            ValueIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
+        fn make_iterator(&self, vm: &mut Vm) -> Result<KIterator> {
+            KIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
         }
     }
 
-    fn test_object_entries() -> DataMap {
+    fn test_object_entries() -> ValueMap {
         use Value::*;
 
         ObjectEntryBuilder::<TestObject>::new()
@@ -223,8 +223,8 @@ mod objects {
     }
 
     thread_local! {
-        static TEST_OBJECT_TYPE_STRING: ValueString = TestObject::TYPE.into();
-        static TEST_OBJECT_ENTRIES: DataMap = test_object_entries();
+        static TEST_OBJECT_TYPE_STRING: KString = TestObject::TYPE.into();
+        static TEST_OBJECT_ENTRIES: ValueMap = test_object_entries();
     }
 
     #[derive(Clone, Copy, Debug)]
@@ -233,8 +233,8 @@ mod objects {
     }
 
     impl TestIterator {
-        fn make_object(x: i64) -> Object {
-            Object::from(Self { x })
+        fn make_object(x: i64) -> KObject {
+            KObject::from(Self { x })
         }
     }
 
@@ -243,11 +243,11 @@ mod objects {
     }
 
     impl KotoObject for TestIterator {
-        fn object_type(&self) -> ValueString {
+        fn object_type(&self) -> KString {
             TEST_ITERATOR_TYPE_STRING.with(|s| s.clone())
         }
 
-        fn copy(&self) -> Object {
+        fn copy(&self) -> KObject {
             (*self).into()
         }
 
@@ -255,19 +255,19 @@ mod objects {
             IsIterable::BidirectionalIterator
         }
 
-        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
             self.x += 1;
             Some(self.x.into())
         }
 
-        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
             self.x -= 1;
             Some(self.x.into())
         }
     }
 
     thread_local! {
-        static TEST_ITERATOR_TYPE_STRING: ValueString = TestIterator::TYPE.into();
+        static TEST_ITERATOR_TYPE_STRING: KString = TestIterator::TYPE.into();
     }
 
     fn test_object_script(script: &str, expected_output: impl Into<Value>) {

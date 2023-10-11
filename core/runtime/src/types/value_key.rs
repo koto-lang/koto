@@ -6,7 +6,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// The key type used by [DataMap](crate::DataMap)
+/// The key type used by [ValueMap](crate::ValueMap)
 ///
 /// Only hashable values can be used as keys, see [Value::is_hashable]
 #[derive(Clone)]
@@ -127,8 +127,8 @@ impl fmt::Display for ValueKey {
     }
 }
 
-impl From<ValueString> for ValueKey {
-    fn from(value: ValueString) -> Self {
+impl From<KString> for ValueKey {
+    fn from(value: KString) -> Self {
         Self(Value::Str(value))
     }
 }
@@ -149,7 +149,7 @@ impl Equivalent<ValueKey> for str {
     }
 }
 
-impl Equivalent<ValueKey> for ValueString {
+impl Equivalent<ValueKey> for KString {
     fn equivalent(&self, other: &ValueKey) -> bool {
         match &other.0 {
             Value::Str(s) => self == s,

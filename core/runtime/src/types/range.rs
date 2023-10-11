@@ -5,7 +5,7 @@ use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 ///
 /// See [Value::Range]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct IntRange(Inner);
+pub struct KRange(Inner);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 enum Inner {
@@ -22,7 +22,7 @@ enum Inner {
         end: i32,
         inclusive: bool,
     },
-    // Placing ranges with i64 bounds to the heap allows the size of IntRange to be 16 bytes
+    // Placing ranges with i64 bounds to the heap allows the size of KRange to be 16 bytes
     BoundedLarge(Ptr<Bounded64>),
 }
 
@@ -39,7 +39,7 @@ impl From<Bounded64> for Inner {
     }
 }
 
-impl IntRange {
+impl KRange {
     /// Initializes a From range
     pub fn from(start: i64) -> Self {
         Self(Inner::From { start })
@@ -100,7 +100,7 @@ impl IntRange {
 
     /// Returns a sorted translation of the range with missing boundaries replaced by min/max values
     ///
-    /// No clamping of the range boundaries is performed (as in [IntRange::indices]),
+    /// No clamping of the range boundaries is performed (as in [KRange::indices]),
     /// so negative indices will be preserved.
     pub fn as_sorted_range(&self) -> Range<i64> {
         use std::i64::{MAX, MIN};
@@ -132,7 +132,7 @@ impl IntRange {
     }
 
     /// Returns true if the provided number is within the range
-    pub fn contains(&self, n: ValueNumber) -> bool {
+    pub fn contains(&self, n: KNumber) -> bool {
         let n: i64 = if n < 0.0 { n.floor() } else { n.ceil() }.into();
         self.as_sorted_range().contains(&n)
     }
@@ -153,7 +153,7 @@ impl IntRange {
     }
 
     /// Returns the intersection of two ranges
-    pub fn intersection(&self, other: &IntRange) -> Option<Self> {
+    pub fn intersection(&self, other: &KRange) -> Option<Self> {
         let this = self.as_sorted_range();
         // let mut result = Self::with_bounds(start, end, inclusive);
         let other = other.as_sorted_range();
@@ -257,7 +257,7 @@ impl IntRange {
                     }
                 }
             }
-            _ => return runtime_error!("IntRange::pop_front can only be used with bounded ranges"),
+            _ => return runtime_error!("KRange::pop_front can only be used with bounded ranges"),
         };
 
         Ok(result)
@@ -322,14 +322,14 @@ impl IntRange {
                     }
                 }
             }
-            _ => return runtime_error!("IntRange::pop_back can only be used with bounded ranges"),
+            _ => return runtime_error!("KRange::pop_back can only be used with bounded ranges"),
         };
 
         Ok(result)
     }
 }
 
-impl fmt::Display for IntRange {
+impl fmt::Display for KRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(start) = self.start() {
             write!(f, "{start}")?;
@@ -354,53 +354,53 @@ mod tests {
 
     #[test]
     fn size_of() {
-        assert_eq!(std::mem::size_of::<IntRange>(), 16);
+        assert_eq!(std::mem::size_of::<KRange>(), 16);
     }
 
     #[test]
     fn as_sorted_range() {
         use std::i64::{MAX, MIN};
 
-        assert_eq!(10..20, IntRange::bounded(10, 20, false).as_sorted_range());
-        assert_eq!(10..21, IntRange::bounded(10, 20, true).as_sorted_range());
-        assert_eq!(11..21, IntRange::bounded(20, 10, false).as_sorted_range());
-        assert_eq!(10..21, IntRange::bounded(20, 10, true).as_sorted_range());
+        assert_eq!(10..20, KRange::bounded(10, 20, false).as_sorted_range());
+        assert_eq!(10..21, KRange::bounded(10, 20, true).as_sorted_range());
+        assert_eq!(11..21, KRange::bounded(20, 10, false).as_sorted_range());
+        assert_eq!(10..21, KRange::bounded(20, 10, true).as_sorted_range());
 
-        assert_eq!(10..MAX, IntRange::from(10).as_sorted_range(),);
-        assert_eq!(MIN..10, IntRange::to(10, false).as_sorted_range(),);
+        assert_eq!(10..MAX, KRange::from(10).as_sorted_range(),);
+        assert_eq!(MIN..10, KRange::to(10, false).as_sorted_range(),);
     }
 
     #[test]
     fn intersection() {
         assert_eq!(
-            Some(IntRange::bounded(15, 20, false)),
-            IntRange::bounded(10, 20, false).intersection(&IntRange::bounded(15, 25, false))
+            Some(KRange::bounded(15, 20, false)),
+            KRange::bounded(10, 20, false).intersection(&KRange::bounded(15, 25, false))
         );
         assert_eq!(
-            Some(IntRange::bounded(200, 201, false)),
-            IntRange::bounded(100, 200, true).intersection(&IntRange::bounded(300, 200, true))
+            Some(KRange::bounded(200, 201, false)),
+            KRange::bounded(100, 200, true).intersection(&KRange::bounded(300, 200, true))
         );
         assert_eq!(
             None,
-            IntRange::bounded(100, 200, false).intersection(&IntRange::bounded(0, 50, false))
+            KRange::bounded(100, 200, false).intersection(&KRange::bounded(0, 50, false))
         );
     }
 
     #[test]
     fn is_ascending() {
-        assert!(IntRange::bounded(10, 20, false).is_ascending());
-        assert!(!IntRange::bounded(30, 20, false).is_ascending());
-        assert!(IntRange::to(1, true).is_ascending());
-        assert!(IntRange::from(20).is_ascending());
+        assert!(KRange::bounded(10, 20, false).is_ascending());
+        assert!(!KRange::bounded(30, 20, false).is_ascending());
+        assert!(KRange::to(1, true).is_ascending());
+        assert!(KRange::from(20).is_ascending());
     }
 
     #[test]
     fn bounded_large() {
         let start_big = 2_i64.pow(42);
         let end_big = 2_i64.pow(43);
-        assert!(IntRange::bounded(start_big, end_big, false).is_ascending());
+        assert!(KRange::bounded(start_big, end_big, false).is_ascending());
         assert_eq!(
-            IntRange::bounded(start_big, end_big, false).size().unwrap(),
+            KRange::bounded(start_big, end_big, false).size().unwrap(),
             (end_big - start_big) as usize
         );
     }

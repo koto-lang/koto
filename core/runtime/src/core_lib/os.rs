@@ -6,10 +6,10 @@ use instant::Instant;
 use std::ops::Deref;
 
 /// Initializes the `os` core library module
-pub fn make_module() -> ValueMap {
+pub fn make_module() -> KMap {
     use Value::Number;
 
-    let result = ValueMap::with_type("core.os");
+    let result = KMap::with_type("core.os");
 
     result.add_fn("name", |_| Ok(std::env::consts::OS.into()));
 
@@ -44,7 +44,7 @@ impl Deref for DateTime {
 
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
-        Object::from(Self(time)).into()
+        KObject::from(Self(time)).into()
     }
 
     fn now() -> Value {
@@ -75,11 +75,11 @@ impl KotoType for DateTime {
 }
 
 impl KotoObject for DateTime {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         DATETIME_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -93,7 +93,7 @@ impl KotoObject for DateTime {
     }
 }
 
-fn datetime_entries() -> DataMap {
+fn datetime_entries() -> ValueMap {
     ObjectEntryBuilder::<DateTime>::new()
         .method("day", |ctx| Ok(ctx.instance()?.day().into()))
         .method("hour", |ctx| Ok(ctx.instance()?.hour().into()))
@@ -117,8 +117,8 @@ fn datetime_entries() -> DataMap {
 }
 
 thread_local! {
-    static DATETIME_TYPE_STRING: ValueString = DateTime::TYPE.into();
-    static DATETIME_ENTRIES: DataMap = datetime_entries();
+    static DATETIME_TYPE_STRING: KString = DateTime::TYPE.into();
+    static DATETIME_ENTRIES: ValueMap = datetime_entries();
 }
 
 /// The underlying data type returned by `os.start_timer()`
@@ -136,7 +136,7 @@ impl Deref for Timer {
 impl Timer {
     fn now() -> Value {
         let timer = Self(Instant::now());
-        Object::from(timer).into()
+        KObject::from(timer).into()
     }
 
     fn elapsed_seconds(&self) -> f64 {
@@ -149,11 +149,11 @@ impl KotoType for Timer {
 }
 
 impl KotoObject for Timer {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         TIMER_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -184,7 +184,7 @@ impl KotoObject for Timer {
     }
 }
 
-fn named_timer_entries() -> DataMap {
+fn named_timer_entries() -> ValueMap {
     ObjectEntryBuilder::<Timer>::new()
         .method("elapsed", |ctx| {
             Ok(ctx.instance()?.elapsed_seconds().into())
@@ -193,6 +193,6 @@ fn named_timer_entries() -> DataMap {
 }
 
 thread_local! {
-    static TIMER_TYPE_STRING: ValueString = Timer::TYPE.into();
-    static TIMER_ENTRIES: DataMap = named_timer_entries();
+    static TIMER_TYPE_STRING: KString = Timer::TYPE.into();
+    static TIMER_ENTRIES: ValueMap = named_timer_entries();
 }

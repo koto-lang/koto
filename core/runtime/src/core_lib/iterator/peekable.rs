@@ -1,19 +1,19 @@
 //! A double-ended peekable iterator for Koto
 
 use super::iter_output_to_result;
-use crate::{prelude::*, Result, ValueIteratorOutput as Output};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone)]
 pub struct Peekable {
-    iter: ValueIterator,
+    iter: KIterator,
     peeked_front: Option<Value>,
     peeked_back: Option<Value>,
 }
 
 impl Peekable {
     /// Initializes a Peekable that wraps the given iterator
-    pub fn new(iter: ValueIterator) -> Self {
+    pub fn new(iter: KIterator) -> Self {
         Self {
             iter,
             peeked_front: None,
@@ -22,8 +22,8 @@ impl Peekable {
     }
 
     /// Makes an instance of Peekable along with a meta map that allows it be used as a Koto Value
-    pub fn make_value(iter: ValueIterator) -> Value {
-        Object::from(Self::new(iter)).into()
+    pub fn make_value(iter: KIterator) -> Value {
+        KObject::from(Self::new(iter)).into()
     }
 
     fn peek(&mut self) -> Result<Value> {
@@ -74,11 +74,11 @@ impl KotoType for Peekable {
 }
 
 impl KotoObject for Peekable {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         PEEKABLE_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -111,7 +111,7 @@ impl KotoObject for Peekable {
     }
 }
 
-fn peekable_entries() -> DataMap {
+fn peekable_entries() -> ValueMap {
     ObjectEntryBuilder::<Peekable>::new()
         .method("peek", |context| context.instance_mut()?.peek())
         .method("peek_back", |context| context.instance_mut()?.peek_back())
@@ -119,8 +119,8 @@ fn peekable_entries() -> DataMap {
 }
 
 thread_local! {
-    static PEEKABLE_TYPE_STRING: ValueString = Peekable::TYPE.into();
-    static PEEKABLE_ENTRIES: DataMap = peekable_entries();
+    static PEEKABLE_TYPE_STRING: KString = Peekable::TYPE.into();
+    static PEEKABLE_ENTRIES: ValueMap = peekable_entries();
 }
 
 // For tests, see runtime/tests/iterator_tests.rs

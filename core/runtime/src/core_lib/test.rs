@@ -3,15 +3,13 @@
 use crate::{prelude::*, Result};
 
 /// Initializes the `test` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.test");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.test");
 
     result.add_fn("assert", |ctx| {
         for value in ctx.args().iter() {
             match value {
-                Bool(b) => {
+                Value::Bool(b) => {
                     if !b {
                         return runtime_error!("Assertion failed");
                     }
@@ -19,7 +17,7 @@ pub fn make_module() -> ValueMap {
                 unexpected => return type_error("Bool as argument", unexpected),
             }
         }
-        Ok(Null)
+        Ok(Value::Null)
     });
 
     result.add_fn("assert_eq", |ctx| match ctx.args() {
@@ -28,8 +26,8 @@ pub fn make_module() -> ValueMap {
             let b = b.clone();
             let result = ctx.vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
             match result {
-                Ok(Bool(true)) => Ok(Null),
-                Ok(Bool(false)) => {
+                Ok(Value::Bool(true)) => Ok(Value::Null),
+                Ok(Value::Bool(false)) => {
                     runtime_error!(
                         "Assertion failed, '{}' is not equal to '{}'",
                         ctx.vm.value_to_string(&a)?,
@@ -51,8 +49,8 @@ pub fn make_module() -> ValueMap {
                 .vm
                 .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
             match result {
-                Ok(Bool(true)) => Ok(Null),
-                Ok(Bool(false)) => {
+                Ok(Value::Bool(true)) => Ok(Value::Null),
+                Ok(Value::Bool(false)) => {
                     runtime_error!(
                         "Assertion failed, '{}' should not be equal to '{}'",
                         ctx.vm.value_to_string(&a)?,
@@ -67,8 +65,10 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("assert_near", |ctx| match ctx.args() {
-        [Number(a), Number(b)] => number_near(*a, *b, 1.0e-12),
-        [Number(a), Number(b), Number(allowed_diff)] => number_near(*a, *b, allowed_diff.into()),
+        [Value::Number(a), Value::Number(b)] => number_near(*a, *b, 1.0e-12),
+        [Value::Number(a), Value::Number(b), Value::Number(allowed_diff)] => {
+            number_near(*a, *b, allowed_diff.into())
+        }
         unexpected => type_error_with_slice(
             "two Numbers as arguments, \
              followed by an optional Number that specifies the allowed difference",
@@ -77,7 +77,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("run_tests", |ctx| match ctx.args() {
-        [Map(tests)] => {
+        [Value::Map(tests)] => {
             let tests = tests.clone();
             ctx.vm.run_tests(tests)
         }
@@ -91,7 +91,7 @@ fn f64_near(a: f64, b: f64, allowed_diff: f64) -> bool {
     (a - b).abs() <= allowed_diff
 }
 
-fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: f64) -> Result<Value> {
+fn number_near(a: KNumber, b: KNumber, allowed_diff: f64) -> Result<Value> {
     if f64_near(a.into(), b.into(), allowed_diff) {
         Ok(Value::Null)
     } else {

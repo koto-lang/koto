@@ -16,12 +16,12 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
                 .map(toml_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }
         Toml::Table(o) => {
-            let map = ValueMap::with_capacity(o.len());
+            let map = KMap::with_capacity(o.len());
             for (key, value) in o.iter() {
                 map.add_value(key, toml_to_koto_value(value)?);
             }
@@ -33,13 +33,11 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     Ok(result)
 }
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("toml");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("toml");
 
     result.add_fn("from_string", |ctx| match ctx.args() {
-        [Str(s)] => match toml::from_str(s) {
+        [Value::Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("Error while parsing input: {e}"),

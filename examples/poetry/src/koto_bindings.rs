@@ -1,8 +1,8 @@
 use crate::Poetry;
 use koto::prelude::*;
 
-pub fn make_module() -> ValueMap {
-    let result = ValueMap::with_type("poetry");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("poetry");
 
     result.add_fn("new", {
         |ctx| match ctx.args() {
@@ -23,11 +23,11 @@ impl KotoType for Poetry {
 }
 
 impl KotoObject for Poetry {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         Self::TYPE.into()
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -35,14 +35,14 @@ impl KotoObject for Poetry {
         IsIterable::ForwardIterator
     }
 
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<ValueIteratorOutput> {
+    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         self.next_word()
-            .map(|word| ValueIteratorOutput::Value(word.as_ref().into()))
+            .map(|word| KIteratorOutput::Value(word.as_ref().into()))
     }
 }
 
 impl From<Poetry> for Value {
     fn from(poetry: Poetry) -> Self {
-        Object::from(poetry).into()
+        KObject::from(poetry).into()
     }
 }

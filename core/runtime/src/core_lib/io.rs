@@ -12,10 +12,10 @@ use std::{
 };
 
 /// The initializer for the io module
-pub fn make_module() -> ValueMap {
+pub fn make_module() -> KMap {
     use Value::{Bool, Null, Str};
 
-    let result = ValueMap::with_type("core.io");
+    let result = KMap::with_type("core.io");
 
     result.add_fn("create", {
         move |ctx| match ctx.args() {
@@ -193,11 +193,11 @@ impl KotoType for File {
 }
 
 impl KotoObject for File {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         FILE_TYPE_STRING.with(|t| t.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         self.clone().into()
     }
 
@@ -213,11 +213,11 @@ impl KotoObject for File {
 
 impl From<File> for Value {
     fn from(file: File) -> Self {
-        Object::from(file).into()
+        KObject::from(file).into()
     }
 }
 
-fn file_entries() -> DataMap {
+fn file_entries() -> ValueMap {
     use Value::*;
 
     ObjectEntryBuilder::<File>::new()
@@ -276,8 +276,8 @@ fn file_entries() -> DataMap {
 }
 
 thread_local! {
-    static FILE_TYPE_STRING: ValueString = File::TYPE.into();
-    static FILE_ENTRIES: DataMap = file_entries();
+    static FILE_TYPE_STRING: KString = File::TYPE.into();
+    static FILE_ENTRIES: ValueMap = file_entries();
 }
 
 struct BufferedSystemFile<T>
@@ -304,11 +304,11 @@ impl<T> KotoFile for BufferedSystemFile<T>
 where
     T: Read + Write + Seek,
 {
-    fn id(&self) -> ValueString {
+    fn id(&self) -> KString {
         self.path.to_string_lossy().to_string().into()
     }
 
-    fn path(&self) -> Result<ValueString> {
+    fn path(&self) -> Result<KString> {
         Ok(self.id())
     }
 

@@ -14,11 +14,11 @@ use unicode_segmentation::UnicodeSegmentation;
 /// [`AsRef`](std::convert::AsRef) is implemented for &str, which automatically resolves to the
 /// correct slice of the string data.
 #[derive(Clone)]
-pub struct ValueString(Inner);
+pub struct KString(Inner);
 
 // Either the full string, or a slice
 //
-// By heap-allocating slice bounds we can keep ValueString's size down to 16 bytes; otherwise it
+// By heap-allocating slice bounds we can keep KString's size down to 16 bytes; otherwise it
 // would have a size of 32 bytes.
 #[derive(Clone)]
 enum Inner {
@@ -32,15 +32,15 @@ pub struct StringSlice {
     bounds: Range<usize>,
 }
 
-impl ValueString {
+impl KString {
     /// Returns the empty string
     ///
-    /// This returns a clone of an empty ValueString which is initialized once per thread.
+    /// This returns a clone of an empty KString which is initialized once per thread.
     pub fn empty() -> Self {
         Self::from(EMPTY_STRING.with(|s| s.clone()))
     }
 
-    /// Initializes a new ValueString with the provided data and bounds
+    /// Initializes a new KString with the provided data and bounds
     ///
     /// If the bounds aren't valid for the data then `None` is returned.
     pub fn new_with_bounds(string: Ptr<str>, bounds: Range<usize>) -> Option<Self> {
@@ -51,7 +51,7 @@ impl ValueString {
         }
     }
 
-    /// Returns a new ValueString with shared data and new bounds
+    /// Returns a new KString with shared data and new bounds
     ///
     /// If the bounds aren't valid for the string then `None` is returned.
     pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Option<Self> {
@@ -76,7 +76,7 @@ impl ValueString {
         }
     }
 
-    /// Returns a new ValueString with shared data and bounds defined by the grapheme indices
+    /// Returns a new KString with shared data and bounds defined by the grapheme indices
     ///
     /// This allows for subslicing by index, with the index referring to unicode graphemes.
     ///
@@ -161,12 +161,12 @@ impl ValueString {
         }
     }
 
-    /// Returns the number of graphemes contained within the ValueString's bounds
+    /// Returns the number of graphemes contained within the KString's bounds
     pub fn grapheme_count(&self) -> usize {
         self.graphemes(true).count()
     }
 
-    /// Returns the `&str` within the ValueString's bounds
+    /// Returns the `&str` within the KString's bounds
     pub fn as_str(&self) -> &str {
         match &self.0 {
             Inner::Full(string) => string,
@@ -206,26 +206,26 @@ impl StringSlice {
     }
 }
 
-impl PartialEq<&str> for ValueString {
+impl PartialEq<&str> for KString {
     fn eq(&self, other: &&str) -> bool {
         self.as_str() == *other
     }
 }
 
-impl PartialEq for ValueString {
+impl PartialEq for KString {
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
     }
 }
-impl Eq for ValueString {}
+impl Eq for KString {}
 
-impl Hash for ValueString {
+impl Hash for KString {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
     }
 }
 
-impl Deref for ValueString {
+impl Deref for KString {
     type Target = str;
 
     fn deref(&self) -> &str {
@@ -233,43 +233,43 @@ impl Deref for ValueString {
     }
 }
 
-impl AsRef<str> for ValueString {
+impl AsRef<str> for KString {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl From<Ptr<str>> for ValueString {
+impl From<Ptr<str>> for KString {
     fn from(string: Ptr<str>) -> Self {
         Self(Inner::Full(string))
     }
 }
 
-impl From<StringSlice> for ValueString {
+impl From<StringSlice> for KString {
     fn from(slice: StringSlice) -> Self {
         Self(Inner::Slice(slice.into()))
     }
 }
 
-impl From<String> for ValueString {
+impl From<String> for KString {
     fn from(s: String) -> Self {
         Self::from(Ptr::<str>::from(s.into_boxed_str()))
     }
 }
 
-impl From<&str> for ValueString {
+impl From<&str> for KString {
     fn from(s: &str) -> Self {
         Self::from(Ptr::<str>::from(s))
     }
 }
 
-impl fmt::Display for ValueString {
+impl fmt::Display for KString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-impl fmt::Debug for ValueString {
+impl fmt::Debug for KString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }

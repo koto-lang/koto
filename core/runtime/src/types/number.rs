@@ -11,12 +11,12 @@ use std::{
 /// The number can be either an `f64` or an `i64` depending on usage.
 #[allow(missing_docs)]
 #[derive(Clone, Copy)]
-pub enum ValueNumber {
+pub enum KNumber {
     F64(f64),
     I64(i64),
 }
 
-impl ValueNumber {
+impl KNumber {
     /// Returns the absolute value of the number
     #[must_use]
     pub fn abs(self) -> Self {
@@ -93,7 +93,7 @@ impl ValueNumber {
     /// otherwise the result will be an f64.
     #[must_use]
     pub fn pow(self, other: Self) -> Self {
-        use ValueNumber::*;
+        use KNumber::*;
 
         match (self, other) {
             (F64(a), F64(b)) => F64(a.powf(b)),
@@ -120,39 +120,39 @@ impl ValueNumber {
     }
 }
 
-impl fmt::Debug for ValueNumber {
+impl fmt::Debug for KNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValueNumber::F64(n) => write!(f, "Float({n})"),
-            ValueNumber::I64(n) => write!(f, "Int({n})"),
+            KNumber::F64(n) => write!(f, "Float({n})"),
+            KNumber::I64(n) => write!(f, "Int({n})"),
         }
     }
 }
 
-impl fmt::Display for ValueNumber {
+impl fmt::Display for KNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValueNumber::F64(n) => {
+            KNumber::F64(n) => {
                 if n.fract() > 0.0 {
                     write!(f, "{n}")
                 } else {
                     write!(f, "{n:.1}")
                 }
             }
-            ValueNumber::I64(n) => write!(f, "{n}"),
+            KNumber::I64(n) => write!(f, "{n}"),
         }
     }
 }
 
-impl Hash for ValueNumber {
+impl Hash for KNumber {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.to_bits())
     }
 }
 
-impl PartialEq for ValueNumber {
+impl PartialEq for KNumber {
     fn eq(&self, other: &Self) -> bool {
-        use ValueNumber::*;
+        use KNumber::*;
 
         match (self, other) {
             (F64(a), F64(b)) => a == b,
@@ -163,17 +163,17 @@ impl PartialEq for ValueNumber {
     }
 }
 
-impl Eq for ValueNumber {}
+impl Eq for KNumber {}
 
-impl PartialOrd for ValueNumber {
+impl PartialOrd for KNumber {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for ValueNumber {
+impl Ord for KNumber {
     fn cmp(&self, other: &Self) -> Ordering {
-        use ValueNumber::*;
+        use KNumber::*;
 
         let result = match (self, other) {
             (F64(a), F64(b)) => a.partial_cmp(b),
@@ -193,11 +193,11 @@ impl Ord for ValueNumber {
     }
 }
 
-impl ops::Neg for ValueNumber {
-    type Output = ValueNumber;
+impl ops::Neg for KNumber {
+    type Output = KNumber;
 
-    fn neg(self) -> ValueNumber {
-        use ValueNumber::*;
+    fn neg(self) -> KNumber {
+        use KNumber::*;
 
         match self {
             F64(n) => F64(-n),
@@ -206,11 +206,11 @@ impl ops::Neg for ValueNumber {
     }
 }
 
-impl ops::Neg for &ValueNumber {
-    type Output = ValueNumber;
+impl ops::Neg for &KNumber {
+    type Output = KNumber;
 
-    fn neg(self) -> ValueNumber {
-        use ValueNumber::*;
+    fn neg(self) -> KNumber {
+        use KNumber::*;
 
         match *self {
             F64(n) => F64(-n),
@@ -221,15 +221,15 @@ impl ops::Neg for &ValueNumber {
 
 macro_rules! number_traits_float {
     ($type:ident) => {
-        impl From<$type> for ValueNumber {
-            fn from(n: $type) -> ValueNumber {
-                ValueNumber::F64(n as f64)
+        impl From<$type> for KNumber {
+            fn from(n: $type) -> KNumber {
+                KNumber::F64(n as f64)
             }
         }
 
-        impl From<&$type> for ValueNumber {
-            fn from(n: &$type) -> ValueNumber {
-                ValueNumber::F64(*n as f64)
+        impl From<&$type> for KNumber {
+            fn from(n: &$type) -> KNumber {
+                KNumber::F64(*n as f64)
             }
         }
 
@@ -245,22 +245,22 @@ macro_rules! number_traits_float {
             }
         }
 
-        impl PartialEq<$type> for ValueNumber {
+        impl PartialEq<$type> for KNumber {
             fn eq(&self, b: &$type) -> bool {
                 let b = *b as f64;
                 match self {
-                    ValueNumber::F64(a) => *a == b,
-                    ValueNumber::I64(a) => *a as f64 == b,
+                    KNumber::F64(a) => *a == b,
+                    KNumber::I64(a) => *a as f64 == b,
                 }
             }
         }
 
-        impl PartialOrd<$type> for ValueNumber {
+        impl PartialOrd<$type> for KNumber {
             fn partial_cmp(&self, b: &$type) -> Option<Ordering> {
                 let b = *b as f64;
                 match self {
-                    ValueNumber::F64(a) => a.partial_cmp(&b),
-                    ValueNumber::I64(a) => (*a as f64).partial_cmp(&b),
+                    KNumber::F64(a) => a.partial_cmp(&b),
+                    KNumber::I64(a) => (*a as f64).partial_cmp(&b),
                 }
             }
         }
@@ -269,15 +269,15 @@ macro_rules! number_traits_float {
 
 macro_rules! number_traits_int {
     ($type:ident) => {
-        impl From<$type> for ValueNumber {
-            fn from(n: $type) -> ValueNumber {
-                ValueNumber::I64(n as i64)
+        impl From<$type> for KNumber {
+            fn from(n: $type) -> KNumber {
+                KNumber::I64(n as i64)
             }
         }
 
-        impl From<&$type> for ValueNumber {
-            fn from(n: &$type) -> ValueNumber {
-                ValueNumber::I64(*n as i64)
+        impl From<&$type> for KNumber {
+            fn from(n: &$type) -> KNumber {
+                KNumber::I64(*n as i64)
             }
         }
 
@@ -293,22 +293,22 @@ macro_rules! number_traits_int {
             }
         }
 
-        impl PartialEq<$type> for ValueNumber {
+        impl PartialEq<$type> for KNumber {
             fn eq(&self, b: &$type) -> bool {
                 let b = *b as i64;
                 match self {
-                    ValueNumber::F64(a) => (*a as i64) == b,
-                    ValueNumber::I64(a) => *a == b,
+                    KNumber::F64(a) => (*a as i64) == b,
+                    KNumber::I64(a) => *a == b,
                 }
             }
         }
 
-        impl PartialOrd<$type> for ValueNumber {
+        impl PartialOrd<$type> for KNumber {
             fn partial_cmp(&self, b: &$type) -> Option<Ordering> {
                 let b = *b as i64;
                 match self {
-                    ValueNumber::F64(a) => (*a as i64).partial_cmp(&b),
-                    ValueNumber::I64(a) => a.partial_cmp(&b),
+                    KNumber::F64(a) => (*a as i64).partial_cmp(&b),
+                    KNumber::I64(a) => a.partial_cmp(&b),
                 }
             }
         }
@@ -331,20 +331,20 @@ number_traits_int!(usize);
 
 macro_rules! from_number {
     ($type:ident) => {
-        impl From<ValueNumber> for $type {
-            fn from(n: ValueNumber) -> $type {
+        impl From<KNumber> for $type {
+            fn from(n: KNumber) -> $type {
                 match n {
-                    ValueNumber::F64(f) => f as $type,
-                    ValueNumber::I64(i) => i as $type,
+                    KNumber::F64(f) => f as $type,
+                    KNumber::I64(i) => i as $type,
                 }
             }
         }
 
-        impl From<&ValueNumber> for $type {
-            fn from(n: &ValueNumber) -> $type {
+        impl From<&KNumber> for $type {
+            fn from(n: &KNumber) -> $type {
                 match n {
-                    ValueNumber::F64(f) => *f as $type,
-                    ValueNumber::I64(i) => *i as $type,
+                    KNumber::F64(f) => *f as $type,
+                    KNumber::I64(i) => *i as $type,
                 }
             }
         }
@@ -363,11 +363,11 @@ from_number!(usize);
 
 macro_rules! number_op {
     ($trait:ident, $fn:ident, $op:tt) => {
-        impl ops::$trait for ValueNumber {
-            type Output = ValueNumber;
+        impl ops::$trait for KNumber {
+            type Output = KNumber;
 
-            fn $fn(self, other: ValueNumber) -> ValueNumber {
-                use ValueNumber::*;
+            fn $fn(self, other: KNumber) -> KNumber {
+                use KNumber::*;
 
                 match (self, other) {
                     (F64(a), F64(b)) => F64(a $op b),
@@ -378,11 +378,11 @@ macro_rules! number_op {
             }
         }
 
-        impl ops::$trait for &ValueNumber {
-            type Output = ValueNumber;
+        impl ops::$trait for &KNumber {
+            type Output = KNumber;
 
-            fn $fn(self, other: &ValueNumber) -> ValueNumber {
-                use ValueNumber::*;
+            fn $fn(self, other: &KNumber) -> KNumber {
+                use KNumber::*;
 
                 match (*self, *other) {
                     (F64(a), F64(b)) => F64(a $op b),
@@ -400,11 +400,11 @@ number_op!(Sub, sub, -);
 number_op!(Mul, mul, *);
 number_op!(Rem, rem, %);
 
-impl ops::Div for ValueNumber {
-    type Output = ValueNumber;
+impl ops::Div for KNumber {
+    type Output = KNumber;
 
-    fn div(self, other: ValueNumber) -> ValueNumber {
-        use ValueNumber::*;
+    fn div(self, other: KNumber) -> KNumber {
+        use KNumber::*;
 
         match (self, other) {
             (F64(a), F64(b)) => F64(a / b),
@@ -415,11 +415,11 @@ impl ops::Div for ValueNumber {
     }
 }
 
-impl ops::Div for &ValueNumber {
-    type Output = ValueNumber;
+impl ops::Div for &KNumber {
+    type Output = KNumber;
 
-    fn div(self, other: &ValueNumber) -> ValueNumber {
-        use ValueNumber::*;
+    fn div(self, other: &KNumber) -> KNumber {
+        use KNumber::*;
 
         match (*self, *other) {
             (F64(a), F64(b)) => F64(a / b),

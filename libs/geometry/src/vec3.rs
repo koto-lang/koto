@@ -19,11 +19,11 @@ impl KotoType for Vec3 {
 }
 
 impl KotoObject for Vec3 {
-    fn object_type(&self) -> ValueString {
+    fn object_type(&self) -> KString {
         VEC3_TYPE_STRING.with(|s| s.clone())
     }
 
-    fn copy(&self) -> Object {
+    fn copy(&self) -> KObject {
         (*self).into()
     }
 
@@ -96,7 +96,7 @@ impl KotoObject for Vec3 {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<ValueIterator> {
+    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
         let v = *self;
 
         let iter = (0..=2).map(move |i| {
@@ -106,14 +106,14 @@ impl KotoObject for Vec3 {
                 2 => v.z,
                 _ => unreachable!(),
             };
-            ValueIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result.into())
         });
 
-        Ok(ValueIterator::with_std_iter(iter))
+        Ok(KIterator::with_std_iter(iter))
     }
 }
 
-fn make_vec3_entries() -> DataMap {
+fn make_vec3_entries() -> ValueMap {
     ObjectEntryBuilder::<Vec3>::new()
         .method("sum", |ctx| {
             let v = ctx.instance()?;
@@ -126,8 +126,8 @@ fn make_vec3_entries() -> DataMap {
 }
 
 thread_local! {
-    static VEC3_TYPE_STRING: ValueString = Vec3::TYPE.into();
-    static VEC3_ENTRIES: DataMap = make_vec3_entries();
+    static VEC3_TYPE_STRING: KString = Vec3::TYPE.into();
+    static VEC3_ENTRIES: ValueMap = make_vec3_entries();
 }
 
 impl Deref for Vec3 {
@@ -152,7 +152,7 @@ impl From<(f64, f64, f64)> for Vec3 {
 
 impl From<Vec3> for Value {
     fn from(vec3: Vec3) -> Self {
-        Object::from(vec3).into()
+        KObject::from(vec3).into()
     }
 }
 

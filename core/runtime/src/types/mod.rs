@@ -1,29 +1,31 @@
 //! The core types used in the Koto runtime
 
-mod external_function;
-mod int_range;
+mod function;
+mod iterator;
+mod list;
+mod map;
 mod meta_map;
+mod native_function;
+mod number;
 mod object;
+mod range;
+mod string;
+mod tuple;
 pub mod value;
-mod value_iterator;
 mod value_key;
-mod value_list;
-mod value_map;
-mod value_number;
-mod value_string;
-mod value_tuple;
 
 pub use self::{
-    external_function::{CallContext, ExternalFunction},
-    int_range::IntRange,
+    function::{KCaptureFunction, KFunction},
+    iterator::{KIterator, KIteratorOutput, KotoIterator},
+    list::{KList, ValueVec},
+    map::{KMap, KotoHasher, ValueMap},
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
-    object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
-    value::{CaptureFunctionInfo, FunctionInfo, Value},
-    value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
+    native_function::{CallContext, KNativeFunction},
+    number::KNumber,
+    object::{IsIterable, KObject, KotoObject, KotoType, MethodContext, ObjectEntryBuilder},
+    range::KRange,
+    string::KString,
+    tuple::KTuple,
+    value::Value,
     value_key::ValueKey,
-    value_list::{ValueList, ValueVec},
-    value_map::{DataMap, KotoHasher, ValueMap},
-    value_number::ValueNumber,
-    value_string::ValueString,
-    value_tuple::ValueTuple,
 };

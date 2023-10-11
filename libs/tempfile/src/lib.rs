@@ -2,12 +2,12 @@
 
 use koto_runtime::{
     core_lib::io::{map_io_err, File},
-    ValueMap,
+    KMap,
 };
 use tempfile::NamedTempFile;
 
-pub fn make_module() -> ValueMap {
-    let result = ValueMap::with_type("temp_file");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("temp_file");
 
     result.add_fn("temp_file", {
         |_| match NamedTempFile::new().map_err(map_io_err) {

@@ -74,7 +74,7 @@ struct OutputCapture {
 }
 
 impl KotoFile for OutputCapture {
-    fn id(&self) -> ValueString {
+    fn id(&self) -> KString {
         "_stdout_".into()
     }
 }

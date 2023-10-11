@@ -1,13 +1,13 @@
 use crate::{prelude::*, Result};
 
-/// The underlying Vec type used by [ValueList]
+/// The underlying Vec type used by [KList]
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 /// The Koto runtime's List type
 #[derive(Clone, Default)]
-pub struct ValueList(PtrMut<ValueVec>);
+pub struct KList(PtrMut<ValueVec>);
 
-impl ValueList {
+impl KList {
     /// Creates an empty list with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self(ValueVec::with_capacity(capacity).into())
