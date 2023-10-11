@@ -1,22 +1,31 @@
 use koto_lexer::{Position, Span};
 use std::{
-    error,
     fmt::{self, Write},
     path::PathBuf,
 };
+use thiserror::Error;
 
 /// An error that represents a problem with the Parser's internal logic, rather than a user error
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum InternalError {
+    #[error("There are more nodes in the program than the AST can support")]
     AstCapacityOverflow,
+    #[error("There are more constants in the program than the runtime can support")]
     ConstantPoolCapacityOverflow,
+    #[error("Expected ':' after map key")]
     ExpectedMapColon,
+    #[error("Failed to parse ID")]
     IdParseFailure,
+    #[error("Failed to parse lookup")]
     LookupParseFailure,
+    #[error("Missing assignment target")]
     MissingAssignmentTarget,
+    #[error("Frame unavailable during parsing")]
     MissingFrame,
+    #[error("Failed to parse number")]
     NumberParseFailure,
+    #[error("Unexpected token")]
     UnexpectedToken,
 }
 
@@ -24,298 +33,199 @@ pub enum InternalError {
 ///
 /// Having these errors separated out from [SyntaxError] is useful when working with interactive
 /// input, where an indented continuation can be started in response to an indentation error.
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ExpectedIndentation {
+    #[error("Expected expression after assignment operator")]
     AssignmentExpression,
+    #[error("Expected indented block for catch expression")]
     CatchBody,
+    #[error("Expected indented block for 'else'.")]
     ElseBlock,
+    #[error("Expected indented block for 'else if'.")]
     ElseIfBlock,
+    #[error("Expected indented block for finally expression")]
     FinallyBody,
+    #[error("Expected indented block as for loop body")]
     ForBody,
+    #[error("Expected function body")]
     FunctionBody,
+    #[error("Expected indented block as loop body")]
     LoopBody,
+    #[error("Expected indented arm for match expression")]
     MatchArm,
+    #[error("Expected expression after binary operator")]
     RhsExpression,
+    #[error("Expected indented arm for switch expression")]
     SwitchArm,
+    #[error("Error parsing if expression, expected 'then' keyword or indented block.")]
     ThenKeywordOrBlock,
+    #[error("Expected indented block for try expression")]
     TryBody,
+    #[error("Expected indented block as until loop body")]
     UntilBody,
+    #[error("Expected indented block as while loop body")]
     WhileBody,
 }
 
 /// A syntax error encountered by the [Parser]
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum SyntaxError {
+    #[error("Ascii value out of range, the maximum is \\x7f")]
     AsciiEscapeCodeOutOfRange,
+    #[error("Expected end of arguments ')'")]
     ExpectedArgsEnd,
+    #[error("Expected target for assignment")]
     ExpectedAssignmentTarget,
+    #[error("Expected '=' assignment after meta key")]
     ExpectedAssignmentAfterMetaKey,
+    #[error("Expected argument for catch expression")]
     ExpectedCatchArgument,
+    #[error("Expected catch expression after try")]
     ExpectedCatch,
+    #[error("Expected closing parenthesis ')'")]
     ExpectedCloseParen,
+    #[error("Expected expression after 'else'.")]
     ExpectedElseExpression,
+    #[error("Expected condition for 'else if'.")]
     ExpectedElseIfCondition,
+    #[error("Expected expression")]
     ExpectedExpression,
-    ExpectedExpressionInMainBlock,
+    #[error("Expected arguments in for loop")]
     ExpectedForArgs,
+    #[error("Expected 'in' keyword in for loop")]
     ExpectedForInKeyword,
+    #[error("Expected iterable in for loop")]
     ExpectedForIterable,
+    #[error("Expected end of function arguments '|'")]
     ExpectedFunctionArgsEnd,
+    #[error("Expected ID in import expression")]
     ExpectedIdInImportExpression,
+    #[error("Expected condition after 'if'")]
     ExpectedIfCondition,
+    #[error("Expected import after from")]
     ExpectedImportAfterFrom,
+    #[error("Expected module ID in import expression")]
     ExpectedImportModuleId,
+    #[error("Expected index end ']'")]
     ExpectedIndexEnd,
+    #[error("Expected index expression")]
     ExpectedIndexExpression,
+    #[error("Expected List end ']'")]
     ExpectedListEnd,
+    #[error("Expected ':' after map key")]
     ExpectedMapColon,
+    #[error("Expected '}}' at end of map declaration")]
     ExpectedMapEnd,
+    #[error("Expected map entry")]
     ExpectedMapEntry,
+    #[error("Expected key after '.' in Map access")]
     ExpectedMapKey,
+    #[error("Expected value after ':' in Map")]
     ExpectedMapValue,
+    #[error("Expected expression in match arm")]
     ExpectedMatchArmExpression,
+    #[error("Expected expression after then in match arm")]
     ExpectedMatchArmExpressionAfterThen,
+    #[error("Expected condition after if in match arm")]
     ExpectedMatchCondition,
+    #[error("Expected expression after match")]
     ExpectedMatchExpression,
+    #[error("Expected pattern for match arm")]
     ExpectedMatchPattern,
+    #[error("Expected id after @meta")]
     ExpectedMetaId,
+    #[error("Expected a line break before starting a map block")]
     ExpectedLineBreakBeforeMapBlock,
-    ExpectedSwitchArmExpression,
-    ExpectedSwitchArmExpressionAfterThen,
+    #[error("Expected '}}' at end of string placeholder")]
     ExpectedStringPlaceholderEnd,
-    ExpectedThenExpression,
+    #[error("Expected expression in switch arm")]
+    ExpectedSwitchArmExpression,
+    #[error("Expected expression after 'then' in switch arm")]
+    ExpectedSwitchArmExpressionAfterThen,
+    #[error("Expected a test name")]
     ExpectedTestName,
+    #[error("Expected expression after 'then'")]
+    ExpectedThenExpression,
+    #[error("Expected condition in until loop")]
     ExpectedUntilCondition,
+    #[error("Expected condition in while loop")]
     ExpectedWhileCondition,
+    #[error("Non-inline if expression isn't allowed in this context")]
     IfBlockNotAllowedInThisContext,
+    #[error("Too many items listed after 'from' in import expression")]
     ImportFromExpressionHasTooManyItems,
+    #[error("Found an unexpected token while lexing input")]
     LexerError,
+    #[error("Ellipsis found outside of nested match patterns")]
     MatchEllipsisOutsideOfNestedPatterns,
+    #[error("'else' can only be used in the last arm in a match expression")]
     MatchElseNotInLastArm,
+    #[error("'self' doesn't need to be declared as an argument")]
     SelfArg,
+    #[error("'else' can only be used in the last arm in a switch expression")]
     SwitchElseNotInLastArm,
+    #[error("Unexpected character in numeric escape code")]
     UnexpectedCharInNumericEscapeCode,
+    #[error("Unexpected escape pattern in string")]
     UnexpectedEscapeInString,
+    #[error("Unexpected 'else' in match arm")]
     UnexpectedMatchElse,
+    #[error("Unexpected if condition in match arm")]
     UnexpectedMatchIf,
+    #[error("Unexpected meta key")]
     UnexpectedMetaKey,
+    #[error("Unexpected 'else' in switch arm")]
     UnexpectedSwitchElse,
+    #[error("Unexpected token")]
     UnexpectedToken,
+    #[error("Unexpected token after '$' in string, expected '$ID' or '${{expression}}'")]
     UnexpectedTokenAfterDollarInString,
+    #[error("Unicode value out of range, the maximum is \\u{{10ffff}}")]
     UnicodeEscapeCodeOutOfRange,
+    #[error("Unterminated numeric escape code")]
     UnterminatedNumericEscapeCode,
+    #[error("Unterminated string")]
     UnterminatedString,
 }
 
 /// See [ParserError]
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
-pub enum ErrorType {
-    InternalError(InternalError),
-    ExpectedIndentation(ExpectedIndentation),
-    SyntaxError(SyntaxError),
-}
-
-impl From<InternalError> for ErrorType {
-    fn from(e: InternalError) -> ErrorType {
-        ErrorType::InternalError(e)
-    }
-}
-
-impl From<ExpectedIndentation> for ErrorType {
-    fn from(e: ExpectedIndentation) -> ErrorType {
-        ErrorType::ExpectedIndentation(e)
-    }
-}
-
-impl From<SyntaxError> for ErrorType {
-    fn from(e: SyntaxError) -> ErrorType {
-        ErrorType::SyntaxError(e)
-    }
-}
-
-impl fmt::Display for ErrorType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ErrorType::*;
-
-        match &self {
-            InternalError(error) => write!(f, "Internal error: {error}"),
-            ExpectedIndentation(error) => f.write_str(&error.to_string()),
-            SyntaxError(error) => f.write_str(&error.to_string()),
-        }
-    }
+pub enum ParserErrorType {
+    #[error(transparent)]
+    InternalError(#[from] InternalError),
+    #[error(transparent)]
+    ExpectedIndentation(#[from] ExpectedIndentation),
+    #[error(transparent)]
+    SyntaxError(#[from] SyntaxError),
 }
 
 /// An error that can be produced by the [Parser](crate::Parser)
 #[derive(Clone, Debug)]
 pub struct ParserError {
     /// The error itself
-    pub error: ErrorType,
+    pub error: ParserErrorType,
     /// The span in the source string where the error occurred
     pub span: Span,
 }
 
 impl ParserError {
     /// Initializes a parser error with the specific error type and its associated span
-    pub fn new(error: ErrorType, span: Span) -> Self {
+    pub fn new(error: ParserErrorType, span: Span) -> Self {
         Self { error, span }
     }
 
     /// Returns true if the error was caused by the expectation of indentation
     pub fn is_indentation_error(&self) -> bool {
-        matches!(self.error, ErrorType::ExpectedIndentation(_))
+        matches!(self.error, ParserErrorType::ExpectedIndentation(_))
     }
 }
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.error.fmt(f)
-    }
-}
-
-impl error::Error for ParserError {}
-
-impl fmt::Display for InternalError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use InternalError::*;
-
-        match self {
-            AstCapacityOverflow => {
-                f.write_str("There are more nodes in the program than the AST can support")
-            }
-            ConstantPoolCapacityOverflow => {
-                f.write_str("There are more constants in the program than the runtime can support")
-            }
-            ExpectedMapColon => f.write_str("Expected ':' after map key"),
-            IdParseFailure => f.write_str("Failed to parse ID"),
-            LookupParseFailure => f.write_str("Failed to parse lookup"),
-            MissingAssignmentTarget => f.write_str("Missing assignment target"),
-            MissingFrame => f.write_str("Frame unavailable during parsing"),
-            NumberParseFailure => f.write_str("Failed to parse number"),
-            UnexpectedToken => f.write_str("Unexpected token"),
-        }
-    }
-}
-
-impl fmt::Display for ExpectedIndentation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ExpectedIndentation::*;
-
-        match self {
-            AssignmentExpression => f.write_str("Expected expression after assignment operator"),
-            CatchBody => f.write_str("Expected indented block for catch expression"),
-            ElseBlock => f.write_str("Expected indented block for 'else'."),
-            ElseIfBlock => f.write_str("Expected indented block for 'else if'."),
-            ForBody => f.write_str("Expected indented block as for loop body"),
-            FinallyBody => f.write_str("Expected indented block for finally expression"),
-            FunctionBody => f.write_str("Expected function body"),
-            LoopBody => f.write_str("Expected indented block as loop body"),
-            MatchArm => f.write_str("Expected indented arm for match expression"),
-            SwitchArm => f.write_str("Expected indented arm for switch expression"),
-            RhsExpression => f.write_str("Expected expression after binary operator"),
-            ThenKeywordOrBlock => f.write_str(
-                "Error parsing if expression, expected 'then' keyword or indented block.",
-            ),
-            TryBody => f.write_str("Expected indented block for try expression"),
-            UntilBody => f.write_str("Expected indented block as until loop body"),
-            WhileBody => f.write_str("Expected indented block as while loop body"),
-        }
-    }
-}
-
-impl fmt::Display for SyntaxError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use SyntaxError::*;
-
-        match self {
-            AsciiEscapeCodeOutOfRange => {
-                f.write_str("Ascii value out of range, the maximum is \\x7f")
-            }
-            ExpectedArgsEnd => f.write_str("Expected end of arguments ')'"),
-            ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
-            ExpectedAssignmentAfterMetaKey => f.write_str("Expected '=' assignment after meta key"),
-            ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
-            ExpectedCatch => f.write_str("Expected catch expression after try"),
-            ExpectedCloseParen => f.write_str("Expected closing parenthesis ')'"),
-            ExpectedElseExpression => f.write_str("Expected expression after 'else'."),
-            ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
-            ExpectedExpression => f.write_str("Expected expression"),
-            ExpectedExpressionInMainBlock => f.write_str("Expected expression"),
-            ExpectedForArgs => f.write_str("Expected arguments in for loop"),
-            ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
-            ExpectedForIterable => f.write_str("Expected iterable in for loop"),
-            ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
-            ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
-            ExpectedIfCondition => f.write_str("Expected condition after 'if'"),
-            ExpectedImportAfterFrom => f.write_str("Expected import after from"),
-            ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
-            ExpectedIndexEnd => f.write_str("Expected index end ']'"),
-            ExpectedIndexExpression => f.write_str("Expected index expression"),
-            ExpectedListEnd => f.write_str("Expected List end ']'"),
-            ExpectedMapColon => f.write_str("Expected ':' after map key"),
-            ExpectedMapEnd => f.write_str("Expected '}' at end of map declaration"),
-            ExpectedMapEntry => f.write_str("Expected map entry"),
-            ExpectedMapKey => f.write_str("Expected key after '.' in Map access"),
-            ExpectedMapValue => f.write_str("Expected value after ':' in Map"),
-            ExpectedMatchArmExpression => f.write_str("Expected expression in match arm"),
-            ExpectedMatchArmExpressionAfterThen => {
-                f.write_str("Expected expression after then in match arm")
-            }
-            ExpectedMatchCondition => f.write_str("Expected condition after if in match arm"),
-            ExpectedMatchExpression => f.write_str("Expected expression after match"),
-            ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
-            ExpectedMetaId => f.write_str("Expected id after @meta"),
-            ExpectedLineBreakBeforeMapBlock => {
-                f.write_str("Expected a line break before starting a map block")
-            }
-            ExpectedStringPlaceholderEnd => {
-                f.write_str("Expected '}' at end of string placeholder")
-            }
-            ExpectedSwitchArmExpression => f.write_str("Expected expression in switch arm"),
-            ExpectedSwitchArmExpressionAfterThen => {
-                f.write_str("Expected expression after then in switch arm")
-            }
-            ExpectedTestName => f.write_str("Expected a test name"),
-            ExpectedThenExpression => f.write_str("Expected expression after 'then'."),
-            ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
-            ExpectedWhileCondition => f.write_str("Expected condition in while loop"),
-            IfBlockNotAllowedInThisContext => {
-                f.write_str("Non-inline if expression isn't allowed in this context.")
-            }
-            ImportFromExpressionHasTooManyItems => {
-                f.write_str("Too many items listed after 'from' in import expression")
-            }
-            LexerError => f.write_str("Found an unexpected token while lexing input"),
-            MatchEllipsisOutsideOfNestedPatterns => {
-                f.write_str("Ellipsis found outside of nested match patterns")
-            }
-            MatchElseNotInLastArm => {
-                f.write_str("else can only be used in the last arm in a match expression")
-            }
-            SwitchElseNotInLastArm => {
-                f.write_str("else can only be used in the last arm in a switch expression")
-            }
-            SelfArg => f.write_str("self doesn't need to be declared as an argument"),
-            UnexpectedCharInNumericEscapeCode => {
-                f.write_str("Unexpected character in numeric escape code")
-            }
-            UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
-            UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
-            UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
-            UnexpectedMetaKey => f.write_str("Unexpected meta key"),
-            UnexpectedSwitchElse => f.write_str("Unexpected else in switch arm"),
-            UnexpectedToken => f.write_str("Unexpected token"),
-            UnexpectedTokenAfterDollarInString => {
-                f.write_str("Unexpected token after $ in string, expected $ID or ${expression}")
-            }
-            UnicodeEscapeCodeOutOfRange => {
-                f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
-            }
-            UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
-            UnterminatedString => f.write_str("Unterminated string"),
-        }
     }
 }
 

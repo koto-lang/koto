@@ -2,9 +2,7 @@
 
 use crate::{
     constant_pool::ConstantPoolBuilder,
-    error::{
-        ErrorType as ParserErrorType, ExpectedIndentation, InternalError, ParserError, SyntaxError,
-    },
+    error::{ExpectedIndentation, InternalError, ParserError, ParserErrorType, SyntaxError},
     *,
 };
 use koto_lexer::{Lexer, Span, Token};
@@ -266,7 +264,7 @@ impl<'source> Parser<'source> {
             self.consume_until_token_with_context(&context);
 
             let Some(expression) = self.parse_line(&ExpressionContext::permissive())? else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpressionInMainBlock);
+                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
             };
 
             body.push(expression);

@@ -718,6 +718,7 @@ version = "0.11.0"
 dependencies = [
  "koto_lexer",
  "koto_memory",
+ "thiserror",
 ]
 
 [[package]]
