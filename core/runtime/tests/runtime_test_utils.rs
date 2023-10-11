@@ -84,7 +84,7 @@ where
     T: Copy,
     f64: From<T>,
 {
-    Number(f64::from(value).into())
+    f64::from(value).into()
 }
 
 pub fn number_list<T>(values: &[T]) -> Value
@@ -96,7 +96,7 @@ where
         .iter()
         .map(|n| Number(i64::from(*n).into()))
         .collect::<Vec<_>>();
-    value_list(&values)
+    list(&values)
 }
 
 pub fn number_tuple<T>(values: &[T]) -> Value
@@ -108,19 +108,19 @@ where
         .iter()
         .map(|n| Number(i64::from(*n).into()))
         .collect::<Vec<_>>();
-    value_tuple(&values)
+    tuple(&values)
 }
 
-pub fn value_list(values: &[Value]) -> Value {
-    List(KList::from_slice(values))
+pub fn list(values: &[Value]) -> Value {
+    KList::from_slice(values).into()
 }
 
-pub fn value_tuple(values: &[Value]) -> Value {
-    Tuple(values.into())
+pub fn tuple(values: &[Value]) -> Value {
+    KTuple::from(values).into()
 }
 
 pub fn string(s: &str) -> Value {
-    Str(s.into())
+    KString::from(s).into()
 }
 
 #[derive(Debug)]
