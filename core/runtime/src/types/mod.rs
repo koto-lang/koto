@@ -18,7 +18,7 @@ pub use self::{
     int_range::KRange,
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
-    value::{CaptureFunctionInfo, FunctionInfo, Value},
+    value::{KCaptureFunction, KFunction, Value},
     value_iterator::{KIterator, KIteratorOutput, KotoIterator},
     value_key::ValueKey,
     value_list::{KList, ValueVec},

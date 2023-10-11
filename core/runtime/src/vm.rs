@@ -4,9 +4,9 @@ use crate::{
     prelude::*,
     types::{
         meta_id_to_key,
-        value::{FunctionInfo, RegisterSlice},
+        value::{KFunction, RegisterSlice},
     },
-    CaptureFunctionInfo, DefaultStderr, DefaultStdin, DefaultStdout, Result,
+    DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, Result,
 };
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
@@ -1266,7 +1266,7 @@ impl Vm {
                 arg_is_unpacked_tuple,
                 size,
             } => {
-                let info = FunctionInfo {
+                let info = KFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
@@ -1279,7 +1279,7 @@ impl Vm {
                     // Initialize the function's captures with Null
                     let mut captures = ValueVec::new();
                     captures.resize(capture_count as usize, Null);
-                    CaptureFunction(Ptr::new(CaptureFunctionInfo {
+                    CaptureFunction(Ptr::new(KCaptureFunction {
                         info,
                         captures: KList::with_data(captures),
                     }))
@@ -2441,7 +2441,7 @@ impl Vm {
     fn call_generator(
         &mut self,
         call_info: &CallInfo,
-        f: &FunctionInfo,
+        f: &KFunction,
         captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
@@ -2532,7 +2532,7 @@ impl Vm {
     fn call_function(
         &mut self,
         call_info: &CallInfo,
-        f: &FunctionInfo,
+        f: &KFunction,
         captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {

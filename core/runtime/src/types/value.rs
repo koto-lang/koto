@@ -33,10 +33,10 @@ pub enum Value {
     Str(KString),
 
     /// A Koto function
-    Function(FunctionInfo),
+    Function(KFunction),
 
     /// A Koto function with captures
-    CaptureFunction(Ptr<CaptureFunctionInfo>),
+    CaptureFunction(Ptr<KCaptureFunction>),
 
     /// A function that's defined outside of the Koto runtime
     ExternalFunction(ExternalFunction),
@@ -336,7 +336,7 @@ impl From<KIterator> for Value {
 /// * [Value::Function]
 /// * [Value::CaptureFunction]
 #[derive(Clone, Debug, PartialEq)]
-pub struct FunctionInfo {
+pub struct KFunction {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
     /// The start ip of the function.
@@ -363,9 +363,9 @@ pub struct FunctionInfo {
 /// * [Value::Function]
 /// * [Value::CaptureFunction]
 #[derive(Clone)]
-pub struct CaptureFunctionInfo {
+pub struct KCaptureFunction {
     /// The function's properties
-    pub info: FunctionInfo,
+    pub info: KFunction,
     /// The optional list of captures that should be copied into scope when the function is called.
     //
     // Q. Why use a KList?
