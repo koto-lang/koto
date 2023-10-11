@@ -112,7 +112,7 @@ where
 }
 
 pub fn value_list(values: &[Value]) -> Value {
-    List(ValueList::from_slice(values))
+    List(KList::from_slice(values))
 }
 
 pub fn value_tuple(values: &[Value]) -> Value {

@@ -1231,11 +1231,11 @@ impl Vm {
                 if is_slice_to {
                     list.data()
                         .get(..index)
-                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(KList::from_slice(entries)))
                 } else {
                     list.data()
                         .get(index..)
-                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(KList::from_slice(entries)))
                 }
             }
             Tuple(tuple) => {
@@ -1282,7 +1282,7 @@ impl Vm {
                     captures.resize(capture_count as usize, Null);
                     CaptureFunction(Ptr::new(CaptureFunctionInfo {
                         info,
-                        captures: ValueList::with_data(captures),
+                        captures: KList::with_data(captures),
                     }))
                 } else {
                     Function(info)
@@ -2157,7 +2157,7 @@ impl Vm {
             }
             (List(l), Range(range)) => self.set_register(
                 result_register,
-                List(ValueList::from_slice(&l.data()[range.indices(l.len())])),
+                List(KList::from_slice(&l.data()[range.indices(l.len())])),
             ),
             (Tuple(t), Number(n)) => {
                 let index = self.validate_index(n, Some(t.len()))?;
@@ -2443,7 +2443,7 @@ impl Vm {
         &mut self,
         call_info: &CallInfo,
         f: &FunctionInfo,
-        captures: Option<&ValueList>,
+        captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
         // Spawn a VM for the generator
@@ -2534,7 +2534,7 @@ impl Vm {
         &mut self,
         call_info: &CallInfo,
         f: &FunctionInfo,
-        captures: Option<&ValueList>,
+        captures: Option<&KList>,
         temp_tuple_values: Option<&[Value]>,
     ) -> Result<()> {
         if f.generator {
@@ -2718,7 +2718,7 @@ impl Vm {
 
     fn run_sequence_to_list(&mut self, register: u8) -> Result<()> {
         if let Some(result) = self.sequence_builders.pop() {
-            let list = ValueList::with_data(ValueVec::from_vec(result));
+            let list = KList::with_data(ValueVec::from_vec(result));
             self.set_register(register, list.into());
             Ok(())
         } else {

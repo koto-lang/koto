@@ -11,7 +11,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("copy", |ctx| match ctx.args() {
         [Value::Iterator(iter)] => Ok(iter.make_copy()?.into()),
-        [Value::List(l)] => Ok(ValueList::with_data(l.data().clone()).into()),
+        [Value::List(l)] => Ok(KList::with_data(l.data().clone()).into()),
         [Value::Map(m)] => {
             let result = KMap::with_contents(
                 m.data().clone(),

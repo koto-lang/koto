@@ -16,7 +16,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
                 .map(toml_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }

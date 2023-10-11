@@ -22,7 +22,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Runt
                 .map(yaml_value_to_koto_value)
                 .collect::<Result<ValueVec, RuntimeError>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }

@@ -98,7 +98,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a List
-    pub fn with_list(list: ValueList) -> Self {
+    pub fn with_list(list: KList) -> Self {
         Self::new(ListIterator::new(list))
     }
 
@@ -236,13 +236,13 @@ impl Iterator for RangeIterator {
 
 #[derive(Clone)]
 struct ListIterator {
-    data: ValueList,
+    data: KList,
     index: usize,
     end: usize,
 }
 
 impl ListIterator {
-    fn new(data: ValueList) -> Self {
+    fn new(data: KList) -> Self {
         let end = data.len();
         Self {
             data,

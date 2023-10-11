@@ -21,7 +21,7 @@ pub use self::{
     value::{CaptureFunctionInfo, FunctionInfo, Value},
     value_iterator::{KIterator, KIteratorOutput, KotoIterator},
     value_key::ValueKey,
-    value_list::{ValueList, ValueVec},
+    value_list::{KList, ValueVec},
     value_map::{KMap, KotoHasher, ValueMap},
     value_number::ValueNumber,
     value_string::ValueString,

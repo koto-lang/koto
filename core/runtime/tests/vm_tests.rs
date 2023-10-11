@@ -252,7 +252,7 @@ a %= 5
 
         #[test]
         fn empty() {
-            test_script("[]", Value::List(ValueList::default()));
+            test_script("[]", Value::List(KList::default()));
         }
 
         #[test]

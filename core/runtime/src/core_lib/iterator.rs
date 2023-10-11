@@ -708,7 +708,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::List(ValueList::with_data(result)))
+                Ok(Value::List(KList::with_data(result)))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }

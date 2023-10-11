@@ -22,7 +22,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
                 .map(json_value_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
-                Ok(result) => Value::List(ValueList::with_data(result)),
+                Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }

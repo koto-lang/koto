@@ -21,7 +21,7 @@ pub enum Value {
     Range(IntRange),
 
     /// The list type used in Koto
-    List(ValueList),
+    List(KList),
 
     /// The tuple type used in Koto
     Tuple(ValueTuple),
@@ -68,7 +68,7 @@ impl Value {
                     .iter()
                     .map(|v| v.deep_copy())
                     .collect::<Result<_>>()?;
-                Value::List(ValueList::with_data(result))
+                Value::List(KList::with_data(result))
             }
             Value::Tuple(t) => {
                 let result = t
@@ -300,8 +300,8 @@ impl From<ValueString> for Value {
     }
 }
 
-impl From<ValueList> for Value {
-    fn from(value: ValueList) -> Self {
+impl From<KList> for Value {
+    fn from(value: KList) -> Self {
         Self::List(value)
     }
 }
@@ -368,18 +368,18 @@ pub struct CaptureFunctionInfo {
     pub info: FunctionInfo,
     /// The optional list of captures that should be copied into scope when the function is called.
     //
-    // Q. Why use a ValueList?
+    // Q. Why use a KList?
     // A. Because capturing values currently works by assigning by index, after the function
     //    itself has been created.
     // Q. Why not use a SequenceBuilder?
     // A. Recursive functions need to capture themselves into the list, and the captured function
     //    and the assigned function need to share the same captures list. Currently the only way
     //    for this to work is to allow mutation of the shared list after the creation of the
-    //    function, so a ValueList is a reasonable choice.
-    // Q. What about using Ptr<[Value]> for non-recursive functions, or Option<Value> for
-    //    non-recursive functions with a single capture?
-    // A. These could be worth investigating, but for now the ValueList will do.
-    pub captures: ValueList,
+    //    function, so a KList is a reasonable choice.
+    // Q. After capturing is complete, what about using Ptr<[Value]> for non-recursive functions,
+    //    or Option<Value> for non-recursive functions with a single capture?
+    // A. These could be worth investigating, but for now the KList will do.
+    pub captures: KList,
 }
 
 /// A slice of a VM's registers

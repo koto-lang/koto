@@ -105,7 +105,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => Ok(Value::List(ValueList::from_slice(t))),
+            (Value::Tuple(t), []) => Ok(Value::List(KList::from_slice(t))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
