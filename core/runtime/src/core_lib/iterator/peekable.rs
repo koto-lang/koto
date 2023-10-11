@@ -111,7 +111,7 @@ impl KotoObject for Peekable {
     }
 }
 
-fn peekable_entries() -> DataMap {
+fn peekable_entries() -> ValueMap {
     ObjectEntryBuilder::<Peekable>::new()
         .method("peek", |context| context.instance_mut()?.peek())
         .method("peek_back", |context| context.instance_mut()?.peek_back())
@@ -120,7 +120,7 @@ fn peekable_entries() -> DataMap {
 
 thread_local! {
     static PEEKABLE_TYPE_STRING: ValueString = Peekable::TYPE.into();
-    static PEEKABLE_ENTRIES: DataMap = peekable_entries();
+    static PEEKABLE_ENTRIES: ValueMap = peekable_entries();
 }
 
 // For tests, see runtime/tests/iterator_tests.rs

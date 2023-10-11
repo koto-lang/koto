@@ -5,8 +5,8 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::cell::RefCell;
 
-pub fn make_module() -> ValueMap {
-    let result = ValueMap::with_type("random");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("random");
 
     result.add_fn("bool", |_| {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_bool())
@@ -117,7 +117,7 @@ impl KotoObject for ChaChaRng {
     }
 }
 
-fn rng_entries() -> DataMap {
+fn rng_entries() -> ValueMap {
     ObjectEntryBuilder::<ChaChaRng>::new()
         .method("bool", |ctx| ctx.instance_mut()?.gen_bool())
         .method("number", |ctx| ctx.instance_mut()?.gen_number())
@@ -129,5 +129,5 @@ fn rng_entries() -> DataMap {
 thread_local! {
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
     static RNG_TYPE_STRING: ValueString = ChaChaRng::TYPE.into();
-    static RNG_ENTRIES: DataMap = rng_entries();
+    static RNG_ENTRIES: ValueMap = rng_entries();
 }

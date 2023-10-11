@@ -65,7 +65,7 @@ impl KotoObject for Rect {
     }
 }
 
-fn make_rect_entries() -> DataMap {
+fn make_rect_entries() -> ValueMap {
     use Value::*;
 
     ObjectEntryBuilder::<Rect>::new()
@@ -104,7 +104,7 @@ fn make_rect_entries() -> DataMap {
 
 thread_local! {
     static RECT_TYPE_STRING: ValueString = Rect::TYPE.into();
-    static RECT_ENTRIES: DataMap = make_rect_entries();
+    static RECT_ENTRIES: ValueMap = make_rect_entries();
 }
 
 impl Deref for Rect {

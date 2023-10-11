@@ -8,18 +8,16 @@ use crate::prelude::*;
 use std::{cmp::Ordering, ops::DerefMut};
 
 /// Initializes the `list` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.list");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.list");
 
     result.add_fn("clear", |ctx| {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => {
+            (Value::List(l), []) => {
                 l.data_mut().clear();
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -29,7 +27,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List and a Value";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [value]) => {
+            (Value::List(l), [value]) => {
                 let l = l.clone();
                 let value = value.clone();
                 for candidate in l.data().iter() {
@@ -37,8 +35,8 @@ pub fn make_module() -> ValueMap {
                         .vm
                         .run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone())
                     {
-                        Ok(Bool(false)) => {}
-                        Ok(Bool(true)) => return Ok(true.into()),
+                        Ok(Value::Bool(false)) => {}
+                        Ok(Value::Bool(true)) => return Ok(true.into()),
                         Ok(unexpected) => {
                             return runtime_error!(
                                 "list.contains: Expected Bool from comparison, found '{}'",
@@ -58,15 +56,15 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List and iterable";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [List(other)]) => {
+            (Value::List(l), [Value::List(other)]) => {
                 l.data_mut().extend(other.data().iter().cloned());
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
-            (List(l), [Tuple(other)]) => {
+            (Value::List(l), [Value::Tuple(other)]) => {
                 l.data_mut().extend(other.iter().cloned());
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
-            (List(l), [iterable]) if iterable.is_iterable() => {
+            (Value::List(l), [iterable]) if iterable.is_iterable() => {
                 let l = l.clone();
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
@@ -85,7 +83,7 @@ pub fn make_module() -> ValueMap {
                     }
                 }
 
-                Ok(List(l))
+                Ok(Value::List(l))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -95,11 +93,11 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List and a Value";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [value]) => {
+            (Value::List(l), [value]) => {
                 for v in l.data_mut().iter_mut() {
                     *v = value.clone();
                 }
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -109,9 +107,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => match l.data().first() {
+            (Value::List(l), []) => match l.data().first() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Null),
+                None => Ok(Value::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -122,8 +120,8 @@ pub fn make_module() -> ValueMap {
             let expected_error = "a List and a Number (with optional default value)";
 
             match ctx.instance_and_args(is_list, expected_error)? {
-                (List(list), [Number(n)]) => (list, n, &Null),
-                (List(list), [Number(n), default]) => (list, n, default),
+                (Value::List(list), [Value::Number(n)]) => (list, n, &Value::Null),
+                (Value::List(list), [Value::Number(n), default]) => (list, n, default),
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
         };
@@ -138,14 +136,14 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List, a non-negative Number, and a Value";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [Number(n), value]) if *n >= 0.0 => {
+            (Value::List(l), [Value::Number(n), value]) if *n >= 0.0 => {
                 let index: usize = n.into();
                 if index > l.data().len() {
                     return runtime_error!("list.insert: Index out of bounds");
                 }
 
                 l.data_mut().insert(index, value.clone());
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -155,7 +153,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => Ok(l.data().is_empty().into()),
+            (Value::List(l), []) => Ok(l.data().is_empty().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -164,9 +162,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => match l.data().last() {
+            (Value::List(l), []) => match l.data().last() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Null),
+                None => Ok(Value::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -176,9 +174,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => match l.data_mut().pop() {
+            (Value::List(l), []) => match l.data_mut().pop() {
                 Some(value) => Ok(value),
-                None => Ok(Null),
+                None => Ok(Value::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -188,9 +186,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [value]) => {
+            (Value::List(l), [value]) => {
                 l.data_mut().push(value.clone());
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -200,7 +198,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [Number(n)]) if *n >= 0.0 => {
+            (Value::List(l), [Value::Number(n)]) if *n >= 0.0 => {
                 let index: usize = n.into();
                 if index >= l.data().len() {
                     return runtime_error!(
@@ -220,13 +218,13 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List, a non-negative Number, and an optional Value";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [Number(n)]) if *n >= 0.0 => {
-                l.data_mut().resize(n.into(), Null);
-                Ok(List(l.clone()))
+            (Value::List(l), [Value::Number(n)]) if *n >= 0.0 => {
+                l.data_mut().resize(n.into(), Value::Null);
+                Ok(Value::List(l.clone()))
             }
-            (List(l), [Number(n), value]) if *n >= 0.0 => {
+            (Value::List(l), [Value::Number(n), value]) if *n >= 0.0 => {
                 l.data_mut().resize(n.into(), value.clone());
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -236,7 +234,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List, a non-negative Number, and a function";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [Number(n), f]) if *n >= 0.0 && f.is_callable() => {
+            (Value::List(l), [Value::Number(n), f]) if *n >= 0.0 && f.is_callable() => {
                 let new_size = usize::from(n);
                 let len = l.len();
                 let l = l.clone();
@@ -254,7 +252,7 @@ pub fn make_module() -> ValueMap {
                     Ordering::Equal => {}
                 }
 
-                Ok(List(l))
+                Ok(Value::List(l))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -265,7 +263,7 @@ pub fn make_module() -> ValueMap {
             let expected_error = "a List, and either a predicate function or matching Value";
 
             match ctx.instance_and_args(is_list, expected_error)? {
-                (List(l), [f]) if f.is_callable() => {
+                (Value::List(l), [f]) if f.is_callable() => {
                     let l = l.clone();
                     let f = f.clone();
 
@@ -276,7 +274,7 @@ pub fn make_module() -> ValueMap {
                             .vm
                             .run_function(f.clone(), CallArgs::Single(value.clone()))
                         {
-                            Ok(Bool(result)) => {
+                            Ok(Value::Bool(result)) => {
                                 if result {
                                     l.data_mut()[write_index] = value;
                                     write_index += 1;
@@ -291,10 +289,10 @@ pub fn make_module() -> ValueMap {
                             Err(error) => return Err(error),
                         }
                     }
-                    l.data_mut().resize(write_index, Null);
+                    l.data_mut().resize(write_index, Value::Null);
                     l
                 }
-                (List(l), [value]) => {
+                (Value::List(l), [value]) => {
                     let l = l.clone();
                     let value = value.clone();
 
@@ -307,8 +305,8 @@ pub fn make_module() -> ValueMap {
                             .vm
                             .run_binary_op(BinaryOp::Equal, x.clone(), value.clone())
                         {
-                            Ok(Bool(true)) => true,
-                            Ok(Bool(false)) => false,
+                            Ok(Value::Bool(true)) => true,
+                            Ok(Value::Bool(false)) => false,
                             Ok(unexpected) => {
                                 error = Some(type_error_with_slice(
                                     "a Bool from the equality comparison",
@@ -331,16 +329,16 @@ pub fn make_module() -> ValueMap {
             }
         };
 
-        Ok(List(result))
+        Ok(Value::List(result))
     });
 
     result.add_fn("reverse", |ctx| {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => {
+            (Value::List(l), []) => {
                 l.data_mut().reverse();
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -350,7 +348,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => Ok(Number(l.len().into())),
+            (Value::List(l), []) => Ok(Value::Number(l.len().into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -359,13 +357,13 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List, and an optional key function";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => {
+            (Value::List(l), []) => {
                 let l = l.clone();
                 let mut data = l.data_mut();
                 sort_values(ctx.vm, &mut data)?;
-                Ok(List(l.clone()))
+                Ok(Value::List(l.clone()))
             }
-            (List(l), [f]) if f.is_callable() => {
+            (Value::List(l), [f]) if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
 
@@ -411,7 +409,7 @@ pub fn make_module() -> ValueMap {
                     .map(|(_key, value)| value.clone())
                     .collect::<_>();
 
-                Ok(List(l))
+                Ok(Value::List(l))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -421,9 +419,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "two Lists";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(a), [List(b)]) => {
+            (Value::List(a), [Value::List(b)]) => {
                 std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
-                Ok(Null)
+                Ok(Value::Null)
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -433,7 +431,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), []) => Ok(Value::Tuple(l.data().as_slice().into())),
+            (Value::List(l), []) => Ok(Value::Tuple(l.data().as_slice().into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -442,7 +440,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a List and a function";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (List(l), [f]) if f.is_callable() => {
+            (Value::List(l), [f]) if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
 
@@ -456,7 +454,7 @@ pub fn make_module() -> ValueMap {
                     }
                 }
 
-                Ok(List(l))
+                Ok(Value::List(l))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }

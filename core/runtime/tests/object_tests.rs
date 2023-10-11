@@ -192,7 +192,7 @@ mod objects {
         }
     }
 
-    fn test_object_entries() -> DataMap {
+    fn test_object_entries() -> ValueMap {
         use Value::*;
 
         ObjectEntryBuilder::<TestObject>::new()
@@ -224,7 +224,7 @@ mod objects {
 
     thread_local! {
         static TEST_OBJECT_TYPE_STRING: ValueString = TestObject::TYPE.into();
-        static TEST_OBJECT_ENTRIES: DataMap = test_object_entries();
+        static TEST_OBJECT_ENTRIES: ValueMap = test_object_entries();
     }
 
     #[derive(Clone, Copy, Debug)]

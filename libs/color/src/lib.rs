@@ -7,10 +7,9 @@ pub use color::Color;
 use koto_runtime::{prelude::*, Result};
 use palette::{Hsl, Hsv};
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let mut result = ValueMap::default();
+pub fn make_module() -> KMap {
+    use Value::{Number, Str};
+    let mut result = KMap::default();
 
     result.add_fn("hsl", |ctx| match ctx.args() {
         [Number(h), Number(s), Number(l)] => {

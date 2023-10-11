@@ -9,16 +9,14 @@ use std::convert::TryFrom;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Initializes the `string` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.string");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.string");
 
     result.add_fn("bytes", |ctx| {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => {
+            (Value::Str(s), []) => {
                 let result = iterators::Bytes::new(s.clone());
                 Ok(ValueIterator::new(result).into())
             }
@@ -30,7 +28,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => Ok(Iterator(ValueIterator::with_string(s.clone()))),
+            (Value::Str(s), []) => Ok(Value::Iterator(ValueIterator::with_string(s.clone()))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -39,7 +37,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s1), [Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
+            (Value::Str(s1), [Value::Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -48,7 +46,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), [Str(pattern)]) => Ok(s.as_str().ends_with(pattern.as_str()).into()),
+            (Value::Str(s), [Value::Str(pattern)]) => {
+                Ok(s.as_str().ends_with(pattern.as_str()).into())
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -57,7 +57,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => Ok(s.escape_default().to_string().into()),
+            (Value::Str(s), []) => Ok(s.escape_default().to_string().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -66,8 +66,8 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String optionally followed by additional values";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => Ok(Str(s.clone())),
-            (Str(format), format_args) => {
+            (Value::Str(s), []) => Ok(Value::Str(s.clone())),
+            (Value::Str(format), format_args) => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
                 match format::format_string(ctx.vm, &format, &format_args) {
@@ -89,7 +89,7 @@ pub fn make_module() -> ValueMap {
             for output in iterator.map(collect_pair) {
                 use ValueIteratorOutput as Output;
                 match output {
-                    Output::Value(Number(n)) => match u8::try_from(n.as_i64()) {
+                    Output::Value(Value::Number(n)) => match u8::try_from(n.as_i64()) {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },
@@ -111,7 +111,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => Ok(s.is_empty().into()),
+            (Value::Str(s), []) => Ok(s.is_empty().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -120,7 +120,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => {
+            (Value::Str(s), []) => {
                 let result = iterators::Lines::new(s.clone());
                 Ok(ValueIterator::new(result).into())
             }
@@ -132,7 +132,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String, followed by pattern and replacement Strings";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(input), [Str(pattern), Str(replace)]) => {
+            (Value::Str(input), [Value::Str(pattern), Value::Str(replace)]) => {
                 Ok(input.replace(pattern.as_str(), replace).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -143,7 +143,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => Ok(s.graphemes(true).count().into()),
+            (Value::Str(s), []) => Ok(s.graphemes(true).count().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -153,11 +153,11 @@ pub fn make_module() -> ValueMap {
             let expected_error = "a String, and either a String or a predicate function";
 
             match ctx.instance_and_args(is_string, expected_error)? {
-                (Str(input), [Str(pattern)]) => {
+                (Value::Str(input), [Value::Str(pattern)]) => {
                     let result = iterators::Split::new(input.clone(), pattern.clone());
                     ValueIterator::new(result)
                 }
-                (Str(input), [predicate]) if predicate.is_callable() => {
+                (Value::Str(input), [predicate]) if predicate.is_callable() => {
                     let result = iterators::SplitWith::new(
                         input.clone(),
                         predicate.clone(),
@@ -169,14 +169,16 @@ pub fn make_module() -> ValueMap {
             }
         };
 
-        Ok(Iterator(iterator))
+        Ok(Value::Iterator(iterator))
     });
 
     result.add_fn("starts_with", |ctx| {
         let expected_error = "two Strings";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), [Str(pattern)]) => Ok(s.as_str().starts_with(pattern.as_str()).into()),
+            (Value::Str(s), [Value::Str(pattern)]) => {
+                Ok(s.as_str().starts_with(pattern.as_str()).into())
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -185,7 +187,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => {
+            (Value::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
                 Ok(result.into())
             }
@@ -197,10 +199,10 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => match s.parse::<i64>() {
-                Ok(n) => Ok(Number(n.into())),
+            (Value::Str(s), []) => match s.parse::<i64>() {
+                Ok(n) => Ok(n.into()),
                 Err(_) => match s.parse::<f64>() {
-                    Ok(n) => Ok(Number(n.into())),
+                    Ok(n) => Ok(n.into()),
                     Err(_) => {
                         runtime_error!("string.to_number: Failed to convert '{s}'")
                     }
@@ -214,7 +216,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => {
+            (Value::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
                 Ok(result.into())
             }
@@ -226,7 +228,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Str(s), []) => {
+            (Value::Str(s), []) => {
                 let result = match s.find(|c: char| !c.is_whitespace()) {
                     Some(start) => {
                         let end = s.rfind(|c: char| !c.is_whitespace()).unwrap();

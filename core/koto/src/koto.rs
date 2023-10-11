@@ -64,12 +64,12 @@ impl Koto {
     }
 
     /// Returns a reference to the runtime's prelude
-    pub fn prelude(&self) -> &ValueMap {
+    pub fn prelude(&self) -> &KMap {
         self.runtime.prelude()
     }
 
     /// Returns a reference to the runtime's exports
-    pub fn exports(&self) -> &ValueMap {
+    pub fn exports(&self) -> &KMap {
         self.runtime.exports()
     }
 

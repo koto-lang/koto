@@ -6,7 +6,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// The key type used by [DataMap](crate::DataMap)
+/// The key type used by [ValueMap](crate::ValueMap)
 ///
 /// Only hashable values can be used as keys, see [Value::is_hashable]
 #[derive(Clone)]

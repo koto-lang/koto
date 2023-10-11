@@ -116,7 +116,7 @@ impl KotoObject for Vec2 {
     }
 }
 
-fn make_vec2_entries() -> DataMap {
+fn make_vec2_entries() -> ValueMap {
     ObjectEntryBuilder::<Vec2>::new()
         .method("angle", |ctx| {
             Ok(Inner::X.angle_between(**ctx.instance()?).into())
@@ -129,7 +129,7 @@ fn make_vec2_entries() -> DataMap {
 
 thread_local! {
     static VEC2_TYPE_STRING: ValueString = Vec2::TYPE.into();
-    static VEC2_ENTRIES: DataMap = make_vec2_entries();
+    static VEC2_ENTRIES: ValueMap = make_vec2_entries();
 }
 
 impl Deref for Vec2 {

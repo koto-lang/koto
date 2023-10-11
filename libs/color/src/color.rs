@@ -258,7 +258,7 @@ impl KotoObject for Color {
     }
 }
 
-fn make_color_entries() -> DataMap {
+fn make_color_entries() -> ValueMap {
     use Value::{Number, Object};
 
     ObjectEntryBuilder::<Color>::new()
@@ -315,7 +315,7 @@ fn make_color_entries() -> DataMap {
 
 thread_local! {
     static COLOR_TYPE_STRING: ValueString = Color::TYPE.into();
-    static COLOR_ENTRIES: DataMap = make_color_entries();
+    static COLOR_ENTRIES: ValueMap = make_color_entries();
 }
 
 impl Deref for Color {

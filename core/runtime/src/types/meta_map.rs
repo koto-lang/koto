@@ -9,9 +9,9 @@ use std::{
 
 type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
 
-/// The meta map used by [ValueMap](crate::ValueMap)
+/// The meta map used by [KMap](crate::KMap)
 ///
-/// Each ValueMap contains a metamap, which allows for customized value behaviour by implementing
+/// Each KMap contains a metamap, which allows for customized value behaviour by implementing
 /// [MetaKeys](crate::MetaKey).
 #[derive(Clone, Default)]
 pub struct MetaMap(MetaMapType);
@@ -66,7 +66,7 @@ pub enum MetaKey {
     ///
     /// e.g. `@meta my_named_key`
     ///
-    /// Named entries are used in [ValueMaps][crate::ValueMap], so that shared named items can be
+    /// Named entries are used in [KMaps][crate::KMap], so that shared named items can be
     /// made available without them being inserted into the map's contents.
     Named(ValueString),
     /// A test function
@@ -75,7 +75,7 @@ pub enum MetaKey {
     Test(ValueString),
     /// `@tests`
     ///
-    /// Tests are defined together in a [ValueMap](crate::ValueMap).
+    /// Tests are defined together in a [KMap](crate::KMap).
     Tests,
     /// `@pre_test`
     ///

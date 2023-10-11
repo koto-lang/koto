@@ -13,28 +13,28 @@ pub mod test;
 pub mod tuple;
 mod value_sort;
 
-use crate::ValueMap;
+use crate::KMap;
 
 #[derive(Clone)]
 #[allow(missing_docs)]
 pub struct CoreLib {
-    pub io: ValueMap,
-    pub iterator: ValueMap,
-    pub koto: ValueMap,
-    pub list: ValueMap,
-    pub map: ValueMap,
-    pub os: ValueMap,
-    pub number: ValueMap,
-    pub range: ValueMap,
-    pub string: ValueMap,
-    pub test: ValueMap,
-    pub tuple: ValueMap,
+    pub io: KMap,
+    pub iterator: KMap,
+    pub koto: KMap,
+    pub list: KMap,
+    pub map: KMap,
+    pub os: KMap,
+    pub number: KMap,
+    pub range: KMap,
+    pub string: KMap,
+    pub test: KMap,
+    pub tuple: KMap,
 }
 
 impl CoreLib {
     /// The core lib items made available in each Koto script
-    pub fn prelude(&self) -> ValueMap {
-        let result = ValueMap::default();
+    pub fn prelude(&self) -> KMap {
+        let result = KMap::default();
         result.add_map("io", self.io.clone());
         result.add_map("iterator", self.iterator.clone());
         result.add_map("koto", self.koto.clone());

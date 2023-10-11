@@ -113,7 +113,7 @@ impl KotoObject for Vec3 {
     }
 }
 
-fn make_vec3_entries() -> DataMap {
+fn make_vec3_entries() -> ValueMap {
     ObjectEntryBuilder::<Vec3>::new()
         .method("sum", |ctx| {
             let v = ctx.instance()?;
@@ -127,7 +127,7 @@ fn make_vec3_entries() -> DataMap {
 
 thread_local! {
     static VEC3_TYPE_STRING: ValueString = Vec3::TYPE.into();
-    static VEC3_ENTRIES: DataMap = make_vec3_entries();
+    static VEC3_ENTRIES: ValueMap = make_vec3_entries();
 }
 
 impl Deref for Vec3 {

@@ -1,8 +1,8 @@
 use crate::Poetry;
 use koto::prelude::*;
 
-pub fn make_module() -> ValueMap {
-    let result = ValueMap::with_type("poetry");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("poetry");
 
     result.add_fn("new", {
         |ctx| match ctx.args() {

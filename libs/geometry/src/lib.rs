@@ -12,10 +12,10 @@ pub use vec3::Vec3;
 
 use koto_runtime::prelude::*;
 
-pub fn make_module() -> ValueMap {
-    use Value::*;
+pub fn make_module() -> KMap {
+    use Value::{Number, Object};
 
-    let result = ValueMap::with_type("geometry");
+    let result = KMap::with_type("geometry");
 
     result.add_fn("rect", |ctx| {
         let (x, y, width, height) = match ctx.args() {

@@ -22,7 +22,7 @@ pub use self::{
     value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},
-    value_map::{DataMap, KotoHasher, ValueMap},
+    value_map::{KMap, KotoHasher, ValueMap},
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,

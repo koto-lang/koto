@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, ExternalFunction, Result};
+use crate::{prelude::*, ExternalFunction, KMap, Result};
 use koto_bytecode::Chunk;
 use std::fmt::Write;
 
@@ -27,7 +27,7 @@ pub enum Value {
     Tuple(ValueTuple),
 
     /// The hash map type used in Koto
-    Map(ValueMap),
+    Map(KMap),
 
     /// The string type used in Koto
     Str(ValueString),
@@ -61,35 +61,33 @@ impl Value {
     ///
     /// This is used by koto.deep_copy.
     pub fn deep_copy(&self) -> Result<Value> {
-        use Value::*;
-
         let result = match &self {
-            List(l) => {
+            Value::List(l) => {
                 let result = l
                     .data()
                     .iter()
                     .map(|v| v.deep_copy())
                     .collect::<Result<_>>()?;
-                List(ValueList::with_data(result))
+                Value::List(ValueList::with_data(result))
             }
-            Tuple(t) => {
+            Value::Tuple(t) => {
                 let result = t
                     .iter()
                     .map(|v| v.deep_copy())
                     .collect::<Result<Vec<_>>>()?;
-                Tuple(result.into())
+                Value::Tuple(result.into())
             }
-            Map(m) => {
+            Value::Map(m) => {
                 let data = m
                     .data()
                     .iter()
                     .map(|(k, v)| v.deep_copy().map(|v| (k.clone(), v)))
                     .collect::<Result<_>>()?;
                 let meta = m.meta_map().map(|meta| meta.borrow().clone());
-                Map(ValueMap::with_contents(data, meta))
+                Value::Map(KMap::with_contents(data, meta))
             }
-            Iterator(i) => Iterator(i.make_copy()?),
-            Object(o) => Object(o.try_borrow()?.copy()),
+            Value::Iterator(i) => Value::Iterator(i.make_copy()?),
+            Value::Object(o) => Value::Object(o.try_borrow()?.copy()),
             _ => self.clone(),
         };
 
@@ -314,8 +312,8 @@ impl From<ValueTuple> for Value {
     }
 }
 
-impl From<ValueMap> for Value {
-    fn from(value: ValueMap) -> Self {
+impl From<KMap> for Value {
+    fn from(value: KMap) -> Self {
         Self::Map(value)
     }
 }

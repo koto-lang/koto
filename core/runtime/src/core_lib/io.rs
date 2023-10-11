@@ -12,10 +12,10 @@ use std::{
 };
 
 /// The initializer for the io module
-pub fn make_module() -> ValueMap {
+pub fn make_module() -> KMap {
     use Value::{Bool, Null, Str};
 
-    let result = ValueMap::with_type("core.io");
+    let result = KMap::with_type("core.io");
 
     result.add_fn("create", {
         move |ctx| match ctx.args() {
@@ -217,7 +217,7 @@ impl From<File> for Value {
     }
 }
 
-fn file_entries() -> DataMap {
+fn file_entries() -> ValueMap {
     use Value::*;
 
     ObjectEntryBuilder::<File>::new()
@@ -277,7 +277,7 @@ fn file_entries() -> DataMap {
 
 thread_local! {
     static FILE_TYPE_STRING: ValueString = File::TYPE.into();
-    static FILE_ENTRIES: DataMap = file_entries();
+    static FILE_ENTRIES: ValueMap = file_entries();
 }
 
 struct BufferedSystemFile<T>

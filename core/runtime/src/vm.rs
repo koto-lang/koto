@@ -50,7 +50,7 @@ struct VmContext {
     // The settings that were used to initialize the runtime
     settings: VmSettings,
     // The runtime's prelude
-    prelude: ValueMap,
+    prelude: KMap,
     // The runtime's core library
     core_lib: CoreLib,
     // The module loader used to compile imported modules
@@ -118,7 +118,7 @@ impl Default for VmSettings {
 #[derive(Clone)]
 pub struct Vm {
     // The exports map for the current module
-    exports: ValueMap,
+    exports: KMap,
     // Context shared by all VMs in the runtime
     context: Rc<VmContext>,
     // The VM's instruction reader, containing a pointer to the bytecode chunk that's being executed
@@ -145,7 +145,7 @@ impl Vm {
     /// Initializes a Koto VM with the provided settings
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
-            exports: ValueMap::default(),
+            exports: KMap::default(),
             context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
             registers: Vec::with_capacity(32),
@@ -182,7 +182,7 @@ impl Vm {
     }
 
     /// The prelude, containing items that can be imported within all modules
-    pub fn prelude(&self) -> &ValueMap {
+    pub fn prelude(&self) -> &KMap {
         &self.context.prelude
     }
 
@@ -190,7 +190,7 @@ impl Vm {
     ///
     /// Note that this is the exports map of the active module, so during execution the returned
     /// map will be of the module that's currently being executed.
-    pub fn exports(&self) -> &ValueMap {
+    pub fn exports(&self) -> &KMap {
         &self.exports
     }
 
@@ -550,7 +550,7 @@ impl Vm {
     /// Runs any tests that are contained in the map's @tests meta entry
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, tests: ValueMap) -> Result<Value> {
+    pub fn run_tests(&mut self, tests: KMap) -> Result<Value> {
         use Value::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
@@ -723,7 +723,7 @@ impl Vm {
             MakeMap {
                 register,
                 size_hint,
-            } => self.set_register(register, ValueMap::with_capacity(size_hint as usize).into()),
+            } => self.set_register(register, KMap::with_capacity(size_hint as usize).into()),
             SequenceStart { size_hint } => self
                 .sequence_builders
                 .push(Vec::with_capacity(size_hint as usize)),
@@ -1847,7 +1847,7 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of maps
-    fn compare_value_maps(&mut self, map_a: ValueMap, map_b: ValueMap) -> Result<bool> {
+    fn compare_value_maps(&mut self, map_a: KMap, map_b: KMap) -> Result<bool> {
         if map_a.len() != map_b.len() {
             return Ok(false);
         }
@@ -2023,7 +2023,7 @@ impl Vm {
         // Cache the current exports map and prepare an empty exports map for the module
         // that's being imported.
         let importer_exports = self.exports.clone();
-        self.exports = ValueMap::default();
+        self.exports = KMap::default();
 
         // Execute the following steps in a closure to ensure that cleanup is performed afterwards
         let import_result = {
@@ -2397,7 +2397,7 @@ impl Vm {
     fn get_core_op(
         &self,
         key: &ValueKey,
-        module: &ValueMap,
+        module: &KMap,
         iterator_fallback: bool,
         module_name: &str,
     ) -> Result<Value> {
@@ -2987,8 +2987,8 @@ pub enum CallArgs<'a> {
 
 // A cache of the export maps of imported modules
 //
-// The ValueMap is optional to prevent recursive imports (see Vm::run_import).
-type ModuleCache = HashMap<PathBuf, Option<ValueMap>, BuildHasherDefault<FxHasher>>;
+// The Map is optional to prevent recursive imports (see Vm::run_import).
+type ModuleCache = HashMap<PathBuf, Option<KMap>, BuildHasherDefault<FxHasher>>;
 
 // A frame in the VM's call stack
 #[derive(Clone, Debug)]

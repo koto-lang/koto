@@ -75,7 +75,7 @@ pub trait KotoObject: Downcast {
     /// does not match any entry within the object, `None` should be returned.
     ///
     /// The recommended pattern for complex objects is to use an [ObjectEntryBuilder] to create a
-    /// cached [DataMap], which helps to avoid the cost of recreating values for each lookup.
+    /// cached [ValueMap], which helps to avoid the cost of recreating values for each lookup.
     ///
     /// See the [ObjectEntryBuilder] docs for an example.
     fn lookup(&self, _key: &ValueKey) -> Option<Value> {
@@ -312,18 +312,16 @@ pub trait KotoType {
 ///     }
 /// }
 ///
-/// fn make_foo_entries() -> DataMap {
-///     use Value::*;
-///
+/// fn make_foo_entries() -> ValueMap {
 ///     ObjectEntryBuilder::<Foo>::new()
 ///         .method_aliased(&["data", "get_data"], |ctx| Ok(ctx.instance()?.data.into()))
 ///         .method("set_data", |ctx| {
 ///             let new_data = match ctx.args {
-///                 [Object(o)] if o.is_a::<Foo>() => {
+///                 [Value::Object(o)] if o.is_a::<Foo>() => {
 ///                     // .unwrap() is safe here, the is_a guard guarantees a successful cast
 ///                     o.cast::<Foo>().unwrap().data
 ///                 }
-///                 [Number(n)] => n.into(),
+///                 [Value::Number(n)] => n.into(),
 ///                 unexpected => return type_error_with_slice("a Number", unexpected),
 ///             };
 ///
@@ -337,12 +335,12 @@ pub trait KotoType {
 ///
 /// thread_local! {
 ///     static FOO_TYPE_STRING: ValueString = Foo::TYPE.into();
-///     static FOO_ENTRIES: DataMap = make_foo_entries();
+///     static FOO_ENTRIES: ValueMap = make_foo_entries();
 /// }
 /// ```
 pub struct ObjectEntryBuilder<T: KotoObject + KotoType> {
     // The map that's being built
-    map: DataMap,
+    map: ValueMap,
     // We want to have T available through the implementation
     _phantom: PhantomData<T>,
 }
@@ -350,7 +348,7 @@ pub struct ObjectEntryBuilder<T: KotoObject + KotoType> {
 impl<T: KotoObject + KotoType> Default for ObjectEntryBuilder<T> {
     fn default() -> Self {
         Self {
-            map: DataMap::default(),
+            map: ValueMap::default(),
             _phantom: PhantomData,
         }
     }
@@ -363,7 +361,7 @@ impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
     }
 
     /// Returns the resulting DataMap, consuming the builder
-    pub fn build(self) -> DataMap {
+    pub fn build(self) -> ValueMap {
         self.map
     }
 

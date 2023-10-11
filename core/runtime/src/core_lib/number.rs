@@ -3,10 +3,8 @@
 use crate::prelude::*;
 
 /// Initializes the `number` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.number");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.number");
 
     macro_rules! number_fn {
         ($fn:ident) => {
@@ -17,7 +15,7 @@ pub fn make_module() -> ValueMap {
                 let expected_error = "a Number";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
-                    (Number(n), []) => Ok(Number(n.$fn())),
+                    (Value::Number(n), []) => Ok(Value::Number(n.$fn())),
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             });
@@ -33,7 +31,7 @@ pub fn make_module() -> ValueMap {
                 let expected_error = "a Number";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
-                    (Number(n), []) => Ok(Number(f64::from(n).$fn().into())),
+                    (Value::Number(n), []) => Ok(Value::Number(f64::from(n).$fn().into())),
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             });
@@ -47,7 +45,7 @@ pub fn make_module() -> ValueMap {
                 let expected_error = "two Integers";
 
                 match ctx.instance_and_args(is_integer, expected_error)? {
-                    (Number(I64(a)), [Number(I64(b))]) => Ok(Number((a $op b).into())),
+                    (Value::Number(I64(a)), [Value::Number(I64(b))]) => Ok((a $op b).into()),
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             })
@@ -62,7 +60,7 @@ pub fn make_module() -> ValueMap {
                 let expected_error = "two Integers (with non-negative second Integer)";
 
                 match ctx.instance_and_args(is_integer, expected_error)? {
-                    (Number(I64(a)), [Number(I64(b))]) if *b >= 0 => Ok(Number((a $op b).into())),
+                    (Value::Number(I64(a)), [Value::Number(I64(b))]) if *b >= 0 => Ok((a $op b).into()),
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             })
@@ -82,9 +80,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "two Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(y), [Number(x)]) => {
+            (Value::Number(y), [Value::Number(x)]) => {
                 let result = f64::from(y).atan2(f64::from(x));
-                Ok(Number(result.into()))
+                Ok(Value::Number(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -96,7 +94,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "three Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(x), [Number(a), Number(b)]) => Ok(Number(*a.max(b.min(x)))),
+            (Value::Number(x), [Value::Number(a), Value::Number(b)]) => {
+                Ok(Value::Number(*a.max(b.min(x))))
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -105,7 +105,7 @@ pub fn make_module() -> ValueMap {
     number_f64_fn!(cosh);
     number_f64_fn!("degrees", to_degrees);
 
-    result.add_value("e", Number(std::f64::consts::E.into()));
+    result.add_value("e", std::f64::consts::E.into());
 
     number_f64_fn!(exp);
     number_f64_fn!(exp2);
@@ -114,20 +114,20 @@ pub fn make_module() -> ValueMap {
         let expected_error = "an Integer";
 
         match ctx.instance_and_args(is_integer, expected_error)? {
-            (Number(ValueNumber::I64(n)), []) => Ok(Number((!n).into())),
+            (Value::Number(ValueNumber::I64(n)), []) => Ok((!n).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
 
     number_fn!(floor);
 
-    result.add_value("infinity", Number(std::f64::INFINITY.into()));
+    result.add_value("infinity", Value::Number(std::f64::INFINITY.into()));
 
     result.add_fn("is_nan", |ctx| {
         let expected_error = "a Number";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(n), []) => Ok(n.is_nan().into()),
+            (Value::Number(n), []) => Ok(n.is_nan().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -136,7 +136,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "three Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(a), [Number(b), Number(t)]) => {
+            (Value::Number(a), [Value::Number(b), Value::Number(t)]) => {
                 let result = *a + (b - a) * *t;
                 Ok(result.into())
             }
@@ -152,7 +152,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "two Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(a), [Number(b)]) => Ok(Number(*a.max(b))),
+            (Value::Number(a), [Value::Number(b)]) => Ok(Value::Number(*a.max(b))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -161,25 +161,25 @@ pub fn make_module() -> ValueMap {
         let expected_error = "two Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(a), [Number(b)]) => Ok(Number(*a.min(b))),
+            (Value::Number(a), [Value::Number(b)]) => Ok(Value::Number(*a.min(b))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
 
-    result.add_value("nan", Number(std::f64::NAN.into()));
-    result.add_value("negative_infinity", Number(std::f64::NEG_INFINITY.into()));
+    result.add_value("nan", std::f64::NAN.into());
+    result.add_value("negative_infinity", std::f64::NEG_INFINITY.into());
 
     bitwise_fn!(or, |);
 
-    result.add_value("pi", Number(std::f64::consts::PI.into()));
-    result.add_value("pi_2", Number(std::f64::consts::FRAC_PI_2.into()));
-    result.add_value("pi_4", Number(std::f64::consts::FRAC_PI_4.into()));
+    result.add_value("pi", Value::Number(std::f64::consts::PI.into()));
+    result.add_value("pi_2", Value::Number(std::f64::consts::FRAC_PI_2.into()));
+    result.add_value("pi_4", Value::Number(std::f64::consts::FRAC_PI_4.into()));
 
     result.add_fn("pow", |ctx| {
         let expected_error = "two Numbers";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(a), [Number(b)]) => Ok(Number(a.pow(*b))),
+            (Value::Number(a), [Value::Number(b)]) => Ok(Value::Number(a.pow(*b))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -197,13 +197,13 @@ pub fn make_module() -> ValueMap {
     number_f64_fn!(tan);
     number_f64_fn!(tanh);
 
-    result.add_value("tau", Number(std::f64::consts::TAU.into()));
+    result.add_value("tau", std::f64::consts::TAU.into());
 
     result.add_fn("to_float", |ctx| {
         let expected_error = "a Number";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(n), []) => Ok(Number(f64::from(n).into())),
+            (Value::Number(n), []) => Ok(f64::from(n).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -212,7 +212,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Number";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(n), []) => Ok(Number(i64::from(n).into())),
+            (Value::Number(n), []) => Ok(i64::from(n).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });

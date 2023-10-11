@@ -3,17 +3,15 @@
 use crate::prelude::*;
 
 /// Initializes the `range` core library module
-pub fn make_module() -> ValueMap {
-    use Value::*;
-
-    let result = ValueMap::with_type("core.range");
+pub fn make_module() -> KMap {
+    let result = KMap::with_type("core.range");
 
     result.add_fn("contains", |ctx| {
         let expected_error = "a Range, and a Number or another Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), [Number(n)]) => Ok(r.contains(*n).into()),
-            (Range(a), [Range(b)]) => {
+            (Value::Range(r), [Value::Number(n)]) => Ok(r.contains(*n).into()),
+            (Value::Range(a), [Value::Range(b)]) => {
                 let r_a = a.as_sorted_range();
                 let r_b = b.as_sorted_range();
                 let result = r_b.start >= r_a.start && r_b.end <= r_a.end;
@@ -27,7 +25,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), []) => Ok(r.end().map_or(Null, |(end, _inclusive)| end.into())),
+            (Value::Range(r), []) => {
+                Ok(r.end().map_or(Value::Null, |(end, _inclusive)| end.into()))
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -36,7 +36,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range and Number";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), [Number(n)]) => match (r.start(), r.end()) {
+            (Value::Range(r), [Value::Number(n)]) => match (r.start(), r.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let n = i64::from(n);
                     let result = if r.is_ascending() {
@@ -56,7 +56,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "two Ranges";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(a), [Range(b)]) => Ok(a.intersection(b).map_or(Null, |result| result.into())),
+            (Value::Range(a), [Value::Range(b)]) => Ok(a
+                .intersection(b)
+                .map_or(Value::Null, |result| result.into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -65,7 +67,9 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), []) => Ok(r.end().map_or(false, |(_end, inclusive)| inclusive).into()),
+            (Value::Range(r), []) => {
+                Ok(r.end().map_or(false, |(_end, inclusive)| inclusive).into())
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -74,7 +78,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), []) => match r.size() {
+            (Value::Range(r), []) => match r.size() {
                 Some(size) => Ok(size.into()),
                 None => runtime_error!("range.size can't be used with '{r}'"),
             },
@@ -86,7 +90,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), []) => Ok(r.start().map_or(Null, Value::from)),
+            (Value::Range(r), []) => Ok(r.start().map_or(Value::Null, Value::from)),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -95,7 +99,7 @@ pub fn make_module() -> ValueMap {
         let expected_error = "a Range, and a Number or another Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Range(r), [Number(n)]) => {
+            (Value::Range(r), [Value::Number(n)]) => {
                 let n = i64::from(n);
                 match (r.start(), r.end()) {
                     (Some(start), Some((end, inclusive))) => {
@@ -109,7 +113,7 @@ pub fn make_module() -> ValueMap {
                     _ => runtime_error!("range.union can't be used with '{r}'"),
                 }
             }
-            (Range(a), [Range(b)]) => match (a.start(), a.end()) {
+            (Value::Range(a), [Value::Range(b)]) => match (a.start(), a.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let r_b = b.as_sorted_range();
                     let result = if start <= end {

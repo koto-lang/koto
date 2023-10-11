@@ -108,7 +108,7 @@ impl ValueIterator {
     }
 
     /// Creates a new ValueIterator from a Map
-    pub fn with_map(map: ValueMap) -> Self {
+    pub fn with_map(map: KMap) -> Self {
         Self::new(MapIterator::new(map))
     }
 
@@ -335,13 +335,13 @@ impl Iterator for TupleIterator {
 
 #[derive(Clone)]
 struct MapIterator {
-    data: ValueMap,
+    data: KMap,
     index: usize,
     end: usize,
 }
 
 impl MapIterator {
-    fn new(data: ValueMap) -> Self {
+    fn new(data: KMap) -> Self {
         let end = data.len();
         Self {
             data,

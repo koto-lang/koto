@@ -6,10 +6,10 @@ use instant::Instant;
 use std::ops::Deref;
 
 /// Initializes the `os` core library module
-pub fn make_module() -> ValueMap {
+pub fn make_module() -> KMap {
     use Value::Number;
 
-    let result = ValueMap::with_type("core.os");
+    let result = KMap::with_type("core.os");
 
     result.add_fn("name", |_| Ok(std::env::consts::OS.into()));
 
@@ -93,7 +93,7 @@ impl KotoObject for DateTime {
     }
 }
 
-fn datetime_entries() -> DataMap {
+fn datetime_entries() -> ValueMap {
     ObjectEntryBuilder::<DateTime>::new()
         .method("day", |ctx| Ok(ctx.instance()?.day().into()))
         .method("hour", |ctx| Ok(ctx.instance()?.hour().into()))
@@ -118,7 +118,7 @@ fn datetime_entries() -> DataMap {
 
 thread_local! {
     static DATETIME_TYPE_STRING: ValueString = DateTime::TYPE.into();
-    static DATETIME_ENTRIES: DataMap = datetime_entries();
+    static DATETIME_ENTRIES: ValueMap = datetime_entries();
 }
 
 /// The underlying data type returned by `os.start_timer()`
@@ -184,7 +184,7 @@ impl KotoObject for Timer {
     }
 }
 
-fn named_timer_entries() -> DataMap {
+fn named_timer_entries() -> ValueMap {
     ObjectEntryBuilder::<Timer>::new()
         .method("elapsed", |ctx| {
             Ok(ctx.instance()?.elapsed_seconds().into())
@@ -194,5 +194,5 @@ fn named_timer_entries() -> DataMap {
 
 thread_local! {
     static TIMER_TYPE_STRING: ValueString = Timer::TYPE.into();
-    static TIMER_ENTRIES: DataMap = named_timer_entries();
+    static TIMER_ENTRIES: ValueMap = named_timer_entries();
 }
