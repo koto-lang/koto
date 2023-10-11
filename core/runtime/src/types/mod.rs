@@ -1,5 +1,6 @@
 //! The core types used in the Koto runtime
 
+mod function;
 mod iterator;
 mod list;
 mod map;
@@ -14,6 +15,7 @@ pub mod value;
 mod value_key;
 
 pub use self::{
+    function::{KCaptureFunction, KFunction},
     iterator::{KIterator, KIteratorOutput, KotoIterator},
     list::{KList, ValueVec},
     map::{KMap, KotoHasher, ValueMap},
@@ -24,6 +26,6 @@ pub use self::{
     range::KRange,
     string::KString,
     tuple::KTuple,
-    value::{KCaptureFunction, KFunction, Value},
+    value::Value,
     value_key::ValueKey,
 };
