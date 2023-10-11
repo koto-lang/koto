@@ -990,13 +990,13 @@ impl Vm {
 
         let range = match (start, end) {
             (Some(Number(start)), Some(Number(end))) => {
-                IntRange::bounded(start.into(), end.into(), inclusive)
+                KRange::bounded(start.into(), end.into(), inclusive)
             }
-            (Some(Number(start)), None) => IntRange::from(start.into()),
-            (None, Some(Number(end))) => IntRange::to(end.into(), inclusive),
+            (Some(Number(start)), None) => KRange::from(start.into()),
+            (None, Some(Number(end))) => KRange::to(end.into(), inclusive),
             (Some(unexpected), _) => return type_error("Number for range start", unexpected),
             (_, Some(unexpected)) => return type_error("Number for range end", unexpected),
-            (None, None) => IntRange::unbounded(),
+            (None, None) => KRange::unbounded(),
         };
 
         self.set_register(register, range.into());

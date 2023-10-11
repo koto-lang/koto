@@ -93,7 +93,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a Range
-    pub fn with_range(range: IntRange) -> Result<Self> {
+    pub fn with_range(range: KRange) -> Result<Self> {
         Ok(Self::new(RangeIterator::new(range)?))
     }
 
@@ -185,11 +185,11 @@ type Output = KIteratorOutput;
 
 #[derive(Clone)]
 struct RangeIterator {
-    range: IntRange,
+    range: KRange,
 }
 
 impl RangeIterator {
-    fn new(range: IntRange) -> Result<Self> {
+    fn new(range: KRange) -> Result<Self> {
         if range.is_bounded() {
             Ok(Self { range })
         } else {

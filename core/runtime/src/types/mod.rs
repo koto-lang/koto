@@ -15,7 +15,7 @@ mod value_tuple;
 
 pub use self::{
     external_function::{CallContext, ExternalFunction},
-    int_range::IntRange,
+    int_range::KRange,
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
     object::{IsIterable, KotoObject, KotoType, MethodContext, Object, ObjectEntryBuilder},
     value::{CaptureFunctionInfo, FunctionInfo, Value},

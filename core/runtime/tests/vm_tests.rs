@@ -187,16 +187,16 @@ a %= 5
 
         #[test]
         fn range() {
-            test_script("0..10", Value::Range(IntRange::bounded(0, 10, false)));
-            test_script("0..-10", Value::Range(IntRange::bounded(0, -10, false)));
-            test_script("1 + 1..2 + 2", Value::Range(IntRange::bounded(2, 4, false)));
+            test_script("0..10", Value::Range(KRange::bounded(0, 10, false)));
+            test_script("0..-10", Value::Range(KRange::bounded(0, -10, false)));
+            test_script("1 + 1..2 + 2", Value::Range(KRange::bounded(2, 4, false)));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", Value::Range(IntRange::bounded(10, 20, true)));
-            test_script("4..=0", Value::Range(IntRange::bounded(4, 0, true)));
-            test_script("2 * 2..=3 * 3", Value::Range(IntRange::bounded(4, 9, true)));
+            test_script("10..=20", Value::Range(KRange::bounded(10, 20, true)));
+            test_script("4..=0", Value::Range(KRange::bounded(4, 0, true)));
+            test_script("2 * 2..=3 * 3", Value::Range(KRange::bounded(4, 9, true)));
         }
     }
 

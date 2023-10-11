@@ -18,7 +18,7 @@ pub enum Value {
     Number(KNumber),
 
     /// A range with start/end boundaries
-    Range(IntRange),
+    Range(KRange),
 
     /// The list type used in Koto
     List(KList),
@@ -276,8 +276,8 @@ impl From<KNumber> for Value {
     }
 }
 
-impl From<IntRange> for Value {
-    fn from(value: IntRange) -> Self {
+impl From<KRange> for Value {
+    fn from(value: KRange) -> Self {
         Self::Range(value)
     }
 }
