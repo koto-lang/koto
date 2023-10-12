@@ -193,7 +193,7 @@ pub enum SyntaxError {
 /// See [ParserError]
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
-pub enum ParserErrorType {
+pub enum ParserErrorKind {
     #[error(transparent)]
     InternalError(#[from] InternalError),
     #[error(transparent)]
@@ -206,20 +206,20 @@ pub enum ParserErrorType {
 #[derive(Clone, Debug)]
 pub struct ParserError {
     /// The error itself
-    pub error: ParserErrorType,
+    pub error: ParserErrorKind,
     /// The span in the source string where the error occurred
     pub span: Span,
 }
 
 impl ParserError {
     /// Initializes a parser error with the specific error type and its associated span
-    pub fn new(error: ParserErrorType, span: Span) -> Self {
+    pub fn new(error: ParserErrorKind, span: Span) -> Self {
         Self { error, span }
     }
 
     /// Returns true if the error was caused by the expectation of indentation
     pub fn is_indentation_error(&self) -> bool {
-        matches!(self.error, ParserErrorType::ExpectedIndentation(_))
+        matches!(self.error, ParserErrorKind::ExpectedIndentation(_))
     }
 }
 

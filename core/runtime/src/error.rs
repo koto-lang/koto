@@ -12,7 +12,7 @@ pub struct ErrorFrame {
 
 /// The different error types that can be thrown by the Koto runtime
 #[derive(Clone)]
-pub(crate) enum RuntimeErrorType {
+pub(crate) enum RuntimeErrorKind {
     /// A runtime error message
     StringError(String),
     /// An error thrown by a Koto script
@@ -29,9 +29,9 @@ pub(crate) enum RuntimeErrorType {
     },
 }
 
-impl fmt::Display for RuntimeErrorType {
+impl fmt::Display for RuntimeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use RuntimeErrorType::*;
+        use RuntimeErrorKind::*;
 
         match self {
             StringError(s) => f.write_str(s),
@@ -50,7 +50,7 @@ impl fmt::Display for RuntimeErrorType {
     }
 }
 
-impl fmt::Debug for RuntimeErrorType {
+impl fmt::Debug for RuntimeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
@@ -59,13 +59,13 @@ impl fmt::Debug for RuntimeErrorType {
 /// An error thrown by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct RuntimeError {
-    pub(crate) error: RuntimeErrorType,
+    pub(crate) error: RuntimeErrorKind,
     pub(crate) trace: Vec<ErrorFrame>,
 }
 
 impl RuntimeError {
     /// Initializes an error with the given internal error type
-    pub(crate) fn new(error: RuntimeErrorType) -> Self {
+    pub(crate) fn new(error: RuntimeErrorKind) -> Self {
         Self {
             error,
             trace: Vec::new(),
@@ -74,7 +74,7 @@ impl RuntimeError {
 
     /// Initializes an error from a thrown Koto value
     pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
-        Self::new(RuntimeErrorType::KotoError {
+        Self::new(RuntimeErrorKind::KotoError {
             thrown_value,
             vm: RefCell::new(vm),
         })
@@ -88,7 +88,7 @@ impl RuntimeError {
     /// Modifies string errors to include the given prefix
     #[must_use]
     pub fn with_prefix(mut self, prefix: &str) -> Self {
-        use RuntimeErrorType::StringError;
+        use RuntimeErrorKind::StringError;
 
         self.error = match self.error {
             StringError(message) => StringError(format!("{prefix}: {message}")),
@@ -101,13 +101,13 @@ impl RuntimeError {
 
 impl From<String> for RuntimeError {
     fn from(error: String) -> Self {
-        Self::new(RuntimeErrorType::StringError(error))
+        Self::new(RuntimeErrorKind::StringError(error))
     }
 }
 
 impl From<&str> for RuntimeError {
     fn from(error: &str) -> Self {
-        Self::new(RuntimeErrorType::StringError(error.into()))
+        Self::new(RuntimeErrorKind::StringError(error.into()))
     }
 }
 

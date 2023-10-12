@@ -8,7 +8,7 @@ use std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::Path
 /// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
-pub enum LoaderErrorType {
+pub enum LoaderErrorKind {
     Parser(ParserError),
     Compiler(CompilerError),
     Io(String),
@@ -17,7 +17,7 @@ pub enum LoaderErrorType {
 /// The error type used by the [Loader]
 #[derive(Clone, Debug)]
 pub struct LoaderError {
-    error: LoaderErrorType,
+    error: LoaderErrorKind,
     source: String,
     source_path: Option<PathBuf>,
 }
@@ -29,7 +29,7 @@ impl LoaderError {
         source_path: Option<PathBuf>,
     ) -> Self {
         Self {
-            error: LoaderErrorType::Parser(error),
+            error: LoaderErrorKind::Parser(error),
             source: source.into(),
             source_path,
         }
@@ -41,7 +41,7 @@ impl LoaderError {
         source_path: Option<PathBuf>,
     ) -> Self {
         Self {
-            error: LoaderErrorType::Compiler(error),
+            error: LoaderErrorKind::Compiler(error),
             source: source.into(),
             source_path,
         }
@@ -49,7 +49,7 @@ impl LoaderError {
 
     pub(crate) fn io_error(error: String) -> Self {
         Self {
-            error: LoaderErrorType::Io(error),
+            error: LoaderErrorKind::Io(error),
             source: "".into(),
             source_path: None,
         }
@@ -57,8 +57,8 @@ impl LoaderError {
 
     /// Returns true if the error was caused by the expectation of indentation during parsing
     pub fn is_indentation_error(&self) -> bool {
-        match &self.error {
-            LoaderErrorType::Parser(e) => e.is_indentation_error(),
+        match self.error.as_ref() {
+            LoaderErrorKind::Parser(e) => e.is_indentation_error(),
             _ => false,
         }
     }
@@ -66,7 +66,7 @@ impl LoaderError {
 
 impl fmt::Display for LoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use LoaderErrorType::*;
+        use LoaderErrorKind::*;
 
         if f.alternate() {
             match &self.error {

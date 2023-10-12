@@ -9,12 +9,6 @@ use thiserror::Error;
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error(transparent)]
-    CompileError(#[from] LoaderError),
-
-    #[error(transparent)]
-    RuntimeError(#[from] RuntimeError),
-
     #[error("Missing compiled chunk, call compile() before calling run()")]
     NothingToRun,
 
@@ -29,6 +23,12 @@ pub enum Error {
 
     #[error("Function not found")]
     FunctionNotFound,
+
+    #[error(transparent)]
+    CompileError(#[from] LoaderError),
+
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
 }
 
 impl Error {

@@ -1,6 +1,6 @@
 use crate::{
     core_lib::CoreLib,
-    error::RuntimeErrorType,
+    error::RuntimeErrorKind,
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
     DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Result,
@@ -666,7 +666,7 @@ impl Vm {
                     };
 
                     let catch_value = match error.error {
-                        RuntimeErrorType::KotoError { thrown_value, .. } => thrown_value,
+                        RuntimeErrorKind::KotoError { thrown_value, .. } => thrown_value,
                         _ => Value::Str(error.to_string().into()),
                     };
                     self.set_register(register, catch_value);
