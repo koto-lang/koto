@@ -1,52 +1,35 @@
 use crate::prelude::*;
 use koto_bytecode::Chunk;
-use koto_parser::format_error_with_excerpt;
-use std::{cell::RefCell, error, fmt};
-
-/// A chunk and ip in a call stack where an error was thrown
-#[derive(Clone, Debug)]
-pub struct ErrorFrame {
-    chunk: Ptr<Chunk>,
-    instruction: u32,
-}
+use koto_parser::format_source_excerpt;
+use std::{error, fmt};
+use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
-#[derive(Clone)]
+#[derive(Error, Clone)]
 pub(crate) enum RuntimeErrorKind {
     /// A runtime error message
+    #[error("{0}")]
     StringError(String),
     /// An error thrown by a Koto script
     ///
     /// The value will either be a String, or a value that implements @display, in which case the
     /// @display function will be evaluated by the included VM when displaying the error.
+    #[error("{}", display_thrown_value(thrown_value, vm))]
     KotoError {
         /// The thrown value
         thrown_value: Value,
         /// A VM that should be used to format the thrown value
-        // This is placed in a RefCell so that fmt::Display can be implemented,
-        // which expectes an immutable self reference.
-        vm: RefCell<Vm>,
+        vm: Vm,
     },
 }
 
-impl fmt::Display for RuntimeErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use RuntimeErrorKind::*;
+fn display_thrown_value(value: &Value, vm: &Vm) -> String {
+    let mut display_context = DisplayContext::with_vm(vm);
 
-        match self {
-            StringError(s) => f.write_str(s),
-            KotoError { thrown_value, vm } => {
-                let vm = vm.borrow();
-                let mut display_context = DisplayContext::with_vm(&vm);
-
-                let message = if thrown_value.display(&mut display_context).is_ok() {
-                    display_context.result()
-                } else {
-                    "Unable to get error message".to_string()
-                };
-                f.write_str(&message)
-            }
-        }
+    if value.display(&mut display_context).is_ok() {
+        display_context.result()
+    } else {
+        "Unable to display error message".into()
     }
 }
 
@@ -74,10 +57,7 @@ impl RuntimeError {
 
     /// Initializes an error from a thrown Koto value
     pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
-        Self::new(RuntimeErrorKind::KotoError {
-            thrown_value,
-            vm: RefCell::new(vm),
-        })
+        Self::new(RuntimeErrorKind::KotoError { thrown_value, vm })
     }
 
     /// Extends the error stack with the given [Chunk] and ip
@@ -99,6 +79,29 @@ impl RuntimeError {
     }
 }
 
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.error)?;
+
+        for ErrorFrame { chunk, instruction } in self.trace.iter() {
+            write!(f, "\n--- ")?;
+
+            match chunk.debug_info.get_source_span(*instruction) {
+                Some(span) => f.write_str(&format_source_excerpt(
+                    &chunk.debug_info.source,
+                    &span,
+                    &chunk.source_path,
+                ))?,
+                None => write!(f, "Runtime error at instruction {}", instruction)?,
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl error::Error for RuntimeError {}
+
 impl From<String> for RuntimeError {
     fn from(error: String) -> Self {
         Self::new(RuntimeErrorKind::StringError(error))
@@ -111,43 +114,14 @@ impl From<&str> for RuntimeError {
     }
 }
 
-impl fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let message = self.error.to_string();
-
-        if f.alternate() || self.trace.is_empty() {
-            f.write_str(&message)
-        } else {
-            let mut first_frame = true;
-            for frame in self.trace.iter() {
-                let frame_message = if first_frame {
-                    first_frame = false;
-                    Some(message.as_str())
-                } else {
-                    None
-                };
-
-                match frame.chunk.debug_info.get_source_span(frame.instruction) {
-                    Some(span) => f.write_str(&format_error_with_excerpt(
-                        frame_message,
-                        &frame.chunk.source_path,
-                        &frame.chunk.debug_info.source,
-                        span.start,
-                        span.end,
-                    ))?,
-                    None => write!(
-                        f,
-                        "Runtime error at instruction {}: {message}",
-                        frame.instruction,
-                    )?,
-                };
-            }
-            Ok(())
-        }
-    }
+/// A chunk and ip in a call stack where an error was thrown
+///
+/// See [RuntimeErrorTrace]
+#[derive(Clone, Debug)]
+pub struct ErrorFrame {
+    chunk: Ptr<Chunk>,
+    instruction: u32,
 }
-
-impl error::Error for RuntimeError {}
 
 /// The Result type used by the Koto Runtime
 pub type Result<T> = std::result::Result<T, RuntimeError>;

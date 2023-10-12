@@ -1,8 +1,5 @@
-use koto_lexer::{Position, Span};
-use std::{
-    fmt::{self, Write},
-    path::PathBuf,
-};
+use koto_lexer::Span;
+use std::{fmt::Write, path::PathBuf};
 use thiserror::Error;
 
 /// An error that represents a problem with the Parser's internal logic, rather than a user error
@@ -203,7 +200,8 @@ pub enum ParserErrorKind {
 }
 
 /// An error that can be produced by the [Parser](crate::Parser)
-#[derive(Clone, Debug)]
+#[derive(Error, Clone, Debug)]
+#[error("{error}")]
 pub struct ParserError {
     /// The error itself
     pub error: ParserErrorKind,
@@ -223,28 +221,18 @@ impl ParserError {
     }
 }
 
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.error.fmt(f)
-    }
-}
+/// Renders the excerpt of the source corresponding to the given span
+pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<PathBuf>) -> String {
+    let Span { start, end } = span;
 
-/// Produces a formatted error string with a corresponding source excerpt
-pub fn format_error_with_excerpt(
-    message: Option<&str>,
-    source_path: &Option<PathBuf>,
-    source: &str,
-    start_pos: Position,
-    end_pos: Position,
-) -> String {
     let (excerpt, padding) = {
         let excerpt_lines = source
             .lines()
-            .skip((start_pos.line - 1) as usize)
-            .take((end_pos.line - start_pos.line + 1) as usize)
+            .skip((start.line - 1) as usize)
+            .take((end.line - start.line + 1) as usize)
             .collect::<Vec<_>>();
 
-        let line_numbers = (start_pos.line..=end_pos.line)
+        let line_numbers = (start.line..=end.line)
             .map(|n| n.to_string())
             .collect::<Vec<_>>();
 
@@ -252,7 +240,7 @@ pub fn format_error_with_excerpt(
 
         let padding = " ".repeat(number_width + 2);
 
-        if start_pos.line == end_pos.line {
+        if start.line == end.line {
             let mut excerpt = format!(
                 " {:>number_width$} | {}\n",
                 line_numbers.first().unwrap(),
@@ -262,8 +250,8 @@ pub fn format_error_with_excerpt(
             write!(
                 excerpt,
                 "{padding}|{}{}",
-                " ".repeat(start_pos.column as usize),
-                "^".repeat((end_pos.column - start_pos.column) as usize)
+                " ".repeat(start.column as usize),
+                "^".repeat((end.column - start.column) as usize)
             )
             .ok();
 
@@ -290,13 +278,10 @@ pub fn format_error_with_excerpt(
             path.display()
         };
 
-        format!("{display_path} - {}:{}", start_pos.line, start_pos.column)
+        format!("{display_path} - {}:{}", start.line, start.column)
     } else {
-        format!("{}:{}", start_pos.line, start_pos.column)
+        format!("{}:{}", start.line, start.column)
     };
 
-    format!(
-        "{message}\n --- {position_info}\n{padding}|\n{excerpt}",
-        message = message.unwrap_or(""),
-    )
+    format!("{position_info}\n{padding}|\n{excerpt}")
 }

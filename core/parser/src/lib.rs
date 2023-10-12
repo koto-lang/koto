@@ -11,7 +11,7 @@ mod parser;
 pub use crate::{
     ast::*,
     constant_pool::{Constant, ConstantIndex, ConstantPool},
-    error::{format_error_with_excerpt, ParserError},
+    error::{format_source_excerpt, ParserError},
     node::*,
     parser::Parser,
 };
