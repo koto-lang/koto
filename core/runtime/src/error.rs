@@ -6,8 +6,8 @@ use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
 #[derive(Error, Clone)]
-pub(crate) enum RuntimeErrorKind {
-    /// A runtime error message
+#[allow(missing_docs)]
+pub(crate) enum ErrorKind {
     #[error("{0}")]
     StringError(String),
     /// An error thrown by a Koto script
@@ -21,6 +21,23 @@ pub(crate) enum RuntimeErrorKind {
         /// A VM that should be used to format the thrown value
         vm: Vm,
     },
+    #[error("Expected {expected}, but found {}", get_value_types(unexpected))]
+    UnexpectedType {
+        expected: String,
+        unexpected: Vec<Value>,
+    },
+    #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
+    InvalidBinaryOp {
+        lhs: Value,
+        rhs: Value,
+        op: BinaryOp,
+    },
+    #[error("Empty call stack")]
+    EmptyCallStack,
+    #[error("Missing sequence builder")]
+    MissingSequenceBuilder,
+    #[error("Missing string builder")]
+    MissingStringBuilder,
 }
 
 fn display_thrown_value(value: &Value, vm: &Vm) -> String {
@@ -33,7 +50,7 @@ fn display_thrown_value(value: &Value, vm: &Vm) -> String {
     }
 }
 
-impl fmt::Debug for RuntimeErrorKind {
+impl fmt::Debug for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
@@ -42,13 +59,13 @@ impl fmt::Debug for RuntimeErrorKind {
 /// An error thrown by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct RuntimeError {
-    pub(crate) error: RuntimeErrorKind,
+    pub(crate) error: ErrorKind,
     pub(crate) trace: Vec<ErrorFrame>,
 }
 
 impl RuntimeError {
     /// Initializes an error with the given internal error type
-    pub(crate) fn new(error: RuntimeErrorKind) -> Self {
+    pub(crate) fn new(error: ErrorKind) -> Self {
         Self {
             error,
             trace: Vec::new(),
@@ -57,7 +74,7 @@ impl RuntimeError {
 
     /// Initializes an error from a thrown Koto value
     pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
-        Self::new(RuntimeErrorKind::KotoError { thrown_value, vm })
+        Self::new(ErrorKind::KotoError { thrown_value, vm })
     }
 
     /// Extends the error stack with the given [Chunk] and ip
@@ -68,7 +85,7 @@ impl RuntimeError {
     /// Modifies string errors to include the given prefix
     #[must_use]
     pub fn with_prefix(mut self, prefix: &str) -> Self {
-        use RuntimeErrorKind::StringError;
+        use ErrorKind::StringError;
 
         self.error = match self.error {
             StringError(message) => StringError(format!("{prefix}: {message}")),
@@ -104,13 +121,19 @@ impl error::Error for RuntimeError {}
 
 impl From<String> for RuntimeError {
     fn from(error: String) -> Self {
-        Self::new(RuntimeErrorKind::StringError(error))
+        Self::new(ErrorKind::StringError(error))
     }
 }
 
 impl From<&str> for RuntimeError {
     fn from(error: &str) -> Self {
-        Self::new(RuntimeErrorKind::StringError(error.into()))
+        Self::new(ErrorKind::StringError(error.into()))
+    }
+}
+
+impl From<ErrorKind> for RuntimeError {
+    fn from(error: ErrorKind) -> Self {
+        Self::new(error)
     }
 }
 
@@ -132,12 +155,12 @@ pub type Result<T> = std::result::Result<T, RuntimeError>;
 /// which can be useful when debugging.
 #[macro_export]
 macro_rules! make_runtime_error {
-    ($message:expr) => {{
+    ($error:expr) => {{
         #[cfg(panic_on_runtime_error)]
         {
-            panic!($message);
+            panic!($error);
         }
-        $crate::RuntimeError::from($message)
+        $crate::RuntimeError::from($error)
     }};
 }
 
@@ -161,21 +184,25 @@ macro_rules! runtime_error {
 
 /// Creates an error that describes a type mismatch
 pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T> {
-    runtime_error!(
-        "Expected {expected_str}, but found {}",
-        unexpected.type_as_string().as_str()
-    )
+    type_error_with_slice(expected_str, &[unexpected.clone()])
 }
 
 /// Creates an error that describes a type mismatch with a slice of [Value]s
 pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[Value]) -> Result<T> {
-    let message = match unexpected {
+    runtime_error!(ErrorKind::UnexpectedType {
+        expected: expected_str.into(),
+        unexpected: unexpected.into(),
+    })
+}
+
+fn get_value_types(values: &[Value]) -> String {
+    match values {
         [] => "no args".to_string(),
-        [single_arg] => single_arg.type_as_string().to_string(),
+        [single_value] => single_value.type_as_string().to_string(),
         _ => {
             let mut types = String::from('(');
             let mut first = true;
-            for value in unexpected {
+            for value in values {
                 if !first {
                     types.push_str(", ");
                 }
@@ -185,7 +212,5 @@ pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[Value]) -> Res
             types.push(')');
             types
         }
-    };
-
-    runtime_error!("Expected {expected_str}, but found {message}")
+    }
 }

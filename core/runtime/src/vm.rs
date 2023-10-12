@@ -1,6 +1,6 @@
 use crate::{
     core_lib::CoreLib,
-    error::RuntimeErrorKind,
+    error::ErrorKind,
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
     DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Result,
@@ -666,7 +666,7 @@ impl Vm {
                     };
 
                     let catch_value = match error.error {
-                        RuntimeErrorKind::KotoError { thrown_value, .. } => thrown_value,
+                        ErrorKind::KotoError { thrown_value, .. } => thrown_value,
                         _ => Value::Str(error.to_string().into()),
                     };
                     self.set_register(register, catch_value);
@@ -829,10 +829,9 @@ impl Vm {
             Throw { register } => {
                 let thrown_value = self.clone_register(register);
 
-                let display_op = MetaKey::UnaryOp(UnaryOp::Display);
                 match &thrown_value {
                     Value::Str(_) => {}
-                    _ if thrown_value.contains_meta_key(&display_op) => {}
+                    _ if thrown_value.contains_meta_key(&UnaryOp::Display.into()) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
@@ -913,7 +912,7 @@ impl Vm {
             } => {
                 let key_string = match self.clone_register(key) {
                     Value::Str(s) => s,
-                    other => return type_error("String", &other),
+                    other => return type_error("a String", &other),
                 };
                 self.run_access(register, value, key_string)?;
             }
@@ -1383,7 +1382,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.add(rhs_value)?,
-            _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
+            _ => return binary_op_error(lhs_value, rhs_value, Add),
         };
 
         self.set_register(result, result_value);
@@ -1404,7 +1403,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
-            _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
+            _ => return binary_op_error(lhs_value, rhs_value, Subtract),
         };
 
         self.set_register(result, result_value);
@@ -1426,7 +1425,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
-            _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
+            _ => return binary_op_error(lhs_value, rhs_value, Multiply),
         };
 
         self.set_register(result, result_value);
@@ -1447,7 +1446,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
-            _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
+            _ => return binary_op_error(lhs_value, rhs_value, Divide),
         };
 
         self.set_register(result, result_value);
@@ -1473,7 +1472,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
-            _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
+            _ => return binary_op_error(lhs_value, rhs_value, Remainder),
         };
         self.set_register(result, result_value);
 
@@ -1503,7 +1502,7 @@ impl Vm {
                 o.try_borrow_mut()?.add_assign(&o2)
             }
             (Object(o), _) => o.try_borrow_mut()?.add_assign(rhs_value),
-            _ => self.binary_op_error(lhs_value, rhs_value, "+="),
+            _ => binary_op_error(lhs_value, rhs_value, AddAssign),
         }
     }
 
@@ -1530,7 +1529,7 @@ impl Vm {
                 o.try_borrow_mut()?.subtract_assign(&o2)
             }
             (Object(o), _) => o.try_borrow_mut()?.subtract_assign(rhs_value),
-            _ => self.binary_op_error(lhs_value, rhs_value, "-="),
+            _ => binary_op_error(lhs_value, rhs_value, SubtractAssign),
         }
     }
 
@@ -1557,7 +1556,7 @@ impl Vm {
                 o.try_borrow_mut()?.multiply_assign(&o2)
             }
             (Object(o), _) => o.try_borrow_mut()?.multiply_assign(rhs_value),
-            _ => self.binary_op_error(lhs_value, rhs_value, "*="),
+            _ => binary_op_error(lhs_value, rhs_value, MultiplyAssign),
         }
     }
 
@@ -1584,7 +1583,7 @@ impl Vm {
                 o.try_borrow_mut()?.divide_assign(&o2)
             }
             (Object(o), _) => o.try_borrow_mut()?.divide_assign(rhs_value),
-            _ => self.binary_op_error(lhs_value, rhs_value, "/="),
+            _ => binary_op_error(lhs_value, rhs_value, DivideAssign),
         }
     }
 
@@ -1611,7 +1610,7 @@ impl Vm {
                 o.try_borrow_mut()?.remainder_assign(&o2)
             }
             (Object(o), _) => o.try_borrow_mut()?.remainder_assign(rhs_value),
-            _ => self.binary_op_error(lhs_value, rhs_value, "%="),
+            _ => binary_op_error(lhs_value, rhs_value, RemainderAssign),
         }
     }
 
@@ -1630,7 +1629,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
-            _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
+            _ => return binary_op_error(lhs_value, rhs_value, Less),
         };
         self.set_register(result, result_value);
 
@@ -1652,7 +1651,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
-            _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
+            _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
         };
         self.set_register(result, result_value);
 
@@ -1674,7 +1673,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
-            _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
+            _ => return binary_op_error(lhs_value, rhs_value, Greater),
         };
         self.set_register(result, result_value);
 
@@ -1696,7 +1695,7 @@ impl Vm {
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
-            _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
+            _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
         };
         self.set_register(result, result_value);
 
@@ -2706,7 +2705,7 @@ impl Vm {
             builder.push(value);
             Ok(())
         } else {
-            runtime_error!("Missing a sequence buider")
+            runtime_error!(ErrorKind::MissingSequenceBuilder)
         }
     }
 
@@ -2716,7 +2715,7 @@ impl Vm {
             self.set_register(register, list.into());
             Ok(())
         } else {
-            runtime_error!("Missing a sequence buider")
+            runtime_error!(ErrorKind::MissingSequenceBuilder)
         }
     }
 
@@ -2725,7 +2724,7 @@ impl Vm {
             self.set_register(register, KTuple::from(result).into());
             Ok(())
         } else {
-            runtime_error!("Missing a sequence buider")
+            runtime_error!(ErrorKind::MissingSequenceBuilder)
         }
     }
 
@@ -2738,7 +2737,7 @@ impl Vm {
                     builder.push_str(&string);
                     Ok(())
                 } else {
-                    runtime_error!("Missing a string builder")
+                    runtime_error!(ErrorKind::MissingStringBuilder)
                 }
             }
             other => type_error("String", &other),
@@ -2751,7 +2750,7 @@ impl Vm {
             self.set_register(register, result.into());
             Ok(())
         } else {
-            runtime_error!("Missing a string builder")
+            runtime_error!(ErrorKind::MissingStringBuilder)
         }
     }
 
@@ -2829,7 +2828,7 @@ impl Vm {
                 }
             }
             None => {
-                runtime_error!("pop_frame: Empty call stack")
+                runtime_error!(ErrorKind::EmptyCallStack)
             }
         }
     }
@@ -2917,20 +2916,20 @@ impl Vm {
             // The bounds have been already checked in the constant pool
             .unwrap()
     }
-
-    fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> Result<()> {
-        runtime_error!(
-            "Unable to perform operation '{op}' with '{}' and '{}'",
-            lhs.type_as_string(),
-            rhs.type_as_string(),
-        )
-    }
 }
 
 impl fmt::Debug for Vm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Vm")
     }
+}
+
+fn binary_op_error(lhs: &Value, rhs: &Value, op: BinaryOp) -> Result<()> {
+    runtime_error!(ErrorKind::InvalidBinaryOp {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+        op,
+    })
 }
 
 fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
