@@ -102,6 +102,9 @@ impl Repl {
     }
 
     pub fn run(&mut self) -> Result<()> {
+        let version = env!("CARGO_PKG_VERSION");
+        writeln!(self.stdout, "Welcome to Koto v{version}")?;
+
         loop {
             let result = if self.continued_lines.is_empty() {
                 self.editor.readline(PROMPT)
