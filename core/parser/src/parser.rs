@@ -2,9 +2,7 @@
 
 use crate::{
     constant_pool::ConstantPoolBuilder,
-    error::{
-        ErrorType as ParserErrorType, ExpectedIndentation, InternalError, ParserError, SyntaxError,
-    },
+    error::{ExpectedIndentation, InternalError, ParserError, ParserErrorKind, SyntaxError},
     *,
 };
 use koto_lexer::{Lexer, Span, Token};
@@ -266,7 +264,7 @@ impl<'source> Parser<'source> {
             self.consume_until_token_with_context(&context);
 
             let Some(expression) = self.parse_line(&ExpressionContext::permissive())? else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpressionInMainBlock);
+                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
             };
 
             body.push(expression);
@@ -2924,14 +2922,14 @@ impl<'source> Parser<'source> {
 
     fn error<E, T>(&mut self, error_type: E) -> Result<T, ParserError>
     where
-        E: Into<ParserErrorType>,
+        E: Into<ParserErrorKind>,
     {
         Err(self.make_error(error_type))
     }
 
     fn make_error<E>(&mut self, error_type: E) -> ParserError
     where
-        E: Into<ParserErrorType>,
+        E: Into<ParserErrorKind>,
     {
         #[allow(clippy::let_and_return)]
         let error = ParserError::new(error_type.into(), self.current_span());
@@ -2947,7 +2945,7 @@ impl<'source> Parser<'source> {
         error_type: E,
     ) -> Result<T, ParserError>
     where
-        E: Into<ParserErrorType>,
+        E: Into<ParserErrorKind>,
     {
         self.consume_next_token_on_same_line();
         self.error(error_type)
@@ -2955,7 +2953,7 @@ impl<'source> Parser<'source> {
 
     fn consume_token_and_error<E, T>(&mut self, error_type: E) -> Result<T, ParserError>
     where
-        E: Into<ParserErrorType>,
+        E: Into<ParserErrorKind>,
     {
         self.consume_token_with_context(&ExpressionContext::permissive());
         self.error(error_type)

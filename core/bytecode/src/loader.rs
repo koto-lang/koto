@@ -1,25 +1,39 @@
 use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
 use dunce::canonicalize;
 use koto_memory::Ptr;
-use koto_parser::{format_error_with_excerpt, Parser, ParserError};
+use koto_parser::{format_source_excerpt, Parser, ParserError, Span};
 use rustc_hash::FxHasher;
-use std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf};
+use std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, io, path::PathBuf};
+use thiserror::Error;
 
 /// Errors that can be returned from [Loader] operations
-#[derive(Clone, Debug)]
+#[derive(Error, Debug)]
 #[allow(missing_docs)]
-pub enum LoaderErrorType {
-    Parser(ParserError),
-    Compiler(CompilerError),
-    Io(String),
+pub enum LoaderErrorKind {
+    #[error(transparent)]
+    Parser(#[from] ParserError),
+    #[error(transparent)]
+    Compiler(#[from] CompilerError),
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    #[error("Failed to get parent of path ('{0}')")]
+    FailedToGetPathParent(PathBuf),
+    #[error("Unable to find module '{0}'")]
+    UnableToFindModule(String),
 }
 
 /// The error type used by the [Loader]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct LoaderError {
-    error: LoaderErrorType,
-    source: String,
-    source_path: Option<PathBuf>,
+    error: Box<LoaderErrorKind>,
+    source: Option<Box<LoaderErrorSource>>,
+}
+
+#[derive(Debug)]
+struct LoaderErrorSource {
+    contents: String,
+    span: Span,
+    path: Option<PathBuf>,
 }
 
 impl LoaderError {
@@ -28,10 +42,14 @@ impl LoaderError {
         source: &str,
         source_path: Option<PathBuf>,
     ) -> Self {
+        let source = LoaderErrorSource {
+            contents: source.into(),
+            span: error.span,
+            path: source_path,
+        };
         Self {
-            error: LoaderErrorType::Parser(error),
-            source: source.into(),
-            source_path,
+            error: Box::new(error.into()),
+            source: Some(Box::new(source)),
         }
     }
 
@@ -40,25 +58,21 @@ impl LoaderError {
         source: &str,
         source_path: Option<PathBuf>,
     ) -> Self {
+        let source = LoaderErrorSource {
+            contents: source.into(),
+            span: error.span,
+            path: source_path,
+        };
         Self {
-            error: LoaderErrorType::Compiler(error),
-            source: source.into(),
-            source_path,
-        }
-    }
-
-    pub(crate) fn io_error(error: String) -> Self {
-        Self {
-            error: LoaderErrorType::Io(error),
-            source: "".into(),
-            source_path: None,
+            error: Box::new(error.into()),
+            source: Some(Box::new(source)),
         }
     }
 
     /// Returns true if the error was caused by the expectation of indentation during parsing
     pub fn is_indentation_error(&self) -> bool {
-        match &self.error {
-            LoaderErrorType::Parser(e) => e.is_indentation_error(),
+        match self.error.as_ref() {
+            LoaderErrorKind::Parser(e) => e.is_indentation_error(),
             _ => false,
         }
     }
@@ -66,41 +80,37 @@ impl LoaderError {
 
 impl fmt::Display for LoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use LoaderErrorType::*;
-
-        if f.alternate() {
-            match &self.error {
-                Parser(koto_parser::ParserError { error, .. }) => f.write_str(&error.to_string()),
-                Compiler(crate::CompilerError { message, .. }) => f.write_str(message),
-                Io(e) => f.write_str(e),
-            }
-        } else {
-            match &self.error {
-                Parser(koto_parser::ParserError { error, span }) => {
-                    f.write_str(&format_error_with_excerpt(
-                        Some(&error.to_string()),
-                        &self.source_path,
-                        &self.source,
-                        span.start,
-                        span.end,
-                    ))
-                }
-                Compiler(crate::CompilerError { message, span }) => {
-                    f.write_str(&format_error_with_excerpt(
-                        Some(message),
-                        &self.source_path,
-                        &self.source,
-                        span.start,
-                        span.end,
-                    ))
-                }
-                Io(e) => f.write_str(e),
-            }
+        write!(f, "{}", self.error)?;
+        if let Some(source) = &self.source {
+            write!(
+                f,
+                "{}",
+                format_source_excerpt(&source.contents, &source.span, &source.path)
+            )?;
         }
+        Ok(())
     }
 }
 
 impl error::Error for LoaderError {}
+
+impl From<io::Error> for LoaderError {
+    fn from(error: io::Error) -> Self {
+        Self {
+            error: Box::new(error.into()),
+            source: None,
+        }
+    }
+}
+
+impl From<LoaderErrorKind> for LoaderError {
+    fn from(error: LoaderErrorKind) -> Self {
+        Self {
+            error: Box::new(error),
+            source: None,
+        }
+    }
+}
 
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
@@ -148,57 +158,42 @@ impl Loader {
     ) -> Result<CompileModuleResult, LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let search_folder = match &load_from_path {
-            Some(path) => match canonicalize(path) {
-                Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
+            Some(path) => match canonicalize(path)? {
+                canonicalized if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
-                    None => {
-                        return Err(LoaderError::io_error(
-                            "Failed to get parent of provided path".to_string(),
-                        ))
-                    }
+                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.clone()).into()),
                 },
-                Ok(canonicalized) => canonicalized,
-                Err(e) => return Err(LoaderError::io_error(e.to_string())),
+                canonicalized => canonicalized,
             },
-            None => match std::env::current_dir() {
-                Ok(path) => path,
-                Err(e) => return Err(LoaderError::io_error(e.to_string())),
-            },
+            None => std::env::current_dir()?,
         };
 
         let mut load_module_from_path = |module_path: PathBuf| {
-            let module_path = module_path.canonicalize().map_err(|error| {
-                LoaderError::io_error(format!(
-                    "Failed to canonicalize path: '{}' - ({error})",
-                    module_path.to_string_lossy(),
-                ))
-            })?;
+            let module_path = module_path.canonicalize()?;
+
             match self.chunks.get(&module_path) {
                 Some(chunk) => Ok(CompileModuleResult {
                     chunk: chunk.clone(),
                     path: module_path,
                     loaded_from_cache: true,
                 }),
-                None => match std::fs::read_to_string(&module_path) {
-                    Ok(script) => {
-                        let chunk = self.compile(
-                            &script,
-                            Some(module_path.clone()),
-                            CompilerSettings::default(),
-                        )?;
+                None => {
+                    let script = std::fs::read_to_string(&module_path)?;
 
-                        self.chunks.insert(module_path.clone(), chunk.clone());
-                        Ok(CompileModuleResult {
-                            chunk,
-                            path: module_path,
-                            loaded_from_cache: false,
-                        })
-                    }
-                    Err(_) => Err(LoaderError::io_error(format!(
-                        "File not found: {}",
-                        module_path.to_string_lossy()
-                    ))),
-                },
+                    let chunk = self.compile(
+                        &script,
+                        Some(module_path.clone()),
+                        CompilerSettings::default(),
+                    )?;
+
+                    self.chunks.insert(module_path.clone(), chunk.clone());
+
+                    Ok(CompileModuleResult {
+                        chunk,
+                        path: module_path,
+                        loaded_from_cache: false,
+                    })
+                }
             }
         };
 
@@ -216,9 +211,7 @@ impl Loader {
             if module_path.exists() {
                 load_module_from_path(module_path)
             } else {
-                Err(LoaderError::io_error(format!(
-                    "Unable to find module '{name}'"
-                )))
+                Err(LoaderErrorKind::UnableToFindModule(name.into()).into())
             }
         }
     }

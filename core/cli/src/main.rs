@@ -6,7 +6,7 @@ use crossterm::tty::IsTty;
 use koto::prelude::*;
 use repl::{Repl, ReplSettings};
 use rustyline::EditMode;
-use std::{env, fs, io, path::PathBuf};
+use std::{env, error::Error, fs, io, path::PathBuf};
 
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -181,8 +181,11 @@ fn main() -> Result<()> {
                 }
                 match koto.run_with_args(&args.script_args) {
                     Ok(_) => {}
+                    Err(error) if error.source().is_some() => {
+                        bail!("{error}\n{}", error.source().unwrap())
+                    }
                     Err(error) => {
-                        bail!("Error: {error}")
+                        bail!("{error}")
                     }
                 }
             }

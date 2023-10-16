@@ -9,12 +9,6 @@ use thiserror::Error;
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error(transparent)]
-    CompileError(LoaderError),
-
-    #[error(transparent)]
-    RuntimeError(RuntimeError),
-
     #[error("Missing compiled chunk, call compile() before calling run()")]
     NothingToRun,
 
@@ -29,6 +23,12 @@ pub enum Error {
 
     #[error("Function not found")]
     FunctionNotFound,
+
+    #[error(transparent)]
+    CompileError(#[from] LoaderError),
+
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
 }
 
 impl Error {
@@ -41,12 +41,6 @@ impl Error {
             Self::CompileError(e) => e.is_indentation_error(),
             _ => false,
         }
-    }
-}
-
-impl From<RuntimeError> for Error {
-    fn from(error: RuntimeError) -> Self {
-        Self::RuntimeError(error)
     }
 }
 

@@ -77,21 +77,16 @@ impl Koto {
     ///
     /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
     pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>> {
-        let result = self.runtime.loader().borrow_mut().compile_script(
+        let chunk = self.runtime.loader().borrow_mut().compile_script(
             script,
             &self.script_path,
             CompilerSettings {
                 export_top_level_ids: self.export_top_level_ids,
             },
-        );
+        )?;
 
-        match result {
-            Ok(chunk) => {
-                self.chunk = Some(chunk.clone());
-                Ok(chunk)
-            }
-            Err(error) => Err(Error::CompileError(error)),
-        }
+        self.chunk = Some(chunk.clone());
+        Ok(chunk)
     }
 
     /// Runs the chunk last compiled with [compile](Koto::compile)

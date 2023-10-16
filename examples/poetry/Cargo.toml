@@ -14,6 +14,7 @@ path = "src/main.rs"
 koto = { path = "../../core/koto", version = "^0.11.0" }
 koto_random = { path = "../../libs/random", version = "^0.11.0" }
 
+anyhow = { workspace = true }
 hotwatch = { workspace = true }
 indexmap = { workspace = true }
 lazy_static = { workspace = true }

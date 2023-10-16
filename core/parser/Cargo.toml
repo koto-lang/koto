@@ -13,6 +13,8 @@ keywords = ["scripting", "language", "koto"]
 koto_lexer = { path = "../lexer", version = "^0.11.0" }
 koto_memory = { path = "../memory", version = "^0.11.0" }
 
+thiserror = { workspace = true }
+
 [features]
 default = []
 

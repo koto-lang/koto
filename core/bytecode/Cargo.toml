@@ -19,3 +19,4 @@ koto_parser = { path = "../parser", version = "^0.11.0" }
 dunce = { workspace = true }
 rustc-hash = { workspace = true }
 smallvec = { workspace = true }
+thiserror = { workspace = true }
