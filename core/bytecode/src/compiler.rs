@@ -8,31 +8,77 @@ use smallvec::SmallVec;
 use std::collections::HashSet;
 use thiserror::Error;
 
+/// The different error types that can be thrown by the Koto runtime
+#[derive(Error, Clone, Debug)]
+#[allow(missing_docs)]
+enum ErrorKind {
+    #[error("invalid {kind} op ({op:?})")]
+    InvalidBinaryOp { kind: String, op: AstBinaryOp },
+    #[error("`{0}` used outside of loop")]
+    InvalidLoopKeyword(String),
+    #[error("args with ellipses are only allowed in first or last position")]
+    InvalidPositionForArgWithEllipses,
+    #[error("Function has too many {property} ({amount})")]
+    FunctionPropertyLimit { property: String, amount: usize },
+    #[error("missing argument in for loop")]
+    MissingArgumentInForLoop,
+    #[error("missing LHS for binary op")]
+    MissingBinaryOpLhs,
+    #[error("missing RHS for binary op")]
+    MissingBinaryOpRhs,
+    #[error("missing item to import")]
+    MissingImportItem,
+    #[error("missing result register")]
+    MissingResultRegister,
+    #[error("missing String nodes")]
+    MissingStringNodes,
+    #[error("The result of this `break` expression will be ignored")]
+    UnassignedBreakValue,
+    #[error("unexpected Ellipsis")]
+    UnexpectedEllipsis,
+    #[error("unexpected Wildcard")]
+    UnexpectedWildcard,
+    #[error("expected {expected}, found {unexpected}")]
+    UnexpectedNode { expected: String, unexpected: Node },
+    #[error("expected {expected} patterns in match arm, found {unexpected}")]
+    UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
+    #[error("too many targets in assignment ({0})")]
+    TooManyAssignmentTargets(usize),
+    #[error(
+        "too many container entries, {0} is greater than the maximum of {}",
+        u32::MAX
+    )]
+    TooManyContainerEntries(usize),
+    #[error(transparent)]
+    FrameError(#[from] FrameError),
+    // Deprecated: specific error variants should be added for each error
+    #[error("{0}")]
+    StringError(String),
+}
+
 /// The error type used to report errors during compilation
 #[derive(Error, Clone, Debug)]
-#[error("{message}")]
+#[error("{error}")]
 pub struct CompilerError {
     /// The error's message
-    pub message: String,
+    error: ErrorKind,
     /// The span in the source where the error occurred
     pub span: Span,
 }
 
-macro_rules! make_compiler_error {
-    ($span:expr, $message:expr) => {{
-        CompilerError {
-            message: $message,
-            span: $span,
-        }
-    }};
-}
-
+// Deprecated, errors should use ErrorKind variants and use Compiler::error/make_error
 macro_rules! compiler_error {
-    ($compiler:expr, $error:expr) => {
-        Err(make_compiler_error!($compiler.span(), format!($error)))
+    ($compiler:expr, $error:literal) => {
+        Err(CompilerError{
+            error: ErrorKind::StringError(format!($error)),
+            span: $compiler.span(),
+        })
     };
-    ($compiler:expr, $error:expr, $($args:expr),+ $(,)?) => {
-        Err(make_compiler_error!($compiler.span(), format!($error, $($args),+)))
+    ($compiler:expr, $error:literal, $($args:expr),+ $(,)?) => {
+        Err(CompilerError{
+            error: ErrorKind::StringError(format!($error, $($args),+)),
+            span: $compiler.span(),
+        })
     };
 }
 
@@ -76,6 +122,25 @@ enum AssignedOrReserved {
 struct DeferredOp {
     bytes: Vec<u8>,
     span: Span,
+}
+
+/// The different error types that can be thrown by the Koto runtime
+#[derive(Error, Clone, Debug)]
+enum FrameError {
+    #[error("empty register stack")]
+    EmptyRegisterStack,
+    #[error("local register overflow")]
+    LocalRegisterOverflow,
+    #[error("the frame has reached the maximum number of registers")]
+    StackOverflow,
+    #[error("unable to commit register {0}")]
+    UnableToCommitRegister(u8),
+    #[error("unable to peek register {0}")]
+    UnableToPeekRegister(usize),
+    #[error("unexpected temporary register {0}")]
+    UnexpectedTemporaryRegister(u8),
+    #[error("register {0} hasn't been reserved")]
+    UnreservedRegister(u8),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -137,12 +202,12 @@ impl Frame {
         }
     }
 
-    fn push_register(&mut self) -> Result<u8, String> {
+    fn push_register(&mut self) -> Result<u8, FrameError> {
         let new_register = self.temporary_base + self.temporary_count;
         self.temporary_count += 1;
 
         if new_register == u8::MAX {
-            Err("Reached maximum number of registers".to_string())
+            Err(FrameError::StackOverflow)
         } else {
             self.register_stack.push(new_register);
             Ok(new_register)
@@ -178,7 +243,7 @@ impl Frame {
         AssignedOrReserved::Unassigned
     }
 
-    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
+    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
         match self.get_local_assigned_or_reserved_register(local) {
             AssignedOrReserved::Assigned(assigned) => Ok(assigned),
             AssignedOrReserved::Reserved(reserved) => Ok(reserved),
@@ -188,11 +253,11 @@ impl Frame {
 
                 let new_local_register = self.local_registers.len() - 1;
 
-                if new_local_register > self.temporary_base as usize {
-                    return Err("reserve_local_register: Locals overflowed".to_string());
+                if new_local_register < self.temporary_base as usize {
+                    Ok(new_local_register as u8)
+                } else {
+                    Err(FrameError::LocalRegisterOverflow)
                 }
-
-                Ok(new_local_register as u8)
             }
         }
     }
@@ -206,69 +271,61 @@ impl Frame {
         reserved_register: u8,
         bytes: Vec<u8>,
         span: Span,
-    ) -> Result<(), String> {
+    ) -> Result<(), FrameError> {
         match self.local_registers.get_mut(reserved_register as usize) {
             Some(LocalRegister::Reserved(_, deferred_ops)) => {
                 deferred_ops.push(DeferredOp { bytes, span });
                 Ok(())
             }
-            _ => Err(format!("register {reserved_register} hasn't been reserved")),
+            _ => Err(FrameError::UnreservedRegister(reserved_register)),
         }
     }
 
-    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<DeferredOp>, String> {
+    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<DeferredOp>, FrameError> {
         let local_register = local_register as usize;
         let (index, deferred_ops) = match self.local_registers.get(local_register) {
             Some(LocalRegister::Assigned(_)) => {
                 return Ok(vec![]);
             }
             Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.to_vec()),
-            _ => {
-                return Err(format!(
-                    "commit_local_register: register {local_register} hasn't been reserved"
-                ));
-            }
+            _ => return Err(FrameError::UnreservedRegister(local_register as u8)),
         };
 
         self.local_registers[local_register] = LocalRegister::Assigned(index);
         Ok(deferred_ops)
     }
 
-    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
+    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
         match self.get_local_assigned_or_reserved_register(local) {
             AssignedOrReserved::Assigned(assigned) => Ok(assigned),
             AssignedOrReserved::Reserved(reserved) => {
                 let deferred_ops = self.commit_local_register(reserved)?;
-                if !deferred_ops.is_empty() {
-                    return Err(
-                        "assign_local_register: committing register that has remaining ops"
-                            .to_string(),
-                    );
+                if deferred_ops.is_empty() {
+                    Ok(reserved)
+                } else {
+                    Err(FrameError::UnableToCommitRegister(reserved))
                 }
-                Ok(reserved)
             }
             AssignedOrReserved::Unassigned => {
                 self.local_registers.push(LocalRegister::Assigned(local));
                 let new_local_register = self.local_registers.len() - 1;
-                if new_local_register > self.temporary_base as usize {
-                    return Err("assign_local_register: Locals overflowed".to_string());
+                if new_local_register < self.temporary_base as usize {
+                    Ok(new_local_register as u8)
+                } else {
+                    Err(FrameError::LocalRegisterOverflow)
                 }
-                Ok(new_local_register as u8)
             }
         }
     }
 
-    fn pop_register(&mut self) -> Result<u8, String> {
-        let register = match self.register_stack.pop() {
-            Some(register) => register,
-            None => {
-                return Err("pop_register: Empty register stack".to_string());
-            }
+    fn pop_register(&mut self) -> Result<u8, FrameError> {
+        let Some(register) = self.register_stack.pop() else {
+            return Err(FrameError::EmptyRegisterStack);
         };
 
         if register >= self.temporary_base {
             if self.temporary_count == 0 {
-                return Err("pop_register: Unexpected temporary register".to_string());
+                return Err(FrameError::UnexpectedTemporaryRegister(register));
             }
 
             self.temporary_count -= 1;
@@ -277,14 +334,14 @@ impl Frame {
         Ok(register)
     }
 
-    fn peek_register(&self, n: usize) -> Result<u8, String> {
+    fn peek_register(&self, n: usize) -> Result<u8, FrameError> {
         self.register_stack
             .get(self.register_stack.len() - n - 1)
             .cloned()
-            .ok_or_else(|| "peek_register_n: Non enough registers in the stack".to_string())
+            .ok_or(FrameError::UnableToPeekRegister(n))
     }
 
-    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), String> {
+    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), FrameError> {
         while self.register_stack.len() > stack_count {
             self.pop_register()?;
         }
@@ -608,12 +665,8 @@ impl Compiler {
                 self.compile_match(result_register, *expression, arms, ast)?
             }
             Node::Switch(arms) => self.compile_switch(result_register, arms, ast)?,
-            Node::Ellipsis(_) => {
-                return compiler_error!(self, "Ellipsis found outside of match patterns")
-            }
-            Node::Wildcard(_) => {
-                return compiler_error!(self, "Attempting to access an ignored value")
-            }
+            Node::Ellipsis(_) => return self.error(ErrorKind::UnexpectedEllipsis),
+            Node::Wildcard(_) => return self.error(ErrorKind::UnexpectedWildcard),
             Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
                 self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
@@ -638,13 +691,7 @@ impl Compiler {
                         (Some(loop_result_register), None) => {
                             self.push_op(SetNull, &[loop_result_register]);
                         }
-                        (None, Some(_)) => {
-                            return compiler_error!(
-                                self,
-                                "The result of this `break` expression will be ignored,
-                                consider assigning the result of the loop"
-                            );
-                        }
+                        (None, Some(_)) => return self.error(ErrorKind::UnassignedBreakValue),
                         (None, None) => {}
                     }
 
@@ -653,7 +700,7 @@ impl Compiler {
 
                     None
                 }
-                None => return compiler_error!(self, "`break` used outside of loop"),
+                None => return self.error(ErrorKind::InvalidLoopKeyword("break".into())),
             },
             Node::Continue => match self.frame().loop_stack.last() {
                 Some(loop_info) => {
@@ -667,9 +714,7 @@ impl Compiler {
 
                     None
                 }
-                None => {
-                    return compiler_error!(self, "`continue` used outside of loop");
-                }
+                None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
             Node::Return(None) => match self.get_result_register(result_register)? {
                 Some(result) => {
@@ -888,11 +933,10 @@ impl Compiler {
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
                 }
                 unexpected => {
-                    return compiler_error!(
-                        self,
-                        "Expected ID in function args, found {}",
-                        unexpected
-                    )
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID in function args".into(),
+                        unexpected: unexpected.clone(),
+                    })
                 }
             }
         }
@@ -914,11 +958,10 @@ impl Compiler {
                 Node::Ellipsis(Some(id)) => result.push(Arg::Unpacked(*id)),
                 Node::Ellipsis(None) => {}
                 unexpected => {
-                    return compiler_error!(
-                        self,
-                        "Expected ID in function args, found {}",
-                        unexpected
-                    )
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID in function args".into(),
+                        unexpected: unexpected.clone(),
+                    })
                 }
             }
         }
@@ -990,10 +1033,7 @@ impl Compiler {
                 }
                 Node::Ellipsis(None) if is_last_arg => {}
                 Node::Ellipsis(_) => {
-                    return compiler_error!(
-                        self,
-                        "Args with ellipses are only allowed in first or last position"
-                    );
+                    return self.error(ErrorKind::InvalidPositionForArgWithEllipses)
                 }
                 _ => {}
             }
@@ -1016,12 +1056,7 @@ impl Compiler {
                     self.push_op(SetNull, &[result.register]);
                     Some(result)
                 }
-                None => {
-                    return compiler_error!(
-                        self,
-                        "Internal error: missing result register for empty block"
-                    );
-                }
+                None => return self.error(ErrorKind::MissingResultRegister),
             },
             [expression] => self.compile_node(result_register, ast.node(*expression), ast)?,
             [expressions @ .., last_expression] => {
@@ -1048,7 +1083,12 @@ impl Compiler {
         let result = match &ast.node(target).node {
             Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
-            unexpected => return compiler_error!(self, "Expected Id in AST, found {}", unexpected),
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "ID".into(),
+                    unexpected: unexpected.clone(),
+                })
+            }
         };
 
         Ok(result)
@@ -1105,7 +1145,10 @@ impl Compiler {
             }
             Node::Wildcard(_) => {}
             unexpected => {
-                return compiler_error!(self, "Expected Lookup or Id in AST, found {}", unexpected)
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "ID or Lookup".into(),
+                    unexpected: unexpected.clone(),
+                })
             }
         };
 
@@ -1135,11 +1178,7 @@ impl Compiler {
         use Op::*;
 
         if targets.len() >= u8::MAX as usize {
-            return compiler_error!(
-                self,
-                "Too many targets in multi-assignment, ({})",
-                targets.len()
-            );
+            return self.error(ErrorKind::TooManyAssignmentTargets(targets.len()));
         }
 
         let result = self.get_result_register(result_register)?;
@@ -1244,11 +1283,10 @@ impl Compiler {
                     }
                 }
                 unexpected => {
-                    return compiler_error!(
-                        self,
-                        "Expected ID or lookup in AST, found {}",
-                        unexpected
-                    );
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID or Lookup".into(),
+                        unexpected: unexpected.clone(),
+                    })
                 }
             };
         }
@@ -1453,7 +1491,7 @@ impl Compiler {
 
         if let Some(result) = result {
             match imported.as_slice() {
-                [] => return compiler_error!(self, "Missing item to import"),
+                [] => return self.error(ErrorKind::MissingImportItem),
                 [single_item] => self.push_op(Copy, &[result.register, *single_item]),
                 _ => {
                     self.push_op(SequenceStart, &[imported.len() as u8]);
@@ -1483,7 +1521,10 @@ impl Compiler {
                 self.compile_assign(result_register, *target, *expression, true, ast)
             }
             Node::Map(entries) => self.compile_make_map(result_register, entries, true, ast),
-            unexpected => compiler_error!(self, "Expected ID for export, found {unexpected}"),
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "ID for export".into(),
+                unexpected: unexpected.clone(),
+            }),
         }
     }
 
@@ -1494,7 +1535,7 @@ impl Compiler {
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         match path {
-            [] => return compiler_error!(self, "Missing item to import"),
+            [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
                 self.compile_import_item(result_register, root, ast)?;
             }
@@ -1577,11 +1618,10 @@ impl Compiler {
                 (self.push_register()?, true)
             }
             unexpected => {
-                return compiler_error!(
-                    self,
-                    "Expected ID or wildcard as catch arg, found {}",
-                    unexpected
-                );
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "ID or wildcard as catch arg".into(),
+                    unexpected: unexpected.clone(),
+                })
             }
         };
 
@@ -1706,17 +1746,22 @@ impl Compiler {
             Multiply => Op::Multiply,
             Divide => Op::Divide,
             Remainder => Op::Remainder,
-            _ => return compiler_error!(self, "Internal error: invalid op"),
+            _ => {
+                return self.error(ErrorKind::InvalidBinaryOp {
+                    kind: "arithmetic".into(),
+                    op,
+                })
+            }
         };
 
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
                 let lhs = self
                     .compile_node(ResultRegister::Any, lhs_node, ast)?
-                    .ok_or_else(|| self.make_error("Missing lhs for binary op".into()))?;
+                    .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpLhs))?;
                 let rhs = self
                     .compile_node(ResultRegister::Any, rhs_node, ast)?
-                    .ok_or_else(|| self.make_error("Missing rhs for binary op".into()))?;
+                    .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpRhs))?;
 
                 self.push_op(op, &[result.register, lhs.register, rhs.register]);
 
@@ -1755,14 +1800,19 @@ impl Compiler {
             MultiplyAssign => Op::MultiplyAssign,
             DivideAssign => Op::DivideAssign,
             RemainderAssign => Op::RemainderAssign,
-            _ => return compiler_error!(self, "Internal error: invalid op"),
+            _ => {
+                return self.error(ErrorKind::InvalidBinaryOp {
+                    kind: "arithmetic assignment".into(),
+                    op: ast_op,
+                })
+            }
         };
 
         let result = self.get_result_register(result_register)?;
 
         let rhs = self
             .compile_node(ResultRegister::Any, rhs_node, ast)?
-            .ok_or_else(|| self.make_error("Missing rhs for binary op".into()))?;
+            .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpRhs))?;
 
         let result = if let Node::Lookup(lookup_node) = &lhs_node.node {
             self.compile_lookup(
@@ -1776,7 +1826,7 @@ impl Compiler {
         } else {
             let lhs = self
                 .compile_node(ResultRegister::Any, lhs_node, ast)?
-                .ok_or_else(|| self.make_error("Missing lhs for binary op".into()))?;
+                .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpLhs))?;
 
             self.push_op(op, &[lhs.register, rhs.register]);
 
@@ -1827,7 +1877,12 @@ impl Compiler {
                 GreaterOrEqual => Op::GreaterOrEqual,
                 Equal => Op::Equal,
                 NotEqual => Op::NotEqual,
-                _ => return Err("Internal error: invalid comparison op".to_string()),
+                _ => {
+                    return Err(ErrorKind::InvalidBinaryOp {
+                        kind: "comparison".into(),
+                        op: ast_op,
+                    })
+                }
             })
         };
 
@@ -1972,7 +2027,7 @@ impl Compiler {
         });
 
         match nodes {
-            [] => return compiler_error!(self, "compile_string: Missing string nodes"),
+            [] => return self.error(ErrorKind::MissingStringNodes),
             [StringNode::Literal(constant_index)] => {
                 if let Some(result) = result {
                     self.compile_load_string_constant(result.register, *constant_index);
@@ -2097,12 +2152,7 @@ impl Compiler {
                         self.push_var_u32(size_hint);
                     }
                     Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Too many list elements, {} is greater than the maximum of {}",
-                            elements.len(),
-                            u32::MAX
-                        );
+                        return self.error(ErrorKind::TooManyContainerEntries(elements.len()));
                     }
                 }
 
@@ -2177,12 +2227,7 @@ impl Compiler {
                     self.push_var_u32(size_hint);
                 }
                 Err(_) => {
-                    return compiler_error!(
-                        self,
-                        "Too many map entries, {} is greater than the maximum of {}",
-                        entries.len(),
-                        u32::MAX
-                    );
+                    return self.error(ErrorKind::TooManyContainerEntries(entries.len()));
                 }
             }
         }
@@ -2239,11 +2284,10 @@ impl Compiler {
             let arg_count = match u8::try_from(function.args.len()) {
                 Ok(x) => x,
                 Err(_) => {
-                    return compiler_error!(
-                        self,
-                        "Function has too many arguments: {}",
-                        function.args.len()
-                    );
+                    return self.error(ErrorKind::FunctionPropertyLimit {
+                        property: "args".into(),
+                        amount: function.args.len(),
+                    })
                 }
             };
 
@@ -2251,11 +2295,10 @@ impl Compiler {
                 .frame()
                 .captures_for_nested_frame(&function.accessed_non_locals);
             if captures.len() > u8::MAX as usize {
-                return compiler_error!(
-                    self,
-                    "Function captures too many values: {}",
-                    captures.len(),
-                );
+                return self.error(ErrorKind::FunctionPropertyLimit {
+                    property: "captures".into(),
+                    amount: function.args.len(),
+                });
             }
             let capture_count = captures.len() as u8;
 
@@ -2281,11 +2324,10 @@ impl Compiler {
             let local_count = match u8::try_from(function.local_count) {
                 Ok(x) => x,
                 Err(_) => {
-                    return compiler_error!(
-                        self,
-                        "Function has too many locals: {}",
-                        function.args.len()
-                    );
+                    return self.error(ErrorKind::FunctionPropertyLimit {
+                        property: "locals".into(),
+                        amount: function.args.len(),
+                    });
                 }
             };
 
@@ -3213,23 +3255,20 @@ impl Compiler {
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
                     if patterns.len() != match_len {
-                        return compiler_error!(
-                            self,
-                            "Expected {} patterns in match arm, found {}",
-                            match_len,
-                            patterns.len()
-                        );
+                        return self.error(ErrorKind::UnexpectedMatchPatternCount {
+                            expected: match_len,
+                            unexpected: patterns.len(),
+                        });
                     }
 
                     Some(patterns.clone())
                 }
                 Node::List(patterns) | Node::Tuple(patterns) => {
                     if match_len != 1 {
-                        return compiler_error!(
-                            self,
-                            "Expected {} patterns in match arm, found 1",
-                            match_len,
-                        );
+                        return self.error(ErrorKind::UnexpectedMatchPatternCount {
+                            expected: match_len,
+                            unexpected: 1,
+                        });
                     }
 
                     let type_check_op = if matches!(arm_node.node, Node::List(_)) {
@@ -3255,11 +3294,10 @@ impl Compiler {
                 Node::Wildcard(_) => Some(vec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
-                        return compiler_error!(
-                            self,
-                            "Expected {} patterns in match arm, found 1",
-                            match_len,
-                        );
+                        return self.error(ErrorKind::UnexpectedMatchPatternCount {
+                            expected: match_len,
+                            unexpected: 1,
+                        });
                     }
                     Some(vec![*arm_pattern])
                 }
@@ -3661,7 +3699,7 @@ impl Compiler {
         });
 
         match args.as_slice() {
-            [] => return compiler_error!(self, "Missing argument in for loop"),
+            [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
                 match &ast.node(*single_arg).node {
                     Node::Id(id) => {
@@ -3676,11 +3714,10 @@ impl Compiler {
                         self.push_loop_jump_placeholder()?;
                     }
                     unexpected => {
-                        return compiler_error!(
-                            self,
-                            "Expected ID or wildcard in for loop args, found {}",
-                            unexpected
-                        )
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "ID or wildcard in for loop args".into(),
+                            unexpected: unexpected.clone(),
+                        })
                     }
                 }
             }
@@ -3707,11 +3744,10 @@ impl Compiler {
                             self.push_op_without_span(IterNextQuiet, &[temp_register, 0, 0]);
                         }
                         unexpected => {
-                            return compiler_error!(
-                                self,
-                                "Expected ID or wildcard in for loop args, found {}",
-                                unexpected
-                            )
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "ID or wildcard in for loop args".into(),
+                                unexpected: unexpected.clone(),
+                            })
                         }
                     }
                 }
@@ -3958,9 +3994,13 @@ impl Compiler {
         Ok(register)
     }
 
-    fn make_error(&self, message: String) -> CompilerError {
+    fn error<T>(&self, error: impl Into<ErrorKind>) -> Result<T, CompilerError> {
+        Err(self.make_error(error))
+    }
+
+    fn make_error(&self, error: impl Into<ErrorKind>) -> CompilerError {
         CompilerError {
-            message,
+            error: error.into(),
             span: self.span(),
         }
     }
