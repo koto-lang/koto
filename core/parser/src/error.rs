@@ -165,6 +165,8 @@ pub enum SyntaxError {
     SwitchElseNotInLastArm,
     #[error("Unexpected character in numeric escape code")]
     UnexpectedCharInNumericEscapeCode,
+    #[error("'.' after imported item. You might want a 'from' import instead")]
+    UnexpectedDotAfterImportItem,
     #[error("Unexpected escape pattern in string")]
     UnexpectedEscapeInString,
     #[error("Unexpected 'else' in match arm")]

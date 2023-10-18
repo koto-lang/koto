@@ -2679,6 +2679,9 @@ impl<'source> Parser<'source> {
                         );
                     }
                 }
+                Some(peeked) if peeked.token == Token::Dot => {
+                    return self.consume_token_and_error(SyntaxError::UnexpectedDotAfterImportItem);
+                }
                 _ => break,
             }
         }

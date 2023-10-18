@@ -190,7 +190,7 @@ fn main() -> Result<()> {
                 }
             }
             Err(error) => {
-                bail!("Error: {error}")
+                bail!("{error}")
             }
         }
 
