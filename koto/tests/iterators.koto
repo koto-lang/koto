@@ -274,7 +274,7 @@ make_foo = |x|
     foos = (foo 10), (foo 20), (foo 30)
     assert_eq foos.sum(foo 0), (foo 60)
 
-  @test take: ||
+  @test take_with_count: ||
     assert_eq
       (1..100).take(5).to_tuple(),
       (1, 2, 3, 4, 5)
@@ -285,6 +285,19 @@ make_foo = |x|
     assert_eq
       ones().take(3).to_tuple(),
       (1, 1, 1)
+
+  @test take_with_predicate: ||
+    assert_eq
+      (1..100).take(|n| n <= 5).to_tuple(),
+      (1, 2, 3, 4, 5)
+
+    counter = ||
+      n = 0
+      loop
+        yield n += 1
+    assert_eq
+      counter().take(|n| n <= 3).to_tuple(),
+      (1, 2, 3)
 
   @test windows: ||
     from iterator import to_tuple

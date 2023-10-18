@@ -677,13 +677,23 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("take", |ctx| {
-        let expected_error = "an iterable and non-negative number";
+        let expected_error = "an iterable and a count or predicate";
 
         match ctx.instance_and_args(Value::is_iterable, expected_error)? {
             (iterable, [Value::Number(n)]) if *n >= 0.0 => {
                 let iterable = iterable.clone();
                 let n = *n;
                 let result = adaptors::Take::new(ctx.vm.make_iterator(iterable)?, n.into());
+                Ok(KIterator::new(result).into())
+            }
+            (iterable, [predicate]) if predicate.is_callable() => {
+                let iterable = iterable.clone();
+                let predicate = predicate.clone();
+                let result = adaptors::TakeWhile::new(
+                    ctx.vm.make_iterator(iterable)?,
+                    predicate,
+                    ctx.vm.spawn_shared_vm(),
+                );
                 Ok(KIterator::new(result).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),

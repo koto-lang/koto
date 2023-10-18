@@ -777,14 +777,25 @@ check! 9
 |Iterable, Number| -> Iterator
 ```
 
-Provides an iterator that consumes a number of values from the input before
+Provides an iterator that yields a number of values from the input before
 finishing.
+
+```kototype
+|Iterable, Callable| -> Iterator
+```
+
+Provides an iterator that yields values from the input while they pass a
+predicate function.
+
 
 ### Example
 
 ```koto
 print! (100..200).take(3).to_tuple()
 check! (100, 101, 102)
+
+print! 'hey!'.take(|c| c != '!').to_string()
+check! hey
 ```
 
 ### See also

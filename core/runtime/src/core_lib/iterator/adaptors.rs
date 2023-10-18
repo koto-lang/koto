@@ -764,6 +764,83 @@ impl Iterator for Take {
     }
 }
 
+/// An adaptor that yields values from an iterator while they pass a predicate
+pub struct TakeWhile {
+    iter: KIterator,
+    predicate: Value,
+    vm: Vm,
+    finished: bool,
+}
+
+impl TakeWhile {
+    /// Creates a new [Keep] adaptor
+    pub fn new(iter: KIterator, predicate: Value, vm: Vm) -> Self {
+        Self {
+            iter,
+            predicate,
+            vm,
+            finished: false,
+        }
+    }
+}
+
+impl KotoIterator for TakeWhile {
+    fn make_copy(&self) -> Result<KIterator> {
+        let result = Self {
+            iter: self.iter.make_copy()?,
+            predicate: self.predicate.clone(),
+            vm: self.vm.spawn_shared_vm(),
+            finished: self.finished,
+        };
+        Ok(KIterator::new(result))
+    }
+}
+
+impl Iterator for TakeWhile {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let Some(iter_output) = self.iter.next() else {
+            return None;
+        };
+
+        let predicate = self.predicate.clone();
+        let predicate_result = match &iter_output {
+            Output::Value(value) => self
+                .vm
+                .run_function(predicate, CallArgs::Single(value.clone())),
+            Output::ValuePair(a, b) => self
+                .vm
+                .run_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
+            error @ Output::Error(_) => return Some(error.clone()),
+        };
+
+        let result = match predicate_result {
+            Ok(Value::Bool(true)) => iter_output,
+            Ok(Value::Bool(false)) => {
+                self.finished = true;
+                return None;
+            }
+            Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                "expected a Bool to be returned from the predicate, found '{}'",
+                unexpected.type_as_string()
+            ))),
+            Err(error) => Output::Error(error),
+        };
+
+        Some(result)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_lower, upper) = self.iter.size_hint();
+        (0, upper)
+    }
+}
+
 /// An iterator that splits the incoming iterator into overlapping iterators of size N
 pub struct Windows {
     iter: KIterator,
