@@ -13,7 +13,7 @@ adding scripting support to Rust applications.
 
 During its early development there was a focus on interactive systems, 
 such as rapid iteration during game development,
-but Koto is versatile enough to be useful in all kinds of applications.
+but Koto is versatile enough to be useful in a wide range of applications.
 
 - [Current State](#current-state)
 - [Getting Started](#getting-started)
@@ -96,8 +96,8 @@ print 'The highest amount of fruit is: $amount $fruit'
 
 ### Learning the Language
 
-The [language guide](docs/language/_index.md) and [core library
-reference](docs/core_lib) give an overview of Koto's features. 
+The [language guide](docs/language/_index.md) and 
+[core library reference](docs/core_lib) give an overview of Koto's features. 
 
 Rendered versions of the docs are available on the [Koto website](koto-docs).
 
@@ -110,17 +110,17 @@ know the language.
 
 ### Installation
 
-To build and install the latest version of the CLI from source:
-
-```
-cargo install --path core/cli
-```
-
 The most recent [release](cli-crate) of the Koto CLI can be installed with
 [Cargo](https://rustup.rs):
 
 ```
 cargo install koto_cli
+```
+
+To build and install the latest version of the CLI from source:
+
+```
+cargo install --path core/cli
 ```
 
 ## Language Goals

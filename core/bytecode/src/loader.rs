@@ -10,9 +10,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum LoaderErrorKind {
-    #[error(transparent)]
+    #[error("{0}")]
     Parser(#[from] ParserError),
-    #[error(transparent)]
+    #[error("{0}")]
     Compiler(#[from] CompilerError),
     #[error(transparent)]
     Io(#[from] io::Error),
@@ -80,7 +80,7 @@ impl LoaderError {
 
 impl fmt::Display for LoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.error)?;
+        writeln!(f, "{}.", self.error)?;
         if let Some(source) = &self.source {
             write!(
                 f,

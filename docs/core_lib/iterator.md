@@ -749,7 +749,30 @@ check! 150
 
 ### See also
 
+- [`iterator.step`](#step)
 - [`iterator.take`](#take)
+
+## step
+
+```kototype
+|Iterable, Number| -> Iterator
+```
+
+Steps over the iterable's output by the provided step size.
+
+### Example
+
+```koto
+print! (0..10).step(3).to_tuple()
+check! (0, 3, 6, 9)
+
+print! 'Héllö'.step(2).to_string()
+check! Hlö
+```
+
+### See also
+
+- [`iterator.skip`](#skip)
 
 ## sum
 
@@ -777,14 +800,25 @@ check! 9
 |Iterable, Number| -> Iterator
 ```
 
-Provides an iterator that consumes a number of values from the input before
+Provides an iterator that yields a number of values from the input before
 finishing.
+
+```kototype
+|Iterable, Callable| -> Iterator
+```
+
+Provides an iterator that yields values from the input while they pass a
+predicate function.
+
 
 ### Example
 
 ```koto
 print! (100..200).take(3).to_tuple()
 check! (100, 101, 102)
+
+print! 'hey!'.take(|c| c != '!').to_string()
+check! hey
 ```
 
 ### See also

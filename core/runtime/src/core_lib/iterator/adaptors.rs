@@ -717,6 +717,59 @@ pub enum ReversedError {
     CopyError(RuntimeError),
 }
 
+/// An iterator that yields the next value from the input, and then steps forward by
+pub struct Step {
+    iter: KIterator,
+    step: u64,
+}
+
+impl Step {
+    /// Creates a new [Step] adaptor
+    pub fn new(iter: KIterator, step: u64) -> StdResult<Self, StepError> {
+        if step == 0 {
+            Err(StepError::StepCantBeZero)
+        } else {
+            Ok(Self { iter, step })
+        }
+    }
+}
+
+impl KotoIterator for Step {
+    fn make_copy(&self) -> Result<KIterator> {
+        let result = Self {
+            iter: self.iter.make_copy()?,
+            step: self.step,
+        };
+        Ok(KIterator::new(result))
+    }
+}
+
+impl Iterator for Step {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.iter.next();
+        for _ in 0..self.step - 1 {
+            self.iter.next();
+        }
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let step = self.step as usize;
+        let (lower, upper) = self.iter.size_hint();
+        (lower / step, upper.map(|upper| upper / step))
+    }
+}
+
+/// An error that can be returned by [Step::new]
+#[allow(missing_docs)]
+#[derive(Debug, Error)]
+pub enum StepError {
+    #[error("the step size must be greater than zero")]
+    StepCantBeZero,
+}
+
 /// An iterator that takes up to N values from the adapted iterator, and then stops
 pub struct Take {
     iter: KIterator,
@@ -761,6 +814,83 @@ impl Iterator for Take {
             lower.min(self.remaining),
             upper.map(|upper| upper.min(self.remaining)),
         )
+    }
+}
+
+/// An adaptor that yields values from an iterator while they pass a predicate
+pub struct TakeWhile {
+    iter: KIterator,
+    predicate: Value,
+    vm: Vm,
+    finished: bool,
+}
+
+impl TakeWhile {
+    /// Creates a new [Keep] adaptor
+    pub fn new(iter: KIterator, predicate: Value, vm: Vm) -> Self {
+        Self {
+            iter,
+            predicate,
+            vm,
+            finished: false,
+        }
+    }
+}
+
+impl KotoIterator for TakeWhile {
+    fn make_copy(&self) -> Result<KIterator> {
+        let result = Self {
+            iter: self.iter.make_copy()?,
+            predicate: self.predicate.clone(),
+            vm: self.vm.spawn_shared_vm(),
+            finished: self.finished,
+        };
+        Ok(KIterator::new(result))
+    }
+}
+
+impl Iterator for TakeWhile {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let Some(iter_output) = self.iter.next() else {
+            return None;
+        };
+
+        let predicate = self.predicate.clone();
+        let predicate_result = match &iter_output {
+            Output::Value(value) => self
+                .vm
+                .run_function(predicate, CallArgs::Single(value.clone())),
+            Output::ValuePair(a, b) => self
+                .vm
+                .run_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
+            error @ Output::Error(_) => return Some(error.clone()),
+        };
+
+        let result = match predicate_result {
+            Ok(Value::Bool(true)) => iter_output,
+            Ok(Value::Bool(false)) => {
+                self.finished = true;
+                return None;
+            }
+            Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                "expected a Bool to be returned from the predicate, found '{}'",
+                unexpected.type_as_string()
+            ))),
+            Err(error) => Output::Error(error),
+        };
+
+        Some(result)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_lower, upper) = self.iter.size_hint();
+        (0, upper)
     }
 }
 

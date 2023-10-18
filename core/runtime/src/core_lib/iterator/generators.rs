@@ -1,6 +1,6 @@
 //! Generators used by the `iterator` core library module
 
-use crate::{CallArgs, KIterator, KIteratorOutput as Output, KotoIterator, Result, Value, Vm};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// An iterator that repeatedly yields the same value
 pub struct Repeat {
