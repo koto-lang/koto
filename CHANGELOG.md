@@ -6,6 +6,15 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- The REPL `config.koto` settings have all been moved into a `repl` sub-map.
+  - e.g. 
+    `export { edit_mode: 'vi' }` is now `export { repl: { edit_mode: 'vi' }}`
+
+
 ## [0.12.0] 2023.10.18
 
 ### Added
