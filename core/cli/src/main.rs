@@ -262,29 +262,38 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
         match koto.compile_and_run(&script) {
             Ok(_) => {
                 let exports = koto.exports().data();
-
-                match exports.get("colored_output") {
-                    Some(Value::Bool(value)) => config.colored_output = *value,
-                    Some(_) => bail!("expected bool for colored_output setting"),
-                    None => {}
-                }
-                match exports.get("edit_mode") {
-                    Some(Value::Str(value)) => match value.as_str() {
-                        "emacs" => config.edit_mode = EditMode::Emacs,
-                        "vi" => config.edit_mode = EditMode::Vi,
-                        other => {
-                            bail!("invalid edit mode '{other}', valid options are 'emacs' or 'vi'")
+                match exports.get("repl") {
+                    Some(Value::Map(repl_config)) => {
+                        let repl_config = repl_config.data();
+                        match repl_config.get("colored_output") {
+                            Some(Value::Bool(value)) => config.colored_output = *value,
+                            Some(_) => bail!("expected bool for colored_output setting"),
+                            None => {}
                         }
-                    },
-                    Some(_) => bail!("expected string for edit_mode setting"),
-                    None => {}
-                }
-                match exports.get("max_history") {
-                    Some(Value::Number(value)) => match value.as_i64() {
-                        value if value > 0 => config.max_history = value as usize,
-                        _ => bail!("expected positive number for max_history setting"),
-                    },
-                    Some(_) => bail!("expected positive number for max_history setting"),
+                        match repl_config.get("edit_mode") {
+                            Some(Value::Str(value)) => match value.as_str() {
+                                "emacs" => config.edit_mode = EditMode::Emacs,
+                                "vi" => config.edit_mode = EditMode::Vi,
+                                other => {
+                                    bail!(
+                                        "invalid edit mode '{other}',
+                                         valid options are 'emacs' or 'vi'"
+                                    )
+                                }
+                            },
+                            Some(_) => bail!("expected string for edit_mode setting"),
+                            None => {}
+                        }
+                        match repl_config.get("max_history") {
+                            Some(Value::Number(value)) => match value.as_i64() {
+                                value if value > 0 => config.max_history = value as usize,
+                                _ => bail!("expected positive number for max_history setting"),
+                            },
+                            Some(_) => bail!("expected positive number for max_history setting"),
+                            None => {}
+                        }
+                    }
+                    Some(_) => bail!("expected map for repl settings"),
                     None => {}
                 }
             }

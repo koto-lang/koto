@@ -727,7 +727,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "CheckSizeMin\tregister: {register}\tsize: {size}")
             }
             StringStart { size_hint } => {
-                write!(f, "StringStart\t\tsize hint: {size_hint}")
+                write!(f, "StringStart\tsize hint: {size_hint}")
             }
             StringPush { value } => {
                 write!(f, "StringPush\tvalue: {value}")
