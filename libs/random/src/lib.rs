@@ -81,7 +81,7 @@ impl ChaChaRng {
                 let index = self.0.gen_range(0..t.len());
                 Ok(t[index].clone())
             }
-            unexpected => type_error_with_slice("a List or Range as argument", unexpected),
+            unexpected => type_error_with_slice("a container or range as argument", unexpected),
         }
     }
 
