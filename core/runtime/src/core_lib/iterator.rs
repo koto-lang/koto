@@ -662,6 +662,22 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("step", |ctx| {
+        let expected_error = "an iterable and positive step size";
+
+        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+            (iterable, [Value::Number(n)]) if *n > 0 => {
+                let iterable = iterable.clone();
+                let step_size = n.into();
+                match adaptors::Step::new(ctx.vm.make_iterator(iterable)?, step_size) {
+                    Ok(result) => Ok(KIterator::new(result).into()),
+                    Err(e) => runtime_error!("iterator.step: {}", e),
+                }
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
     result.add_fn("sum", |ctx| {
         let (iterable, initial_value) = {
             let expected_error = "an iterable and optional initial value";

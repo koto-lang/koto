@@ -262,6 +262,14 @@ make_foo = |x|
       (0..10).skip(5).to_tuple(),
       (5, 6, 7, 8, 9)
 
+  @test step: ||
+    assert_eq
+      (0..10).step(3).to_tuple(),
+      (0, 3, 6, 9)
+    assert_eq
+      'abcdef'.step(2).to_string(),
+      'ace'
+
   @test sum: ||
     assert_eq (1..=5).sum(), 15
     # An initial value can be provided to override the default initial value of 0

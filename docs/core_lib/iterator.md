@@ -749,7 +749,30 @@ check! 150
 
 ### See also
 
+- [`iterator.step`](#step)
 - [`iterator.take`](#take)
+
+## step
+
+```kototype
+|Iterable, Number| -> Iterator
+```
+
+Steps over the iterable's output by the provided step size.
+
+### Example
+
+```koto
+print! (0..10).step(3).to_tuple()
+check! (0, 3, 6, 9)
+
+print! 'Héllö'.step(2).to_string()
+check! Hlö
+```
+
+### See also
+
+- [`iterator.skip`](#skip)
 
 ## sum
 

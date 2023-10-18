@@ -717,6 +717,59 @@ pub enum ReversedError {
     CopyError(RuntimeError),
 }
 
+/// An iterator that yields the next value from the input, and then steps forward by
+pub struct Step {
+    iter: KIterator,
+    step: u64,
+}
+
+impl Step {
+    /// Creates a new [Step] adaptor
+    pub fn new(iter: KIterator, step: u64) -> StdResult<Self, StepError> {
+        if step == 0 {
+            Err(StepError::StepCantBeZero)
+        } else {
+            Ok(Self { iter, step })
+        }
+    }
+}
+
+impl KotoIterator for Step {
+    fn make_copy(&self) -> Result<KIterator> {
+        let result = Self {
+            iter: self.iter.make_copy()?,
+            step: self.step,
+        };
+        Ok(KIterator::new(result))
+    }
+}
+
+impl Iterator for Step {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.iter.next();
+        for _ in 0..self.step - 1 {
+            self.iter.next();
+        }
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let step = self.step as usize;
+        let (lower, upper) = self.iter.size_hint();
+        (lower / step, upper.map(|upper| upper / step))
+    }
+}
+
+/// An error that can be returned by [Step::new]
+#[allow(missing_docs)]
+#[derive(Debug, Error)]
+pub enum StepError {
+    #[error("the step size must be greater than zero")]
+    StepCantBeZero,
+}
+
 /// An iterator that takes up to N values from the adapted iterator, and then stops
 pub struct Take {
     iter: KIterator,
