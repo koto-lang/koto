@@ -1,6 +1,6 @@
 [package]
 name = "koto_random"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../core/runtime", version = "^0.12.0" }
+koto_runtime = { path = "../../core/runtime", version = "^0.13.0" }
 
 lazy_static = { workspace = true }
 rand = { workspace = true }

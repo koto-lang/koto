@@ -1,6 +1,6 @@
 [package]
 name = "koto_json"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -12,7 +12,7 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_runtime = { path = "../../core/runtime", version = "^0.12.0" }
-koto_serialize = { path = "../../core/serialize", version = "^0.12.0" }
+koto_runtime = { path = "../../core/runtime", version = "^0.13.0" }
+koto_serialize = { path = "../../core/serialize", version = "^0.13.0" }
 
 serde_json = { workspace = true }

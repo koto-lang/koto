@@ -1,6 +1,6 @@
 [package]
 name = "koto_runtime"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -14,10 +14,10 @@ default = []
 panic_on_runtime_error = []
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.12.0" }
-koto_lexer = { path = "../lexer", version = "^0.12.0" }
-koto_memory = { path = "../memory", version = "^0.12.0" }
-koto_parser = { path = "../parser", version = "^0.12.0" }
+koto_bytecode = { path = "../bytecode", version = "^0.13.0" }
+koto_lexer = { path = "../lexer", version = "^0.13.0" }
+koto_memory = { path = "../memory", version = "^0.13.0" }
+koto_parser = { path = "../parser", version = "^0.13.0" }
 
 downcast-rs = { workspace = true }
 indexmap = { workspace = true }

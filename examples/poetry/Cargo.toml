@@ -1,6 +1,6 @@
 [package]
 name = "koto_poetry"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 autobins = false
@@ -11,8 +11,8 @@ name = "poetry"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../../core/koto", version = "^0.12.0" }
-koto_random = { path = "../../libs/random", version = "^0.12.0" }
+koto = { path = "../../core/koto", version = "^0.13.0" }
+koto_random = { path = "../../libs/random", version = "^0.13.0" }
 
 anyhow = { workspace = true }
 hotwatch = { workspace = true }

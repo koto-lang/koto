@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -14,15 +14,15 @@ default = []
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.12.0" }
-koto_parser = { path = "../parser", version = "^0.12.0" }
-koto_runtime = { path = "../runtime", version = "^0.12.0" }
+koto_bytecode = { path = "../bytecode", version = "^0.13.0" }
+koto_parser = { path = "../parser", version = "^0.13.0" }
+koto_runtime = { path = "../runtime", version = "^0.13.0" }
 
 dunce = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-koto_geometry = { path = "../../libs/geometry", version = "^0.12.0" }
+koto_geometry = { path = "../../libs/geometry", version = "^0.13.0" }
 
 criterion = { workspace = true }
 mimalloc = { workspace = true }
