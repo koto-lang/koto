@@ -52,6 +52,8 @@ The Koto project adheres to
 - `iterator` additions:
   - `iterator.next_back`
   - `iterator.peekable`
+  - `iterator.step`
+  - `iterator.take` has a new overload that takes a predicate.
 
 #### Internals
 
