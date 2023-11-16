@@ -1,8 +1,7 @@
 //! A collection of string iterators
 
 use crate::{
-    make_runtime_error, CallArgs, KIterator, KIteratorOutput as Output, KString, KotoIterator,
-    Result, Value, Vm,
+    CallArgs, KIterator, KIteratorOutput as Output, KString, KotoIterator, Result, Value, Vm,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -216,11 +215,11 @@ impl Iterator for SplitWith {
                         }
                     }
                     Ok(unexpected) => {
-                        let error = make_runtime_error!(format!(
+                        let error = format!(
                             "string.split: Expected a Bool from the match function, found '{}'",
                             unexpected.type_as_string()
-                        ));
-                        return Some(Output::Error(error));
+                        );
+                        return Some(Output::Error(error.into()));
                     }
                     Err(error) => return Some(Output::Error(error.with_prefix("string.split"))),
                 }

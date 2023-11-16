@@ -244,11 +244,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Call => MetaKey::Call,
         MetaKeyId::Named => MetaKey::Named(
-            name.ok_or_else(|| make_runtime_error!("Missing name for named meta entry"))?,
+            name.ok_or_else(|| RuntimeError::from("Missing name for named meta entry"))?,
         ),
         MetaKeyId::Tests => MetaKey::Tests,
         MetaKeyId::Test => {
-            MetaKey::Test(name.ok_or_else(|| make_runtime_error!("Missing name for test"))?)
+            MetaKey::Test(name.ok_or_else(|| RuntimeError::from("Missing name for test"))?)
         }
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,

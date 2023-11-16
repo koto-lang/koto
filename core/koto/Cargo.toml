@@ -11,7 +11,6 @@ keywords = ["scripting", "language", "koto"]
 
 [features]
 default = []
-panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
 koto_bytecode = { path = "../bytecode", version = "^0.13.0" }

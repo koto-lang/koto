@@ -2835,7 +2835,7 @@ impl Vm {
 
     fn new_frame_base(&self) -> Result<u8> {
         u8::try_from(self.registers.len() - self.register_base())
-            .map_err(|_| make_runtime_error!("Overflow of Koto's stack"))
+            .map_err(|_| "Overflow of Koto's stack".into())
     }
 
     fn register_base(&self) -> usize {

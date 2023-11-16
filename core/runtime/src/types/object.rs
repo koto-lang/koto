@@ -232,28 +232,28 @@ impl KObject {
 
     /// Attempts to borrow the underlying object immutably
     pub fn try_borrow(&self) -> Result<Borrow<dyn KotoObject>> {
-        self.object.try_borrow().map_err(|_| {
-            make_runtime_error!("Attempting to borrow an object that is already mutably borrowed")
-        })
+        self.object
+            .try_borrow()
+            .map_err(|_| "Attempting to borrow an object that is already mutably borrowed".into())
     }
 
     /// Attempts to borrow the underlying object mutably
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<dyn KotoObject>> {
-        self.object.try_borrow_mut().map_err(|_| {
-            make_runtime_error!("Attempting to borrow an object that is already mutably borrowed")
-        })
+        self.object
+            .try_borrow_mut()
+            .map_err(|_| "Attempting to borrow an object that is already mutably borrowed".into())
     }
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
     pub fn cast<T: KotoObject>(&self) -> Result<Borrow<T>> {
         Borrow::filter_map(self.try_borrow()?, |object| object.downcast_ref::<T>())
-            .map_err(|_| make_runtime_error!("Incorrect object type"))
+            .map_err(|_| "Incorrect object type".into())
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
     pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<T>> {
         BorrowMut::filter_map(self.try_borrow_mut()?, |object| object.downcast_mut::<T>())
-            .map_err(|_| make_runtime_error!("Incorrect object type"))
+            .map_err(|_| "Incorrect object type".into())
     }
 
     /// Returns true if the provided object occupies the same memory address

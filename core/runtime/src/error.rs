@@ -149,22 +149,7 @@ pub struct ErrorFrame {
 /// The Result type used by the Koto Runtime
 pub type Result<T> = std::result::Result<T, RuntimeError>;
 
-/// Creates a [RuntimeError] from a provided message
-///
-/// If the `panic_on_runtime_error` feature is enabled then a panic will occur,
-/// which can be useful when debugging.
-#[macro_export]
-macro_rules! make_runtime_error {
-    ($error:expr) => {{
-        #[cfg(panic_on_runtime_error)]
-        {
-            panic!($error);
-        }
-        $crate::RuntimeError::from($error)
-    }};
-}
-
-/// Creates a [RuntimeError] from a message (with format-like behaviour), wrapped in `Err`
+/// Creates a [crate::Error] from a message (with format-like behaviour), wrapped in `Err`
 ///
 /// Wrapping the result in `Err` is a convenience for functions that need to return immediately when
 /// an error has occured. See `make_runtime_error` for the internal function that creates the
@@ -172,13 +157,13 @@ macro_rules! make_runtime_error {
 #[macro_export]
 macro_rules! runtime_error {
     ($error:literal) => {
-        Err($crate::make_runtime_error!(format!($error)))
+        Err(RuntimeError::from(format!($error)))
     };
     ($error:expr) => {
-        Err($crate::make_runtime_error!($error))
+        Err(RuntimeError::from($error))
     };
     ($error:literal, $($y:expr),+ $(,)?) => {
-        Err($crate::make_runtime_error!(format!($error, $($y),+)))
+        Err(RuntimeError::from(format!($error, $($y),+)))
     };
 }
 

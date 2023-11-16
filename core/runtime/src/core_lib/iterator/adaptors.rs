@@ -569,10 +569,13 @@ impl Iterator for Keep {
             let result = match predicate_result {
                 Ok(Value::Bool(false)) => continue,
                 Ok(Value::Bool(true)) => output,
-                Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                Ok(unexpected) => Output::Error(
+                    format!(
                     "iterator.keep: Expected a Bool to be returned from the predicate, found '{}'",
                     unexpected.type_as_string()
-                ))),
+                )
+                    .into(),
+                ),
                 Err(error) => Output::Error(error),
             };
 
@@ -878,10 +881,13 @@ impl Iterator for TakeWhile {
                 self.finished = true;
                 return None;
             }
-            Ok(unexpected) => Output::Error(make_runtime_error!(format!(
-                "expected a Bool to be returned from the predicate, found '{}'",
-                unexpected.type_as_string()
-            ))),
+            Ok(unexpected) => Output::Error(
+                format!(
+                    "expected a Bool to be returned from the predicate, found '{}'",
+                    unexpected.type_as_string()
+                )
+                .into(),
+            ),
             Err(error) => Output::Error(error),
         };
 
