@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use koto_bytecode::LoaderError;
-use koto_runtime::RuntimeError;
+use koto_runtime::Error as RuntimeError;
 
 use thiserror::Error;
 

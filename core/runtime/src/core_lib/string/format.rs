@@ -2,7 +2,7 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{runtime_error, RuntimeError, UnaryOp, Value, Vm};
+use crate::{runtime_error, UnaryOp, Value, Vm};
 use koto_lexer::{is_id_continue, is_id_start};
 use std::{iter::Peekable, str::Chars};
 
@@ -299,7 +299,7 @@ pub fn format_string(
     vm: &mut Vm,
     format_string: &str,
     format_args: &[Value],
-) -> Result<String, RuntimeError> {
+) -> crate::Result<String> {
     let mut arg_iter = format_args.iter();
     let mut result = String::with_capacity(format_string.len());
 
@@ -334,11 +334,7 @@ pub fn format_string(
     Ok(result)
 }
 
-fn value_to_string(
-    vm: &mut Vm,
-    value: &Value,
-    format_spec: FormatSpec,
-) -> Result<String, RuntimeError> {
+fn value_to_string(vm: &mut Vm, value: &Value, format_spec: FormatSpec) -> crate::Result<String> {
     let result = match value {
         Value::Number(n) => match format_spec.precision {
             Some(precision) => {

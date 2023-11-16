@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::{prelude::*, Value::*};
+use koto_runtime::{prelude::*, Result, Value::*};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn test_script(script: &str, expected_output: impl Into<Value>) {
@@ -26,13 +26,13 @@ pub fn test_script(script: &str, expected_output: impl Into<Value>) {
     }
 }
 
-pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> Result<(), String> {
+pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> Result<()> {
     let mut loader = Loader::default();
     let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {
             print_chunk(script, vm.chunk());
-            return Err(format!("Error while compiling script: {error}"));
+            return Err(format!("Error while compiling script: {error}").into());
         }
     };
 
@@ -46,24 +46,26 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
                         "Unexpected result - expected: {}, result: {}",
                         vm.value_to_string(&expected_output).unwrap(),
                         vm.value_to_string(&result).unwrap(),
-                    ))
+                    )
+                    .into())
                 }
                 Ok(other) => {
                     print_chunk(script, vm.chunk());
                     Err(format!(
                         "Expected bool from equality comparison, found '{}'",
                         vm.value_to_string(&other).unwrap()
-                    ))
+                    )
+                    .into())
                 }
                 Err(e) => {
                     print_chunk(script, vm.chunk());
-                    Err(format!("Error while comparing output value: ({e})"))
+                    Err(format!("Error while comparing output value: ({e})").into())
                 }
             }
         }
         Err(e) => {
             print_chunk(script, vm.chunk());
-            Err(format!("Error while running script: {e}"))
+            Err(format!("Error while running script: {e}").into())
         }
     }
 }
@@ -136,20 +138,20 @@ impl KotoFile for TestStdout {
 
 impl KotoRead for TestStdout {}
 impl KotoWrite for TestStdout {
-    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+    fn write(&self, bytes: &[u8]) -> Result<()> {
         self.output
             .borrow_mut()
             .push_str(std::str::from_utf8(bytes).unwrap());
         Ok(())
     }
 
-    fn write_line(&self, s: &str) -> Result<(), RuntimeError> {
+    fn write_line(&self, s: &str) -> Result<()> {
         self.output.borrow_mut().push_str(s);
         self.output.borrow_mut().push('\n');
         Ok(())
     }
 
-    fn flush(&self) -> Result<(), RuntimeError> {
+    fn flush(&self) -> Result<()> {
         Ok(())
     }
 }

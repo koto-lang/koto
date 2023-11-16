@@ -1,4 +1,4 @@
-use koto::prelude::*;
+use koto::{prelude::*, runtime::Result};
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
@@ -81,7 +81,7 @@ impl KotoFile for OutputCapture {
 
 impl KotoRead for OutputCapture {}
 impl KotoWrite for OutputCapture {
-    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+    fn write(&self, bytes: &[u8]) -> Result<()> {
         let bytes_str = match std::str::from_utf8(bytes) {
             Ok(s) => s,
             Err(e) => return Err(e.to_string().into()),
@@ -90,14 +90,14 @@ impl KotoWrite for OutputCapture {
         Ok(())
     }
 
-    fn write_line(&self, output: &str) -> Result<(), RuntimeError> {
+    fn write_line(&self, output: &str) -> Result<()> {
         let mut unlocked = self.output.borrow_mut();
         unlocked.push_str(output);
         unlocked.push('\n');
         Ok(())
     }
 
-    fn flush(&self) -> Result<(), RuntimeError> {
+    fn flush(&self) -> Result<()> {
         Ok(())
     }
 }

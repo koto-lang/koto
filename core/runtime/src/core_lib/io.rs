@@ -1,7 +1,7 @@
 //! The `io` core library module
 
 use super::string::format;
-use crate::{prelude::*, BufferedFile, Result};
+use crate::{prelude::*, BufferedFile, Error, Result};
 use std::{
     cell::RefCell,
     fmt, fs,
@@ -388,6 +388,6 @@ where
 }
 
 /// Converts an io::Error into a RuntimeError
-pub fn map_io_err(e: io::Error) -> RuntimeError {
+pub fn map_io_err(e: io::Error) -> Error {
     e.to_string().into()
 }

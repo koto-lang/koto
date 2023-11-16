@@ -2,7 +2,8 @@ mod runtime_test_utils;
 
 mod objects {
     use crate::runtime_test_utils::*;
-    use koto_runtime::{prelude::*, Result};
+    use koto_runtime::prelude::*;
+    use koto_runtime::Result;
 
     #[derive(Clone, Copy, Debug)]
     struct TestObject {

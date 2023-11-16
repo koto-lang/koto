@@ -6,5 +6,5 @@ pub use crate::{
     CallContext, DisplayContext, IsIterable, KIterator, KIteratorOutput, KList, KMap,
     KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoFile, KotoHasher, KotoIterator,
     KotoObject, KotoRead, KotoType, KotoWrite, MetaKey, MetaMap, ObjectEntryBuilder, Ptr, PtrMut,
-    RuntimeError, UnaryOp, Value, ValueKey, ValueMap, ValueVec, Vm, VmSettings,
+    UnaryOp, Value, ValueKey, ValueMap, ValueVec, Vm, VmSettings,
 };

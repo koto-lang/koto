@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, Error};
 use indexmap::Equivalent;
 use std::{
     cmp::Ordering,
@@ -20,7 +20,7 @@ impl ValueKey {
 }
 
 impl TryFrom<Value> for ValueKey {
-    type Error = RuntimeError;
+    type Error = Error;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         if value.is_hashable() {

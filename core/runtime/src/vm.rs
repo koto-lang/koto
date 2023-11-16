@@ -1,6 +1,6 @@
 use crate::{
     core_lib::CoreLib,
-    error::ErrorKind,
+    error::{Error, ErrorKind},
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
     DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Result,
@@ -577,7 +577,7 @@ impl Vm {
 
             match meta_entry {
                 Some((MetaKey::Test(test_name), test)) if test.is_callable() => {
-                    let make_test_error = |error: RuntimeError, message: &str| {
+                    let make_test_error = |error: Error, message: &str| {
                         Err(error.with_prefix(&format!("{message} '{test_name}'")))
                     };
 
@@ -837,7 +837,7 @@ impl Vm {
                     }
                 };
 
-                return Err(RuntimeError::from_koto_value(
+                return Err(crate::Error::from_koto_value(
                     thrown_value,
                     self.spawn_shared_vm(),
                 ));

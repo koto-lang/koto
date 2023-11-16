@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, Error};
 use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 
 /// The integer range type used by the Koto runtime
@@ -203,7 +203,7 @@ impl KRange {
     /// This is used by RangeIterator and in the VM to iterate over temporary ranges.
     ///
     /// Returns an error if the range is not bounded.
-    pub fn pop_front(&mut self) -> Result<Option<i64>, RuntimeError> {
+    pub fn pop_front(&mut self) -> Result<Option<i64>, Error> {
         use Inner::*;
         use Ordering::*;
 
@@ -268,7 +268,7 @@ impl KRange {
     /// This is used by RangeIterator and in the VM to iterate over temporary ranges.
     ///
     /// Returns an error if the range is not bounded.
-    pub fn pop_back(&mut self) -> Result<Option<i64>, RuntimeError> {
+    pub fn pop_back(&mut self) -> Result<Option<i64>, Error> {
         use Inner::*;
         use Ordering::*;
 

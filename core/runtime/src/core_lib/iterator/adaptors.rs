@@ -1,7 +1,7 @@
 //! Adapators used by the `iterator` core library module
 
 use super::collect_pair;
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{prelude::*, Error, KIteratorOutput as Output, Result};
 use std::{collections::VecDeque, result::Result as StdResult};
 use thiserror::Error;
 
@@ -717,7 +717,7 @@ pub enum ReversedError {
     #[error("the provided iterator isn't bidirectional")]
     IteratorIsntReversible,
     #[error("failed to copy the iterator ('{0}')")]
-    CopyError(RuntimeError),
+    CopyError(Error),
 }
 
 /// An iterator that yields the next value from the input, and then steps forward by
