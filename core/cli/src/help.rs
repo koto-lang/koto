@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use std::iter::Peekable;
 
-const HELP_RESULT_STR: &str = "# ➝ ";
+const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
 
 struct HelpEntry {
