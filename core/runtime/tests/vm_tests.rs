@@ -245,6 +245,11 @@ a %= 5
         fn tuple_slicing() {
             test_script("(0, 1, 2, 3, 4, 5)[2..=4]", number_tuple(&[2, 3, 4]));
         }
+
+        #[test]
+        fn addition() {
+            test_script("(1, 2, 3) + (4, 5, 6)", number_tuple(&[1, 2, 3, 4, 5, 6]));
+        }
     }
 
     mod lists {
@@ -397,6 +402,11 @@ l2 = copy l
 l[1] = -1
 l2[1]";
             test_script(script, 2);
+        }
+
+        #[test]
+        fn addition() {
+            test_script("[1, 2, 3] + [4, 5, 6]", number_list(&[1, 2, 3, 4, 5, 6]));
         }
     }
 
@@ -1992,6 +2002,17 @@ m.foo = -1
 m2.foo";
             test_script(script, 42);
         }
+
+        #[test]
+        fn addition() {
+            let script = "
+a = {foo: 42}
+b = {bar: 99}
+c = a + b
+c.foo + c.bar
+";
+            test_script(script, 141);
+        }
     }
 
     mod lookups {
@@ -2997,6 +3018,26 @@ foos = (0, 1)
 foos[0] == foos[1]
 ";
             test_script(script, true);
+        }
+
+        #[test]
+        fn map_addition_with_overloaded_operators() {
+            let script = "
+foo = |a, b|
+  @meta a: a
+  @meta b: b
+  get_a: || self.a
+  get_b: || self.b
+
+bar = |b|
+  @meta b: b
+
+a = foo 100, 42
+b = bar 1000
+c = a + b
+c.get_a() + c.get_b()
+";
+            test_script(script, 1100);
         }
     }
 

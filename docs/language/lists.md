@@ -32,3 +32,12 @@ y[1] = 99
 print! x # x and y share the same data
 check! [10, 99, 30]
 ```
+
+Lists can be joined together with the `+` operator.
+
+```koto
+a = ['a', 'b', 'c']
+b = a + [1, 2, 3]
+print! b
+check! ['a', 'b', 'c', 1, 2, 3]
+```

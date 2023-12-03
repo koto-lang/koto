@@ -70,9 +70,9 @@ followed by the output of the second iterator.
 
 ```koto
 print! [1, 2]
-  .chain [3, 4, 5]
+  .chain 'abc'
   .to_tuple()
-check! (1, 2, 3, 4, 5)
+check! (1, 2, 'a', 'b', 'c')
 ```
 
 ## chunks
