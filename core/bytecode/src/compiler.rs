@@ -1424,12 +1424,13 @@ impl Compiler {
             for item in items.iter() {
                 match item {
                     ImportItemNode::Id(import_id) => {
-                        if result.is_some() {
+                        let import_register = if result.is_some() {
                             // The result of the import expression is being assigned,
                             // so import the item into a temporary register.
                             let import_register = self.push_register()?;
                             self.compile_import_item(import_register, item, ast)?;
                             imported.push(import_register);
+                            import_register
                         } else {
                             // Reserve a local for the imported item.
                             // The register must only be reserved for now otherwise it'll show up in
@@ -1439,11 +1440,12 @@ impl Compiler {
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
+                            import_register
+                        };
 
-                            // Should we export the imported ID?
-                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                                self.compile_value_export(*import_id, import_register)?;
-                            }
+                        // Should we export the imported ID?
+                        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                            self.compile_value_export(*import_id, import_register)?;
                         }
                     }
                     ImportItemNode::Str(_) => {
@@ -1475,11 +1477,11 @@ impl Compiler {
 
                         if result.is_some() {
                             imported.push(import_register);
-                        } else {
-                            // Should we export the imported ID?
-                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                                self.compile_value_export(*import_id, import_register)?;
-                            }
+                        }
+
+                        // Should we export the imported ID?
+                        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                            self.compile_value_export(*import_id, import_register)?;
                         }
                     }
                     ImportItemNode::Str(string) => {
