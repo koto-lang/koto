@@ -365,7 +365,23 @@ check! o_o
 |String| -> Number
 ```
 
-Returns the string parsed as a number.
+Returns the string converted into a number.
+- `0x`, `0o`, and `0b` prefixes will cause the parsing to treat the input as
+  containing a hexadecimal, octal, or binary number respectively.
+- Otherwise the number is assumed to be base 10, and the presence of a decimal
+  point will produce a float instead of an integer.
+
+If a number can't be produced then `Null` is returned.
+
+```kototype
+|String, Integer| -> Integer
+```
+
+Returns the string converted into an integer given the specified base.
+
+The base must be in the range `2..=36`, otherwise an error will be thrown.
+
+If the string contains non-numerical digits then `Null` is returned.
 
 ### Example
 
@@ -375,6 +391,15 @@ check! 123
 
 print! '-8.9'.to_number()
 check! -8.9
+
+print! '0x7f'.to_number()
+check! 127
+
+print! '0b10101'.to_number()
+check! 21
+
+print! '2N9C'.to_number(36)
+check! 123456
 ```
 
 ## to_uppercase
