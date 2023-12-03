@@ -24,6 +24,15 @@ print! x, y
 check! (('a', 10), ('b', 20))
 ```
 
+Tuples can be joined together with the `+` operator.
+
+```koto
+a = (1, 2, 3)
+b = a + (4, 5, 6)
+print! b
+check! (1, 2, 3, 4, 5, 6)
+```
+
 To create an empty Tuple, or a Tuple with a single entry, use a trailing `,` inside the parentheses.
 
 ```koto

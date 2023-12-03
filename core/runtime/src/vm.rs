@@ -1376,10 +1376,33 @@ impl Vm {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
+            (List(a), List(b)) => {
+                let result: ValueVec = a.data().iter().chain(b.data().iter()).cloned().collect();
+                List(KList::with_data(result))
+            }
+            (Tuple(a), Tuple(b)) => {
+                let result: Vec<_> = a.iter().chain(b.iter()).cloned().collect();
+                Tuple(result.into())
+            }
             (v, _) if v.contains_meta_key(&Add.into()) => {
                 let op = v.get_meta_value(&Add.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+            }
+            (Map(a), Map(b)) => {
+                let mut data = a.data().clone();
+                data.extend(b.data().iter().map(|(k, v)| (k.clone(), v.clone())));
+                let meta = match (a.meta_map(), b.meta_map()) {
+                    (None, None) => None,
+                    (Some(meta_a), None) => Some(meta_a.borrow().clone()),
+                    (None, Some(meta_b)) => Some(meta_b.borrow().clone()),
+                    (Some(meta_a), Some(meta_b)) => {
+                        let mut result = meta_a.borrow().clone();
+                        result.extend(&meta_b.borrow());
+                        Some(result)
+                    }
+                };
+                Map(KMap::with_contents(data, meta))
             }
             (Object(o), _) => o.try_borrow()?.add(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Add),

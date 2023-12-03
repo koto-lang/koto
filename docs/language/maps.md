@@ -38,6 +38,16 @@ print! m.hello.to.you
 check! -1
 ```
 
+Maps can be joined together with the `+` operator.
+
+```koto
+a = {red: 100, blue: 150}
+b = {green: 200}
+c = a + b
+print! c
+check! {red: 100, blue: 150, green: 200}
+```
+
 ## Shorthand Values
 
 When using inline syntax, if there's a value available that matches a key's name, then declaring the value is optional.

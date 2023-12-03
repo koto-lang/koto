@@ -8,6 +8,12 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+#### Language
+
+- The `+` operator has been reintroduced for tuples, lists, and maps.
+
 ### Changed
 
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.
