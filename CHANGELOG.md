@@ -16,6 +16,17 @@ The Koto project adheres to
 
 ### Changed
 
+#### Core Library
+
+- `string.to_number` changes:
+  - `0x`, `0o`, and `0b` prefixes are understood for parsing hex, octal, or
+    binary numbers respectively.
+  - An overload has been added that accepts a number base between 2 and 36.
+  - If the string doesn't contain a number null is now returned instead of an
+    exception being thrown.
+
+#### REPL
+
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.
   - e.g. 
     `export { edit_mode: 'vi' }` is now `export { repl: { edit_mode: 'vi' }}`

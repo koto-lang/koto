@@ -199,15 +199,37 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => match s.parse::<i64>() {
-                Ok(n) => Ok(n.into()),
-                Err(_) => match s.parse::<f64>() {
-                    Ok(n) => Ok(n.into()),
-                    Err(_) => {
-                        runtime_error!("string.to_number: Failed to convert '{s}'")
-                    }
-                },
-            },
+            (Value::Str(s), []) => {
+                let maybe_integer = if let Some(hex) = s.strip_prefix("0x") {
+                    i64::from_str_radix(hex, 16)
+                } else if let Some(octal) = s.strip_prefix("0o") {
+                    i64::from_str_radix(octal, 8)
+                } else if let Some(binary) = s.strip_prefix("0b") {
+                    i64::from_str_radix(binary, 2)
+                } else {
+                    s.parse::<i64>()
+                };
+
+                if let Ok(integer) = maybe_integer {
+                    Ok(integer.into())
+                } else if let Ok(float) = s.parse::<f64>() {
+                    Ok(float.into())
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            (Value::Str(s), [Value::Number(n)]) => {
+                let base = n.into();
+                if !(2..=36).contains(&base) {
+                    return runtime_error!("Number base must be within 2..=36");
+                }
+
+                if let Ok(result) = i64::from_str_radix(s, base) {
+                    Ok(result.into())
+                } else {
+                    Ok(Value::Null)
+                }
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
