@@ -4,10 +4,10 @@
 
 use std::cmp::Ordering;
 
-use crate::{runtime_error, BinaryOp, RuntimeError, Value, Vm};
+use crate::{runtime_error, BinaryOp, Error, Value, Vm};
 
 /// Sorts values in a slice using Koto operators for comparison.
-pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), RuntimeError> {
+pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), Error> {
     let mut error = None;
 
     arr.sort_by(|a, b| {
@@ -32,7 +32,7 @@ pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), RuntimeError> {
 }
 
 /// Compares values using Koto operators.
-pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
+pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, Error> {
     match vm.run_binary_op(BinaryOp::Less, a.clone(), b.clone())? {
         Value::Bool(true) => Ok(Ordering::Less),
         Value::Bool(false) => match vm.run_binary_op(BinaryOp::Greater, a.clone(), b.clone())? {

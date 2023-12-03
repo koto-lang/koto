@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Error, Result};
 use std::{cell::RefCell, fmt, ops::DerefMut, rc::Rc, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
@@ -34,7 +34,7 @@ pub enum KIteratorOutput {
     /// An error that occurred during iteration
     ///
     /// Iterators that run functions should check for errors and pass them along to the caller.
-    Error(RuntimeError),
+    Error(Error),
 }
 
 impl<T> From<T> for KIteratorOutput
@@ -47,7 +47,7 @@ where
 }
 
 impl TryFrom<KIteratorOutput> for Value {
-    type Error = RuntimeError;
+    type Error = Error;
 
     fn try_from(iterator_output: KIteratorOutput) -> StdResult<Self, Self::Error> {
         match iterator_output {

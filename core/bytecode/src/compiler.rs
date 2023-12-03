@@ -12,26 +12,63 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
+    #[error("attempting to assign to a temporary value")]
+    AssigningToATemporaryValue,
+    #[error("the loop stack is empty")]
+    EmptyLoopInfoStack,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
     InvalidLoopKeyword(String),
+    #[error("invalid match pattern (found '{0}')")]
+    InvalidMatchPattern(Node),
     #[error("args with ellipses are only allowed in first or last position")]
     InvalidPositionForArgWithEllipses,
+    #[error(
+        "the jump offset here is too large. {0} bytes is larger than the maximum of {}.
+             Try breaking up this part of the program a bit",
+        u16::MAX
+    )]
+    JumpOffsetIsTooLarge(usize),
     #[error("Function has too many {property} ({amount})")]
     FunctionPropertyLimit { property: String, amount: usize },
     #[error("missing argument in for loop")]
     MissingArgumentInForLoop,
+    #[error("missing arg register")]
+    MissingArgRegister,
     #[error("missing LHS for binary op")]
     MissingBinaryOpLhs,
     #[error("missing RHS for binary op")]
     MissingBinaryOpRhs,
     #[error("missing item to import")]
     MissingImportItem,
+    #[error("missing next node while compiling lookup")]
+    MissingNextLookupNode,
+    #[error("missing lookup parent register")]
+    MissingLookupParentRegister,
     #[error("missing result register")]
     MissingResultRegister,
     #[error("missing String nodes")]
     MissingStringNodes,
+    #[error("missing value for Map entry")]
+    MissingValueForMapEntry,
+    #[error("only one ellipsis is allowed in a match arm")]
+    MultipleMatchEllipses,
+    #[error("child lookup node out of position in lookup")]
+    OutOfPositionChildNodeInLookup,
+    #[error("matching with ellipses is only allowed in first or last position")]
+    OutOfPositionMatchEllipsis,
+    #[error("root lookup node out of position in lookup")]
+    OutOfPositionRootNodeInLookup,
+    #[error("The compiled bytecode is larger than the maximum size of 4GB (size: {0} bytes)")]
+    ResultingBytecodeIsTooLarge(usize),
+    #[error("too many targets in assignment ({0})")]
+    TooManyAssignmentTargets(usize),
+    #[error(
+        "too many container entries, {0} is greater than the maximum of {}",
+        u32::MAX
+    )]
+    TooManyContainerEntries(usize),
     #[error("The result of this `break` expression will be ignored")]
     UnassignedBreakValue,
     #[error("unexpected Ellipsis")]
@@ -42,18 +79,11 @@ enum ErrorKind {
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
-    #[error("too many targets in assignment ({0})")]
-    TooManyAssignmentTargets(usize),
-    #[error(
-        "too many container entries, {0} is greater than the maximum of {}",
-        u32::MAX
-    )]
-    TooManyContainerEntries(usize),
+    #[error("expected lookup node, found {0}")]
+    UnexpectedNodeInLookup(Node),
+
     #[error(transparent)]
     FrameError(#[from] FrameError),
-    // Deprecated: specific error variants should be added for each error
-    #[error("{0}")]
-    StringError(String),
 }
 
 /// The error type used to report errors during compilation
@@ -64,22 +94,6 @@ pub struct CompilerError {
     error: ErrorKind,
     /// The span in the source where the error occurred
     pub span: Span,
-}
-
-// Deprecated, errors should use ErrorKind variants and use Compiler::error/make_error
-macro_rules! compiler_error {
-    ($compiler:expr, $error:literal) => {
-        Err(CompilerError{
-            error: ErrorKind::StringError(format!($error)),
-            span: $compiler.span(),
-        })
-    };
-    ($compiler:expr, $error:literal, $($args:expr),+ $(,)?) => {
-        Err(CompilerError{
-            error: ErrorKind::StringError(format!($error, $($args),+)),
-            span: $compiler.span(),
-        })
-    };
 }
 
 #[derive(Clone, Debug)]
@@ -453,11 +467,7 @@ impl Compiler {
         if compiler.bytes.len() <= u32::MAX as usize {
             Ok((compiler.bytes.into(), compiler.debug_info))
         } else {
-            compiler_error!(
-                compiler,
-                "The compiled bytecode is larger than the maximum size of 4GB (compiled bytes: {})",
-                compiler.bytes.len()
-            )
+            compiler.error(ErrorKind::ResultingBytecodeIsTooLarge(compiler.bytes.len()))
         }
     }
 
@@ -2238,11 +2248,13 @@ impl Compiler {
 
             for (key, maybe_value_node) in entries.iter() {
                 let value = match (key, maybe_value_node) {
+                    // A value has been provided for the entry
                     (_, Some(value_node)) => {
                         let value_node = ast.node(*value_node);
                         self.compile_node(ResultRegister::Any, value_node, ast)?
                             .unwrap()
                     }
+                    // ID-only entry, the value should be locally assigned
                     (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
                         Some(register) => CompileResult::with_assigned(register),
                         None => {
@@ -2251,7 +2263,8 @@ impl Compiler {
                             CompileResult::with_temporary(register)
                         }
                     },
-                    _ => return compiler_error!(self, "Value missing for map key"),
+                    // No value provided for a string or meta key
+                    (_, None) => return self.error(ErrorKind::MissingValueForMapEntry),
                 };
 
                 self.compile_map_insert(value.register, key, result_register, export_entries, ast)?;
@@ -2408,7 +2421,7 @@ impl Compiler {
         use Op::*;
 
         if next_node_index.is_none() {
-            return compiler_error!(self, "compile_lookup: missing next node index");
+            return self.error(ErrorKind::MissingNextLookupNode);
         }
 
         // If the result is going into a temporary register then assign it now as the first step.
@@ -2442,7 +2455,7 @@ impl Compiler {
             match &lookup_node {
                 LookupNode::Root(root_node) => {
                     if !node_registers.is_empty() {
-                        return compiler_error!(self, "Root lookup node not in root position");
+                        return self.error(ErrorKind::OutOfPositionRootNodeInLookup);
                     }
 
                     let root = self
@@ -2459,7 +2472,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return compiler_error!(self, "Child lookup node in root position"),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
                     };
 
                     let node_register = self.push_register()?;
@@ -2475,7 +2488,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return compiler_error!(self, "Child lookup node in root position"),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
                     };
 
                     let node_register = self.push_register()?;
@@ -2496,7 +2509,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return compiler_error!(self, "Child lookup node in root position"),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
                     };
 
                     let index = self
@@ -2537,17 +2550,13 @@ impl Compiler {
 
             let next_lookup_node = ast.node(next);
 
-            match &next_lookup_node.node {
+            match next_lookup_node.node.clone() {
                 Node::Lookup((node, next)) => {
-                    lookup_node = node.clone();
-                    next_node_index = *next;
+                    lookup_node = node;
+                    next_node_index = next;
                 }
-                other => {
-                    return compiler_error!(
-                        self,
-                        "compile_lookup: invalid node in lookup chain, found {}",
-                        other
-                    )
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNodeInLookup(unexpected));
                 }
             };
 
@@ -2561,7 +2570,7 @@ impl Compiler {
 
         let access_register = chain_result_register.unwrap_or_default();
         let Some(&parent_register) = node_registers.last() else {
-            return compiler_error!(self, "compile_lookup: Missing parent register");
+            return self.error(ErrorKind::MissingLookupParentRegister);
         };
 
         // If rhs_op is Some, then rhs should also be Some
@@ -2620,7 +2629,7 @@ impl Compiler {
             }
             LookupNode::Call { args, with_parens } => {
                 if simple_assignment {
-                    return compiler_error!(self, "Assigning to temporary value");
+                    return self.error(ErrorKind::AssigningToATemporaryValue);
                 } else if access_assignment || piped_arg_register.is_none() || *with_parens {
                     let (parent_register, function_register) = match &node_registers.as_slice() {
                         [.., parent, function] => (Some(*parent), *function),
@@ -2651,12 +2660,9 @@ impl Compiler {
 
         // Do we need to modify the accessed value?
         if access_assignment {
-            let Some(rhs) = rhs else {
-                return compiler_error!(self, "compile_lookup: Missing rhs");
-            };
-            let Some(rhs_op) = rhs_op else {
-                return compiler_error!(self, "compile_lookup: Missing rhs_op");
-            };
+            // access_assignment can only be true when both rhs and rhs_op have values
+            let rhs = rhs.unwrap();
+            let rhs_op = rhs_op.unwrap();
 
             self.push_op(rhs_op, &[access_register, rhs]);
             node_registers.push(access_register);
@@ -3518,14 +3524,11 @@ impl Compiler {
 
                         index_from_end = true;
                     } else {
-                        return compiler_error!(
-                            self,
-                            "Matching with ellipsis is only allowed in first or last position"
-                        );
+                        return self.error(ErrorKind::OutOfPositionMatchEllipsis);
                     }
                 }
-                _ => {
-                    return compiler_error!(self, "Internal error: invalid match pattern");
+                unexpected => {
+                    return self.error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
                 }
             }
         }
@@ -3578,7 +3581,7 @@ impl Compiler {
                 matches!(ast.node(*last).node, Node::Ellipsis(_))
             });
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
-                return compiler_error!(self, "Only one ellipsis is allowed in a match pattern");
+                return self.error(ErrorKind::MultipleMatchEllipses);
             }
             first_is_ellipsis || last_is_ellipsis
         };
@@ -3772,7 +3775,7 @@ impl Compiler {
                     self.update_offset_placeholder(*placeholder)?;
                 }
             }
-            None => return compiler_error!(self, "Empty loop info stack"),
+            None => return self.error(ErrorKind::EmptyLoopInfoStack),
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -3782,7 +3785,7 @@ impl Compiler {
                 if let Node::Id(id) = &ast.node(*arg).node {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
-                        None => return compiler_error!(self, "Missing arg register"),
+                        None => return self.error(ErrorKind::MissingArgRegister),
                     };
                     self.compile_value_export(*id, arg_register)?;
                 }
@@ -3860,7 +3863,7 @@ impl Compiler {
                     self.update_offset_placeholder(*placeholder)?;
                 }
             }
-            None => return compiler_error!(self, "Empty loop info stack"),
+            None => return self.error(ErrorKind::EmptyLoopInfoStack),
         }
 
         Ok(result)
@@ -3897,7 +3900,7 @@ impl Compiler {
                 loop_info.jump_placeholders.push(placeholder);
                 Ok(())
             }
-            None => compiler_error!(self, "Missing loop info"),
+            None => self.error(ErrorKind::EmptyLoopInfoStack),
         }
     }
 
@@ -3910,12 +3913,7 @@ impl Compiler {
                 self.bytes[offset_ip + 1] = offset_bytes[1];
                 Ok(())
             }
-            Err(_) => compiler_error!(
-                self,
-                "Jump offset is too large, {offset} is larger than the maximum of {}.
-                 Try breaking up this part of the program a bit.",
-                u16::MAX,
-            ),
+            Err(_) => self.error(ErrorKind::JumpOffsetIsTooLarge(offset)),
         }
     }
 

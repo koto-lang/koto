@@ -1,7 +1,7 @@
 //! Adapators used by the `iterator` core library module
 
 use super::collect_pair;
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{prelude::*, Error, KIteratorOutput as Output, Result};
 use std::{collections::VecDeque, result::Result as StdResult};
 use thiserror::Error;
 
@@ -569,10 +569,13 @@ impl Iterator for Keep {
             let result = match predicate_result {
                 Ok(Value::Bool(false)) => continue,
                 Ok(Value::Bool(true)) => output,
-                Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                Ok(unexpected) => Output::Error(
+                    format!(
                     "iterator.keep: Expected a Bool to be returned from the predicate, found '{}'",
                     unexpected.type_as_string()
-                ))),
+                )
+                    .into(),
+                ),
                 Err(error) => Output::Error(error),
             };
 
@@ -714,7 +717,7 @@ pub enum ReversedError {
     #[error("the provided iterator isn't bidirectional")]
     IteratorIsntReversible,
     #[error("failed to copy the iterator ('{0}')")]
-    CopyError(RuntimeError),
+    CopyError(Error),
 }
 
 /// An iterator that yields the next value from the input, and then steps forward by
@@ -878,10 +881,13 @@ impl Iterator for TakeWhile {
                 self.finished = true;
                 return None;
             }
-            Ok(unexpected) => Output::Error(make_runtime_error!(format!(
-                "expected a Bool to be returned from the predicate, found '{}'",
-                unexpected.type_as_string()
-            ))),
+            Ok(unexpected) => Output::Error(
+                format!(
+                    "expected a Bool to be returned from the predicate, found '{}'",
+                    unexpected.type_as_string()
+                )
+                .into(),
+            ),
             Err(error) => Output::Error(error),
         };
 

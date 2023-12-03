@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Error, Result};
 use indexmap::{Equivalent, IndexMap};
 use koto_parser::MetaKeyId;
 use std::{
@@ -243,13 +243,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Call => MetaKey::Call,
-        MetaKeyId::Named => MetaKey::Named(
-            name.ok_or_else(|| make_runtime_error!("Missing name for named meta entry"))?,
-        ),
-        MetaKeyId::Tests => MetaKey::Tests,
-        MetaKeyId::Test => {
-            MetaKey::Test(name.ok_or_else(|| make_runtime_error!("Missing name for test"))?)
+        MetaKeyId::Named => {
+            MetaKey::Named(name.ok_or_else(|| Error::from("Missing name for named meta entry"))?)
         }
+        MetaKeyId::Tests => MetaKey::Tests,
+        MetaKeyId::Test => MetaKey::Test(name.ok_or_else(|| Error::from("Missing name for test"))?),
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,
         MetaKeyId::Main => MetaKey::Main,

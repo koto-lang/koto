@@ -13,7 +13,7 @@ pub mod prelude;
 
 pub use crate::{
     display_context::DisplayContext,
-    error::{type_error, type_error_with_slice, Result, RuntimeError},
+    error::{type_error, type_error_with_slice, Error, Result},
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
         BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,

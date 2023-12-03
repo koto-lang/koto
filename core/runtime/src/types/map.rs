@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Error, Result};
 use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{
@@ -182,7 +182,7 @@ impl KMap {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
             let mut vm = ctx
                 .vm()
-                .ok_or_else(|| make_runtime_error!("Missing VM in map display op"))?
+                .ok_or_else(|| Error::from("Missing VM in map display op"))?
                 .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
                 Value::Str(display_result) => {

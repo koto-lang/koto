@@ -1,10 +1,10 @@
 //! A Koto language module for working with YAML data
 
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Result};
 use koto_serialize::SerializableValue;
 use serde_yaml::Value as YamlValue;
 
-pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, RuntimeError> {
+pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value> {
     let result = match value {
         YamlValue::Null => Value::Null,
         YamlValue::Bool(b) => Value::Bool(*b),
@@ -20,7 +20,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Runt
             match sequence
                 .iter()
                 .map(yaml_value_to_koto_value)
-                .collect::<Result<ValueVec, RuntimeError>>()
+                .collect::<Result<ValueVec>>()
             {
                 Ok(result) => Value::List(KList::with_data(result)),
                 Err(e) => return Err(e),

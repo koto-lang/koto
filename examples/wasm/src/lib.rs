@@ -1,4 +1,4 @@
-use koto::prelude::*;
+use koto::{prelude::*, runtime::Result};
 use wasm_bindgen::prelude::*;
 
 // Captures output from Koto in a String
@@ -15,7 +15,7 @@ impl KotoFile for OutputCapture {
 
 impl KotoRead for OutputCapture {}
 impl KotoWrite for OutputCapture {
-    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+    fn write(&self, bytes: &[u8]) -> Result<()> {
         let bytes_str = match std::str::from_utf8(bytes) {
             Ok(s) => s,
             Err(e) => return Err(e.to_string().into()),
@@ -24,14 +24,14 @@ impl KotoWrite for OutputCapture {
         Ok(())
     }
 
-    fn write_line(&self, output: &str) -> Result<(), RuntimeError> {
+    fn write_line(&self, output: &str) -> Result<()> {
         let mut unlocked = self.output.borrow_mut();
         unlocked.push_str(output);
         unlocked.push('\n');
         Ok(())
     }
 
-    fn flush(&self) -> Result<(), RuntimeError> {
+    fn flush(&self) -> Result<()> {
         Ok(())
     }
 }
@@ -46,11 +46,11 @@ impl KotoFile for BlockedInput {
 
 impl KotoWrite for BlockedInput {}
 impl KotoRead for BlockedInput {
-    fn read_line(&self) -> Result<Option<String>, RuntimeError> {
+    fn read_line(&self) -> Result<Option<String>> {
         runtime_error!("Unsupported in the browser")
     }
 
-    fn read_to_string(&self) -> Result<String, RuntimeError> {
+    fn read_to_string(&self) -> Result<String> {
         runtime_error!("Unsupported in the browser")
     }
 }
