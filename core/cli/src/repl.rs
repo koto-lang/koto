@@ -251,7 +251,7 @@ impl Repl {
         } else if input.starts_with("help") {
             input
                 .split_once(char::is_whitespace)
-                .map(|(_, search_string)| format!("\n{}", self.get_help(Some(search_string))))
+                .map(|(_, search_string)| format!("\n{}\n", self.get_help(Some(search_string))))
         } else {
             None
         }

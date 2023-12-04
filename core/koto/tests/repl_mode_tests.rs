@@ -93,7 +93,24 @@ mod repl_mode {
     }
 
     #[test]
-    fn import_print() {
+    fn import_single_item() {
+        run_repl_mode_test(&[
+            ("from string import to_number", ""),
+            ("print to_number '0x7f'", "127"),
+        ]);
+    }
+
+    #[test]
+    fn import_multiple_items() {
+        run_repl_mode_test(&[
+            ("from string import to_lowercase, to_uppercase", ""),
+            ("print to_lowercase 'HEY'", "hey"),
+            ("print to_uppercase 'hey'", "HEY"),
+        ]);
+    }
+
+    #[test]
+    fn import_with_assignment() {
         run_repl_mode_test(&[
             ("print2 = from io import print", ""),
             ("print2 'hello!'", "hello!"),

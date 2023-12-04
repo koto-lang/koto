@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use std::iter::Peekable;
 
-const HELP_RESULT_STR: &str = "# ➝ ";
+const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
 
 struct HelpEntry {
@@ -38,6 +38,7 @@ impl Help {
             include_doc!("language/maps.md"),
             include_doc!("language/meta_maps.md"),
             include_doc!("language/modules.md"),
+            include_doc!("language/prelude.md"),
             include_doc!("language/ranges.md"),
             include_doc!("language/strings.md"),
             include_doc!("language/testing.md"),
@@ -78,8 +79,8 @@ impl Help {
     pub fn get_help(&self, search: Option<&str>) -> String {
         match search {
             Some(search) => {
-                let search_lower = search.trim().to_lowercase();
-                match self.help_map.get(&search_lower) {
+                let search = text_to_key(search);
+                match self.help_map.get(&search) {
                     Some(entry) => {
                         let mut help = format!(
                             "{indent}{name}\n{indent}{underline}{help}",
@@ -89,7 +90,7 @@ impl Help {
                             help = entry.help
                         );
 
-                        let sub_match = format!("{search_lower}.");
+                        let sub_match = format!("{search}.");
                         let match_level = sub_match.chars().filter(|&c| c == '.').count();
                         let sub_entries = self
                             .help_map
@@ -125,7 +126,7 @@ impl Help {
                         let matches = self
                             .help_map
                             .iter()
-                            .filter(|(key, _)| key.contains(&search_lower))
+                            .filter(|(key, _)| key.contains(&search))
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
@@ -200,7 +201,7 @@ impl Help {
         let (file_name, help) = consume_help_section(&mut parser, None);
         if !help.trim().is_empty() {
             self.help_map.insert(
-                file_name.to_lowercase().replace(' ', "_"),
+                text_to_key(&file_name),
                 HelpEntry {
                     name: file_name,
                     help,
@@ -212,7 +213,7 @@ impl Help {
         while parser.peek().is_some() {
             let (entry_name, help) = consume_help_section(&mut parser, None);
             self.help_map.insert(
-                entry_name.to_lowercase().replace(' ', "_"),
+                text_to_key(&entry_name),
                 HelpEntry {
                     name: entry_name,
                     help,
@@ -227,7 +228,7 @@ impl Help {
         let (module_name, help) = consume_help_section(&mut parser, None);
         if !help.trim().is_empty() {
             self.help_map.insert(
-                module_name.clone(),
+                text_to_key(&module_name),
                 HelpEntry {
                     name: module_name.clone(),
                     help,
@@ -240,7 +241,7 @@ impl Help {
         while parser.peek().is_some() {
             let (entry_name, help) = consume_help_section(&mut parser, Some(&module_name));
             self.help_map.insert(
-                entry_name.to_lowercase(),
+                text_to_key(&entry_name),
                 HelpEntry {
                     name: entry_name,
                     help,
@@ -248,6 +249,10 @@ impl Help {
             );
         }
     }
+}
+
+fn text_to_key(text: &str) -> String {
+    text.trim().to_lowercase().replace(' ', "_")
 }
 
 fn consume_help_section(
