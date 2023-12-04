@@ -38,6 +38,7 @@ impl Help {
             include_doc!("language/maps.md"),
             include_doc!("language/meta_maps.md"),
             include_doc!("language/modules.md"),
+            include_doc!("language/prelude.md"),
             include_doc!("language/ranges.md"),
             include_doc!("language/strings.md"),
             include_doc!("language/testing.md"),

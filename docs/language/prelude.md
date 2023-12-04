@@ -3,7 +3,7 @@
 The prelude is a collection of items that are automatically available in a Koto
 script without needing to be imported.
 
-The core library modules are automatically available in the prelude, 
+The core library modules are automatically available in the prelude,
 along with the following functions from the core library.
 
 - [`io.print`](../../core/io#print)
