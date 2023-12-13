@@ -143,6 +143,7 @@ cargo install --path core/cli
 - [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
+- [Tree-sitter](https://github.com/koto-lang/tree-sitter-koto)
 
 ## MSRV
 
