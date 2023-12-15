@@ -646,6 +646,7 @@ dependencies = [
  "koto_geometry",
  "koto_json",
  "koto_random",
+ "koto_re",
  "koto_tempfile",
  "koto_toml",
  "koto_yaml",
@@ -736,6 +737,14 @@ dependencies = [
  "lazy_static",
  "rand",
  "rand_chacha",
+]
+
+[[package]]
+name = "koto_re"
+version = "0.13.0"
+dependencies = [
+ "koto_runtime",
+ "regex",
 ]
 
 [[package]]
