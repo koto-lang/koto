@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../core/runtime", version = "^0.13.0" }
+koto_runtime = { path = "../../crates/runtime", version = "^0.13.0" }
 
 lazy_static = { workspace = true }
 rand = { workspace = true }

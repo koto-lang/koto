@@ -11,7 +11,7 @@ name = "poetry"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../../core/koto", version = "^0.13.0" }
+koto = { path = "../../crates/koto", version = "^0.13.0" }
 koto_random = { path = "../../libs/random", version = "^0.13.0" }
 
 anyhow = { workspace = true }
