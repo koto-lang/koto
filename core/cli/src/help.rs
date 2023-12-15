@@ -20,7 +20,7 @@ impl Help {
             ($doc:expr) => {
                 // Including via a symlink to the top-level docs folder to ensure cargo-package
                 // can find it during packaging.
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/", $doc))
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/", $doc))
             };
         }
 
