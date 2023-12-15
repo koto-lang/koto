@@ -51,11 +51,11 @@ pub fn make_module() -> KMap {
             [Number(x), Number(y), Number(z)] => (x.into(), y.into(), z.into()),
             [Object(v)] if v.is_a::<Vec2>() => {
                 let xy = v.cast::<Vec2>().unwrap();
-                (xy.x, xy.y, 0.0)
+                (xy.inner().x, xy.inner().y, 0.0)
             }
             [Object(v), Number(z)] if v.is_a::<Vec2>() => {
                 let xy = v.cast::<Vec2>().unwrap();
-                (xy.x, xy.y, z.into())
+                (xy.inner().x, xy.inner().y, z.into())
             }
             [Object(v)] if v.is_a::<Vec3>() => return Ok((*v.cast::<Vec3>().unwrap()).into()),
             unexpected => {

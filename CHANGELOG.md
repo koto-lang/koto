@@ -6,13 +6,18 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.13.0] Unreleased
 
 ### Added
 
 #### Language
 
 - The `+` operator has been reintroduced for tuples, lists, and maps.
+
+#### API
+
+- The `koto_derive` crate has been introduced containing derive macros that make
+  it easier to implement `KotoObject`s.
 
 ### Changed
 
@@ -30,6 +35,12 @@ The Koto project adheres to
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.
   - e.g. 
     `export { edit_mode: 'vi' }` is now `export { repl: { edit_mode: 'vi' }}`
+
+### Removed 
+
+#### API
+
+- `ObjectEntryBuilder` has been replaced with macros from `koto_derive`.
 
 
 ## [0.12.0] 2023.10.18

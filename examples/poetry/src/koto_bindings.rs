@@ -1,5 +1,5 @@
 use crate::Poetry;
-use koto::prelude::*;
+use koto::{derive::*, prelude::*};
 
 pub fn make_module() -> KMap {
     let result = KMap::with_type("poetry");
@@ -9,7 +9,7 @@ pub fn make_module() -> KMap {
             [Value::Str(text)] => {
                 let mut poetry = Poetry::default();
                 poetry.add_source_material(text);
-                Ok(poetry.into())
+                Ok(KObject::from(KotoPoetry(poetry)).into())
             }
             unexpected => type_error_with_slice("a String", unexpected),
         }
@@ -18,31 +18,20 @@ pub fn make_module() -> KMap {
     result
 }
 
-impl KotoType for Poetry {
-    const TYPE: &'static str = "Poetry";
-}
+#[derive(Clone, KotoCopy, KotoType)]
+#[koto(type_name = "Poetry")]
+struct KotoPoetry(Poetry);
 
-impl KotoObject for Poetry {
-    fn object_type(&self) -> KString {
-        Self::TYPE.into()
-    }
+impl KotoLookup for KotoPoetry {}
 
-    fn copy(&self) -> KObject {
-        self.clone().into()
-    }
-
+impl KotoObject for KotoPoetry {
     fn is_iterable(&self) -> IsIterable {
         IsIterable::ForwardIterator
     }
 
     fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
-        self.next_word()
+        self.0
+            .next_word()
             .map(|word| KIteratorOutput::Value(word.as_ref().into()))
-    }
-}
-
-impl From<Poetry> for Value {
-    fn from(poetry: Poetry) -> Self {
-        KObject::from(poetry).into()
     }
 }

@@ -37,6 +37,8 @@ nannou_core = "0.18.0"
 palette = "0.7.2"
 # An ultra simple CLI arguments parser.
 pico-args = { version = "0.3.4", default-features = false }
+# A substitute implementation of the compiler's `proc_macro` API
+proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
 pulldown-cmark = { version = "0.9.1", default-features = false }
 # Quasi-quoting macro quote!(...)
@@ -58,7 +60,7 @@ serde_yaml = "0.8.20"
 # 'Small vector' optimization: store up to a small number of items on the stack
 smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
 # Parser for Rust source code
-syn = "2.0.41"
+syn = { version = "2.0.41", features = ["full"] }
 # A library for managing temporary files and directories.
 tempfile = "3.1"
 # A crate for getting the crate binary in an integration test.

@@ -22,7 +22,7 @@ pub use self::{
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
     native_function::{CallContext, KNativeFunction},
     number::KNumber,
-    object::{IsIterable, KObject, KotoObject, KotoType, MethodContext, ObjectEntryBuilder},
+    object::{IsIterable, KObject, KotoCopy, KotoLookup, KotoObject, KotoType, MethodContext},
     range::KRange,
     string::KString,
     tuple::KTuple,

@@ -2,22 +2,54 @@ mod runtime_test_utils;
 
 mod objects {
     use crate::runtime_test_utils::*;
-    use koto_runtime::prelude::*;
-    use koto_runtime::Result;
+    use koto_runtime::{prelude::*, MethodContext, Result};
 
-    #[derive(Clone, Copy, Debug)]
+    use koto_derive::*;
+
+    #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
+    #[koto(use_copy)]
     struct TestObject {
         x: i64,
     }
 
+    #[koto_impl(runtime = koto_runtime)]
     impl TestObject {
         fn make_value(x: i64) -> Value {
             KObject::from(Self { x }).into()
         }
-    }
 
-    impl KotoType for TestObject {
-        const TYPE: &'static str = "TestObject";
+        #[koto_method]
+        fn to_number(&self) -> Value {
+            self.x.into()
+        }
+
+        #[koto_method]
+        fn invert(&mut self) {
+            self.x *= -1;
+        }
+
+        #[koto_method(alias = "absorb1", alias = "absorb2")]
+        fn absorb_values(&mut self, args: &[Value]) -> Result<Value> {
+            for arg in args.iter() {
+                match arg {
+                    Value::Number(n) => self.x += i64::from(n),
+                    other => return type_error("Number", other),
+                }
+            }
+            Ok(Value::Null)
+        }
+
+        #[koto_method]
+        fn set_all_instances(ctx: MethodContext<Self>) -> Result<Value> {
+            match ctx.args {
+                [Value::Object(b)] if b.is_a::<TestObject>() => {
+                    let b_x = b.cast::<TestObject>().unwrap().x;
+                    ctx.instance_mut()?.x = b_x;
+                    Ok(Value::Null)
+                }
+                unexpected => type_error_with_slice("TestExternal", unexpected),
+            }
+        }
     }
 
     macro_rules! arithmetic_op {
@@ -33,7 +65,7 @@ mod objects {
                         Ok(Self::make_value($self.x $op i64::from(n)))
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -55,7 +87,7 @@ mod objects {
                         Ok(())
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -77,7 +109,7 @@ mod objects {
                         Ok($self.x $op i64::from(n))
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -85,21 +117,9 @@ mod objects {
     }
 
     impl KotoObject for TestObject {
-        fn object_type(&self) -> KString {
-            TEST_OBJECT_TYPE_STRING.with(|s| s.clone())
-        }
-
-        fn copy(&self) -> KObject {
-            (*self).into()
-        }
-
         fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-            ctx.append(format!("{}: {}", Self::TYPE, self.x));
+            ctx.append(format!("{}: {}", self.type_string(), self.x));
             Ok(())
-        }
-
-        fn lookup(&self, key: &ValueKey) -> Option<Value> {
-            TEST_OBJECT_ENTRIES.with(|entries| entries.get(key).cloned())
         }
 
         fn index(&self, index: &Value) -> Result<Value> {
@@ -193,42 +213,7 @@ mod objects {
         }
     }
 
-    fn test_object_entries() -> ValueMap {
-        use Value::*;
-
-        ObjectEntryBuilder::<TestObject>::new()
-            .method("to_number", |ctx| Ok(Number(ctx.instance()?.x.into())))
-            .method("invert", |ctx| {
-                ctx.instance_mut()?.x *= -1;
-                Ok(Null)
-            })
-            .method("set_all_instances", |ctx| match ctx.args {
-                [Object(b)] if b.is_a::<TestObject>() => {
-                    let b_x = b.cast::<TestObject>().unwrap().x;
-                    ctx.instance_mut()?.x = b_x;
-                    Ok(Null)
-                }
-                unexpected => type_error_with_slice("TestExternal", unexpected),
-            })
-            .method("absorb_values", |ctx| {
-                let mut data = ctx.instance_mut()?;
-                for arg in ctx.args.iter() {
-                    match arg {
-                        Number(n) => data.x += i64::from(n),
-                        other => return type_error("Number", other),
-                    }
-                }
-                Ok(Null)
-            })
-            .build()
-    }
-
-    thread_local! {
-        static TEST_OBJECT_TYPE_STRING: KString = TestObject::TYPE.into();
-        static TEST_OBJECT_ENTRIES: ValueMap = test_object_entries();
-    }
-
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug, KotoCopy, KotoType)]
     struct TestIterator {
         x: i64,
     }
@@ -239,19 +224,9 @@ mod objects {
         }
     }
 
-    impl KotoType for TestIterator {
-        const TYPE: &'static str = "TestIterator";
-    }
+    impl KotoLookup for TestIterator {}
 
     impl KotoObject for TestIterator {
-        fn object_type(&self) -> KString {
-            TEST_ITERATOR_TYPE_STRING.with(|s| s.clone())
-        }
-
-        fn copy(&self) -> KObject {
-            (*self).into()
-        }
-
         fn is_iterable(&self) -> IsIterable {
             IsIterable::BidirectionalIterator
         }
@@ -265,10 +240,6 @@ mod objects {
             self.x -= 1;
             Some(self.x.into())
         }
-    }
-
-    thread_local! {
-        static TEST_ITERATOR_TYPE_STRING: KString = TestIterator::TYPE.into();
     }
 
     fn test_object_script(script: &str, expected_output: impl Into<Value>) {
@@ -326,6 +297,26 @@ x.absorb_values 10, 20, 30
 x.to_number()
 ";
             test_object_script(script, 102);
+        }
+
+        #[test]
+        fn absorb_values_aliased_1() {
+            let script = "
+x = make_object 1
+x.absorb1 2, 3, 4, 5
+x.to_number()
+";
+            test_object_script(script, 15);
+        }
+
+        #[test]
+        fn absorb_values_aliased_2() {
+            let script = "
+x = make_object 10
+x.absorb2 20, 30
+x.to_number()
+";
+            test_object_script(script, 60);
         }
     }
 

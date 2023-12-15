@@ -528,7 +528,7 @@ impl Vm {
 
                 let o_inner = o.try_borrow()?;
                 match o_inner.is_iterable() {
-                    NotIterable => runtime_error!("{} is not iterable", o_inner.object_type()),
+                    NotIterable => runtime_error!("{} is not iterable", o_inner.type_string()),
                     Iterable => o_inner.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())
@@ -1046,7 +1046,7 @@ impl Vm {
                 let o_inner = o.try_borrow()?;
                 match o_inner.is_iterable() {
                     NotIterable => {
-                        return runtime_error!("{} is not iterable", o_inner.object_type())
+                        return runtime_error!("{} is not iterable", o_inner.type_string())
                     }
                     Iterable => o_inner.make_iterator(self)?.into(),
                     ForwardIterator | BidirectionalIterator => {
@@ -2400,7 +2400,7 @@ impl Vm {
                         )?;
                         self.set_register(result_register, iterator_op);
                     } else {
-                        return runtime_error!("'{key}' not found in '{}'", o.object_type());
+                        return runtime_error!("'{key}' not found in '{}'", o.type_string());
                     }
                 }
             }

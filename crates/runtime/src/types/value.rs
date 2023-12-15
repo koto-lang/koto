@@ -187,7 +187,7 @@ impl Value {
             }
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
-                |o| o.object_type(),
+                |o| o.type_string(),
             ),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),

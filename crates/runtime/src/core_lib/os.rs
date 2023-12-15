@@ -1,9 +1,8 @@
 //! The `os` core library module
 
-use crate::{prelude::*, Result};
+use crate::{derive::*, prelude::*, Result};
 use chrono::prelude::*;
 use instant::Instant;
-use std::ops::Deref;
 
 /// Initializes the `os` core library module
 pub fn make_module() -> KMap {
@@ -31,17 +30,10 @@ pub fn make_module() -> KMap {
 }
 
 /// The underlying data type returned by `os.time()`
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, KotoCopy, KotoType)]
 pub struct DateTime(chrono::DateTime<Local>);
 
-impl Deref for DateTime {
-    type Target = chrono::DateTime<Local>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
+#[koto_impl(runtime = crate)]
 impl DateTime {
     fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
         KObject::from(Self(time)).into()
@@ -68,71 +60,72 @@ impl DateTime {
             None => runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
-}
 
-impl KotoType for DateTime {
-    const TYPE: &'static str = "DateTime";
+    #[koto_method]
+    fn day(&self) -> Value {
+        self.0.day().into()
+    }
+
+    #[koto_method]
+    fn hour(&self) -> Value {
+        self.0.hour().into()
+    }
+
+    #[koto_method]
+    fn minute(&self) -> Value {
+        self.0.minute().into()
+    }
+
+    #[koto_method]
+    fn month(&self) -> Value {
+        self.0.month().into()
+    }
+
+    #[koto_method]
+    fn second(&self) -> Value {
+        self.0.second().into()
+    }
+
+    #[koto_method]
+    fn nanosecond(&self) -> Value {
+        self.0.nanosecond().into()
+    }
+
+    #[koto_method]
+    fn timestamp(&self) -> Value {
+        let seconds = self.0.timestamp() as f64;
+        let sub_nanos = self.0.timestamp_subsec_nanos();
+        (seconds + sub_nanos as f64 / 1.0e9).into()
+    }
+
+    #[koto_method]
+    fn timezone_offset(&self) -> Value {
+        self.0.offset().local_minus_utc().into()
+    }
+
+    #[koto_method]
+    fn timezone_string(&self) -> Value {
+        self.0.format("%z").to_string().into()
+    }
+
+    #[koto_method]
+    fn year(&self) -> Value {
+        self.0.year().into()
+    }
 }
 
 impl KotoObject for DateTime {
-    fn object_type(&self) -> KString {
-        DATETIME_TYPE_STRING.with(|t| t.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        self.clone().into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        DATETIME_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(self.format("%F %T").to_string());
+        ctx.append(self.0.format("%F %T").to_string());
         Ok(())
     }
 }
 
-fn datetime_entries() -> ValueMap {
-    ObjectEntryBuilder::<DateTime>::new()
-        .method("day", |ctx| Ok(ctx.instance()?.day().into()))
-        .method("hour", |ctx| Ok(ctx.instance()?.hour().into()))
-        .method("minute", |ctx| Ok(ctx.instance()?.minute().into()))
-        .method("month", |ctx| Ok(ctx.instance()?.month().into()))
-        .method("second", |ctx| Ok(ctx.instance()?.second().into()))
-        .method("nanosecond", |ctx| Ok(ctx.instance()?.nanosecond().into()))
-        .method("timestamp", |ctx| {
-            let seconds = ctx.instance()?.timestamp() as f64;
-            let sub_nanos = ctx.instance()?.timestamp_subsec_nanos();
-            Ok((seconds + sub_nanos as f64 / 1.0e9).into())
-        })
-        .method("timezone_offset", |ctx| {
-            Ok(ctx.instance()?.offset().local_minus_utc().into())
-        })
-        .method("timezone_string", |ctx| {
-            Ok(ctx.instance()?.format("%z").to_string().into())
-        })
-        .method("year", |ctx| Ok(ctx.instance()?.year().into()))
-        .build()
-}
-
-thread_local! {
-    static DATETIME_TYPE_STRING: KString = DateTime::TYPE.into();
-    static DATETIME_ENTRIES: ValueMap = datetime_entries();
-}
-
 /// The underlying data type returned by `os.start_timer()`
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, KotoCopy, KotoType)]
 pub struct Timer(Instant);
 
-impl Deref for Timer {
-    type Target = Instant;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
+#[koto_impl(runtime = crate)]
 impl Timer {
     fn now() -> Value {
         let timer = Self(Instant::now());
@@ -140,29 +133,18 @@ impl Timer {
     }
 
     fn elapsed_seconds(&self) -> f64 {
-        self.elapsed().as_secs_f64()
+        self.0.elapsed().as_secs_f64()
     }
-}
 
-impl KotoType for Timer {
-    const TYPE: &'static str = "Timer";
+    #[koto_method]
+    fn elapsed(&self) -> Value {
+        self.elapsed_seconds().into()
+    }
 }
 
 impl KotoObject for Timer {
-    fn object_type(&self) -> KString {
-        TIMER_TYPE_STRING.with(|t| t.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        self.clone().into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        TIMER_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(format!("{}({:.3}s)", Self::TYPE, self.elapsed_seconds()));
+        ctx.append(format!("Timer({:.3}s)", self.elapsed_seconds()));
         Ok(())
     }
 
@@ -172,27 +154,14 @@ impl KotoObject for Timer {
                 let rhs = o.cast::<Self>().unwrap();
 
                 let result = if self.0 >= rhs.0 {
-                    self.duration_since(rhs.0).as_secs_f64()
+                    self.0.duration_since(rhs.0).as_secs_f64()
                 } else {
-                    -(rhs.duration_since(self.0).as_secs_f64())
+                    -(rhs.0.duration_since(self.0).as_secs_f64())
                 };
 
                 Ok(result.into())
             }
-            unexpected => type_error(Self::TYPE, unexpected),
+            unexpected => type_error(Self::type_static(), unexpected),
         }
     }
-}
-
-fn named_timer_entries() -> ValueMap {
-    ObjectEntryBuilder::<Timer>::new()
-        .method("elapsed", |ctx| {
-            Ok(ctx.instance()?.elapsed_seconds().into())
-        })
-        .build()
-}
-
-thread_local! {
-    static TIMER_TYPE_STRING: KString = Timer::TYPE.into();
-    static TIMER_ENTRIES: ValueMap = named_timer_entries();
 }

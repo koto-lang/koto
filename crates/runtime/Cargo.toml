@@ -14,6 +14,7 @@ default = []
 
 [dependencies]
 koto_bytecode = { path = "../bytecode", version = "^0.13.0" }
+koto_derive = { path = "../derive", version = "^0.13.0" }
 koto_lexer = { path = "../lexer", version = "^0.13.0" }
 koto_memory = { path = "../memory", version = "^0.13.0" }
 koto_parser = { path = "../parser", version = "^0.13.0" }

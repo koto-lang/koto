@@ -1,46 +1,30 @@
-use crate::{prelude::*, KNativeFunction, Result};
+use crate::{prelude::*, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-/// A trait for implementing objects that can be added to the Koto runtime
+/// A trait for specifying a Koto object's type
 ///
-/// See also: [KObject].
-pub trait KotoObject: Downcast {
+/// Using `#[derive(KotoType)]` is recommended.
+pub trait KotoType {
+    /// The Object's type as a static string
+    fn type_static() -> &'static str
+    where
+        Self: Sized;
+
     /// The type of the Object as a [KString]
     ///
-    /// A typical pattern will be to implement [KotoType] for use with [ObjectEntryBuilder],
-    /// and then defer to [KotoType::TYPE].
-    ///
-    /// This will be called whenever the object's type is needed by the runtime,
-    /// e.g. when a script calls `koto.type`, so it can make sense to cache a [KString],
-    /// and then return clones of it to avoid creating lots of strings.
-    ///
-    /// ```
-    /// use koto_runtime::prelude::*;
-    ///
-    /// #[derive(Clone)]
-    /// pub struct Foo;
-    ///
-    /// impl KotoType for Foo {
-    ///     const TYPE: &'static str = "Foo";
-    /// }
-    ///
-    /// impl KotoObject for Foo {
-    ///     fn object_type(&self) -> KString {
-    ///         FOO_TYPE_STRING.with(|t| t.clone())
-    ///     }
-    ///
-    ///     fn copy(&self) -> KObject {
-    ///         KObject::from(self.clone())
-    ///     }
-    /// }
-    ///
-    /// thread_local! {
-    ///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
-    /// }
-    /// ```
-    fn object_type(&self) -> KString;
+    /// This should defer to the type returned by [KotoType::type_static],
+    /// and will be called whenever the object's type is needed by the runtime,
+    /// e.g. when a script calls `koto.type`, so caching the result is a good idea.
+    /// `#[derive(KotoType)]` takes care of the details here.
+    fn type_string(&self) -> KString;
+}
 
+/// A trait for defining how objects should behave when copied in the Koto runtime
+///
+/// Use `#[derive(KotoCopy)]` for simple objects that don't need a custom implementation of
+/// [KotoCopy::deep_copy].
+pub trait KotoCopy {
     /// How the object should behave when called from `koto.copy`
     ///
     /// A default implementation can't be provided here, but a typical implementation will look
@@ -54,18 +38,16 @@ pub trait KotoObject: Downcast {
     fn deep_copy(&self) -> KObject {
         self.copy()
     }
+}
 
-    /// Called when the object should be displayed as a string, e.g. by `io.print`
-    ///
-    /// By default, the object's type is used as the display string.
-    ///
-    /// The [DisplayContext] is used to append strings to the result, and also provides context
-    /// about any parent containers.
-    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(self.object_type());
-        Ok(())
-    }
-
+/// A trait for defining how objects should behave when '.' access is performed
+///
+/// This is the mechanism for attaching custom methods to objects in the Koto runtime.
+///
+/// The `#[koto_impl]` provides an easy way to declare methods that should be made available via
+/// lookup by using the `#[koto_method]` attribute, and derives an appropriate implementation of
+/// [KotoLookup].
+pub trait KotoLookup {
     /// Returns a [Value] corresponding to the specified key within the object
     ///
     /// This method is used to retrieve a named entry attached to an object, providing a way to
@@ -73,108 +55,165 @@ pub trait KotoObject: Downcast {
     ///
     /// The returned value should represent the data associated with the given key. If the key
     /// does not match any entry within the object, `None` should be returned.
-    ///
-    /// The recommended pattern for complex objects is to use an [ObjectEntryBuilder] to create a
-    /// cached [ValueMap], which helps to avoid the cost of recreating values for each lookup.
-    ///
-    /// See the [ObjectEntryBuilder] docs for an example.
     fn lookup(&self, _key: &ValueKey) -> Option<Value> {
         None
+    }
+}
+
+/// A trait for implementing objects that can be added to the Koto runtime
+///
+/// [KotoObject]s are added to the Koto runtime by the [KObject] type, and stored as
+/// [Value::Object]s.
+///
+/// ## Example
+///
+/// ```
+/// use koto_runtime::{derive::*, prelude::*, Result};
+///
+/// #[derive(Clone, Default, KotoType, KotoCopy)]
+/// pub struct Foo {
+///     data: i32,
+/// }
+///
+/// // The `#[koto_impl]` macro derives an implementation of [KotoLookup] containing wrapper
+/// // functions for each impl function tagged with `#[koto_method]`.
+/// #[koto_impl(runtime = koto_runtime)]
+/// impl Foo {
+///     // Simple methods tagged with `#[koto_method]` can use a `&self` argument.
+///     // The macro
+///     #[koto_method(alias = "data")]
+///     fn get_data(&self) -> Value {
+///         self.data.into()
+///     }
+///
+///     // An example of a more complex method that makes use of [MethodContext] to return the
+///     // instance as the result, which allows for chaining of setter operations.
+///     #[koto_method]
+///     fn set_data(ctx: MethodContext<Self>) -> Result<Value> {
+///         match ctx.args {
+///             [Value::Number(n)] => ctx.instance_mut()?.data = n.into(),
+///             unexpected => return type_error_with_slice("a Number", unexpected),
+///         }
+///
+///         // Return the object instance as the result of the setter operation
+///         ctx.instance_result()
+///     }
+/// }
+///
+/// impl KotoObject for Foo {
+///     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+///         ctx.append(format!("Foo({})", self.data));
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// See also: [KObject].
+pub trait KotoObject: KotoType + KotoCopy + KotoLookup + Downcast {
+    /// Called when the object should be displayed as a string, e.g. by `io.print`
+    ///
+    /// By default, the object's type is used as the display string.
+    ///
+    /// The [DisplayContext] is used to append strings to the result, and also provides context
+    /// about any parent containers.
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(self.type_string());
+        Ok(())
     }
 
     /// Called for indexing operations, e.g. `x[0]`
     fn index(&self, _index: &Value) -> Result<Value> {
-        unimplemented_error("@index", self.object_type())
+        unimplemented_error("@index", self.type_string())
     }
 
     /// Allows the object to behave as a function
     fn call(&mut self, _ctx: &mut CallContext) -> Result<Value> {
-        unimplemented_error("@||", self.object_type())
+        unimplemented_error("@||", self.type_string())
     }
 
     /// Defines the behavior of negation (e.g. `-x`)
     fn negate(&self, _vm: &mut Vm) -> Result<Value> {
-        unimplemented_error("@negate", self.object_type())
+        unimplemented_error("@negate", self.type_string())
     }
 
     /// The `+` addition operator ()
     fn add(&self, _rhs: &Value) -> Result<Value> {
-        unimplemented_error("@+", self.object_type())
+        unimplemented_error("@+", self.type_string())
     }
 
     /// The `-` subtraction operator
     fn subtract(&self, _rhs: &Value) -> Result<Value> {
-        unimplemented_error("@-", self.object_type())
+        unimplemented_error("@-", self.type_string())
     }
 
     /// The `*` multiplication operator
     fn multiply(&self, _rhs: &Value) -> Result<Value> {
-        unimplemented_error("@*", self.object_type())
+        unimplemented_error("@*", self.type_string())
     }
 
     /// The `/` division operator
     fn divide(&self, _rhs: &Value) -> Result<Value> {
-        unimplemented_error("@/", self.object_type())
+        unimplemented_error("@/", self.type_string())
     }
 
     /// The `%` remainder operator
     fn remainder(&self, _rhs: &Value) -> Result<Value> {
-        unimplemented_error("@%", self.object_type())
+        unimplemented_error("@%", self.type_string())
     }
 
     /// The `+=` in-place addition operator
     fn add_assign(&mut self, _rhs: &Value) -> Result<()> {
-        unimplemented_error("@+=", self.object_type())
+        unimplemented_error("@+=", self.type_string())
     }
 
     /// The `-=` in-place subtraction operator
     fn subtract_assign(&mut self, _rhs: &Value) -> Result<()> {
-        unimplemented_error("@-=", self.object_type())
+        unimplemented_error("@-=", self.type_string())
     }
 
     /// The `*=` in-place multiplication operator
     fn multiply_assign(&mut self, _rhs: &Value) -> Result<()> {
-        unimplemented_error("@*=", self.object_type())
+        unimplemented_error("@*=", self.type_string())
     }
 
     /// The `/=` in-place division operator
     fn divide_assign(&mut self, _rhs: &Value) -> Result<()> {
-        unimplemented_error("@/=", self.object_type())
+        unimplemented_error("@/=", self.type_string())
     }
 
     /// The `%=` in-place remainder operator
     fn remainder_assign(&mut self, _rhs: &Value) -> Result<()> {
-        unimplemented_error("@%=", self.object_type())
+        unimplemented_error("@%=", self.type_string())
     }
 
     /// The `<` less-than operator
     fn less(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@<", self.object_type())
+        unimplemented_error("@<", self.type_string())
     }
 
     /// The `<=` less-than-or-equal operator
     fn less_or_equal(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@<=", self.object_type())
+        unimplemented_error("@<=", self.type_string())
     }
 
     /// The `>` greater-than operator
     fn greater(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@>", self.object_type())
+        unimplemented_error("@>", self.type_string())
     }
 
     /// The `>=` greater-than-or-equal operator
     fn greater_or_equal(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@>=", self.object_type())
+        unimplemented_error("@>=", self.type_string())
     }
 
     /// The `==` equality operator
     fn equal(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@==", self.object_type())
+        unimplemented_error("@==", self.type_string())
     }
 
     /// The `!=` inequality operator
     fn not_equal(&self, _rhs: &Value) -> Result<bool> {
-        unimplemented_error("@!=", self.object_type())
+        unimplemented_error("@!=", self.type_string())
     }
 
     /// Declares to the runtime whether or not the object is iterable
@@ -188,7 +227,7 @@ pub trait KotoObject: Downcast {
     /// then the runtime will call this function when the object is used in iterable contexts,
     /// expecting a [KIterator] to be returned.
     fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
-        unimplemented_error("@iterator", self.object_type())
+        unimplemented_error("@iterator", self.type_string())
     }
 
     /// Gets the object's next value in an iteration
@@ -270,145 +309,12 @@ impl<T: KotoObject> From<T> for KObject {
     }
 }
 
-/// A trait for specifying an object's type
-///
-/// See also: [KotoObject::object_type]
-pub trait KotoType {
-    /// The object's type
-    const TYPE: &'static str;
-}
-
-/// A helper for building a lookup map for objects that implement [KotoObject::lookup]
-///
-/// ```
-/// use koto_runtime::prelude::*;
-///
-/// #[derive(Clone, Default)]
-/// pub struct Foo {
-///     data: i32,
-/// }
-///
-/// impl KotoType for Foo {
-///     const TYPE: &'static str = "Foo";
-/// }
-///
-/// impl KotoObject for Foo {
-///     fn object_type(&self) -> KString {
-///         FOO_TYPE_STRING.with(|t| t.clone())
-///     }
-///
-///     fn copy(&self) -> KObject {
-///         self.clone().into()
-///     }
-///
-///     fn lookup(&self, key: &ValueKey) -> Option<Value> {
-///         FOO_ENTRIES.with(|entries| entries.get(key).cloned())
-///     }
-/// }
-///
-/// impl From<Foo> for Value {
-///     fn from(foo: Foo) -> Self {
-///         KObject::from(foo).into()
-///     }
-/// }
-///
-/// fn make_foo_entries() -> ValueMap {
-///     ObjectEntryBuilder::<Foo>::new()
-///         .method_aliased(&["data", "get_data"], |ctx| Ok(ctx.instance()?.data.into()))
-///         .method("set_data", |ctx| {
-///             let new_data = match ctx.args {
-///                 [Value::Object(o)] if o.is_a::<Foo>() => {
-///                     // .unwrap() is safe here, the is_a guard guarantees a successful cast
-///                     o.cast::<Foo>().unwrap().data
-///                 }
-///                 [Value::Number(n)] => n.into(),
-///                 unexpected => return type_error_with_slice("a Number", unexpected),
-///             };
-///
-///             // Set the instance's new data value
-///             ctx.instance_mut()?.data = new_data;
-///             // Return the object as the result of the setter operation
-///             ctx.instance_result()
-///         })
-///         .build()
-/// }
-///
-/// thread_local! {
-///     static FOO_TYPE_STRING: KString = Foo::TYPE.into();
-///     static FOO_ENTRIES: ValueMap = make_foo_entries();
-/// }
-/// ```
-pub struct ObjectEntryBuilder<T: KotoObject + KotoType> {
-    // The map that's being built
-    map: ValueMap,
-    // We want to have T available through the implementation
-    _phantom: PhantomData<T>,
-}
-
-impl<T: KotoObject + KotoType> Default for ObjectEntryBuilder<T> {
-    fn default() -> Self {
-        Self {
-            map: ValueMap::default(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<T: KotoObject + KotoType> ObjectEntryBuilder<T> {
-    /// Makes a new object entry builder
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Returns the resulting DataMap, consuming the builder
-    pub fn build(self) -> ValueMap {
-        self.map
-    }
-
-    /// Adds a method to the object's entries
-    ///
-    /// The provided function will be called with a [MethodContext] that provides access to the
-    /// object instance and arguments.
-    pub fn method<Key, F>(self, key: Key, f: F) -> Self
-    where
-        Key: Into<ValueKey> + Clone,
-        F: Fn(MethodContext<T>) -> Result<Value> + Clone + 'static,
-    {
-        self.method_aliased(&[key], f)
-    }
-
-    /// Adds a method with equivalent names to the object's entries
-    ///
-    /// This is useful when you want to provide aliases for functions,
-    /// e.g. `color.red()` and `color.r()` should both provide the color's red component.
-    pub fn method_aliased<Key, F>(mut self, keys: &[Key], f: F) -> Self
-    where
-        Key: Into<ValueKey> + Clone,
-        F: Fn(MethodContext<T>) -> Result<Value> + Clone + 'static,
-    {
-        let wrapped_function = move |ctx: &mut CallContext| match ctx.instance_and_args(
-            |instance| matches!(instance, Value::Object(_)),
-            &format!("'{}'", T::TYPE),
-        ) {
-            Ok((Value::Object(o), extra_args)) => f(MethodContext::new(o, extra_args, ctx.vm)),
-            Ok((_, other)) => type_error_with_slice(&format!("'{}'", T::TYPE), other),
-            Err(err) => Err(err),
-        };
-
-        for key in keys {
-            self.map.insert(
-                key.clone().into(),
-                Value::NativeFunction(KNativeFunction::new(wrapped_function.clone())),
-            );
-        }
-
-        self
-    }
-}
-
 /// Context provided to a function that implements an object method
 ///
-/// See [ObjectEntryBuilder]
+/// This is used by the `#[koto_impl]` macro when generating wrappers for functions tagged with
+/// `#[koto_method]`. A native function is called with a [CallContext], and for functions that
+/// implement object methods a [MethodContext] is produced when the first call argument is a
+/// [KObject].
 pub struct MethodContext<'a, T> {
     /// The method call arguments
     pub args: &'a [Value],
@@ -417,13 +323,13 @@ pub struct MethodContext<'a, T> {
     // The instance of the object for the method call,
     // accessable via the context's `instance`/`instance_mut` functions
     object: &'a KObject,
-    // We want access to `T` in the implementation
+    // We want to be able to cast to `T`.
     _phantom: PhantomData<T>,
 }
 
 impl<'a, T: KotoObject> MethodContext<'a, T> {
     /// Makes a new method context
-    fn new(object: &'a KObject, args: &'a [Value], vm: &'a Vm) -> Self {
+    pub fn new(object: &'a KObject, args: &'a [Value], vm: &'a Vm) -> Self {
         Self {
             object,
             args,

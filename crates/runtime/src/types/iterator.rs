@@ -474,7 +474,7 @@ impl ObjectIterator {
         ) {
             Ok(Self { vm, object })
         } else {
-            runtime_error!("{} is not an iterator", object.try_borrow()?.object_type())
+            runtime_error!("{} is not an iterator", object.try_borrow()?.type_string())
         }
     }
 }
