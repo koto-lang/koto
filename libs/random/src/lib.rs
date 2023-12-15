@@ -1,5 +1,6 @@
 //! A random number module for the Koto language
 
+use koto_derive::{KotoType};
 use koto_runtime::{prelude::*, Result};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -39,7 +40,8 @@ pub fn make_module() -> KMap {
     result
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, KotoType)]
+#[koto_type("Rng")]
 struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
@@ -95,10 +97,6 @@ impl ChaChaRng {
             unexpected => type_error_with_slice("a Number as argument", unexpected),
         }
     }
-}
-
-impl KotoType for ChaChaRng {
-    const TYPE: &'static str = "Rng";
 }
 
 impl KotoObject for ChaChaRng {

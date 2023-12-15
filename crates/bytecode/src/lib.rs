@@ -1,4 +1,3 @@
-//!
 //! Contains Koto's compiler and its bytecode operations
 
 #![warn(missing_docs)]

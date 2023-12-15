@@ -685,6 +685,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "koto_derive"
+version = "0.13.0"
+dependencies = [
+ "quote",
+ "syn 2.0.41",
+]
+
+[[package]]
 name = "koto_geometry"
 version = "0.13.0"
 dependencies = [
@@ -741,6 +749,7 @@ name = "koto_random"
 version = "0.13.0"
 dependencies = [
  "getrandom",
+ "koto_derive",
  "koto_runtime",
  "lazy_static",
  "rand",
@@ -1100,7 +1109,7 @@ checksum = "b7db010ec5ff3d4385e4f133916faacd9dad0f6a09394c92d825b3aed310fa0a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
 ]
 
 [[package]]
@@ -1158,7 +1167,7 @@ dependencies = [
  "phf_shared",
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
 ]
 
 [[package]]
@@ -1432,7 +1441,7 @@ checksum = "4eca7ac642d82aa35b60049a6eccb4be6be75e599bd2e9adb5f875a737654af2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
 ]
 
 [[package]]
@@ -1535,9 +1544,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.37"
+version = "2.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7303ef2c05cd654186cb250d29049a24840ca25d2747c25c0381c8d9e2f582e8"
+checksum = "44c8b28c477cc3bf0e7966561e3460130e1255f7a1cf71931075f1c5e7a7e269"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1591,7 +1600,7 @@ checksum = "10712f02019e9288794769fba95cd6847df9874d49d871d062172f9dd41bc4cc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
 ]
 
 [[package]]
@@ -1702,7 +1711,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
  "wasm-bindgen-shared",
 ]
 
@@ -1736,7 +1745,7 @@ checksum = "54681b18a46765f095758388f2d0cf16eb8d4169b639ab575a8f5693af210c7b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.37",
+ "syn 2.0.41",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]

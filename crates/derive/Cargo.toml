@@ -1,0 +1,17 @@
+[package]
+name = "koto_derive"
+version = "0.13.0"
+authors = ["irh <ian.r.hobson@gmail.com>"]
+edition = "2021"
+license = "MIT"
+description = "Macros for working with the Koto programming language"
+homepage = "https://koto.dev"
+repository = "https://github.com/koto-lang/koto"
+keywords = ["scripting", "language", "koto"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = { workspace = true }
+syn = { workspace = true }
