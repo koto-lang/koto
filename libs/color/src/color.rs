@@ -1,13 +1,7 @@
-use koto_runtime::{prelude::*, Result};
-use std::{
-    fmt,
-    ops::{self, Deref, DerefMut},
-};
+use koto_runtime::{derive::*, prelude::*, Result};
+use std::{fmt, ops};
 
 use palette::{rgb::LinSrgba as Inner, FromColor, Mix};
-
-#[derive(Copy, Clone, PartialEq)]
-pub struct Color(Inner);
 
 macro_rules! impl_arithmetic_op {
     ($trait:ident, $trait_fn:ident, $op:tt) => {
@@ -16,8 +10,8 @@ macro_rules! impl_arithmetic_op {
 
             fn $trait_fn(self, other: Self) -> Self {
                 Inner{
-                    color: self.color $op other.color,
-                    alpha: self.alpha
+                    color: self.0.color $op other.0.color,
+                    alpha: self.0.alpha
                 }.into()
             }
         }
@@ -27,8 +21,8 @@ macro_rules! impl_arithmetic_op {
 
             fn $trait_fn(self, other: f32) -> Self {
                 Inner{
-                    color: self.color $op other,
-                    alpha: self.alpha
+                    color: self.0.color $op other,
+                    alpha: self.0.alpha
                 }.into()
             }
         }
@@ -39,13 +33,13 @@ macro_rules! impl_arithmetic_assign_op {
     ($trait:ident, $trait_fn:ident, $op:tt) => {
         impl ops::$trait for Color {
             fn $trait_fn(&mut self, other: Color) -> () {
-                self.color $op other.color;
+                self.0.color $op other.0.color;
             }
         }
 
         impl ops::$trait<f32> for Color {
             fn $trait_fn(&mut self, other: f32) -> () {
-                self.color $op other;
+                self.0.color $op other;
             }
         }
     };
@@ -73,7 +67,7 @@ macro_rules! color_arithmetic_op {
                     Ok((*$self $op f32::from(n)).into())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -95,7 +89,7 @@ macro_rules! color_arithmetic_assign_op {
                     Ok(())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -112,13 +106,18 @@ macro_rules! color_comparison_op {
                     Ok(*$self $op *rhs)
                 }
                 unexpected => {
-                    type_error(&format!("a {}", Self::TYPE), unexpected)
+                    type_error(&format!("a {}", Self::type_static()), unexpected)
                 }
             }
         }
     }
 }
 
+#[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
+#[koto(use_copy)]
+pub struct Color(Inner);
+
+#[koto_impl(runtime = crate)]
 impl Color {
     pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self(Inner::new(r, g, b, 1.0))
@@ -140,44 +139,96 @@ impl Color {
         })
     }
 
-    pub fn inner(&self) -> Inner {
-        self.0
+    pub fn inner(&self) -> &Inner {
+        &self.0
     }
 
-    pub fn red(&self) -> f32 {
-        self.color.red
+    #[koto_method(alias = "r")]
+    pub fn red(&self) -> Value {
+        self.0.color.red.into()
     }
 
-    pub fn green(&self) -> f32 {
-        self.color.green
+    #[koto_method(alias = "g")]
+    pub fn green(&self) -> Value {
+        self.0.color.green.into()
     }
 
-    pub fn blue(&self) -> f32 {
-        self.color.blue
+    #[koto_method(alias = "b")]
+    pub fn blue(&self) -> Value {
+        self.0.color.blue.into()
     }
 
-    pub fn alpha(&self) -> f32 {
-        self.alpha
+    #[koto_method(alias = "a")]
+    pub fn alpha(&self) -> Value {
+        self.0.alpha.into()
     }
-}
 
-impl KotoType for Color {
-    const TYPE: &'static str = "Color";
+    #[koto_method(alias = "set_r")]
+    pub fn set_red(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [Value::Number(n)] => {
+                ctx.instance_mut()?.0.color.red = n.into();
+                ctx.instance_result()
+            }
+            unexpected => type_error_with_slice("a Number", unexpected),
+        }
+    }
+
+    #[koto_method(alias = "set_g")]
+    pub fn set_green(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [Value::Number(n)] => {
+                ctx.instance_mut()?.0.color.green = n.into();
+                ctx.instance_result()
+            }
+            unexpected => type_error_with_slice("a Number", unexpected),
+        }
+    }
+
+    #[koto_method(alias = "set_b")]
+    pub fn set_blue(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [Value::Number(n)] => {
+                ctx.instance_mut()?.0.color.blue = n.into();
+                ctx.instance_result()
+            }
+            unexpected => type_error_with_slice("a Number", unexpected),
+        }
+    }
+
+    #[koto_method(alias = "set_a")]
+    pub fn set_alpha(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [Value::Number(n)] => {
+                ctx.instance_mut()?.0.alpha = n.into();
+                ctx.instance_result()
+            }
+            unexpected => type_error_with_slice("a Number", unexpected),
+        }
+    }
+
+    #[koto_method]
+    pub fn mix(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [Value::Object(b)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+
+                Ok(Color::from(a.0.mix(b.0, 0.5)).into())
+            }
+            [Value::Object(b), Value::Number(x)] if b.is_a::<Color>() => {
+                let a = ctx.instance()?;
+                let b = b.cast::<Color>()?;
+                let n = f32::from(x);
+
+                Ok(Color::from(a.0.mix(b.0, n)).into())
+            }
+            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
+        }
+    }
 }
 
 impl KotoObject for Color {
-    fn object_type(&self) -> KString {
-        COLOR_TYPE_STRING.with(|s| s.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        (*self).into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        COLOR_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -226,10 +277,10 @@ impl KotoObject for Color {
     fn index(&self, index: &Value) -> Result<Value> {
         match index {
             Value::Number(n) => match usize::from(n) {
-                0 => Ok(self.red().into()),
-                1 => Ok(self.green().into()),
-                2 => Ok(self.blue().into()),
-                3 => Ok(self.alpha().into()),
+                0 => Ok(self.red()),
+                1 => Ok(self.green()),
+                2 => Ok(self.blue()),
+                3 => Ok(self.alpha()),
                 other => runtime_error!("index out of range (got {other}, should be <= 3)"),
             },
             unexpected => type_error("Number", unexpected),
@@ -245,90 +296,16 @@ impl KotoObject for Color {
 
         let iter = (0..=3).map(move |i| {
             let result = match i {
-                0 => c.red(),
-                1 => c.green(),
-                2 => c.blue(),
-                3 => c.alpha(),
+                0 => c.0.color.red,
+                1 => c.0.color.green,
+                2 => c.0.color.blue,
+                3 => c.0.alpha,
                 _ => unreachable!(),
             };
             KIteratorOutput::Value(result.into())
         });
 
         Ok(KIterator::with_std_iter(iter))
-    }
-}
-
-fn make_color_entries() -> ValueMap {
-    use Value::{Number, Object};
-
-    ObjectEntryBuilder::<Color>::new()
-        .method_aliased(&["red", "r"], |ctx| Ok(ctx.instance()?.red().into()))
-        .method_aliased(&["green", "g"], |ctx| Ok(ctx.instance()?.green().into()))
-        .method_aliased(&["blue", "b"], |ctx| Ok(ctx.instance()?.blue().into()))
-        .method_aliased(&["alpha", "a"], |ctx| Ok(ctx.instance()?.alpha().into()))
-        .method_aliased(&["set_red", "set_r"], |ctx| match ctx.args {
-            [Number(n)] => {
-                ctx.instance_mut()?.color.red = n.into();
-                ctx.instance_result()
-            }
-            unexpected => type_error_with_slice("a Number", unexpected),
-        })
-        .method_aliased(&["set_green", "set_g"], |ctx| match ctx.args {
-            [Number(n)] => {
-                ctx.instance_mut()?.color.green = n.into();
-                ctx.instance_result()
-            }
-            unexpected => type_error_with_slice("a Number", unexpected),
-        })
-        .method_aliased(&["set_blue", "set_b"], |ctx| match ctx.args {
-            [Number(n)] => {
-                ctx.instance_mut()?.color.blue = n.into();
-                ctx.instance_result()
-            }
-            unexpected => type_error_with_slice("a Number", unexpected),
-        })
-        .method_aliased(&["set_alpha", "set_a"], |ctx| match ctx.args {
-            [Number(n)] => {
-                ctx.instance_mut()?.alpha = n.into();
-                ctx.instance_result()
-            }
-            unexpected => type_error_with_slice("a Number", unexpected),
-        })
-        .method("mix", |ctx| match ctx.args {
-            [Object(b)] if b.is_a::<Color>() => {
-                let a = ctx.instance()?;
-                let b = b.cast::<Color>()?;
-
-                Ok(Color::from(a.0.mix(b.0, 0.5)).into())
-            }
-            [Object(b), Number(x)] if b.is_a::<Color>() => {
-                let a = ctx.instance()?;
-                let b = b.cast::<Color>()?;
-                let n = f32::from(x);
-
-                Ok(Color::from(a.0.mix(b.0, n)).into())
-            }
-            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
-        })
-        .build()
-}
-
-thread_local! {
-    static COLOR_TYPE_STRING: KString = Color::TYPE.into();
-    static COLOR_ENTRIES: ValueMap = make_color_entries();
-}
-
-impl Deref for Color {
-    type Target = Inner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Color {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
@@ -352,10 +329,7 @@ impl fmt::Display for Color {
         write!(
             f,
             "Color {{r: {}, g: {}, b: {}, a: {}}}",
-            self.red(),
-            self.green(),
-            self.blue(),
-            self.alpha()
+            self.0.color.red, self.0.color.green, self.0.color.blue, self.0.alpha
         )
     }
 }

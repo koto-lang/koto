@@ -11,7 +11,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-koto = { path = "../../core/koto" }
+koto = { path = "../../crates/koto" }
 
 wasm-bindgen = { workspace = true }
 

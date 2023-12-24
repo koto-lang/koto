@@ -12,6 +12,6 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_runtime = { path = "../../core/runtime", version = "^0.13.0" }
+koto_runtime = { path = "../../crates/runtime", version = "^0.13.0" }
 
 tempfile = { workspace = true }

@@ -1,14 +1,13 @@
-use koto_runtime::{prelude::*, Result};
-use std::{
-    fmt,
-    ops::{self, Deref},
-};
+use koto_runtime::{derive::*, prelude::*, Result};
+use std::{fmt, ops};
 
 type Inner = nannou_core::geom::DVec2;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
+#[koto(use_copy)]
 pub struct Vec2(Inner);
 
+#[koto_impl(runtime = koto_runtime)]
 impl Vec2 {
     pub fn new(x: f64, y: f64) -> Self {
         Self(Inner::new(x, y))
@@ -17,25 +16,29 @@ impl Vec2 {
     pub fn inner(&self) -> Inner {
         self.0
     }
-}
 
-impl KotoType for Vec2 {
-    const TYPE: &'static str = "Vec2";
+    #[koto_method]
+    fn angle(&self) -> Value {
+        Inner::X.angle_between(self.0).into()
+    }
+
+    #[koto_method]
+    fn length(&self) -> Value {
+        self.0.length().into()
+    }
+
+    #[koto_method]
+    fn x(&self) -> Value {
+        self.0.x.into()
+    }
+
+    #[koto_method]
+    fn y(&self) -> Value {
+        self.0.y.into()
+    }
 }
 
 impl KotoObject for Vec2 {
-    fn object_type(&self) -> KString {
-        VEC2_TYPE_STRING.with(|s| s.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        (*self).into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        VEC2_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -88,8 +91,8 @@ impl KotoObject for Vec2 {
     fn index(&self, index: &Value) -> Result<Value> {
         match index {
             Value::Number(n) => match usize::from(n) {
-                0 => Ok(self.x.into()),
-                1 => Ok(self.y.into()),
+                0 => Ok(self.x()),
+                1 => Ok(self.y()),
                 other => runtime_error!("index out of range (got {other}, should be <= 1)"),
             },
             unexpected => type_error("Number", unexpected),
@@ -105,38 +108,14 @@ impl KotoObject for Vec2 {
 
         let iter = (0..=1).map(move |i| {
             let result = match i {
-                0 => v.x,
-                1 => v.y,
+                0 => v.0.x,
+                1 => v.0.y,
                 _ => unreachable!(),
             };
             KIteratorOutput::Value(result.into())
         });
 
         Ok(KIterator::with_std_iter(iter))
-    }
-}
-
-fn make_vec2_entries() -> ValueMap {
-    ObjectEntryBuilder::<Vec2>::new()
-        .method("angle", |ctx| {
-            Ok(Inner::X.angle_between(**ctx.instance()?).into())
-        })
-        .method("length", |ctx| Ok(ctx.instance()?.length().into()))
-        .method("x", |ctx| Ok(ctx.instance()?.x.into()))
-        .method("y", |ctx| Ok(ctx.instance()?.y.into()))
-        .build()
-}
-
-thread_local! {
-    static VEC2_TYPE_STRING: KString = Vec2::TYPE.into();
-    static VEC2_ENTRIES: ValueMap = make_vec2_entries();
-}
-
-impl Deref for Vec2 {
-    type Target = Inner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -160,7 +139,7 @@ impl From<(f64, f64)> for Vec2 {
 
 impl fmt::Display for Vec2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vec2{{x: {}, y: {}}}", self.x, self.y)
+        write!(f, "Vec2{{x: {}, y: {}}}", self.0.x, self.0.y)
     }
 }
 

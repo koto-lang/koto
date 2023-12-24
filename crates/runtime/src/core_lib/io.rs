@@ -1,12 +1,11 @@
 //! The `io` core library module
 
 use super::string::format;
-use crate::{prelude::*, BufferedFile, Error, Result};
+use crate::{derive::*, prelude::*, BufferedFile, Error, MethodContext, Result};
 use std::{
     cell::RefCell,
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
-    ops::Deref,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -155,17 +154,10 @@ pub fn make_module() -> KMap {
 }
 
 /// The File type used in the io module
-#[derive(Clone)]
+#[derive(Clone, KotoCopy, KotoType)]
 pub struct File(Rc<dyn KotoFile>);
 
-impl Deref for File {
-    type Target = Rc<dyn KotoFile>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
+#[koto_impl(runtime = crate)]
 impl File {
     /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
     pub fn system_file<T>(file: T, path: PathBuf) -> Value
@@ -186,27 +178,86 @@ impl File {
     fn stdout(vm: &Vm) -> Value {
         Self(vm.stdout().clone()).into()
     }
-}
 
-impl KotoType for File {
-    const TYPE: &'static str = "File";
+    #[koto_method]
+    fn flush(&mut self) -> Result<Value> {
+        self.0.flush().map(|_| Value::Null)
+    }
+
+    #[koto_method]
+    fn path(&self) -> Result<Value> {
+        self.0.path().map(Value::from)
+    }
+
+    #[koto_method]
+    fn read_line(&mut self) -> Result<Value> {
+        self.0.read_line().map(|result| match result {
+            Some(result) => {
+                if !result.is_empty() {
+                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                    result[..result.len() - newline_bytes].into()
+                } else {
+                    Value::Null
+                }
+            }
+            None => Value::Null,
+        })
+    }
+
+    #[koto_method]
+    fn read_to_string(&mut self) -> Result<Value> {
+        self.0.read_to_string().map(Value::from)
+    }
+
+    #[koto_method]
+    fn seek(&mut self, args: &[Value]) -> Result<Value> {
+        match args {
+            [Value::Number(n)] => {
+                if *n < 0.0 {
+                    return runtime_error!("Negative seek positions not allowed");
+                }
+                self.0.seek(n.into()).map(|_| Value::Null)
+            }
+            unexpected => {
+                type_error_with_slice("a non-negative Number as the seek position", unexpected)
+            }
+        }
+    }
+
+    #[koto_method]
+    fn write(ctx: MethodContext<Self>) -> Result<Value> {
+        match ctx.args {
+            [value] => {
+                let mut display_context = DisplayContext::with_vm(ctx.vm);
+                value.display(&mut display_context)?;
+                ctx.instance_mut()?
+                    .0
+                    .write(display_context.result().as_bytes())
+                    .map(|_| Value::Null)
+            }
+            unexpected => type_error_with_slice("a single argument", unexpected),
+        }
+    }
+
+    #[koto_method]
+    fn write_line(ctx: MethodContext<Self>) -> Result<Value> {
+        let mut display_context = DisplayContext::with_vm(ctx.vm);
+        match ctx.args {
+            [] => {}
+            [value] => value.display(&mut display_context)?,
+            unexpected => return type_error_with_slice("a single argument", unexpected),
+        };
+        display_context.append('\n');
+        ctx.instance_mut()?
+            .0
+            .write(display_context.result().as_bytes())
+            .map(|_| Value::Null)
+    }
 }
 
 impl KotoObject for File {
-    fn object_type(&self) -> KString {
-        FILE_TYPE_STRING.with(|t| t.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        self.clone().into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        FILE_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(format!("{}({})", Self::TYPE, self.id()));
+        ctx.append(format!("{}({})", Self::type_static(), self.0.id()));
         Ok(())
     }
 }
@@ -215,69 +266,6 @@ impl From<File> for Value {
     fn from(file: File) -> Self {
         KObject::from(file).into()
     }
-}
-
-fn file_entries() -> ValueMap {
-    use Value::*;
-
-    ObjectEntryBuilder::<File>::new()
-        .method("flush", |ctx| ctx.instance_mut()?.flush().map(|_| Null))
-        .method("path", |ctx| ctx.instance()?.path().map(Value::from))
-        .method("read_line", |ctx| {
-            ctx.instance_mut()?.read_line().map(|result| match result {
-                Some(result) => {
-                    if !result.is_empty() {
-                        let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
-                        result[..result.len() - newline_bytes].into()
-                    } else {
-                        Null
-                    }
-                }
-                None => Null,
-            })
-        })
-        .method("read_to_string", |ctx| {
-            ctx.instance_mut()?.read_to_string().map(Value::from)
-        })
-        .method("seek", |ctx| match ctx.args {
-            [Number(n)] => {
-                if *n < 0.0 {
-                    return runtime_error!("Negative seek positions not allowed");
-                }
-                ctx.instance_mut()?.seek(n.into()).map(|_| Null)
-            }
-            unexpected => {
-                type_error_with_slice("a non-negative Number as the seek position", unexpected)
-            }
-        })
-        .method("write", |ctx| match ctx.args {
-            [value] => {
-                let mut display_context = DisplayContext::with_vm(ctx.vm);
-                value.display(&mut display_context)?;
-                ctx.instance_mut()?
-                    .write(display_context.result().as_bytes())
-                    .map(|_| Null)
-            }
-            unexpected => type_error_with_slice("a single argument", unexpected),
-        })
-        .method("write_line", |ctx| {
-            let mut display_context = DisplayContext::with_vm(ctx.vm);
-            match ctx.args {
-                [] => {}
-                [value] => value.display(&mut display_context)?,
-                unexpected => return type_error_with_slice("a single argument", unexpected),
-            };
-            display_context.append('\n');
-            ctx.instance_mut()?
-                .write(display_context.result().as_bytes())
-                .map(|_| Null)
-        })
-        .build()
-}
-
-thread_local! {
-    static FILE_TYPE_STRING: KString = File::TYPE.into();
-    static FILE_ENTRIES: ValueMap = file_entries();
 }
 
 struct BufferedSystemFile<T>

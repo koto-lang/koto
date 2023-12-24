@@ -49,6 +49,8 @@ impl Hash for KNativeFunction {
 }
 
 /// The context provided when a call to a [KNativeFunction] is made
+///
+/// See also: [crate::MethodContext].
 #[allow(missing_docs)]
 pub struct CallContext<'a> {
     /// The VM making the call

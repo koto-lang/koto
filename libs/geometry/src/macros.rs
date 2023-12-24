@@ -72,7 +72,7 @@ macro_rules! geometry_arithmetic_op {
                     Ok((*$self $op f64::from(n)).into())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -94,7 +94,7 @@ macro_rules! geometry_arithmetic_assign_op {
                     Ok(())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::TYPE), unexpected)
+                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -111,7 +111,7 @@ macro_rules! geometry_comparison_op {
                     Ok(*$self $op *rhs)
                 }
                 unexpected => {
-                    type_error(&format!("a {}", Self::TYPE), unexpected)
+                    type_error(&format!("a {}", Self::type_static()), unexpected)
                 }
             }
         }

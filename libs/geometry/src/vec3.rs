@@ -1,36 +1,40 @@
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{derive::*, prelude::*, Result};
 use nannou_core::geom::DVec3;
-use std::{
-    fmt,
-    ops::{self, Deref},
-};
+use std::{fmt, ops};
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
+#[koto(use_copy)]
 pub struct Vec3(DVec3);
 
+#[koto_impl(runtime = koto_runtime)]
 impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self(DVec3::new(x, y, z))
     }
-}
 
-impl KotoType for Vec3 {
-    const TYPE: &'static str = "Vec3";
+    #[koto_method]
+    fn angle(&self) -> Value {
+        let v = self.0;
+        (v.x + v.y + v.z).into()
+    }
+
+    #[koto_method]
+    fn x(&self) -> Value {
+        self.0.x.into()
+    }
+
+    #[koto_method]
+    fn y(&self) -> Value {
+        self.0.y.into()
+    }
+
+    #[koto_method]
+    fn z(&self) -> Value {
+        self.0.z.into()
+    }
 }
 
 impl KotoObject for Vec3 {
-    fn object_type(&self) -> KString {
-        VEC3_TYPE_STRING.with(|s| s.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        (*self).into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        VEC3_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -83,9 +87,9 @@ impl KotoObject for Vec3 {
     fn index(&self, index: &Value) -> Result<Value> {
         match index {
             Value::Number(n) => match usize::from(n) {
-                0 => Ok(self.x.into()),
-                1 => Ok(self.y.into()),
-                2 => Ok(self.z.into()),
+                0 => Ok(self.x()),
+                1 => Ok(self.y()),
+                2 => Ok(self.z()),
                 other => runtime_error!("index out of range (got {other}, should be <= 2)"),
             },
             unexpected => type_error("Number", unexpected),
@@ -101,40 +105,15 @@ impl KotoObject for Vec3 {
 
         let iter = (0..=2).map(move |i| {
             let result = match i {
-                0 => v.x,
-                1 => v.y,
-                2 => v.z,
+                0 => v.0.x,
+                1 => v.0.y,
+                2 => v.0.z,
                 _ => unreachable!(),
             };
             KIteratorOutput::Value(result.into())
         });
 
         Ok(KIterator::with_std_iter(iter))
-    }
-}
-
-fn make_vec3_entries() -> ValueMap {
-    ObjectEntryBuilder::<Vec3>::new()
-        .method("sum", |ctx| {
-            let v = ctx.instance()?;
-            Ok((v.x + v.y + v.z).into())
-        })
-        .method("x", |ctx| Ok(ctx.instance()?.x.into()))
-        .method("y", |ctx| Ok(ctx.instance()?.y.into()))
-        .method("z", |ctx| Ok(ctx.instance()?.z.into()))
-        .build()
-}
-
-thread_local! {
-    static VEC3_TYPE_STRING: KString = Vec3::TYPE.into();
-    static VEC3_ENTRIES: ValueMap = make_vec3_entries();
-}
-
-impl Deref for Vec3 {
-    type Target = DVec3;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -158,7 +137,11 @@ impl From<Vec3> for Value {
 
 impl fmt::Display for Vec3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vec3{{x: {}, y: {}, z: {}}}", self.x, self.y, self.z)
+        write!(
+            f,
+            "Vec3{{x: {}, y: {}, z: {}}}",
+            self.0.x, self.0.y, self.0.z
+        )
     }
 }
 

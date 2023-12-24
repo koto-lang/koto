@@ -17,10 +17,11 @@ pub use crate::{
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     types::{
         BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
-        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoHasher,
-        KotoIterator, KotoObject, KotoType, MetaKey, MetaMap, MethodContext, ObjectEntryBuilder,
-        UnaryOp, Value, ValueKey, ValueMap, ValueVec,
+        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoCopy,
+        KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
+        MethodContext, UnaryOp, Value, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };
+pub use koto_derive as derive;
 pub use koto_memory::{Borrow, BorrowMut, Ptr, PtrMut};

@@ -1,5 +1,5 @@
 [workspace]
-members = ["core/*", "examples/*", "libs/*"]
+members = ["crates/*", "examples/*", "libs/*"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -37,8 +37,12 @@ nannou_core = "0.18.0"
 palette = "0.7.2"
 # An ultra simple CLI arguments parser.
 pico-args = { version = "0.3.4", default-features = false }
+# A substitute implementation of the compiler's `proc_macro` API
+proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
 pulldown-cmark = { version = "0.9.1", default-features = false }
+# Quasi-quoting macro quote!(...)
+quote = "1.0.33"
 # Random number generators and other randomness functionality.
 rand = "0.8.5"
 # ChaCha random number generator
@@ -55,6 +59,8 @@ serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 serde_yaml = "0.8.20"
 # 'Small vector' optimization: store up to a small number of items on the stack
 smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
+# Parser for Rust source code
+syn = { version = "2.0.41", features = ["full"] }
 # A library for managing temporary files and directories.
 tempfile = "3.1"
 # A crate for getting the crate binary in an integration test.

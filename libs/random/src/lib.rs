@@ -1,6 +1,6 @@
 //! A random number module for the Koto language
 
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{derive::*, prelude::*, Result};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::cell::RefCell;
@@ -8,7 +8,7 @@ use std::cell::RefCell;
 pub fn make_module() -> KMap {
     let result = KMap::with_type("random");
 
-    result.add_fn("bool", |_| THREAD_RNG.with_borrow_mut(|rng| rng.gen_bool()));
+    result.add_fn("bool", |_| THREAD_RNG.with_borrow_mut(|rng| rng.bool()));
 
     result.add_fn("generator", |ctx| {
         let rng = match ctx.args() {
@@ -24,9 +24,7 @@ pub fn make_module() -> KMap {
         Ok(ChaChaRng::make_value(rng))
     });
 
-    result.add_fn("number", |_| {
-        THREAD_RNG.with_borrow_mut(|rng| rng.gen_number())
-    });
+    result.add_fn("number", |_| THREAD_RNG.with_borrow_mut(|rng| rng.number()));
 
     result.add_fn("pick", |ctx| {
         THREAD_RNG.with_borrow_mut(|rng| rng.pick(ctx.args()))
@@ -39,22 +37,27 @@ pub fn make_module() -> KMap {
     result
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, KotoCopy, KotoType)]
+#[koto(type_name = "Rng")]
 struct ChaChaRng(ChaCha8Rng);
 
+#[koto_impl(runtime = koto_runtime)]
 impl ChaChaRng {
     fn make_value(rng: ChaCha8Rng) -> Value {
         KObject::from(Self(rng)).into()
     }
 
-    fn gen_bool(&mut self) -> Result<Value> {
+    #[koto_method]
+    fn bool(&mut self) -> Result<Value> {
         Ok(self.0.gen::<bool>().into())
     }
 
-    fn gen_number(&mut self) -> Result<Value> {
+    #[koto_method]
+    fn number(&mut self) -> Result<Value> {
         Ok(self.0.gen::<f64>().into())
     }
 
+    #[koto_method]
     fn pick(&mut self, args: &[Value]) -> Result<Value> {
         use Value::*;
 
@@ -85,6 +88,7 @@ impl ChaChaRng {
         }
     }
 
+    #[koto_method]
     fn seed(&mut self, args: &[Value]) -> Result<Value> {
         use Value::*;
         match args {
@@ -97,35 +101,8 @@ impl ChaChaRng {
     }
 }
 
-impl KotoType for ChaChaRng {
-    const TYPE: &'static str = "Rng";
-}
-
-impl KotoObject for ChaChaRng {
-    fn object_type(&self) -> KString {
-        RNG_TYPE_STRING.with(|s| s.clone())
-    }
-
-    fn copy(&self) -> KObject {
-        self.clone().into()
-    }
-
-    fn lookup(&self, key: &ValueKey) -> Option<Value> {
-        RNG_ENTRIES.with(|entries| entries.get(key).cloned())
-    }
-}
-
-fn rng_entries() -> ValueMap {
-    ObjectEntryBuilder::<ChaChaRng>::new()
-        .method("bool", |ctx| ctx.instance_mut()?.gen_bool())
-        .method("number", |ctx| ctx.instance_mut()?.gen_number())
-        .method("pick", |ctx| ctx.instance_mut()?.pick(ctx.args))
-        .method("seed", |ctx| ctx.instance_mut()?.seed(ctx.args))
-        .build()
-}
+impl KotoObject for ChaChaRng {}
 
 thread_local! {
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
-    static RNG_TYPE_STRING: KString = ChaChaRng::TYPE.into();
-    static RNG_ENTRIES: ValueMap = rng_entries();
 }
