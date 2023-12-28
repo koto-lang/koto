@@ -27,8 +27,10 @@ The Koto project adheres to
   - `0x`, `0o`, and `0b` prefixes are understood for parsing hex, octal, or
     binary numbers respectively.
   - An overload has been added that accepts a number base between 2 and 36.
-  - If the string doesn't contain a number null is now returned instead of an
+  - If the string doesn't contain a number, `null` is now returned instead of an
     exception being thrown.
+- Objects can be compared with `null` on the LHS without having to implement 
+  `KotoObject::equal` and/or `not_equal`.
 
 #### REPL
 

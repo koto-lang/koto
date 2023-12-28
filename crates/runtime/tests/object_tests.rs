@@ -368,7 +368,6 @@ make_object(10)
 
     mod binary_op {
         use super::*;
-        use Value::Bool;
 
         #[test]
         fn add() {
@@ -523,25 +522,49 @@ x.to_number()
         #[test]
         fn less() {
             let script = "(make_object 1) < (make_object 2)";
-            test_object_script(script, Bool(true));
+            test_object_script(script, true);
         }
 
         #[test]
         fn less_or_equal() {
             let script = "(make_object 2) <= (make_object 2)";
-            test_object_script(script, Bool(true));
+            test_object_script(script, true);
         }
 
         #[test]
         fn equal() {
             let script = "(make_object 2) == (make_object 3)";
-            test_object_script(script, Bool(false));
+            test_object_script(script, false);
         }
 
         #[test]
         fn not_equal() {
             let script = "(make_object 2) != (make_object 3)";
-            test_object_script(script, Bool(true));
+            test_object_script(script, true);
+        }
+
+        #[test]
+        fn equal_null_lhs() {
+            let script = "(make_object 2) == null";
+            test_object_script(script, false);
+        }
+
+        #[test]
+        fn equal_null_rhs() {
+            let script = "null == (make_object 2)";
+            test_object_script(script, false);
+        }
+
+        #[test]
+        fn not_equal_null_lhs() {
+            let script = "(make_object 2) != null";
+            test_object_script(script, true);
+        }
+
+        #[test]
+        fn not_equal_null_rhs() {
+            let script = "null != (make_object 2)";
+            test_object_script(script, true);
         }
 
         #[test]

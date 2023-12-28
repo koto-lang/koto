@@ -1732,11 +1732,12 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Null, Null) => true,
+            (Null, _) | (_, Null) => false,
             (Number(a), Number(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
-            (Null, Null) => true,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1791,11 +1792,12 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Null, Null) => false,
+            (Null, _) | (_, Null) => true,
             (Number(a), Number(b)) => a != b,
             (Bool(a), Bool(b)) => a != b,
             (Str(a), Str(b)) => a != b,
             (Range(a), Range(b)) => a != b,
-            (Null, Null) => false,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
