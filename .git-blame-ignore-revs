@@ -1,0 +1,4 @@
+# .git-blame-ignore-revs
+
+# Rename /core -> /crates
+b65e200272298f5e3f90bed604d5fc1157d056fe
