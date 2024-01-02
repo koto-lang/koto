@@ -1,8 +1,11 @@
 # Testing
 
+Koto includes some features that help you to automatically check that your code is behaving as you expect.
+
 ## Assertions
 
-A collection of [assertion functions](../../core/test) are available. 
+A collection of assertion functions are available in the [`test` core library module](../../core/test),
+which are included by default in the [prelude](./prelude).
 
 ```koto
 try 
@@ -21,6 +24,9 @@ check! An assertion failed
 ## Organizing Tests
 
 Tests can be organized in a Map by defining `@test` functions. 
+
+The runtime can be configured to automatically run tests when importing modules, 
+e.g. the CLI will run module tests when the `--import_tests` option is used.
 
 The tests can then be run with [`test.run_tests`](../../core/test#run-tests).
 

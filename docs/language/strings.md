@@ -54,7 +54,7 @@ print! '2 plus 3 is ${2 + 3}.'
 check! 2 plus 3 is 5.
 ```
 
-## String Escape codes
+## String Escape Codes
 
 Strings can contain the following escape codes to define special characters,
 all of which start with a `\`. 
@@ -79,7 +79,7 @@ print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
 
-## Single or double quotes
+## Single or Double Quotes
 
 Whether you use `'` or `"` for your strings doesn't make a difference, except that you can use the other quote character freely in the string without having to escape it with `\`.
 

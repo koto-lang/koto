@@ -1,5 +1,7 @@
 # Loops
 
+Koto includes several ways of evaluating expressions repeatedly in a loop.
+
 ## for
 
 `for` loops can be used to iterate over any iterable value.

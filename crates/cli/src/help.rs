@@ -1,17 +1,25 @@
 use indexmap::IndexMap;
-use std::iter::Peekable;
+use std::{iter::Peekable, rc::Rc};
 
 const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
 
 struct HelpEntry {
-    name: String,
-    help: String,
+    // The entry's user-displayed name
+    name: Rc<str>,
+    // The entry's contents
+    help: Rc<str>,
+    // Names of related topics
+    see_also: Vec<Rc<str>>,
 }
 
 pub struct Help {
-    help_map: IndexMap<String, HelpEntry>,
-    module_names: Vec<String>,
+    // All help entries, keys are lower_snake_case
+    help_map: IndexMap<Rc<str>, HelpEntry>,
+    // The list of guide topics
+    guide_topics: Vec<Rc<str>>,
+    // The list of core library module names
+    module_names: Vec<Rc<str>>,
 }
 
 impl Help {
@@ -26,24 +34,24 @@ impl Help {
 
         let guide_files = [
             include_doc!("language/basics.md"),
-            include_doc!("language/conditional_expressions.md"),
-            include_doc!("language/core_library.md"),
-            include_doc!("language/errors.md"),
+            include_doc!("language/strings.md"),
             include_doc!("language/functions.md"),
+            include_doc!("language/lists.md"),
+            include_doc!("language/tuples.md"),
+            include_doc!("language/maps.md"),
+            include_doc!("language/core_library.md"),
+            include_doc!("language/iterators.md"),
+            include_doc!("language/value_unpacking.md"),
+            include_doc!("language/conditional_expressions.md"),
+            include_doc!("language/loops.md"),
+            include_doc!("language/ranges.md"),
             include_doc!("language/functions_advanced.md"),
             include_doc!("language/generators.md"),
-            include_doc!("language/iterators.md"),
-            include_doc!("language/lists.md"),
-            include_doc!("language/loops.md"),
-            include_doc!("language/maps.md"),
             include_doc!("language/meta_maps.md"),
+            include_doc!("language/errors.md"),
+            include_doc!("language/testing.md"),
             include_doc!("language/modules.md"),
             include_doc!("language/prelude.md"),
-            include_doc!("language/ranges.md"),
-            include_doc!("language/strings.md"),
-            include_doc!("language/testing.md"),
-            include_doc!("language/tuples.md"),
-            include_doc!("language/value_unpacking.md"),
         ];
 
         let reference_files = [
@@ -62,6 +70,7 @@ impl Help {
 
         let mut result = Self {
             help_map: IndexMap::new(),
+            guide_topics: Vec::new(),
             module_names: Vec::new(),
         };
 
@@ -90,33 +99,31 @@ impl Help {
                             help = entry.help
                         );
 
-                        let sub_match = format!("{search}.");
-                        let match_level = sub_match.chars().filter(|&c| c == '.').count();
-                        let sub_entries = self
-                            .help_map
+                        let see_also: Vec<_> = entry
+                            .see_also
                             .iter()
-                            .filter(|(key, _)| {
-                                key.starts_with(&sub_match)
-                                    && key.chars().filter(|&c| c == '.').count() <= match_level
-                            })
-                            .collect::<Vec<_>>();
+                            .chain(self.help_map.iter().filter_map(|(key, search_entry)| {
+                                if key.contains(search.as_ref())
+                                    && !entry.see_also.contains(&search_entry.name)
+                                    && search_entry.name != entry.name
+                                {
+                                    Some(&search_entry.name)
+                                } else {
+                                    None
+                                }
+                            }))
+                            .collect();
 
-                        if !sub_entries.is_empty() {
-                            let sub_entry_prefix = format!("{}.", entry.name);
+                        if !see_also.is_empty() {
                             help += "
 
   --------
 
-  Help is available for the following sub-topics:\n    ";
+  See also:";
 
-                            for (i, (_, sub_entry)) in sub_entries.iter().enumerate() {
-                                if i > 0 {
-                                    help.push_str(", ");
-                                }
-
-                                help.push_str(
-                                    sub_entry.name.strip_prefix(&sub_entry_prefix).unwrap(),
-                                );
+                            for see_also_entry in see_also.iter() {
+                                help.push_str("\n    - ");
+                                help.push_str(see_also_entry);
                             }
                         }
 
@@ -126,7 +133,7 @@ impl Help {
                         let matches = self
                             .help_map
                             .iter()
-                            .filter(|(key, _)| key.contains(&search))
+                            .filter(|(key, _)| key.contains(search.as_ref()))
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
@@ -136,7 +143,7 @@ impl Help {
                                 let mut help = String::new();
                                 help.push_str("  More than one match found: ");
                                 for (_, HelpEntry { name, .. }) in matches {
-                                    help.push_str("\n    ");
+                                    help.push_str("\n    - ");
                                     help.push_str(name);
                                 }
                                 help
@@ -149,43 +156,28 @@ impl Help {
                 let mut help = "
   To get help for a topic, run `help <topic>` (e.g. `help strings`).
 
-  To look up the core library documentation, run `help <module>.<item>` (e.g. `help map.keys`).
+  To look up the core library documentation, run `help <module>.<item>` (e.g. `help map.keys`)."
+                    .to_string();
 
-  Help is available for the following topics:
-    "
-                .to_string();
+                help.push_str(
+                    "
 
-                let mut topics = self
-                    .help_map
-                    .keys()
-                    // Filter out core library entries
-                    .filter(|key| !key.contains('.') && !self.module_names.contains(key))
-                    .collect::<Vec<_>>();
-                // Sort the topics into alphabetical order
-                topics.sort();
-                // Bump topics starting with non-alphnumeric characters to the end of the list
-                topics.sort_by_key(|name| !name.chars().next().unwrap().is_alphanumeric());
+  Help is available for the following language guide topics:",
+                );
 
-                for (i, topic) in topics.iter().enumerate() {
-                    if i > 0 {
-                        help.push_str(", ");
-                    }
-
-                    help.push_str(topic);
+                for guide_topic in self.guide_topics.iter() {
+                    help.push_str("\n    - ");
+                    help.push_str(guide_topic);
                 }
 
                 help.push_str(
                     "
 
-  Help is available for the following core library modules:
-    ",
+  Help is available for the following core library modules:",
                 );
 
-                for (i, module_name) in self.module_names.iter().enumerate() {
-                    if i > 0 {
-                        help.push_str(", ");
-                    }
-
+                for module_name in self.module_names.iter() {
+                    help.push_str("\n    - ");
                     help.push_str(module_name);
                 }
 
@@ -198,67 +190,81 @@ impl Help {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
         // Consume the module overview section
-        let (file_name, help) = consume_help_section(&mut parser, None);
-        if !help.trim().is_empty() {
-            self.help_map.insert(
-                text_to_key(&file_name),
-                HelpEntry {
-                    name: file_name,
-                    help,
-                },
-            );
-        }
+        let (topic, topic_help) = consume_help_section(&mut parser, None);
+        // We should avoid top-level topics without a body
+        debug_assert!(
+            !topic_help.trim().is_empty(),
+            "Missing contents for {topic}"
+        );
 
         // Add sub-topics
+        let mut sub_topics = Vec::new();
         while parser.peek().is_some() {
-            let (entry_name, help) = consume_help_section(&mut parser, None);
+            let (sub_topic, help) = consume_help_section(&mut parser, None);
             self.help_map.insert(
-                text_to_key(&entry_name),
+                text_to_key(&sub_topic),
                 HelpEntry {
-                    name: entry_name,
+                    name: sub_topic.clone(),
                     help,
+                    see_also: vec![topic.clone()],
                 },
             );
+            sub_topics.push(sub_topic)
         }
+
+        self.help_map.insert(
+            text_to_key(&topic),
+            HelpEntry {
+                name: topic.clone(),
+                help: topic_help,
+                see_also: sub_topics,
+            },
+        );
+        self.guide_topics.push(topic);
     }
 
     fn add_help_from_reference(&mut self, markdown: &str) {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
-        let (module_name, help) = consume_help_section(&mut parser, None);
-        if !help.trim().is_empty() {
-            self.help_map.insert(
-                text_to_key(&module_name),
-                HelpEntry {
-                    name: module_name.clone(),
-                    help,
-                },
-            );
-        }
-        self.module_names.push(module_name.clone());
+        let (module_name, module_help) = consume_help_section(&mut parser, None);
 
         // Consume each module entry
+        let mut entry_names = Vec::new();
         while parser.peek().is_some() {
             let (entry_name, help) = consume_help_section(&mut parser, Some(&module_name));
             self.help_map.insert(
                 text_to_key(&entry_name),
                 HelpEntry {
-                    name: entry_name,
+                    name: entry_name.clone(),
                     help,
+                    see_also: Vec::new(),
+                },
+            );
+            entry_names.push(entry_name);
+        }
+
+        if !module_help.trim().is_empty() {
+            self.help_map.insert(
+                text_to_key(&module_name),
+                HelpEntry {
+                    name: module_name.clone(),
+                    help: module_help,
+                    see_also: entry_names,
                 },
             );
         }
+        self.module_names.push(module_name.clone());
     }
 }
 
-fn text_to_key(text: &str) -> String {
-    text.trim().to_lowercase().replace(' ', "_")
+fn text_to_key(text: &str) -> Rc<str> {
+    text.trim().to_lowercase().replace(' ', "_").into()
 }
 
 fn consume_help_section(
     parser: &mut Peekable<pulldown_cmark::Parser>,
     module_name: Option<&str>,
-) -> (String, String) {
+) -> (Rc<str>, Rc<str>) {
     use pulldown_cmark::{CodeBlockKind, Event::*, HeadingLevel, Tag::*};
 
     let mut section_level = None;
@@ -388,5 +394,5 @@ fn consume_help_section(
     }
     let result = result.replace('\n', &format!("\n{indent}"));
 
-    (section_name, result)
+    (section_name.into(), result.into())
 }

@@ -1,5 +1,7 @@
 # Modules
 
+Koto includes a module system that helps you to organize and re-use your code when your program grows too large for a single file.
+
 ## `import`
 
 Module items can be brought into the current scope using `import`.

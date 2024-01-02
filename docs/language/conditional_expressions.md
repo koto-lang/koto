@@ -1,5 +1,7 @@
 # Conditional Expressions
 
+Koto includes several ways of producing values that depend on _conditions_.
+
 ## if
 
 `if` expressions come in two flavours; single-line:
