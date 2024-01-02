@@ -860,10 +860,7 @@ impl Iterator for TakeWhile {
             return None;
         }
 
-        let Some(iter_output) = self.iter.next() else {
-            return None;
-        };
-
+        let iter_output = self.iter.next()?;
         let predicate = self.predicate.clone();
         let predicate_result = match &iter_output {
             Output::Value(value) => self
