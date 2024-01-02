@@ -50,7 +50,7 @@ rand_chacha = "0.3.1"
 # A speedy, non-cryptographic hash used in rustc
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
-rustyline = "12.0.0"
+rustyline = "13.0.0"
 # A generic serialization/deserialization framework
 serde = "1.0.0"
 # JSON support for serde
