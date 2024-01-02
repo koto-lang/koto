@@ -93,8 +93,8 @@ impl Help {
     pub fn get_help(&self, search: Option<&str>) -> String {
         match search {
             Some(search) => {
-                let search = text_to_key(search);
-                match self.help_map.get(&search) {
+                let search_key = text_to_key(search);
+                match self.help_map.get(&search_key) {
                     Some(entry) => {
                         let mut help = format!(
                             "{indent}{name}\n{indent}{underline}{help}",
@@ -108,7 +108,7 @@ impl Help {
                             .see_also
                             .iter()
                             .chain(self.help_map.iter().filter_map(|(key, search_entry)| {
-                                if key.contains(search.as_ref())
+                                if key.contains(search_key.as_ref())
                                     && !entry.see_also.contains(&search_entry.name)
                                     && search_entry.name != entry.name
                                 {
@@ -139,11 +139,11 @@ impl Help {
                             .help_map
                             .iter()
                             .filter(|(key, value)| {
-                                key.contains(search.as_ref())
+                                key.contains(search_key.as_ref())
                                     || value
                                         .keywords
                                         .iter()
-                                        .any(|keyword| keyword.contains(search.as_ref()))
+                                        .any(|keyword| keyword.contains(search_key.as_ref()))
                             })
                             .collect::<Vec<_>>();
 
