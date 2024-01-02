@@ -1,5 +1,27 @@
 # Advanced Functions
 
+Functions in Koto stored by the runtime as values and can hold internal captured state.
+
+If a value is accessed in a function that wasn't assigned locally, 
+then the value is copied into the function (or _captured_) when it's created. 
+
+```koto
+x = 1
+
+# x is assigned outside the function,
+# so it gets captured when it's created.
+f = |n| n + x 
+
+# Reassigning x here doesn't modify the value 
+# of x that was captured when f was created.
+x = 100
+
+print! f 2
+check! 3
+```
+
+It's worth noting that this behavior is different to many other scripting languages, where captures are often taken by _reference_ rather than by _value_.
+
 ## Optional Arguments
 
 When calling a function, any missing arguments will be replaced by `null`.
@@ -126,20 +148,3 @@ check! (('foo_a', 1), ('foo_b', 3))
 
 ## Captured Values
 
-If a value is accessed in a function that wasn't assigned locally, 
-then the value is copied into the function (or _captured_) when it's created. 
-
-```koto
-x = 1
-
-# x is assigned outside the function,
-# so it gets captured when it's created.
-f = |n| n + x 
-
-# Reassigning x here doesn't modify the value 
-# of x that was captured when f was created.
-x = 100
-
-print! f 2
-check! 3
-```

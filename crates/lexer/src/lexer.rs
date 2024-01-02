@@ -692,7 +692,7 @@ fn is_octal_digit(c: char) -> bool {
 }
 
 fn is_hex_digit(c: char) -> bool {
-    matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
+    c.is_ascii_hexdigit()
 }
 
 fn is_whitespace(c: char) -> bool {

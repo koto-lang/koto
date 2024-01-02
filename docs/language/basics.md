@@ -1,7 +1,5 @@
 # Language Basics
 
-## Koto Programs
-
 Koto programs contain a series of expressions that are evaluated by Koto's runtime.
 
 For example, this program asks for the user's name and then offers them a
@@ -14,7 +12,7 @@ print "Hi there, $name!"
 ```
 
 Try placing the above example in a file named `hello.koto`, and then running 
-`koto hello.koto`.
+`koto hello.koto`, or entering the expressions one at a time in the REPL.
 
 ## Comments
 

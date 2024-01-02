@@ -33,6 +33,8 @@ print! b
 check! (1, 2, 3, 4, 5, 6)
 ```
 
+## Creating Empty or Single-Value Tuples
+
 To create an empty Tuple, or a Tuple with a single entry, use a trailing `,` inside the parentheses.
 
 ```koto
@@ -50,6 +52,8 @@ check! ()
 print! (1,)
 check! (1)
 ```
+
+## Tuple Mutability
 
 Although Tuples have a fixed structure, mutable values in a Tuple (e.g. Lists and Maps) can still be modified.
 
