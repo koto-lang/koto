@@ -306,10 +306,6 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
         config.edit_mode = EditMode::Vi
     };
 
-    if env::var("NO_COLOR").is_ok() {
-        config.colored_output = false;
-    };
-
     if let Ok(value) = env::var("KOTO_MAX_HISTORY") {
         if let Ok(value) = value.parse::<usize>() {
             config.max_history = value;
