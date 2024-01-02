@@ -1,5 +1,8 @@
 use indexmap::IndexMap;
-use std::{iter::Peekable, rc::Rc};
+use std::{
+    iter::{self, Peekable},
+    rc::Rc,
+};
 
 const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
@@ -9,7 +12,9 @@ struct HelpEntry {
     name: Rc<str>,
     // The entry's contents
     help: Rc<str>,
-    // Names of related topics
+    // Additional keywords that should be checked when searching
+    keywords: Vec<Rc<str>>,
+    // Names of related topics to show in the 'See also' section
     see_also: Vec<Rc<str>>,
 }
 
@@ -133,7 +138,13 @@ impl Help {
                         let matches = self
                             .help_map
                             .iter()
-                            .filter(|(key, _)| key.contains(search.as_ref()))
+                            .filter(|(key, value)| {
+                                key.contains(search.as_ref())
+                                    || value
+                                        .keywords
+                                        .iter()
+                                        .any(|keyword| keyword.contains(search.as_ref()))
+                            })
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
@@ -190,70 +201,86 @@ impl Help {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
         // Consume the module overview section
-        let (topic, topic_help) = consume_help_section(&mut parser, None);
+        let topic = consume_help_section(&mut parser, None);
         // We should avoid top-level topics without a body
         debug_assert!(
-            !topic_help.trim().is_empty(),
-            "Missing contents for {topic}"
+            !topic.contents.trim().is_empty(),
+            "Missing contents for {}",
+            topic.name
         );
 
         // Add sub-topics
         let mut sub_topics = Vec::new();
         while parser.peek().is_some() {
-            let (sub_topic, help) = consume_help_section(&mut parser, None);
-            self.help_map.insert(
-                text_to_key(&sub_topic),
-                HelpEntry {
-                    name: sub_topic.clone(),
-                    help,
-                    see_also: vec![topic.clone()],
-                },
-            );
-            sub_topics.push(sub_topic)
+            sub_topics.push(consume_help_section(&mut parser, None));
         }
 
+        let see_also = sub_topics
+            .iter()
+            .flat_map(|sub_topic| iter::once(&sub_topic.name).chain(sub_topic.sub_sections.iter()))
+            .cloned()
+            .collect();
         self.help_map.insert(
-            text_to_key(&topic),
+            text_to_key(&topic.name),
             HelpEntry {
-                name: topic.clone(),
-                help: topic_help,
-                see_also: sub_topics,
+                name: topic.name.clone(),
+                help: topic.contents,
+                see_also,
+                keywords: vec![],
             },
         );
-        self.guide_topics.push(topic);
+        self.guide_topics.push(topic.name.clone());
+
+        for sub_topic in sub_topics {
+            self.help_map.insert(
+                text_to_key(&sub_topic.name),
+                HelpEntry {
+                    name: sub_topic.name,
+                    help: sub_topic.contents,
+                    keywords: sub_topic
+                        .sub_sections
+                        .iter()
+                        .map(|sub_section| text_to_key(sub_section))
+                        .collect(),
+                    see_also: vec![topic.name.clone()],
+                },
+            );
+        }
     }
 
     fn add_help_from_reference(&mut self, markdown: &str) {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
-        let (module_name, module_help) = consume_help_section(&mut parser, None);
+        let help_section = consume_help_section(&mut parser, None);
 
         // Consume each module entry
         let mut entry_names = Vec::new();
         while parser.peek().is_some() {
-            let (entry_name, help) = consume_help_section(&mut parser, Some(&module_name));
+            let module_entry = consume_help_section(&mut parser, Some(&help_section.name));
             self.help_map.insert(
-                text_to_key(&entry_name),
+                text_to_key(&module_entry.name),
                 HelpEntry {
-                    name: entry_name.clone(),
-                    help,
+                    name: module_entry.name.clone(),
+                    help: module_entry.contents,
                     see_also: Vec::new(),
+                    keywords: vec![],
                 },
             );
-            entry_names.push(entry_name);
+            entry_names.push(module_entry.name);
         }
 
-        if !module_help.trim().is_empty() {
+        if !help_section.contents.trim().is_empty() {
             self.help_map.insert(
-                text_to_key(&module_name),
+                text_to_key(&help_section.name),
                 HelpEntry {
-                    name: module_name.clone(),
-                    help: module_help,
+                    name: help_section.name.clone(),
+                    help: help_section.contents,
                     see_also: entry_names,
+                    keywords: vec![],
                 },
             );
         }
-        self.module_names.push(module_name.clone());
+        self.module_names.push(help_section.name.clone());
     }
 }
 
@@ -261,23 +288,35 @@ fn text_to_key(text: &str) -> Rc<str> {
     text.trim().to_lowercase().replace(' ', "_").into()
 }
 
+struct HelpSection {
+    name: Rc<str>,
+    contents: Rc<str>,
+    sub_sections: Vec<Rc<str>>,
+}
+
+enum ParsingMode {
+    Any,
+    Section,
+    SubSection,
+    Code,
+    TypeDeclaration,
+}
+
 fn consume_help_section(
     parser: &mut Peekable<pulldown_cmark::Parser>,
     module_name: Option<&str>,
-) -> (Rc<str>, Rc<str>) {
+) -> HelpSection {
     use pulldown_cmark::{CodeBlockKind, Event::*, HeadingLevel, Tag::*};
 
     let mut section_level = None;
     let mut section_name = String::new();
+    let mut sub_section_name = String::new();
+    let mut sub_sections = Vec::new();
     let indent = " ".repeat(HELP_INDENT);
     let mut result = indent.clone();
 
     let mut list_indent = 0;
-    let mut in_section_heading = false;
-    let mut heading_start = 0;
-    let mut first_heading = true;
-    let mut in_koto_code = false;
-    let mut in_type_declaration = false;
+    let mut parsing_mode = ParsingMode::Any;
 
     while let Some(peeked) = parser.peek() {
         match peeked {
@@ -293,25 +332,25 @@ fn consume_help_section(
                     }
                     Some(_) => {
                         // Start a new subsection
+                        parsing_mode = ParsingMode::SubSection;
+                        sub_section_name.clear();
                         result.push_str("\n\n");
                     }
                     None => {
-                        in_section_heading = true;
+                        parsing_mode = ParsingMode::Section;
                         section_level = Some(*level);
                     }
                 }
-                heading_start = result.len();
             }
             End(Heading(_, _, _)) => {
-                if !first_heading {
-                    let heading_length = result.len() - heading_start;
+                if matches!(parsing_mode, ParsingMode::SubSection) {
+                    sub_sections.push(sub_section_name.as_str().into());
                     result.push('\n');
-                    for _ in 0..heading_length {
+                    for _ in 0..sub_section_name.len() {
                         result.push('-');
                     }
                 }
-                in_section_heading = false;
-                first_heading = false;
+                parsing_mode = ParsingMode::Any;
             }
             Start(Link(_type, _url, title)) => result.push_str(title),
             End(Link(_, _, _)) => {}
@@ -335,23 +374,24 @@ fn consume_help_section(
             Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 result.push_str("\n\n");
                 match lang.split(',').next() {
-                    Some("koto") => in_koto_code = true,
-                    Some("kototype") => in_type_declaration = true,
+                    Some("koto") => parsing_mode = ParsingMode::Code,
+                    Some("kototype") => parsing_mode = ParsingMode::TypeDeclaration,
                     _ => {}
                 }
             }
-            End(CodeBlock(_)) => {
-                in_koto_code = false;
-                in_type_declaration = false;
-            }
+            End(CodeBlock(_)) => parsing_mode = ParsingMode::Any,
             Start(Emphasis) => result.push('_'),
             End(Emphasis) => result.push('_'),
             Start(Strong) => result.push('*'),
             End(Strong) => result.push('*'),
-            Text(text) => {
-                if in_section_heading {
-                    section_name.push_str(text);
-                } else if in_koto_code {
+            Text(text) => match parsing_mode {
+                ParsingMode::Any => result.push_str(text),
+                ParsingMode::Section => section_name.push_str(text),
+                ParsingMode::SubSection => {
+                    sub_section_name.push_str(text);
+                    result.push_str(text);
+                }
+                ParsingMode::Code => {
                     for (i, line) in text.split('\n').enumerate() {
                         if i == 0 {
                             result.push('|');
@@ -364,16 +404,15 @@ fn consume_help_section(
                         );
                         result.push_str(&processed_line);
                     }
-                } else if in_type_declaration {
+                }
+                ParsingMode::TypeDeclaration => {
                     result.push('`');
                     result.push_str(text.trim_end());
                     result.push('`');
-                } else {
-                    result.push_str(text);
                 }
-            }
+            },
             Code(code) => {
-                if in_section_heading {
+                if matches!(parsing_mode, ParsingMode::Section) {
                     section_name.push_str(code);
                 } else {
                     result.push('`');
@@ -392,7 +431,11 @@ fn consume_help_section(
     if let Some(module_name) = module_name {
         section_name = format!("{module_name}.{section_name}");
     }
-    let result = result.replace('\n', &format!("\n{indent}"));
+    let contents = result.replace('\n', &format!("\n{indent}"));
 
-    (section_name.into(), result.into())
+    HelpSection {
+        name: section_name.into(),
+        contents: contents.into(),
+        sub_sections,
+    }
 }
