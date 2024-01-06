@@ -1,5 +1,5 @@
 [package]
-name = "koto_re"
+name = "koto_regex"
 version = "0.13.0"
 authors = ["jasal82 <johannes.asal@gmx.de>"]
 edition = "2021"
