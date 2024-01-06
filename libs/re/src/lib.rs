@@ -70,21 +70,16 @@ impl Regex {
                 match captures {
                     Some(captures) => {
                         let mut byname = HashMap::new();
-                        for name in capture_names {
-                            if let Some(name) = name {
-                                let m = captures.name(name).unwrap();
-                                byname.insert(Rc::from(name), (m.start(), m.end()));
-                            }
+                        for name in capture_names.flatten() {
+                            let m = captures.name(name).unwrap();
+                            byname.insert(Rc::from(name), (m.start(), m.end()));
                         }
 
                         Ok(Captures {
                             text: Rc::from(text.as_str()),
                             captures: captures
                                 .iter()
-                                .map(|m| match m {
-                                    Some(m) => Some((m.start(), m.end())),
-                                    None => None,
-                                })
+                                .map(|m| m.map(|m| (m.start(), m.end())))
                                 .collect(),
                             byname,
                         }
@@ -136,7 +131,7 @@ impl KotoObject for Matches {
     fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
         if self.last_index >= self.matches.len() {
             self.last_index = 0;
-            return None;
+            None
         } else {
             let result = match self.matches.get(self.last_index) {
                 Some((start, end)) => Some(KIteratorOutput::Value(
@@ -146,7 +141,7 @@ impl KotoObject for Matches {
             };
 
             self.last_index += 1;
-            return result;
+            result
         }
     }
 }
