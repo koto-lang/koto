@@ -37,7 +37,7 @@ impl Regex {
             [Value::Str(text)] => {
                 let matches = self.0.find_iter(text);
                 Ok(Matches {
-                    text: Rc::from(text.as_str()),
+                    text: text.clone(),
                     matches: matches.map(|m| (m.start(), m.end())).collect(),
                     last_index: 0,
                 }
@@ -53,7 +53,7 @@ impl Regex {
             [Value::Str(text)] => {
                 let m = self.0.find(text);
                 match m {
-                    Some(m) => Ok(Match::new(Rc::from(text.as_str()), m.start(), m.end()).into()),
+                    Some(m) => Ok(Match::make_value(text.clone(), m.start(), m.end())),
                     None => Ok(Value::Null),
                 }
             }
@@ -76,7 +76,7 @@ impl Regex {
                         }
 
                         Ok(Captures {
-                            text: Rc::from(text.as_str()),
+                            text: text.clone(),
                             captures: captures
                                 .iter()
                                 .map(|m| m.map(|m| (m.start(), m.end())))
@@ -114,7 +114,7 @@ impl From<Regex> for Value {
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
 pub struct Matches {
-    text: Rc<str>,
+    text: KString,
     matches: Vec<(usize, usize)>,
     last_index: usize,
 }
@@ -134,9 +134,11 @@ impl KotoObject for Matches {
             None
         } else {
             let result = match self.matches.get(self.last_index) {
-                Some((start, end)) => Some(KIteratorOutput::Value(
-                    Match::new(self.text.as_ref().into(), *start, *end).into(),
-                )),
+                Some((start, end)) => Some(KIteratorOutput::Value(Match::make_value(
+                    self.text.clone(),
+                    *start,
+                    *end,
+                ))),
                 None => None,
             };
 
@@ -154,49 +156,38 @@ impl From<Matches> for Value {
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
 pub struct Match {
-    text: Rc<str>,
-    start: usize,
-    end: usize,
+    text: KString,
+    bounds: KRange,
 }
 
 #[koto_impl(runtime = koto_runtime)]
 impl Match {
-    pub fn new(text: Rc<str>, start: usize, end: usize) -> Self {
-        Self { text, start, end }
+    pub fn make_value(matched: KString, start: usize, end: usize) -> Value {
+        let Some(text) = matched.with_bounds(start..end) else {
+            return Value::Null;
+        };
+
+        Self {
+            text,
+            bounds: KRange::bounded(start as i64, end as i64, false),
+        }
+        .into()
     }
 
     #[koto_method]
     fn text(&self) -> Value {
-        (self.text[self.start..self.end]).into()
-    }
-
-    #[koto_method]
-    fn start(&self) -> Value {
-        self.start.into()
-    }
-
-    #[koto_method]
-    fn end(&self) -> Value {
-        self.end.into()
+        self.text.clone().into()
     }
 
     #[koto_method]
     fn range(&self) -> Value {
-        KRange::bounded(
-            self.start.try_into().unwrap(),
-            self.end.try_into().unwrap(),
-            false,
-        )
-        .into()
+        self.bounds.clone().into()
     }
 }
 
 impl KotoObject for Match {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(format!(
-            "Match('{}' - {}..{})",
-            self.text, self.start, self.end
-        ));
+        ctx.append(format!("Match('{}', {})", self.text, self.bounds));
         Ok(())
     }
 }
@@ -209,7 +200,7 @@ impl From<Match> for Value {
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
 pub struct Captures {
-    text: Rc<str>,
+    text: KString,
     captures: Vec<Option<(usize, usize)>>,
     byname: HashMap<Rc<str>, (usize, usize)>,
 }
@@ -220,11 +211,11 @@ impl Captures {
     fn get(&self, args: &[Value]) -> Result<Value> {
         match args {
             [Value::Number(index)] => match self.captures.get(index.as_i64() as usize) {
-                Some(Some((start, end))) => Ok(Match::new(self.text.clone(), *start, *end).into()),
+                Some(Some((start, end))) => Ok(Match::make_value(self.text.clone(), *start, *end)),
                 _ => Ok(Value::Null),
             },
             [Value::Str(name)] => match self.byname.get(name.as_str()) {
-                Some(m) => Ok(Match::new(self.text.clone(), m.0, m.1).into()),
+                Some(m) => Ok(Match::make_value(self.text.clone(), m.0, m.1)),
                 None => Ok(Value::Null),
             },
             unexpected => type_error_with_slice("a number", unexpected),
@@ -241,11 +232,11 @@ impl KotoObject for Captures {
     fn index(&self, index: &Value) -> Result<Value> {
         match index {
             Value::Number(index) => match self.captures.get(index.as_i64() as usize) {
-                Some(Some((start, end))) => Ok(Match::new(self.text.clone(), *start, *end).into()),
+                Some(Some((start, end))) => Ok(Match::make_value(self.text.clone(), *start, *end)),
                 _ => runtime_error!("Invalid capture group index"),
             },
             Value::Str(name) => match self.byname.get(name.as_str()) {
-                Some(m) => Ok(Match::new(self.text.clone(), m.0, m.1).into()),
+                Some(m) => Ok(Match::make_value(self.text.clone(), m.0, m.1)),
                 None => runtime_error!("Invalid capture group name"),
             },
             unexpected => type_error("Invalid index (must be Number or Str)", unexpected),
