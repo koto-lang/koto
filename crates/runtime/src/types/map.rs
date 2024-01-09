@@ -223,6 +223,12 @@ impl KMap {
     }
 }
 
+impl From<ValueMap> for KMap {
+    fn from(value: ValueMap) -> Self {
+        KMap::with_data(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

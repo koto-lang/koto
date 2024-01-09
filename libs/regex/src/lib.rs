@@ -1,5 +1,4 @@
 use koto_runtime::{derive::*, prelude::*, Result};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn make_module() -> KMap {
@@ -67,25 +66,30 @@ impl Regex {
     fn captures(&self, args: &[Value]) -> Result<Value> {
         match args {
             [Value::Str(text)] => {
-                let captures = self.0.captures(text);
-                let capture_names = self.0.capture_names();
-                match captures {
+                match self.0.captures(text) {
                     Some(captures) => {
-                        let mut byname = HashMap::new();
-                        for name in capture_names.flatten() {
-                            let m = captures.name(name).unwrap();
-                            byname.insert(Rc::from(name), (m.start(), m.end()));
+                        let mut result = ValueMap::with_capacity(captures.len());
+
+                        for (i, (capture, name)) in
+                            captures.iter().zip(self.0.capture_names()).enumerate()
+                        {
+                            if let Some(capture) = capture {
+                                let match_ =
+                                    Match::make_value(text.clone(), capture.start(), capture.end());
+
+                                // Insert the match with the capture group's index
+                                result.insert(i.into(), match_.clone());
+
+                                if let Some(name) = name {
+                                    // Also insert the match with the capture group's name
+                                    result.insert(name.into(), match_);
+                                }
+                            } else {
+                                result.insert(i.into(), Value::Null);
+                            }
                         }
 
-                        Ok(Captures {
-                            text: text.clone(),
-                            captures: captures
-                                .iter()
-                                .map(|m| m.map(|m| (m.start(), m.end())))
-                                .collect(),
-                            byname,
-                        }
-                        .into())
+                        Ok(KMap::from(result).into())
                     }
                     None => Ok(Value::Null),
                 }
@@ -197,57 +201,5 @@ impl KotoObject for Match {
 impl From<Match> for Value {
     fn from(match_: Match) -> Self {
         KObject::from(match_).into()
-    }
-}
-
-#[derive(Clone, Debug, KotoType, KotoCopy)]
-pub struct Captures {
-    text: KString,
-    captures: Vec<Option<(usize, usize)>>,
-    byname: HashMap<Rc<str>, (usize, usize)>,
-}
-
-#[koto_impl(runtime = koto_runtime)]
-impl Captures {
-    #[koto_method]
-    fn get(&self, args: &[Value]) -> Result<Value> {
-        match args {
-            [Value::Number(index)] => match self.captures.get(index.as_i64() as usize) {
-                Some(Some((start, end))) => Ok(Match::make_value(self.text.clone(), *start, *end)),
-                _ => Ok(Value::Null),
-            },
-            [Value::Str(name)] => match self.byname.get(name.as_str()) {
-                Some(m) => Ok(Match::make_value(self.text.clone(), m.0, m.1)),
-                None => Ok(Value::Null),
-            },
-            unexpected => type_error_with_slice("a number", unexpected),
-        }
-    }
-
-    #[koto_method]
-    fn len(&self) -> Value {
-        self.captures.len().into()
-    }
-}
-
-impl KotoObject for Captures {
-    fn index(&self, index: &Value) -> Result<Value> {
-        match index {
-            Value::Number(index) => match self.captures.get(index.as_i64() as usize) {
-                Some(Some((start, end))) => Ok(Match::make_value(self.text.clone(), *start, *end)),
-                _ => runtime_error!("Invalid capture group index"),
-            },
-            Value::Str(name) => match self.byname.get(name.as_str()) {
-                Some(m) => Ok(Match::make_value(self.text.clone(), m.0, m.1)),
-                None => runtime_error!("Invalid capture group name"),
-            },
-            unexpected => type_error("Invalid index (must be Number or Str)", unexpected),
-        }
-    }
-}
-
-impl From<Captures> for Value {
-    fn from(captures: Captures) -> Self {
-        KObject::from(captures).into()
     }
 }

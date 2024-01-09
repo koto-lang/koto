@@ -133,6 +133,15 @@ impl From<KString> for ValueKey {
     }
 }
 
+impl<T> From<T> for ValueKey
+where
+    KNumber: From<T>,
+{
+    fn from(value: T) -> Self {
+        Self(Value::Number(value.into()))
+    }
+}
+
 impl From<&str> for ValueKey {
     fn from(value: &str) -> Self {
         Self(Value::Str(value.into()))
