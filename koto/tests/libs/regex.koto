@@ -1,20 +1,19 @@
-import regex
-
 @tests =
   @test is_match: ||
-    r = regex.regex r'x\d\d'
+    r = regex.new r'x\d\d'
     assert r.is_match 'x42'
     assert not r.is_match 'z99'
 
   @test find: ||
-    r = regex.regex '[a-z]{3}'
+    # Regexes can be created via a regex call or via regex.new
+    r = regex.new '[a-z]{3}'
     found = r.find 'a bc def gh'
     assert_eq found.text(), 'def'
     assert_eq found.range(), 5..8
     assert not r.find 'x 123 y'
 
   @test find_all: ||
-    r = regex.regex '[a-z]{2,3}'
+    r = regex.new '[a-z]{2,3}'
     found = r.find_all('a bc def gh')
     assert_eq found.next().text(), 'bc'
     assert_eq found.next().text(), 'def'
@@ -22,13 +21,13 @@ import regex
     assert_eq found.next(), null
 
   @test captures: ||
-    r = regex.regex r'(?<a>\d)(?<b>\S)(\d)'
+    r = regex.new r'(?<a>\d)(?<b>\S)(\d)'
     captures = r.captures 'hello 7f9!'
     assert_eq captures['a'].text(), '7'
     assert_eq captures['b'].text(), 'f'
     assert_eq captures[3].text(), '9'
 
   @test replace_all: ||
-    r = regex.regex r'(?<first>\S+)\s+(?<last>\S+)'
+    r = regex.new r'(?<first>\S+)\s+(?<last>\S+)'
     assert_eq r.replace_all('World Hello', r'$last, $first!'), 'Hello, World!'
     assert_eq r.replace_all('abc def', r'$first$first$last$last'), 'abcabcdefdef'

@@ -329,6 +329,12 @@ impl From<KIterator> for Value {
     }
 }
 
+impl From<KNativeFunction> for Value {
+    fn from(value: KNativeFunction) -> Self {
+        Self::NativeFunction(value)
+    }
+}
+
 /// A slice of a VM's registers
 ///
 /// See [Value::TemporaryTuple]

@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn make_module() -> KMap {
-    let result = KMap::with_type("re");
-    result.add_fn("regex", |ctx| match ctx.args() {
+    let result = KMap::with_type("regex");
+
+    result.add_fn("new", |ctx| match ctx.args() {
         [Value::Str(pattern)] => Ok(Regex::new(pattern)?.into()),
         unexpected => type_error_with_slice("a regex pattern as string", unexpected),
     });
+
     result
 }
 
