@@ -830,6 +830,7 @@ dependencies = [
  "koto_geometry",
  "koto_json",
  "koto_random",
+ "koto_regex",
  "koto_tempfile",
  "koto_toml",
  "koto_yaml",

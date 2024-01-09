@@ -191,7 +191,15 @@ impl Match {
     }
 }
 
-impl KotoObject for Match {}
+impl KotoObject for Match {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(format!(
+            "Match('{}' - {}..{})",
+            self.text, self.start, self.end
+        ));
+        Ok(())
+    }
+}
 
 impl From<Match> for Value {
     fn from(match_: Match) -> Self {
