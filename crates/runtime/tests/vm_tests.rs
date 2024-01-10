@@ -2636,6 +2636,48 @@ x = ('foo', 'bar')
         }
     }
 
+    mod raw_strings {
+        use super::*;
+
+        #[test]
+        fn unescaped_backslashes() {
+            let script = r"
+r'\r\n\\\$\'
+";
+            test_script(script, string(r"\r\n\\\$\"));
+        }
+
+        #[test]
+        fn uninterpolated_expressions() {
+            let script = r"
+foo, bar = 42, 99
+r'$foo + $bar == ${foo + bar}'
+";
+            test_script(script, string(r"$foo + $bar == ${foo + bar}"));
+        }
+
+        #[test]
+        fn multiline() {
+            let script = r#"
+r"
+$foo
+\n
+$bar
+"
+"#;
+            test_script(
+                script,
+                string(
+                    r"
+$foo
+\n
+$bar
+",
+                ),
+            );
+        }
+    }
+
     mod iterators {
         use super::*;
 

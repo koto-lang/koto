@@ -91,3 +91,12 @@ print 'This string has to escape its \'single quotes\'.'
 check! This string has to escape its 'single quotes'.
 ```
 
+## Raw Strings
+
+Sometimes it can be preferable to use a _raw string_, which provides the contents of the string without support for escaped characters or interpolated expressions. 
+Like normal strings, raw strings use single or double quotes, but prefixed with an `r`.
+
+```koto
+print r'This string contains special characters: $foo\n\t'
+check! This string contains special characters: $foo\n\t
+```

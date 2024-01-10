@@ -1,5 +1,5 @@
 use crate::{Position, Span};
-use std::{iter::Peekable, str::Chars};
+use std::{collections::VecDeque, iter::Peekable, ops::Range, str::Chars};
 use unicode_width::UnicodeWidthChar;
 use unicode_xid::UnicodeXID;
 
@@ -10,7 +10,6 @@ pub enum Token {
     Error,
     Whitespace,
     NewLine,
-    NewLineIndented,
     CommentSingle,
     CommentMulti,
     Number,
@@ -19,6 +18,8 @@ pub enum Token {
 
     SingleQuote,
     DoubleQuote,
+    RawStringStart,
+    RawStringEnd,
     StringLiteral,
 
     // Symbols
@@ -101,10 +102,9 @@ impl Token {
         matches!(self, Whitespace | CommentMulti | CommentSingle)
     }
 
-    /// Returns true if the token represents a new line
-    pub fn is_newline(&self) -> bool {
-        use Token::*;
-        matches!(self, NewLine | NewLineIndented)
+    /// Returns true if the token should be counted as whitespace, including newlines
+    pub fn is_whitespace_including_newline(&self) -> bool {
+        self.is_whitespace() || *self == Token::NewLine
     }
 }
 
@@ -113,6 +113,10 @@ impl Token {
 enum StringMode {
     // Inside a string literal, expecting an end quote
     Literal(char),
+    // The start of a raw string has just been encountered, raw string contents follow
+    RawStart(char),
+    // The contents of the raw string have just been consumed, the end delimiter should follow
+    RawEnd(char),
     // Just after a $ symbol, either an id or a '{' will follow
     TemplateStart,
     // Inside a string template, e.g. '${...}'
@@ -156,20 +160,27 @@ impl<'a> TokenLexer<'a> {
         }
     }
 
-    // The slice associated with the token that was just emitted
-    fn slice(&self) -> &'a str {
-        &self.source[self.previous_byte..self.current_byte]
+    fn source_bytes(&self) -> Range<usize> {
+        self.previous_byte..self.current_byte
     }
 
     fn current_position(&self) -> Position {
         self.span.end
     }
 
+    // Advance along the current line by a number of bytes
+    //
+    // The characters being advanced over should all be ANSI,
+    // i.e. the byte count must match the character count.
+    //
+    // If the characters have been read as UTF-8 then advance_line_utf8 should be used instead.
     fn advance_line(&mut self, char_bytes: usize) {
         self.advance_line_utf8(char_bytes, char_bytes);
     }
 
+    // Advance along the current line by a number of bytes, with a UTF-8 character count
     fn advance_line_utf8(&mut self, char_bytes: usize, char_count: usize) {
+        // TODO, defer to advance_to_position
         self.previous_byte = self.current_byte;
         self.current_byte += char_bytes;
 
@@ -197,11 +208,9 @@ impl<'a> TokenLexer<'a> {
         use Token::*;
 
         let mut consumed_bytes = 1;
-        let mut newline_bytes = 1;
 
         if chars.peek() == Some(&'\r') {
             consumed_bytes += 1;
-            newline_bytes += 1;
             chars.next();
         }
 
@@ -210,22 +219,15 @@ impl<'a> TokenLexer<'a> {
             _ => return Error,
         }
 
-        consumed_bytes += consume_and_count(&mut chars, is_whitespace);
-
-        self.indent = consumed_bytes - newline_bytes;
         self.advance_to_position(
             consumed_bytes,
             Position {
                 line: self.current_position().line + 1,
-                column: (consumed_bytes - newline_bytes + 1) as u32, // indexing from 1 for column
+                column: 1,
             },
         );
 
-        if self.indent == 0 {
-            NewLine
-        } else {
-            NewLineIndented
-        }
+        NewLine
     }
 
     fn consume_comment(&mut self, mut chars: Peekable<Chars>) -> Token {
@@ -357,6 +359,57 @@ impl<'a> TokenLexer<'a> {
         Error
     }
 
+    fn consume_raw_string_contents(
+        &mut self,
+        mut chars: Peekable<Chars>,
+        end_quote: char,
+    ) -> Token {
+        let mut string_bytes = 0;
+
+        let mut position = self.current_position();
+
+        while let Some(c) = chars.next() {
+            match c {
+                _ if c == end_quote => {
+                    self.advance_to_position(string_bytes, position);
+                    self.string_mode_stack.pop(); // StringMode::RawStart
+                    self.string_mode_stack.push(StringMode::RawEnd(end_quote));
+                    return Token::StringLiteral;
+                }
+                '\r' => {
+                    if chars.next() != Some('\n') {
+                        return Token::Error;
+                    }
+                    string_bytes += 2;
+                    position.line += 1;
+                    position.column = 1;
+                }
+                '\n' => {
+                    string_bytes += 1;
+                    position.line += 1;
+                    position.column = 1;
+                }
+                _ => {
+                    string_bytes += c.len_utf8();
+                    position.column += c.width().unwrap_or(0) as u32;
+                }
+            }
+        }
+
+        Token::Error
+    }
+
+    fn consume_raw_string_end(&mut self, mut chars: Peekable<Chars>, end_quote: char) -> Token {
+        match chars.next() {
+            Some(c) if c == end_quote => {
+                self.string_mode_stack.pop(); // StringMode::RawEnd
+                self.advance_line(1);
+                Token::RawStringEnd
+            }
+            _ => Token::Error,
+        }
+    }
+
     fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
@@ -438,18 +491,29 @@ impl<'a> TokenLexer<'a> {
 
         let id = &self.source[self.current_byte..self.current_byte + char_bytes];
 
-        if id == "else" {
-            if self
-                .source
-                .get(self.current_byte..self.current_byte + char_bytes + 3)
-                == Some("else if")
-            {
-                self.advance_line(7);
-                return ElseIf;
-            } else {
-                self.advance_line(4);
-                return Else;
+        match id {
+            "else" => {
+                if self
+                    .source
+                    .get(self.current_byte..self.current_byte + char_bytes + 3)
+                    == Some("else if")
+                {
+                    self.advance_line(7);
+                    return ElseIf;
+                } else {
+                    self.advance_line(4);
+                    return Else;
+                }
             }
+            "r" => {
+                // look ahead and determine if this is the start of a raw string
+                if let Some(c @ '\'' | c @ '"') = chars.peek() {
+                    self.advance_line(2);
+                    self.string_mode_stack.push(StringMode::RawStart(*c));
+                    return RawStringStart;
+                }
+            }
+            _ => {}
         }
 
         macro_rules! check_keyword {
@@ -568,6 +632,12 @@ impl<'a> TokenLexer<'a> {
 
         let result = match self.source.get(self.current_byte..) {
             Some(remaining) if !remaining.is_empty() => {
+                if self.previous_token == Some(Token::NewLine) {
+                    // Reset the indent after a newline.
+                    // If whitespace follows then the indent will be increased.
+                    self.indent = 0;
+                }
+
                 let mut chars = remaining.chars().peekable();
                 let next_char = *chars.peek().unwrap(); // At least one char is remaining
 
@@ -592,6 +662,10 @@ impl<'a> TokenLexer<'a> {
                         }
                         _ => self.consume_string_literal(chars),
                     },
+                    Some(StringMode::RawStart(quote)) => {
+                        self.consume_raw_string_contents(chars, quote)
+                    }
+                    Some(StringMode::RawEnd(quote)) => self.consume_raw_string_end(chars, quote),
                     Some(StringMode::TemplateStart) => match next_char {
                         _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
                             Id => {
@@ -612,6 +686,9 @@ impl<'a> TokenLexer<'a> {
                         c if is_whitespace(c) => {
                             let count = consume_and_count(&mut chars, is_whitespace);
                             self.advance_line(count);
+                            if matches!(self.previous_token, Some(Token::NewLine) | None) {
+                                self.indent = count;
+                            }
                             Whitespace
                         }
                         '\r' | '\n' => self.consume_newline(chars),
@@ -742,13 +819,40 @@ fn consume_and_count_utf8(
     (char_bytes, char_count)
 }
 
-#[derive(Clone)]
-struct PeekedToken<'a> {
-    token: Option<Token>,
-    slice: &'a str,
-    span: Span,
-    indent: usize,
-    source_position: usize,
+/// A [Token] along with additional metadata
+#[derive(Clone, PartialEq, Debug)]
+pub struct LexedToken {
+    /// The token
+    pub token: Token,
+    /// The byte positions in the source representing the token
+    pub source_bytes: Range<usize>,
+    /// The token's span
+    pub span: Span,
+    /// The indentation level of the token's starting line
+    pub indent: usize,
+}
+
+impl LexedToken {
+    /// A helper for getting the token's starting line
+    pub fn line(&self) -> u32 {
+        self.span.start.line
+    }
+
+    /// A helper for getting the token's string slice from the source
+    pub fn slice<'a>(&self, source: &'a str) -> &'a str {
+        &source[self.source_bytes.clone()]
+    }
+}
+
+impl Default for LexedToken {
+    fn default() -> Self {
+        Self {
+            token: Token::Error,
+            source_bytes: Default::default(),
+            span: Default::default(),
+            indent: Default::default(),
+        }
+    }
 }
 
 /// The lexer used by the Koto parser
@@ -757,8 +861,7 @@ struct PeekedToken<'a> {
 #[derive(Clone)]
 pub struct KotoLexer<'a> {
     lexer: TokenLexer<'a>,
-    peeked_tokens: Vec<PeekedToken<'a>>,
-    current_peek_index: usize,
+    token_queue: VecDeque<LexedToken>,
 }
 
 impl<'a> KotoLexer<'a> {
@@ -766,8 +869,7 @@ impl<'a> KotoLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: TokenLexer::new(source),
-            peeked_tokens: Vec::new(),
-            current_peek_index: 0,
+            token_queue: VecDeque::new(),
         }
     }
 
@@ -776,246 +878,190 @@ impl<'a> KotoLexer<'a> {
         self.lexer.source
     }
 
-    /// Returns the current position in the input source
-    pub fn source_position(&self) -> usize {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.current_byte
-        } else {
-            self.peeked_tokens[self.current_peek_index].source_position
-        }
-    }
-
-    /// Peeks the next token in the output stream
-    pub fn peek(&mut self) -> Option<Token> {
-        if self.peeked_tokens.is_empty() {
-            self.peek_n(0)
-        } else {
-            self.peeked_tokens[self.current_peek_index].token
-        }
-    }
-
     /// Peeks the nth token that will appear in the output stream
     ///
     /// peek_n(0) is equivalent to calling peek().
     /// peek_n(1) returns the token that will appear after that, and so forth.
-    pub fn peek_n(&mut self, n: usize) -> Option<Token> {
-        while self.peeked_tokens.len() - self.current_peek_index <= n {
-            let span = self.lexer.span;
-            let slice = self.lexer.slice();
-            let indent = self.lexer.indent;
-            let source_position = self.lexer.current_byte;
-            // getting the token needs to happen after the other properties
-            let token = self.lexer.next();
-            self.peeked_tokens.push(PeekedToken {
-                token,
-                slice,
-                span,
-                indent,
-                source_position,
-            });
+    pub fn peek(&mut self, n: usize) -> Option<&LexedToken> {
+        let token_queue_len = self.token_queue.len();
+        let tokens_to_add = token_queue_len + 1 - n.max(token_queue_len);
+
+        for _ in 0..tokens_to_add {
+            if let Some(next) = self.next_token() {
+                self.token_queue.push_back(next);
+            } else {
+                break;
+            }
         }
-        self.peeked_tokens[self.current_peek_index + n].token
+
+        self.token_queue.get(n)
     }
 
-    /// Returns the current span
-    pub fn span(&self) -> Span {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.span
-        } else {
-            self.peeked_tokens[self.current_peek_index].span
-        }
-    }
-
-    /// Returns the string slice of the input associated with the current token
-    pub fn slice(&self) -> &'a str {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.slice()
-        } else {
-            self.peeked_tokens[self.current_peek_index].slice
-        }
-    }
-
-    /// Returns the indent associated with the current token
-    pub fn current_indent(&self) -> usize {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.indent
-        } else {
-            self.peeked_tokens[self.current_peek_index].indent
-        }
-    }
-
-    /// Returns the indent associated with the nth coming token in the output stream
-    pub fn peek_indent(&self, peek_index: usize) -> usize {
-        self.peeked_tokens[self.current_peek_index + peek_index].indent
-    }
-
-    /// Returns the line number associated with the current token
-    pub fn line_number(&self) -> u32 {
-        self.span().end.line
-    }
-
-    /// Returns the line number associated with the nth coming token in the output stream
-    pub fn peek_line_number(&self, peek_index: usize) -> u32 {
-        self.peeked_tokens[self.current_peek_index + peek_index]
-            .span
-            .end
-            .line
+    fn next_token(&mut self) -> Option<LexedToken> {
+        self.lexer.next().map(|token| LexedToken {
+            token,
+            source_bytes: self.lexer.source_bytes(),
+            span: self.lexer.span,
+            indent: self.lexer.indent,
+        })
     }
 }
 
 impl<'a> Iterator for KotoLexer<'a> {
-    type Item = Token;
+    type Item = LexedToken;
 
-    fn next(&mut self) -> Option<Token> {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.next()
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(next) = self.token_queue.pop_front() {
+            Some(next)
         } else {
-            let result = self.peeked_tokens[self.current_peek_index].token;
-            self.current_peek_index += 1;
-            if self.current_peek_index == self.peeked_tokens.len() {
-                self.peeked_tokens.clear();
-                self.current_peek_index = 0;
-            }
-            result
+            self.next_token()
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Token::*, *};
+    use super::*;
 
-    fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
-        let mut lex = KotoLexer::new(source);
+    mod lexer_output {
+        use super::{Token::*, *};
 
-        for (i, (token, maybe_slice, line_number)) in tokens.iter().enumerate() {
-            loop {
-                match lex.next().expect("Expected token") {
-                    Whitespace => continue,
-                    output => {
-                        assert_eq!(&output, token, "Token mismatch at position {i}");
-                        if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice, "Slice mismatch at position {i}");
+        fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
+            let mut lex = KotoLexer::new(source);
+
+            for (i, (token, maybe_slice, line_number)) in tokens.iter().enumerate() {
+                loop {
+                    match lex.next().expect("Expected token") {
+                        LexedToken {
+                            token: Whitespace, ..
+                        } => continue,
+                        output => {
+                            assert_eq!(output.token, *token, "Token mismatch at position {i}");
+                            if let Some(slice) = maybe_slice {
+                                assert_eq!(
+                                    output.slice(source),
+                                    *slice,
+                                    "Slice mismatch at position {i}"
+                                );
+                            }
+                            assert_eq!(
+                                output.line(),
+                                *line_number,
+                                "Line number mismatch at position {i}",
+                            );
+                            break;
                         }
-                        assert_eq!(
-                            lex.line_number(),
-                            *line_number,
-                            "Line number mismatch at position {i}",
-                        );
-                        break;
                     }
                 }
             }
+
+            assert_eq!(lex.next(), None);
         }
 
-        assert_eq!(lex.next(), None);
-    }
+        fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
+            let mut lex = KotoLexer::new(source);
 
-    fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
-        let mut lex = KotoLexer::new(source);
-
-        for (i, (token, maybe_slice, line_number, indent)) in tokens.iter().enumerate() {
-            loop {
-                match lex.next().expect("Expected token") {
-                    Whitespace => continue,
-                    output => {
-                        assert_eq!(&output, token, "Mismatch at token {i}");
-                        if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice, "Mismatch at token {i}");
+            for (i, (token, maybe_slice, line_number, indent)) in tokens.iter().enumerate() {
+                loop {
+                    match lex.next().expect("Expected token") {
+                        LexedToken {
+                            token: Whitespace, ..
+                        } => continue,
+                        output => {
+                            assert_eq!(output.token, *token, "Mismatch at token {i}");
+                            if let Some(slice) = maybe_slice {
+                                assert_eq!(output.slice(source), *slice, "Mismatch at token {i}");
+                            }
+                            assert_eq!(
+                                output.line(),
+                                *line_number,
+                                "Line number - expected: {}, actual: {} - (token {i} - {token:?})",
+                                *line_number,
+                                output.line(),
+                            );
+                            assert_eq!(
+                                output.indent as u32, *indent,
+                                "Indent (token {i} - {token:?})"
+                            );
+                            break;
                         }
-                        assert_eq!(
-                            lex.line_number(),
-                            *line_number,
-                            "Line number - expected: {}, actual: {} - (token {i} - {token:?})",
-                            *line_number,
-                            lex.line_number(),
-                        );
-                        assert_eq!(lex.current_indent() as u32, *indent, "Indent (token {i})");
-                        break;
                     }
                 }
             }
+
+            assert_eq!(lex.next(), None);
         }
 
-        assert_eq!(lex.next(), None);
-    }
+        #[test]
+        fn ids() {
+            let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _ _foo";
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("id"), 1),
+                    (Id, Some("id1"), 1),
+                    (Id, Some("id_2"), 1),
+                    (Id, Some("i_d_3"), 1),
+                    (Id, Some("ïd_ƒôûr"), 1),
+                    (If, None, 1),
+                    (Id, Some("iff"), 1),
+                    (Wildcard, Some("_"), 1),
+                    (Wildcard, Some("_foo"), 1),
+                ],
+            );
+        }
 
-    #[test]
-    fn ids() {
-        let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _ _foo";
-        check_lexer_output(
-            input,
-            &[
-                (Id, Some("id"), 1),
-                (Id, Some("id1"), 1),
-                (Id, Some("id_2"), 1),
-                (Id, Some("i_d_3"), 1),
-                (Id, Some("ïd_ƒôûr"), 1),
-                (If, None, 1),
-                (Id, Some("iff"), 1),
-                (Wildcard, Some("_"), 1),
-                (Wildcard, Some("_foo"), 1),
-            ],
-        );
-    }
-
-    #[test]
-    fn indent() {
-        let input = "\
+        #[test]
+        fn indent() {
+            let input = "\
 if true then
   foo 1
 
-bar 2
-x
-y";
-        check_lexer_output_indented(
-            input,
-            &[
-                (If, None, 1, 0),
-                (True, None, 1, 0),
-                (Then, None, 1, 0),
-                (NewLineIndented, None, 2, 2),
-                (Id, Some("foo"), 2, 2),
-                (Number, Some("1"), 2, 2),
-                (NewLine, None, 3, 0),
-                (NewLine, None, 4, 0),
-                (Id, Some("bar"), 4, 0),
-                (Number, Some("2"), 4, 0),
-                (NewLine, None, 5, 0),
-                (Id, Some("x"), 5, 0),
-                (NewLine, None, 6, 0),
-                (Id, Some("y"), 6, 0),
-            ],
-        );
-    }
+bar 2";
+            check_lexer_output_indented(
+                input,
+                &[
+                    (If, None, 1, 0),
+                    (True, None, 1, 0),
+                    (Then, None, 1, 0),
+                    (NewLine, None, 1, 0),
+                    (Id, Some("foo"), 2, 2),
+                    (Number, Some("1"), 2, 2),
+                    (NewLine, None, 2, 2),
+                    (NewLine, None, 3, 0),
+                    (Id, Some("bar"), 4, 0),
+                    (Number, Some("2"), 4, 0),
+                ],
+            );
+        }
 
-    #[test]
-    fn comments() {
-        let input = "\
+        #[test]
+        fn comments() {
+            let input = "\
 # single
 true #-
 multiline -
 false #
 -# true
 ()";
-        check_lexer_output(
-            input,
-            &[
-                (CommentSingle, Some("# single"), 1),
-                (NewLine, None, 2),
-                (True, None, 2),
-                (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 5),
-                (True, None, 5),
-                (NewLine, None, 6),
-                (RoundOpen, None, 6),
-                (RoundClose, None, 6),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (CommentSingle, Some("# single"), 1),
+                    (NewLine, None, 1),
+                    (True, None, 2),
+                    (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 2),
+                    (True, None, 5),
+                    (NewLine, None, 5),
+                    (RoundOpen, None, 6),
+                    (RoundClose, None, 6),
+                ],
+            );
+        }
 
-    #[test]
-    fn strings() {
-        let input = r#"
+        #[test]
+        fn strings() {
+            let input = r#"
 "hello, world!"
 "escaped \\\"\n\$ string"
 "double-\"quoted\" 'string'"
@@ -1024,123 +1070,138 @@ false #
 "\\"
 "#;
 
-        check_lexer_output(
-            input,
-            &[
-                (NewLine, None, 2),
-                (DoubleQuote, None, 2),
-                (StringLiteral, Some("hello, world!"), 2),
-                (DoubleQuote, None, 2),
-                (NewLine, None, 3),
-                (DoubleQuote, None, 3),
-                (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
-                (DoubleQuote, None, 3),
-                (NewLine, None, 4),
-                (DoubleQuote, None, 4),
-                (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
-                (DoubleQuote, None, 4),
-                (NewLine, None, 5),
-                (SingleQuote, None, 5),
-                (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
-                (SingleQuote, None, 5),
-                (NewLine, None, 6),
-                (DoubleQuote, None, 6),
-                (DoubleQuote, None, 6),
-                (NewLine, None, 7),
-                (DoubleQuote, None, 7),
-                (StringLiteral, Some(r"\\"), 7),
-                (DoubleQuote, None, 7),
-                (NewLine, None, 8),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (NewLine, None, 1),
+                    (DoubleQuote, None, 2),
+                    (StringLiteral, Some("hello, world!"), 2),
+                    (DoubleQuote, None, 2),
+                    (NewLine, None, 2),
+                    (DoubleQuote, None, 3),
+                    (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
+                    (DoubleQuote, None, 3),
+                    (NewLine, None, 3),
+                    (DoubleQuote, None, 4),
+                    (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
+                    (DoubleQuote, None, 4),
+                    (NewLine, None, 4),
+                    (SingleQuote, None, 5),
+                    (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
+                    (SingleQuote, None, 5),
+                    (NewLine, None, 5),
+                    (DoubleQuote, None, 6),
+                    (DoubleQuote, None, 6),
+                    (NewLine, None, 6),
+                    (DoubleQuote, None, 7),
+                    (StringLiteral, Some(r"\\"), 7),
+                    (DoubleQuote, None, 7),
+                    (NewLine, None, 7),
+                ],
+            );
+        }
 
-    #[test]
-    fn interpolated_string_ids() {
-        let input = r#"
+        #[test]
+        fn raw_strings() {
+            let input = r#"
+r'$foo'
+"#;
+
+            check_lexer_output(
+                input,
+                &[
+                    (NewLine, None, 1),
+                    (RawStringStart, None, 2),
+                    (StringLiteral, Some("$foo"), 2),
+                    (RawStringEnd, None, 2),
+                    (NewLine, None, 2),
+                ],
+            );
+        }
+
+        #[test]
+        fn interpolated_string_ids() {
+            let input = r#"
 "hello $name, how are you?"
 '$foo$bar'
 "#;
-        check_lexer_output(
-            input,
-            &[
-                (NewLine, None, 2),
-                (DoubleQuote, None, 2),
-                (StringLiteral, Some("hello "), 2),
-                (Dollar, None, 2),
-                (Id, Some("name"), 2),
-                (StringLiteral, Some(", how are you?"), 2),
-                (DoubleQuote, None, 2),
-                (NewLine, None, 3),
-                (SingleQuote, None, 3),
-                (Dollar, None, 3),
-                (Id, Some("foo"), 3),
-                (Dollar, None, 3),
-                (Id, Some("bar"), 3),
-                (SingleQuote, None, 3),
-                (NewLine, None, 4),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (NewLine, None, 1),
+                    (DoubleQuote, None, 2),
+                    (StringLiteral, Some("hello "), 2),
+                    (Dollar, None, 2),
+                    (Id, Some("name"), 2),
+                    (StringLiteral, Some(", how are you?"), 2),
+                    (DoubleQuote, None, 2),
+                    (NewLine, None, 2),
+                    (SingleQuote, None, 3),
+                    (Dollar, None, 3),
+                    (Id, Some("foo"), 3),
+                    (Dollar, None, 3),
+                    (Id, Some("bar"), 3),
+                    (SingleQuote, None, 3),
+                    (NewLine, None, 3),
+                ],
+            );
+        }
 
-    #[test]
-    fn interpolated_string_expressions() {
-        let input = r#"
+        #[test]
+        fn interpolated_string_expressions() {
+            let input = r#"
 "x + y == ${x + y}"
 '${'{}'.format foo}'
 "#;
-        check_lexer_output(
-            input,
-            &[
-                (NewLine, None, 2),
-                (DoubleQuote, None, 2),
-                (StringLiteral, Some("x + y == "), 2),
-                (Dollar, None, 2),
-                (CurlyOpen, None, 2),
-                (Id, Some("x"), 2),
-                (Add, None, 2),
-                (Id, Some("y"), 2),
-                (CurlyClose, None, 2),
-                (DoubleQuote, None, 2),
-                (NewLine, None, 3),
-                (SingleQuote, None, 3),
-                (Dollar, None, 3),
-                (CurlyOpen, None, 3),
-                (SingleQuote, None, 3),
-                (StringLiteral, Some("{}"), 3),
-                (SingleQuote, None, 3),
-                (Dot, None, 3),
-                (Id, Some("format"), 3),
-                (Id, Some("foo"), 3),
-                (CurlyClose, None, 3),
-                (SingleQuote, None, 3),
-                (NewLine, None, 4),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (NewLine, None, 1),
+                    (DoubleQuote, None, 2),
+                    (StringLiteral, Some("x + y == "), 2),
+                    (Dollar, None, 2),
+                    (CurlyOpen, None, 2),
+                    (Id, Some("x"), 2),
+                    (Add, None, 2),
+                    (Id, Some("y"), 2),
+                    (CurlyClose, None, 2),
+                    (DoubleQuote, None, 2),
+                    (NewLine, None, 2),
+                    (SingleQuote, None, 3),
+                    (Dollar, None, 3),
+                    (CurlyOpen, None, 3),
+                    (SingleQuote, None, 3),
+                    (StringLiteral, Some("{}"), 3),
+                    (SingleQuote, None, 3),
+                    (Dot, None, 3),
+                    (Id, Some("format"), 3),
+                    (Id, Some("foo"), 3),
+                    (CurlyClose, None, 3),
+                    (SingleQuote, None, 3),
+                    (NewLine, None, 3),
+                ],
+            );
+        }
 
-    #[test]
-    fn operators() {
-        let input = r#"
-> >= >> < <=
-"#;
-        check_lexer_output(
-            input,
-            &[
-                (NewLine, None, 2),
-                (Greater, None, 2),
-                (GreaterOrEqual, None, 2),
-                (Pipe, None, 2),
-                (Less, None, 2),
-                (LessOrEqual, None, 2),
-                (NewLine, None, 3),
-            ],
-        );
-    }
+        #[test]
+        fn operators() {
+            let input = "> >= >> < <=";
 
-    #[test]
-    fn numbers() {
-        let input = "\
+            check_lexer_output(
+                input,
+                &[
+                    (Greater, None, 1),
+                    (GreaterOrEqual, None, 1),
+                    (Pipe, None, 1),
+                    (Less, None, 1),
+                    (LessOrEqual, None, 1),
+                ],
+            );
+        }
+
+        #[test]
+        fn numbers() {
+            let input = "\
 123
 55.5
 -1e-3
@@ -1150,260 +1211,309 @@ false #
 0xABADCAFE
 0o707606
 0b1010101";
-        check_lexer_output(
-            input,
-            &[
-                (Number, Some("123"), 1),
-                (NewLine, None, 2),
-                (Number, Some("55.5"), 2),
-                (NewLine, None, 3),
-                (Subtract, None, 3),
-                (Number, Some("1e-3"), 3),
-                (NewLine, None, 4),
-                (Number, Some("0.5e+9"), 4),
-                (NewLine, None, 5),
-                (Subtract, None, 5),
-                (Number, Some("8e8"), 5),
-                (NewLine, None, 6),
-                (Number, Some("0xabadcafe"), 6),
-                (NewLine, None, 7),
-                (Number, Some("0xABADCAFE"), 7),
-                (NewLine, None, 8),
-                (Number, Some("0o707606"), 8),
-                (NewLine, None, 9),
-                (Number, Some("0b1010101"), 9),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (Number, Some("123"), 1),
+                    (NewLine, None, 1),
+                    (Number, Some("55.5"), 2),
+                    (NewLine, None, 2),
+                    (Subtract, None, 3),
+                    (Number, Some("1e-3"), 3),
+                    (NewLine, None, 3),
+                    (Number, Some("0.5e+9"), 4),
+                    (NewLine, None, 4),
+                    (Subtract, None, 5),
+                    (Number, Some("8e8"), 5),
+                    (NewLine, None, 5),
+                    (Number, Some("0xabadcafe"), 6),
+                    (NewLine, None, 6),
+                    (Number, Some("0xABADCAFE"), 7),
+                    (NewLine, None, 7),
+                    (Number, Some("0o707606"), 8),
+                    (NewLine, None, 8),
+                    (Number, Some("0b1010101"), 9),
+                ],
+            );
+        }
 
-    #[test]
-    fn lookups_on_numbers() {
-        let input = "\
+        #[test]
+        fn lookups_on_numbers() {
+            let input = "\
 1.0.sin()
 -1e-3.abs()
 1.min x
 9.exp()";
-        check_lexer_output(
-            input,
-            &[
-                (Number, Some("1.0"), 1),
-                (Dot, None, 1),
-                (Id, Some("sin"), 1),
-                (RoundOpen, None, 1),
-                (RoundClose, None, 1),
-                (NewLine, None, 2),
-                (Subtract, None, 2),
-                (Number, Some("1e-3"), 2),
-                (Dot, None, 2),
-                (Id, Some("abs"), 2),
-                (RoundOpen, None, 2),
-                (RoundClose, None, 2),
-                (NewLine, None, 3),
-                (Number, Some("1"), 3),
-                (Dot, None, 3),
-                (Id, Some("min"), 3),
-                (Id, Some("x"), 3),
-                (NewLine, None, 4),
-                (Number, Some("9"), 4),
-                (Dot, None, 4),
-                (Id, Some("exp"), 4),
-                (RoundOpen, None, 4),
-                (RoundClose, None, 4),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (Number, Some("1.0"), 1),
+                    (Dot, None, 1),
+                    (Id, Some("sin"), 1),
+                    (RoundOpen, None, 1),
+                    (RoundClose, None, 1),
+                    (NewLine, None, 1),
+                    (Subtract, None, 2),
+                    (Number, Some("1e-3"), 2),
+                    (Dot, None, 2),
+                    (Id, Some("abs"), 2),
+                    (RoundOpen, None, 2),
+                    (RoundClose, None, 2),
+                    (NewLine, None, 2),
+                    (Number, Some("1"), 3),
+                    (Dot, None, 3),
+                    (Id, Some("min"), 3),
+                    (Id, Some("x"), 3),
+                    (NewLine, None, 3),
+                    (Number, Some("9"), 4),
+                    (Dot, None, 4),
+                    (Id, Some("exp"), 4),
+                    (RoundOpen, None, 4),
+                    (RoundClose, None, 4),
+                ],
+            );
+        }
 
-    #[test]
-    fn modify_assign() {
-        let input = "\
+        #[test]
+        fn modify_assign() {
+            let input = "\
 a += 1
 b -= 2
 c *= 3";
-        check_lexer_output(
-            input,
-            &[
-                (Id, Some("a"), 1),
-                (AddAssign, None, 1),
-                (Number, Some("1"), 1),
-                (NewLine, None, 2),
-                (Id, Some("b"), 2),
-                (SubtractAssign, None, 2),
-                (Number, Some("2"), 2),
-                (NewLine, None, 3),
-                (Id, Some("c"), 3),
-                (MultiplyAssign, None, 3),
-                (Number, Some("3"), 3),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("a"), 1),
+                    (AddAssign, None, 1),
+                    (Number, Some("1"), 1),
+                    (NewLine, None, 1),
+                    (Id, Some("b"), 2),
+                    (SubtractAssign, None, 2),
+                    (Number, Some("2"), 2),
+                    (NewLine, None, 2),
+                    (Id, Some("c"), 3),
+                    (MultiplyAssign, None, 3),
+                    (Number, Some("3"), 3),
+                ],
+            );
+        }
 
-    #[test]
-    fn ranges() {
-        let input = "\
+        #[test]
+        fn ranges() {
+            let input = "\
 a[..=9]
 x = [i for i in 0..5]";
-        check_lexer_output(
-            input,
-            &[
-                (Id, Some("a"), 1),
-                (SquareOpen, None, 1),
-                (RangeInclusive, None, 1),
-                (Number, Some("9"), 1),
-                (SquareClose, None, 1),
-                (NewLine, None, 2),
-                (Id, Some("x"), 2),
-                (Assign, None, 2),
-                (SquareOpen, None, 2),
-                (Id, Some("i"), 2),
-                (For, None, 2),
-                (Id, Some("i"), 2),
-                (In, None, 2),
-                (Number, Some("0"), 2),
-                (Range, None, 2),
-                (Number, Some("5"), 2),
-                (SquareClose, None, 2),
-            ],
-        );
-    }
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("a"), 1),
+                    (SquareOpen, None, 1),
+                    (RangeInclusive, None, 1),
+                    (Number, Some("9"), 1),
+                    (SquareClose, None, 1),
+                    (NewLine, None, 1),
+                    (Id, Some("x"), 2),
+                    (Assign, None, 2),
+                    (SquareOpen, None, 2),
+                    (Id, Some("i"), 2),
+                    (For, None, 2),
+                    (Id, Some("i"), 2),
+                    (In, None, 2),
+                    (Number, Some("0"), 2),
+                    (Range, None, 2),
+                    (Number, Some("5"), 2),
+                    (SquareClose, None, 2),
+                ],
+            );
+        }
 
-    #[test]
-    fn function() {
-        let input = "\
+        #[test]
+        fn function() {
+            let input = "\
 export f = |a, b...|
   c = a + b.size()
   c
 f()";
-        check_lexer_output_indented(
-            input,
-            &[
-                (Export, None, 1, 0),
-                (Id, Some("f"), 1, 0),
-                (Assign, None, 1, 0),
-                (Function, None, 1, 0),
-                (Id, Some("a"), 1, 0),
-                (Comma, None, 1, 0),
-                (Id, Some("b"), 1, 0),
-                (Ellipsis, None, 1, 0),
-                (Function, None, 1, 0),
-                (NewLineIndented, None, 2, 2),
-                (Id, Some("c"), 2, 2),
-                (Assign, None, 2, 2),
-                (Id, Some("a"), 2, 2),
-                (Add, None, 2, 2),
-                (Id, Some("b"), 2, 2),
-                (Dot, None, 2, 2),
-                (Id, Some("size"), 2, 2),
-                (RoundOpen, None, 2, 2),
-                (RoundClose, None, 2, 2),
-                (NewLineIndented, None, 3, 2),
-                (Id, Some("c"), 3, 2),
-                (NewLine, None, 4, 0),
-                (Id, Some("f"), 4, 0),
-                (RoundOpen, None, 4, 0),
-                (RoundClose, None, 4, 0),
-            ],
-        );
-    }
+            check_lexer_output_indented(
+                input,
+                &[
+                    (Export, None, 1, 0),
+                    (Id, Some("f"), 1, 0),
+                    (Assign, None, 1, 0),
+                    (Function, None, 1, 0),
+                    (Id, Some("a"), 1, 0),
+                    (Comma, None, 1, 0),
+                    (Id, Some("b"), 1, 0),
+                    (Ellipsis, None, 1, 0),
+                    (Function, None, 1, 0),
+                    (NewLine, None, 1, 0),
+                    (Id, Some("c"), 2, 2),
+                    (Assign, None, 2, 2),
+                    (Id, Some("a"), 2, 2),
+                    (Add, None, 2, 2),
+                    (Id, Some("b"), 2, 2),
+                    (Dot, None, 2, 2),
+                    (Id, Some("size"), 2, 2),
+                    (RoundOpen, None, 2, 2),
+                    (RoundClose, None, 2, 2),
+                    (NewLine, None, 2, 2),
+                    (Id, Some("c"), 3, 2),
+                    (NewLine, None, 3, 2),
+                    (Id, Some("f"), 4, 0),
+                    (RoundOpen, None, 4, 0),
+                    (RoundClose, None, 4, 0),
+                ],
+            );
+        }
 
-    #[test]
-    fn if_inline() {
-        let input = "1 + if true then 0 else 1";
-        check_lexer_output(
-            input,
-            &[
-                (Number, Some("1"), 1),
-                (Add, None, 1),
-                (If, None, 1),
-                (True, None, 1),
-                (Then, None, 1),
-                (Number, Some("0"), 1),
-                (Else, None, 1),
-                (Number, Some("1"), 1),
-            ],
-        );
-    }
+        #[test]
+        fn if_inline() {
+            let input = "1 + if true then 0 else 1";
+            check_lexer_output(
+                input,
+                &[
+                    (Number, Some("1"), 1),
+                    (Add, None, 1),
+                    (If, None, 1),
+                    (True, None, 1),
+                    (Then, None, 1),
+                    (Number, Some("0"), 1),
+                    (Else, None, 1),
+                    (Number, Some("1"), 1),
+                ],
+            );
+        }
 
-    #[test]
-    fn if_block() {
-        let input = "\
+        #[test]
+        fn if_block() {
+            let input = "\
 if true
   0
 else if false
   1
 else
   0";
-        check_lexer_output_indented(
-            input,
-            &[
-                (If, None, 1, 0),
-                (True, None, 1, 0),
-                (NewLineIndented, None, 2, 2),
-                (Number, Some("0"), 2, 2),
-                (NewLine, None, 3, 0),
-                (ElseIf, None, 3, 0),
-                (False, None, 3, 0),
-                (NewLineIndented, None, 4, 2),
-                (Number, Some("1"), 4, 2),
-                (NewLine, None, 5, 0),
-                (Else, None, 5, 0),
-                (NewLineIndented, None, 6, 2),
-                (Number, Some("0"), 6, 2),
-            ],
-        );
+            check_lexer_output_indented(
+                input,
+                &[
+                    (If, None, 1, 0),
+                    (True, None, 1, 0),
+                    (NewLine, None, 1, 0),
+                    (Number, Some("0"), 2, 2),
+                    (NewLine, None, 2, 2),
+                    (ElseIf, None, 3, 0),
+                    (False, None, 3, 0),
+                    (NewLine, None, 3, 0),
+                    (Number, Some("1"), 4, 2),
+                    (NewLine, None, 4, 2),
+                    (Else, None, 5, 0),
+                    (NewLine, None, 5, 0),
+                    (Number, Some("0"), 6, 2),
+                ],
+            );
+        }
+
+        #[test]
+        fn map_lookup() {
+            let input = "m.检验.foo[1].bär()";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("m"), 1),
+                    (Dot, None, 1),
+                    (Id, Some("检验"), 1),
+                    (Dot, None, 1),
+                    (Id, Some("foo"), 1),
+                    (SquareOpen, None, 1),
+                    (Number, Some("1"), 1),
+                    (SquareClose, None, 1),
+                    (Dot, None, 1),
+                    (Id, Some("bär"), 1),
+                    (RoundOpen, None, 1),
+                    (RoundClose, None, 1),
+                ],
+            );
+        }
+
+        #[test]
+        fn map_lookup_with_keyword_as_key() {
+            let input = "foo.and()";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("foo"), 1),
+                    (Dot, None, 1),
+                    (Id, Some("and"), 1),
+                    (RoundOpen, None, 1),
+                    (RoundClose, None, 1),
+                ],
+            );
+        }
+
+        #[test]
+        fn windows_line_endings() {
+            let input = "123\r\n456\r\n789";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Number, Some("123"), 1),
+                    (NewLine, None, 1),
+                    (Number, Some("456"), 2),
+                    (NewLine, None, 2),
+                    (Number, Some("789"), 3),
+                ],
+            );
+        }
     }
 
-    #[test]
-    fn map_lookup() {
-        let input = "m.检验.foo[1].bär()";
+    mod peek {
+        use super::*;
 
-        check_lexer_output(
-            input,
-            &[
-                (Id, Some("m"), 1),
-                (Dot, None, 1),
-                (Id, Some("检验"), 1),
-                (Dot, None, 1),
-                (Id, Some("foo"), 1),
-                (SquareOpen, None, 1),
-                (Number, Some("1"), 1),
-                (SquareClose, None, 1),
-                (Dot, None, 1),
-                (Id, Some("bär"), 1),
-                (RoundOpen, None, 1),
-                (RoundClose, None, 1),
-            ],
-        );
-    }
+        #[test]
+        fn lookup_in_list() {
+            let source = "
+[foo.bar]
+";
+            let mut lex = KotoLexer::new(source);
+            assert_eq!(lex.peek(0).unwrap().token, Token::NewLine);
+            assert_eq!(lex.peek(1).unwrap().token, Token::SquareOpen);
+            assert_eq!(lex.peek(2).unwrap().token, Token::Id);
+            assert_eq!(lex.peek(2).unwrap().slice(source), "foo");
+            assert_eq!(lex.peek(3).unwrap().token, Token::Dot);
+            assert_eq!(lex.peek(4).unwrap().token, Token::Id);
+            assert_eq!(lex.peek(4).unwrap().slice(source), "bar");
+            assert_eq!(lex.peek(5).unwrap().token, Token::SquareClose);
+            assert_eq!(lex.peek(6).unwrap().token, Token::NewLine);
+            assert_eq!(lex.peek(7), None);
+        }
 
-    #[test]
-    fn map_lookup_with_keyword_as_key() {
-        let input = "foo.and()";
-
-        check_lexer_output(
-            input,
-            &[
-                (Id, Some("foo"), 1),
-                (Dot, None, 1),
-                (Id, Some("and"), 1),
-                (RoundOpen, None, 1),
-                (RoundClose, None, 1),
-            ],
-        );
-    }
-
-    #[test]
-    fn windows_line_endings() {
-        let input = "123\r\n456\r\n789";
-
-        check_lexer_output(
-            input,
-            &[
-                (Number, Some("123"), 1),
-                (NewLine, None, 2),
-                (Number, Some("456"), 2),
-                (NewLine, None, 3),
-                (Number, Some("789"), 3),
-            ],
-        );
+        #[test]
+        fn multiline_lookup() {
+            let source = "
+x.iter()
+  .skip 1
+";
+            let mut lex = KotoLexer::new(source);
+            assert_eq!(lex.peek(0).unwrap().token, Token::NewLine);
+            assert_eq!(lex.peek(1).unwrap().token, Token::Id);
+            assert_eq!(lex.peek(1).unwrap().slice(source), "x");
+            assert_eq!(lex.peek(2).unwrap().token, Token::Dot);
+            assert_eq!(lex.peek(3).unwrap().token, Token::Id);
+            assert_eq!(lex.peek(3).unwrap().slice(source), "iter");
+            assert_eq!(lex.peek(4).unwrap().token, Token::RoundOpen);
+            assert_eq!(lex.peek(5).unwrap().token, Token::RoundClose);
+            assert_eq!(lex.peek(6).unwrap().token, Token::NewLine);
+            assert_eq!(lex.peek(7).unwrap().token, Token::Whitespace);
+            assert_eq!(lex.peek(8).unwrap().token, Token::Dot);
+            assert_eq!(lex.peek(9).unwrap().token, Token::Id);
+            assert_eq!(lex.peek(9).unwrap().slice(source), "skip");
+            assert_eq!(lex.peek(10).unwrap().token, Token::Whitespace);
+            assert_eq!(lex.peek(11).unwrap().token, Token::Number);
+            assert_eq!(lex.peek(12).unwrap().token, Token::NewLine);
+            assert_eq!(lex.peek(13), None);
+        }
     }
 }

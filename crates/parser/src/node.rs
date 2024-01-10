@@ -350,15 +350,26 @@ pub struct Function {
 pub struct AstString {
     /// Indicates if single or double quotation marks were used
     pub quotation_mark: QuotationMark,
-    /// A series of string nodes
+    /// The string's contents
+    pub contents: StringContents,
+}
+
+/// The contents of an [AstString]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StringContents {
+    /// A string literal
+    Literal(ConstantIndex),
+    /// A raw string literal
+    Raw(ConstantIndex),
+    /// An interpolated string
     ///
-    /// A string is made up of a series of literals and template expressions,
+    /// An interpolated string is made up of a series of literals and template expressions,
     /// which are then joined together using a string builder.
-    pub nodes: Vec<StringNode>,
+    Interpolated(Vec<StringNode>),
 }
 
 /// A node in a string definition
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StringNode {
     /// A string literal
     Literal(ConstantIndex),

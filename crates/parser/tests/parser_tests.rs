@@ -46,22 +46,23 @@ mod parser {
         }
     }
 
-    fn constant(index: u8) -> u32 {
+    fn constant(index: u8) -> ConstantIndex {
         ConstantIndex::from(index)
     }
 
-    fn string_literal(literal_index: u8, quotation_mark: QuotationMark) -> Node {
-        Node::Str(AstString {
+    fn simple_string(literal_index: u8, quotation_mark: QuotationMark) -> AstString {
+        AstString {
             quotation_mark,
-            nodes: vec![StringNode::Literal(constant(literal_index))],
-        })
+            contents: StringContents::Literal(constant(literal_index)),
+        }
+    }
+
+    fn string_literal(literal_index: u8, quotation_mark: QuotationMark) -> Node {
+        Node::Str(simple_string(literal_index, quotation_mark))
     }
 
     fn string_literal_map_key(literal_index: u8, quotation_mark: QuotationMark) -> MapKey {
-        MapKey::Str(AstString {
-            quotation_mark,
-            nodes: vec![StringNode::Literal(constant(literal_index))],
-        })
+        MapKey::Str(simple_string(literal_index, quotation_mark))
     }
 
     mod values {
@@ -195,26 +196,26 @@ null"#;
                     Id(constant(1)),
                     Str(AstString {
                         quotation_mark: QuotationMark::Single,
-                        nodes: vec![
+                        contents: StringContents::Interpolated(vec![
                             StringNode::Literal(constant(0)),
                             StringNode::Expr(0),
                             StringNode::Literal(constant(2)),
-                        ],
+                        ]),
                     }),
                     Id(constant(3)),
                     Str(AstString {
                         quotation_mark: QuotationMark::Double,
-                        nodes: vec![StringNode::Expr(2)],
+                        contents: StringContents::Interpolated(vec![StringNode::Expr(2)]),
                     }),
                     Id(constant(4)),
                     Id(constant(6)), // 5
                     Str(AstString {
                         quotation_mark: QuotationMark::Single,
-                        nodes: vec![
+                        contents: StringContents::Interpolated(vec![
                             StringNode::Expr(4),
                             StringNode::Literal(constant(5)),
                             StringNode::Expr(5),
-                        ],
+                        ]),
                     }),
                     MainBlock {
                         body: vec![1, 3, 6],
@@ -250,7 +251,10 @@ null"#;
                     },
                     Str(AstString {
                         quotation_mark: QuotationMark::Single,
-                        nodes: vec![StringNode::Expr(2), StringNode::Literal(constant(1))],
+                        contents: StringContents::Interpolated(vec![
+                            StringNode::Expr(2),
+                            StringNode::Literal(constant(1)),
+                        ]),
                     }),
                     MainBlock {
                         body: vec![3],
@@ -262,8 +266,35 @@ null"#;
         }
 
         #[test]
+        fn raw_strings() {
+            let source = r#"
+r'$foo ${bar}'
+r"[\r?\n]\"
+"#;
+
+            check_ast(
+                source,
+                &[
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Single,
+                        contents: StringContents::Raw(constant(0)),
+                    }),
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Double,
+                        contents: StringContents::Raw(constant(1)),
+                    }),
+                    MainBlock {
+                        body: vec![0, 1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("$foo ${bar}"), Constant::Str(r"[\r?\n]\")]),
+            )
+        }
+
+        #[test]
         fn negatives() {
-            let source = "\
+            let source = "
 -12.0
 -a
 -x[0]
@@ -1180,6 +1211,34 @@ x %= 4";
                 Some(&[Constant::Str("x")]),
             )
         }
+
+        #[test]
+        fn list_with_lookup_as_first_element() {
+            let source = "
+[foo.bar()]
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
+                    Lookup((LookupNode::Id(constant(1)), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    List(vec![3]),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
     }
 
     mod export {
@@ -1446,7 +1505,7 @@ export
         }
 
         #[test]
-        fn arithmetic_assignment() {
+        fn arithmetic_assignment_chained() {
             let sources = [
                 "
 a = 1 +
@@ -2315,7 +2374,7 @@ f(x,
         }
 
         #[test]
-        fn call_with_indentated_args() {
+        fn call_with_indented_args() {
             let source = "
 foo
   x,
@@ -2339,7 +2398,7 @@ foo
         }
 
         #[test]
-        fn call_with_indentated_function_arg() {
+        fn call_with_indented_function_arg() {
             let source = "
 foo
   x,
@@ -3390,7 +3449,7 @@ x.bar()."baz" = 1
                     Lookup((
                         LookupNode::Str(AstString {
                             quotation_mark: QuotationMark::Double,
-                            nodes: vec![StringNode::Literal(constant(2))],
+                            contents: StringContents::Literal(constant(2)),
                         }),
                         None,
                     )),
@@ -4114,10 +4173,7 @@ assert_eq x, "hello"
         }
 
         fn import_string(literal_index: u8, quotation_mark: QuotationMark) -> ImportItemNode {
-            ImportItemNode::Str(AstString {
-                quotation_mark,
-                nodes: vec![StringNode::Literal(constant(literal_index))],
-            })
+            ImportItemNode::Str(simple_string(literal_index, quotation_mark))
         }
 
         #[test]

@@ -5,7 +5,7 @@ use crate::{
     error::{ExpectedIndentation, InternalError, ParserError, ParserErrorKind, SyntaxError},
     *,
 };
-use koto_lexer::{Lexer, Span, Token};
+use koto_lexer::{LexedToken, Lexer, Span, Token};
 use std::{collections::HashSet, str::FromStr};
 
 // Contains info about the current frame, representing either the module's top level or a function
@@ -18,7 +18,7 @@ struct Frame {
     // IDs and lookup roots which were accessed when not locally assigned at the time of access
     accessed_non_locals: HashSet<ConstantIndex>,
     // While expressions are being parsed we keep track of lhs assignments and rhs accesses.
-    // At the end of a multi-assignment expresson (see `finalize_id_accesses`),
+    // At the end of a multi-assignment expression (see `finalize_id_accesses`),
     // accessed IDs that weren't locally assigned at the time of access are then counted as
     // non-local accesses.
     pending_accesses: HashSet<ConstantIndex>,
@@ -115,7 +115,7 @@ struct ExpressionContext {
 // The indentation that should be expected on following lines for an expression to continue
 #[derive(Clone, Copy, Debug)]
 enum Indentation {
-    // Indentation isn't required
+    // Indentation isn't required on following lines
     // (e.g. in a comma separated braced expression)
     Flexible,
     // Indentation should match the expected indentation
@@ -226,9 +226,12 @@ impl ExpressionContext {
 
 /// Koto's parser
 pub struct Parser<'source> {
+    source: &'source str,
     ast: Ast,
     constants: ConstantPoolBuilder,
     lexer: Lexer<'source>,
+    current_token: LexedToken,
+    current_line: u32,
     frame_stack: Vec<Frame>,
 }
 
@@ -237,9 +240,12 @@ impl<'source> Parser<'source> {
     pub fn parse(source: &'source str) -> Result<Ast, ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
+            source,
             ast: Ast::with_capacity(capacity_guess),
             constants: ConstantPoolBuilder::default(),
             lexer: Lexer::new(source),
+            current_token: LexedToken::default(),
+            current_line: 1,
             frame_stack: Vec::new(),
         };
 
@@ -270,7 +276,7 @@ impl<'source> Parser<'source> {
             body.push(expression);
 
             match self.peek_next_token_on_same_line() {
-                Some(Token::NewLine | Token::NewLineIndented) => continue,
+                Some(Token::NewLine) => continue,
                 None => break,
                 _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
             }
@@ -305,7 +311,7 @@ impl<'source> Parser<'source> {
 
         let start_indent = self.current_indent();
         match self.peek_token_with_context(&block_context) {
-            Some(peeked) if peeked.indent > start_indent => {}
+            Some(peeked) if peeked.info.indent > start_indent => {}
             _ => return Ok(None), // No indented block found
         }
 
@@ -329,7 +335,7 @@ impl<'source> Parser<'source> {
 
             match self.peek_next_token_on_same_line() {
                 None => break,
-                Some(Token::NewLine | Token::NewLineIndented) => {}
+                Some(Token::NewLine) => {}
                 _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
             }
 
@@ -367,12 +373,12 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
         temp_result: TempResult,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let start_line = self.current_line_number();
-
         let mut expression_context = ExpressionContext {
             allow_space_separated_call: true,
             ..*context
         };
+
+        let start_line = self.current_line;
 
         let Some(first) = self.parse_expression(&expression_context)? else {
             return Ok(None);
@@ -387,7 +393,7 @@ impl<'source> Parser<'source> {
 
             encountered_comma = true;
 
-            if !encountered_linebreak && self.current_line_number() > start_line {
+            if !encountered_linebreak && self.current_line > start_line {
                 // e.g.
                 //   x, y =
                 //     1, # <- We're here, and want following values to have matching
@@ -398,7 +404,6 @@ impl<'source> Parser<'source> {
                 encountered_linebreak = true;
             }
 
-            //
             if let Some(next_expression) =
                 self.parse_expression_start(&expressions, 0, &expression_context)?
             {
@@ -472,59 +477,36 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let entry_indent = self.current_indent();
-        let entry_line = self.current_line_number();
+        let entry_line = self.current_line;
 
-        // Look ahead to get the indent of the first term in the expression.
+        // Look ahead to get the indent of the first token in the expression.
         // We need to look ahead here because the term may contain its own indentation,
         // so it may end with different indentation.
-        let expression_start_info = self.peek_token_with_context(context);
+        let Some(start_info) = self.peek_token_with_context(context) else {
+            return Ok(None);
+        };
 
         let expression_start = match self.parse_term(context)? {
             Some(term) => term,
             None => return Ok(None),
         };
 
-        // Safety: it's OK to unwrap here given that a term was successfully parsed
-        let expression_start_info = expression_start_info.unwrap();
-
-        let continuation_context = if self.current_line_number() > entry_line {
-            if expression_start_info.line == entry_line {
-                // The term started on the entry line and ended on a following line.
-                //
-                // e.g.
-                //   foo = ( 1
-                //           + 2 )
-                //         + 3
-                // # ^ entry indent
-                // # ^ expression start indent
-                // #         ^ expression end indent
-                // #       ^ continuation indent
-                //
-                // A continuation of the expression from here should then be greater than the entry
-                // indent, rather than greater than the current (expression end) indent.
-                context.with_expected_indentation(Indentation::GreaterThan(entry_indent))
-            } else {
-                // The term started on a following line.
-                //
-                // An indent has already occurred for the start term, so then we can allow an
-                // expression to continue with greater or equal indentation.
-                //
-                // e.g.
-                //   foo =
-                //     ( 1
-                //       + 2 )
-                //     + 3
-                // # ^ entry indent
-                // #   ^ expression start indent
-                // #     ^ expression end indent
-                // #   ^ continuation indent
-                //
-                // A continuation of the expression from here should be allowed to match the
-                // expression start indent.
-                context.with_expected_indentation(Indentation::GreaterOrEqual(
-                    expression_start_info.indent,
-                ))
+        let continuation_context = if self.current_line > entry_line {
+            match context.expected_indentation {
+                Indentation::Equal(indent)
+                | Indentation::GreaterThan(indent)
+                | Indentation::GreaterOrEqual(indent) => {
+                    // If the context has a fixed indentation requirement, then allow the
+                    // indentation for the continued expression to grow or stay the same
+                    context.with_expected_indentation(Indentation::GreaterOrEqual(indent))
+                }
+                Indentation::Greater | Indentation::Flexible => {
+                    // Indentation within an arithmetic expression shouldn't be able to continue
+                    // with decreased indentation
+                    context.with_expected_indentation(Indentation::GreaterOrEqual(
+                        start_info.info.indent,
+                    ))
+                }
             }
         } else {
             *context
@@ -549,40 +531,50 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let context = match context.expected_indentation {
-            Indentation::Equal(indent) => {
-                // If the context has fixed indentation (e.g. at the start of an indented block),
-                // allow the indentation to increase
-                context.with_expected_indentation(Indentation::GreaterOrEqual(indent))
-            }
-            Indentation::Flexible => {
-                // Indentation within an arithmetic expression shouldn't be able to continue with
-                // decreased indentation
-                context
-                    .with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()))
-            }
-            _ => *context,
-        };
+        let start_line = self.current_line;
+        let start_indent = self.current_indent();
 
         if let Some(assignment_expression) =
-            self.parse_assign_expression(expression_start, previous_expressions, &context)?
+            self.parse_assign_expression(expression_start, previous_expressions, context)?
         {
             return Ok(Some(assignment_expression));
-        } else if let Some(next) = self.peek_token_with_context(&context) {
+        } else if let Some(next) = self.peek_token_with_context(context) {
             if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
                 if left_priority >= min_precedence {
-                    let (op, context) = self.consume_token_with_context(&context).unwrap();
+                    let (op, _) = self.consume_token_with_context(context).unwrap();
                     let op_span = self.current_span();
 
                     // Move on to the token after the operator
-                    if self.peek_token_with_context(&context).is_none() {
+                    if self.peek_token_with_context(context).is_none() {
                         return self.consume_token_on_same_line_and_error(
                             ExpectedIndentation::RhsExpression,
                         );
                     }
-                    let context = self.consume_until_token_with_context(&context).unwrap();
+                    self.consume_until_token_with_context(context).unwrap();
 
-                    let Some(rhs) = self.parse_expression_start(&[], right_priority, &context)?
+                    let rhs_context = if self.current_line > start_line {
+                        match context.expected_indentation {
+                            Indentation::Equal(indent)
+                            | Indentation::GreaterThan(indent)
+                            | Indentation::GreaterOrEqual(indent) => {
+                                // If the context has a fixed indentation requirement, then allow the
+                                // indentation for the continued expression to grow or stay the same
+                                context
+                                    .with_expected_indentation(Indentation::GreaterOrEqual(indent))
+                            }
+                            Indentation::Greater | Indentation::Flexible => {
+                                // Indentation within an arithmetic expression shouldn't be able to continue
+                                // with decreased indentation
+                                context.with_expected_indentation(Indentation::GreaterOrEqual(
+                                    start_indent,
+                                ))
+                            }
+                        }
+                    } else {
+                        *context
+                    };
+                    let Some(rhs) =
+                        self.parse_expression_start(&[], right_priority, &rhs_context)?
                     else {
                         return self.consume_token_on_same_line_and_error(
                             ExpectedIndentation::RhsExpression,
@@ -629,7 +621,12 @@ impl<'source> Parser<'source> {
                         op_span,
                     )?;
 
-                    return self.parse_expression_continued(op_node, &[], min_precedence, &context);
+                    return self.parse_expression_continued(
+                        op_node,
+                        &[],
+                        min_precedence,
+                        &rhs_context,
+                    );
                 }
             }
         }
@@ -732,7 +729,7 @@ impl<'source> Parser<'source> {
             }
             Token::RoundOpen => self.consume_tuple(context),
             Token::Number => self.consume_number(false, context),
-            Token::DoubleQuote | Token::SingleQuote => {
+            Token::DoubleQuote | Token::SingleQuote | Token::RawStringStart => {
                 let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
@@ -749,7 +746,8 @@ impl<'source> Parser<'source> {
             Token::Id => self.consume_id_expression(context),
             Token::Self_ => self.consume_self_expression(context),
             Token::At => {
-                let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
+                let map_block_allowed =
+                    context.allow_map_block || peeked.info.indent > start_indent;
 
                 let meta_context = self.consume_until_token_with_context(context).unwrap();
                 // Safe to unwrap here, parse_meta_key would error on invalid key
@@ -786,7 +784,7 @@ impl<'source> Parser<'source> {
             Token::Switch => self.parse_switch_expression(context),
             Token::Function => self.consume_function(context),
             Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
-                Some(token) if token.is_whitespace() || token.is_newline() => return Ok(None),
+                Some(token) if token.is_whitespace_including_newline() => return Ok(None),
                 Some(Token::Number) => {
                     self.consume_token_with_context(context); // Token::Subtract
                     self.consume_number(true, context)
@@ -1103,14 +1101,14 @@ impl<'source> Parser<'source> {
                 ..*context
             };
 
-            let mut last_arg_line = self.current_line_number();
+            let mut last_arg_line = self.current_line;
 
             while let Some(peeked) = self.peek_token_with_context(&arg_context) {
-                let new_line = peeked.line > last_arg_line;
-                last_arg_line = peeked.line;
+                let new_line = peeked.info.line() > last_arg_line;
+                last_arg_line = peeked.info.line();
 
                 if new_line {
-                    arg_context.expected_indentation = Indentation::Equal(peeked.indent);
+                    arg_context.expected_indentation = Indentation::Equal(peeked.info.indent);
                 } else if self.peek_token() != Some(Token::Whitespace) {
                     break;
                 }
@@ -1136,7 +1134,7 @@ impl<'source> Parser<'source> {
 
     // Parses a single id
     //
-    // See also: parse_id_or_wildcard(), parse_id_expression()
+    // See also: parse_id_or_wildcard(), consume_id_expression()
     fn parse_id(
         &mut self,
         context: &ExpressionContext,
@@ -1146,7 +1144,7 @@ impl<'source> Parser<'source> {
                 token: Token::Id, ..
             }) => {
                 let (_, id_context) = self.consume_token_with_context(context).unwrap();
-                let constant_index = self.add_string_constant(self.lexer.slice())?;
+                let constant_index = self.add_current_slice_as_string_constant()?;
                 Ok(Some((constant_index, id_context)))
             }
             _ => Ok(None),
@@ -1156,7 +1154,7 @@ impl<'source> Parser<'source> {
     // Parses a single `_` wildcard, along with its optional following id
     fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context);
-        let slice = self.lexer.slice();
+        let slice = self.current_token.slice(self.source);
         let maybe_id = if slice.len() > 1 {
             Some(self.add_string_constant(&slice[1..])?)
         } else {
@@ -1177,7 +1175,7 @@ impl<'source> Parser<'source> {
                 token: Token::Id, ..
             }) => {
                 self.consume_token_with_context(context);
-                self.add_string_constant(self.lexer.slice())
+                self.add_current_slice_as_string_constant()
                     .map(|result| Some(IdOrWildcard::Id(result)))
             }
             Some(PeekInfo {
@@ -1185,7 +1183,7 @@ impl<'source> Parser<'source> {
                 ..
             }) => {
                 self.consume_token_with_context(context);
-                let slice = self.lexer.slice();
+                let slice = self.current_token.slice(self.source);
                 let maybe_id = if slice.len() > 1 {
                     Some(self.add_string_constant(&slice[1..])?)
                 } else {
@@ -1308,7 +1306,7 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
-        let mut lookup_line = self.current_line_number();
+        let mut lookup_line = self.current_line;
 
         let mut node_context = *context;
         let mut node_start_span = self.current_span();
@@ -1378,7 +1376,7 @@ impl<'source> Parser<'source> {
                             .unwrap();
 
                         // Check that the next dot is on an indented line
-                        if self.current_line_number() == lookup_line {
+                        if self.current_line == lookup_line {
                             // TODO Error here?
                             break;
                         }
@@ -1407,7 +1405,7 @@ impl<'source> Parser<'source> {
                         //     ~~~~~~~
 
                         // Allow a map block if we're on an indented line
-                        node_context.allow_map_block = peeked.line > lookup_line;
+                        node_context.allow_map_block = peeked.info.line() > lookup_line;
 
                         let args = self.parse_call_args(&node_context)?;
 
@@ -1429,7 +1427,7 @@ impl<'source> Parser<'source> {
                         }
                     }
 
-                    lookup_line = self.current_line_number();
+                    lookup_line = self.current_line;
                 }
             }
         }
@@ -1628,19 +1626,20 @@ impl<'source> Parser<'source> {
 
         let start_position = self.current_span().start;
 
-        self.consume_until_next_token_on_same_line();
-
         let context = ExpressionContext::permissive();
-        let expression_source_start = self.lexer.source_position();
+        let Some(expression_start_info) = self.peek_token_with_context(&context) else {
+            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+        };
+        let expression_source_start = expression_start_info.info.source_bytes.start;
+
         let Some(expression) = self.parse_expressions(&context, TempResult::No)? else {
             return self.consume_token_and_error(SyntaxError::ExpectedExpression);
         };
 
-        let expression_source_end = self.lexer.source_position();
+        let expression_source_end = self.current_token.source_bytes.end;
 
-        let expression_string = self.add_string_constant(
-            &self.lexer.source()[expression_source_start..expression_source_end],
-        )?;
+        let expression_string =
+            self.add_string_constant(&self.source[expression_source_start..expression_source_end])?;
 
         self.ast.push(
             Node::Debug {
@@ -1663,7 +1662,7 @@ impl<'source> Parser<'source> {
 
         self.consume_token_with_context(context); // Token::Number
 
-        let slice = self.lexer.slice();
+        let slice = self.current_token.slice(self.source);
 
         let maybe_integer = if let Some(hex) = slice.strip_prefix("0x") {
             i64::from_str_radix(hex, 16)
@@ -2011,7 +2010,7 @@ impl<'source> Parser<'source> {
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
             Some(Token::Not) => MetaKeyId::Not,
-            Some(Token::Id) => match self.lexer.slice() {
+            Some(Token::Id) => match self.current_token.slice(self.source) {
                 "display" => MetaKeyId::Display,
                 "iterator" => MetaKeyId::Iterator,
                 "next" => MetaKeyId::Next,
@@ -2025,7 +2024,7 @@ impl<'source> Parser<'source> {
                 "post_test" => MetaKeyId::PostTest,
                 "test" => match self.consume_next_token_on_same_line() {
                     Some(Token::Id) => {
-                        let test_name = self.add_string_constant(self.lexer.slice())?;
+                        let test_name = self.add_current_slice_as_string_constant()?;
                         meta_name = Some(test_name);
                         MetaKeyId::Test
                     }
@@ -2033,7 +2032,7 @@ impl<'source> Parser<'source> {
                 },
                 "meta" => match self.consume_next_token_on_same_line() {
                     Some(Token::Id) => {
-                        let id = self.add_string_constant(self.lexer.slice())?;
+                        let id = self.add_current_slice_as_string_constant()?;
                         meta_name = Some(id);
                         MetaKeyId::Named
                     }
@@ -2768,6 +2767,10 @@ impl<'source> Parser<'source> {
                 token: SingleQuote | DoubleQuote,
                 ..
             }) => {}
+            Some(PeekInfo {
+                token: RawStringStart,
+                ..
+            }) => return self.consume_raw_string(context),
             _ => return Ok(None),
         }
 
@@ -2778,7 +2781,7 @@ impl<'source> Parser<'source> {
         while let Some(next_token) = self.consume_token() {
             match next_token {
                 StringLiteral => {
-                    let string_literal = self.lexer.slice();
+                    let string_literal = self.current_token.slice(self.source);
 
                     let mut literal = String::with_capacity(string_literal.len());
                     let mut chars = string_literal.chars().peekable();
@@ -2871,7 +2874,7 @@ impl<'source> Parser<'source> {
                 Dollar => match self.peek_token() {
                     Some(Id) => {
                         self.consume_token();
-                        let id = self.add_string_constant(self.lexer.slice())?;
+                        let id = self.add_current_slice_as_string_constant()?;
                         self.frame_mut()?.add_id_access(id);
                         let id_node = self.push_node(Node::Id(id))?;
                         nodes.push(StringNode::Expr(id_node));
@@ -2903,14 +2906,16 @@ impl<'source> Parser<'source> {
                         QuotationMark::Double
                     };
 
-                    if nodes.is_empty() {
-                        nodes.push(StringNode::Literal(self.add_string_constant("")?));
-                    }
+                    let contents = match nodes.as_slice() {
+                        [] => StringContents::Literal(self.add_string_constant("")?),
+                        [StringNode::Literal(literal)] => StringContents::Literal(*literal),
+                        _ => StringContents::Interpolated(nodes),
+                    };
 
                     return Ok(Some(ParseStringOutput {
                         string: AstString {
                             quotation_mark,
-                            nodes,
+                            contents,
                         },
                         span: self.span_with_start(start_span),
                         context: string_context,
@@ -2921,6 +2926,44 @@ impl<'source> Parser<'source> {
         }
 
         self.error(UnterminatedString)
+    }
+
+    fn consume_raw_string(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Option<ParseStringOutput>, ParserError> {
+        let Some((_, string_context)) = self.consume_token_with_context(context) else {
+            return self.error(InternalError::RawStringParseFailure);
+        }; // Token::RawStringDelimiter
+
+        let start_span = self.current_span();
+        let start_delimiter = self.current_token.slice(self.source);
+        let quotation_mark = match start_delimiter.chars().next_back() {
+            Some('\'') => QuotationMark::Single,
+            Some('"') => QuotationMark::Double,
+            _ => return self.error(InternalError::RawStringParseFailure),
+        };
+
+        let contents = match self.consume_token() {
+            Some(Token::StringLiteral) => {
+                let contents = self.add_string_constant(self.current_token.slice(self.source))?;
+                match self.consume_token() {
+                    Some(Token::RawStringEnd) => contents,
+                    _ => return self.error(SyntaxError::UnterminatedString),
+                }
+            }
+            Some(Token::RawStringEnd) => self.add_string_constant("")?,
+            _ => return self.error(SyntaxError::UnterminatedString),
+        };
+
+        Ok(Some(ParseStringOutput {
+            string: AstString {
+                quotation_mark,
+                contents: StringContents::Raw(contents),
+            },
+            span: self.span_with_start(start_span),
+            context: string_context,
+        }))
     }
 
     //// Error helpers
@@ -2966,28 +3009,34 @@ impl<'source> Parser<'source> {
 
     //// Lexer getters
 
-    fn current_line_number(&self) -> u32 {
-        self.lexer.line_number()
-    }
+    fn consume_token(&mut self) -> Option<Token> {
+        if let Some(next) = self.lexer.next() {
+            self.current_token = next;
 
-    fn current_indent(&self) -> usize {
-        self.lexer.current_indent()
-    }
+            if self.current_token.token == Token::NewLine {
+                self.current_line += 1;
+            }
 
-    fn current_span(&self) -> Span {
-        self.lexer.span()
+            Some(self.current_token.token)
+        } else {
+            None
+        }
     }
 
     fn peek_token(&mut self) -> Option<Token> {
-        self.lexer.peek()
+        self.peek_token_n(0)
     }
 
     fn peek_token_n(&mut self, n: usize) -> Option<Token> {
-        self.lexer.peek_n(n)
+        self.lexer.peek(n).map(|peeked| peeked.token)
     }
 
-    fn consume_token(&mut self) -> Option<Token> {
-        self.lexer.next()
+    fn current_indent(&self) -> usize {
+        self.current_token.indent
+    }
+
+    fn current_span(&self) -> Span {
+        self.current_token.span
     }
 
     //// Node push helpers
@@ -3015,6 +3064,10 @@ impl<'source> Parser<'source> {
         }
     }
 
+    fn add_current_slice_as_string_constant(&mut self) -> Result<ConstantIndex, ParserError> {
+        self.add_string_constant(self.current_token.slice(self.source))
+    }
+
     fn add_string_constant(&mut self, s: &str) -> Result<ConstantIndex, ParserError> {
         match self.constants.add_string(s) {
             Ok(result) => Ok(result),
@@ -3032,49 +3085,41 @@ impl<'source> Parser<'source> {
         use Token::*;
 
         let mut peek_count = 0;
-        let start_line = self.current_line_number();
+        let mut same_line = true;
         let start_indent = self.current_indent();
 
-        while let Some(peeked) = self.peek_token_n(peek_count) {
-            match peeked {
-                Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
+        while let Some(peeked) = self.lexer.peek(peek_count) {
+            match peeked.token {
+                NewLine => same_line = false,
+                Whitespace | CommentMulti | CommentSingle => {}
                 token => {
-                    return match self.lexer.peek_line_number(peek_count) {
-                        peeked_line if peeked_line == start_line => Some(PeekInfo {
-                            token,
-                            line: start_line,
-                            indent: start_indent,
-                            peek_count,
-                        }),
-                        peeked_line if context.allow_linebreaks => {
-                            let peeked_indent = self.lexer.peek_indent(peek_count);
-                            let peek_info = PeekInfo {
-                                token,
-                                line: peeked_line,
-                                indent: peeked_indent,
-                                peek_count,
-                            };
+                    let result = Some(PeekInfo {
+                        token,
+                        peek_count,
+                        info: peeked.clone(),
+                    });
 
-                            use Indentation::*;
-                            match context.expected_indentation {
-                                GreaterThan(expected_indent) if peeked_indent > expected_indent => {
-                                    Some(peek_info)
-                                }
-                                GreaterOrEqual(expected_indent)
-                                    if peeked_indent >= expected_indent =>
-                                {
-                                    Some(peek_info)
-                                }
-                                Equal(expected_indent) if peeked_indent == expected_indent => {
-                                    Some(peek_info)
-                                }
-                                Greater if peeked_indent > start_indent => Some(peek_info),
-                                Flexible => Some(peek_info),
-                                _ => None,
+                    let result = if same_line {
+                        result
+                    } else if context.allow_linebreaks {
+                        use Indentation::*;
+                        match context.expected_indentation {
+                            GreaterThan(expected_indent) if peeked.indent > expected_indent => {
+                                result
                             }
+                            GreaterOrEqual(expected_indent) if peeked.indent >= expected_indent => {
+                                result
+                            }
+                            Equal(expected_indent) if peeked.indent == expected_indent => result,
+                            Greater if peeked.indent > start_indent => result,
+                            Flexible => result,
+                            _ => None,
                         }
-                        _ => None,
-                    }
+                    } else {
+                        None
+                    };
+
+                    return result;
                 }
             }
 
@@ -3098,11 +3143,11 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Option<(Token, ExpressionContext)> {
-        let start_line = self.current_line_number();
+        let start_line = self.current_line;
 
-        for token in &mut self.lexer {
-            if !(token.is_whitespace() || token.is_newline()) {
-                let is_indented_block = self.current_line_number() > start_line
+        while let Some(token) = self.consume_token() {
+            if !(token.is_whitespace_including_newline()) {
+                let is_indented_block = self.current_line > start_line
                     && context.allow_linebreaks
                     && matches!(context.expected_indentation, Indentation::Greater);
 
@@ -3130,19 +3175,19 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Option<ExpressionContext> {
-        let start_line = self.current_line_number();
+        let start_line = self.current_line;
 
-        while let Some(peeked) = self.peek_token_n(0) {
-            if peeked.is_whitespace() || peeked.is_newline() {
-                self.lexer.next();
+        while let Some(peeked) = self.lexer.peek(0) {
+            if peeked.token.is_whitespace_including_newline() {
+                self.consume_token();
             } else {
-                let is_indented_block = self.lexer.peek_line_number(0) > start_line
+                let is_indented_block = peeked.span.start.line > start_line
                     && context.allow_linebreaks
                     && matches!(context.expected_indentation, Indentation::Greater);
 
                 let new_context = if is_indented_block {
                     ExpressionContext {
-                        expected_indentation: Indentation::Equal(self.lexer.peek_indent(0)),
+                        expected_indentation: Indentation::Equal(peeked.indent),
                         allow_map_block: true,
                         ..*context
                     }
@@ -3181,7 +3226,7 @@ impl<'source> Parser<'source> {
                 _ => return,
             }
 
-            self.lexer.next();
+            self.consume_token();
         }
     }
 
@@ -3190,10 +3235,10 @@ impl<'source> Parser<'source> {
         while let Some(peeked) = self.peek_token() {
             match peeked {
                 token if token.is_whitespace() => {}
-                _ => return self.lexer.next(),
+                _ => return self.consume_token(),
             }
 
-            self.lexer.next();
+            self.consume_token();
         }
 
         None
@@ -3258,9 +3303,8 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
 #[derive(Debug)]
 struct PeekInfo {
     token: Token,
-    line: u32,
-    indent: usize,
     peek_count: usize,
+    info: LexedToken,
 }
 
 // Returned by Parser::parse_id_or_wildcard()

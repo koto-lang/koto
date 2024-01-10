@@ -13,6 +13,8 @@ The Koto project adheres to
 #### Language
 
 - The `+` operator has been reintroduced for tuples, lists, and maps.
+- Raw strings are now supported. Any string prefixed with `r` will skip
+  character escaping and string interpolation.
 
 #### API
 
