@@ -243,7 +243,7 @@ impl<'source> Parser<'source> {
             frame_stack: Vec::new(),
         };
 
-        let main_block = parser.parse_main_block()?;
+        let main_block = parser.consume_main_block()?;
         parser.ast.set_entry_point(main_block);
         parser.ast.set_constants(parser.constants.build());
 
@@ -251,7 +251,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses the main 'top-level' block
-    fn parse_main_block(&mut self) -> Result<AstIndex, ParserError> {
+    fn consume_main_block(&mut self) -> Result<AstIndex, ParserError> {
         self.frame_stack.push(Frame::default());
 
         let start_span = self.current_span();
@@ -730,8 +730,8 @@ impl<'source> Parser<'source> {
                 self.consume_token_with_context(context);
                 self.push_node(BoolFalse)
             }
-            Token::RoundOpen => self.parse_tuple(context),
-            Token::Number => self.parse_number(false, context),
+            Token::RoundOpen => self.consume_tuple(context),
+            Token::Number => self.consume_number(false, context),
             Token::DoubleQuote | Token::SingleQuote => {
                 let (string, span, string_context) = self.parse_string(context)?.unwrap();
 
@@ -742,8 +742,8 @@ impl<'source> Parser<'source> {
                     self.check_for_lookup_after_node(string_node, &string_context)
                 }
             }
-            Token::Id => self.parse_id_expression(context),
-            Token::Self_ => self.parse_self_expression(context),
+            Token::Id => self.consume_id_expression(context),
+            Token::Self_ => self.consume_self_expression(context),
             Token::At => {
                 let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
 
@@ -774,18 +774,18 @@ impl<'source> Parser<'source> {
                     }
                 }
             }
-            Token::Wildcard => self.parse_wildcard(context),
-            Token::SquareOpen => self.parse_list(context),
+            Token::Wildcard => self.consume_wildcard(context),
+            Token::SquareOpen => self.consume_list(context),
             Token::CurlyOpen => self.parse_map_with_braces(context),
             Token::If => self.parse_if_expression(context),
             Token::Match => self.parse_match_expression(context),
             Token::Switch => self.parse_switch_expression(context),
-            Token::Function => self.parse_function(context),
+            Token::Function => self.consume_function(context),
             Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
                 Some(token) if token.is_whitespace() || token.is_newline() => return Ok(None),
                 Some(Token::Number) => {
                     self.consume_token_with_context(context); // Token::Subtract
-                    self.parse_number(true, context)
+                    self.consume_number(true, context)
                 }
                 Some(_) => {
                     self.consume_token_with_context(context); // Token::Subtract
@@ -846,10 +846,10 @@ impl<'source> Parser<'source> {
                     self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
                 self.push_node(Node::Return(return_value))
             }
-            Token::Throw => self.parse_throw_expression(),
-            Token::Debug => self.parse_debug_expression(),
+            Token::Throw => self.consume_throw_expression(),
+            Token::Debug => self.consume_debug_expression(),
             Token::From | Token::Import => self.parse_import(context),
-            Token::Export => self.parse_export(context),
+            Token::Export => self.consume_export(context),
             Token::Try => self.parse_try_expression(context),
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
@@ -863,7 +863,7 @@ impl<'source> Parser<'source> {
     // e.g.
     //   f = |x, y| x + y
     //   #   ^ You are here
-    fn parse_function(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_function(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         let start_indent = self.current_indent();
 
         self.consume_token_with_context(context); // Token::Function
@@ -1150,7 +1150,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a single `_` wildcard, along with its optional following id
-    fn parse_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context);
         let slice = self.lexer.slice();
         let maybe_id = if slice.len() > 1 {
@@ -1193,7 +1193,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id_expression(
+    fn consume_id_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -1210,7 +1210,7 @@ impl<'source> Parser<'source> {
             let lookup_context = id_context.lookup_start();
             if self.next_token_is_lookup_start(&lookup_context) {
                 let id_index = self.push_node(Node::Id(constant_index))?;
-                self.parse_lookup(id_index, &lookup_context)
+                self.consume_lookup(id_index, &lookup_context)
             } else {
                 let start_span = self.current_span();
                 let args = self.parse_call_args(&id_context)?;
@@ -1230,7 +1230,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_self_expression(
+    fn consume_self_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -1242,7 +1242,7 @@ impl<'source> Parser<'source> {
         let self_index = self.push_node(Node::Self_)?;
 
         if self.next_token_is_lookup_start(&lookup_context) {
-            self.parse_lookup(self_index, &lookup_context)
+            self.consume_lookup(self_index, &lookup_context)
         } else {
             Ok(self_index)
         }
@@ -1258,7 +1258,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         let lookup_context = context.lookup_start();
         if self.next_token_is_lookup_start(&lookup_context) {
-            self.parse_lookup(node, &lookup_context)
+            self.consume_lookup(node, &lookup_context)
         } else {
             Ok(node)
         }
@@ -1298,7 +1298,7 @@ impl<'source> Parser<'source> {
     // e.g.
     //   y = x[0][1].foo()
     //   #    ^ You are here
-    fn parse_lookup(
+    fn consume_lookup(
         &mut self,
         root: AstIndex,
         context: &ExpressionContext,
@@ -1332,7 +1332,7 @@ impl<'source> Parser<'source> {
                 Token::SquareOpen => {
                     self.consume_token();
 
-                    let index_expression = self.parse_index_expression()?;
+                    let index_expression = self.consume_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
                         lookup.push((LookupNode::Index(index_expression), node_start_span));
@@ -1445,7 +1445,7 @@ impl<'source> Parser<'source> {
     // e.g.
     //   foo.bar[10..20]
     //   #       ^ You are here
-    fn parse_index_expression(&mut self) -> Result<AstIndex, ParserError> {
+    fn consume_index_expression(&mut self) -> Result<AstIndex, ParserError> {
         let index_context = ExpressionContext::restricted();
 
         let result = if let Some(index_expression) = self.parse_expression(&index_context)? {
@@ -1595,7 +1595,7 @@ impl<'source> Parser<'source> {
             .map(Some)
     }
 
-    fn parse_export(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_export(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Export
 
         let start_span = self.current_span();
@@ -1607,7 +1607,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Export(expression), start_span)
     }
 
-    fn parse_throw_expression(&mut self) -> Result<AstIndex, ParserError> {
+    fn consume_throw_expression(&mut self) -> Result<AstIndex, ParserError> {
         self.consume_next_token_on_same_line(); // Token::Throw
 
         let start_span = self.current_span();
@@ -1619,7 +1619,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Throw(expression), start_span)
     }
 
-    fn parse_debug_expression(&mut self) -> Result<AstIndex, ParserError> {
+    fn consume_debug_expression(&mut self) -> Result<AstIndex, ParserError> {
         self.consume_next_token_on_same_line(); // Token::Debug
 
         let start_position = self.current_span().start;
@@ -1650,7 +1650,7 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn parse_number(
+    fn consume_number(
         &mut self,
         negate: bool,
         context: &ExpressionContext,
@@ -1709,7 +1709,7 @@ impl<'source> Parser<'source> {
     //     - e.g. `(1 + 1)`
     //   - A comma-separated tuple
     //     - e.g. `(,)`, `(x,)`, `(1, 2)`
-    fn parse_tuple(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_tuple(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::RoundOpen
 
         let start_span = self.current_span();
@@ -1737,7 +1737,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a list, e.g. `[1, 2, 3]`
-    fn parse_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::SquareOpen
 
         let start_span = self.current_span();
@@ -2505,7 +2505,7 @@ impl<'source> Parser<'source> {
                             let id_node = self.push_node(Node::Id(id))?;
                             if self.next_token_is_lookup_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
-                                self.parse_lookup(id_node, &pattern_context)?
+                                self.consume_lookup(id_node, &pattern_context)?
                             } else {
                                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
                                 id_node
@@ -2515,7 +2515,7 @@ impl<'source> Parser<'source> {
                     }
                     None => return self.error(InternalError::IdParseFailure),
                 },
-                Wildcard => self.parse_wildcard(&pattern_context).map(Some)?,
+                Wildcard => self.consume_wildcard(&pattern_context).map(Some)?,
                 SquareOpen => {
                     self.consume_token_with_context(&pattern_context);
 
