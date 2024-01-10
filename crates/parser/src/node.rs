@@ -361,7 +361,7 @@ pub struct AstString {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StringNode {
     /// A string literal
-    Literal(u32),
+    Literal(ConstantIndex),
     /// An expression that should be evaluated and inserted into the string
     Expr(AstIndex),
 }

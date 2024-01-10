@@ -14,15 +14,15 @@ struct Frame {
     // If a frame contains yield then it represents a generator function
     contains_yield: bool,
     // IDs that have been assigned within the current frame
-    ids_assigned_in_frame: HashSet<u32>,
+    ids_assigned_in_frame: HashSet<ConstantIndex>,
     // IDs and lookup roots which were accessed when not locally assigned at the time of access
-    accessed_non_locals: HashSet<u32>,
+    accessed_non_locals: HashSet<ConstantIndex>,
     // While expressions are being parsed we keep track of lhs assignments and rhs accesses.
     // At the end of a multi-assignment expresson (see `finalize_id_accesses`),
     // accessed IDs that weren't locally assigned at the time of access are then counted as
     // non-local accesses.
-    pending_accesses: HashSet<u32>,
-    pending_assignments: HashSet<u32>,
+    pending_accesses: HashSet<ConstantIndex>,
+    pending_assignments: HashSet<ConstantIndex>,
 }
 
 impl Frame {
@@ -43,12 +43,12 @@ impl Frame {
     }
 
     // Declare that an id has been accessed within the frame
-    fn add_id_access(&mut self, id: u32) {
+    fn add_id_access(&mut self, id: ConstantIndex) {
         self.pending_accesses.insert(id);
     }
 
     // Declare that an id is being assigned to within the frame
-    fn add_local_id_assignment(&mut self, id: u32) {
+    fn add_local_id_assignment(&mut self, id: ConstantIndex) {
         self.pending_assignments.insert(id);
         // While an assignment expression is being parsed, the LHS id is counted as an access
         // until the assignment operator is encountered.
@@ -1005,7 +1005,7 @@ impl<'source> Parser<'source> {
     //   #                ^ ...or here
     fn parse_nested_function_args(
         &mut self,
-        arg_ids: &mut Vec<u32>,
+        arg_ids: &mut Vec<ConstantIndex>,
     ) -> Result<Vec<AstIndex>, ParserError> {
         let mut nested_args = Vec::new();
 
@@ -1136,7 +1136,7 @@ impl<'source> Parser<'source> {
     fn parse_id(
         &mut self,
         context: &ExpressionContext,
-    ) -> Result<Option<(u32, ExpressionContext)>, ParserError> {
+    ) -> Result<Option<(ConstantIndex, ExpressionContext)>, ParserError> {
         match self.peek_token_with_context(context) {
             Some(PeekInfo {
                 token: Token::Id, ..
@@ -1980,7 +1980,9 @@ impl<'source> Parser<'source> {
     }
 
     // Attempts to parse a meta key
-    fn parse_meta_key(&mut self) -> Result<Option<(MetaKeyId, Option<u32>)>, ParserError> {
+    fn parse_meta_key(
+        &mut self,
+    ) -> Result<Option<(MetaKeyId, Option<ConstantIndex>)>, ParserError> {
         if self.peek_next_token_on_same_line() != Some(Token::At) {
             return Ok(None);
         }
@@ -3013,7 +3015,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn add_string_constant(&mut self, s: &str) -> Result<u32, ParserError> {
+    fn add_string_constant(&mut self, s: &str) -> Result<ConstantIndex, ParserError> {
         match self.constants.add_string(s) {
             Ok(result) => Ok(result),
             Err(_) => self.error(InternalError::ConstantPoolCapacityOverflow),
@@ -3263,6 +3265,6 @@ struct PeekInfo {
 
 // Returned by Parser::parse_id_or_wildcard()
 enum IdOrWildcard {
-    Id(u32),
-    Wildcard(Option<u32>),
+    Id(ConstantIndex),
+    Wildcard(Option<ConstantIndex>),
 }
