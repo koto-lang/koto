@@ -733,13 +733,17 @@ impl<'source> Parser<'source> {
             Token::RoundOpen => self.consume_tuple(context),
             Token::Number => self.consume_number(false, context),
             Token::DoubleQuote | Token::SingleQuote => {
-                let (string, span, string_context) = self.parse_string(context)?.unwrap();
+                let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
-                    self.parse_braceless_map_start(MapKey::Str(string), start_span, &string_context)
+                    self.parse_braceless_map_start(
+                        MapKey::Str(string.string),
+                        start_span,
+                        &string.context,
+                    )
                 } else {
-                    let string_node = self.push_node_with_span(Str(string), span)?;
-                    self.check_for_lookup_after_node(string_node, &string_context)
+                    let string_node = self.push_node_with_span(Str(string.string), string.span)?;
+                    self.check_for_lookup_after_node(string_node, &string.context)
                 }
             }
             Token::Id => self.consume_id_expression(context),
@@ -1353,9 +1357,9 @@ impl<'source> Parser<'source> {
                     } else if let Some((id, _)) = self.parse_id(&restricted)? {
                         node_start_span = self.current_span();
                         lookup.push((LookupNode::Id(id), node_start_span));
-                    } else if let Some((lookup_string, span, _)) = self.parse_string(&restricted)? {
-                        node_start_span = span;
-                        lookup.push((LookupNode::Str(lookup_string), span));
+                    } else if let Some(lookup_string) = self.parse_string(&restricted)? {
+                        node_start_span = lookup_string.span;
+                        lookup.push((LookupNode::Str(lookup_string.string), lookup_string.span));
                     } else {
                         return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     }
@@ -1966,10 +1970,8 @@ impl<'source> Parser<'source> {
     fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
         let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
             Some(MapKey::Id(id))
-        } else if let Some((string_key, _span, _string_context)) =
-            self.parse_string(&ExpressionContext::restricted())?
-        {
-            Some(MapKey::Str(string_key))
+        } else if let Some(string_key) = self.parse_string(&ExpressionContext::restricted())? {
+            Some(MapKey::Str(string_key.string))
         } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
             Some(MapKey::Meta(meta_key_id, meta_name))
         } else {
@@ -2643,9 +2645,7 @@ impl<'source> Parser<'source> {
             let item_root = match self.parse_id(&context)? {
                 Some((id, _)) => ImportItemNode::Id(id),
                 None => match self.parse_string(&context)? {
-                    Some((import_string, _span, _string_context)) => {
-                        ImportItemNode::Str(import_string)
-                    }
+                    Some(import_string) => ImportItemNode::Str(import_string.string),
                     None => break,
                 },
             };
@@ -2659,8 +2659,8 @@ impl<'source> Parser<'source> {
                     match self.parse_id(&ExpressionContext::restricted())? {
                         Some((id, _)) => item.push(ImportItemNode::Id(id)),
                         None => match self.parse_string(&ExpressionContext::restricted())? {
-                            Some((node_string, _span, _string_context)) => {
-                                item.push(ImportItemNode::Str(node_string));
+                            Some(node_string) => {
+                                item.push(ImportItemNode::Str(node_string.string));
                             }
                             None => {
                                 return self
@@ -2759,7 +2759,7 @@ impl<'source> Parser<'source> {
     fn parse_string(
         &mut self,
         context: &ExpressionContext,
-    ) -> Result<Option<(AstString, Span, ExpressionContext)>, ParserError> {
+    ) -> Result<Option<ParseStringOutput>, ParserError> {
         use SyntaxError::*;
         use Token::*;
 
@@ -2907,14 +2907,14 @@ impl<'source> Parser<'source> {
                         nodes.push(StringNode::Literal(self.add_string_constant("")?));
                     }
 
-                    return Ok(Some((
-                        AstString {
+                    return Ok(Some(ParseStringOutput {
+                        string: AstString {
                             quotation_mark,
                             nodes,
                         },
-                        self.span_with_start(start_span),
-                        string_context,
-                    )));
+                        span: self.span_with_start(start_span),
+                        context: string_context,
+                    }));
                 }
                 _ => return self.error(UnexpectedToken),
             }
@@ -3267,4 +3267,11 @@ struct PeekInfo {
 enum IdOrWildcard {
     Id(ConstantIndex),
     Wildcard(Option<ConstantIndex>),
+}
+
+// Returned by Parser::parse_string()
+struct ParseStringOutput {
+    string: AstString,
+    span: Span,
+    context: ExpressionContext,
 }
