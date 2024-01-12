@@ -1367,7 +1367,7 @@ impl<'source> Parser<'source> {
                         break;
                     };
                     if peeked.token == Token::Dot {
-                        // Indented Dot on the next line?
+                        // Indented Dot on a following line?
 
                         // Consume up until the Dot,
                         // which will be picked up on the next iteration
@@ -1377,8 +1377,7 @@ impl<'source> Parser<'source> {
 
                         // Check that the next dot is on an indented line
                         if self.current_line == lookup_line {
-                            // TODO Error here?
-                            break;
+                            return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                         }
 
                         // Starting a new line, so space separated calls are allowed
