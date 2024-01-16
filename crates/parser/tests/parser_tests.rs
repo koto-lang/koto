@@ -46,21 +46,18 @@ mod parser {
         }
     }
 
-    fn simple_string(literal_index: ConstantIndex, quotation_mark: QuotationMark) -> AstString {
+    fn simple_string(literal_index: ConstantIndex, quotation_mark: StringQuote) -> AstString {
         AstString {
-            quotation_mark,
+            quote: quotation_mark,
             contents: StringContents::Literal(literal_index),
         }
     }
 
-    fn string_literal(literal_index: ConstantIndex, quotation_mark: QuotationMark) -> Node {
+    fn string_literal(literal_index: ConstantIndex, quotation_mark: StringQuote) -> Node {
         Node::Str(simple_string(literal_index, quotation_mark))
     }
 
-    fn string_literal_map_key(
-        literal_index: ConstantIndex,
-        quotation_mark: QuotationMark,
-    ) -> MapKey {
+    fn string_literal_map_key(literal_index: ConstantIndex, quotation_mark: StringQuote) -> MapKey {
         MapKey::Str(simple_string(literal_index, quotation_mark))
     }
 
@@ -85,8 +82,8 @@ null"#;
                     BoolFalse,
                     SmallInt(1),
                     Float(0),
-                    string_literal(1, QuotationMark::Double),
-                    string_literal(2, QuotationMark::Single),
+                    string_literal(1, StringQuote::Double),
+                    string_literal(2, StringQuote::Single),
                     Id(3),
                     Null,
                     MainBlock {
@@ -148,8 +145,8 @@ null"#;
             check_ast(
                 source,
                 &[
-                    string_literal(0, QuotationMark::Double),
-                    string_literal(1, QuotationMark::Double),
+                    string_literal(0, StringQuote::Double),
+                    string_literal(1, StringQuote::Double),
                     MainBlock {
                         body: vec![0, 1],
                         local_count: 0,
@@ -171,8 +168,8 @@ null"#;
             check_ast(
                 source,
                 &[
-                    string_literal(0, QuotationMark::Double),
-                    string_literal(1, QuotationMark::Single),
+                    string_literal(0, StringQuote::Double),
+                    string_literal(1, StringQuote::Single),
                     MainBlock {
                         body: vec![0, 1],
                         local_count: 0,
@@ -194,7 +191,7 @@ null"#;
                 &[
                     Id(1),
                     Str(AstString {
-                        quotation_mark: QuotationMark::Single,
+                        quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Literal(0),
                             StringNode::Expr(0),
@@ -203,13 +200,13 @@ null"#;
                     }),
                     Id(3),
                     Str(AstString {
-                        quotation_mark: QuotationMark::Double,
+                        quote: StringQuote::Double,
                         contents: StringContents::Interpolated(vec![StringNode::Expr(2)]),
                     }),
                     Id(4),
                     Id(6), // 5
                     Str(AstString {
-                        quotation_mark: QuotationMark::Single,
+                        quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Expr(4),
                             StringNode::Literal(5),
@@ -249,7 +246,7 @@ null"#;
                         rhs: 1,
                     },
                     Str(AstString {
-                        quotation_mark: QuotationMark::Single,
+                        quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Expr(2),
                             StringNode::Literal(1),
@@ -275,11 +272,11 @@ r"[\r?\n]\"
                 source,
                 &[
                     Str(AstString {
-                        quotation_mark: QuotationMark::Single,
+                        quote: StringQuote::Single,
                         contents: StringContents::Raw(0),
                     }),
                     Str(AstString {
-                        quotation_mark: QuotationMark::Double,
+                        quote: StringQuote::Double,
                         contents: StringContents::Raw(1),
                     }),
                     MainBlock {
@@ -351,7 +348,7 @@ r"[\r?\n]\"
                 &[
                     SmallInt(0),
                     Id(0),
-                    string_literal(1, QuotationMark::Double),
+                    string_literal(1, StringQuote::Double),
                     Id(0),
                     SmallInt(-1),
                     List(vec![0, 1, 2, 3, 4]),
@@ -481,10 +478,10 @@ x =
                     Map(vec![]),
                     Id(0),
                     SmallInt(42),
-                    string_literal(4, QuotationMark::Single),
+                    string_literal(4, StringQuote::Single),
                     SmallInt(99),
                     Map(vec![
-                        (string_literal_map_key(1, QuotationMark::Single), Some(2)),
+                        (string_literal_map_key(1, StringQuote::Single), Some(2)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(3)),
                         (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
@@ -521,9 +518,9 @@ x =
                 source,
                 &[
                     SmallInt(42),
-                    string_literal(3, QuotationMark::Double),
+                    string_literal(3, StringQuote::Double),
                     Map(vec![
-                        (string_literal_map_key(0, QuotationMark::Single), Some(0)),
+                        (string_literal_map_key(0, StringQuote::Single), Some(0)),
                         (MapKey::Id(1), None),
                         (MapKey::Id(2), Some(1)),
                     ]),
@@ -559,9 +556,9 @@ x"#;
                     Map(vec![(MapKey::Id(1), Some(2))]), // foo, 0
                     SmallInt(-1),
                     Map(vec![
-                        (MapKey::Id(1), Some(1)),                                    // foo: 42
-                        (string_literal_map_key(2, QuotationMark::Double), Some(3)), // "baz": nested map
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),          // @-: -1
+                        (MapKey::Id(1), Some(1)),                                  // foo: 42
+                        (string_literal_map_key(2, StringQuote::Double), Some(3)), // "baz": nested map
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),        // @-: -1
                     ]), // 5
                     Assign {
                         target: 0,
@@ -593,7 +590,7 @@ x =
                     Id(0), // x
                     SmallInt(42),
                     Map(vec![(
-                        string_literal_map_key(1, QuotationMark::Double),
+                        string_literal_map_key(1, StringQuote::Double),
                         Some(1),
                     )]), // "foo", 42
                     Assign {
@@ -1456,7 +1453,7 @@ export
             check_ast(
                 source,
                 &[
-                    string_literal(0, QuotationMark::Single),
+                    string_literal(0, StringQuote::Single),
                     Id(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
@@ -3438,7 +3435,7 @@ x.bar()."baz" = 1
                     Id(0),
                     Lookup((
                         LookupNode::Str(AstString {
-                            quotation_mark: QuotationMark::Double,
+                            quote: StringQuote::Double,
                             contents: StringContents::Literal(2),
                         }),
                         None,
@@ -3712,7 +3709,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    string_literal(0, QuotationMark::Single),
+                    string_literal(0, StringQuote::Single),
                     Id(2),
                     Lookup((
                         LookupNode::Call {
@@ -4132,7 +4129,7 @@ assert_eq x, "hello"
                         expression: 4,
                     }, // 5
                     Id(0), // x
-                    string_literal(3, QuotationMark::Double),
+                    string_literal(3, StringQuote::Double),
                     NamedCall {
                         id: 2,
                         args: vec![6, 7],
@@ -4161,7 +4158,7 @@ assert_eq x, "hello"
 
         fn import_string(
             literal_index: ConstantIndex,
-            quotation_mark: QuotationMark,
+            quotation_mark: StringQuote,
         ) -> ImportItemNode {
             ImportItemNode::Str(simple_string(literal_index, quotation_mark))
         }
@@ -4255,7 +4252,7 @@ import foo,
                         from: vec![],
                         items: vec![
                             import_id(0),
-                            import_string(1, QuotationMark::Single),
+                            import_string(1, StringQuote::Single),
                             import_id(2),
                         ],
                     },
@@ -4312,7 +4309,7 @@ from foo import bar,
                 source,
                 &[
                     Import {
-                        from: vec![import_string(0, QuotationMark::Single), import_id(1)],
+                        from: vec![import_string(0, StringQuote::Single), import_id(1)],
                         items: vec![import_id(2), import_id(3)],
                     },
                     MainBlock {
@@ -4503,7 +4500,7 @@ finally
             check_ast(
                 source,
                 &[
-                    string_literal(0, QuotationMark::Single),
+                    string_literal(0, StringQuote::Single),
                     Throw(0),
                     MainBlock {
                         body: vec![1],
@@ -4525,7 +4522,7 @@ throw
                 source,
                 &[
                     Id(1),
-                    string_literal(3, QuotationMark::Double),
+                    string_literal(3, StringQuote::Double),
                     Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(1))]),
                     Throw(2),
                     MainBlock {
@@ -4602,10 +4599,10 @@ match x
                 source,
                 &[
                     Id(0),
-                    string_literal(1, QuotationMark::Single),
+                    string_literal(1, StringQuote::Single),
                     SmallInt(99),
-                    string_literal(2, QuotationMark::Double),
-                    string_literal(3, QuotationMark::Double),
+                    string_literal(2, StringQuote::Double),
+                    string_literal(3, StringQuote::Double),
                     Break(None), // 5
                     Match {
                         expression: 0,
@@ -5002,7 +4999,7 @@ match x
                     Id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    string_literal(1, QuotationMark::Single),
+                    string_literal(1, StringQuote::Single),
                     Throw(3),
                     Match {
                         expression: 0,

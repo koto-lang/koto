@@ -16,10 +16,8 @@ pub enum Token {
     Id,
     Wildcard,
 
-    SingleQuote,
-    DoubleQuote,
-    RawStringStart,
-    RawStringEnd,
+    StringStart { quote: StringQuote, raw: bool },
+    StringEnd,
     StringLiteral,
 
     // Symbols
@@ -108,15 +106,31 @@ impl Token {
     }
 }
 
+/// The type of quotation mark used in string delimiters
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub enum StringQuote {
+    Double,
+    Single,
+}
+
+impl TryFrom<char> for StringQuote {
+    type Error = ();
+
+    fn try_from(c: char) -> Result<Self, Self::Error> {
+        match c {
+            '"' => Ok(Self::Double),
+            '\'' => Ok(Self::Single),
+            _ => Err(()),
+        }
+    }
+}
+
 // Used to keep track of different lexing modes while working through a string
 #[derive(Clone)]
 enum StringMode {
-    // Inside a string literal, expecting an end quote
-    Literal(char),
-    // The start of a raw string has just been encountered, raw string contents follow
-    RawStart(char),
-    // The contents of the raw string have just been consumed, the end delimiter should follow
-    RawEnd(char),
+    // Inside a string literal, expecting an end quote or the start of a template expression
+    Literal(StringQuote),
     // Just after a $ symbol, either an id or a '{' will follow
     TemplateStart,
     // Inside a string template, e.g. '${...}'
@@ -124,6 +138,10 @@ enum StringMode {
     // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
     // A closing '}' will end the map rather than the template expression.
     TemplateExpressionInlineMap,
+    // The start of a raw string has just been consumed, raw string contents follow
+    RawStart(StringQuote),
+    // The contents of the raw string have just been consumed, the end delimiter should follow
+    RawEnd(StringQuote),
 }
 
 // Separates the input source into Tokens
@@ -297,7 +315,7 @@ impl<'a> TokenLexer<'a> {
     fn consume_string_literal(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        let string_quote = match self.string_mode_stack.last() {
+        let end_quote = match self.string_mode_stack.last() {
             Some(StringMode::Literal(quote)) => *quote,
             _ => return Error,
         };
@@ -307,7 +325,7 @@ impl<'a> TokenLexer<'a> {
 
         while let Some(c) = chars.peek().cloned() {
             match c {
-                _ if c == string_quote => {
+                _ if c.try_into() == Ok(end_quote) => {
                     self.advance_to_position(string_bytes, position);
                     return StringLiteral;
                 }
@@ -323,7 +341,7 @@ impl<'a> TokenLexer<'a> {
                     let skip_next_char = match chars.peek() {
                         Some('$') => true,
                         Some('\\') => true,
-                        Some(c) if *c == string_quote => true,
+                        Some(&c) if c.try_into() == Ok(end_quote) => true,
                         _ => false,
                     };
 
@@ -362,7 +380,7 @@ impl<'a> TokenLexer<'a> {
     fn consume_raw_string_contents(
         &mut self,
         mut chars: Peekable<Chars>,
-        end_quote: char,
+        end_quote: StringQuote,
     ) -> Token {
         let mut string_bytes = 0;
 
@@ -370,7 +388,7 @@ impl<'a> TokenLexer<'a> {
 
         while let Some(c) = chars.next() {
             match c {
-                _ if c == end_quote => {
+                _ if c.try_into() == Ok(end_quote) => {
                     self.advance_to_position(string_bytes, position);
                     self.string_mode_stack.pop(); // StringMode::RawStart
                     self.string_mode_stack.push(StringMode::RawEnd(end_quote));
@@ -399,12 +417,16 @@ impl<'a> TokenLexer<'a> {
         Token::Error
     }
 
-    fn consume_raw_string_end(&mut self, mut chars: Peekable<Chars>, end_quote: char) -> Token {
+    fn consume_raw_string_end(
+        &mut self,
+        mut chars: Peekable<Chars>,
+        end_quote: StringQuote,
+    ) -> Token {
         match chars.next() {
-            Some(c) if c == end_quote => {
+            Some(c) if c.try_into() == Ok(end_quote) => {
                 self.string_mode_stack.pop(); // StringMode::RawEnd
                 self.advance_line(1);
-                Token::RawStringEnd
+                Token::StringEnd
             }
             _ => Token::Error,
         }
@@ -507,10 +529,12 @@ impl<'a> TokenLexer<'a> {
             }
             "r" => {
                 // look ahead and determine if this is the start of a raw string
-                if let Some(c @ '\'' | c @ '"') = chars.peek() {
-                    self.advance_line(2);
-                    self.string_mode_stack.push(StringMode::RawStart(*c));
-                    return RawStringStart;
+                if let Some(&c) = chars.peek() {
+                    if let Ok(quote) = c.try_into() {
+                        self.advance_line(2);
+                        self.string_mode_stack.push(StringMode::RawStart(quote));
+                        return StringStart { quote, raw: true };
+                    }
                 }
             }
             _ => {}
@@ -645,15 +669,10 @@ impl<'a> TokenLexer<'a> {
 
                 let result = match string_mode {
                     Some(StringMode::Literal(quote)) => match next_char {
-                        '"' if quote == '"' => {
+                        c if c.try_into() == Ok(quote) => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
-                            DoubleQuote
-                        }
-                        '\'' if quote == '\'' => {
-                            self.advance_line(1);
-                            self.string_mode_stack.pop();
-                            SingleQuote
+                            StringEnd
                         }
                         '$' => {
                             self.advance_line(1);
@@ -695,13 +714,21 @@ impl<'a> TokenLexer<'a> {
                         '#' => self.consume_comment(chars),
                         '"' => {
                             self.advance_line(1);
-                            self.string_mode_stack.push(StringMode::Literal('"'));
-                            DoubleQuote
+                            self.string_mode_stack
+                                .push(StringMode::Literal(StringQuote::Double));
+                            StringStart {
+                                quote: StringQuote::Double,
+                                raw: false,
+                            }
                         }
                         '\'' => {
                             self.advance_line(1);
-                            self.string_mode_stack.push(StringMode::Literal('\''));
-                            SingleQuote
+                            self.string_mode_stack
+                                .push(StringMode::Literal(StringQuote::Single));
+                            StringStart {
+                                quote: StringQuote::Single,
+                                raw: false,
+                            }
                         }
                         '0'..='9' => self.consume_number(chars),
                         c if is_id_start(c) => self.consume_id_or_keyword(chars),
@@ -992,6 +1019,10 @@ mod tests {
             assert_eq!(lex.next(), None);
         }
 
+        fn string_start(quote: StringQuote, raw: bool) -> Token {
+            Token::StringStart { quote, raw }
+        }
+
         #[test]
         fn ids() {
             let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _ _foo";
@@ -1070,32 +1101,33 @@ false #
 "\\"
 "#;
 
+            use StringQuote::*;
             check_lexer_output(
                 input,
                 &[
                     (NewLine, None, 1),
-                    (DoubleQuote, None, 2),
+                    (string_start(Double, false), None, 2),
                     (StringLiteral, Some("hello, world!"), 2),
-                    (DoubleQuote, None, 2),
+                    (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (DoubleQuote, None, 3),
+                    (string_start(Double, false), None, 3),
                     (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
-                    (DoubleQuote, None, 3),
+                    (StringEnd, None, 3),
                     (NewLine, None, 3),
-                    (DoubleQuote, None, 4),
+                    (string_start(Double, false), None, 4),
                     (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
-                    (DoubleQuote, None, 4),
+                    (StringEnd, None, 4),
                     (NewLine, None, 4),
-                    (SingleQuote, None, 5),
+                    (string_start(Single, false), None, 5),
                     (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
-                    (SingleQuote, None, 5),
+                    (StringEnd, None, 5),
                     (NewLine, None, 5),
-                    (DoubleQuote, None, 6),
-                    (DoubleQuote, None, 6),
+                    (string_start(Double, false), None, 6),
+                    (StringEnd, None, 6),
                     (NewLine, None, 6),
-                    (DoubleQuote, None, 7),
+                    (string_start(Double, false), None, 7),
                     (StringLiteral, Some(r"\\"), 7),
-                    (DoubleQuote, None, 7),
+                    (StringEnd, None, 7),
                     (NewLine, None, 7),
                 ],
             );
@@ -1111,9 +1143,9 @@ r'$foo'
                 input,
                 &[
                     (NewLine, None, 1),
-                    (RawStringStart, None, 2),
+                    (string_start(StringQuote::Single, true), None, 2),
                     (StringLiteral, Some("$foo"), 2),
-                    (RawStringEnd, None, 2),
+                    (StringEnd, None, 2),
                     (NewLine, None, 2),
                 ],
             );
@@ -1125,23 +1157,24 @@ r'$foo'
 "hello $name, how are you?"
 '$foo$bar'
 "#;
+            use StringQuote::*;
             check_lexer_output(
                 input,
                 &[
                     (NewLine, None, 1),
-                    (DoubleQuote, None, 2),
+                    (string_start(Double, false), None, 2),
                     (StringLiteral, Some("hello "), 2),
                     (Dollar, None, 2),
                     (Id, Some("name"), 2),
                     (StringLiteral, Some(", how are you?"), 2),
-                    (DoubleQuote, None, 2),
+                    (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (SingleQuote, None, 3),
+                    (string_start(Single, false), None, 3),
                     (Dollar, None, 3),
                     (Id, Some("foo"), 3),
                     (Dollar, None, 3),
                     (Id, Some("bar"), 3),
-                    (SingleQuote, None, 3),
+                    (StringEnd, None, 3),
                     (NewLine, None, 3),
                 ],
             );
@@ -1153,11 +1186,12 @@ r'$foo'
 "x + y == ${x + y}"
 '${'{}'.format foo}'
 "#;
+            use StringQuote::*;
             check_lexer_output(
                 input,
                 &[
                     (NewLine, None, 1),
-                    (DoubleQuote, None, 2),
+                    (string_start(Double, false), None, 2),
                     (StringLiteral, Some("x + y == "), 2),
                     (Dollar, None, 2),
                     (CurlyOpen, None, 2),
@@ -1165,19 +1199,19 @@ r'$foo'
                     (Add, None, 2),
                     (Id, Some("y"), 2),
                     (CurlyClose, None, 2),
-                    (DoubleQuote, None, 2),
+                    (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (SingleQuote, None, 3),
+                    (string_start(Single, false), None, 3),
                     (Dollar, None, 3),
                     (CurlyOpen, None, 3),
-                    (SingleQuote, None, 3),
+                    (string_start(Single, false), None, 3),
                     (StringLiteral, Some("{}"), 3),
-                    (SingleQuote, None, 3),
+                    (StringEnd, None, 3),
                     (Dot, None, 3),
                     (Id, Some("format"), 3),
                     (Id, Some("foo"), 3),
                     (CurlyClose, None, 3),
-                    (SingleQuote, None, 3),
+                    (StringEnd, None, 3),
                     (NewLine, None, 3),
                 ],
             );

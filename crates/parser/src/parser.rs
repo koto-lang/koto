@@ -729,7 +729,7 @@ impl<'source> Parser<'source> {
             }
             Token::RoundOpen => self.consume_tuple(context),
             Token::Number => self.consume_number(false, context),
-            Token::DoubleQuote | Token::SingleQuote | Token::RawStringStart => {
+            Token::StringStart { .. } => {
                 let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
@@ -1348,7 +1348,7 @@ impl<'source> Parser<'source> {
 
                     if !matches!(
                         self.peek_token(),
-                        Some(Token::Id | Token::SingleQuote | Token::DoubleQuote)
+                        Some(Token::Id | Token::StringStart { .. })
                     ) {
                         // This check prevents detached dot accesses, e.g. `x. foo`
                         return self.error(SyntaxError::ExpectedMapKey);
@@ -2487,7 +2487,7 @@ impl<'source> Parser<'source> {
 
         let result = match self.peek_token_with_context(&pattern_context) {
             Some(peeked) => match peeked.token {
-                True | False | Null | Number | SingleQuote | DoubleQuote | Subtract => {
+                True | False | Null | Number | StringStart { .. } | Subtract => {
                     return self.parse_term(&pattern_context)
                 }
                 Id => match self.parse_id(&pattern_context)? {
@@ -2761,19 +2761,21 @@ impl<'source> Parser<'source> {
         use SyntaxError::*;
         use Token::*;
 
-        match self.peek_token_with_context(context) {
+        let quote = match self.peek_token_with_context(context) {
             Some(PeekInfo {
-                token: SingleQuote | DoubleQuote,
+                token: StringStart { quote, raw },
                 ..
-            }) => {}
-            Some(PeekInfo {
-                token: RawStringStart,
-                ..
-            }) => return self.consume_raw_string(context),
+            }) => {
+                if raw {
+                    return self.consume_raw_string(context);
+                } else {
+                    quote
+                }
+            }
             _ => return Ok(None),
-        }
+        };
 
-        let (string_quote, string_context) = self.consume_token_with_context(context).unwrap();
+        let (_, string_context) = self.consume_token_with_context(context).unwrap();
         let start_span = self.current_span();
         let mut nodes = Vec::new();
 
@@ -2898,13 +2900,7 @@ impl<'source> Parser<'source> {
                     }
                     None => break,
                 },
-                c if c == string_quote => {
-                    let quotation_mark = if string_quote == SingleQuote {
-                        QuotationMark::Single
-                    } else {
-                        QuotationMark::Double
-                    };
-
+                StringEnd => {
                     let contents = match nodes.as_slice() {
                         [] => StringContents::Literal(self.add_string_constant("")?),
                         [StringNode::Literal(literal)] => StringContents::Literal(*literal),
@@ -2912,10 +2908,7 @@ impl<'source> Parser<'source> {
                     };
 
                     return Ok(Some(ParseStringOutput {
-                        string: AstString {
-                            quotation_mark,
-                            contents,
-                        },
+                        string: AstString { quote, contents },
                         span: self.span_with_start(start_span),
                         context: string_context,
                     }));
@@ -2931,33 +2924,30 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<Option<ParseStringOutput>, ParserError> {
-        let Some((_, string_context)) = self.consume_token_with_context(context) else {
-            return self.error(InternalError::RawStringParseFailure);
-        }; // Token::RawStringDelimiter
-
-        let start_span = self.current_span();
-        let start_delimiter = self.current_token.slice(self.source);
-        let quotation_mark = match start_delimiter.chars().next_back() {
-            Some('\'') => QuotationMark::Single,
-            Some('"') => QuotationMark::Double,
+        let (quote, string_context) = match self.consume_token_with_context(context) {
+            Some((Token::StringStart { quote, raw }, string_context)) if raw => {
+                (quote, string_context)
+            }
             _ => return self.error(InternalError::RawStringParseFailure),
         };
 
+        let start_span = self.current_span();
+
         let contents = match self.consume_token() {
             Some(Token::StringLiteral) => {
-                let contents = self.add_string_constant(self.current_token.slice(self.source))?;
+                let contents = self.add_current_slice_as_string_constant()?;
                 match self.consume_token() {
-                    Some(Token::RawStringEnd) => contents,
+                    Some(Token::StringEnd) => contents,
                     _ => return self.error(SyntaxError::UnterminatedString),
                 }
             }
-            Some(Token::RawStringEnd) => self.add_string_constant("")?,
+            Some(Token::StringEnd) => self.add_string_constant("")?,
             _ => return self.error(SyntaxError::UnterminatedString),
         };
 
         Ok(Some(ParseStringOutput {
             string: AstString {
-                quotation_mark,
+                quote,
                 contents: StringContents::Raw(contents),
             },
             span: self.span_with_start(start_span),

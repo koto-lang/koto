@@ -6,6 +6,6 @@ mod lexer;
 mod span;
 
 pub use crate::{
-    lexer::{is_id_continue, is_id_start, KotoLexer as Lexer, LexedToken, Token},
+    lexer::{is_id_continue, is_id_start, KotoLexer as Lexer, LexedToken, StringQuote, Token},
     span::{Position, Span},
 };

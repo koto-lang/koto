@@ -639,6 +639,7 @@ match x % 3, x % 5
 x = "hello"
 match x
   "goodbye" then 1
+  r'byeeee' then 2
   () then 99
   y if y == "O_o" then -1
   y if y == "hello" then
@@ -1920,7 +1921,7 @@ m.baz";
         fn string_keys() {
             let script = r#"
 foo, bar = 42, -1
-m = {foo, bar, 'baz': 99}
+m = {foo, 'bar': bar, r'baz': 99}
 m.baz"#;
             test_script(script, 99);
         }

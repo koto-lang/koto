@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, constant_pool::ConstantIndex};
+use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringQuote};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -349,7 +349,7 @@ pub struct Function {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstString {
     /// Indicates if single or double quotation marks were used
-    pub quotation_mark: QuotationMark,
+    pub quote: StringQuote,
     /// The string's contents
     pub contents: StringContents,
 }
@@ -633,14 +633,6 @@ pub enum MapKey {
     ///
     /// Some meta keys require an additional identifier, e.g. @test test_name
     Meta(MetaKeyId, Option<u32>),
-}
-
-/// The type of quotation mark used in a string literal
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub enum QuotationMark {
-    Double,
-    Single,
 }
 
 /// A node in an import item, see [Node::Import]
