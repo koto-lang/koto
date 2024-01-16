@@ -217,6 +217,7 @@ fn add_modules(koto: &Koto) {
     prelude.add_map("geometry", koto_geometry::make_module());
     prelude.add_map("json", koto_json::make_module());
     prelude.add_map("random", koto_random::make_module());
+    prelude.add_map("regex", koto_regex::make_module());
     prelude.add_map("tempfile", koto_tempfile::make_module());
     prelude.add_map("toml", koto_toml::make_module());
     prelude.add_map("yaml", koto_yaml::make_module());

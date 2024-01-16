@@ -1,0 +1,15 @@
+[package]
+name = "koto_regex"
+version = "0.13.0"
+authors = ["jasal82 <johannes.asal@gmx.de>"]
+edition = "2021"
+license = "MIT"
+description = "A Koto library for working with regular expressions"
+homepage = "https://koto.dev"
+repository = "https://github.com/koto-lang/koto"
+keywords = ["scripting", "language", "koto"]
+
+[dependencies]
+koto_runtime = { path = "../../crates/runtime", version = "^0.13.0" }
+
+regex = { workspace = true }

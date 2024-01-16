@@ -47,6 +47,8 @@ quote = "1.0.33"
 rand = "0.8.5"
 # ChaCha random number generator
 rand_chacha = "0.3.1"
+# A regular expression library
+regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
