@@ -2763,15 +2763,13 @@ impl<'source> Parser<'source> {
 
         let quote = match self.peek_token_with_context(context) {
             Some(PeekInfo {
-                token: StringStart { quote, raw },
+                token: StringStart(StringType::Normal(quote)),
                 ..
-            }) => {
-                if raw {
-                    return self.consume_raw_string(context);
-                } else {
-                    quote
-                }
-            }
+            }) => quote,
+            Some(PeekInfo {
+                token: StringStart(StringType::Raw { .. }),
+                ..
+            }) => return self.consume_raw_string(context),
             _ => return Ok(None),
         };
 
@@ -2924,9 +2922,9 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<Option<ParseStringOutput>, ParserError> {
-        let (quote, string_context) = match self.consume_token_with_context(context) {
-            Some((Token::StringStart { quote, raw }, string_context)) if raw => {
-                (quote, string_context)
+        let (delimiter, string_context) = match self.consume_token_with_context(context) {
+            Some((Token::StringStart(StringType::Raw(delimiter)), string_context)) => {
+                (delimiter, string_context)
             }
             _ => return self.error(InternalError::RawStringParseFailure),
         };
@@ -2947,8 +2945,11 @@ impl<'source> Parser<'source> {
 
         Ok(Some(ParseStringOutput {
             string: AstString {
-                quote,
-                contents: StringContents::Raw(contents),
+                quote: delimiter.quote,
+                contents: StringContents::Raw {
+                    constant: contents,
+                    hash_count: delimiter.hash_count,
+                },
             },
             span: self.span_with_start(start_span),
             context: string_context,

@@ -16,7 +16,7 @@ pub enum Token {
     Id,
     Wildcard,
 
-    StringStart { quote: StringQuote, raw: bool },
+    StringStart(StringType),
     StringEnd,
     StringLiteral,
 
@@ -106,6 +106,24 @@ impl Token {
     }
 }
 
+/// The string types that the lexer can produce
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StringType {
+    /// A normal string
+    Normal(StringQuote),
+    /// A raw string
+    Raw(RawStringDelimiter),
+}
+
+/// The delimiter used by a raw string
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RawStringDelimiter {
+    /// The quotation mark used in the raw string delimiter
+    pub quote: StringQuote,
+    /// The number of hashes used in the raw string delimiter
+    pub hash_count: u8,
+}
+
 /// The type of quotation mark used in string delimiters
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -139,9 +157,9 @@ enum StringMode {
     // A closing '}' will end the map rather than the template expression.
     TemplateExpressionInlineMap,
     // The start of a raw string has just been consumed, raw string contents follow
-    RawStart(StringQuote),
+    RawStart(RawStringDelimiter),
     // The contents of the raw string have just been consumed, the end delimiter should follow
-    RawEnd(StringQuote),
+    RawEnd(RawStringDelimiter),
 }
 
 // Separates the input source into Tokens
@@ -377,21 +395,71 @@ impl<'a> TokenLexer<'a> {
         Error
     }
 
+    fn parse_raw_string_start(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        // look ahead and determine if this is the start of a raw string
+        let mut hash_count = 0;
+        loop {
+            match chars.next() {
+                Some('#') => {
+                    hash_count += 1;
+                    if hash_count == 256 {
+                        break;
+                    }
+                }
+                Some(c) => {
+                    if let Ok(quote) = c.try_into() {
+                        self.advance_line(2 + hash_count);
+                        let hash_count = hash_count as u8;
+                        self.string_mode_stack
+                            .push(StringMode::RawStart(RawStringDelimiter {
+                                quote,
+                                hash_count,
+                            }));
+                        return Some(Token::StringStart(StringType::Raw(RawStringDelimiter {
+                            quote,
+                            hash_count,
+                        })));
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+
+        None
+    }
+
     fn consume_raw_string_contents(
         &mut self,
         mut chars: Peekable<Chars>,
-        end_quote: StringQuote,
+        delimiter: RawStringDelimiter,
     ) -> Token {
         let mut string_bytes = 0;
 
         let mut position = self.current_position();
 
-        while let Some(c) = chars.next() {
+        'outer: while let Some(c) = chars.next() {
             match c {
-                _ if c.try_into() == Ok(end_quote) => {
+                _ if c.try_into() == Ok(delimiter.quote) => {
+                    // Is this the end delimiter?
+                    for i in 0..delimiter.hash_count {
+                        if chars.peek() == Some(&'#') {
+                            chars.next();
+                        } else {
+                            // Adjust for the quote and hashes that were consumed while checking if
+                            // we were at the end delimiter
+                            let not_the_end_delimiter_len = 1 + i as usize;
+                            position.column += not_the_end_delimiter_len as u32;
+                            string_bytes += not_the_end_delimiter_len;
+                            // We haven't hit the required hash count, so keep consuming characters
+                            // as part of the raw string's contents.
+                            continue 'outer;
+                        }
+                    }
                     self.advance_to_position(string_bytes, position);
                     self.string_mode_stack.pop(); // StringMode::RawStart
-                    self.string_mode_stack.push(StringMode::RawEnd(end_quote));
+                    self.string_mode_stack.push(StringMode::RawEnd(delimiter));
                     return Token::StringLiteral;
                 }
                 '\r' => {
@@ -417,19 +485,12 @@ impl<'a> TokenLexer<'a> {
         Token::Error
     }
 
-    fn consume_raw_string_end(
-        &mut self,
-        mut chars: Peekable<Chars>,
-        end_quote: StringQuote,
-    ) -> Token {
-        match chars.next() {
-            Some(c) if c.try_into() == Ok(end_quote) => {
-                self.string_mode_stack.pop(); // StringMode::RawEnd
-                self.advance_line(1);
-                Token::StringEnd
-            }
-            _ => Token::Error,
-        }
+    fn consume_raw_string_end(&mut self, delimiter: RawStringDelimiter) -> Token {
+        // The end delimiter has already been matched in consume_raw_string_contents,
+        // so we can simply advance and return here.
+        self.advance_line(1 + delimiter.hash_count as usize);
+        self.string_mode_stack.pop(); // StringMode::RawEnd
+        Token::StringEnd
     }
 
     fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Token {
@@ -528,13 +589,8 @@ impl<'a> TokenLexer<'a> {
                 }
             }
             "r" => {
-                // look ahead and determine if this is the start of a raw string
-                if let Some(&c) = chars.peek() {
-                    if let Ok(quote) = c.try_into() {
-                        self.advance_line(2);
-                        self.string_mode_stack.push(StringMode::RawStart(quote));
-                        return StringStart { quote, raw: true };
-                    }
+                if let Some(raw_string) = self.parse_raw_string_start(chars) {
+                    return raw_string;
                 }
             }
             _ => {}
@@ -681,10 +737,10 @@ impl<'a> TokenLexer<'a> {
                         }
                         _ => self.consume_string_literal(chars),
                     },
-                    Some(StringMode::RawStart(quote)) => {
-                        self.consume_raw_string_contents(chars, quote)
+                    Some(StringMode::RawStart(delimiter)) => {
+                        self.consume_raw_string_contents(chars, delimiter)
                     }
-                    Some(StringMode::RawEnd(quote)) => self.consume_raw_string_end(chars, quote),
+                    Some(StringMode::RawEnd(delimiter)) => self.consume_raw_string_end(delimiter),
                     Some(StringMode::TemplateStart) => match next_char {
                         _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
                             Id => {
@@ -716,19 +772,13 @@ impl<'a> TokenLexer<'a> {
                             self.advance_line(1);
                             self.string_mode_stack
                                 .push(StringMode::Literal(StringQuote::Double));
-                            StringStart {
-                                quote: StringQuote::Double,
-                                raw: false,
-                            }
+                            StringStart(StringType::Normal(StringQuote::Double))
                         }
                         '\'' => {
                             self.advance_line(1);
                             self.string_mode_stack
                                 .push(StringMode::Literal(StringQuote::Single));
-                            StringStart {
-                                quote: StringQuote::Single,
-                                raw: false,
-                            }
+                            StringStart(StringType::Normal(StringQuote::Single))
                         }
                         '0'..='9' => self.consume_number(chars),
                         c if is_id_start(c) => self.consume_id_or_keyword(chars),
@@ -1019,8 +1069,12 @@ mod tests {
             assert_eq!(lex.next(), None);
         }
 
-        fn string_start(quote: StringQuote, raw: bool) -> Token {
-            Token::StringStart { quote, raw }
+        fn normal_string(quote: StringQuote) -> Token {
+            Token::StringStart(StringType::Normal(quote))
+        }
+
+        fn raw_string(quote: StringQuote, hash_count: u8) -> Token {
+            Token::StringStart(StringType::Raw(RawStringDelimiter { quote, hash_count }))
         }
 
         #[test]
@@ -1106,26 +1160,26 @@ false #
                 input,
                 &[
                     (NewLine, None, 1),
-                    (string_start(Double, false), None, 2),
+                    (normal_string(Double), None, 2),
                     (StringLiteral, Some("hello, world!"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (string_start(Double, false), None, 3),
+                    (normal_string(Double), None, 3),
                     (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
-                    (string_start(Double, false), None, 4),
+                    (normal_string(Double), None, 4),
                     (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
                     (StringEnd, None, 4),
                     (NewLine, None, 4),
-                    (string_start(Single, false), None, 5),
+                    (normal_string(Single), None, 5),
                     (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
                     (StringEnd, None, 5),
                     (NewLine, None, 5),
-                    (string_start(Double, false), None, 6),
+                    (normal_string(Double), None, 6),
                     (StringEnd, None, 6),
                     (NewLine, None, 6),
-                    (string_start(Double, false), None, 7),
+                    (normal_string(Double), None, 7),
                     (StringLiteral, Some(r"\\"), 7),
                     (StringEnd, None, 7),
                     (NewLine, None, 7),
@@ -1136,17 +1190,22 @@ false #
         #[test]
         fn raw_strings() {
             let input = r#"
-r'$foo'
+r"$foo"
+r#''bar''#
 "#;
 
             check_lexer_output(
                 input,
                 &[
                     (NewLine, None, 1),
-                    (string_start(StringQuote::Single, true), None, 2),
+                    (raw_string(StringQuote::Double, 0), None, 2),
                     (StringLiteral, Some("$foo"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
+                    (raw_string(StringQuote::Single, 1), None, 3),
+                    (StringLiteral, Some("'bar'"), 3),
+                    (StringEnd, None, 3),
+                    (NewLine, None, 3),
                 ],
             );
         }
@@ -1162,14 +1221,14 @@ r'$foo'
                 input,
                 &[
                     (NewLine, None, 1),
-                    (string_start(Double, false), None, 2),
+                    (normal_string(Double), None, 2),
                     (StringLiteral, Some("hello "), 2),
                     (Dollar, None, 2),
                     (Id, Some("name"), 2),
                     (StringLiteral, Some(", how are you?"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (string_start(Single, false), None, 3),
+                    (normal_string(Single), None, 3),
                     (Dollar, None, 3),
                     (Id, Some("foo"), 3),
                     (Dollar, None, 3),
@@ -1191,7 +1250,7 @@ r'$foo'
                 input,
                 &[
                     (NewLine, None, 1),
-                    (string_start(Double, false), None, 2),
+                    (normal_string(Double), None, 2),
                     (StringLiteral, Some("x + y == "), 2),
                     (Dollar, None, 2),
                     (CurlyOpen, None, 2),
@@ -1201,10 +1260,10 @@ r'$foo'
                     (CurlyClose, None, 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (string_start(Single, false), None, 3),
+                    (normal_string(Single), None, 3),
                     (Dollar, None, 3),
                     (CurlyOpen, None, 3),
-                    (string_start(Single, false), None, 3),
+                    (normal_string(Single), None, 3),
                     (StringLiteral, Some("{}"), 3),
                     (StringEnd, None, 3),
                     (Dot, None, 3),

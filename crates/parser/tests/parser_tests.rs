@@ -263,28 +263,55 @@ null"#;
 
         #[test]
         fn raw_strings() {
-            let source = r#"
+            let source = r###"
 r'$foo ${bar}'
 r"[\r?\n]\"
-"#;
+r#''$foo''#
+r##'#$bar'##
+"###;
 
             check_ast(
                 source,
                 &[
                     Str(AstString {
                         quote: StringQuote::Single,
-                        contents: StringContents::Raw(0),
+                        contents: StringContents::Raw {
+                            constant: 0,
+                            hash_count: 0,
+                        },
                     }),
                     Str(AstString {
                         quote: StringQuote::Double,
-                        contents: StringContents::Raw(1),
+                        contents: StringContents::Raw {
+                            constant: 1,
+                            hash_count: 0,
+                        },
+                    }),
+                    Str(AstString {
+                        quote: StringQuote::Single,
+                        contents: StringContents::Raw {
+                            constant: 2,
+                            hash_count: 1,
+                        },
+                    }),
+                    Str(AstString {
+                        quote: StringQuote::Single,
+                        contents: StringContents::Raw {
+                            constant: 3,
+                            hash_count: 2,
+                        },
                     }),
                     MainBlock {
-                        body: vec![0, 1],
+                        body: vec![0, 1, 2, 3],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("$foo ${bar}"), Constant::Str(r"[\r?\n]\")]),
+                Some(&[
+                    Constant::Str("$foo ${bar}"),
+                    Constant::Str(r"[\r?\n]\"),
+                    Constant::Str("'$foo'"),
+                    Constant::Str("#$bar"),
+                ]),
             )
         }
 

@@ -360,7 +360,12 @@ pub enum StringContents {
     /// A string literal
     Literal(ConstantIndex),
     /// A raw string literal
-    Raw(ConstantIndex),
+    Raw {
+        /// The literal's constant index
+        constant: ConstantIndex,
+        /// The number of hashes associated with the raw string's delimiter
+        hash_count: u8,
+    },
     /// An interpolated string
     ///
     /// An interpolated string is made up of a series of literals and template expressions,

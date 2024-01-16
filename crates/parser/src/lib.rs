@@ -15,4 +15,4 @@ pub use crate::{
     node::*,
     parser::Parser,
 };
-pub use koto_lexer::{Position, Span, StringQuote};
+pub use koto_lexer::{Position, RawStringDelimiter, Span, StringQuote, StringType};

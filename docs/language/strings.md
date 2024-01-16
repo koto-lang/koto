@@ -97,6 +97,16 @@ Sometimes it can be preferable to use a _raw string_, which provides the content
 Like normal strings, raw strings use single or double quotes, but prefixed with an `r`.
 
 ```koto
-print r'This string contains special characters: $foo\n\t'
-check! This string contains special characters: $foo\n\t
+print r'This string contains special characters: $foo\n\t.'
+check! This string contains special characters: $foo\n\t.
+```
+
+The `r` prefix can optionally be followed by up to 255 `#`s to extend the sequence of characters that mark the end of the string. 
+
+```koto
+print r#'This string contains "both" 'quote' types.'#
+check! This string contains "both" 'quote' types.
+
+print r##'This string also includes a '#' symbol.'##
+check! This string also includes a '#' symbol.
 ```

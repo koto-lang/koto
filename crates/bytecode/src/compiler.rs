@@ -2026,7 +2026,11 @@ impl Compiler {
         let result = self.get_result_register(result_register)?;
 
         match contents {
-            StringContents::Raw(constant_index) | StringContents::Literal(constant_index) => {
+            StringContents::Raw {
+                constant: constant_index,
+                ..
+            }
+            | StringContents::Literal(constant_index) => {
                 if let Some(result) = result {
                     self.compile_load_string_constant(result.register, *constant_index);
                 }
