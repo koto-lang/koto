@@ -1,8 +1,8 @@
 use crate::{DebugInfo, FunctionFlags, Op, TypeId};
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
-    Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span, StringNode,
-    SwitchArm,
+    Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span, StringContents,
+    StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
 use std::collections::HashSet;
@@ -540,7 +540,7 @@ impl Compiler {
                 }
                 result
             }
-            Node::Str(string) => self.compile_string(result_register, &string.nodes, ast)?,
+            Node::Str(string) => self.compile_string(result_register, &string.contents, ast)?,
             Node::List(elements) => {
                 self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
             }
@@ -1491,7 +1491,7 @@ impl Compiler {
                         self.compile_access_string(
                             import_register,
                             from_register,
-                            &string.nodes,
+                            &string.contents,
                             ast,
                         )?;
 
@@ -1562,7 +1562,7 @@ impl Compiler {
                         ImportItemNode::Str(string) => self.compile_access_string(
                             result_register,
                             result_register,
-                            &string.nodes,
+                            &string.contents,
                             ast,
                         )?,
                     }
@@ -1593,7 +1593,11 @@ impl Compiler {
                 }
             }
             ImportItemNode::Str(string) => {
-                self.compile_string(ResultRegister::Fixed(result_register), &string.nodes, ast)?;
+                self.compile_string(
+                    ResultRegister::Fixed(result_register),
+                    &string.contents,
+                    ast,
+                )?;
             }
         }
 
@@ -2016,88 +2020,104 @@ impl Compiler {
     fn compile_string(
         &mut self,
         result_register: ResultRegister,
-        nodes: &[StringNode],
+        contents: &StringContents,
         ast: &Ast,
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
-        let size_hint = nodes.iter().fold(0, |result, node| {
-            match node {
-                StringNode::Literal(constant_index) => {
-                    result + ast.constants().get_str(*constant_index).len()
-                }
-                StringNode::Expr(_) => {
-                    // Q. Why use '1' here?
-                    // A. The expression can result in a displayed string of any length,
-                    //    We can make an assumption that the expression will almost always produce
-                    //    at least 1 character to display, but it's unhealthy to over-allocate so
-                    //    let's leave it there for now until we have real-world practice that tells
-                    //    us otherwise.
-                    result + 1
-                }
+        match contents {
+            StringContents::Raw {
+                constant: constant_index,
+                ..
             }
-        });
-
-        match nodes {
-            [] => return self.error(ErrorKind::MissingStringNodes),
-            [StringNode::Literal(constant_index)] => {
+            | StringContents::Literal(constant_index) => {
                 if let Some(result) = result {
                     self.compile_load_string_constant(result.register, *constant_index);
                 }
             }
-            _ => {
-                if result.is_some() {
-                    self.push_op(Op::StringStart, &[]);
-                    // Limit the size hint to u32::MAX, u64 size hinting can be added later if
-                    // it would be useful in practice.
-                    self.push_var_u32(size_hint as u32);
-                }
-
-                for node in nodes.iter() {
+            StringContents::Interpolated(nodes) => {
+                let size_hint = nodes.iter().fold(0, |result, node| {
                     match node {
                         StringNode::Literal(constant_index) => {
-                            if result.is_some() {
-                                let node_register = self.push_register()?;
-
-                                self.compile_load_string_constant(node_register, *constant_index);
-                                self.push_op_without_span(Op::StringPush, &[node_register]);
-
-                                self.pop_register()?;
-                            }
+                            result + ast.constants().get_str(*constant_index).len()
                         }
-                        StringNode::Expr(expression_node) => {
-                            if result.is_some() {
-                                let expression_result = self
-                                    .compile_node(
-                                        ResultRegister::Any,
-                                        ast.node(*expression_node),
-                                        ast,
-                                    )?
-                                    .unwrap();
-
-                                self.push_op_without_span(
-                                    Op::StringPush,
-                                    &[expression_result.register],
-                                );
-
-                                if expression_result.is_temporary {
-                                    self.pop_register()?;
-                                }
-                            } else {
-                                // Compile the expression even though we don't need the result,
-                                // so that side-effects can take place.
-                                self.compile_node(
-                                    ResultRegister::None,
-                                    ast.node(*expression_node),
-                                    ast,
-                                )?;
-                            }
+                        StringNode::Expr(_) => {
+                            // Q. Why use '1' here?
+                            // A. The expression can result in a displayed string of any length,
+                            //    We can make an assumption that the expression will almost always
+                            //    produce at least 1 character to display, but it's unhealthy to
+                            //    over-allocate so let's leave it there for now until we have
+                            //    real-world practice that tells us otherwise.
+                            result + 1
                         }
                     }
-                }
+                });
 
-                if let Some(result) = result {
-                    self.push_op(Op::StringFinish, &[result.register]);
+                match nodes.as_slice() {
+                    [] => return self.error(ErrorKind::MissingStringNodes),
+                    [StringNode::Literal(constant_index)] => {
+                        if let Some(result) = result {
+                            self.compile_load_string_constant(result.register, *constant_index);
+                        }
+                    }
+                    _ => {
+                        if result.is_some() {
+                            self.push_op(Op::StringStart, &[]);
+                            // Limit the size hint to u32::MAX, u64 size hinting can be added later if
+                            // it would be useful in practice.
+                            self.push_var_u32(size_hint as u32);
+                        }
+
+                        for node in nodes.iter() {
+                            match node {
+                                StringNode::Literal(constant_index) => {
+                                    if result.is_some() {
+                                        let node_register = self.push_register()?;
+
+                                        self.compile_load_string_constant(
+                                            node_register,
+                                            *constant_index,
+                                        );
+                                        self.push_op_without_span(Op::StringPush, &[node_register]);
+
+                                        self.pop_register()?;
+                                    }
+                                }
+                                StringNode::Expr(expression_node) => {
+                                    if result.is_some() {
+                                        let expression_result = self
+                                            .compile_node(
+                                                ResultRegister::Any,
+                                                ast.node(*expression_node),
+                                                ast,
+                                            )?
+                                            .unwrap();
+
+                                        self.push_op_without_span(
+                                            Op::StringPush,
+                                            &[expression_result.register],
+                                        );
+
+                                        if expression_result.is_temporary {
+                                            self.pop_register()?;
+                                        }
+                                    } else {
+                                        // Compile the expression even though we don't need the result,
+                                        // so that side-effects can take place.
+                                        self.compile_node(
+                                            ResultRegister::None,
+                                            ast.node(*expression_node),
+                                            ast,
+                                        )?;
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(result) = result {
+                            self.push_op(Op::StringFinish, &[result.register]);
+                        }
+                    }
                 }
             }
         }
@@ -2498,7 +2518,7 @@ impl Compiler {
                     self.compile_access_string(
                         node_register,
                         parent_register,
-                        &lookup_string.nodes,
+                        &lookup_string.contents,
                         ast,
                     )?;
                 }
@@ -2585,7 +2605,7 @@ impl Compiler {
             let key_register = self.push_register()?;
             self.compile_string(
                 ResultRegister::Fixed(key_register),
-                &lookup_string.nodes,
+                &lookup_string.contents,
                 ast,
             )?
         } else {
@@ -2777,7 +2797,7 @@ impl Compiler {
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
-                self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
+                self.compile_string(ResultRegister::Fixed(key_register), &string.contents, ast)?;
 
                 if let Some(map_register) = map_register {
                     self.push_op_without_span(
@@ -2837,11 +2857,15 @@ impl Compiler {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key_string_nodes: &[StringNode],
+        key_string_contents: &StringContents,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
-        self.compile_string(ResultRegister::Fixed(key_register), key_string_nodes, ast)?;
+        self.compile_string(
+            ResultRegister::Fixed(key_register),
+            key_string_contents,
+            ast,
+        )?;
         self.push_op(
             Op::AccessString,
             &[result_register, value_register, key_register],

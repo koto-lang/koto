@@ -639,6 +639,7 @@ match x % 3, x % 5
 x = "hello"
 match x
   "goodbye" then 1
+  r'byeeee' then 2
   () then 99
   y if y == "O_o" then -1
   y if y == "hello" then
@@ -1920,7 +1921,7 @@ m.baz";
         fn string_keys() {
             let script = r#"
 foo, bar = 42, -1
-m = {foo, bar, 'baz': 99}
+m = {foo, 'bar': bar, r'baz': 99}
 m.baz"#;
             test_script(script, 99);
         }
@@ -2633,6 +2634,48 @@ x = ('foo', 'bar')
 '$x'
 ";
             test_script(script, string("('foo', 'bar')"));
+        }
+    }
+
+    mod raw_strings {
+        use super::*;
+
+        #[test]
+        fn unescaped_backslashes() {
+            let script = r"
+r'\r\n\\\$\'
+";
+            test_script(script, string(r"\r\n\\\$\"));
+        }
+
+        #[test]
+        fn uninterpolated_expressions() {
+            let script = r"
+foo, bar = 42, 99
+r'$foo + $bar == ${foo + bar}'
+";
+            test_script(script, string(r"$foo + $bar == ${foo + bar}"));
+        }
+
+        #[test]
+        fn multiline() {
+            let script = r#"
+r"
+$foo
+\n
+$bar
+"
+"#;
+            test_script(
+                script,
+                string(
+                    r"
+$foo
+\n
+$bar
+",
+                ),
+            );
         }
     }
 

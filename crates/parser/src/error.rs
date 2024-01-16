@@ -22,6 +22,8 @@ pub enum InternalError {
     MissingFrame,
     #[error("Failed to parse number")]
     NumberParseFailure,
+    #[error("Failed to parse raw string")]
+    RawStringParseFailure,
     #[error("Unexpected token")]
     UnexpectedToken,
 }

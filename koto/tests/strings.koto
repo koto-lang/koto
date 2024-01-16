@@ -52,6 +52,12 @@
          baz"
     assert_eq x, "foo bar baz"
 
+  @test raw_strings: ||
+    assert_eq r'\r\n', '\\r\\n'
+    assert_eq r'${1 + 1}', '\${1 + 1}'
+    assert_eq r#''$foo''#, "'\$foo'"
+    assert_eq r##'#${2 * 2}'##, '#\${2 * 2}'
+
   @test bytes: ||
     assert_eq "Hëy".bytes().to_tuple(), (72, 195, 171, 121)
 

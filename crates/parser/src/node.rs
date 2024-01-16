@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, constant_pool::ConstantIndex};
+use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringQuote};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -349,19 +349,35 @@ pub struct Function {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstString {
     /// Indicates if single or double quotation marks were used
-    pub quotation_mark: QuotationMark,
-    /// A series of string nodes
+    pub quote: StringQuote,
+    /// The string's contents
+    pub contents: StringContents,
+}
+
+/// The contents of an [AstString]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StringContents {
+    /// A string literal
+    Literal(ConstantIndex),
+    /// A raw string literal
+    Raw {
+        /// The literal's constant index
+        constant: ConstantIndex,
+        /// The number of hashes associated with the raw string's delimiter
+        hash_count: u8,
+    },
+    /// An interpolated string
     ///
-    /// A string is made up of a series of literals and template expressions,
+    /// An interpolated string is made up of a series of literals and template expressions,
     /// which are then joined together using a string builder.
-    pub nodes: Vec<StringNode>,
+    Interpolated(Vec<StringNode>),
 }
 
 /// A node in a string definition
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StringNode {
     /// A string literal
-    Literal(u32),
+    Literal(ConstantIndex),
     /// An expression that should be evaluated and inserted into the string
     Expr(AstIndex),
 }
@@ -622,14 +638,6 @@ pub enum MapKey {
     ///
     /// Some meta keys require an additional identifier, e.g. @test test_name
     Meta(MetaKeyId, Option<u32>),
-}
-
-/// The type of quotation mark used in a string literal
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub enum QuotationMark {
-    Double,
-    Single,
 }
 
 /// A node in an import item, see [Node::Import]
