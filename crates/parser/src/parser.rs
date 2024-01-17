@@ -733,7 +733,7 @@ impl<'source> Parser<'source> {
                 let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
-                    self.parse_braceless_map_start(
+                    self.consume_braceless_map_start(
                         MapKey::Str(string.string),
                         start_span,
                         &string.context,
@@ -762,7 +762,7 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.parse_braceless_map_start(
+                    self.consume_braceless_map_start(
                         MapKey::Meta(meta_key_id, meta_name),
                         start_span,
                         &meta_context,
@@ -778,10 +778,10 @@ impl<'source> Parser<'source> {
             }
             Token::Wildcard => self.consume_wildcard(context),
             Token::SquareOpen => self.consume_list(context),
-            Token::CurlyOpen => self.parse_map_with_braces(context),
-            Token::If => self.parse_if_expression(context),
-            Token::Match => self.parse_match_expression(context),
-            Token::Switch => self.parse_switch_expression(context),
+            Token::CurlyOpen => self.consume_map_with_braces(context),
+            Token::If => self.consume_if_expression(context),
+            Token::Match => self.consume_match_expression(context),
+            Token::Switch => self.consume_switch_expression(context),
             Token::Function => self.consume_function(context),
             Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
                 Some(token) if token.is_whitespace_including_newline() => return Ok(None),
@@ -828,10 +828,10 @@ impl<'source> Parser<'source> {
                     self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
             }
-            Token::Loop => self.parse_loop_block(context),
-            Token::For => self.parse_for_loop(context),
-            Token::While => self.parse_while_loop(context),
-            Token::Until => self.parse_until_loop(context),
+            Token::Loop => self.consume_loop_block(context),
+            Token::For => self.consume_for_loop(context),
+            Token::While => self.consume_while_loop(context),
+            Token::Until => self.consume_until_loop(context),
             Token::Break => {
                 self.consume_token_with_context(context);
                 let break_value =
@@ -850,9 +850,9 @@ impl<'source> Parser<'source> {
             }
             Token::Throw => self.consume_throw_expression(),
             Token::Debug => self.consume_debug_expression(),
-            Token::From | Token::Import => self.parse_import(context),
+            Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
-            Token::Try => self.parse_try_expression(context),
+            Token::Try => self.consume_try_expression(context),
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
         };
@@ -1205,7 +1205,7 @@ impl<'source> Parser<'source> {
         };
 
         if self.peek_token() == Some(Token::Colon) {
-            self.parse_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
+            self.consume_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1807,7 +1807,7 @@ impl<'source> Parser<'source> {
         Ok((entries, last_token_was_a_comma))
     }
 
-    fn parse_braceless_map_start(
+    fn consume_braceless_map_start(
         &mut self,
         first_key: MapKey,
         start_span: Span,
@@ -1875,7 +1875,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Map(entries), start_span)
     }
 
-    fn parse_map_with_braces(
+    fn consume_map_with_braces(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2053,7 +2053,7 @@ impl<'source> Parser<'source> {
         Ok(Some((meta_key_id, meta_name)))
     }
 
-    fn parse_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::For
 
         let start_span = self.current_span();
@@ -2108,7 +2108,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a loop declared with the `loop` keyword
-    fn parse_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Loop
 
         if let Some(body) = self.parse_indented_block()? {
@@ -2118,7 +2118,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::While
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
@@ -2131,7 +2131,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Until
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
@@ -2144,7 +2144,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_if_expression(
+    fn consume_if_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2254,7 +2254,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_switch_expression(
+    fn consume_switch_expression(
         &mut self,
         switch_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2333,7 +2333,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_span(Node::Switch(arms), switch_span)
     }
 
-    fn parse_match_expression(
+    fn consume_match_expression(
         &mut self,
         match_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2577,21 +2577,19 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    fn parse_import(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        let importing_from = match self.peek_token_with_context(context) {
-            Some(peeked) if peeked.token == Token::Import => false,
-            Some(peeked) if peeked.token == Token::From => true,
+    fn consume_import(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        let importing_from = match self.consume_token_with_context(context) {
+            Some((Token::Import, _)) => false,
+            Some((Token::From, _)) => true,
             _ => return self.error(InternalError::UnexpectedToken),
         };
 
         let start_span = self.current_span();
         let from_context = ExpressionContext::restricted();
 
-        self.consume_token_with_context(&from_context);
-
         let from = if importing_from {
             // Parse the from module path: a nested path is allowed, but only a single path
-            let from = match self.parse_import_items(true, &from_context)?.as_slice() {
+            let from = match self.consume_import_items(true, &from_context)?.as_slice() {
                 [from] => from.clone(),
                 _ => return self.error(SyntaxError::ImportFromExpressionHasTooManyItems),
             };
@@ -2608,7 +2606,7 @@ impl<'source> Parser<'source> {
 
         // Nested items aren't allowed, flatten the returned items into a single vec
         let items: Vec<ImportItemNode> = self
-            .parse_import_items(false, &ExpressionContext::permissive())?
+            .consume_import_items(false, &ExpressionContext::permissive())?
             .into_iter()
             .flatten()
             .collect();
@@ -2631,7 +2629,7 @@ impl<'source> Parser<'source> {
     //   from baz.qux import foo, 'bar', 'x'
     //   #    ^ You are here, with nested items allowed
     //   #                   ^ Or here, with nested items disallowed
-    fn parse_import_items(
+    fn consume_import_items(
         &mut self,
         allow_nested_items: bool,
         context: &ExpressionContext,
@@ -2693,7 +2691,7 @@ impl<'source> Parser<'source> {
         Ok(items)
     }
 
-    fn parse_try_expression(
+    fn consume_try_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
