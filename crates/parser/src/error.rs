@@ -111,6 +111,8 @@ pub enum SyntaxError {
     ExpectedIndexEnd,
     #[error("Expected index expression")]
     ExpectedIndexExpression,
+    #[error("Expected id after 'as'")]
+    ExpectedIdAfterAs,
     #[error("Expected List end ']'")]
     ExpectedListEnd,
     #[error("Expected ':' after map key")]
@@ -135,6 +137,8 @@ pub enum SyntaxError {
     ExpectedMatchPattern,
     #[error("Expected id after @meta")]
     ExpectedMetaId,
+    #[error("Expected a module path after 'from'")]
+    ExpectedPathAfterFrom,
     #[error("Expected a line break before starting a map block")]
     ExpectedLineBreakBeforeMapBlock,
     #[error("Expected '}}' at end of string placeholder")]
@@ -153,8 +157,6 @@ pub enum SyntaxError {
     ExpectedWhileCondition,
     #[error("Non-inline if expression isn't allowed in this context")]
     IfBlockNotAllowedInThisContext,
-    #[error("Too many items listed after 'from' in import expression")]
-    ImportFromExpressionHasTooManyItems,
     #[error("Found an unexpected token while lexing input")]
     LexerError,
     #[error("Ellipsis found outside of nested match patterns")]

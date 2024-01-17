@@ -1199,6 +1199,21 @@ impl<'source> Parser<'source> {
         }
     }
 
+    fn parse_id_or_string(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Option<IdOrString>, ParserError> {
+        let result = match self.parse_id(context)? {
+            Some((id, _)) => Some(IdOrString::Id(id)),
+            None => match self.parse_string(context)? {
+                Some(s) => Some(IdOrString::Str(s.string)),
+                None => None,
+            },
+        };
+
+        Ok(result)
+    }
+
     fn consume_id_expression(
         &mut self,
         context: &ExpressionContext,
@@ -2593,10 +2608,7 @@ impl<'source> Parser<'source> {
 
         let from = if importing_from {
             // Parse the from module path: a nested path is allowed, but only a single path
-            let from = match self.consume_import_items(true, &from_context)?.as_slice() {
-                [from] => from.clone(),
-                _ => return self.error(SyntaxError::ImportFromExpressionHasTooManyItems),
-            };
+            let from = self.consume_from_path(&from_context)?;
 
             match self.consume_token_with_context(&from_context) {
                 Some((Token::Import, _)) => {}
@@ -2609,23 +2621,56 @@ impl<'source> Parser<'source> {
         };
 
         // Nested items aren't allowed, flatten the returned items into a single vec
-        let items: Vec<ImportItemNode> = self
-            .consume_import_items(false, &ExpressionContext::permissive())?
-            .into_iter()
-            .flatten()
-            .collect();
+        let items = self.consume_import_items(&ExpressionContext::permissive())?;
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            match item {
-                ImportItemNode::Id(id) => {
-                    self.frame_mut()?.ids_assigned_in_frame.insert(*id);
-                }
-                ImportItemNode::Str(_) => {}
+            if let (IdOrString::Id(id), None) | (_, Some(id)) = (&item.item, &item.name) {
+                self.frame_mut()?.ids_assigned_in_frame.insert(*id);
             }
         }
 
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
+    }
+
+    fn consume_from_path(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Vec<IdOrString>, ParserError> {
+        let mut path = vec![];
+
+        loop {
+            let item_root = match self.parse_id(context)? {
+                Some((id, _)) => IdOrString::Id(id),
+                None => match self.parse_string(context)? {
+                    Some(s) => IdOrString::Str(s.string),
+                    None => break,
+                },
+            };
+
+            path.push(item_root);
+
+            while self.peek_token() == Some(Token::Dot) {
+                self.consume_token();
+
+                match self.parse_id(&ExpressionContext::restricted())? {
+                    Some((id, _)) => path.push(IdOrString::Id(id)),
+                    None => match self.parse_string(&ExpressionContext::restricted())? {
+                        Some(s) => path.push(IdOrString::Str(s.string)),
+                        None => {
+                            return self
+                                .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
+                        }
+                    },
+                }
+            }
+        }
+
+        if path.is_empty() {
+            self.error(SyntaxError::ExpectedPathAfterFrom)
+        } else {
+            Ok(path)
+        }
     }
 
     // Helper for parse_import(), parses a series of import items
@@ -2635,43 +2680,27 @@ impl<'source> Parser<'source> {
     //   #                   ^ Or here, with nested items disallowed
     fn consume_import_items(
         &mut self,
-        allow_nested_items: bool,
         context: &ExpressionContext,
-    ) -> Result<Vec<Vec<ImportItemNode>>, ParserError> {
+    ) -> Result<Vec<ImportItem>, ParserError> {
         let mut items = vec![];
         let mut context = *context;
 
         loop {
-            let item_root = match self.parse_id(&context)? {
-                Some((id, _)) => ImportItemNode::Id(id),
-                None => match self.parse_string(&context)? {
-                    Some(import_string) => ImportItemNode::Str(import_string.string),
-                    None => break,
-                },
+            let Some(item) = self.parse_id_or_string(&context)? else {
+                break;
             };
-
-            let mut item = vec![item_root];
-
-            if allow_nested_items {
-                while self.peek_token() == Some(Token::Dot) {
-                    self.consume_token();
-
-                    match self.parse_id(&ExpressionContext::restricted())? {
-                        Some((id, _)) => item.push(ImportItemNode::Id(id)),
-                        None => match self.parse_string(&ExpressionContext::restricted())? {
-                            Some(node_string) => {
-                                item.push(ImportItemNode::Str(node_string.string));
-                            }
-                            None => {
-                                return self
-                                    .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
-                            }
-                        },
+            let name = match self.peek_token_with_context(&context) {
+                Some(peeked) if peeked.token == Token::As => {
+                    self.consume_token_with_context(&context);
+                    match self.parse_id(&context)? {
+                        Some((id, _)) => Some(id),
+                        None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }
-            }
+                _ => None,
+            };
 
-            items.push(item);
+            items.push(ImportItem { item, name });
 
             match self.peek_token_with_context(&context) {
                 Some(peeked) if peeked.token == Token::Comma => {
@@ -2689,10 +2718,10 @@ impl<'source> Parser<'source> {
         }
 
         if items.is_empty() {
-            return self.error(SyntaxError::ExpectedIdInImportExpression);
+            self.error(SyntaxError::ExpectedIdInImportExpression)
+        } else {
+            Ok(items)
         }
-
-        Ok(items)
     }
 
     fn consume_try_expression(

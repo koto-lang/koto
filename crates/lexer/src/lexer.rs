@@ -61,6 +61,7 @@ pub enum Token {
     Pipe,
 
     // Keywords
+    As,
     And,
     Break,
     Catch,
@@ -606,6 +607,7 @@ impl<'a> TokenLexer<'a> {
         }
 
         if !matches!(self.previous_token, Some(Token::Dot)) {
+            check_keyword!("as", As);
             check_keyword!("and", And);
             check_keyword!("break", Break);
             check_keyword!("catch", Catch);

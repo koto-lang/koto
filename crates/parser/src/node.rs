@@ -133,15 +133,14 @@ pub enum Node {
 
     /// An import expression
     ///
-    /// Each import item is defined as a series of [ImportItemNode]s,
     /// e.g. `from foo.bar import baz, 'qux'
     Import {
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
-        from: Vec<ImportItemNode>,
+        from: Vec<IdOrString>,
         /// The series of items to import
-        items: Vec<ImportItemNode>,
+        items: Vec<ImportItem>,
     },
 
     /// An export expression
@@ -642,16 +641,29 @@ pub enum MapKey {
 
 /// A node in an import item, see [Node::Import]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ImportItemNode {
-    /// An identifier node
-    ///
-    /// e.g. import foo.bar
-    ///                 ^ Id(bar)
-    ///             ^ Id(foo)
-    Id(u32),
-    /// A string node
-    ///
-    /// e.g. import "foo/bar"
-    ///             ^ Str("foo/bar")
+pub struct ImportItem {
+    /// The imported item
+    pub item: IdOrString,
+    /// An optional 'as' name for the imported item
+    pub name: Option<ConstantIndex>,
+}
+
+/// Either an Id or a String
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub enum IdOrString {
+    Id(ConstantIndex),
     Str(AstString),
+}
+
+impl From<ConstantIndex> for IdOrString {
+    fn from(id: ConstantIndex) -> Self {
+        Self::Id(id)
+    }
+}
+
+impl From<AstString> for IdOrString {
+    fn from(s: AstString) -> Self {
+        Self::Str(s)
+    }
 }
