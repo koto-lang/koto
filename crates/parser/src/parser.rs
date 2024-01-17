@@ -6,7 +6,11 @@ use crate::{
     *,
 };
 use koto_lexer::{LexedToken, Lexer, Span, Token};
-use std::{collections::HashSet, str::FromStr};
+use std::{
+    collections::HashSet,
+    iter::Peekable,
+    str::{Chars, FromStr},
+};
 
 // Contains info about the current frame, representing either the module's top level or a function
 #[derive(Debug, Default)]
@@ -2780,93 +2784,20 @@ impl<'source> Parser<'source> {
                 StringLiteral => {
                     let string_literal = self.current_token.slice(self.source);
 
-                    let mut literal = String::with_capacity(string_literal.len());
+                    let mut contents = String::with_capacity(string_literal.len());
                     let mut chars = string_literal.chars().peekable();
 
                     while let Some(c) = chars.next() {
-                        match c {
-                            '\\' => match chars.next() {
-                                Some('\n' | '\r') => {
-                                    while let Some(c) = chars.peek() {
-                                        if c.is_whitespace() {
-                                            chars.next();
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                }
-                                Some('\\') => literal.push('\\'),
-                                Some('\'') => literal.push('\''),
-                                Some('$') => literal.push('$'),
-                                Some('"') => literal.push('"'),
-                                Some('n') => literal.push('\n'),
-                                Some('r') => literal.push('\r'),
-                                Some('t') => literal.push('\t'),
-                                Some('x') => match chars.next() {
-                                    Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
-                                        Some(c2) if c2.is_ascii_hexdigit() => {
-                                            // is_ascii_hexdigit already checked
-                                            let d1 = c1.to_digit(16).unwrap();
-                                            let d2 = c2.to_digit(16).unwrap();
-                                            let d = d1 * 16 + d2;
-                                            if d <= 0x7f {
-                                                literal.push(char::from_u32(d).unwrap());
-                                            } else {
-                                                return self.error(AsciiEscapeCodeOutOfRange);
-                                            }
-                                        }
-                                        Some(_) => {
-                                            return self.error(UnexpectedCharInNumericEscapeCode)
-                                        }
-                                        None => return self.error(UnterminatedNumericEscapeCode),
-                                    },
-                                    Some(_) => {
-                                        return self.error(UnexpectedCharInNumericEscapeCode)
-                                    }
-                                    None => return self.error(UnterminatedNumericEscapeCode),
-                                },
-                                Some('u') => match chars.next() {
-                                    Some('{') => {
-                                        let mut code = 0;
-
-                                        while let Some(c) = chars.peek().cloned() {
-                                            if c.is_ascii_hexdigit() {
-                                                chars.next();
-                                                code *= 16;
-                                                code += c.to_digit(16).unwrap();
-                                            } else {
-                                                break;
-                                            }
-                                        }
-
-                                        match chars.next() {
-                                            Some('}') => match char::from_u32(code) {
-                                                Some(c) => literal.push(c),
-                                                None => {
-                                                    return self.error(UnicodeEscapeCodeOutOfRange);
-                                                }
-                                            },
-                                            Some(_) => {
-                                                return self
-                                                    .error(UnexpectedCharInNumericEscapeCode);
-                                            }
-                                            None => {
-                                                return self.error(UnterminatedNumericEscapeCode)
-                                            }
-                                        }
-                                    }
-                                    Some(_) => {
-                                        return self.error(UnexpectedCharInNumericEscapeCode)
-                                    }
-                                    None => return self.error(UnterminatedNumericEscapeCode),
-                                },
-                                _ => return self.error(UnexpectedEscapeInString),
-                            },
-                            _ => literal.push(c),
+                        if c == '\\' {
+                            if let Some(escaped) = self.escape_string_character(&mut chars)? {
+                                contents.push(escaped);
+                            }
+                        } else {
+                            contents.push(c);
                         }
                     }
 
-                    nodes.push(StringNode::Literal(self.add_string_constant(&literal)?));
+                    nodes.push(StringNode::Literal(self.add_string_constant(&contents)?));
                 }
                 Dollar => match self.peek_token() {
                     Some(Id) => {
@@ -2914,6 +2845,93 @@ impl<'source> Parser<'source> {
         }
 
         self.error(UnterminatedString)
+    }
+
+    fn escape_string_character(
+        &mut self,
+        chars: &mut Peekable<Chars>,
+    ) -> Result<Option<char>, ParserError> {
+        use SyntaxError::*;
+
+        let Some(next) = chars.next() else {
+            return self.error(UnexpectedEscapeInString);
+        };
+
+        let result = match next {
+            '\\' | '\'' | '"' | '$' => Ok(next),
+            'n' => Ok('\n'),
+            'r' => Ok('\r'),
+            't' => Ok('\t'),
+            '\r' | '\n' => {
+                if next == '\r' {
+                    // Skip \n if it follows \r
+                    if let Some(&'\n') = chars.peek() {
+                        chars.next();
+                    } else {
+                        return Ok(None);
+                    }
+                }
+
+                // Skip any whitespace at the start of the line
+                while let Some(c) = chars.peek() {
+                    if c.is_whitespace() && *c != '\n' {
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                return Ok(None);
+            }
+            'x' => match chars.next() {
+                Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
+                    Some(c2) if c2.is_ascii_hexdigit() => {
+                        // is_ascii_hexdigit already checked
+                        let d1 = c1.to_digit(16).unwrap();
+                        let d2 = c2.to_digit(16).unwrap();
+                        let d = d1 * 16 + d2;
+                        if d <= 0x7f {
+                            Ok(char::from_u32(d).unwrap())
+                        } else {
+                            self.error(AsciiEscapeCodeOutOfRange)
+                        }
+                    }
+                    Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                    None => self.error(UnterminatedNumericEscapeCode),
+                },
+                Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                None => self.error(UnterminatedNumericEscapeCode),
+            },
+            'u' => match chars.next() {
+                Some('{') => {
+                    let mut code = 0;
+
+                    while let Some(c) = chars.peek().cloned() {
+                        if c.is_ascii_hexdigit() {
+                            chars.next();
+                            code *= 16;
+                            code += c.to_digit(16).unwrap();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    match chars.next() {
+                        Some('}') => match char::from_u32(code) {
+                            Some(c) => Ok(c),
+                            None => self.error(UnicodeEscapeCodeOutOfRange),
+                        },
+                        Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                        None => self.error(UnterminatedNumericEscapeCode),
+                    }
+                }
+                Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                None => self.error(UnterminatedNumericEscapeCode),
+            },
+            _ => self.error(UnexpectedEscapeInString),
+        };
+
+        result.map(Some)
     }
 
     fn consume_raw_string(
