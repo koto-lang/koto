@@ -20,7 +20,7 @@ pub use self::{
     list::{KList, ValueVec},
     map::{KMap, KotoHasher, ValueMap},
     meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
-    native_function::{CallContext, KNativeFunction},
+    native_function::{CallContext, KNativeFunction, KotoFunction},
     number::KNumber,
     object::{IsIterable, KObject, KotoCopy, KotoLookup, KotoObject, KotoType, MethodContext},
     range::KRange,

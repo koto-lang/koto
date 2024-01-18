@@ -10,18 +10,20 @@ mod vm;
 
 pub mod core_lib;
 pub mod prelude;
+mod send_sync;
 
 pub use crate::{
     display_context::DisplayContext,
     error::{type_error, type_error_with_slice, Error, Result},
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
+    send_sync::{KotoSend, KotoSync},
     types::{
         BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
         KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoCopy,
-        KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
+        KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
         MethodContext, UnaryOp, Value, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };
 pub use koto_derive as derive;
-pub use koto_memory::{Borrow, BorrowMut, Ptr, PtrMut};
+pub use koto_memory::{make_ptr, make_ptr_mut, Borrow, BorrowMut, KCell, Ptr, PtrMut};

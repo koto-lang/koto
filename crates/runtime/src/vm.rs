@@ -9,12 +9,10 @@ use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
 use rustc_hash::FxHasher;
 use std::{
-    cell::RefCell,
     collections::HashMap,
     fmt,
     hash::BuildHasherDefault,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 macro_rules! call_binary_op_or_else {
@@ -51,9 +49,9 @@ struct VmContext {
     // The runtime's core library
     core_lib: CoreLib,
     // The module loader used to compile imported modules
-    loader: RefCell<Loader>,
+    loader: KCell<Loader>,
     // The cached export maps of imported modules
-    imported_modules: RefCell<ModuleCache>,
+    imported_modules: KCell<ModuleCache>,
 }
 
 impl Default for VmContext {
@@ -70,17 +68,17 @@ impl VmContext {
             settings,
             prelude: core_lib.prelude(),
             core_lib,
-            loader: RefCell::new(Loader::default()),
-            imported_modules: RefCell::new(ModuleCache::default()),
+            loader: Loader::default().into(),
+            imported_modules: ModuleCache::default().into(),
         }
     }
 }
 
 /// The trait used by the 'module imported' callback mechanism
-pub trait ModuleImportedCallback: Fn(&Path) {}
+pub trait ModuleImportedCallback: Fn(&Path) + KotoSend + KotoSync {}
 
 // Implement the trait for any matching function
-impl<T> ModuleImportedCallback for T where T: Fn(&Path) {}
+impl<T> ModuleImportedCallback for T where T: Fn(&Path) + KotoSend + KotoSync {}
 
 /// The configurable settings that should be used by the Koto runtime
 pub struct VmSettings {
@@ -92,11 +90,11 @@ pub struct VmSettings {
     /// reload the script when one of its dependencies has changed.
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
     /// The runtime's stdin
-    pub stdin: Rc<dyn KotoFile>,
+    pub stdin: Ptr<dyn KotoFile>,
     /// The runtime's stdout
-    pub stdout: Rc<dyn KotoFile>,
+    pub stdout: Ptr<dyn KotoFile>,
     /// The runtime's stderr
-    pub stderr: Rc<dyn KotoFile>,
+    pub stderr: Ptr<dyn KotoFile>,
 }
 
 impl Default for VmSettings {
@@ -104,9 +102,9 @@ impl Default for VmSettings {
         Self {
             run_import_tests: true,
             module_imported_callback: None,
-            stdin: Rc::new(DefaultStdin::default()),
-            stdout: Rc::new(DefaultStdout::default()),
-            stderr: Rc::new(DefaultStderr::default()),
+            stdin: make_ptr!(DefaultStdin::default()),
+            stdout: make_ptr!(DefaultStdout::default()),
+            stderr: make_ptr!(DefaultStderr::default()),
         }
     }
 }
@@ -117,7 +115,7 @@ pub struct Vm {
     // The exports map for the current module
     exports: KMap,
     // Context shared by all VMs in the runtime
-    context: Rc<VmContext>,
+    context: Ptr<VmContext>,
     // The VM's instruction reader, containing a pointer to the bytecode chunk that's being executed
     reader: InstructionReader,
     // The VM's register stack
@@ -143,7 +141,7 @@ impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             exports: KMap::default(),
-            context: Rc::new(VmContext::with_settings(settings)),
+            context: VmContext::with_settings(settings).into(),
             reader: InstructionReader::default(),
             registers: Vec::with_capacity(32),
             call_stack: Vec::new(),
@@ -174,7 +172,7 @@ impl Vm {
     }
 
     /// The loader, responsible for loading and compiling Koto scripts and modules
-    pub fn loader(&self) -> &RefCell<Loader> {
+    pub fn loader(&self) -> &KCell<Loader> {
         &self.context.loader
     }
 
@@ -192,17 +190,17 @@ impl Vm {
     }
 
     /// The stdin wrapper used by the VM
-    pub fn stdin(&self) -> &Rc<dyn KotoFile> {
+    pub fn stdin(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stdin
     }
 
     /// The stdout wrapper used by the VM
-    pub fn stdout(&self) -> &Rc<dyn KotoFile> {
+    pub fn stdout(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stdout
     }
 
     /// The stderr wrapper used by the VM
-    pub fn stderr(&self) -> &Rc<dyn KotoFile> {
+    pub fn stderr(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stderr
     }
 
@@ -1274,10 +1272,13 @@ impl Vm {
                     // Initialize the function's captures with Null
                     let mut captures = ValueVec::new();
                     captures.resize(capture_count as usize, Null);
-                    CaptureFunction(Ptr::new(KCaptureFunction {
-                        info,
-                        captures: KList::with_data(captures),
-                    }))
+                    CaptureFunction(
+                        KCaptureFunction {
+                            info,
+                            captures: KList::with_data(captures),
+                        }
+                        .into(),
+                    )
                 } else {
                     Function(info)
                 };
@@ -2442,10 +2443,7 @@ impl Vm {
         );
 
         let result = match callable {
-            ExternalCallable::Function(f) => {
-                let function = f.function.as_ref();
-                (*function)(&mut call_context)
-            }
+            ExternalCallable::Function(f) => (f.function)(&mut call_context),
             ExternalCallable::Object(o) => o.try_borrow_mut()?.call(&mut call_context),
         }?;
 

@@ -3,7 +3,6 @@ mod runtime_test_utils;
 use crate::runtime_test_utils::TestStdout;
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
 use koto_runtime::prelude::*;
-use std::rc::Rc;
 
 mod vm {
     use super::*;
@@ -12,10 +11,10 @@ mod vm {
         let output = PtrMut::from(String::new());
 
         let mut vm = Vm::with_settings(VmSettings {
-            stdout: Rc::new(TestStdout {
+            stdout: make_ptr!(TestStdout {
                 output: output.clone(),
             }),
-            stderr: Rc::new(TestStdout {
+            stderr: make_ptr!(TestStdout {
                 output: output.clone(),
             }),
             ..Default::default()

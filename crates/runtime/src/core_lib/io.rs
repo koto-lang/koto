@@ -3,11 +3,9 @@
 use super::string::format;
 use crate::{derive::*, prelude::*, BufferedFile, Error, MethodContext, Result};
 use std::{
-    cell::RefCell,
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 /// The initializer for the io module
@@ -155,16 +153,16 @@ pub fn make_module() -> KMap {
 
 /// The File type used in the io module
 #[derive(Clone, KotoCopy, KotoType)]
-pub struct File(Rc<dyn KotoFile>);
+pub struct File(Ptr<dyn KotoFile>);
 
 #[koto_impl(runtime = crate)]
 impl File {
     /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
     pub fn system_file<T>(file: T, path: PathBuf) -> Value
     where
-        T: Read + Write + Seek + 'static,
+        T: Read + Write + Seek + KotoSend + KotoSync + 'static,
     {
-        Self(Rc::new(BufferedSystemFile::new(file, path))).into()
+        Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
     fn stderr(vm: &Vm) -> Value {
@@ -270,19 +268,19 @@ impl From<File> for Value {
 
 struct BufferedSystemFile<T>
 where
-    T: Write,
+    T: Write + KotoSend + KotoSync,
 {
-    file: RefCell<BufferedFile<T>>,
+    file: KCell<BufferedFile<T>>,
     path: PathBuf,
 }
 
 impl<T> BufferedSystemFile<T>
 where
-    T: Read + Write + Seek,
+    T: Read + Write + Seek + KotoSend + KotoSync,
 {
     pub fn new(file: T, path: PathBuf) -> Self {
         Self {
-            file: RefCell::new(BufferedFile::new(file)),
+            file: BufferedFile::new(file).into(),
             path,
         }
     }
@@ -290,7 +288,7 @@ where
 
 impl<T> KotoFile for BufferedSystemFile<T>
 where
-    T: Read + Write + Seek,
+    T: Read + Write + Seek + KotoSend + KotoSync,
 {
     fn id(&self) -> KString {
         self.path.to_string_lossy().to_string().into()
@@ -311,7 +309,7 @@ where
 
 impl<T> KotoRead for BufferedSystemFile<T>
 where
-    T: Read + Write,
+    T: Read + Write + KotoSend + KotoSync,
 {
     fn read_line(&self) -> Result<Option<String>> {
         let mut buffer = String::new();
@@ -338,7 +336,7 @@ where
 
 impl<T> KotoWrite for BufferedSystemFile<T>
 where
-    T: Read + Write,
+    T: Read + Write + KotoSend + KotoSync,
 {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         self.file.borrow_mut().write(bytes).map_err(map_io_err)?;
@@ -359,7 +357,7 @@ where
 
 impl<T> fmt::Display for BufferedSystemFile<T>
 where
-    T: Write,
+    T: Write + KotoSend + KotoSync,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.path.to_string_lossy())
@@ -368,7 +366,7 @@ where
 
 impl<T> fmt::Debug for BufferedSystemFile<T>
 where
-    T: Write,
+    T: Write + KotoSend + KotoSync,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.to_string())

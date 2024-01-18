@@ -36,6 +36,13 @@ The Koto project adheres to
 - Objects can be compared with `null` on the LHS without having to implement 
   `KotoObject::equal` and/or `not_equal`.
 
+#### Internals
+
+- The Koto runtime is now thread-safe by default, with the previous
+  single-threaded behaviour available via the `rc` feature.
+  - The `rc` variant has slightly better performance at the cost of thread
+    safety.
+
 #### REPL
 
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.

@@ -1,12 +1,12 @@
 use indexmap::IndexMap;
 use rand::{seq::SliceRandom, thread_rng, Rng};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A basic Markov chain,
 #[derive(Clone, Debug, Default)]
 pub struct Poetry {
-    links: IndexMap<Rc<str>, Vec<Rc<str>>>,
-    previous: Option<Rc<str>>,
+    links: IndexMap<Arc<str>, Vec<Arc<str>>>,
+    previous: Option<Arc<str>>,
 }
 
 impl Poetry {
@@ -15,11 +15,11 @@ impl Poetry {
             source.split(|c: char| c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']'));
 
         if let Some(first) = words.next() {
-            let mut previous: Rc<str> = first.into();
+            let mut previous: Arc<str> = first.into();
 
             for word in words {
                 if word.chars().any(char::is_alphabetic) {
-                    let word: Rc<str> = word.into();
+                    let word: Arc<str> = word.into();
                     self.links
                         .entry(previous.clone())
                         .or_default()
@@ -30,7 +30,7 @@ impl Poetry {
         }
     }
 
-    pub fn next_word(&mut self) -> Option<Rc<str>> {
+    pub fn next_word(&mut self) -> Option<Arc<str>> {
         let result = self
             .previous
             .as_ref()

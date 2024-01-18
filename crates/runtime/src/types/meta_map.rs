@@ -23,11 +23,7 @@ impl MetaMap {
     }
 
     /// Adds a function to the meta map
-    pub fn add_fn(
-        &mut self,
-        key: MetaKey,
-        f: impl Fn(&mut CallContext) -> Result<Value> + 'static,
-    ) {
+    pub fn add_fn(&mut self, key: MetaKey, f: impl KotoFunction) {
         self.0
             .insert(key, Value::NativeFunction(KNativeFunction::new(f)));
     }

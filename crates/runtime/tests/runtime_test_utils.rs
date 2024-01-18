@@ -8,10 +8,10 @@ pub fn test_script(script: &str, expected_output: impl Into<Value>) {
     let output = PtrMut::from(String::new());
 
     let vm = Vm::with_settings(VmSettings {
-        stdout: Rc::new(TestStdout {
+        stdout: make_ptr!(TestStdout {
             output: output.clone(),
         }),
-        stderr: Rc::new(TestStdout {
+        stderr: make_ptr!(TestStdout {
             output: output.clone(),
         }),
         ..Default::default()

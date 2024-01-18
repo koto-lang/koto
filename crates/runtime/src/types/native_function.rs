@@ -2,8 +2,18 @@ use crate::{prelude::*, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
-    rc::Rc,
 };
+
+/// A trait for native functions used by the Koto runtime
+pub trait KotoFunction:
+    Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+{
+}
+
+impl<T> KotoFunction for T where
+    T: Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+{
+}
 
 /// An function that's defined outside of the Koto runtime
 ///
@@ -15,14 +25,14 @@ pub struct KNativeFunction {
     // The type signature can't be simplified without stabilized trait aliases,
     // see https://github.com/rust-lang/rust/issues/55628
     #[allow(clippy::type_complexity)]
-    pub function: Rc<dyn Fn(&mut CallContext) -> Result<Value> + 'static>,
+    pub function: Ptr<dyn KotoFunction>,
 }
 
 impl KNativeFunction {
     /// Creates a new external function
-    pub fn new(function: impl Fn(&mut CallContext) -> Result<Value> + 'static) -> Self {
+    pub fn new(function: impl KotoFunction) -> Self {
         Self {
-            function: Rc::new(function),
+            function: make_ptr!(function),
         }
     }
 }
@@ -37,14 +47,13 @@ impl Clone for KNativeFunction {
 
 impl fmt::Debug for KNativeFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.function.clone());
-        write!(f, "external function: {raw:?}",)
+        write!(f, "external function: {:?}", Ptr::address(&self.function))
     }
 }
 
 impl Hash for KNativeFunction {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(Rc::as_ptr(&self.function) as *const () as usize);
+        Ptr::address(&self.function).hash(state)
     }
 }
 

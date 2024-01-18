@@ -10,12 +10,14 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [features]
-default = []
+default = ["arc"]
+arc = ["koto_bytecode/arc", "koto_runtime/arc", "koto_parser/arc"]
+rc = ["koto_bytecode/rc", "koto_runtime/rc", "koto_parser/rc"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.13.0" }
-koto_parser = { path = "../parser", version = "^0.13.0" }
-koto_runtime = { path = "../runtime", version = "^0.13.0" }
+koto_bytecode = { path = "../bytecode", version = "^0.13.0", default-features = false }
+koto_parser = { path = "../parser", version = "^0.13.0", default-features = false }
+koto_runtime = { path = "../runtime", version = "^0.13.0", default-features = false }
 
 dunce = { workspace = true }
 thiserror = { workspace = true }

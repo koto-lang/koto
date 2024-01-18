@@ -1,7 +1,7 @@
 mod koto_bindings;
 mod poetry;
 
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, Context, Result};
 use hotwatch::{
     blocking::{Flow, Hotwatch},
     Event,
@@ -126,15 +126,7 @@ fn main() -> Result<()> {
 fn compile_and_run(koto: &mut Koto, script_path: &Path) -> Result<()> {
     let script = fs::read_to_string(script_path)?;
     koto.compile(&script)
-        .map_err(koto_error_to_anyhow)
         .context("Error while compiling script")?;
-    koto.run()
-        .map_err(koto_error_to_anyhow)
-        .context("Error while running script")?;
+    koto.run().context("Error while running script")?;
     Ok(())
-}
-
-fn koto_error_to_anyhow(e: koto::Error) -> anyhow::Error {
-    // koto::Error doesn't implement Send, which anyhow requires, so render the error to a String
-    Error::msg(e.to_string())
 }

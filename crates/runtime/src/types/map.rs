@@ -106,7 +106,7 @@ impl KMap {
 
     /// Provides a reference to the KMap's meta map
     ///
-    /// This is returned as a reference to the meta map's Rc to allow for cloning.
+    /// This is returned as a reference to the meta map's PtrMut to allow for cloning.
     pub fn meta_map(&self) -> Option<&PtrMut<MetaMap>> {
         self.meta.as_ref()
     }
@@ -144,7 +144,7 @@ impl KMap {
     }
 
     /// Adds a function to the KMap's data map
-    pub fn add_fn(&self, id: &str, f: impl Fn(&mut CallContext) -> Result<Value> + 'static) {
+    pub fn add_fn(&self, id: &str, f: impl KotoFunction) {
         self.add_value(id, Value::NativeFunction(KNativeFunction::new(f)));
     }
 
