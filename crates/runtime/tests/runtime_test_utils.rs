@@ -31,7 +31,7 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
     let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {
-            print_chunk(script, vm.chunk());
+            println!("{script}\n");
             return Err(format!("Error while compiling script: {error}").into());
         }
     };

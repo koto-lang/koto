@@ -375,6 +375,11 @@ switch
             fn from_after_import() {
                 check_parsing_fails("import foo from bar");
             }
+
+            #[test]
+            fn missing_id_after_as() {
+                check_parsing_fails("from foo import bar as");
+            }
         }
     }
 }

@@ -26,6 +26,10 @@ import test_module
     assert_eq test_module.foo, 42
     assert_eq (test_module.square 9), 81
 
+  @test import_as: ||
+    from test_module import bar as x
+    assert_eq x, -1
+
   @test assign_import_item: ||
     x = from test_module import bar
     assert_eq x, -1
@@ -48,12 +52,12 @@ import test_module
   @test import_multiple_items_with_from_using_string: ||
     module_name = "test_module"
     bar = "bar"
-    x, y = from "$module_name" import "foo", "$bar"
+    from "$module_name" import "foo" as x, "$bar" as y
     assert_eq x, 42
     assert_eq y, -1
 
   @test import_from_path: ||
-    baz = import "test_module/baz"
+    import "test_module/baz" as baz
     assert_eq baz.qux, "O_o"
 
   @test tests_should_be_run_when_importing_a_module: ||

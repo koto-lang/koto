@@ -31,11 +31,11 @@ print! size x
 check! 3
 ```
 
-Imported items can be assigned to alternative names.
+Imported items can be given alternative names using `as`.
 
 ```koto
-list_size = from list import size
-tuple_size = from tuple import size
+from list import size as list_size
+from tuple import size as tuple_size
 print! list_size [1, 2]
 check! 2
 print! tuple_size (3, 2, 1)

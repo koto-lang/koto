@@ -3234,7 +3234,7 @@ dog('Fido').speak()
         fn import_after_local_assignment() {
             let script = "
 x = 123
-y = from test import assert
+y = from number import pi
 x";
             test_script(script, 123);
         }
@@ -3245,6 +3245,38 @@ x";
 x = 0
 pi = number.pi
 pi != x and pi == pi";
+            test_script(script, true);
+        }
+
+        #[test]
+        fn import_as_single_item() {
+            let script = "
+import number as num
+num.abs -42";
+            test_script(script, 42);
+        }
+
+        #[test]
+        fn import_as_with_string_item() {
+            let script = "
+import 'number' as num
+num.abs -42";
+            test_script(script, 42);
+        }
+
+        #[test]
+        fn from_import_as_single_item() {
+            let script = "
+from number import pi as 𝜋
+number.pi == 𝜋";
+            test_script(script, true);
+        }
+
+        #[test]
+        fn from_import_as_with_string_item() {
+            let script = "
+from number import 'pi' as 𝜋
+number.pi == 𝜋";
             test_script(script, true);
         }
     }

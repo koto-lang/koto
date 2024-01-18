@@ -6,7 +6,11 @@ use crate::{
     *,
 };
 use koto_lexer::{LexedToken, Lexer, Span, Token};
-use std::{collections::HashSet, str::FromStr};
+use std::{
+    collections::HashSet,
+    iter::Peekable,
+    str::{Chars, FromStr},
+};
 
 // Contains info about the current frame, representing either the module's top level or a function
 #[derive(Debug, Default)]
@@ -733,7 +737,7 @@ impl<'source> Parser<'source> {
                 let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
-                    self.parse_braceless_map_start(
+                    self.consume_braceless_map_start(
                         MapKey::Str(string.string),
                         start_span,
                         &string.context,
@@ -762,7 +766,7 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.parse_braceless_map_start(
+                    self.consume_braceless_map_start(
                         MapKey::Meta(meta_key_id, meta_name),
                         start_span,
                         &meta_context,
@@ -778,10 +782,10 @@ impl<'source> Parser<'source> {
             }
             Token::Wildcard => self.consume_wildcard(context),
             Token::SquareOpen => self.consume_list(context),
-            Token::CurlyOpen => self.parse_map_with_braces(context),
-            Token::If => self.parse_if_expression(context),
-            Token::Match => self.parse_match_expression(context),
-            Token::Switch => self.parse_switch_expression(context),
+            Token::CurlyOpen => self.consume_map_with_braces(context),
+            Token::If => self.consume_if_expression(context),
+            Token::Match => self.consume_match_expression(context),
+            Token::Switch => self.consume_switch_expression(context),
             Token::Function => self.consume_function(context),
             Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
                 Some(token) if token.is_whitespace_including_newline() => return Ok(None),
@@ -828,10 +832,10 @@ impl<'source> Parser<'source> {
                     self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
             }
-            Token::Loop => self.parse_loop_block(context),
-            Token::For => self.parse_for_loop(context),
-            Token::While => self.parse_while_loop(context),
-            Token::Until => self.parse_until_loop(context),
+            Token::Loop => self.consume_loop_block(context),
+            Token::For => self.consume_for_loop(context),
+            Token::While => self.consume_while_loop(context),
+            Token::Until => self.consume_until_loop(context),
             Token::Break => {
                 self.consume_token_with_context(context);
                 let break_value =
@@ -850,9 +854,9 @@ impl<'source> Parser<'source> {
             }
             Token::Throw => self.consume_throw_expression(),
             Token::Debug => self.consume_debug_expression(),
-            Token::From | Token::Import => self.parse_import(context),
+            Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
-            Token::Try => self.parse_try_expression(context),
+            Token::Try => self.consume_try_expression(context),
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
         };
@@ -1195,6 +1199,21 @@ impl<'source> Parser<'source> {
         }
     }
 
+    fn parse_id_or_string(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Option<IdOrString>, ParserError> {
+        let result = match self.parse_id(context)? {
+            Some((id, _)) => Some(IdOrString::Id(id)),
+            None => match self.parse_string(context)? {
+                Some(s) => Some(IdOrString::Str(s.string)),
+                None => None,
+            },
+        };
+
+        Ok(result)
+    }
+
     fn consume_id_expression(
         &mut self,
         context: &ExpressionContext,
@@ -1205,7 +1224,7 @@ impl<'source> Parser<'source> {
         };
 
         if self.peek_token() == Some(Token::Colon) {
-            self.parse_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
+            self.consume_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1807,7 +1826,7 @@ impl<'source> Parser<'source> {
         Ok((entries, last_token_was_a_comma))
     }
 
-    fn parse_braceless_map_start(
+    fn consume_braceless_map_start(
         &mut self,
         first_key: MapKey,
         start_span: Span,
@@ -1875,7 +1894,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Map(entries), start_span)
     }
 
-    fn parse_map_with_braces(
+    fn consume_map_with_braces(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2053,7 +2072,7 @@ impl<'source> Parser<'source> {
         Ok(Some((meta_key_id, meta_name)))
     }
 
-    fn parse_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::For
 
         let start_span = self.current_span();
@@ -2108,7 +2127,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a loop declared with the `loop` keyword
-    fn parse_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Loop
 
         if let Some(body) = self.parse_indented_block()? {
@@ -2118,7 +2137,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::While
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
@@ -2131,7 +2150,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn consume_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::Until
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
@@ -2144,7 +2163,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_if_expression(
+    fn consume_if_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2254,7 +2273,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_switch_expression(
+    fn consume_switch_expression(
         &mut self,
         switch_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2333,7 +2352,7 @@ impl<'source> Parser<'source> {
         self.push_node_with_span(Node::Switch(arms), switch_span)
     }
 
-    fn parse_match_expression(
+    fn consume_match_expression(
         &mut self,
         match_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2577,24 +2596,19 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    fn parse_import(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        let importing_from = match self.peek_token_with_context(context) {
-            Some(peeked) if peeked.token == Token::Import => false,
-            Some(peeked) if peeked.token == Token::From => true,
+    fn consume_import(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        let importing_from = match self.consume_token_with_context(context) {
+            Some((Token::Import, _)) => false,
+            Some((Token::From, _)) => true,
             _ => return self.error(InternalError::UnexpectedToken),
         };
 
         let start_span = self.current_span();
         let from_context = ExpressionContext::restricted();
 
-        self.consume_token_with_context(&from_context);
-
         let from = if importing_from {
             // Parse the from module path: a nested path is allowed, but only a single path
-            let from = match self.parse_import_items(true, &from_context)?.as_slice() {
-                [from] => from.clone(),
-                _ => return self.error(SyntaxError::ImportFromExpressionHasTooManyItems),
-            };
+            let from = self.consume_from_path(&from_context)?;
 
             match self.consume_token_with_context(&from_context) {
                 Some((Token::Import, _)) => {}
@@ -2607,23 +2621,56 @@ impl<'source> Parser<'source> {
         };
 
         // Nested items aren't allowed, flatten the returned items into a single vec
-        let items: Vec<ImportItemNode> = self
-            .parse_import_items(false, &ExpressionContext::permissive())?
-            .into_iter()
-            .flatten()
-            .collect();
+        let items = self.consume_import_items(&ExpressionContext::permissive())?;
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            match item {
-                ImportItemNode::Id(id) => {
-                    self.frame_mut()?.ids_assigned_in_frame.insert(*id);
-                }
-                ImportItemNode::Str(_) => {}
+            if let (IdOrString::Id(id), None) | (_, Some(id)) = (&item.item, &item.name) {
+                self.frame_mut()?.ids_assigned_in_frame.insert(*id);
             }
         }
 
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
+    }
+
+    fn consume_from_path(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Vec<IdOrString>, ParserError> {
+        let mut path = vec![];
+
+        loop {
+            let item_root = match self.parse_id(context)? {
+                Some((id, _)) => IdOrString::Id(id),
+                None => match self.parse_string(context)? {
+                    Some(s) => IdOrString::Str(s.string),
+                    None => break,
+                },
+            };
+
+            path.push(item_root);
+
+            while self.peek_token() == Some(Token::Dot) {
+                self.consume_token();
+
+                match self.parse_id(&ExpressionContext::restricted())? {
+                    Some((id, _)) => path.push(IdOrString::Id(id)),
+                    None => match self.parse_string(&ExpressionContext::restricted())? {
+                        Some(s) => path.push(IdOrString::Str(s.string)),
+                        None => {
+                            return self
+                                .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
+                        }
+                    },
+                }
+            }
+        }
+
+        if path.is_empty() {
+            self.error(SyntaxError::ExpectedPathAfterFrom)
+        } else {
+            Ok(path)
+        }
     }
 
     // Helper for parse_import(), parses a series of import items
@@ -2631,45 +2678,29 @@ impl<'source> Parser<'source> {
     //   from baz.qux import foo, 'bar', 'x'
     //   #    ^ You are here, with nested items allowed
     //   #                   ^ Or here, with nested items disallowed
-    fn parse_import_items(
+    fn consume_import_items(
         &mut self,
-        allow_nested_items: bool,
         context: &ExpressionContext,
-    ) -> Result<Vec<Vec<ImportItemNode>>, ParserError> {
+    ) -> Result<Vec<ImportItem>, ParserError> {
         let mut items = vec![];
         let mut context = *context;
 
         loop {
-            let item_root = match self.parse_id(&context)? {
-                Some((id, _)) => ImportItemNode::Id(id),
-                None => match self.parse_string(&context)? {
-                    Some(import_string) => ImportItemNode::Str(import_string.string),
-                    None => break,
-                },
+            let Some(item) = self.parse_id_or_string(&context)? else {
+                break;
             };
-
-            let mut item = vec![item_root];
-
-            if allow_nested_items {
-                while self.peek_token() == Some(Token::Dot) {
-                    self.consume_token();
-
-                    match self.parse_id(&ExpressionContext::restricted())? {
-                        Some((id, _)) => item.push(ImportItemNode::Id(id)),
-                        None => match self.parse_string(&ExpressionContext::restricted())? {
-                            Some(node_string) => {
-                                item.push(ImportItemNode::Str(node_string.string));
-                            }
-                            None => {
-                                return self
-                                    .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
-                            }
-                        },
+            let name = match self.peek_token_with_context(&context) {
+                Some(peeked) if peeked.token == Token::As => {
+                    self.consume_token_with_context(&context);
+                    match self.parse_id(&context)? {
+                        Some((id, _)) => Some(id),
+                        None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }
-            }
+                _ => None,
+            };
 
-            items.push(item);
+            items.push(ImportItem { item, name });
 
             match self.peek_token_with_context(&context) {
                 Some(peeked) if peeked.token == Token::Comma => {
@@ -2687,13 +2718,13 @@ impl<'source> Parser<'source> {
         }
 
         if items.is_empty() {
-            return self.error(SyntaxError::ExpectedIdInImportExpression);
+            self.error(SyntaxError::ExpectedIdInImportExpression)
+        } else {
+            Ok(items)
         }
-
-        Ok(items)
     }
 
-    fn parse_try_expression(
+    fn consume_try_expression(
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
@@ -2782,93 +2813,20 @@ impl<'source> Parser<'source> {
                 StringLiteral => {
                     let string_literal = self.current_token.slice(self.source);
 
-                    let mut literal = String::with_capacity(string_literal.len());
+                    let mut contents = String::with_capacity(string_literal.len());
                     let mut chars = string_literal.chars().peekable();
 
                     while let Some(c) = chars.next() {
-                        match c {
-                            '\\' => match chars.next() {
-                                Some('\n' | '\r') => {
-                                    while let Some(c) = chars.peek() {
-                                        if c.is_whitespace() {
-                                            chars.next();
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                }
-                                Some('\\') => literal.push('\\'),
-                                Some('\'') => literal.push('\''),
-                                Some('$') => literal.push('$'),
-                                Some('"') => literal.push('"'),
-                                Some('n') => literal.push('\n'),
-                                Some('r') => literal.push('\r'),
-                                Some('t') => literal.push('\t'),
-                                Some('x') => match chars.next() {
-                                    Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
-                                        Some(c2) if c2.is_ascii_hexdigit() => {
-                                            // is_ascii_hexdigit already checked
-                                            let d1 = c1.to_digit(16).unwrap();
-                                            let d2 = c2.to_digit(16).unwrap();
-                                            let d = d1 * 16 + d2;
-                                            if d <= 0x7f {
-                                                literal.push(char::from_u32(d).unwrap());
-                                            } else {
-                                                return self.error(AsciiEscapeCodeOutOfRange);
-                                            }
-                                        }
-                                        Some(_) => {
-                                            return self.error(UnexpectedCharInNumericEscapeCode)
-                                        }
-                                        None => return self.error(UnterminatedNumericEscapeCode),
-                                    },
-                                    Some(_) => {
-                                        return self.error(UnexpectedCharInNumericEscapeCode)
-                                    }
-                                    None => return self.error(UnterminatedNumericEscapeCode),
-                                },
-                                Some('u') => match chars.next() {
-                                    Some('{') => {
-                                        let mut code = 0;
-
-                                        while let Some(c) = chars.peek().cloned() {
-                                            if c.is_ascii_hexdigit() {
-                                                chars.next();
-                                                code *= 16;
-                                                code += c.to_digit(16).unwrap();
-                                            } else {
-                                                break;
-                                            }
-                                        }
-
-                                        match chars.next() {
-                                            Some('}') => match char::from_u32(code) {
-                                                Some(c) => literal.push(c),
-                                                None => {
-                                                    return self.error(UnicodeEscapeCodeOutOfRange);
-                                                }
-                                            },
-                                            Some(_) => {
-                                                return self
-                                                    .error(UnexpectedCharInNumericEscapeCode);
-                                            }
-                                            None => {
-                                                return self.error(UnterminatedNumericEscapeCode)
-                                            }
-                                        }
-                                    }
-                                    Some(_) => {
-                                        return self.error(UnexpectedCharInNumericEscapeCode)
-                                    }
-                                    None => return self.error(UnterminatedNumericEscapeCode),
-                                },
-                                _ => return self.error(UnexpectedEscapeInString),
-                            },
-                            _ => literal.push(c),
+                        if c == '\\' {
+                            if let Some(escaped) = self.escape_string_character(&mut chars)? {
+                                contents.push(escaped);
+                            }
+                        } else {
+                            contents.push(c);
                         }
                     }
 
-                    nodes.push(StringNode::Literal(self.add_string_constant(&literal)?));
+                    nodes.push(StringNode::Literal(self.add_string_constant(&contents)?));
                 }
                 Dollar => match self.peek_token() {
                     Some(Id) => {
@@ -2916,6 +2874,93 @@ impl<'source> Parser<'source> {
         }
 
         self.error(UnterminatedString)
+    }
+
+    fn escape_string_character(
+        &mut self,
+        chars: &mut Peekable<Chars>,
+    ) -> Result<Option<char>, ParserError> {
+        use SyntaxError::*;
+
+        let Some(next) = chars.next() else {
+            return self.error(UnexpectedEscapeInString);
+        };
+
+        let result = match next {
+            '\\' | '\'' | '"' | '$' => Ok(next),
+            'n' => Ok('\n'),
+            'r' => Ok('\r'),
+            't' => Ok('\t'),
+            '\r' | '\n' => {
+                if next == '\r' {
+                    // Skip \n if it follows \r
+                    if let Some(&'\n') = chars.peek() {
+                        chars.next();
+                    } else {
+                        return Ok(None);
+                    }
+                }
+
+                // Skip any whitespace at the start of the line
+                while let Some(c) = chars.peek() {
+                    if c.is_whitespace() && *c != '\n' {
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                return Ok(None);
+            }
+            'x' => match chars.next() {
+                Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
+                    Some(c2) if c2.is_ascii_hexdigit() => {
+                        // is_ascii_hexdigit already checked
+                        let d1 = c1.to_digit(16).unwrap();
+                        let d2 = c2.to_digit(16).unwrap();
+                        let d = d1 * 16 + d2;
+                        if d <= 0x7f {
+                            Ok(char::from_u32(d).unwrap())
+                        } else {
+                            self.error(AsciiEscapeCodeOutOfRange)
+                        }
+                    }
+                    Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                    None => self.error(UnterminatedNumericEscapeCode),
+                },
+                Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                None => self.error(UnterminatedNumericEscapeCode),
+            },
+            'u' => match chars.next() {
+                Some('{') => {
+                    let mut code = 0;
+
+                    while let Some(c) = chars.peek().cloned() {
+                        if c.is_ascii_hexdigit() {
+                            chars.next();
+                            code *= 16;
+                            code += c.to_digit(16).unwrap();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    match chars.next() {
+                        Some('}') => match char::from_u32(code) {
+                            Some(c) => Ok(c),
+                            None => self.error(UnicodeEscapeCodeOutOfRange),
+                        },
+                        Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                        None => self.error(UnterminatedNumericEscapeCode),
+                    }
+                }
+                Some(_) => self.error(UnexpectedCharInNumericEscapeCode),
+                None => self.error(UnterminatedNumericEscapeCode),
+            },
+            _ => self.error(UnexpectedEscapeInString),
+        };
+
+        result.map(Some)
     }
 
     fn consume_raw_string(

@@ -4179,15 +4179,18 @@ assert_eq x, "hello"
     mod import {
         use super::*;
 
-        fn import_id(id: ConstantIndex) -> ImportItemNode {
-            ImportItemNode::Id(id)
+        fn import_id(id: ConstantIndex) -> ImportItem {
+            ImportItem {
+                item: id.into(),
+                name: None,
+            }
         }
 
-        fn import_string(
-            literal_index: ConstantIndex,
-            quotation_mark: StringQuote,
-        ) -> ImportItemNode {
-            ImportItemNode::Str(simple_string(literal_index, quotation_mark))
+        fn import_string(literal_index: ConstantIndex, quotation_mark: StringQuote) -> ImportItem {
+            ImportItem {
+                item: simple_string(literal_index, quotation_mark).into(),
+                name: None,
+            }
         }
 
         #[test]
@@ -4210,13 +4213,35 @@ assert_eq x, "hello"
         }
 
         #[test]
+        fn import_item_as() {
+            let source = "import foo as bar";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![],
+                        items: vec![ImportItem {
+                            item: 0.into(),
+                            name: Some(1),
+                        }],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
+
+        #[test]
         fn import_from_module() {
             let source = "from foo import bar";
             check_ast(
                 source,
                 &[
                     Import {
-                        from: vec![import_id(0)],
+                        from: vec![0.into()],
                         items: vec![import_id(1)],
                     },
                     MainBlock {
@@ -4236,7 +4261,7 @@ assert_eq x, "hello"
                 &[
                     Id(0),
                     Import {
-                        from: vec![import_id(1)],
+                        from: vec![1.into()],
                         items: vec![import_id(2)],
                     },
                     Assign {
@@ -4313,7 +4338,7 @@ from foo import bar,
                 &sources,
                 &[
                     Import {
-                        from: vec![import_id(0)],
+                        from: vec![0.into()],
                         items: vec![import_id(1), import_id(2)],
                     },
                     MainBlock {
@@ -4336,7 +4361,7 @@ from foo import bar,
                 source,
                 &[
                     Import {
-                        from: vec![import_string(0, StringQuote::Single), import_id(1)],
+                        from: vec![simple_string(0, StringQuote::Single).into(), 1.into()],
                         items: vec![import_id(2), import_id(3)],
                     },
                     MainBlock {
