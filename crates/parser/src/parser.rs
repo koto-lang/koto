@@ -689,7 +689,7 @@ impl<'source> Parser<'source> {
             TempResult::Yes
         };
 
-        if let Some(rhs) = self.parse_expressions(&ExpressionContext::permissive(), temp_result)? {
+        if let Some(rhs) = self.parse_expressions(context, temp_result)? {
             let node = if single_target {
                 Node::Assign {
                     target: *targets.first().unwrap(),
@@ -3179,10 +3179,12 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Option<(Token, ExpressionContext)> {
         let start_line = self.current_line;
+        let start_indent = self.current_indent();
 
         while let Some(token) = self.consume_token() {
             if !(token.is_whitespace_including_newline()) {
                 let is_indented_block = self.current_line > start_line
+                    && self.current_indent() > start_indent
                     && context.allow_linebreaks
                     && matches!(context.expected_indentation, Indentation::Greater);
 
@@ -3211,12 +3213,14 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Option<ExpressionContext> {
         let start_line = self.current_line;
+        let start_indent = self.current_indent();
 
         while let Some(peeked) = self.lexer.peek(0) {
             if peeked.token.is_whitespace_including_newline() {
                 self.consume_token();
             } else {
                 let is_indented_block = peeked.span.start.line > start_line
+                    && peeked.indent > start_indent
                     && context.allow_linebreaks
                     && matches!(context.expected_indentation, Indentation::Greater);
 

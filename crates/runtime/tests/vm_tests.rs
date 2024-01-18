@@ -1745,7 +1745,7 @@ while (i += 1) < 5
         }
 
         #[test]
-        fn while_assignment() {
+        fn while_assignment_of_body_result() {
             let script = "
 f = |x| x * x
 count = 0
@@ -1755,6 +1755,19 @@ result = while count < 10
 result
 ";
             test_script(script, 100);
+        }
+
+        #[test]
+        fn while_assignment_in_condition() {
+            let script = "
+sum = 0
+iter = (1..=5).peekable()
+while i = iter.peek()
+  iter.next()
+  sum += i
+sum
+";
+            test_script(script, 15);
         }
     }
 
@@ -1810,7 +1823,7 @@ sum
         }
 
         #[test]
-        fn until_assignment() {
+        fn until_assignment_of_body_result() {
             let script = "
 f = |x| x * x
 count = 0
@@ -1820,6 +1833,19 @@ result = until count == 5
 result
 ";
             test_script(script, 25);
+        }
+
+        #[test]
+        fn until_assignment_in_condition() {
+            let script = "
+sum = 0
+iter = (1..=5).peekable()
+until not (i = iter.peek())
+  iter.next()
+  sum += i
+sum
+";
+            test_script(script, 15);
         }
     }
 

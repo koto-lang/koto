@@ -16,6 +16,7 @@ The Koto project adheres to
 - Raw strings are now supported. Any string prefixed with `r` will skip
   character escaping and string interpolation.
 - `as` is now available in import expressions for more ergonomic item renaming.
+- Assignments can now be used in `while`/`until` conditions.
 
 #### API
 
