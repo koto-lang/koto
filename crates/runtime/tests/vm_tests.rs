@@ -928,7 +928,7 @@ x
             let vm = Vm::default();
             let prelude = vm.prelude();
 
-            prelude.add_value("test_value", 42.into());
+            prelude.insert("test_value", 42);
             prelude.add_fn("assert", |ctx| {
                 for value in ctx.args().iter() {
                     match value {
@@ -1902,8 +1902,8 @@ result";
         #[test]
         fn from_literals() {
             let expected = KMap::default();
-            expected.add_value("foo", 42.into());
-            expected.add_value("bar", "baz".into());
+            expected.insert("foo", 42);
+            expected.insert("bar", "baz");
 
             test_script("{foo: 42, bar: 'baz'}", Value::Map(expected));
         }

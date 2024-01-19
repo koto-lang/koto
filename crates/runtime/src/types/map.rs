@@ -131,8 +131,8 @@ impl KMap {
     }
 
     /// Insert an entry into the KMap's data
-    pub fn insert(&self, key: ValueKey, value: Value) {
-        self.data_mut().insert(key, value);
+    pub fn insert(&self, key: impl Into<ValueKey>, value: impl Into<Value>) {
+        self.data_mut().insert(key.into(), value.into());
     }
 
     /// Inserts a value into the meta map, initializing the meta map if it doesn't yet exist
@@ -145,17 +145,7 @@ impl KMap {
 
     /// Adds a function to the KMap's data map
     pub fn add_fn(&self, id: &str, f: impl KotoFunction) {
-        self.add_value(id, Value::NativeFunction(KNativeFunction::new(f)));
-    }
-
-    /// Adds a map to the KMap's data map
-    pub fn add_map(&self, id: &str, map: KMap) {
-        self.add_value(id, Value::Map(map));
-    }
-
-    /// Adds a [Value](crate::Value) to the KMap's data map
-    pub fn add_value(&self, id: &str, value: Value) {
-        self.insert(id.into(), value);
+        self.insert(id, Value::NativeFunction(KNativeFunction::new(f)));
     }
 
     /// Returns the number of entries in the KMap's data map
@@ -238,7 +228,7 @@ mod tests {
         let m = KMap::default();
 
         assert!(m.data().get("test").is_none());
-        m.add_value("test", Value::Null);
+        m.insert("test", Value::Null);
         assert!(m.data().get("test").is_some());
         assert!(matches!(m.data_mut().remove("test"), Some(Value::Null)));
         assert!(m.data().get("test").is_none());

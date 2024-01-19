@@ -35,21 +35,21 @@ impl CoreLib {
     /// The core lib items made available in each Koto script
     pub fn prelude(&self) -> KMap {
         let result = KMap::default();
-        result.add_map("io", self.io.clone());
-        result.add_map("iterator", self.iterator.clone());
-        result.add_map("koto", self.koto.clone());
-        result.add_map("list", self.list.clone());
-        result.add_map("map", self.map.clone());
-        result.add_map("os", self.os.clone());
-        result.add_map("number", self.number.clone());
-        result.add_map("range", self.range.clone());
-        result.add_map("string", self.string.clone());
-        result.add_map("test", self.test.clone());
-        result.add_map("tuple", self.tuple.clone());
+        result.insert("io", self.io.clone());
+        result.insert("iterator", self.iterator.clone());
+        result.insert("koto", self.koto.clone());
+        result.insert("list", self.list.clone());
+        result.insert("map", self.map.clone());
+        result.insert("os", self.os.clone());
+        result.insert("number", self.number.clone());
+        result.insert("range", self.range.clone());
+        result.insert("string", self.string.clone());
+        result.insert("test", self.test.clone());
+        result.insert("tuple", self.tuple.clone());
 
         macro_rules! default_import {
             ($name:expr, $module:ident) => {{
-                result.add_value($name, self.$module.data().get($name).unwrap().clone());
+                result.insert($name, self.$module.data().get($name).unwrap().clone());
             }};
         }
 

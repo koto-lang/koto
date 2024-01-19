@@ -89,8 +89,8 @@ fn main() -> Result<()> {
     });
 
     koto.prelude()
-        .add_map("poetry", koto_bindings::make_module());
-    koto.prelude().add_map("random", koto_random::make_module());
+        .insert("poetry", koto_bindings::make_module());
+    koto.prelude().insert("random", koto_random::make_module());
 
     let script_path = PathBuf::from_str(&args.script).context("Failed to parse script path")?;
     koto.set_script_path(Some(script_path.clone()))

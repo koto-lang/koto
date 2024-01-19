@@ -54,6 +54,8 @@ The Koto project adheres to
 #### API
 
 - `ObjectEntryBuilder` has been replaced with macros from `koto_derive`.
+- `KMap::add_map` and `KMap::add_value` have been removed, `KMap::insert` now
+  accepts any value that implements `Into<Value>` and can be used instead.
 
 
 ## [0.12.0] 2023.10.18

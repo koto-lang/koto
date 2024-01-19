@@ -170,7 +170,7 @@ impl Koto {
 
         match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
-                map.add_value("args", Tuple(koto_args.into()));
+                map.insert("args", Tuple(koto_args.into()));
                 Ok(())
             }
             _ => Err(Error::MissingKotoModuleInPrelude),
@@ -212,8 +212,8 @@ impl Koto {
 
         match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
-                map.add_value("script_dir", script_dir);
-                map.add_value("script_path", script_path);
+                map.insert("script_dir", script_dir);
+                map.insert("script_path", script_path);
                 Ok(())
             }
             _ => Err(Error::MissingKotoModuleInPrelude),
