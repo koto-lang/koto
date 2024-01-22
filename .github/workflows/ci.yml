@@ -45,8 +45,10 @@ jobs:
           profile: minimal
           toolchain: stable
 
+      - uses: extractions/setup-just@v1
+
       - name: Test with optimizations
-        run: cargo test --release --all-features --verbose
+        run: just test_release --verbose
 
   code_checks:
     runs-on: ubuntu-latest

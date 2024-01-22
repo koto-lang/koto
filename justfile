@@ -15,11 +15,11 @@ fmt:
 temp:
   cargo run -- --tests -i temp.koto
 
-test:
-  cargo test
+test *args:
+  cargo test {{args}}
 
-test_rc:
-  cargo test -p koto_runtime --no-default-features --features rc
+test_rc *args:
+  cargo test -p koto_runtime --no-default-features --features rc {{args}}
 
 test_benches:
   cargo test --benches
@@ -35,6 +35,10 @@ test_libs:
 
 test_parser:
   cargo test --package koto_lexer --package koto_parser
+
+test_release *args:
+  just test --release {{args}}
+  just test_rc --release {{args}}
 
 test_runtime:
   cargo test --package koto_runtime
