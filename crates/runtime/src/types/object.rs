@@ -1,6 +1,6 @@
 use crate::{prelude::*, Result};
 use downcast_rs::{impl_downcast, Downcast};
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
 /// A trait for specifying a Koto object's type
 ///
@@ -109,7 +109,7 @@ pub trait KotoLookup {
 /// ```
 ///
 /// See also: [KObject].
-pub trait KotoObject: KotoType + KotoCopy + KotoLookup + Downcast {
+pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + Downcast {
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
     /// By default, the object's type is used as the display string.
@@ -264,8 +264,8 @@ impl KObject {
     /// Checks if the object is of the given type
     pub fn is_a<T: KotoObject>(&self) -> bool {
         match self.object.try_borrow() {
-            Ok(object) => object.downcast_ref::<T>().is_some(),
-            Err(_) => false,
+            Some(object) => object.downcast_ref::<T>().is_some(),
+            None => false,
         }
     }
 
@@ -273,14 +273,14 @@ impl KObject {
     pub fn try_borrow(&self) -> Result<Borrow<dyn KotoObject>> {
         self.object
             .try_borrow()
-            .map_err(|_| "Attempting to borrow an object that is already mutably borrowed".into())
+            .ok_or_else(|| "Attempting to borrow an object that is already mutably borrowed".into())
     }
 
     /// Attempts to borrow the underlying object mutably
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<dyn KotoObject>> {
         self.object
             .try_borrow_mut()
-            .map_err(|_| "Attempting to borrow an object that is already mutably borrowed".into())
+            .ok_or_else(|| "Attempting to borrow an object that is already mutably borrowed".into())
     }
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
@@ -304,7 +304,7 @@ impl KObject {
 impl<T: KotoObject> From<T> for KObject {
     fn from(object: T) -> Self {
         Self {
-            object: PtrMut::from(Rc::new(RefCell::new(object)) as Rc<RefCell<dyn KotoObject>>),
+            object: make_ptr_mut!(object),
         }
     }
 }

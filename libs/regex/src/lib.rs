@@ -1,5 +1,4 @@
 use koto_runtime::{derive::*, prelude::*, Result};
-use std::rc::Rc;
 
 pub fn make_module() -> KMap {
     let result = KMap::with_type("regex");
@@ -13,13 +12,13 @@ pub fn make_module() -> KMap {
 }
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
-pub struct Regex(Rc<regex::Regex>);
+pub struct Regex(Ptr<regex::Regex>);
 
 #[koto_impl(runtime = koto_runtime)]
 impl Regex {
     pub fn new(pattern: &str) -> Result<Self> {
         match regex::Regex::new(pattern) {
-            Ok(r) => Ok(Self(Rc::new(r))),
+            Ok(r) => Ok(Self(r.into())),
             Err(e) => runtime_error!("Failed to parse regex pattern: {e}"),
         }
     }

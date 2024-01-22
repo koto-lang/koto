@@ -9,14 +9,14 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
     koto.set_script_path(path).unwrap();
 
     let prelude = koto.prelude();
-    prelude.add_map("color", koto_color::make_module());
-    prelude.add_map("geometry", koto_geometry::make_module());
-    prelude.add_map("json", koto_json::make_module());
-    prelude.add_map("random", koto_random::make_module());
-    prelude.add_map("regex", koto_regex::make_module());
-    prelude.add_map("tempfile", koto_tempfile::make_module());
-    prelude.add_map("toml", koto_toml::make_module());
-    prelude.add_map("yaml", koto_yaml::make_module());
+    prelude.insert("color", koto_color::make_module());
+    prelude.insert("geometry", koto_geometry::make_module());
+    prelude.insert("json", koto_json::make_module());
+    prelude.insert("random", koto_random::make_module());
+    prelude.insert("regex", koto_regex::make_module());
+    prelude.insert("tempfile", koto_tempfile::make_module());
+    prelude.insert("toml", koto_toml::make_module());
+    prelude.insert("yaml", koto_yaml::make_module());
 
     match koto.compile(script) {
         Ok(_) => match koto.run() {

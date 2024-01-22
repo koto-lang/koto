@@ -29,7 +29,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
         JsonValue::Object(o) => {
             let map = KMap::with_capacity(o.len());
             for (key, value) in o.iter() {
-                map.add_value(key, json_value_to_koto_value(value)?);
+                map.insert(key.as_str(), json_value_to_koto_value(value)?);
             }
             Value::Map(map)
         }

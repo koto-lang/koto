@@ -35,7 +35,7 @@ struct Bounded64 {
 
 impl From<Bounded64> for Inner {
     fn from(range: Bounded64) -> Self {
-        Self::BoundedLarge(Ptr::new(range))
+        Self::BoundedLarge(range.into())
     }
 }
 

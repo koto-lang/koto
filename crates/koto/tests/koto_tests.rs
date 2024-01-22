@@ -1,13 +1,11 @@
 use koto::prelude::*;
 use std::{
-    cell::RefCell,
     fs::read_to_string,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths: &[PathBuf]) {
-    let loaded_module_paths = Rc::new(RefCell::new(vec![]));
+    let loaded_module_paths = PtrMut::from(vec![]);
 
     let mut koto = Koto::with_settings(
         KotoSettings {

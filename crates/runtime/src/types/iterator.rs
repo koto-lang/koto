@@ -1,10 +1,10 @@
 use crate::{prelude::*, Error, Result};
-use std::{cell::RefCell, fmt, ops::DerefMut, rc::Rc, result::Result as StdResult};
+use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
 ///
 /// See [KIterator].
-pub trait KotoIterator: Iterator<Item = KIteratorOutput> {
+pub trait KotoIterator: Iterator<Item = KIteratorOutput> + KotoSend + KotoSync {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> Result<KIterator>;
 
@@ -67,9 +67,7 @@ pub struct KIterator(PtrMut<dyn KotoIterator>);
 impl KIterator {
     /// Creates a new KIterator from any value that implements [KotoIterator]
     pub fn new(external: impl KotoIterator + 'static) -> Self {
-        Self(PtrMut::from(
-            Rc::new(RefCell::new(external)) as Rc<RefCell<dyn KotoIterator>>
-        ))
+        Self(make_ptr_mut!(external))
     }
 
     /// Creates a new KIterator from any iterator that implements DoubleEndedIterator
@@ -77,7 +75,7 @@ impl KIterator {
     /// This should only be used for iterators without side-effects.
     pub fn with_std_iter<T>(iter: T) -> Self
     where
-        T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+        T: DoubleEndedIterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
     {
         Self::new(StdDoubleEndedIterator::<T> { iter })
     }
@@ -87,7 +85,7 @@ impl KIterator {
     /// This should only be used for iterators without side-effects.
     pub fn with_std_forward_iter<T>(iter: T) -> Self
     where
-        T: Iterator<Item = Output> + Clone + 'static,
+        T: Iterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
     {
         Self::new(StdForwardIterator::<T> { iter })
     }
@@ -587,14 +585,14 @@ impl Iterator for GeneratorIterator {
 #[derive(Clone)]
 pub struct StdForwardIterator<T>
 where
-    T: Iterator<Item = Output> + Clone + 'static,
+    T: Iterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     iter: T,
 }
 
 impl<T> KotoIterator for StdForwardIterator<T>
 where
-    T: Iterator<Item = Output> + Clone + 'static,
+    T: Iterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     fn make_copy(&self) -> Result<KIterator> {
         Ok(KIterator::new(self.clone()))
@@ -603,7 +601,7 @@ where
 
 impl<T> Iterator for StdForwardIterator<T>
 where
-    T: Iterator<Item = Output> + Clone + 'static,
+    T: Iterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     type Item = Output;
 
@@ -615,14 +613,14 @@ where
 #[derive(Clone)]
 pub struct StdDoubleEndedIterator<T>
 where
-    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+    T: DoubleEndedIterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     iter: T,
 }
 
 impl<T> KotoIterator for StdDoubleEndedIterator<T>
 where
-    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+    T: DoubleEndedIterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     fn make_copy(&self) -> Result<KIterator> {
         Ok(KIterator::new(self.clone()))
@@ -639,7 +637,7 @@ where
 
 impl<T> Iterator for StdDoubleEndedIterator<T>
 where
-    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+    T: DoubleEndedIterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     type Item = Output;
 
@@ -650,7 +648,7 @@ where
 
 impl<T> DoubleEndedIterator for StdDoubleEndedIterator<T>
 where
-    T: DoubleEndedIterator<Item = Output> + Clone + 'static,
+    T: DoubleEndedIterator<Item = Output> + Clone + KotoSend + KotoSync + 'static,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()

@@ -10,11 +10,13 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [features]
-default = []
+default = ["arc"]
+arc = ["koto_memory/arc"]
+rc = ["koto_memory/rc"]
 
 [dependencies]
-koto_memory = { path = "../memory", version = "^0.13.0" }
-koto_parser = { path = "../parser", version = "^0.13.0" }
+koto_memory = { path = "../memory", version = "^0.13.0", default-features = false }
+koto_parser = { path = "../parser", version = "^0.13.0", default-features = false }
 
 dunce = { workspace = true }
 rustc-hash = { workspace = true }

@@ -2,7 +2,6 @@ use koto::{prelude::*, runtime::Result};
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 struct ExampleTestRunner {
@@ -17,10 +16,10 @@ impl ExampleTestRunner {
         Self {
             output: output.clone(),
             koto: Koto::with_settings(KotoSettings {
-                stdout: Rc::new(OutputCapture {
+                stdout: make_ptr!(OutputCapture {
                     output: output.clone(),
                 }),
-                stderr: Rc::new(OutputCapture { output }),
+                stderr: make_ptr!(OutputCapture { output }),
                 ..Default::default()
             }),
         }

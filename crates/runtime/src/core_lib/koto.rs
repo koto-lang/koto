@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.koto");
 
-    result.add_value("args", Value::Tuple(KTuple::default()));
+    result.insert("args", Value::Tuple(KTuple::default()));
 
     result.add_fn("copy", |ctx| match ctx.args() {
         [Value::Iterator(iter)] => Ok(iter.make_copy()?.into()),
@@ -43,8 +43,8 @@ pub fn make_module() -> KMap {
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
-    result.add_value("script_dir", Value::Null);
-    result.add_value("script_path", Value::Null);
+    result.insert("script_dir", Value::Null);
+    result.insert("script_path", Value::Null);
 
     result.add_fn("type", |ctx| match ctx.args() {
         [value] => Ok(value.type_as_string().into()),

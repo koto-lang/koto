@@ -22,7 +22,7 @@ impl BenchmarkRunner {
 
         let mut runtime = Koto::new();
         let prelude = runtime.prelude();
-        prelude.add_map("geometry", koto_geometry::make_module());
+        prelude.insert("geometry", koto_geometry::make_module());
 
         match runtime.compile(&script) {
             Ok(_) => {

@@ -12,6 +12,18 @@
 
 #![warn(missing_docs)]
 
-mod rc;
+#[cfg(all(feature = "arc", feature = "rc"))]
+compile_error!("A single memory management feature can be enabled at a time");
 
+mod address;
+pub use address::Address;
+
+#[cfg(feature = "arc")]
+mod arc;
+#[cfg(feature = "arc")]
+pub use crate::arc::*;
+
+#[cfg(feature = "rc")]
+mod rc;
+#[cfg(feature = "rc")]
 pub use crate::rc::*;

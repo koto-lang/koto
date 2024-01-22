@@ -1,7 +1,10 @@
-checks: fmt clippy test doc wasm
+checks: fmt clippy clippy_rc test test_rc doc wasm
 
 clippy:
-  cargo clippy --workspace --all-features -- -D warnings
+  cargo clippy --workspace -- -D warnings
+
+clippy_rc:
+  cargo clippy -p koto_memory --no-default-features --features rc -- -D warnings
 
 doc:
   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli
@@ -12,8 +15,11 @@ fmt:
 temp:
   cargo run -- --tests -i temp.koto
 
-test:
-  cargo test
+test *args:
+  cargo test {{args}}
+
+test_rc *args:
+  cargo test -p koto_runtime --no-default-features --features rc {{args}}
 
 test_benches:
   cargo test --benches
@@ -29,6 +35,10 @@ test_libs:
 
 test_parser:
   cargo test --package koto_lexer --package koto_parser
+
+test_release *args:
+  just test --release {{args}}
+  just test_rc --release {{args}}
 
 test_runtime:
   cargo test --package koto_runtime

@@ -23,7 +23,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
         Toml::Table(o) => {
             let map = KMap::with_capacity(o.len());
             for (key, value) in o.iter() {
-                map.add_value(key, toml_to_koto_value(value)?);
+                map.insert(key.as_str(), toml_to_koto_value(value)?);
             }
             Value::Map(map)
         }

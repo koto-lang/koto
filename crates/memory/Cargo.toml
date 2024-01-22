@@ -11,4 +11,11 @@ keywords = ["scripting", "language", "koto"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["arc"]
+# One memory management scheme can be enabled at a time
+arc = ["parking_lot"]
+rc = []
+
 [dependencies]
+parking_lot = { workspace = true, optional = true }

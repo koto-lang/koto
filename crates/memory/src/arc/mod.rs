@@ -1,4 +1,4 @@
-//! Single-threaded reference counted pointers
+//! Thread-safe reference counted pointers
 
 mod ptr;
 mod ptr_mut;

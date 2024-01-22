@@ -102,7 +102,7 @@ pub fn make_module() -> KMap {
     number_f64_fn!(cosh);
     number_f64_fn!("degrees", to_degrees);
 
-    result.add_value("e", std::f64::consts::E.into());
+    result.insert("e", std::f64::consts::E);
 
     number_f64_fn!(exp);
     number_f64_fn!(exp2);
@@ -118,7 +118,7 @@ pub fn make_module() -> KMap {
 
     number_fn!(floor);
 
-    result.add_value("infinity", Number(std::f64::INFINITY.into()));
+    result.insert("infinity", Number(std::f64::INFINITY.into()));
 
     result.add_fn("is_nan", |ctx| {
         let expected_error = "a Number";
@@ -163,14 +163,14 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_value("nan", std::f64::NAN.into());
-    result.add_value("negative_infinity", std::f64::NEG_INFINITY.into());
+    result.insert("nan", std::f64::NAN);
+    result.insert("negative_infinity", std::f64::NEG_INFINITY);
 
     bitwise_fn!(or, |);
 
-    result.add_value("pi", std::f64::consts::PI.into());
-    result.add_value("pi_2", std::f64::consts::FRAC_PI_2.into());
-    result.add_value("pi_4", std::f64::consts::FRAC_PI_4.into());
+    result.insert("pi", std::f64::consts::PI);
+    result.insert("pi_2", std::f64::consts::FRAC_PI_2);
+    result.insert("pi_4", std::f64::consts::FRAC_PI_4);
 
     result.add_fn("pow", |ctx| {
         let expected_error = "two Numbers";
@@ -194,7 +194,7 @@ pub fn make_module() -> KMap {
     number_f64_fn!(tan);
     number_f64_fn!(tanh);
 
-    result.add_value("tau", std::f64::consts::TAU.into());
+    result.insert("tau", std::f64::consts::TAU);
 
     result.add_fn("to_float", |ctx| {
         let expected_error = "a Number";

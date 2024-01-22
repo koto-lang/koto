@@ -703,6 +703,9 @@ dependencies = [
 [[package]]
 name = "koto_memory"
 version = "0.13.0"
+dependencies = [
+ "parking_lot",
+]
 
 [[package]]
 name = "koto_parser"

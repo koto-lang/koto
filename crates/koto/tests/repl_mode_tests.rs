@@ -6,17 +6,16 @@
 //! each subsequent chunk.
 
 use koto::{prelude::*, runtime::Result};
-use std::rc::Rc;
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
     let output = PtrMut::from(String::new());
 
     let mut koto = Koto::with_settings(KotoSettings {
         export_top_level_ids: true,
-        stdout: Rc::new(OutputCapture {
+        stdout: make_ptr!(OutputCapture {
             output: output.clone(),
         }),
-        stderr: Rc::new(OutputCapture {
+        stderr: make_ptr!(OutputCapture {
             output: output.clone(),
         }),
         ..Default::default()

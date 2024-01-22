@@ -2,7 +2,7 @@ use crate::{prelude::*, Error, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
-use std::{path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
 /// The main interface for the Koto language.
 ///
@@ -170,7 +170,7 @@ impl Koto {
 
         match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
-                map.add_value("args", Tuple(koto_args.into()));
+                map.insert("args", Tuple(koto_args.into()));
                 Ok(())
             }
             _ => Err(Error::MissingKotoModuleInPrelude),
@@ -212,8 +212,8 @@ impl Koto {
 
         match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {
-                map.add_value("script_dir", script_dir);
-                map.add_value("script_path", script_path);
+                map.insert("script_dir", script_dir);
+                map.insert("script_path", script_path);
                 Ok(())
             }
             _ => Err(Error::MissingKotoModuleInPrelude),
@@ -262,11 +262,11 @@ pub struct KotoSettings {
     /// that need to share declared values.
     pub export_top_level_ids: bool,
     /// The runtime's stdin
-    pub stdin: Rc<dyn KotoFile>,
+    pub stdin: Ptr<dyn KotoFile>,
     /// The runtime's stdout
-    pub stdout: Rc<dyn KotoFile>,
+    pub stdout: Ptr<dyn KotoFile>,
     /// The runtime's stderr
-    pub stderr: Rc<dyn KotoFile>,
+    pub stderr: Ptr<dyn KotoFile>,
     /// An optional callback that is called whenever a module is imported by the runtime
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
@@ -279,7 +279,7 @@ impl KotoSettings {
     #[must_use]
     pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
         Self {
-            stdin: Rc::new(stdin),
+            stdin: make_ptr!(stdin),
             ..self
         }
     }
@@ -288,7 +288,7 @@ impl KotoSettings {
     #[must_use]
     pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
         Self {
-            stdout: Rc::new(stdout),
+            stdout: make_ptr!(stdout),
             ..self
         }
     }
@@ -297,7 +297,7 @@ impl KotoSettings {
     #[must_use]
     pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
         Self {
-            stderr: Rc::new(stderr),
+            stderr: make_ptr!(stderr),
             ..self
         }
     }
