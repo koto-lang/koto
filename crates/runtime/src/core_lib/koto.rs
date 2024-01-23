@@ -1,7 +1,10 @@
 //! The `koto` core library module
 
 use crate::prelude::*;
+use koto_bytecode::Chunk;
 use std::hash::{Hash, Hasher};
+
+use super::io::File;
 
 /// Initializes the `koto` core library module
 pub fn make_module() -> KMap {
@@ -51,5 +54,87 @@ pub fn make_module() -> KMap {
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
+    result.add_fn("load", |ctx| match ctx.args() {
+        [Value::Str(s)] => try_load_koto_script(ctx, s),
+        [Value::Object(o)] if o.is_a::<File>() => {
+            let mut file = o.cast_mut::<File>().unwrap();
+            let contents = file.read_to_kstring()?;
+            try_load_koto_script(ctx, &contents)
+        }
+        unexpected => type_error_with_slice("a single String or io.File argument", unexpected),
+    });
+
+    result.add_fn("run", |ctx| match ctx.args() {
+        [Value::Str(s)] => match try_compile_koto_script(ctx, s) {
+            Ok(chunk) => ctx.vm.run(Ptr::clone(&chunk)),
+            Err(err) => runtime_error!(err.to_string()),
+        },
+        [Value::Object(o)] if o.is_a::<File>() => {
+            let mut file = o.cast_mut::<File>().unwrap();
+            let contents = file.read_to_kstring()?;
+            drop(file);
+            match try_compile_koto_script(ctx, &contents) {
+                Ok(chunk) => ctx.vm.run(Ptr::clone(&chunk)),
+                Err(err) => runtime_error!(err.to_string()),
+            }
+        }
+        [Value::Map(m)] if is_chunk(m.get_meta_value(&MetaKey::Type)) => {
+            let f = m.data().get("run").unwrap().clone();
+            ctx.vm.run_function(f, CallArgs::None)
+        }
+        unexpected => {
+            type_error_with_slice("a single String, io.File or chunk argument", unexpected)
+        }
+    });
+
     result
+}
+
+const CHUNK_TYPE_NAME: &str = "Chunk";
+
+fn is_chunk(maybe_type_name: Option<Value>) -> bool {
+    if let Some(type_name) = maybe_type_name {
+        matches!(type_name, Value::Str(s) if s == CHUNK_TYPE_NAME)
+    } else {
+        false
+    }
+}
+
+fn try_load_koto_script(
+    ctx: &CallContext<'_>,
+    script: &KString,
+) -> Result<Value, crate::error::Error> {
+    let mut result = KMap::with_type(CHUNK_TYPE_NAME);
+
+    match try_compile_koto_script(ctx, script) {
+        Ok(chunk) => {
+            result.insert("ok", true);
+            result.add_fn("run", move |ctx| match ctx.vm.run(Ptr::clone(&chunk)) {
+                Ok(value) => Ok(value),
+                Err(err) => Ok(KString::from(err.to_string()).into()),
+            });
+        }
+        Err(err) => {
+            result.insert("ok", false);
+            result.insert_meta(
+                MetaKey::UnaryOp(UnaryOp::Display),
+                Value::NativeFunction(KNativeFunction::new(move |_| {
+                    Ok(KString::from(err.to_string()).into())
+                })),
+            );
+        }
+    }
+
+    Ok(result.into())
+}
+
+fn try_compile_koto_script(
+    ctx: &CallContext<'_>,
+    script: &KString,
+) -> Result<Ptr<Chunk>, koto_bytecode::LoaderError> {
+    ctx.vm.loader().borrow_mut().compile_script(
+        script,
+        &None,
+        koto_bytecode::CompilerSettings::default(),
+    )
 }

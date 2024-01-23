@@ -207,6 +207,10 @@ impl File {
         self.0.read_to_string().map(KValue::from)
     }
 
+    pub(crate) fn read_to_kstring(&mut self) -> Result<KString> {
+        self.0.read_to_string().map(|s| s.into())
+    }
+
     #[koto_method]
     fn seek(&mut self, args: &[KValue]) -> Result<KValue> {
         match args {
