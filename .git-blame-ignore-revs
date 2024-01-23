@@ -1,4 +1,7 @@
 # .git-blame-ignore-revs
 
+# Normalize line endings
+efb970a23a52e4be626483e3bf38e956bc343990
+
 # Rename /core -> /crates
 b65e200272298f5e3f90bed604d5fc1157d056fe
