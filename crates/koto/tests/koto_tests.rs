@@ -102,6 +102,7 @@ mod koto_tests {
     koto_test!(comments);
     koto_test!(control_flow);
     koto_test!(enums);
+    koto_test!(eval);
     koto_test!(function_closures);
     koto_test!(functions);
     koto_test!(functions_in_lookups);
