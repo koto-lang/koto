@@ -1,6 +1,6 @@
 //! Generators used by the `iterator` core library module
 
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
 /// An iterator that repeatedly yields the same value
 pub struct Repeat {
@@ -77,12 +77,12 @@ impl Iterator for RepeatN {
 /// An iterator that repeatedly yields the result of calling a function
 pub struct Generate {
     function: KValue,
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl Generate {
     /// Creates a new [Generate] generator
-    pub fn new(function: KValue, vm: Vm) -> Self {
+    pub fn new(function: KValue, vm: KotoVm) -> Self {
         Self { function, vm }
     }
 }
@@ -114,12 +114,12 @@ impl Iterator for Generate {
 pub struct GenerateN {
     remaining: usize,
     function: KValue,
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl GenerateN {
     /// Creates a new [GenerateN] generator
-    pub fn new(n: usize, function: KValue, vm: Vm) -> Self {
+    pub fn new(n: usize, function: KValue, vm: KotoVm) -> Self {
         Self {
             remaining: n,
             function,

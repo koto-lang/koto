@@ -109,7 +109,7 @@ impl KotoObject for Rect {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
+    fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
         let r = *self;
 
         let iter = (0..=3).map(move |i| {

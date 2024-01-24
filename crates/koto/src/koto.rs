@@ -1,12 +1,12 @@
 use crate::{prelude::*, Error, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
-use koto_runtime::ModuleImportedCallback;
+use koto_runtime::{KotoVm, ModuleImportedCallback};
 use std::path::PathBuf;
 
 /// The main interface for the Koto language.
 ///
-/// This provides a high-level API for compiling and executing Koto scripts in a Koto [Vm].
+/// This provides a high-level API for compiling and executing Koto scripts in a Koto [Vm](KotoVm).
 ///
 /// Example:
 ///
@@ -27,7 +27,7 @@ use std::path::PathBuf;
 /// }
 /// ```
 pub struct Koto {
-    runtime: Vm,
+    runtime: KotoVm,
     run_tests: bool,
     export_top_level_ids: bool,
     script_path: Option<PathBuf>,
@@ -49,7 +49,7 @@ impl Koto {
     /// Creates a new instance of Koto with the given settings
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
-            runtime: Vm::with_settings(VmSettings {
+            runtime: KotoVm::with_settings(KotoVmSettings {
                 stdin: settings.stdin,
                 stdout: settings.stdout,
                 stderr: settings.stderr,
@@ -329,7 +329,7 @@ impl KotoSettings {
 
 impl Default for KotoSettings {
     fn default() -> Self {
-        let default_vm_settings = VmSettings::default();
+        let default_vm_settings = KotoVmSettings::default();
         Self {
             run_tests: true,
             run_import_tests: true,

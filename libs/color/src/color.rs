@@ -291,7 +291,7 @@ impl KotoObject for Color {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
+    fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
         let c = *self;
 
         let iter = (0..=3).map(move |i| {

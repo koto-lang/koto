@@ -44,7 +44,7 @@ impl KotoObject for Vec2 {
         Ok(())
     }
 
-    fn negate(&self, _vm: &mut Vm) -> Result<KValue> {
+    fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
         Ok(Self(-self.0).into())
     }
 
@@ -103,7 +103,7 @@ impl KotoObject for Vec2 {
         IsIterable::Iterable
     }
 
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
+    fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
         let v = *self;
 
         let iter = (0..=1).map(move |i| {

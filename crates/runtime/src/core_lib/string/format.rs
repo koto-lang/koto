@@ -2,7 +2,7 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{runtime_error, KValue, UnaryOp, Vm};
+use crate::{runtime_error, KValue, KotoVm, UnaryOp};
 use koto_lexer::{is_id_continue, is_id_start};
 use std::{iter::Peekable, str::Chars};
 
@@ -296,7 +296,7 @@ impl<'a> Iterator for FormatLexer<'a> {
 
 /// Formats a string, used by `string.format` and `io.print`
 pub fn format_string(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     format_string: &str,
     format_args: &[KValue],
 ) -> crate::Result<String> {
@@ -334,7 +334,11 @@ pub fn format_string(
     Ok(result)
 }
 
-fn value_to_string(vm: &mut Vm, value: &KValue, format_spec: FormatSpec) -> crate::Result<String> {
+fn value_to_string(
+    vm: &mut KotoVm,
+    value: &KValue,
+    format_spec: FormatSpec,
+) -> crate::Result<String> {
     let result = match value {
         KValue::Number(n) => match format_spec.precision {
             Some(precision) => {
@@ -541,7 +545,7 @@ mod tests {
         use super::*;
 
         fn check_format_output(format: &str, args: &[KValue], expected: &str) {
-            let mut vm = Vm::default();
+            let mut vm = KotoVm::default();
             match format_string(&mut vm, format, args) {
                 Ok(result) => assert_eq!(result, expected),
                 Err(error) => panic!("format_string failed: '{error}'"),

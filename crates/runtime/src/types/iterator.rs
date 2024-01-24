@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Result};
+use crate::{prelude::*, Error, KotoVm, Result};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
@@ -116,17 +116,17 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a Vm, used to implement generators
-    pub fn with_vm(vm: Vm) -> Self {
+    pub fn with_vm(vm: KotoVm) -> Self {
         Self::new(GeneratorIterator::new(vm))
     }
 
     /// Creates a new KIterator from a Value that has an implementation of `@next`
-    pub fn with_meta_next(vm: Vm, iterator: KValue) -> Result<Self> {
+    pub fn with_meta_next(vm: KotoVm, iterator: KValue) -> Result<Self> {
         Ok(Self::new(MetaIterator::new(vm, iterator)?))
     }
 
     /// Creates a new KIterator from an Object that implements [KotoIterator]
-    pub fn with_object(vm: Vm, o: KObject) -> Result<Self> {
+    pub fn with_object(vm: KotoVm, o: KObject) -> Result<Self> {
         Ok(Self::new(ObjectIterator::new(vm, o)?))
     }
 
@@ -396,13 +396,13 @@ impl Iterator for MapIterator {
 
 #[derive(Clone)]
 struct MetaIterator {
-    vm: Vm,
+    vm: KotoVm,
     iterator: KValue,
     is_bidirectional: bool,
 }
 
 impl MetaIterator {
-    fn new(vm: Vm, iterator: KValue) -> Result<Self> {
+    fn new(vm: KotoVm, iterator: KValue) -> Result<Self> {
         match iterator.get_meta_value(&UnaryOp::Next.into()) {
             Some(op) if op.is_callable() => {}
             Some(op) => return type_error("Callable function from @next", &op),
@@ -458,12 +458,12 @@ impl Iterator for MetaIterator {
 
 #[derive(Clone)]
 struct ObjectIterator {
-    vm: Vm,
+    vm: KotoVm,
     object: KObject,
 }
 
 impl ObjectIterator {
-    fn new(vm: Vm, object: KObject) -> Result<Self> {
+    fn new(vm: KotoVm, object: KObject) -> Result<Self> {
         use IsIterable::*;
 
         if matches!(
@@ -551,11 +551,11 @@ impl Iterator for StringIterator {
 
 #[derive(Clone)]
 pub struct GeneratorIterator {
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl GeneratorIterator {
-    pub fn new(vm: Vm) -> Self {
+    pub fn new(vm: KotoVm) -> Self {
         Self { vm }
     }
 }

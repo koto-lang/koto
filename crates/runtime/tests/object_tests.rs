@@ -136,7 +136,7 @@ mod objects {
             Ok(self.x.into())
         }
 
-        fn negate(&self, _vm: &mut Vm) -> Result<KValue> {
+        fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
             Ok(Self::make_value(-self.x))
         }
 
@@ -208,7 +208,7 @@ mod objects {
             IsIterable::Iterable
         }
 
-        fn make_iterator(&self, vm: &mut Vm) -> Result<KIterator> {
+        fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
             KIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
         }
     }
@@ -231,19 +231,19 @@ mod objects {
             IsIterable::BidirectionalIterator
         }
 
-        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+        fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
             self.x += 1;
             Some(self.x.into())
         }
 
-        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+        fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
             self.x -= 1;
             Some(self.x.into())
         }
     }
 
     fn test_object_script(script: &str, expected_output: impl Into<KValue>) {
-        let vm = Vm::default();
+        let vm = KotoVm::default();
         let prelude = vm.prelude();
 
         prelude.add_fn("make_object", |ctx| match ctx.args() {

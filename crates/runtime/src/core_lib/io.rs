@@ -1,7 +1,7 @@
 //! The `io` core library module
 
 use super::string::format;
-use crate::{derive::*, prelude::*, BufferedFile, Error, MethodContext, Result};
+use crate::{derive::*, prelude::*, BufferedFile, Error, KotoVm, MethodContext, Result};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
@@ -165,15 +165,15 @@ impl File {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
-    fn stderr(vm: &Vm) -> KValue {
+    fn stderr(vm: &KotoVm) -> KValue {
         Self(vm.stderr().clone()).into()
     }
 
-    fn stdin(vm: &Vm) -> KValue {
+    fn stdin(vm: &KotoVm) -> KValue {
         Self(vm.stdin().clone()).into()
     }
 
-    fn stdout(vm: &Vm) -> KValue {
+    fn stdout(vm: &KotoVm) -> KValue {
         Self(vm.stdout().clone()).into()
     }
 

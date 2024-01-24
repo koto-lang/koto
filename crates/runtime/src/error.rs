@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, KotoVm};
 use koto_bytecode::Chunk;
 use koto_parser::format_source_excerpt;
 use std::{error, fmt};
@@ -19,7 +19,7 @@ pub(crate) enum ErrorKind {
         /// The thrown value
         thrown_value: KValue,
         /// A VM that should be used to format the thrown value
-        vm: Vm,
+        vm: KotoVm,
     },
     #[error("Expected {expected}, but found {}", get_value_types(unexpected))]
     UnexpectedType {
@@ -40,7 +40,7 @@ pub(crate) enum ErrorKind {
     MissingStringBuilder,
 }
 
-fn display_thrown_value(value: &KValue, vm: &Vm) -> String {
+fn display_thrown_value(value: &KValue, vm: &KotoVm) -> String {
     let mut display_context = DisplayContext::with_vm(vm);
 
     if value.display(&mut display_context).is_ok() {
@@ -73,7 +73,7 @@ impl Error {
     }
 
     /// Initializes an error from a thrown Koto value
-    pub(crate) fn from_koto_value(thrown_value: KValue, vm: Vm) -> Self {
+    pub(crate) fn from_koto_value(thrown_value: KValue, vm: KotoVm) -> Self {
         Self::new(ErrorKind::KotoError { thrown_value, vm })
     }
 

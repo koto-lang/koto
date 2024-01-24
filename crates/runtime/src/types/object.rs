@@ -132,7 +132,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     }
 
     /// Defines the behavior of negation (e.g. `-x`)
-    fn negate(&self, _vm: &mut Vm) -> Result<KValue> {
+    fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
         unimplemented_error("@negate", self.type_string())
     }
 
@@ -226,7 +226,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     /// If [IsIterable::Iterable] is returned from [is_iterable](Self::is_iterable),
     /// then the runtime will call this function when the object is used in iterable contexts,
     /// expecting a [KIterator] to be returned.
-    fn make_iterator(&self, _vm: &mut Vm) -> Result<KIterator> {
+    fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
         unimplemented_error("@iterator", self.type_string())
     }
 
@@ -237,7 +237,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
     /// [KIterator::next] is invoked.
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         None
     }
 
@@ -247,7 +247,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
     /// whenever it's used in an iterable context. This function will then be called each time
     /// [KIterator::next_back] is invoked.
-    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+    fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         None
     }
 }
@@ -330,7 +330,7 @@ pub struct MethodContext<'a, T> {
     /// The method call arguments
     pub args: &'a [KValue],
     /// A VM that can be used by the method for operations that require a runtime
-    pub vm: &'a Vm,
+    pub vm: &'a KotoVm,
     // The instance of the object for the method call,
     // accessable via the context's `instance`/`instance_mut` functions
     object: &'a KObject,
@@ -340,7 +340,7 @@ pub struct MethodContext<'a, T> {
 
 impl<'a, T: KotoObject> MethodContext<'a, T> {
     /// Makes a new method context
-    pub fn new(object: &'a KObject, args: &'a [KValue], vm: &'a Vm) -> Self {
+    pub fn new(object: &'a KObject, args: &'a [KValue], vm: &'a KotoVm) -> Self {
         Self {
             object,
             args,

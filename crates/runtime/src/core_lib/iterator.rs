@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {
@@ -874,7 +874,7 @@ pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<K
 }
 
 fn fold_with_operator(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     iterable: KValue,
     initial_value: KValue,
     operator: BinaryOp,
@@ -895,7 +895,7 @@ fn fold_with_operator(
 }
 
 fn run_iterator_comparison(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     iterable: KValue,
     invert_result: InvertResult,
 ) -> Result<KValue> {
@@ -920,7 +920,7 @@ fn run_iterator_comparison(
 }
 
 fn run_iterator_comparison_by_key(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     iterable: KValue,
     key_fn: KValue,
     invert_result: InvertResult,
@@ -952,7 +952,7 @@ fn run_iterator_comparison_by_key(
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
 fn compare_values(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     a: KValue,
     b: KValue,
     invert_result: InvertResult,
@@ -978,7 +978,7 @@ fn compare_values(
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
 fn compare_values_with_key(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     a_and_key: (KValue, KValue),
     b_and_key: (KValue, KValue),
     invert_result: InvertResult,

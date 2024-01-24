@@ -1,13 +1,13 @@
 #![allow(unused)]
 
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::{prelude::*, KValue::*, Result};
+use koto_runtime::{prelude::*, KValue::*, KotoVm, Result};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
     let output = PtrMut::from(String::new());
 
-    let vm = Vm::with_settings(VmSettings {
+    let vm = KotoVm::with_settings(KotoVmSettings {
         stdout: make_ptr!(TestStdout {
             output: output.clone(),
         }),
@@ -26,7 +26,7 @@ pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
     }
 }
 
-pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: KValue) -> Result<()> {
+pub fn run_script_with_vm(mut vm: KotoVm, script: &str, expected_output: KValue) -> Result<()> {
     let mut loader = Loader::default();
     let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
         Ok(chunk) => chunk,

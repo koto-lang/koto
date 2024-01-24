@@ -133,7 +133,7 @@ impl KotoObject for Matches {
         IsIterable::ForwardIterator
     }
 
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         if self.last_index >= self.matches.len() {
             self.last_index = 0;
             None

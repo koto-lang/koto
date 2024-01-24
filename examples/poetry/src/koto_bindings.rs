@@ -29,7 +29,7 @@ impl KotoObject for KotoPoetry {
         IsIterable::ForwardIterator
     }
 
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         self.0
             .next_word()
             .map(|word| KIteratorOutput::Value(word.as_ref().into()))

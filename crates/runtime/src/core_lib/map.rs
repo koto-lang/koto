@@ -1,7 +1,7 @@
 //! The `map` core library module
 
 use super::{iterator::adaptors, value_sort::compare_values};
-use crate::{prelude::*, Result};
+use crate::{prelude::*, KotoVm, Result};
 use std::cmp::Ordering;
 
 /// Initializes the `map` core library module
@@ -232,7 +232,7 @@ pub fn make_module() -> KMap {
                 let f = f.clone();
                 let mut error = None;
 
-                let get_sort_key = |vm: &mut Vm,
+                let get_sort_key = |vm: &mut KotoVm,
                                     cache: &mut ValueMap,
                                     key: &ValueKey,
                                     value: &KValue|
@@ -344,7 +344,7 @@ fn do_map_update(
     key: ValueKey,
     default: KValue,
     f: KValue,
-    vm: &mut Vm,
+    vm: &mut KotoVm,
 ) -> Result<KValue> {
     if !map.data().contains_key(&key) {
         map.data_mut().insert(key.clone(), default);

@@ -1,7 +1,7 @@
 //! A collection of string iterators
 
 use crate::{
-    CallArgs, KIterator, KIteratorOutput as Output, KString, KValue, KotoIterator, Result, Vm,
+    CallArgs, KIterator, KIteratorOutput as Output, KString, KValue, KotoIterator, KotoVm, Result,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -157,13 +157,13 @@ impl Iterator for Split {
 pub struct SplitWith {
     input: KString,
     predicate: KValue,
-    vm: Vm,
+    vm: KotoVm,
     start: usize,
 }
 
 impl SplitWith {
     /// Creates a new [SplitWith] iterator
-    pub fn new(input: KString, predicate: KValue, vm: Vm) -> Self {
+    pub fn new(input: KString, predicate: KValue, vm: KotoVm) -> Self {
         Self {
             input,
             predicate,

@@ -43,7 +43,7 @@ pub enum ControlFlow {
 /// State shared between concurrent VMs
 struct VmContext {
     // The settings that were used to initialize the runtime
-    settings: VmSettings,
+    settings: KotoVmSettings,
     // The runtime's prelude
     prelude: KMap,
     // The runtime's core library
@@ -56,12 +56,12 @@ struct VmContext {
 
 impl Default for VmContext {
     fn default() -> Self {
-        Self::with_settings(VmSettings::default())
+        Self::with_settings(KotoVmSettings::default())
     }
 }
 
 impl VmContext {
-    fn with_settings(settings: VmSettings) -> Self {
+    fn with_settings(settings: KotoVmSettings) -> Self {
         let core_lib = CoreLib::default();
 
         Self {
@@ -81,7 +81,7 @@ pub trait ModuleImportedCallback: Fn(&Path) + KotoSend + KotoSync {}
 impl<T> ModuleImportedCallback for T where T: Fn(&Path) + KotoSend + KotoSync {}
 
 /// The configurable settings that should be used by the Koto runtime
-pub struct VmSettings {
+pub struct KotoVmSettings {
     /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
     /// An optional callback that is called whenever a module is imported by the runtime
@@ -97,7 +97,7 @@ pub struct VmSettings {
     pub stderr: Ptr<dyn KotoFile>,
 }
 
-impl Default for VmSettings {
+impl Default for KotoVmSettings {
     fn default() -> Self {
         Self {
             run_import_tests: true,
@@ -111,7 +111,7 @@ impl Default for VmSettings {
 
 /// The Koto runtime's virtual machine
 #[derive(Clone)]
-pub struct Vm {
+pub struct KotoVm {
     // The exports map for the current module
     exports: KMap,
     // Context shared by all VMs in the runtime
@@ -130,15 +130,15 @@ pub struct Vm {
     instruction_ip: u32,
 }
 
-impl Default for Vm {
+impl Default for KotoVm {
     fn default() -> Self {
-        Self::with_settings(VmSettings::default())
+        Self::with_settings(KotoVmSettings::default())
     }
 }
 
-impl Vm {
+impl KotoVm {
     /// Initializes a Koto VM with the provided settings
-    pub fn with_settings(settings: VmSettings) -> Self {
+    pub fn with_settings(settings: KotoVmSettings) -> Self {
         Self {
             exports: KMap::default(),
             context: VmContext::with_settings(settings).into(),
@@ -2941,7 +2941,7 @@ impl Vm {
     }
 }
 
-impl fmt::Debug for Vm {
+impl fmt::Debug for KotoVm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Vm")
     }
@@ -2969,7 +2969,7 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
 // any iterators that it finds. This makes simple generators copyable, although any captured or
 // contained iterators in the generator VM will have shared state. This behaviour is noted in the
 // documentation for iterator.copy and should hopefully be sufficient.
-pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
+pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
     let mut result = vm.clone();
     for value in result.registers.iter_mut() {
         if let KValue::Iterator(ref mut i) = value {

@@ -23,7 +23,7 @@ pub use crate::{
         KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
         MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
     },
-    vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
+    vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback},
 };
 pub use koto_derive as derive;
 pub use koto_memory::{make_ptr, make_ptr_mut, Borrow, BorrowMut, KCell, Ptr, PtrMut};

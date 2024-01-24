@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, KotoVm, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -64,12 +64,12 @@ impl Hash for KNativeFunction {
 pub struct CallContext<'a> {
     /// The VM making the call
     ///
-    /// The VM can be used for operations like [Vm::run_function], although
+    /// The VM can be used for operations like [KotoVm::run_function], although
     /// the [CallContext::args] and [CallContext::instance] functions return references,
     /// so the values need to be cloned before mutable operations can be called.
     ///
-    /// If a VM needs to be retained after the call, then see [Vm::spawn_shared_vm].
-    pub vm: &'a mut Vm,
+    /// If a VM needs to be retained after the call, then see [KotoVm::spawn_shared_vm].
+    pub vm: &'a mut KotoVm,
     instance_register: Option<u8>,
     arg_register: u8,
     arg_count: u8,
@@ -78,7 +78,7 @@ pub struct CallContext<'a> {
 impl<'a> CallContext<'a> {
     /// Returns a new context for calling external functions
     pub fn new(
-        vm: &'a mut Vm,
+        vm: &'a mut KotoVm,
         instance_register: Option<u8>,
         arg_register: u8,
         arg_count: u8,

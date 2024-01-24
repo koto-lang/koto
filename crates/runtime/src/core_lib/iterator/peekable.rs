@@ -3,7 +3,7 @@
 use koto_derive::*;
 
 use super::iter_output_to_result;
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone, KotoCopy, KotoType)]
@@ -83,7 +83,7 @@ impl KotoObject for Peekable {
         }
     }
 
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<Output> {
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<Output> {
         self.peeked_front.take().map(Output::Value).or_else(|| {
             self.iter
                 .next()
@@ -91,7 +91,7 @@ impl KotoObject for Peekable {
         })
     }
 
-    fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<Output> {
+    fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<Output> {
         self.peeked_back.take().map(Output::Value).or_else(|| {
             self.iter
                 .next_back()

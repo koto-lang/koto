@@ -925,7 +925,7 @@ x
         use super::*;
 
         fn test_script_with_prelude(script: &str, expected_output: KValue) {
-            let vm = Vm::default();
+            let vm = KotoVm::default();
             let prelude = vm.prelude();
 
             prelude.insert("test_value", 42);

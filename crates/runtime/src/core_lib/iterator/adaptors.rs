@@ -1,7 +1,7 @@
 //! Adapators used by the `iterator` core library module
 
 use super::collect_pair;
-use crate::{prelude::*, Error, KIteratorOutput as Output, Result};
+use crate::{prelude::*, Error, KIteratorOutput as Output, KotoVm, Result};
 use std::{collections::VecDeque, result::Result as StdResult};
 use thiserror::Error;
 
@@ -224,12 +224,12 @@ impl Iterator for Cycle {
 pub struct Each {
     iter: KIterator,
     function: KValue,
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl Each {
     /// Creates a new [Each] adaptor
-    pub fn new(iter: KIterator, function: KValue, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, function: KValue, vm: KotoVm) -> Self {
         Self { iter, function, vm }
     }
 
@@ -325,14 +325,14 @@ impl Iterator for Enumerate {
 
 /// An iterator that flattens the output of nested iterators
 pub struct Flatten {
-    vm: Vm,
+    vm: KotoVm,
     iter: KIterator,
     nested: Option<KIterator>,
 }
 
 impl Flatten {
     /// Creates a new [Flatten] adaptor
-    pub fn new(iter: KIterator, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, vm: KotoVm) -> Self {
         Self {
             vm,
             iter,
@@ -448,12 +448,12 @@ pub struct IntersperseWith {
     peeked: Option<Output>,
     next_is_separator: bool,
     separator_function: KValue,
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl IntersperseWith {
     /// Creates a new [IntersperseWith] adaptor
-    pub fn new(iter: KIterator, separator_function: KValue, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, separator_function: KValue, vm: KotoVm) -> Self {
         Self {
             iter,
             peeked: None,
@@ -525,12 +525,12 @@ fn intersperse_size_hint(iter: &KIterator, next_is_separator: bool) -> (usize, O
 pub struct Keep {
     iter: KIterator,
     predicate: KValue,
-    vm: Vm,
+    vm: KotoVm,
 }
 
 impl Keep {
     /// Creates a new [Keep] adaptor
-    pub fn new(iter: KIterator, predicate: KValue, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, predicate: KValue, vm: KotoVm) -> Self {
         Self {
             iter,
             predicate,
@@ -824,13 +824,13 @@ impl Iterator for Take {
 pub struct TakeWhile {
     iter: KIterator,
     predicate: KValue,
-    vm: Vm,
+    vm: KotoVm,
     finished: bool,
 }
 
 impl TakeWhile {
     /// Creates a new [Keep] adaptor
-    pub fn new(iter: KIterator, predicate: KValue, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, predicate: KValue, vm: KotoVm) -> Self {
         Self {
             iter,
             predicate,
