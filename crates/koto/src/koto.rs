@@ -119,6 +119,18 @@ impl Koto {
             .map_err(|e| e.into())
     }
 
+    /// Runs an instance function with the given arguments
+    pub fn run_instance_function(
+        &mut self,
+        instance: Value,
+        function: Value,
+        args: CallArgs,
+    ) -> Result<Value> {
+        self.runtime
+            .run_instance_function(instance, function, args)
+            .map_err(|e| e.into())
+    }
+
     /// Runs a function in the runtime's exports map
     ///
     /// ```
