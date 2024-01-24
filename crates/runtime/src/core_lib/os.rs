@@ -6,7 +6,7 @@ use instant::Instant;
 
 /// Initializes the `os` core library module
 pub fn make_module() -> KMap {
-    use Value::Number;
+    use KValue::Number;
 
     let result = KMap::with_type("core.os");
 
@@ -35,15 +35,15 @@ pub struct DateTime(chrono::DateTime<Local>);
 
 #[koto_impl(runtime = crate)]
 impl DateTime {
-    fn with_chrono_datetime(time: chrono::DateTime<Local>) -> Value {
+    fn with_chrono_datetime(time: chrono::DateTime<Local>) -> KValue {
         KObject::from(Self(time)).into()
     }
 
-    fn now() -> Value {
+    fn now() -> KValue {
         Self::with_chrono_datetime(Local::now())
     }
 
-    fn from_seconds(seconds: f64, maybe_offset: Option<i64>) -> Result<Value> {
+    fn from_seconds(seconds: f64, maybe_offset: Option<i64>) -> Result<KValue> {
         let seconds_i64 = seconds as i64;
         let sub_nanos = (seconds.fract() * 1.0e9) as u32;
         let offset = match maybe_offset {
@@ -62,54 +62,54 @@ impl DateTime {
     }
 
     #[koto_method]
-    fn day(&self) -> Value {
+    fn day(&self) -> KValue {
         self.0.day().into()
     }
 
     #[koto_method]
-    fn hour(&self) -> Value {
+    fn hour(&self) -> KValue {
         self.0.hour().into()
     }
 
     #[koto_method]
-    fn minute(&self) -> Value {
+    fn minute(&self) -> KValue {
         self.0.minute().into()
     }
 
     #[koto_method]
-    fn month(&self) -> Value {
+    fn month(&self) -> KValue {
         self.0.month().into()
     }
 
     #[koto_method]
-    fn second(&self) -> Value {
+    fn second(&self) -> KValue {
         self.0.second().into()
     }
 
     #[koto_method]
-    fn nanosecond(&self) -> Value {
+    fn nanosecond(&self) -> KValue {
         self.0.nanosecond().into()
     }
 
     #[koto_method]
-    fn timestamp(&self) -> Value {
+    fn timestamp(&self) -> KValue {
         let seconds = self.0.timestamp() as f64;
         let sub_nanos = self.0.timestamp_subsec_nanos();
         (seconds + sub_nanos as f64 / 1.0e9).into()
     }
 
     #[koto_method]
-    fn timezone_offset(&self) -> Value {
+    fn timezone_offset(&self) -> KValue {
         self.0.offset().local_minus_utc().into()
     }
 
     #[koto_method]
-    fn timezone_string(&self) -> Value {
+    fn timezone_string(&self) -> KValue {
         self.0.format("%z").to_string().into()
     }
 
     #[koto_method]
-    fn year(&self) -> Value {
+    fn year(&self) -> KValue {
         self.0.year().into()
     }
 }
@@ -127,7 +127,7 @@ pub struct Timer(Instant);
 
 #[koto_impl(runtime = crate)]
 impl Timer {
-    fn now() -> Value {
+    fn now() -> KValue {
         let timer = Self(Instant::now());
         KObject::from(timer).into()
     }
@@ -137,7 +137,7 @@ impl Timer {
     }
 
     #[koto_method]
-    fn elapsed(&self) -> Value {
+    fn elapsed(&self) -> KValue {
         self.elapsed_seconds().into()
     }
 }
@@ -148,9 +148,9 @@ impl KotoObject for Timer {
         Ok(())
     }
 
-    fn subtract(&self, rhs: &Value) -> Result<Value> {
+    fn subtract(&self, rhs: &KValue) -> Result<KValue> {
         match rhs {
-            Value::Object(o) if o.is_a::<Self>() => {
+            KValue::Object(o) if o.is_a::<Self>() => {
                 let rhs = o.cast::<Self>().unwrap();
 
                 let result = if self.0 >= rhs.0 {

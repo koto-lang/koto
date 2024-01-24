@@ -16,7 +16,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let result = iterators::Bytes::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
@@ -28,7 +28,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(Value::Iterator(KIterator::with_string(s.clone()))),
+            (KValue::Str(s), []) => Ok(KValue::Iterator(KIterator::with_string(s.clone()))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -37,7 +37,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s1), [Value::Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
+            (KValue::Str(s1), [KValue::Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -46,7 +46,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), [Value::Str(pattern)]) => {
+            (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().ends_with(pattern.as_str()).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -57,7 +57,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(s.escape_default().to_string().into()),
+            (KValue::Str(s), []) => Ok(s.escape_default().to_string().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -66,8 +66,8 @@ pub fn make_module() -> KMap {
         let expected_error = "a String optionally followed by additional values";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(Value::Str(s.clone())),
-            (Value::Str(format), format_args) => {
+            (KValue::Str(s), []) => Ok(KValue::Str(s.clone())),
+            (KValue::Str(format), format_args) => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
                 match format::format_string(ctx.vm, &format, &format_args) {
@@ -89,7 +89,7 @@ pub fn make_module() -> KMap {
             for output in iterator.map(collect_pair) {
                 use KIteratorOutput as Output;
                 match output {
-                    Output::Value(Value::Number(n)) => match u8::try_from(n.as_i64()) {
+                    Output::Value(KValue::Number(n)) => match u8::try_from(n.as_i64()) {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },
@@ -111,7 +111,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(s.is_empty().into()),
+            (KValue::Str(s), []) => Ok(s.is_empty().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -120,7 +120,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let result = iterators::Lines::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
@@ -132,7 +132,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String, followed by pattern and replacement Strings";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(input), [Value::Str(pattern), Value::Str(replace)]) => {
+            (KValue::Str(input), [KValue::Str(pattern), KValue::Str(replace)]) => {
                 Ok(input.replace(pattern.as_str(), replace).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -143,7 +143,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => Ok(s.graphemes(true).count().into()),
+            (KValue::Str(s), []) => Ok(s.graphemes(true).count().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -153,11 +153,11 @@ pub fn make_module() -> KMap {
             let expected_error = "a String, and either a String or a predicate function";
 
             match ctx.instance_and_args(is_string, expected_error)? {
-                (Value::Str(input), [Value::Str(pattern)]) => {
+                (KValue::Str(input), [KValue::Str(pattern)]) => {
                     let result = iterators::Split::new(input.clone(), pattern.clone());
                     KIterator::new(result)
                 }
-                (Value::Str(input), [predicate]) if predicate.is_callable() => {
+                (KValue::Str(input), [predicate]) if predicate.is_callable() => {
                     let result = iterators::SplitWith::new(
                         input.clone(),
                         predicate.clone(),
@@ -169,14 +169,14 @@ pub fn make_module() -> KMap {
             }
         };
 
-        Ok(Value::Iterator(iterator))
+        Ok(KValue::Iterator(iterator))
     });
 
     result.add_fn("starts_with", |ctx| {
         let expected_error = "two Strings";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), [Value::Str(pattern)]) => {
+            (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().starts_with(pattern.as_str()).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -187,7 +187,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
                 Ok(result.into())
             }
@@ -199,7 +199,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let maybe_integer = if let Some(hex) = s.strip_prefix("0x") {
                     i64::from_str_radix(hex, 16)
                 } else if let Some(octal) = s.strip_prefix("0o") {
@@ -215,10 +215,10 @@ pub fn make_module() -> KMap {
                 } else if let Ok(float) = s.parse::<f64>() {
                     Ok(float.into())
                 } else {
-                    Ok(Value::Null)
+                    Ok(KValue::Null)
                 }
             }
-            (Value::Str(s), [Value::Number(n)]) => {
+            (KValue::Str(s), [KValue::Number(n)]) => {
                 let base = n.into();
                 if !(2..=36).contains(&base) {
                     return runtime_error!("Number base must be within 2..=36");
@@ -227,7 +227,7 @@ pub fn make_module() -> KMap {
                 if let Ok(result) = i64::from_str_radix(s, base) {
                     Ok(result.into())
                 } else {
-                    Ok(Value::Null)
+                    Ok(KValue::Null)
                 }
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -238,7 +238,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
                 Ok(result.into())
             }
@@ -250,7 +250,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a String";
 
         match ctx.instance_and_args(is_string, expected_error)? {
-            (Value::Str(s), []) => {
+            (KValue::Str(s), []) => {
                 let result = match s.find(|c: char| !c.is_whitespace()) {
                     Some(start) => {
                         let end = s.rfind(|c: char| !c.is_whitespace()).unwrap();
@@ -268,6 +268,6 @@ pub fn make_module() -> KMap {
     result
 }
 
-fn is_string(value: &Value) -> bool {
-    matches!(value, Value::Str(_))
+fn is_string(value: &KValue) -> bool {
+    matches!(value, KValue::Str(_))
 }

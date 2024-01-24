@@ -3,7 +3,7 @@ use crate::{
     error::{Error, ErrorKind},
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
-    DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Result,
+    DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Ptr, Result,
 };
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
@@ -36,14 +36,14 @@ macro_rules! call_binary_op_or_else {
 #[derive(Clone)]
 pub enum ControlFlow {
     Continue,
-    Return(Value),
-    Yield(Value),
+    Return(KValue),
+    Yield(KValue),
 }
 
 /// State shared between concurrent VMs
 struct VmContext {
     // The settings that were used to initialize the runtime
-    settings: VmSettings,
+    settings: KotoVmSettings,
     // The runtime's prelude
     prelude: KMap,
     // The runtime's core library
@@ -56,12 +56,12 @@ struct VmContext {
 
 impl Default for VmContext {
     fn default() -> Self {
-        Self::with_settings(VmSettings::default())
+        Self::with_settings(KotoVmSettings::default())
     }
 }
 
 impl VmContext {
-    fn with_settings(settings: VmSettings) -> Self {
+    fn with_settings(settings: KotoVmSettings) -> Self {
         let core_lib = CoreLib::default();
 
         Self {
@@ -81,7 +81,7 @@ pub trait ModuleImportedCallback: Fn(&Path) + KotoSend + KotoSync {}
 impl<T> ModuleImportedCallback for T where T: Fn(&Path) + KotoSend + KotoSync {}
 
 /// The configurable settings that should be used by the Koto runtime
-pub struct VmSettings {
+pub struct KotoVmSettings {
     /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
     /// An optional callback that is called whenever a module is imported by the runtime
@@ -97,7 +97,7 @@ pub struct VmSettings {
     pub stderr: Ptr<dyn KotoFile>,
 }
 
-impl Default for VmSettings {
+impl Default for KotoVmSettings {
     fn default() -> Self {
         Self {
             run_import_tests: true,
@@ -111,7 +111,7 @@ impl Default for VmSettings {
 
 /// The Koto runtime's virtual machine
 #[derive(Clone)]
-pub struct Vm {
+pub struct KotoVm {
     // The exports map for the current module
     exports: KMap,
     // Context shared by all VMs in the runtime
@@ -119,26 +119,26 @@ pub struct Vm {
     // The VM's instruction reader, containing a pointer to the bytecode chunk that's being executed
     reader: InstructionReader,
     // The VM's register stack
-    registers: Vec<Value>,
+    registers: Vec<KValue>,
     // The VM's call stack
     call_stack: Vec<Frame>,
     // A stack of sequences that are currently under construction
-    sequence_builders: Vec<Vec<Value>>,
+    sequence_builders: Vec<Vec<KValue>>,
     // A stack of strings that are currently under construction
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: u32,
 }
 
-impl Default for Vm {
+impl Default for KotoVm {
     fn default() -> Self {
-        Self::with_settings(VmSettings::default())
+        Self::with_settings(KotoVmSettings::default())
     }
 }
 
-impl Vm {
+impl KotoVm {
     /// Initializes a Koto VM with the provided settings
-    pub fn with_settings(settings: VmSettings) -> Self {
+    pub fn with_settings(settings: KotoVmSettings) -> Self {
         Self {
             exports: KMap::default(),
             context: VmContext::with_settings(settings).into(),
@@ -205,7 +205,7 @@ impl Vm {
     }
 
     /// Returns the named value from the exports map, or None if no matching value is found
-    pub fn get_exported_value(&self, id: &str) -> Option<Value> {
+    pub fn get_exported_value(&self, id: &str) -> Option<KValue> {
         self.exports.data().get(id).cloned()
     }
 
@@ -213,20 +213,20 @@ impl Vm {
     ///
     /// None is returned if no matching value is found, or if a matching value is found which isn't
     /// a callable function.
-    pub fn get_exported_function(&self, id: &str) -> Option<Value> {
+    pub fn get_exported_function(&self, id: &str) -> Option<KValue> {
         match self.get_exported_value(id) {
             Some(function) if function.is_callable() => Some(function),
             _ => None,
         }
     }
 
-    /// Runs the provided [Chunk], returning the resulting [Value]
-    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<Value> {
+    /// Runs the provided [Chunk], returning the resulting [KValue]
+    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
-        self.registers.push(Value::Null); // result register
-        self.registers.push(Value::Null); // instance register
+        self.registers.push(KValue::Null); // result register
+        self.registers.push(KValue::Null); // instance register
         self.push_frame(chunk, 0, frame_base, result_register);
 
         // Ensure that execution stops here if an error is thrown
@@ -243,35 +243,35 @@ impl Vm {
     ///
     /// This is currently used to support generators, which yield incremental results and then
     /// leave the VM in a suspended state.
-    pub fn continue_running(&mut self) -> Result<Value> {
+    pub fn continue_running(&mut self) -> Result<KValue> {
         if self.call_stack.is_empty() {
-            Ok(Value::Null)
+            Ok(KValue::Null)
         } else {
             self.execute_instructions()
         }
     }
 
     /// Runs a function with some given arguments
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> Result<Value> {
+    pub fn run_function(&mut self, function: KValue, args: CallArgs) -> Result<KValue> {
         self.call_and_run_function(None, function, args)
     }
 
     /// Runs an instance function with some given arguments
     pub fn run_instance_function(
         &mut self,
-        instance: Value,
-        function: Value,
+        instance: KValue,
+        function: KValue,
         args: CallArgs,
-    ) -> Result<Value> {
+    ) -> Result<KValue> {
         self.call_and_run_function(Some(instance), function, args)
     }
 
     fn call_and_run_function(
         &mut self,
-        instance: Option<Value>,
-        function: Value,
+        instance: Option<KValue>,
+        function: KValue,
         args: CallArgs,
-    ) -> Result<Value> {
+    ) -> Result<KValue> {
         if !function.is_callable() {
             return runtime_error!("run_function: the provided value isn't a function");
         }
@@ -285,7 +285,7 @@ impl Vm {
             None
         };
 
-        self.registers.push(Value::Null); // result register
+        self.registers.push(KValue::Null); // result register
         self.registers.push(instance.unwrap_or_default()); // frame base
         let (arg_count, temp_tuple_values) = match args {
             CallArgs::None => (0, None),
@@ -312,8 +312,8 @@ impl Vm {
                 // already in. This is redundant work, but more efficient than allocating a
                 // non-temporary Tuple for the values.
                 match &function {
-                    Value::Function(f) if f.arg_is_unpacked_tuple => {
-                        let temp_tuple = Value::TemporaryTuple(RegisterSlice {
+                    KValue::Function(f) if f.arg_is_unpacked_tuple => {
+                        let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
                             // the temp tuple and instance registers.
                             start: 2,
@@ -322,8 +322,8 @@ impl Vm {
                         self.registers.push(temp_tuple);
                         (1, Some(args))
                     }
-                    Value::CaptureFunction(f) if f.info.arg_is_unpacked_tuple => {
-                        let temp_tuple = Value::TemporaryTuple(RegisterSlice {
+                    KValue::CaptureFunction(f) if f.info.arg_is_unpacked_tuple => {
+                        let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
                             // captures, which are placed after the temp tuple and instance
                             // registers.
@@ -336,7 +336,7 @@ impl Vm {
                     }
                     _ => {
                         let tuple_contents = Vec::from(args);
-                        self.registers.push(Value::Tuple(tuple_contents.into()));
+                        self.registers.push(KValue::Tuple(tuple_contents.into()));
                         (1, None)
                     }
                 }
@@ -366,7 +366,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Null)?;
+                self.pop_frame(KValue::Null)?;
             }
             result
         };
@@ -376,21 +376,21 @@ impl Vm {
     }
 
     /// Returns a displayable string for the given value
-    pub fn value_to_string(&mut self, value: &Value) -> Result<String> {
+    pub fn value_to_string(&mut self, value: &KValue) -> Result<String> {
         let mut display_context = DisplayContext::with_vm(self);
         value.display(&mut display_context)?;
         Ok(display_context.result())
     }
 
-    /// Provides the result of running a unary operation on a Value
-    pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> Result<Value> {
+    /// Provides the result of running a unary operation on a KValue
+    pub fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> Result<KValue> {
         use UnaryOp::*;
 
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
         let value_register = result_register + 1;
 
-        self.registers.push(Value::Null); // result_register
+        self.registers.push(KValue::Null); // result_register
         self.registers.push(value); // value_register
 
         match op {
@@ -421,7 +421,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Null)?;
+                self.pop_frame(KValue::Null)?;
             }
             result
         };
@@ -431,13 +431,13 @@ impl Vm {
     }
 
     /// Provides the result of running a binary operation on a pair of Values
-    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> Result<Value> {
+    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: KValue, rhs: KValue) -> Result<KValue> {
         let old_frame_count = self.call_stack.len();
         let result_register = self.next_register();
         let lhs_register = result_register + 1;
         let rhs_register = result_register + 2;
 
-        self.registers.push(Value::Null); // result register
+        self.registers.push(KValue::Null); // result register
         self.registers.push(lhs);
         self.registers.push(rhs);
 
@@ -492,7 +492,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Null)?;
+                self.pop_frame(KValue::Null)?;
             }
             result
         };
@@ -502,8 +502,8 @@ impl Vm {
     }
 
     /// Makes a KIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: Value) -> Result<KIterator> {
-        use Value::*;
+    pub fn make_iterator(&mut self, value: KValue) -> Result<KIterator> {
+        use KValue::*;
 
         match value {
             _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
@@ -545,8 +545,8 @@ impl Vm {
     /// Runs any tests that are contained in the map's @tests meta entry
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, tests: KMap) -> Result<Value> {
-        use Value::{Map, Null};
+    pub fn run_tests(&mut self, tests: KMap) -> Result<KValue> {
+        use KValue::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
         // to the internal test map data while calling the test functions, otherwise we'll end up in
@@ -621,8 +621,8 @@ impl Vm {
         Ok(Null)
     }
 
-    fn execute_instructions(&mut self) -> Result<Value> {
-        let mut result = Value::Null;
+    fn execute_instructions(&mut self) -> Result<KValue> {
+        let mut result = KValue::Null;
 
         self.instruction_ip = self.ip();
 
@@ -651,7 +651,7 @@ impl Vm {
                                 return Err(error);
                             }
 
-                            self.pop_frame(Value::Null)?;
+                            self.pop_frame(KValue::Null)?;
 
                             if !self.call_stack.is_empty() {
                                 error.extend_trace(self.chunk(), self.instruction_ip);
@@ -665,7 +665,7 @@ impl Vm {
 
                     let catch_value = match error.error {
                         ErrorKind::KotoError { thrown_value, .. } => thrown_value,
-                        _ => Value::Str(error.to_string().into()),
+                        _ => KValue::Str(error.to_string().into()),
                     };
                     self.set_register(register, catch_value);
                     self.set_ip(ip);
@@ -686,7 +686,7 @@ impl Vm {
         match instruction {
             Error { message } => runtime_error!(message)?,
             Copy { target, source } => self.set_register(target, self.clone_register(source)),
-            SetNull { register } => self.set_register(register, Value::Null),
+            SetNull { register } => self.set_register(register, KValue::Null),
             SetBool { register, value } => self.set_register(register, value.into()),
             SetNumber { register, value } => self.set_register(register, value.into()),
             LoadFloat { register, constant } => {
@@ -710,7 +710,7 @@ impl Vm {
                 count,
             } => self.set_register(
                 register,
-                Value::TemporaryTuple(RegisterSlice { start, count }),
+                KValue::TemporaryTuple(RegisterSlice { start, count }),
             ),
             TempTupleToTuple { register, source } => {
                 self.run_temp_tuple_to_tuple(register, source)?
@@ -828,7 +828,7 @@ impl Vm {
                 let thrown_value = self.clone_register(register);
 
                 match &thrown_value {
-                    Value::Str(_) => {}
+                    KValue::Str(_) => {}
                     _ if thrown_value.contains_meta_key(&UnaryOp::Display.into()) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
@@ -842,11 +842,11 @@ impl Vm {
             }
             Size { register, value } => self.run_size(register, value),
             IsTuple { register, value } => {
-                let result = matches!(self.get_register(value), Value::Tuple(_));
+                let result = matches!(self.get_register(value), KValue::Tuple(_));
                 self.set_register(register, result.into());
             }
             IsList { register, value } => {
-                let result = matches!(self.get_register(value), Value::List(_));
+                let result = matches!(self.get_register(value), KValue::List(_));
                 self.set_register(register, result.into());
             }
             IterNext {
@@ -909,7 +909,7 @@ impl Vm {
                 key,
             } => {
                 let key_string = match self.clone_register(key) {
-                    Value::Str(s) => s,
+                    KValue::Str(s) => s,
                     other => return type_error("a String", &other),
                 };
                 self.run_access(register, value, key_string)?;
@@ -960,10 +960,10 @@ impl Vm {
 
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
-            Value::TemporaryTuple(temp_registers) => {
+            KValue::TemporaryTuple(temp_registers) => {
                 let tuple =
                     KTuple::from(self.register_slice(temp_registers.start, temp_registers.count));
-                self.set_register(register, Value::Tuple(tuple));
+                self.set_register(register, KValue::Tuple(tuple));
             }
             _ => unreachable!(),
         }
@@ -977,7 +977,7 @@ impl Vm {
         end_register: Option<u8>,
         inclusive: bool,
     ) -> Result<()> {
-        use Value::Number;
+        use KValue::Number;
 
         let start = start_register.map(|r| self.get_register(r));
         let end = end_register.map(|r| self.get_register(r));
@@ -1009,7 +1009,7 @@ impl Vm {
         iterable_register: u8,
         temp_iterator: bool,
     ) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let iterable = self.clone_register(iterable_register);
 
@@ -1068,7 +1068,7 @@ impl Vm {
         jump_offset: u16,
         output_is_temporary: bool,
     ) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let output = match self.clone_register(iterable_register) {
             Iterator(mut iterator) => {
@@ -1116,7 +1116,7 @@ impl Vm {
                         Ok(Null) => None,
                         Ok(output) => Some(output),
                         Err(error) => {
-                            self.pop_frame(Value::Null)?;
+                            self.pop_frame(KValue::Null)?;
                             return Err(error);
                         }
                     }
@@ -1128,7 +1128,7 @@ impl Vm {
                 let (output, new_iterable) = match other {
                     Range(mut r) => {
                         let output = r.pop_front()?;
-                        (output.map(Value::from), Range(r))
+                        (output.map(KValue::from), Range(r))
                     }
                     Tuple(mut t) => {
                         let output = t.pop_front();
@@ -1136,7 +1136,7 @@ impl Vm {
                     }
                     Str(mut s) => {
                         let output = s.pop_front();
-                        (output.map(Value::from), Str(s))
+                        (output.map(KValue::from), Str(s))
                     }
                     TemporaryTuple(RegisterSlice { start, count }) => {
                         if count > 0 {
@@ -1180,7 +1180,7 @@ impl Vm {
     }
 
     fn run_temp_index(&mut self, result: u8, value: u8, index: i8) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let index_op = BinaryOp::Index.into();
 
@@ -1215,7 +1215,7 @@ impl Vm {
     }
 
     fn run_slice(&mut self, register: u8, value: u8, index: i8, is_slice_to: bool) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let result = match self.get_register(value) {
             List(list) => {
@@ -1247,7 +1247,7 @@ impl Vm {
     }
 
     fn run_make_function(&mut self, function_instruction: Instruction) {
-        use Value::*;
+        use KValue::*;
 
         match function_instruction {
             Instruction::Function {
@@ -1300,7 +1300,7 @@ impl Vm {
         };
 
         match function {
-            Value::CaptureFunction(f) => {
+            KValue::CaptureFunction(f) => {
                 f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
                 Ok(())
             }
@@ -1309,8 +1309,8 @@ impl Vm {
     }
 
     fn run_negate(&mut self, result: u8, value: u8) -> Result<()> {
+        use KValue::*;
         use UnaryOp::Negate;
-        use Value::*;
 
         let result_value = match self.clone_register(value) {
             Number(n) => Number(-n),
@@ -1327,8 +1327,8 @@ impl Vm {
     }
 
     fn run_not(&mut self, result: u8, value: u8) -> Result<()> {
+        use KValue::*;
         use UnaryOp::Not;
-        use Value::*;
 
         let result_value = match &self.get_register(value) {
             Null => Bool(true),
@@ -1367,7 +1367,7 @@ impl Vm {
 
     fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Add;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1415,7 +1415,7 @@ impl Vm {
 
     fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Subtract;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1436,7 +1436,7 @@ impl Vm {
 
     fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Multiply;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1458,7 +1458,7 @@ impl Vm {
 
     fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Divide;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1479,7 +1479,7 @@ impl Vm {
 
     fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Remainder;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1505,7 +1505,7 @@ impl Vm {
 
     fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::AddAssign;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1532,7 +1532,7 @@ impl Vm {
 
     fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::SubtractAssign;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1559,7 +1559,7 @@ impl Vm {
 
     fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::MultiplyAssign;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1586,7 +1586,7 @@ impl Vm {
 
     fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::DivideAssign;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1613,7 +1613,7 @@ impl Vm {
 
     fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::RemainderAssign;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1640,7 +1640,7 @@ impl Vm {
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Less;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1662,7 +1662,7 @@ impl Vm {
 
     fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::LessOrEqual;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1684,7 +1684,7 @@ impl Vm {
 
     fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Greater;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1706,7 +1706,7 @@ impl Vm {
 
     fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::GreaterOrEqual;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1728,7 +1728,7 @@ impl Vm {
 
     fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Equal;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1788,7 +1788,7 @@ impl Vm {
 
     fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::NotEqual;
-        use Value::*;
+        use KValue::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1845,15 +1845,15 @@ impl Vm {
     }
 
     // Called from run_equal / run_not_equal to compare the contents of lists and tuples
-    fn compare_value_ranges(&mut self, range_a: &[Value], range_b: &[Value]) -> Result<bool> {
+    fn compare_value_ranges(&mut self, range_a: &[KValue], range_b: &[KValue]) -> Result<bool> {
         if range_a.len() != range_b.len() {
             return Ok(false);
         }
 
         for (value_a, value_b) in range_a.iter().zip(range_b.iter()) {
             match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
-                Value::Bool(true) => {}
-                Value::Bool(false) => return Ok(false),
+                KValue::Bool(true) => {}
+                KValue::Bool(false) => return Ok(false),
                 other => {
                     return runtime_error!(
                         "Expected Bool from equality comparison, found '{}'",
@@ -1877,8 +1877,8 @@ impl Vm {
                 return Ok(false);
             };
             match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b)? {
-                Value::Bool(true) => {}
-                Value::Bool(false) => return Ok(false),
+                KValue::Bool(true) => {}
+                KValue::Bool(false) => return Ok(false),
                 other => {
                     return runtime_error!(
                         "Expected Bool from equality comparison, found '{}'",
@@ -1895,17 +1895,17 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        op: Value,
+        op: KValue,
     ) -> Result<()> {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.registers.len() {
-            self.set_register(result_register, Value::Null);
+            self.set_register(result_register, KValue::Null);
         }
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(Value::Null); // frame_base
+        self.registers.push(KValue::Null); // frame_base
         self.call_callable(
             &CallInfo {
                 result_register,
@@ -1922,18 +1922,18 @@ impl Vm {
         &mut self,
         result_register: u8,
         lhs_register: u8,
-        rhs: Value,
-        op: Value,
+        rhs: KValue,
+        op: KValue,
     ) -> Result<()> {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.registers.len() {
-            self.set_register(result_register, Value::Null);
+            self.set_register(result_register, KValue::Null);
         }
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(Value::Null); // frame_base
+        self.registers.push(KValue::Null); // frame_base
         self.registers.push(rhs); // arg
         self.call_callable(
             &CallInfo {
@@ -1949,8 +1949,8 @@ impl Vm {
 
     fn run_jump_if_true(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
-            Value::Null => {}
-            Value::Bool(b) if !b => {}
+            KValue::Null => {}
+            KValue::Bool(b) if !b => {}
             _ => self.jump_ip(offset),
         }
         Ok(())
@@ -1958,8 +1958,8 @@ impl Vm {
 
     fn run_jump_if_false(&mut self, register: u8, offset: u32) -> Result<()> {
         match &self.get_register(register) {
-            Value::Null => self.jump_ip(offset),
-            Value::Bool(b) if !b => self.jump_ip(offset),
+            KValue::Null => self.jump_ip(offset),
+            KValue::Bool(b) if !b => self.jump_ip(offset),
             _ => {}
         }
         Ok(())
@@ -1967,13 +1967,13 @@ impl Vm {
 
     fn run_size(&mut self, register: u8, value: u8) {
         let result = self.get_register(value).size();
-        self.set_register(register, Value::Number(result.into()));
+        self.set_register(register, KValue::Number(result.into()));
     }
 
     fn run_import(&mut self, import_register: u8) -> Result<()> {
         let import_name = match self.clone_register(import_register) {
-            Value::Str(s) => s,
-            value @ Value::Map(_) => {
+            KValue::Str(s) => s,
+            value @ KValue::Map(_) => {
                 self.set_register(import_register, value);
                 return Ok(());
             }
@@ -2021,7 +2021,7 @@ impl Vm {
                 return runtime_error!("Recursive import of module '{import_name}'");
             }
             Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
-                self.set_register(import_register, Value::Map(cached_exports));
+                self.set_register(import_register, KValue::Map(cached_exports));
                 return Ok(());
             }
             _ => {}
@@ -2052,7 +2052,7 @@ impl Vm {
                 if self.context.settings.run_import_tests {
                     let maybe_tests = self.exports.get_meta_value(&MetaKey::Tests);
                     match maybe_tests {
-                        Some(Value::Map(tests)) => {
+                        Some(KValue::Map(tests)) => {
                             self.run_tests(tests)?;
                         }
                         Some(other) => {
@@ -2089,7 +2089,7 @@ impl Vm {
                 .imported_modules
                 .borrow_mut()
                 .insert(compile_result.path, Some(module_exports.clone()));
-            self.set_register(import_register, Value::Map(module_exports));
+            self.set_register(import_register, KValue::Map(module_exports));
         } else {
             // If there was an error while importing the module then make sure that the
             // placeholder is removed from the imported modules cache.
@@ -2110,7 +2110,7 @@ impl Vm {
         index_register: u8,
         value_register: u8,
     ) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let indexable = self.clone_register(indexable_register);
         let index_value = self.clone_register(index_register);
@@ -2164,7 +2164,7 @@ impl Vm {
         index_register: u8,
     ) -> Result<()> {
         use BinaryOp::Index;
-        use Value::*;
+        use KValue::*;
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
@@ -2227,7 +2227,7 @@ impl Vm {
         let value = self.clone_register(value_register);
 
         match self.get_register_mut(map_register) {
-            Value::Map(map) => {
+            KValue::Map(map) => {
                 map.data_mut().insert(key, value);
                 Ok(())
             }
@@ -2243,7 +2243,7 @@ impl Vm {
         };
 
         match self.get_register_mut(map_register) {
-            Value::Map(map) => {
+            KValue::Map(map) => {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
@@ -2261,7 +2261,7 @@ impl Vm {
         let value = self.clone_register(value_register);
 
         let meta_key = match self.clone_register(name_register) {
-            Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
+            KValue::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
@@ -2269,7 +2269,7 @@ impl Vm {
         };
 
         match self.get_register_mut(map_register) {
-            Value::Map(map) => {
+            KValue::Map(map) => {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
@@ -2297,7 +2297,7 @@ impl Vm {
         let value = self.clone_register(value_register);
 
         let meta_key = match self.clone_register(name_register) {
-            Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
+            KValue::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
@@ -2314,7 +2314,7 @@ impl Vm {
         value_register: u8,
         key_string: KString,
     ) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         let accessed_value = self.clone_register(value_register);
         let key = ValueKey::from(key_string.clone());
@@ -2419,7 +2419,7 @@ impl Vm {
         module: &KMap,
         iterator_fallback: bool,
         module_name: &str,
-    ) -> Result<Value> {
+    ) -> Result<KValue> {
         let maybe_op = match module.data().get(key).cloned() {
             None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
             maybe_op => maybe_op,
@@ -2460,7 +2460,7 @@ impl Vm {
         call_info: &CallInfo,
         f: &KFunction,
         captures: Option<&KList>,
-        temp_tuple_values: Option<&[Value]>,
+        temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
         // Spawn a VM for the generator
         let mut generator_vm = self.spawn_shared_vm();
@@ -2503,7 +2503,7 @@ impl Vm {
         // Ensure that registers for missing arguments are set to Null
         if call_info.arg_count < expected_arg_count {
             for arg_index in call_info.arg_count..expected_arg_count {
-                generator_vm.set_register(arg_index + arg_offset, Value::Null);
+                generator_vm.set_register(arg_index + arg_offset, KValue::Null);
             }
         }
 
@@ -2516,10 +2516,10 @@ impl Vm {
                 let varargs_start = call_info.frame_base + 1 + expected_arg_count;
                 let varargs_count = call_info.arg_count - expected_arg_count;
                 let varargs =
-                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                    KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
                 generator_vm.set_register(variadic_register, varargs);
             } else {
-                generator_vm.set_register(variadic_register, Value::Null);
+                generator_vm.set_register(variadic_register, KValue::Null);
             }
         }
         // Place any captures in the registers following the arguments
@@ -2551,7 +2551,7 @@ impl Vm {
         call_info: &CallInfo,
         f: &KFunction,
         captures: Option<&KList>,
-        temp_tuple_values: Option<&[Value]>,
+        temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
         if f.generator {
             return self.call_generator(call_info, f, captures, temp_tuple_values);
@@ -2577,7 +2577,7 @@ impl Vm {
             let arg_base = call_info.frame_base + 1;
             let varargs_start = arg_base + expected_arg_count;
             let varargs_count = call_info.arg_count - expected_arg_count;
-            let varargs = Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+            let varargs = KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
             self.set_register(varargs_start, varargs);
             self.truncate_registers(varargs_start + 1);
         }
@@ -2593,7 +2593,7 @@ impl Vm {
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.registers
-            .resize(arg_base_index + f.arg_count as usize, Value::Null);
+            .resize(arg_base_index + f.arg_count as usize, KValue::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2619,10 +2619,10 @@ impl Vm {
     fn call_callable(
         &mut self,
         info: &CallInfo,
-        function: Value,
-        temp_tuple_values: Option<&[Value]>,
+        function: KValue,
+        temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
-        use Value::*;
+        use KValue::*;
 
         match function {
             Function(f) => self.call_function(info, &f, None, temp_tuple_values),
@@ -2653,7 +2653,7 @@ impl Vm {
     fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> Result<()> {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
-            Value::Str(s) => s,
+            KValue::Str(s) => s,
             other => {
                 return runtime_error!(
                     "debug: Expected string to display, found '{}'",
@@ -2685,12 +2685,12 @@ impl Vm {
         let value = self.get_register(register);
         match type_id {
             TypeId::List => {
-                if !matches!(value, Value::List(_)) {
+                if !matches!(value, KValue::List(_)) {
                     return type_error("List", value);
                 }
             }
             TypeId::Tuple => {
-                if !matches!(value, Value::Tuple(_) | Value::TemporaryTuple(_)) {
+                if !matches!(value, KValue::Tuple(_) | KValue::TemporaryTuple(_)) {
                     return type_error("Tuple", value);
                 }
             }
@@ -2755,7 +2755,7 @@ impl Vm {
         let value = self.clone_register(value_register);
 
         match self.run_unary_op(UnaryOp::Display, value)? {
-            Value::Str(string) => {
+            KValue::Str(string) => {
                 if let Some(builder) = self.string_builders.last_mut() {
                     builder.push_str(&string);
                     Ok(())
@@ -2829,7 +2829,7 @@ impl Vm {
         self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>> {
+    fn pop_frame(&mut self, return_value: KValue) -> Result<Option<KValue>> {
         self.truncate_registers(0);
 
         match self.call_stack.pop() {
@@ -2877,21 +2877,21 @@ impl Vm {
         (self.registers.len() - self.register_base()) as u8
     }
 
-    fn set_register(&mut self, register: u8, value: Value) {
+    fn set_register(&mut self, register: u8, value: KValue) {
         let index = self.register_index(register);
 
         if index >= self.registers.len() {
-            self.registers.resize(index + 1, Value::Null);
+            self.registers.resize(index + 1, KValue::Null);
         }
 
         self.registers[index] = value;
     }
 
-    fn clone_register(&self, register: u8) -> Value {
+    fn clone_register(&self, register: u8) -> KValue {
         self.get_register(register).clone()
     }
 
-    pub(crate) fn get_register(&self, register: u8) -> &Value {
+    pub(crate) fn get_register(&self, register: u8) -> &KValue {
         let index = self.register_index(register);
         match self.registers.get(index) {
             Some(value) => value,
@@ -2904,17 +2904,17 @@ impl Vm {
         }
     }
 
-    pub(crate) fn get_register_safe(&self, register: u8) -> Option<&Value> {
+    pub(crate) fn get_register_safe(&self, register: u8) -> Option<&KValue> {
         let index = self.register_index(register);
         self.registers.get(index)
     }
 
-    fn get_register_mut(&mut self, register: u8) -> &mut Value {
+    fn get_register_mut(&mut self, register: u8) -> &mut KValue {
         let index = self.register_index(register);
         &mut self.registers[index]
     }
 
-    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[KValue] {
         if count > 0 {
             let start = self.register_index(register);
             &self.registers[start..start + count as usize]
@@ -2941,13 +2941,13 @@ impl Vm {
     }
 }
 
-impl fmt::Debug for Vm {
+impl fmt::Debug for KotoVm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Vm")
     }
 }
 
-fn binary_op_error(lhs: &Value, rhs: &Value, op: BinaryOp) -> Result<()> {
+fn binary_op_error(lhs: &KValue, rhs: &KValue, op: BinaryOp) -> Result<()> {
     runtime_error!(ErrorKind::InvalidBinaryOp {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
@@ -2969,10 +2969,10 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
 // any iterators that it finds. This makes simple generators copyable, although any captured or
 // contained iterators in the generator VM will have shared state. This behaviour is noted in the
 // documentation for iterator.copy and should hopefully be sufficient.
-pub(crate) fn clone_generator_vm(vm: &Vm) -> Result<Vm> {
+pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
     let mut result = vm.clone();
     for value in result.registers.iter_mut() {
-        if let Value::Iterator(ref mut i) = value {
+        if let KValue::Iterator(ref mut i) = value {
             *i = i.make_copy()?;
         }
     }
@@ -2989,16 +2989,16 @@ pub enum CallArgs<'a> {
     None,
 
     /// Represents a function call with a single argument.
-    Single(Value),
+    Single(KValue),
 
     /// Arguments are provided separately and are passed directly to the function.
-    Separate(&'a [Value]),
+    Separate(&'a [KValue]),
 
     /// Arguments are bundled together as a tuple and then passed to the function.
     ///
     /// If the function unpacks the tuple in its arguments list then a temporary tuple will be used,
     /// which avoids the creation of an allocated tuple.
-    AsTuple(&'a [Value]),
+    AsTuple(&'a [KValue]),
 }
 
 // A cache of the export maps of imported modules

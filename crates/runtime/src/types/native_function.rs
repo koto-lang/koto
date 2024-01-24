@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, KotoVm, Ptr, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -6,18 +6,18 @@ use std::{
 
 /// A trait for native functions used by the Koto runtime
 pub trait KotoFunction:
-    Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+    Fn(&mut CallContext) -> Result<KValue> + KotoSend + KotoSync + 'static
 {
 }
 
 impl<T> KotoFunction for T where
-    T: Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+    T: Fn(&mut CallContext) -> Result<KValue> + KotoSend + KotoSync + 'static
 {
 }
 
 /// An function that's defined outside of the Koto runtime
 ///
-/// See [Value::NativeFunction]
+/// See [KValue::NativeFunction]
 pub struct KNativeFunction {
     /// The function implementation that should be called when calling the external function
     //
@@ -64,12 +64,12 @@ impl Hash for KNativeFunction {
 pub struct CallContext<'a> {
     /// The VM making the call
     ///
-    /// The VM can be used for operations like [Vm::run_function], although
+    /// The VM can be used for operations like [KotoVm::run_function], although
     /// the [CallContext::args] and [CallContext::instance] functions return references,
     /// so the values need to be cloned before mutable operations can be called.
     ///
-    /// If a VM needs to be retained after the call, then see [Vm::spawn_shared_vm].
-    pub vm: &'a mut Vm,
+    /// If a VM needs to be retained after the call, then see [KotoVm::spawn_shared_vm].
+    pub vm: &'a mut KotoVm,
     instance_register: Option<u8>,
     arg_register: u8,
     arg_count: u8,
@@ -78,7 +78,7 @@ pub struct CallContext<'a> {
 impl<'a> CallContext<'a> {
     /// Returns a new context for calling external functions
     pub fn new(
-        vm: &'a mut Vm,
+        vm: &'a mut KotoVm,
         instance_register: Option<u8>,
         arg_register: u8,
         arg_count: u8,
@@ -92,13 +92,13 @@ impl<'a> CallContext<'a> {
     }
 
     /// Returns the `self` instance with which the function was called
-    pub fn instance(&self) -> Option<&Value> {
+    pub fn instance(&self) -> Option<&KValue> {
         self.instance_register
             .map(|register| self.vm.get_register(register))
     }
 
     /// Returns the function call's arguments
-    pub fn args(&self) -> &[Value] {
+    pub fn args(&self) -> &[KValue] {
         self.vm.register_slice(self.arg_register, self.arg_count)
     }
 
@@ -114,9 +114,9 @@ impl<'a> CallContext<'a> {
     /// contexts like `[1, 2, 3].to_tuple()`, or as standalone functions like `to_tuple [1, 2, 3]`.
     pub fn instance_and_args(
         &self,
-        instance_check: impl Fn(&Value) -> bool,
+        instance_check: impl Fn(&KValue) -> bool,
         expected_args_message: &str,
-    ) -> Result<(&Value, &[Value])> {
+    ) -> Result<(&KValue, &[KValue])> {
         match (self.instance(), self.args()) {
             (Some(instance), args) if instance_check(instance) => Ok((instance, args)),
             (_, [first, rest @ ..]) if instance_check(first) => Ok((first, rest)),

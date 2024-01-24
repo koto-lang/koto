@@ -1,7 +1,7 @@
 //! The `io` core library module
 
 use super::string::format;
-use crate::{derive::*, prelude::*, BufferedFile, Error, MethodContext, Result};
+use crate::{derive::*, prelude::*, BufferedFile, Error, KotoVm, MethodContext, Ptr, Result};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
@@ -10,7 +10,7 @@ use std::{
 
 /// The initializer for the io module
 pub fn make_module() -> KMap {
-    use Value::{Bool, Null, Str};
+    use KValue::{Bool, Null, Str};
 
     let result = KMap::with_type("core.io");
 
@@ -97,7 +97,7 @@ pub fn make_module() -> KMap {
                 let tuple_data = Vec::from(values);
                 match ctx
                     .vm
-                    .run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))?
+                    .run_unary_op(crate::UnaryOp::Display, KValue::Tuple(tuple_data.into()))?
                 {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
                     unexpected => return type_error("string from @display", &unexpected),
@@ -129,7 +129,7 @@ pub fn make_module() -> KMap {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
                 match fs::remove_file(path) {
-                    Ok(_) => Ok(Value::Null),
+                    Ok(_) => Ok(KValue::Null),
                     Err(error) => runtime_error!(
                         "io.remove_file: Error while removing file '{}': {error}",
                         path.to_string_lossy(),
@@ -158,63 +158,63 @@ pub struct File(Ptr<dyn KotoFile>);
 #[koto_impl(runtime = crate)]
 impl File {
     /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
-    pub fn system_file<T>(file: T, path: PathBuf) -> Value
+    pub fn system_file<T>(file: T, path: PathBuf) -> KValue
     where
         T: Read + Write + Seek + KotoSend + KotoSync + 'static,
     {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
-    fn stderr(vm: &Vm) -> Value {
+    fn stderr(vm: &KotoVm) -> KValue {
         Self(vm.stderr().clone()).into()
     }
 
-    fn stdin(vm: &Vm) -> Value {
+    fn stdin(vm: &KotoVm) -> KValue {
         Self(vm.stdin().clone()).into()
     }
 
-    fn stdout(vm: &Vm) -> Value {
+    fn stdout(vm: &KotoVm) -> KValue {
         Self(vm.stdout().clone()).into()
     }
 
     #[koto_method]
-    fn flush(&mut self) -> Result<Value> {
-        self.0.flush().map(|_| Value::Null)
+    fn flush(&mut self) -> Result<KValue> {
+        self.0.flush().map(|_| KValue::Null)
     }
 
     #[koto_method]
-    fn path(&self) -> Result<Value> {
-        self.0.path().map(Value::from)
+    fn path(&self) -> Result<KValue> {
+        self.0.path().map(KValue::from)
     }
 
     #[koto_method]
-    fn read_line(&mut self) -> Result<Value> {
+    fn read_line(&mut self) -> Result<KValue> {
         self.0.read_line().map(|result| match result {
             Some(result) => {
                 if !result.is_empty() {
                     let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
                     result[..result.len() - newline_bytes].into()
                 } else {
-                    Value::Null
+                    KValue::Null
                 }
             }
-            None => Value::Null,
+            None => KValue::Null,
         })
     }
 
     #[koto_method]
-    fn read_to_string(&mut self) -> Result<Value> {
-        self.0.read_to_string().map(Value::from)
+    fn read_to_string(&mut self) -> Result<KValue> {
+        self.0.read_to_string().map(KValue::from)
     }
 
     #[koto_method]
-    fn seek(&mut self, args: &[Value]) -> Result<Value> {
+    fn seek(&mut self, args: &[KValue]) -> Result<KValue> {
         match args {
-            [Value::Number(n)] => {
+            [KValue::Number(n)] => {
                 if *n < 0.0 {
                     return runtime_error!("Negative seek positions not allowed");
                 }
-                self.0.seek(n.into()).map(|_| Value::Null)
+                self.0.seek(n.into()).map(|_| KValue::Null)
             }
             unexpected => {
                 type_error_with_slice("a non-negative Number as the seek position", unexpected)
@@ -223,7 +223,7 @@ impl File {
     }
 
     #[koto_method]
-    fn write(ctx: MethodContext<Self>) -> Result<Value> {
+    fn write(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
             [value] => {
                 let mut display_context = DisplayContext::with_vm(ctx.vm);
@@ -231,14 +231,14 @@ impl File {
                 ctx.instance_mut()?
                     .0
                     .write(display_context.result().as_bytes())
-                    .map(|_| Value::Null)
+                    .map(|_| KValue::Null)
             }
             unexpected => type_error_with_slice("a single argument", unexpected),
         }
     }
 
     #[koto_method]
-    fn write_line(ctx: MethodContext<Self>) -> Result<Value> {
+    fn write_line(ctx: MethodContext<Self>) -> Result<KValue> {
         let mut display_context = DisplayContext::with_vm(ctx.vm);
         match ctx.args {
             [] => {}
@@ -249,7 +249,7 @@ impl File {
         ctx.instance_mut()?
             .0
             .write(display_context.result().as_bytes())
-            .map(|_| Value::Null)
+            .map(|_| KValue::Null)
     }
 }
 
@@ -260,7 +260,7 @@ impl KotoObject for File {
     }
 }
 
-impl From<File> for Value {
+impl From<File> for KValue {
     fn from(file: File) -> Self {
         KObject::from(file).into()
     }

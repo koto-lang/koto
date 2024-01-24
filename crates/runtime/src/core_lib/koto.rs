@@ -7,19 +7,19 @@ use std::hash::{Hash, Hasher};
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.koto");
 
-    result.insert("args", Value::Tuple(KTuple::default()));
+    result.insert("args", KValue::Tuple(KTuple::default()));
 
     result.add_fn("copy", |ctx| match ctx.args() {
-        [Value::Iterator(iter)] => Ok(iter.make_copy()?.into()),
-        [Value::List(l)] => Ok(KList::with_data(l.data().clone()).into()),
-        [Value::Map(m)] => {
+        [KValue::Iterator(iter)] => Ok(iter.make_copy()?.into()),
+        [KValue::List(l)] => Ok(KList::with_data(l.data().clone()).into()),
+        [KValue::Map(m)] => {
             let result = KMap::with_contents(
                 m.data().clone(),
                 m.meta_map().map(|meta| meta.borrow().clone()),
             );
             Ok(result.into())
         }
-        [Value::Object(o)] => o.try_borrow().map(|o| o.copy().into()),
+        [KValue::Object(o)] => o.try_borrow().map(|o| o.copy().into()),
         [other] => Ok(other.clone()),
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
@@ -29,7 +29,7 @@ pub fn make_module() -> KMap {
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
-    result.add_fn("exports", |ctx| Ok(Value::Map(ctx.vm.exports().clone())));
+    result.add_fn("exports", |ctx| Ok(KValue::Map(ctx.vm.exports().clone())));
 
     result.add_fn("hash", |ctx| match ctx.args() {
         [value] => match ValueKey::try_from(value.clone()) {
@@ -38,13 +38,13 @@ pub fn make_module() -> KMap {
                 key.hash(&mut hasher);
                 Ok(hasher.finish().into())
             }
-            Err(_) => Ok(Value::Null),
+            Err(_) => Ok(KValue::Null),
         },
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
-    result.insert("script_dir", Value::Null);
-    result.insert("script_path", Value::Null);
+    result.insert("script_dir", KValue::Null);
+    result.insert("script_path", KValue::Null);
 
     result.add_fn("type", |ctx| match ctx.args() {
         [value] => Ok(value.type_as_string().into()),

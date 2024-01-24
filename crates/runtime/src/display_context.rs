@@ -2,13 +2,13 @@ use std::fmt;
 
 use koto_memory::Address;
 
-use crate::{KString, Vm};
+use crate::{KString, KotoVm};
 
 /// A helper for converting Koto values to strings
 #[derive(Default)]
 pub struct DisplayContext<'a> {
     result: String,
-    vm: Option<&'a Vm>,
+    vm: Option<&'a KotoVm>,
     // A contained value might need to be displayed differently,
     // - Strings should be displayed with quotes when they're inside a container.
     // - Containers should check the parent list to avoid recursive display operations.
@@ -17,7 +17,7 @@ pub struct DisplayContext<'a> {
 
 impl<'a> DisplayContext<'a> {
     /// Makes a display context with the given VM
-    pub fn with_vm(vm: &'a Vm) -> Self {
+    pub fn with_vm(vm: &'a KotoVm) -> Self {
         Self {
             result: String::default(),
             vm: Some(vm),
@@ -26,7 +26,7 @@ impl<'a> DisplayContext<'a> {
     }
 
     /// Makes a display context with the given VM and reserved capacity
-    pub fn with_vm_and_capacity(vm: &'a Vm, capacity: usize) -> Self {
+    pub fn with_vm_and_capacity(vm: &'a KotoVm, capacity: usize) -> Self {
         Self {
             result: String::with_capacity(capacity),
             vm: Some(vm),
@@ -45,7 +45,7 @@ impl<'a> DisplayContext<'a> {
     }
 
     /// Returns a reference to the context's VM
-    pub fn vm(&self) -> &Option<&'a Vm> {
+    pub fn vm(&self) -> &Option<&'a KotoVm> {
         &self.vm
     }
 

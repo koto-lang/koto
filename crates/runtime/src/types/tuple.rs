@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Ptr, Result};
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
@@ -11,13 +11,13 @@ pub struct KTuple(Inner);
 // would have a size of 32 bytes.
 #[derive(Clone)]
 enum Inner {
-    Full(Ptr<[Value]>),
+    Full(Ptr<[KValue]>),
     Slice(Ptr<TupleSlice>),
 }
 
 #[derive(Clone)]
 struct TupleSlice {
-    data: Ptr<[Value]>,
+    data: Ptr<[KValue]>,
     bounds: Range<usize>,
 }
 
@@ -49,14 +49,14 @@ impl KTuple {
 
     /// Returns true if the tuple contains only immutable values
     pub fn is_hashable(&self) -> bool {
-        self.iter().all(Value::is_hashable)
+        self.iter().all(KValue::is_hashable)
     }
 
     /// Removes and returns the first value in the tuple
     ///
     /// The internal bounds of the tuple are adjusted to 'remove' the first element;
     /// no change is made to the underlying tuple data.
-    pub fn pop_front(&mut self) -> Option<Value> {
+    pub fn pop_front(&mut self) -> Option<KValue> {
         match &mut self.0 {
             Inner::Full(data) => {
                 if let Some(value) = data.first().cloned() {
@@ -84,7 +84,7 @@ impl KTuple {
     ///
     /// The internal bounds of the tuple are adjusted to 'remove' the first element;
     /// no change is made to the underlying tuple data.
-    pub fn pop_back(&mut self) -> Option<Value> {
+    pub fn pop_back(&mut self) -> Option<KValue> {
         match &mut self.0 {
             Inner::Full(data) => {
                 if let Some(value) = data.last().cloned() {
@@ -132,9 +132,9 @@ impl KTuple {
 }
 
 impl Deref for KTuple {
-    type Target = [Value];
+    type Target = [KValue];
 
-    fn deref(&self) -> &[Value] {
+    fn deref(&self) -> &[KValue] {
         match &self.0 {
             Inner::Full(data) => data,
             Inner::Slice(slice) => slice.deref(),
@@ -148,29 +148,29 @@ impl Default for KTuple {
     }
 }
 
-impl From<&[Value]> for KTuple {
-    fn from(data: &[Value]) -> Self {
+impl From<&[KValue]> for KTuple {
+    fn from(data: &[KValue]) -> Self {
         Self(Inner::Full(data.into()))
     }
 }
 
-impl From<Vec<Value>> for KTuple {
-    fn from(data: Vec<Value>) -> Self {
+impl From<Vec<KValue>> for KTuple {
+    fn from(data: Vec<KValue>) -> Self {
         Self(Inner::Full(data.into()))
     }
 }
 
 impl Deref for TupleSlice {
-    type Target = [Value];
+    type Target = [KValue];
 
-    fn deref(&self) -> &[Value] {
+    fn deref(&self) -> &[KValue] {
         // Safety: bounds have already been checked in the From impls and make_sub_tuple
         unsafe { self.data.get_unchecked(self.bounds.clone()) }
     }
 }
 
-impl From<Ptr<[Value]>> for TupleSlice {
-    fn from(data: Ptr<[Value]>) -> Self {
+impl From<Ptr<[KValue]>> for TupleSlice {
+    fn from(data: Ptr<[KValue]>) -> Self {
         let bounds = 0..data.len();
         Self { data, bounds }
     }

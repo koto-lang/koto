@@ -8,21 +8,21 @@ use std::{
 
 /// The key type used by [ValueMap](crate::ValueMap)
 ///
-/// Only hashable values can be used as keys, see [Value::is_hashable]
+/// Only hashable values can be used as keys, see [KValue::is_hashable]
 #[derive(Clone)]
-pub struct ValueKey(Value);
+pub struct ValueKey(KValue);
 
 impl ValueKey {
     /// Returns a reference to the key's value
-    pub fn value(&self) -> &Value {
+    pub fn value(&self) -> &KValue {
         &self.0
     }
 }
 
-impl TryFrom<Value> for ValueKey {
+impl TryFrom<KValue> for ValueKey {
     type Error = Error;
 
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(value: KValue) -> Result<Self, Self::Error> {
         if value.is_hashable() {
             Ok(Self(value))
         } else {
@@ -33,7 +33,7 @@ impl TryFrom<Value> for ValueKey {
 
 impl PartialEq for ValueKey {
     fn eq(&self, other: &Self) -> bool {
-        use Value::*;
+        use KValue::*;
 
         match (&self.0, &other.0) {
             (Number(a), Number(b)) => a == b,
@@ -55,7 +55,7 @@ impl Eq for ValueKey {}
 
 impl Hash for ValueKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        use Value::*;
+        use KValue::*;
 
         match &self.0 {
             Null => {}
@@ -75,7 +75,7 @@ impl Hash for ValueKey {
 
 impl PartialOrd for ValueKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Value::*;
+        use KValue::*;
 
         match (&self.0, &other.0) {
             (Null, Null) => Some(Ordering::Equal),
@@ -104,7 +104,7 @@ impl PartialOrd for ValueKey {
 
 impl fmt::Display for ValueKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        use Value::*;
+        use KValue::*;
 
         match &self.0 {
             Null => f.write_str("null"),
@@ -129,7 +129,7 @@ impl fmt::Display for ValueKey {
 
 impl From<KString> for ValueKey {
     fn from(value: KString) -> Self {
-        Self(Value::Str(value))
+        Self(KValue::Str(value))
     }
 }
 
@@ -138,13 +138,13 @@ where
     KNumber: From<T>,
 {
     fn from(value: T) -> Self {
-        Self(Value::Number(value.into()))
+        Self(KValue::Number(value.into()))
     }
 }
 
 impl From<&str> for ValueKey {
     fn from(value: &str) -> Self {
-        Self(Value::Str(value.into()))
+        Self(KValue::Str(value.into()))
     }
 }
 
@@ -152,7 +152,7 @@ impl From<&str> for ValueKey {
 impl Equivalent<ValueKey> for str {
     fn equivalent(&self, other: &ValueKey) -> bool {
         match &other.0 {
-            Value::Str(s) => self == s.as_str(),
+            KValue::Str(s) => self == s.as_str(),
             _ => false,
         }
     }
@@ -161,7 +161,7 @@ impl Equivalent<ValueKey> for str {
 impl Equivalent<ValueKey> for KString {
     fn equivalent(&self, other: &ValueKey) -> bool {
         match &other.0 {
-            Value::Str(s) => self == s,
+            KValue::Str(s) => self == s,
             _ => false,
         }
     }

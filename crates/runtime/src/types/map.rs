@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Result};
+use crate::{prelude::*, Borrow, BorrowMut, Error, PtrMut, Result};
 use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{
@@ -10,7 +10,7 @@ use std::{
 /// The hasher used throughout the Koto runtime
 pub type KotoHasher = FxHasher;
 
-type ValueMapType = IndexMap<ValueKey, Value, BuildHasherDefault<KotoHasher>>;
+type ValueMapType = IndexMap<ValueKey, KValue, BuildHasherDefault<KotoHasher>>;
 
 /// The (ValueKey -> Value) 'data' hashmap used by the Koto runtime
 ///
@@ -42,8 +42,8 @@ impl DerefMut for ValueMap {
     }
 }
 
-impl FromIterator<(ValueKey, Value)> for ValueMap {
-    fn from_iter<T: IntoIterator<Item = (ValueKey, Value)>>(iter: T) -> ValueMap {
+impl FromIterator<(ValueKey, KValue)> for ValueMap {
+    fn from_iter<T: IntoIterator<Item = (ValueKey, KValue)>>(iter: T) -> ValueMap {
         Self(ValueMapType::from_iter(iter))
     }
 }
@@ -124,19 +124,19 @@ impl KMap {
     }
 
     /// Returns a clone of the meta value corresponding to the given key
-    pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
+    pub fn get_meta_value(&self, key: &MetaKey) -> Option<KValue> {
         self.meta
             .as_ref()
             .and_then(|meta| meta.borrow().get(key).cloned())
     }
 
     /// Insert an entry into the KMap's data
-    pub fn insert(&self, key: impl Into<ValueKey>, value: impl Into<Value>) {
+    pub fn insert(&self, key: impl Into<ValueKey>, value: impl Into<KValue>) {
         self.data_mut().insert(key.into(), value.into());
     }
 
     /// Inserts a value into the meta map, initializing the meta map if it doesn't yet exist
-    pub fn insert_meta(&mut self, key: MetaKey, value: Value) {
+    pub fn insert_meta(&mut self, key: MetaKey, value: KValue) {
         self.meta
             .get_or_insert_with(Default::default)
             .borrow_mut()
@@ -145,7 +145,7 @@ impl KMap {
 
     /// Adds a function to the KMap's data map
     pub fn add_fn(&self, id: &str, f: impl KotoFunction) {
-        self.insert(id, Value::NativeFunction(KNativeFunction::new(f)));
+        self.insert(id, KValue::NativeFunction(KNativeFunction::new(f)));
     }
 
     /// Returns the number of entries in the KMap's data map
@@ -175,7 +175,7 @@ impl KMap {
                 .ok_or_else(|| Error::from("Missing VM in map display op"))?
                 .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
-                Value::Str(display_result) => {
+                KValue::Str(display_result) => {
                     ctx.append(display_result);
                 }
                 unexpected => return type_error("String as @display result", &unexpected),
@@ -228,9 +228,9 @@ mod tests {
         let m = KMap::default();
 
         assert!(m.data().get("test").is_none());
-        m.insert("test", Value::Null);
+        m.insert("test", KValue::Null);
         assert!(m.data().get("test").is_some());
-        assert!(matches!(m.data_mut().remove("test"), Some(Value::Null)));
+        assert!(matches!(m.data_mut().remove("test"), Some(KValue::Null)));
         assert!(m.data().get("test").is_none());
     }
 }

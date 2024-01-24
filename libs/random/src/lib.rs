@@ -15,7 +15,7 @@ pub fn make_module() -> KMap {
             // No seed, make RNG from entropy
             [] => ChaCha8Rng::from_entropy(),
             // RNG from seed
-            [Value::Number(n)] => ChaCha8Rng::seed_from_u64(n.to_bits()),
+            [KValue::Number(n)] => ChaCha8Rng::seed_from_u64(n.to_bits()),
             unexpected => {
                 return type_error_with_slice("an optional seed Number as argument", unexpected)
             }
@@ -43,23 +43,23 @@ struct ChaChaRng(ChaCha8Rng);
 
 #[koto_impl(runtime = koto_runtime)]
 impl ChaChaRng {
-    fn make_value(rng: ChaCha8Rng) -> Value {
+    fn make_value(rng: ChaCha8Rng) -> KValue {
         KObject::from(Self(rng)).into()
     }
 
     #[koto_method]
-    fn bool(&mut self) -> Result<Value> {
+    fn bool(&mut self) -> Result<KValue> {
         Ok(self.0.gen::<bool>().into())
     }
 
     #[koto_method]
-    fn number(&mut self) -> Result<Value> {
+    fn number(&mut self) -> Result<KValue> {
         Ok(self.0.gen::<f64>().into())
     }
 
     #[koto_method]
-    fn pick(&mut self, args: &[Value]) -> Result<Value> {
-        use Value::*;
+    fn pick(&mut self, args: &[KValue]) -> Result<KValue> {
+        use KValue::*;
 
         match args {
             [List(l)] => {
@@ -89,8 +89,8 @@ impl ChaChaRng {
     }
 
     #[koto_method]
-    fn seed(&mut self, args: &[Value]) -> Result<Value> {
-        use Value::*;
+    fn seed(&mut self, args: &[KValue]) -> Result<KValue> {
+        use KValue::*;
         match args {
             [Number(n)] => {
                 self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());

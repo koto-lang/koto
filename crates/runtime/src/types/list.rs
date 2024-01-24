@@ -1,7 +1,7 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Borrow, BorrowMut, PtrMut, Result};
 
 /// The underlying Vec type used by [KList]
-pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
+pub type ValueVec = smallvec::SmallVec<[KValue; 4]>;
 
 /// The Koto runtime's List type
 #[derive(Clone, Default)]
@@ -18,8 +18,8 @@ impl KList {
         Self(data.into())
     }
 
-    /// Creates a list containing the provided slice of [Values](crate::Value)
-    pub fn from_slice(data: &[Value]) -> Self {
+    /// Creates a list containing the provided slice of [Values](crate::KValue)
+    pub fn from_slice(data: &[KValue]) -> Self {
         Self(data.iter().cloned().collect::<ValueVec>().into())
     }
 

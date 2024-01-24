@@ -46,6 +46,13 @@ impl<T: ?Sized> Ptr<T> {
     pub fn address(this: &Self) -> Address {
         Rc::as_ptr(&this.0).into()
     }
+
+    /// Returns the number of references to the allocated memory
+    ///
+    /// Only strong references are counted, weak references don't get added to the result.
+    pub fn ref_count(this: &Self) -> usize {
+        Rc::strong_count(&this.0)
+    }
 }
 
 impl<T: Clone> Ptr<T> {

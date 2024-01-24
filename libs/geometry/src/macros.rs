@@ -64,11 +64,11 @@ macro_rules! geometry_arithmetic_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     Ok((*$self $op *rhs).into())
                 }
-                Value::Number(n) => {
+                KValue::Number(n) => {
                     Ok((*$self $op f64::from(n)).into())
                 }
                 unexpected => {
@@ -84,12 +84,12 @@ macro_rules! geometry_arithmetic_assign_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     *$self $op *rhs;
                     Ok(())
                 }
-                Value::Number(n) => {
+                KValue::Number(n) => {
                     *$self $op f64::from(n);
                     Ok(())
                 }
@@ -106,7 +106,7 @@ macro_rules! geometry_comparison_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     Ok(*$self $op *rhs)
                 }

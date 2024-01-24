@@ -13,7 +13,7 @@ pub use vec3::Vec3;
 use koto_runtime::prelude::*;
 
 pub fn make_module() -> KMap {
-    use Value::{Number, Object};
+    use KValue::{Number, Object};
 
     let result = KMap::with_type("geometry");
 

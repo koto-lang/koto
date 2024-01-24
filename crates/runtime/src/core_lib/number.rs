@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 /// Initializes the `number` core library module
 pub fn make_module() -> KMap {
-    use Value::Number;
+    use KValue::Number;
 
     let result = KMap::with_type("core.number");
 
@@ -219,10 +219,10 @@ pub fn make_module() -> KMap {
     result
 }
 
-fn is_number(value: &Value) -> bool {
-    matches!(value, Value::Number(_))
+fn is_number(value: &KValue) -> bool {
+    matches!(value, KValue::Number(_))
 }
 
-fn is_integer(value: &Value) -> bool {
-    matches!(value, Value::Number(KNumber::I64(_)))
+fn is_integer(value: &KValue) -> bool {
+    matches!(value, KValue::Number(KNumber::I64(_)))
 }

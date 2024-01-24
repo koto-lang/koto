@@ -2,7 +2,7 @@ mod runtime_test_utils;
 
 use crate::runtime_test_utils::TestStdout;
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Ptr, PtrMut};
 
 mod vm {
     use super::*;
@@ -10,7 +10,7 @@ mod vm {
     fn check_logged_output(script: &str, expected_output: &str) {
         let output = PtrMut::from(String::new());
 
-        let mut vm = Vm::with_settings(VmSettings {
+        let mut vm = KotoVm::with_settings(KotoVmSettings {
             stdout: make_ptr!(TestStdout {
                 output: output.clone(),
             }),

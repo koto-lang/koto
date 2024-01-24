@@ -1,7 +1,7 @@
 mod runtime_test_utils;
 
 use crate::runtime_test_utils::*;
-use koto_runtime::Value;
+use koto_runtime::KValue;
 
 mod iterator {
     use super::*;
@@ -84,7 +84,7 @@ generator()
             let script = "
 [].cycle().next()
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -208,7 +208,7 @@ y.next()
 
     mod peekable {
         use super::*;
-        use Value::Null;
+        use KValue::Null;
 
         #[test]
         fn peek() {

@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{prelude::*, Ptr, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},

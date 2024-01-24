@@ -6,7 +6,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("new", {
         |ctx| match ctx.args() {
-            [Value::Str(text)] => {
+            [KValue::Str(text)] => {
                 let mut poetry = Poetry::default();
                 poetry.add_source_material(text);
                 Ok(KObject::from(KotoPoetry(poetry)).into())
@@ -29,7 +29,7 @@ impl KotoObject for KotoPoetry {
         IsIterable::ForwardIterator
     }
 
-    fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         self.0
             .next_word()
             .map(|word| KIteratorOutput::Value(word.as_ref().into()))

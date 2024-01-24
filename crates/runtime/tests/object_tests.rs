@@ -14,12 +14,12 @@ mod objects {
 
     #[koto_impl(runtime = koto_runtime)]
     impl TestObject {
-        fn make_value(x: i64) -> Value {
+        fn make_value(x: i64) -> KValue {
             KObject::from(Self { x }).into()
         }
 
         #[koto_method]
-        fn to_number(&self) -> Value {
+        fn to_number(&self) -> KValue {
             self.x.into()
         }
 
@@ -29,23 +29,23 @@ mod objects {
         }
 
         #[koto_method(alias = "absorb1", alias = "absorb2")]
-        fn absorb_values(&mut self, args: &[Value]) -> Result<Value> {
+        fn absorb_values(&mut self, args: &[KValue]) -> Result<KValue> {
             for arg in args.iter() {
                 match arg {
-                    Value::Number(n) => self.x += i64::from(n),
+                    KValue::Number(n) => self.x += i64::from(n),
                     other => return type_error("Number", other),
                 }
             }
-            Ok(Value::Null)
+            Ok(KValue::Null)
         }
 
         #[koto_method]
-        fn set_all_instances(ctx: MethodContext<Self>) -> Result<Value> {
+        fn set_all_instances(ctx: MethodContext<Self>) -> Result<KValue> {
             match ctx.args {
-                [Value::Object(b)] if b.is_a::<TestObject>() => {
+                [KValue::Object(b)] if b.is_a::<TestObject>() => {
                     let b_x = b.cast::<TestObject>().unwrap().x;
                     ctx.instance_mut()?.x = b_x;
-                    Ok(Value::Null)
+                    Ok(KValue::Null)
                 }
                 unexpected => type_error_with_slice("TestExternal", unexpected),
             }
@@ -55,7 +55,7 @@ mod objects {
     macro_rules! arithmetic_op {
         ($self:ident, $rhs:expr, $op:tt) => {
             {
-                use Value::*;
+                use KValue::*;
                 match $rhs {
                     Object(rhs) if rhs.is_a::<Self>() => {
                         let rhs = rhs.cast::<Self>().unwrap();
@@ -75,7 +75,7 @@ mod objects {
     macro_rules! assignment_op {
         ($self:ident, $rhs:expr, $op:tt) => {
             {
-                use Value::*;
+                use KValue::*;
                 match $rhs {
                     Object(rhs) if rhs.is_a::<Self>() => {
                         let rhs = rhs.cast::<Self>().unwrap();
@@ -97,7 +97,7 @@ mod objects {
     macro_rules! comparison_op {
         ($self:ident, $rhs:expr, $op:tt) => {
             {
-                use Value::*;
+                use KValue::*;
                 match $rhs {
                     Object(rhs) if rhs.is_a::<Self>() => {
                         let rhs = rhs.cast::<Self>().unwrap();
@@ -122,9 +122,9 @@ mod objects {
             Ok(())
         }
 
-        fn index(&self, index: &Value) -> Result<Value> {
+        fn index(&self, index: &KValue) -> Result<KValue> {
             match index {
-                Value::Number(index) => {
+                KValue::Number(index) => {
                     let result = self.x + i64::from(index);
                     Ok(result.into())
                 }
@@ -132,75 +132,75 @@ mod objects {
             }
         }
 
-        fn call(&mut self, _ctx: &mut CallContext) -> Result<Value> {
+        fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
             Ok(self.x.into())
         }
 
-        fn negate(&self, _vm: &mut Vm) -> Result<Value> {
+        fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
             Ok(Self::make_value(-self.x))
         }
 
-        fn add(&self, rhs: &Value) -> Result<Value> {
+        fn add(&self, rhs: &KValue) -> Result<KValue> {
             arithmetic_op!(self, rhs, +)
         }
 
-        fn subtract(&self, rhs: &Value) -> Result<Value> {
+        fn subtract(&self, rhs: &KValue) -> Result<KValue> {
             arithmetic_op!(self, rhs, -)
         }
 
-        fn multiply(&self, rhs: &Value) -> Result<Value> {
+        fn multiply(&self, rhs: &KValue) -> Result<KValue> {
             arithmetic_op!(self, rhs, *)
         }
 
-        fn divide(&self, rhs: &Value) -> Result<Value> {
+        fn divide(&self, rhs: &KValue) -> Result<KValue> {
             arithmetic_op!(self, rhs, /)
         }
 
-        fn remainder(&self, rhs: &Value) -> Result<Value> {
+        fn remainder(&self, rhs: &KValue) -> Result<KValue> {
             arithmetic_op!(self, rhs, %)
         }
 
-        fn add_assign(&mut self, rhs: &Value) -> Result<()> {
+        fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
             assignment_op!(self, rhs, +=)
         }
 
-        fn subtract_assign(&mut self, rhs: &Value) -> Result<()> {
+        fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
             assignment_op!(self, rhs, -=)
         }
 
-        fn multiply_assign(&mut self, rhs: &Value) -> Result<()> {
+        fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
             assignment_op!(self, rhs, *=)
         }
 
-        fn divide_assign(&mut self, rhs: &Value) -> Result<()> {
+        fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
             assignment_op!(self, rhs, /=)
         }
 
-        fn remainder_assign(&mut self, rhs: &Value) -> Result<()> {
+        fn remainder_assign(&mut self, rhs: &KValue) -> Result<()> {
             assignment_op!(self, rhs, %=)
         }
 
-        fn less(&self, rhs: &Value) -> Result<bool> {
+        fn less(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, <)
         }
 
-        fn less_or_equal(&self, rhs: &Value) -> Result<bool> {
+        fn less_or_equal(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, <=)
         }
 
-        fn greater(&self, rhs: &Value) -> Result<bool> {
+        fn greater(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, >)
         }
 
-        fn greater_or_equal(&self, rhs: &Value) -> Result<bool> {
+        fn greater_or_equal(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, >=)
         }
 
-        fn equal(&self, rhs: &Value) -> Result<bool> {
+        fn equal(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, ==)
         }
 
-        fn not_equal(&self, rhs: &Value) -> Result<bool> {
+        fn not_equal(&self, rhs: &KValue) -> Result<bool> {
             comparison_op!(self, rhs, !=)
         }
 
@@ -208,7 +208,7 @@ mod objects {
             IsIterable::Iterable
         }
 
-        fn make_iterator(&self, vm: &mut Vm) -> Result<KIterator> {
+        fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
             KIterator::with_object(vm.spawn_shared_vm(), TestIterator::make_object(self.x))
         }
     }
@@ -231,23 +231,23 @@ mod objects {
             IsIterable::BidirectionalIterator
         }
 
-        fn iterator_next(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+        fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
             self.x += 1;
             Some(self.x.into())
         }
 
-        fn iterator_next_back(&mut self, _vm: &mut Vm) -> Option<KIteratorOutput> {
+        fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
             self.x -= 1;
             Some(self.x.into())
         }
     }
 
-    fn test_object_script(script: &str, expected_output: impl Into<Value>) {
-        let vm = Vm::default();
+    fn test_object_script(script: &str, expected_output: impl Into<KValue>) {
+        let vm = KotoVm::default();
         let prelude = vm.prelude();
 
         prelude.add_fn("make_object", |ctx| match ctx.args() {
-            [Value::Number(x)] => Ok(TestObject::make_value(x.into())),
+            [KValue::Number(x)] => Ok(TestObject::make_value(x.into())),
             _ => runtime_error!("make_object: Expected a Number"),
         });
 

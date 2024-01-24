@@ -1,13 +1,13 @@
 #![allow(unused)]
 
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::{prelude::*, Result, Value::*};
+use koto_runtime::{prelude::*, KValue::*, KotoVm, Ptr, PtrMut, Result};
 use std::{cell::RefCell, rc::Rc};
 
-pub fn test_script(script: &str, expected_output: impl Into<Value>) {
+pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
     let output = PtrMut::from(String::new());
 
-    let vm = Vm::with_settings(VmSettings {
+    let vm = KotoVm::with_settings(KotoVmSettings {
         stdout: make_ptr!(TestStdout {
             output: output.clone(),
         }),
@@ -26,7 +26,7 @@ pub fn test_script(script: &str, expected_output: impl Into<Value>) {
     }
 }
 
-pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> Result<()> {
+pub fn run_script_with_vm(mut vm: KotoVm, script: &str, expected_output: KValue) -> Result<()> {
     let mut loader = Loader::default();
     let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
         Ok(chunk) => chunk,
@@ -39,8 +39,8 @@ pub fn run_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) -> R
     match vm.run(chunk) {
         Ok(result) => {
             match vm.run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone()) {
-                Ok(Value::Bool(true)) => Ok(()),
-                Ok(Value::Bool(false)) => {
+                Ok(KValue::Bool(true)) => Ok(()),
+                Ok(KValue::Bool(false)) => {
                     print_chunk(script, vm.chunk());
                     Err(format!(
                         "Unexpected result - expected: {}, result: {}",
@@ -81,7 +81,7 @@ pub fn print_chunk(script: &str, chunk: Ptr<Chunk>) {
     );
 }
 
-pub fn number<T>(value: T) -> Value
+pub fn number<T>(value: T) -> KValue
 where
     T: Copy,
     f64: From<T>,
@@ -89,7 +89,7 @@ where
     f64::from(value).into()
 }
 
-pub fn number_list<T>(values: &[T]) -> Value
+pub fn number_list<T>(values: &[T]) -> KValue
 where
     T: Copy,
     i64: From<T>,
@@ -101,7 +101,7 @@ where
     list(&values)
 }
 
-pub fn number_tuple<T>(values: &[T]) -> Value
+pub fn number_tuple<T>(values: &[T]) -> KValue
 where
     T: Copy,
     i64: From<T>,
@@ -113,15 +113,15 @@ where
     tuple(&values)
 }
 
-pub fn list(values: &[Value]) -> Value {
+pub fn list(values: &[KValue]) -> KValue {
     KList::from_slice(values).into()
 }
 
-pub fn tuple(values: &[Value]) -> Value {
+pub fn tuple(values: &[KValue]) -> KValue {
     KTuple::from(values).into()
 }
 
-pub fn string(s: &str) -> Value {
+pub fn string(s: &str) -> KValue {
     KString::from(s).into()
 }
 

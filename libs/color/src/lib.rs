@@ -8,7 +8,7 @@ use koto_runtime::{prelude::*, Result};
 use palette::{Hsl, Hsv};
 
 pub fn make_module() -> KMap {
-    use Value::{Number, Str};
+    use KValue::{Number, Str};
     let mut result = KMap::default();
 
     result.add_fn("hsl", |ctx| match ctx.args() {
@@ -56,17 +56,17 @@ pub fn make_module() -> KMap {
     result
 }
 
-fn named(name: &str) -> Result<Value> {
+fn named(name: &str) -> Result<KValue> {
     match Color::named(name) {
         Some(c) => Ok(c.into()),
-        None => Ok(Value::Null),
+        None => Ok(KValue::Null),
     }
 }
 
-fn rgb(r: &KNumber, g: &KNumber, b: &KNumber) -> Result<Value> {
+fn rgb(r: &KNumber, g: &KNumber, b: &KNumber) -> Result<KValue> {
     Ok(Color::rgb(r.into(), g.into(), b.into()).into())
 }
 
-fn rgba(r: &KNumber, g: &KNumber, b: &KNumber, a: &KNumber) -> Result<Value> {
+fn rgba(r: &KNumber, g: &KNumber, b: &KNumber, a: &KNumber) -> Result<KValue> {
     Ok(Color::rgba(r.into(), g.into(), b.into(), a.into()).into())
 }

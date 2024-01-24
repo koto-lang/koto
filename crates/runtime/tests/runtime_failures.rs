@@ -1,9 +1,9 @@
 mod runtime {
     use koto_bytecode::{Chunk, CompilerSettings, Loader};
-    use koto_runtime::Vm;
+    use koto_runtime::KotoVm;
 
     fn check_script_fails(script: &str) {
-        let mut vm = Vm::default();
+        let mut vm = KotoVm::default();
 
         let print_chunk = |script: &str, chunk| {
             println!("{script}\n");

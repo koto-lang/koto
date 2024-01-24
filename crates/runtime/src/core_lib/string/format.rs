@@ -2,7 +2,7 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{runtime_error, UnaryOp, Value, Vm};
+use crate::{runtime_error, KValue, KotoVm, UnaryOp};
 use koto_lexer::{is_id_continue, is_id_start};
 use std::{iter::Peekable, str::Chars};
 
@@ -296,9 +296,9 @@ impl<'a> Iterator for FormatLexer<'a> {
 
 /// Formats a string, used by `string.format` and `io.print`
 pub fn format_string(
-    vm: &mut Vm,
+    vm: &mut KotoVm,
     format_string: &str,
-    format_args: &[Value],
+    format_args: &[KValue],
 ) -> crate::Result<String> {
     let mut arg_iter = format_args.iter();
     let mut result = String::with_capacity(format_string.len());
@@ -315,7 +315,7 @@ pub fn format_string(
                 None => return runtime_error!("Missing argument for index {n}"),
             },
             FormatToken::Identifier(id, format_spec) => match format_args.first() {
-                Some(Value::Map(map)) => match map.data().get(id) {
+                Some(KValue::Map(map)) => match map.data().get(id) {
                     Some(value) => result.push_str(&value_to_string(vm, value, format_spec)?),
                     None => return runtime_error!("Key '{id}' not found in map"),
                 },
@@ -334,9 +334,13 @@ pub fn format_string(
     Ok(result)
 }
 
-fn value_to_string(vm: &mut Vm, value: &Value, format_spec: FormatSpec) -> crate::Result<String> {
+fn value_to_string(
+    vm: &mut KotoVm,
+    value: &KValue,
+    format_spec: FormatSpec,
+) -> crate::Result<String> {
     let result = match value {
-        Value::Number(n) => match format_spec.precision {
+        KValue::Number(n) => match format_spec.precision {
             Some(precision) => {
                 if n.is_f64() || n.is_i64_in_f64_range() {
                     format!("{:.*}", precision as usize, f64::from(n))
@@ -347,7 +351,7 @@ fn value_to_string(vm: &mut Vm, value: &Value, format_spec: FormatSpec) -> crate
             None => n.to_string(),
         },
         _ => match vm.run_unary_op(UnaryOp::Display, value.clone())? {
-            Value::Str(result) => {
+            KValue::Str(result) => {
                 match format_spec.precision {
                     Some(precision) => {
                         // precision acts as a maximum width for non-number values
@@ -391,7 +395,7 @@ fn value_to_string(vm: &mut Vm, value: &Value, format_spec: FormatSpec) -> crate
                     }
                     Some(FormatAlign::Right) => fill.repeat(fill_chars) + &result,
                     None => {
-                        if matches!(value, Value::Number(_)) {
+                        if matches!(value, KValue::Number(_)) {
                             fill.repeat(fill_chars) + &result
                         } else {
                             result + &fill.repeat(fill_chars)
@@ -540,8 +544,8 @@ mod tests {
     mod format_string {
         use super::*;
 
-        fn check_format_output(format: &str, args: &[Value], expected: &str) {
-            let mut vm = Vm::default();
+        fn check_format_output(format: &str, args: &[KValue], expected: &str) {
+            let mut vm = KotoVm::default();
             match format_string(&mut vm, format, args) {
                 Ok(result) => assert_eq!(result, expected),
                 Err(error) => panic!("format_string failed: '{error}'"),
@@ -550,31 +554,31 @@ mod tests {
 
         #[test]
         fn positional_placeholders() {
-            check_format_output("{} foo {0}", &[Value::Number(1.into())], "1 foo 1");
+            check_format_output("{} foo {0}", &[KValue::Number(1.into())], "1 foo 1");
             check_format_output(
                 "{1} - {0} {} - {}",
-                &[Value::Number(2.into()), Value::Null],
+                &[KValue::Number(2.into()), KValue::Null],
                 "null - 2 2 - null",
             );
         }
 
         #[test]
         fn positional_with_precision() {
-            let one = Value::Number(1.into());
-            let one_third = Value::Number((1.0 / 3.0).into());
+            let one = KValue::Number(1.into());
+            let one_third = KValue::Number((1.0 / 3.0).into());
             check_format_output("{:.0}", &[one.clone()], "1");
             check_format_output("{:.2}", &[one.clone()], "1.00");
             check_format_output("{:.2}", &[one_third.clone()], "0.33");
-            check_format_output("{:.3}", &[Value::Str("abcdef".into())], "abc");
+            check_format_output("{:.3}", &[KValue::Str("abcdef".into())], "abc");
             check_format_output("{0:.1}, {1:.3}", &[one, one_third], "1.0, 0.333");
         }
 
         #[test]
         fn identifier_placeholders() {
             let mut map_data = ValueMap::default();
-            map_data.insert("x".into(), Value::Number(42.into()));
-            map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
-            let map = Value::Map(KMap::with_data(map_data));
+            map_data.insert("x".into(), KValue::Number(42.into()));
+            map_data.insert("y".into(), KValue::Number(i64::from(-1).into()));
+            let map = KValue::Map(KMap::with_data(map_data));
 
             check_format_output("{x} - {y}", &[map.clone()], "42 - -1");
             check_format_output("{x:.2} - {y:.1}", &[map], "42.00 - -1.0");
@@ -582,7 +586,7 @@ mod tests {
 
         #[test]
         fn fill_and_align_string() {
-            let s = &[Value::Str("abcd".into())];
+            let s = &[KValue::Str("abcd".into())];
             check_format_output("{:8}", s, "abcd    ");
             check_format_output("{:<8}", s, "abcd    ");
             check_format_output("{:^8}", s, "  abcd  ");
@@ -603,8 +607,8 @@ mod tests {
 
         #[test]
         fn fill_and_align_number() {
-            let n = &[Value::Number((1.0 / 3.0).into())];
-            let n_negative = &[Value::Number((-1.0 / 3.0).into())];
+            let n = &[KValue::Number((1.0 / 3.0).into())];
+            let n_negative = &[KValue::Number((-1.0 / 3.0).into())];
             check_format_output("{:8.2}", n, "    0.33");
             check_format_output("{:8.3}", n, "   0.333");
             check_format_output("{:®^8.3}", n, "®0.333®®");

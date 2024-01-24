@@ -10,8 +10,8 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range, and a Number or another Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), [Value::Number(n)]) => Ok(r.contains(*n).into()),
-            (Value::Range(a), [Value::Range(b)]) => {
+            (KValue::Range(r), [KValue::Number(n)]) => Ok(r.contains(*n).into()),
+            (KValue::Range(a), [KValue::Range(b)]) => {
                 let r_a = a.as_sorted_range();
                 let r_b = b.as_sorted_range();
                 let result = r_b.start >= r_a.start && r_b.end <= r_a.end;
@@ -25,8 +25,8 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), []) => {
-                Ok(r.end().map_or(Value::Null, |(end, _inclusive)| end.into()))
+            (KValue::Range(r), []) => {
+                Ok(r.end().map_or(KValue::Null, |(end, _inclusive)| end.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -36,7 +36,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range and Number";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), [Value::Number(n)]) => match (r.start(), r.end()) {
+            (KValue::Range(r), [KValue::Number(n)]) => match (r.start(), r.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let n = i64::from(n);
                     let result = if r.is_ascending() {
@@ -56,9 +56,9 @@ pub fn make_module() -> KMap {
         let expected_error = "two Ranges";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(a), [Value::Range(b)]) => Ok(a
+            (KValue::Range(a), [KValue::Range(b)]) => Ok(a
                 .intersection(b)
-                .map_or(Value::Null, |result| result.into())),
+                .map_or(KValue::Null, |result| result.into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -67,7 +67,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), []) => {
+            (KValue::Range(r), []) => {
                 Ok(r.end().map_or(false, |(_end, inclusive)| inclusive).into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -78,7 +78,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), []) => match r.size() {
+            (KValue::Range(r), []) => match r.size() {
                 Some(size) => Ok(size.into()),
                 None => runtime_error!("range.size can't be used with '{r}'"),
             },
@@ -90,7 +90,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), []) => Ok(r.start().map_or(Value::Null, Value::from)),
+            (KValue::Range(r), []) => Ok(r.start().map_or(KValue::Null, KValue::from)),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -99,7 +99,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Range, and a Number or another Range";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (Value::Range(r), [Value::Number(n)]) => {
+            (KValue::Range(r), [KValue::Number(n)]) => {
                 let n = i64::from(n);
                 match (r.start(), r.end()) {
                     (Some(start), Some((end, inclusive))) => {
@@ -113,7 +113,7 @@ pub fn make_module() -> KMap {
                     _ => runtime_error!("range.union can't be used with '{r}'"),
                 }
             }
-            (Value::Range(a), [Value::Range(b)]) => match (a.start(), a.end()) {
+            (KValue::Range(a), [KValue::Range(b)]) => match (a.start(), a.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let r_b = b.as_sorted_range();
                     let result = if start <= end {
@@ -132,6 +132,6 @@ pub fn make_module() -> KMap {
     result
 }
 
-fn is_range(value: &Value) -> bool {
-    matches!(value, Value::Range(_))
+fn is_range(value: &KValue) -> bool {
+    matches!(value, KValue::Range(_))
 }

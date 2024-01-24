@@ -1,7 +1,7 @@
 //! A collection of string iterators
 
 use crate::{
-    CallArgs, KIterator, KIteratorOutput as Output, KString, KotoIterator, Result, Value, Vm,
+    CallArgs, KIterator, KIteratorOutput as Output, KString, KValue, KotoIterator, KotoVm, Result,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -89,7 +89,7 @@ impl Iterator for Lines {
                 None => self.input.len(),
             };
 
-            let result = Value::Str(self.input.with_bounds(start..end).unwrap());
+            let result = KValue::Str(self.input.with_bounds(start..end).unwrap());
             self.start = end + newline_bytes;
             Some(Output::Value(result))
         } else {
@@ -139,7 +139,7 @@ impl Iterator for Split {
                 None => self.input.len(),
             };
 
-            let output = Value::Str(self.input.with_bounds(start..end).unwrap());
+            let output = KValue::Str(self.input.with_bounds(start..end).unwrap());
             self.start = end + self.pattern.len();
             Some(Output::Value(output))
         } else {
@@ -156,14 +156,14 @@ impl Iterator for Split {
 /// An iterator that splits up a string into parts, separated when a char passes a predicate
 pub struct SplitWith {
     input: KString,
-    predicate: Value,
-    vm: Vm,
+    predicate: KValue,
+    vm: KotoVm,
     start: usize,
 }
 
 impl SplitWith {
     /// Creates a new [SplitWith] iterator
-    pub fn new(input: KString, predicate: Value, vm: Vm) -> Self {
+    pub fn new(input: KString, predicate: KValue, vm: KotoVm) -> Self {
         Self {
             input,
             predicate,
@@ -189,7 +189,7 @@ impl Iterator for SplitWith {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Value::{Bool, Str};
+        use KValue::{Bool, Str};
 
         let start = self.start;
         if start < self.input.len() {

@@ -26,6 +26,6 @@ pub use self::{
     range::KRange,
     string::KString,
     tuple::KTuple,
-    value::Value,
+    value::KValue,
     value_key::ValueKey,
 };
