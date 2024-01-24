@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 
 /// The integer range type used by the Koto runtime
 ///
-/// See [Value::Range]
+/// See [KValue::Range]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct KRange(Inner);
 

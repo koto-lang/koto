@@ -13,7 +13,7 @@ pub fn make_module() -> KMap {
     result.add_fn("all", |ctx| {
         let expected_error = "an iterable and predicate function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
@@ -30,7 +30,7 @@ pub fn make_module() -> KMap {
                     };
 
                     match predicate_result {
-                        Ok(Value::Bool(result)) => {
+                        Ok(KValue::Bool(result)) => {
                             if !result {
                                 return Ok(false.into());
                             }
@@ -54,7 +54,7 @@ pub fn make_module() -> KMap {
     result.add_fn("any", |ctx| {
         let expected_error = "an iterable and predicate function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
@@ -71,7 +71,7 @@ pub fn make_module() -> KMap {
                     };
 
                     match predicate_result {
-                        Ok(Value::Bool(result)) => {
+                        Ok(KValue::Bool(result)) => {
                             if result {
                                 return Ok(true.into());
                             }
@@ -94,7 +94,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("chain", |ctx| {
         let expected_error = "two iterable values";
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
                 let iterable_a = iterable_a.clone();
                 let iterable_b = iterable_b.clone();
@@ -103,7 +103,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.make_iterator(iterable_b)?,
                 ));
 
-                Ok(Value::Iterator(result))
+                Ok(KValue::Iterator(result))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -112,8 +112,8 @@ pub fn make_module() -> KMap {
     result.add_fn("chunks", |ctx| {
         let expected_error = "an iterable and a chunk size greater than zero";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-            (iterable, [Value::Number(n)]) => {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, [KValue::Number(n)]) => {
                 let iterable = iterable.clone();
                 let n = *n;
                 match adaptors::Chunks::new(ctx.vm.make_iterator(iterable)?, n.into()) {
@@ -128,7 +128,7 @@ pub fn make_module() -> KMap {
     result.add_fn("consume", |ctx| {
         let expected_error = "an iterable value (and optional consumer function)";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 for output in ctx.vm.make_iterator(iterable)? {
@@ -136,7 +136,7 @@ pub fn make_module() -> KMap {
                         return Err(error);
                     }
                 }
-                Ok(Value::Null)
+                Ok(KValue::Null)
             }
             (iterable, [f]) if f.is_callable() => {
                 let iterable = iterable.clone();
@@ -152,7 +152,7 @@ pub fn make_module() -> KMap {
                         Output::Error(error) => return Err(error),
                     }
                 }
-                Ok(Value::Null)
+                Ok(KValue::Null)
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -161,7 +161,7 @@ pub fn make_module() -> KMap {
     result.add_fn("count", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let mut result = 0;
@@ -171,7 +171,7 @@ pub fn make_module() -> KMap {
                     }
                     result += 1;
                 }
-                Ok(Value::Number(result.into()))
+                Ok(KValue::Number(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -180,7 +180,7 @@ pub fn make_module() -> KMap {
     result.add_fn("each", |ctx| {
         let expected_error = "an iterable and function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let f = f.clone();
@@ -199,7 +199,7 @@ pub fn make_module() -> KMap {
     result.add_fn("cycle", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let result = adaptors::Cycle::new(ctx.vm.make_iterator(iterable)?);
@@ -213,7 +213,7 @@ pub fn make_module() -> KMap {
     result.add_fn("enumerate", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
@@ -226,7 +226,7 @@ pub fn make_module() -> KMap {
     result.add_fn("find", |ctx| {
         let expected_error = "an iterable and a predicate function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
@@ -238,7 +238,7 @@ pub fn make_module() -> KMap {
                                 .vm
                                 .run_function(predicate.clone(), CallArgs::Single(value.clone()))
                             {
-                                Ok(Value::Bool(result)) => {
+                                Ok(KValue::Bool(result)) => {
                                     if result {
                                         return Ok(value);
                                     }
@@ -257,7 +257,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::Null)
+                Ok(KValue::Null)
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -266,7 +266,7 @@ pub fn make_module() -> KMap {
     result.add_fn("flatten", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let result = adaptors::Flatten::new(
@@ -283,7 +283,7 @@ pub fn make_module() -> KMap {
     result.add_fn("fold", |ctx| {
         let expected_error = "an iterable, initial value, and folding function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [result, f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let result = result.clone();
@@ -328,7 +328,7 @@ pub fn make_module() -> KMap {
             let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
             Ok(KIterator::new(result).into())
         }
-        [Value::Number(n), f] if f.is_callable() => {
+        [KValue::Number(n), f] if f.is_callable() => {
             let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
             Ok(KIterator::new(result).into())
         }
@@ -338,7 +338,7 @@ pub fn make_module() -> KMap {
     result.add_fn("intersperse", |ctx| {
         let expected_error = "an iterable and a separator";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [separator_fn]) if separator_fn.is_callable() => {
                 let iterable = iterable.clone();
                 let separator_fn = separator_fn.clone();
@@ -364,10 +364,10 @@ pub fn make_module() -> KMap {
     result.add_fn("iter", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                Ok(Value::Iterator(ctx.vm.make_iterator(iterable)?))
+                Ok(KValue::Iterator(ctx.vm.make_iterator(iterable)?))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -376,7 +376,7 @@ pub fn make_module() -> KMap {
     result.add_fn("keep", |ctx| {
         let expected_error = "an iterable and a predicate function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
@@ -394,10 +394,10 @@ pub fn make_module() -> KMap {
     result.add_fn("last", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let mut result = Value::Null;
+                let mut result = KValue::Null;
 
                 let mut iter = ctx.vm.make_iterator(iterable)?.map(collect_pair);
                 for output in &mut iter {
@@ -417,7 +417,7 @@ pub fn make_module() -> KMap {
     result.add_fn("max", |ctx| {
         let expected_error = "an iterable and an optional key function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 run_iterator_comparison(ctx.vm, iterable, InvertResult::Yes)
@@ -434,7 +434,7 @@ pub fn make_module() -> KMap {
     result.add_fn("min", |ctx| {
         let expected_error = "an iterable and an optional key function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 run_iterator_comparison(ctx.vm, iterable, InvertResult::No)
@@ -451,7 +451,7 @@ pub fn make_module() -> KMap {
     result.add_fn("min_max", |ctx| {
         let expected_error = "an iterable and an optional key function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let mut result = None;
@@ -472,8 +472,8 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(result.map_or(Value::Null, |(min, max)| {
-                    Value::Tuple(vec![min, max].into())
+                Ok(result.map_or(KValue::Null, |(min, max)| {
+                    KValue::Tuple(vec![min, max].into())
                 }))
             }
             (iterable, [key_fn]) if key_fn.is_callable() => {
@@ -512,8 +512,8 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(result.map_or(Value::Null, |((min, _), (max, _))| {
-                    Value::Tuple(vec![min, max].into())
+                Ok(result.map_or(KValue::Null, |((min, _), (max, _))| {
+                    KValue::Tuple(vec![min, max].into())
                 }))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
@@ -523,7 +523,7 @@ pub fn make_module() -> KMap {
     result.add_fn("next", |ctx| {
         let mut iter = match (ctx.instance(), ctx.args()) {
             // No need to call make_iterator when the argument is already an Iterator
-            (Some(Value::Iterator(i)), []) => i.clone(),
+            (Some(KValue::Iterator(i)), []) => i.clone(),
             (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
                 ctx.vm.make_iterator(iterable.clone())?
             }
@@ -535,7 +535,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("next_back", |ctx| {
         let mut iter = match (ctx.instance(), ctx.args()) {
-            (Some(Value::Iterator(i)), []) => i.clone(),
+            (Some(KValue::Iterator(i)), []) => i.clone(),
             (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
                 ctx.vm.make_iterator(iterable.clone())?
             }
@@ -548,7 +548,7 @@ pub fn make_module() -> KMap {
     result.add_fn("peekable", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 Ok(peekable::Peekable::make_value(
@@ -562,7 +562,7 @@ pub fn make_module() -> KMap {
     result.add_fn("position", |ctx| {
         let expected_error = "an iterable and a predicate function";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
@@ -579,7 +579,7 @@ pub fn make_module() -> KMap {
                     };
 
                     match predicate_result {
-                        Ok(Value::Bool(result)) => {
+                        Ok(KValue::Bool(result)) => {
                             if result {
                                 return Ok(i.into());
                             }
@@ -594,7 +594,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::Null)
+                Ok(KValue::Null)
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -604,8 +604,8 @@ pub fn make_module() -> KMap {
         let (iterable, initial_value) = {
             let expected_error = "an iterable and optional initial value";
 
-            match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-                (iterable, []) => (iterable.clone(), Value::Number(1.into())),
+            match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+                (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
@@ -619,7 +619,7 @@ pub fn make_module() -> KMap {
             let result = generators::Repeat::new(value.clone());
             Ok(KIterator::new(result).into())
         }
-        [value, Value::Number(n)] => {
+        [value, KValue::Number(n)] => {
             let result = generators::RepeatN::new(value.clone(), n.into());
             Ok(KIterator::new(result).into())
         }
@@ -629,7 +629,7 @@ pub fn make_module() -> KMap {
     result.add_fn("reversed", |ctx| {
         let expected_error = "an iterable and non-negative number";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 match adaptors::Reversed::new(ctx.vm.make_iterator(iterable)?) {
@@ -644,8 +644,8 @@ pub fn make_module() -> KMap {
     result.add_fn("skip", |ctx| {
         let expected_error = "an iterable and non-negative number";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-            (iterable, [Value::Number(n)]) if *n >= 0.0 => {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, [KValue::Number(n)]) if *n >= 0.0 => {
                 let iterable = iterable.clone();
                 let n = *n;
                 let mut iter = ctx.vm.make_iterator(iterable)?;
@@ -656,7 +656,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::Iterator(iter))
+                Ok(KValue::Iterator(iter))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -665,8 +665,8 @@ pub fn make_module() -> KMap {
     result.add_fn("step", |ctx| {
         let expected_error = "an iterable and positive step size";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-            (iterable, [Value::Number(n)]) if *n > 0 => {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, [KValue::Number(n)]) if *n > 0 => {
                 let iterable = iterable.clone();
                 let step_size = n.into();
                 match adaptors::Step::new(ctx.vm.make_iterator(iterable)?, step_size) {
@@ -682,8 +682,8 @@ pub fn make_module() -> KMap {
         let (iterable, initial_value) = {
             let expected_error = "an iterable and optional initial value";
 
-            match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-                (iterable, []) => (iterable.clone(), Value::Number(0.into())),
+            match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+                (iterable, []) => (iterable.clone(), KValue::Number(0.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
@@ -695,8 +695,8 @@ pub fn make_module() -> KMap {
     result.add_fn("take", |ctx| {
         let expected_error = "an iterable and a count or predicate";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-            (iterable, [Value::Number(n)]) if *n >= 0.0 => {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, [KValue::Number(n)]) if *n >= 0.0 => {
                 let iterable = iterable.clone();
                 let n = *n;
                 let result = adaptors::Take::new(ctx.vm.make_iterator(iterable)?, n.into());
@@ -719,7 +719,7 @@ pub fn make_module() -> KMap {
     result.add_fn("to_list", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
@@ -734,7 +734,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::List(KList::with_data(result)))
+                Ok(KValue::List(KList::with_data(result)))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -743,7 +743,7 @@ pub fn make_module() -> KMap {
     result.add_fn("to_map", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
@@ -753,19 +753,19 @@ pub fn make_module() -> KMap {
                 for output in iterator {
                     let (key, value) = match output {
                         Output::ValuePair(key, value) => (key, value),
-                        Output::Value(Value::Tuple(t)) if t.len() == 2 => {
+                        Output::Value(KValue::Tuple(t)) if t.len() == 2 => {
                             let key = t[0].clone();
                             let value = t[1].clone();
                             (key, value)
                         }
-                        Output::Value(value) => (value, Value::Null),
+                        Output::Value(value) => (value, KValue::Null),
                         Output::Error(error) => return Err(error),
                     };
 
                     result.insert(ValueKey::try_from(key)?, value);
                 }
 
-                Ok(Value::Map(KMap::with_data(result)))
+                Ok(KValue::Map(KMap::with_data(result)))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -774,7 +774,7 @@ pub fn make_module() -> KMap {
     result.add_fn("to_string", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
@@ -782,7 +782,7 @@ pub fn make_module() -> KMap {
                 let mut display_context = DisplayContext::with_vm_and_capacity(ctx.vm, size_hint);
                 for output in iterator.map(collect_pair) {
                     match output {
-                        Output::Value(Value::Str(s)) => display_context.append(s),
+                        Output::Value(KValue::Str(s)) => display_context.append(s),
                         Output::Value(value) => value.display(&mut display_context)?,
                         Output::Error(error) => return Err(error),
                         _ => unreachable!(),
@@ -798,7 +798,7 @@ pub fn make_module() -> KMap {
     result.add_fn("to_tuple", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
@@ -813,7 +813,7 @@ pub fn make_module() -> KMap {
                     }
                 }
 
-                Ok(Value::Tuple(result.into()))
+                Ok(KValue::Tuple(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -822,8 +822,8 @@ pub fn make_module() -> KMap {
     result.add_fn("windows", |ctx| {
         let expected_error = "an iterable and a chunnk size greater than zero";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
-            (iterable, [Value::Number(n)]) => {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, [KValue::Number(n)]) => {
                 let iterable = iterable.clone();
                 let n = *n;
                 match adaptors::Windows::new(ctx.vm.make_iterator(iterable)?, n.into()) {
@@ -838,7 +838,7 @@ pub fn make_module() -> KMap {
     result.add_fn("zip", |ctx| {
         let expected_error = "an iterable";
 
-        match ctx.instance_and_args(Value::is_iterable, expected_error)? {
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
                 let iterable_a = iterable_a.clone();
                 let iterable_b = iterable_b.clone();
@@ -857,26 +857,28 @@ pub fn make_module() -> KMap {
 
 pub(crate) fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
-        Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),
+        Output::ValuePair(first, second) => {
+            Output::Value(KValue::Tuple(vec![first, second].into()))
+        }
         _ => iterator_output,
     }
 }
 
-pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<Value> {
+pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<KValue> {
     match iterator_output {
         Some(Output::Value(value)) => Ok(value),
-        Some(Output::ValuePair(first, second)) => Ok(Value::Tuple(vec![first, second].into())),
+        Some(Output::ValuePair(first, second)) => Ok(KValue::Tuple(vec![first, second].into())),
         Some(Output::Error(error)) => Err(error),
-        None => Ok(Value::Null),
+        None => Ok(KValue::Null),
     }
 }
 
 fn fold_with_operator(
     vm: &mut Vm,
-    iterable: Value,
-    initial_value: Value,
+    iterable: KValue,
+    initial_value: KValue,
     operator: BinaryOp,
-) -> Result<Value> {
+) -> Result<KValue> {
     let mut result = initial_value;
 
     for output in vm.make_iterator(iterable)?.map(collect_pair) {
@@ -894,10 +896,10 @@ fn fold_with_operator(
 
 fn run_iterator_comparison(
     vm: &mut Vm,
-    iterable: Value,
+    iterable: KValue,
     invert_result: InvertResult,
-) -> Result<Value> {
-    let mut result: Option<Value> = None;
+) -> Result<KValue> {
+    let mut result: Option<KValue> = None;
 
     for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
         match iter_output {
@@ -919,11 +921,11 @@ fn run_iterator_comparison(
 
 fn run_iterator_comparison_by_key(
     vm: &mut Vm,
-    iterable: Value,
-    key_fn: Value,
+    iterable: KValue,
+    key_fn: KValue,
     invert_result: InvertResult,
-) -> Result<Value> {
-    let mut result_and_key: Option<(Value, Value)> = None;
+) -> Result<KValue> {
+    let mut result_and_key: Option<(KValue, KValue)> = None;
 
     for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
         match iter_output {
@@ -943,15 +945,20 @@ fn run_iterator_comparison_by_key(
         }
     }
 
-    Ok(result_and_key.map_or(Value::Null, |(value, _)| value))
+    Ok(result_and_key.map_or(KValue::Null, |(value, _)| value))
 }
 
 // Compares two values using BinaryOp::Less
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
-fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) -> Result<Value> {
+fn compare_values(
+    vm: &mut Vm,
+    a: KValue,
+    b: KValue,
+    invert_result: InvertResult,
+) -> Result<KValue> {
     use InvertResult::*;
-    use Value::Bool;
+    use KValue::Bool;
 
     let comparison_result = vm.run_binary_op(BinaryOp::Less, a.clone(), b.clone())?;
 
@@ -972,12 +979,12 @@ fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) 
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
 fn compare_values_with_key(
     vm: &mut Vm,
-    a_and_key: (Value, Value),
-    b_and_key: (Value, Value),
+    a_and_key: (KValue, KValue),
+    b_and_key: (KValue, KValue),
     invert_result: InvertResult,
-) -> Result<(Value, Value)> {
+) -> Result<(KValue, KValue)> {
     use InvertResult::*;
-    use Value::Bool;
+    use KValue::Bool;
 
     let comparison_result =
         vm.run_binary_op(BinaryOp::Less, a_and_key.1.clone(), b_and_key.1.clone())?;

@@ -7,7 +7,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<KotoHasher>>;
+type MetaMapType = IndexMap<MetaKey, KValue, BuildHasherDefault<KotoHasher>>;
 
 /// The meta map used by [KMap](crate::KMap)
 ///
@@ -25,7 +25,7 @@ impl MetaMap {
     /// Adds a function to the meta map
     pub fn add_fn(&mut self, key: MetaKey, f: impl KotoFunction) {
         self.0
-            .insert(key, Value::NativeFunction(KNativeFunction::new(f)));
+            .insert(key, KValue::NativeFunction(KNativeFunction::new(f)));
     }
 }
 

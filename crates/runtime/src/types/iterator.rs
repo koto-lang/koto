@@ -25,12 +25,12 @@ pub trait KotoIterator: Iterator<Item = KIteratorOutput> + KotoSend + KotoSync {
 #[derive(Clone)]
 pub enum KIteratorOutput {
     /// A single value
-    Value(Value),
+    Value(KValue),
     /// A pair of values
     ///
     /// This is used as an optimization for iterators that output pairs, like a map iterator that
     /// outputs key/value pairs, or `enumerate`.
-    ValuePair(Value, Value),
+    ValuePair(KValue, KValue),
     /// An error that occurred during iteration
     ///
     /// Iterators that run functions should check for errors and pass them along to the caller.
@@ -39,21 +39,21 @@ pub enum KIteratorOutput {
 
 impl<T> From<T> for KIteratorOutput
 where
-    Value: From<T>,
+    KValue: From<T>,
 {
     fn from(value: T) -> Self {
         Self::Value(value.into())
     }
 }
 
-impl TryFrom<KIteratorOutput> for Value {
+impl TryFrom<KIteratorOutput> for KValue {
     type Error = Error;
 
     fn try_from(iterator_output: KIteratorOutput) -> StdResult<Self, Self::Error> {
         match iterator_output {
             KIteratorOutput::Value(value) => Ok(value),
             KIteratorOutput::ValuePair(first, second) => {
-                Ok(Value::Tuple(vec![first, second].into()))
+                Ok(KValue::Tuple(vec![first, second].into()))
             }
             KIteratorOutput::Error(error) => Err(error),
         }
@@ -121,7 +121,7 @@ impl KIterator {
     }
 
     /// Creates a new KIterator from a Value that has an implementation of `@next`
-    pub fn with_meta_next(vm: Vm, iterator: Value) -> Result<Self> {
+    pub fn with_meta_next(vm: Vm, iterator: KValue) -> Result<Self> {
         Ok(Self::new(MetaIterator::new(vm, iterator)?))
     }
 
@@ -397,12 +397,12 @@ impl Iterator for MapIterator {
 #[derive(Clone)]
 struct MetaIterator {
     vm: Vm,
-    iterator: Value,
+    iterator: KValue,
     is_bidirectional: bool,
 }
 
 impl MetaIterator {
-    fn new(vm: Vm, iterator: Value) -> Result<Self> {
+    fn new(vm: Vm, iterator: KValue) -> Result<Self> {
         match iterator.get_meta_value(&UnaryOp::Next.into()) {
             Some(op) if op.is_callable() => {}
             Some(op) => return type_error("Callable function from @next", &op),
@@ -437,7 +437,7 @@ impl KotoIterator for MetaIterator {
             .vm
             .run_unary_op(UnaryOp::NextBack, self.iterator.clone())
         {
-            Ok(Value::Null) => None,
+            Ok(KValue::Null) => None,
             Ok(result) => Some(Output::Value(result)),
             Err(error) => Some(Output::Error(error)),
         }
@@ -449,7 +449,7 @@ impl Iterator for MetaIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.vm.run_unary_op(UnaryOp::Next, self.iterator.clone()) {
-            Ok(Value::Null) => None,
+            Ok(KValue::Null) => None,
             Ok(result) => Some(Output::Value(result)),
             Err(error) => Some(Output::Error(error)),
         }
@@ -572,8 +572,8 @@ impl Iterator for GeneratorIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.vm.continue_running() {
-            Ok(Value::Null) => None,
-            Ok(Value::TemporaryTuple(_)) => {
+            Ok(KValue::Null) => None,
+            Ok(KValue::TemporaryTuple(_)) => {
                 unreachable!("Yield shouldn't produce temporary tuples")
             }
             Ok(result) => Some(KIteratorOutput::Value(result)),

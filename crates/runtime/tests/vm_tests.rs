@@ -11,8 +11,8 @@ mod vm {
 
         #[test]
         fn null() {
-            test_script("null", Value::Null);
-            test_script("()", Value::Null);
+            test_script("null", KValue::Null);
+            test_script("()", KValue::Null);
         }
 
         #[test]
@@ -64,7 +64,7 @@ a = 99
 
         #[test]
         fn remainder_negative() {
-            test_script("assert_near 10 % -1.2, 0.4", Value::Null);
+            test_script("assert_near 10 % -1.2, 0.4", KValue::Null);
         }
 
         #[test]
@@ -438,7 +438,7 @@ x[0], x[1] = -1, 42";
         #[test]
         fn unpack_list() {
             let script = "a, b, c = [7, 8]";
-            test_script(script, tuple(&[7.into(), 8.into(), Value::Null]));
+            test_script(script, tuple(&[7.into(), 8.into(), KValue::Null]));
         }
 
         #[test]
@@ -446,14 +446,14 @@ x[0], x[1] = -1, 42";
             let script = "a, b, c = [1, 2], [3, 4]";
             test_script(
                 script,
-                tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Value::Null]),
+                tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), KValue::Null]),
             );
         }
 
         #[test]
         fn iterator() {
             let script = "a, b, c = (1, 2).each |x| x * 10";
-            test_script(script, tuple(&[10.into(), 20.into(), Value::Null]));
+            test_script(script, tuple(&[10.into(), 20.into(), KValue::Null]));
         }
 
         #[test]
@@ -499,7 +499,7 @@ a, b, c = 1..=3
 a, b, c = 1..=2
 c
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
     }
 
@@ -551,7 +551,7 @@ x";
 if 5 < 4
   42
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -564,7 +564,7 @@ else if 2 == 3
 else if false
   99
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -852,7 +852,7 @@ x = match a, b
   3, 4 then 3, 4
 x
 "#;
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -905,7 +905,7 @@ x = switch
   3 == 4 then 3, 4
 x
 "#;
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -924,7 +924,7 @@ x
     mod prelude {
         use super::*;
 
-        fn test_script_with_prelude(script: &str, expected_output: Value) {
+        fn test_script_with_prelude(script: &str, expected_output: KValue) {
             let vm = Vm::default();
             let prelude = vm.prelude();
 
@@ -932,7 +932,7 @@ x
             prelude.add_fn("assert", |ctx| {
                 for value in ctx.args().iter() {
                     match value {
-                        Value::Bool(b) => {
+                        KValue::Bool(b) => {
                             if !b {
                                 return runtime_error!("Assertion failed");
                             }
@@ -945,7 +945,7 @@ x
                         }
                     }
                 }
-                Ok(Value::Null)
+                Ok(KValue::Null)
             });
 
             if let Err(e) = run_script_with_vm(vm, script, expected_output) {
@@ -962,13 +962,13 @@ x
         #[test]
         fn function() {
             let script = "assert 1 + 1 == 2";
-            test_script_with_prelude(script, Value::Null);
+            test_script_with_prelude(script, KValue::Null);
         }
 
         #[test]
         fn function_two_args() {
             let script = "assert 1 + 1 == 2, 2 < 3";
-            test_script_with_prelude(script, Value::Null);
+            test_script_with_prelude(script, KValue::Null);
         }
     }
 
@@ -1015,7 +1015,7 @@ add(5, 6)";
 foo = |a, b| b
 foo 42
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1197,7 +1197,7 @@ f (f 5, 10, 20, 30), 40, 50";
             let script = "
 f = |a, b...| b
 f()";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1274,7 +1274,7 @@ f = |x|
     return
   x
 f -42";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1588,7 +1588,7 @@ for i in 1..10
   if i == 5
     break
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1642,7 +1642,7 @@ for i in (1, 2)
   else 
     i
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1741,7 +1741,7 @@ while (i += 1) < 5
   else 
     i
 ";
-            test_script(script, Value::Null);
+            test_script(script, KValue::Null);
         }
 
         #[test]
@@ -1896,7 +1896,7 @@ result";
 
         #[test]
         fn empty() {
-            test_script("{}", Value::Map(KMap::new()));
+            test_script("{}", KValue::Map(KMap::new()));
         }
 
         #[test]
@@ -1905,7 +1905,7 @@ result";
             expected.insert("foo", 42);
             expected.insert("bar", "baz");
 
-            test_script("{foo: 42, bar: 'baz'}", Value::Map(expected));
+            test_script("{foo: 42, bar: 'baz'}", KValue::Map(expected));
         }
 
         #[test]
@@ -3170,7 +3170,7 @@ x =
 a, b, c = x
 a, b, c
 ";
-            test_script(script, tuple(&[10.into(), 20.into(), Value::Null]));
+            test_script(script, tuple(&[10.into(), 20.into(), KValue::Null]));
         }
     }
 

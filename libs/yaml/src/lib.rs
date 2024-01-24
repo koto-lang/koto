@@ -4,25 +4,25 @@ use koto_runtime::{prelude::*, Result};
 use koto_serialize::SerializableValue;
 use serde_yaml::Value as YamlValue;
 
-pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value> {
+pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<KValue> {
     let result = match value {
-        YamlValue::Null => Value::Null,
-        YamlValue::Bool(b) => Value::Bool(*b),
+        YamlValue::Null => KValue::Null,
+        YamlValue::Bool(b) => KValue::Bool(*b),
         YamlValue::Number(n) => match n.as_i64() {
-            Some(n64) => Value::Number(n64.into()),
+            Some(n64) => KValue::Number(n64.into()),
             None => match n.as_f64() {
-                Some(n64) => Value::Number(n64.into()),
+                Some(n64) => KValue::Number(n64.into()),
                 None => return runtime_error!("Number is out of range: {n}"),
             },
         },
-        YamlValue::String(s) => Value::Str(s.as_str().into()),
+        YamlValue::String(s) => KValue::Str(s.as_str().into()),
         YamlValue::Sequence(sequence) => {
             match sequence
                 .iter()
                 .map(yaml_value_to_koto_value)
                 .collect::<Result<ValueVec>>()
             {
-                Ok(result) => Value::List(KList::with_data(result)),
+                Ok(result) => KValue::List(KList::with_data(result)),
                 Err(e) => return Err(e),
             }
         }
@@ -35,7 +35,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value> {
                     yaml_value_to_koto_value(value)?,
                 );
             }
-            Value::Map(map)
+            KValue::Map(map)
         }
     };
 
@@ -46,7 +46,7 @@ pub fn make_module() -> KMap {
     let result = KMap::with_type("yaml");
 
     result.add_fn("from_string", |ctx| match ctx.args() {
-        [Value::Str(s)] => match serde_yaml::from_str(s) {
+        [KValue::Str(s)] => match serde_yaml::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("Error while parsing input: {}", e),

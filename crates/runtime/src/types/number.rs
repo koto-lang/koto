@@ -1,4 +1,4 @@
-use crate::Value;
+use crate::KValue;
 use std::{
     cmp::Ordering,
     fmt,
@@ -233,13 +233,13 @@ macro_rules! number_traits_float {
             }
         }
 
-        impl From<$type> for Value {
+        impl From<$type> for KValue {
             fn from(value: $type) -> Self {
                 Self::Number(value.into())
             }
         }
 
-        impl From<&$type> for Value {
+        impl From<&$type> for KValue {
             fn from(value: &$type) -> Self {
                 Self::Number(value.into())
             }
@@ -281,13 +281,13 @@ macro_rules! number_traits_int {
             }
         }
 
-        impl From<$type> for Value {
+        impl From<$type> for KValue {
             fn from(value: $type) -> Self {
                 Self::Number(value.into())
             }
         }
 
-        impl From<&$type> for Value {
+        impl From<&$type> for KValue {
             fn from(value: &$type) -> Self {
                 Self::Number(value.into())
             }

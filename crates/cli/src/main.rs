@@ -264,15 +264,15 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
             Ok(_) => {
                 let exports = koto.exports().data();
                 match exports.get("repl") {
-                    Some(Value::Map(repl_config)) => {
+                    Some(KValue::Map(repl_config)) => {
                         let repl_config = repl_config.data();
                         match repl_config.get("colored_output") {
-                            Some(Value::Bool(value)) => config.colored_output = *value,
+                            Some(KValue::Bool(value)) => config.colored_output = *value,
                             Some(_) => bail!("expected bool for colored_output setting"),
                             None => {}
                         }
                         match repl_config.get("edit_mode") {
-                            Some(Value::Str(value)) => match value.as_str() {
+                            Some(KValue::Str(value)) => match value.as_str() {
                                 "emacs" => config.edit_mode = EditMode::Emacs,
                                 "vi" => config.edit_mode = EditMode::Vi,
                                 other => {
@@ -286,7 +286,7 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
                             None => {}
                         }
                         match repl_config.get("max_history") {
-                            Some(Value::Number(value)) => match value.as_i64() {
+                            Some(KValue::Number(value)) => match value.as_i64() {
                                 value if value > 0 => config.max_history = value as usize,
                                 _ => bail!("expected positive number for max_history setting"),
                             },

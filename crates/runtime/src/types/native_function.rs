@@ -6,18 +6,18 @@ use std::{
 
 /// A trait for native functions used by the Koto runtime
 pub trait KotoFunction:
-    Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+    Fn(&mut CallContext) -> Result<KValue> + KotoSend + KotoSync + 'static
 {
 }
 
 impl<T> KotoFunction for T where
-    T: Fn(&mut CallContext) -> Result<Value> + KotoSend + KotoSync + 'static
+    T: Fn(&mut CallContext) -> Result<KValue> + KotoSend + KotoSync + 'static
 {
 }
 
 /// An function that's defined outside of the Koto runtime
 ///
-/// See [Value::NativeFunction]
+/// See [KValue::NativeFunction]
 pub struct KNativeFunction {
     /// The function implementation that should be called when calling the external function
     //
@@ -92,13 +92,13 @@ impl<'a> CallContext<'a> {
     }
 
     /// Returns the `self` instance with which the function was called
-    pub fn instance(&self) -> Option<&Value> {
+    pub fn instance(&self) -> Option<&KValue> {
         self.instance_register
             .map(|register| self.vm.get_register(register))
     }
 
     /// Returns the function call's arguments
-    pub fn args(&self) -> &[Value] {
+    pub fn args(&self) -> &[KValue] {
         self.vm.register_slice(self.arg_register, self.arg_count)
     }
 
@@ -114,9 +114,9 @@ impl<'a> CallContext<'a> {
     /// contexts like `[1, 2, 3].to_tuple()`, or as standalone functions like `to_tuple [1, 2, 3]`.
     pub fn instance_and_args(
         &self,
-        instance_check: impl Fn(&Value) -> bool,
+        instance_check: impl Fn(&KValue) -> bool,
         expected_args_message: &str,
-    ) -> Result<(&Value, &[Value])> {
+    ) -> Result<(&KValue, &[KValue])> {
         match (self.instance(), self.args()) {
             (Some(instance), args) if instance_check(instance) => Ok((instance, args)),
             (_, [first, rest @ ..]) if instance_check(first) => Ok((first, rest)),

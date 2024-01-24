@@ -13,7 +13,7 @@
 //! match koto.compile("1 + 2") {
 //!     Ok(_) => match koto.run() {
 //!         Ok(result) => match result {
-//!             Value::Number(n) => println!("{n}"), // 3.0
+//!             KValue::Number(n) => println!("{n}"), // 3.0
 //!             other => panic!("Unexpected result type: {}", other.type_as_string()),
 //!         },
 //!         Err(runtime_error) => {

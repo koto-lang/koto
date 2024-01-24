@@ -5,7 +5,7 @@ pub use crate::{
     make_ptr, make_ptr_mut, runtime_error, type_error, type_error_with_slice, BinaryOp, Borrow,
     BorrowMut, CallArgs, CallContext, DisplayContext, IsIterable, KCell, KIterator,
     KIteratorOutput, KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple,
-    KotoCopy, KotoFile, KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoRead,
-    KotoSend, KotoSync, KotoType, KotoWrite, MetaKey, MetaMap, MethodContext, Ptr, PtrMut, UnaryOp,
-    Value, ValueKey, ValueMap, ValueVec, Vm, VmSettings,
+    KValue, KotoCopy, KotoFile, KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject,
+    KotoRead, KotoSend, KotoSync, KotoType, KotoWrite, MetaKey, MetaMap, MethodContext, Ptr,
+    PtrMut, UnaryOp, ValueKey, ValueMap, ValueVec, Vm, VmSettings,
 };

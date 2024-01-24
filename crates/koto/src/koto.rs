@@ -17,7 +17,7 @@ use std::path::PathBuf;
 ///     let mut koto = Koto::default();
 ///
 ///     match koto.compile_and_run("1 + 2")? {
-///         Value::Number(result) => {
+///         KValue::Number(result) => {
 ///             assert_eq!(result, 3);
 ///         }
 ///         other => panic!("Unexpected result: {}", koto.value_to_string(other)?),
@@ -90,7 +90,7 @@ impl Koto {
     }
 
     /// Runs the chunk last compiled with [compile](Koto::compile)
-    pub fn run(&mut self) -> Result<Value> {
+    pub fn run(&mut self) -> Result<KValue> {
         let chunk = self.chunk.clone();
         match chunk {
             Some(chunk) => self.run_chunk(chunk),
@@ -99,7 +99,7 @@ impl Koto {
     }
 
     /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
-    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value> {
+    pub fn run_with_args(&mut self, args: &[String]) -> Result<KValue> {
         self.set_args(args)?;
         self.run()
     }
@@ -107,13 +107,13 @@ impl Koto {
     /// Compiles and runs a Koto script, and returns the script's result
     ///
     /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).
-    pub fn compile_and_run(&mut self, script: &str) -> Result<Value> {
+    pub fn compile_and_run(&mut self, script: &str) -> Result<KValue> {
         self.compile(script)?;
         self.run()
     }
 
     /// Runs a function with the given arguments
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> Result<Value> {
+    pub fn run_function(&mut self, function: KValue, args: CallArgs) -> Result<KValue> {
         self.runtime
             .run_function(function, args)
             .map_err(|e| e.into())
@@ -122,10 +122,10 @@ impl Koto {
     /// Runs an instance function with the given arguments
     pub fn run_instance_function(
         &mut self,
-        instance: Value,
-        function: Value,
+        instance: KValue,
+        function: KValue,
         args: CallArgs,
-    ) -> Result<Value> {
+    ) -> Result<KValue> {
         self.runtime
             .run_instance_function(instance, function, args)
             .map_err(|e| e.into())
@@ -142,7 +142,7 @@ impl Koto {
     ///     koto.compile_and_run("export say_hello = |name| 'Hello, $name!'")?;
     ///
     ///     match koto.run_exported_function("say_hello", CallArgs::Single("World".into()))? {
-    ///         Value::Str(result) => assert_eq!(result, "Hello, World!"),
+    ///         KValue::Str(result) => assert_eq!(result, "Hello, World!"),
     ///         other => panic!(
     ///             "Unexpected result: {}",
     ///             koto.value_to_string(other)?
@@ -152,15 +152,15 @@ impl Koto {
     ///     Ok(())
     /// }
     /// ```
-    pub fn run_exported_function(&mut self, function_name: &str, args: CallArgs) -> Result<Value> {
+    pub fn run_exported_function(&mut self, function_name: &str, args: CallArgs) -> Result<KValue> {
         match self.runtime.get_exported_function(function_name) {
             Some(f) => self.run_function(f, args),
             None => Err(Error::FunctionNotFound),
         }
     }
 
-    /// Converts a [Value] into a [String] by evaluating `@display` in the runtime
-    pub fn value_to_string(&mut self, value: Value) -> Result<String> {
+    /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
+    pub fn value_to_string(&mut self, value: KValue) -> Result<String> {
         self.runtime.value_to_string(&value).map_err(|e| e.into())
     }
 
@@ -173,7 +173,7 @@ impl Koto {
 
     /// Sets the arguments that can be accessed from within the script via `koto.args()`
     pub fn set_args(&mut self, args: &[String]) -> Result<()> {
-        use Value::{Map, Str, Tuple};
+        use KValue::{Map, Str, Tuple};
 
         let koto_args = args
             .iter()
@@ -199,7 +199,7 @@ impl Koto {
 
     /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
     pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<()> {
-        use Value::{Map, Null, Str};
+        use KValue::{Map, Null, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
@@ -232,13 +232,13 @@ impl Koto {
         }
     }
 
-    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> Result<Value> {
+    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         let result = self.runtime.run(chunk)?;
 
         if self.run_tests {
             let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
             match maybe_tests {
-                Some(Value::Map(tests)) => {
+                Some(KValue::Map(tests)) => {
                     self.runtime.run_tests(tests)?;
                 }
                 Some(other) => {

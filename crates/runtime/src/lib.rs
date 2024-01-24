@@ -19,9 +19,9 @@ pub use crate::{
     send_sync::{KotoSend, KotoSync},
     types::{
         BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
-        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KotoCopy,
+        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy,
         KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
-        MethodContext, UnaryOp, Value, ValueKey, ValueMap, ValueVec,
+        MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, ModuleImportedCallback, Vm, VmSettings},
 };

@@ -5,7 +5,7 @@ use std::fmt::{self, Write};
 
 /// The core Value type for Koto
 #[derive(Clone, Default)]
-pub enum Value {
+pub enum KValue {
     /// The default type representing the absence of a value
     #[default]
     Null,
@@ -55,13 +55,13 @@ pub enum Value {
     TemporaryTuple(RegisterSlice),
 }
 
-impl Value {
+impl KValue {
     /// Returns a recursive 'deep copy' of a Value
     ///
     /// This is used by koto.deep_copy.
-    pub fn deep_copy(&self) -> Result<Value> {
+    pub fn deep_copy(&self) -> Result<KValue> {
         let result = match &self {
-            Value::List(l) => {
+            KValue::List(l) => {
                 let result = l
                     .data()
                     .iter()
@@ -69,14 +69,14 @@ impl Value {
                     .collect::<Result<_>>()?;
                 KList::with_data(result).into()
             }
-            Value::Tuple(t) => {
+            KValue::Tuple(t) => {
                 let result = t
                     .iter()
                     .map(|v| v.deep_copy())
                     .collect::<Result<Vec<_>>>()?;
-                Value::Tuple(result.into())
+                KValue::Tuple(result.into())
             }
-            Value::Map(m) => {
+            KValue::Map(m) => {
                 let data = m
                     .data()
                     .iter()
@@ -85,8 +85,8 @@ impl Value {
                 let meta = m.meta_map().map(|meta| meta.borrow().clone());
                 KMap::with_contents(data, meta).into()
             }
-            Value::Iterator(i) => i.make_copy()?.into(),
-            Value::Object(o) => o.try_borrow()?.copy().into(),
+            KValue::Iterator(i) => i.make_copy()?.into(),
+            KValue::Object(o) => o.try_borrow()?.copy().into(),
             _ => self.clone(),
         };
 
@@ -95,7 +95,7 @@ impl Value {
 
     /// Returns true if the value has function-like callable behaviour
     pub fn is_callable(&self) -> bool {
-        use Value::*;
+        use KValue::*;
         match self {
             Function(f) if f.generator => false,
             CaptureFunction(f) if f.info.generator => false,
@@ -107,7 +107,7 @@ impl Value {
 
     /// Returns true if the value is a generator function
     pub fn is_generator(&self) -> bool {
-        use Value::*;
+        use KValue::*;
         match self {
             Function(f) if f.generator => true,
             CaptureFunction(f) if f.info.generator => true,
@@ -119,7 +119,7 @@ impl Value {
     ///
     /// Only hashable values are acceptable as map keys.
     pub fn is_hashable(&self) -> bool {
-        use Value::*;
+        use KValue::*;
         match self {
             Null | Bool(_) | Number(_) | Range(_) | Str(_) => true,
             Tuple(t) => t.is_hashable(),
@@ -129,7 +129,7 @@ impl Value {
 
     /// Returns true if a [KIterator] can be made from the value
     pub fn is_iterable(&self) -> bool {
-        use Value::*;
+        use KValue::*;
         match self {
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
             Object(o) => o.try_borrow().map_or(false, |o| {
@@ -151,7 +151,7 @@ impl Value {
     ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
     ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
     pub fn size(&self) -> usize {
-        use Value::*;
+        use KValue::*;
 
         match &self {
             List(l) => l.len(),
@@ -164,7 +164,7 @@ impl Value {
 
     /// Returns the value's type as a [KString]
     pub fn type_as_string(&self) -> KString {
-        use Value::*;
+        use KValue::*;
         match &self {
             Null => TYPE_NULL.with(|x| x.clone()),
             Bool(_) => TYPE_BOOL.with(|x| x.clone()),
@@ -196,7 +196,7 @@ impl Value {
 
     /// Returns true if the value is a Map or an External that contains the given meta key
     pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
-        use Value::*;
+        use KValue::*;
         match &self {
             Map(m) => m.contains_meta_key(key),
             _ => false,
@@ -204,8 +204,8 @@ impl Value {
     }
 
     /// If the value is a Map or an External, returns a clone of the corresponding meta value
-    pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
-        use Value::*;
+    pub fn get_meta_value(&self, key: &MetaKey) -> Option<KValue> {
+        use KValue::*;
         match &self {
             Map(m) => m.get_meta_value(key),
             _ => None,
@@ -214,7 +214,7 @@ impl Value {
 
     /// Renders the value into the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        use Value::*;
+        use KValue::*;
         let result = match self {
             Null => write!(ctx, "null"),
             Bool(b) => write!(ctx, "{b}"),
@@ -257,85 +257,85 @@ thread_local! {
     static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
 }
 
-impl fmt::Debug for Value {
+impl fmt::Debug for KValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.type_as_string())
     }
 }
 
-impl From<()> for Value {
+impl From<()> for KValue {
     fn from(_: ()) -> Self {
         Self::Null
     }
 }
 
-impl From<bool> for Value {
+impl From<bool> for KValue {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
-impl From<KNumber> for Value {
+impl From<KNumber> for KValue {
     fn from(value: KNumber) -> Self {
         Self::Number(value)
     }
 }
 
-impl From<KRange> for Value {
+impl From<KRange> for KValue {
     fn from(value: KRange) -> Self {
         Self::Range(value)
     }
 }
 
-impl From<&str> for Value {
+impl From<&str> for KValue {
     fn from(value: &str) -> Self {
         Self::Str(value.into())
     }
 }
 
-impl From<String> for Value {
+impl From<String> for KValue {
     fn from(value: String) -> Self {
         Self::Str(value.into())
     }
 }
 
-impl From<KString> for Value {
+impl From<KString> for KValue {
     fn from(value: KString) -> Self {
         Self::Str(value)
     }
 }
 
-impl From<KList> for Value {
+impl From<KList> for KValue {
     fn from(value: KList) -> Self {
         Self::List(value)
     }
 }
 
-impl From<KTuple> for Value {
+impl From<KTuple> for KValue {
     fn from(value: KTuple) -> Self {
         Self::Tuple(value)
     }
 }
 
-impl From<KMap> for Value {
+impl From<KMap> for KValue {
     fn from(value: KMap) -> Self {
         Self::Map(value)
     }
 }
 
-impl From<KObject> for Value {
+impl From<KObject> for KValue {
     fn from(value: KObject) -> Self {
         Self::Object(value)
     }
 }
 
-impl From<KIterator> for Value {
+impl From<KIterator> for KValue {
     fn from(value: KIterator) -> Self {
         Self::Iterator(value)
     }
 }
 
-impl From<KNativeFunction> for Value {
+impl From<KNativeFunction> for KValue {
     fn from(value: KNativeFunction) -> Self {
         Self::NativeFunction(value)
     }
@@ -359,6 +359,6 @@ mod tests {
     fn test_value_mem_size() {
         // All Value variants should have a size of <= 16 bytes, and with the variant flag the
         // total size of Value will be <= 24 bytes.
-        assert!(std::mem::size_of::<Value>() <= 24);
+        assert!(std::mem::size_of::<KValue>() <= 24);
     }
 }

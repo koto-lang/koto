@@ -7,7 +7,7 @@ use koto_memory::Ptr;
 /// See also:
 /// * [KCaptureFunction]
 /// * [KNativeFunction](crate::KNativeFunction)
-/// * [Value::Function](crate::Value::Function)
+/// * [KValue::Function](crate::KValue::Function)
 #[derive(Clone, Debug, PartialEq)]
 pub struct KFunction {
     /// The [Chunk] in which the function can be found.
@@ -35,7 +35,7 @@ pub struct KFunction {
 /// See also:
 /// * [KFunction]
 /// * [KNativeFunction](crate::KNativeFunction)
-/// * [Value::CaptureFunction](crate::Value::CaptureFunction)
+/// * [KValue::CaptureFunction](crate::KValue::CaptureFunction)
 #[derive(Clone)]
 pub struct KCaptureFunction {
     /// The function's properties

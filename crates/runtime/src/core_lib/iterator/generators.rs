@@ -4,12 +4,12 @@ use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// An iterator that repeatedly yields the same value
 pub struct Repeat {
-    value: Value,
+    value: KValue,
 }
 
 impl Repeat {
     /// Creates a new [Repeat] generator
-    pub fn new(value: Value) -> Self {
+    pub fn new(value: KValue) -> Self {
         Self { value }
     }
 }
@@ -34,12 +34,12 @@ impl Iterator for Repeat {
 /// An iterator that yields the same value N times
 pub struct RepeatN {
     remaining: usize,
-    value: Value,
+    value: KValue,
 }
 
 impl RepeatN {
     /// Creates a new [RepeatN] generator
-    pub fn new(value: Value, n: usize) -> Self {
+    pub fn new(value: KValue, n: usize) -> Self {
         Self {
             remaining: n,
             value,
@@ -76,13 +76,13 @@ impl Iterator for RepeatN {
 
 /// An iterator that repeatedly yields the result of calling a function
 pub struct Generate {
-    function: Value,
+    function: KValue,
     vm: Vm,
 }
 
 impl Generate {
     /// Creates a new [Generate] generator
-    pub fn new(function: Value, vm: Vm) -> Self {
+    pub fn new(function: KValue, vm: Vm) -> Self {
         Self { function, vm }
     }
 }
@@ -113,13 +113,13 @@ impl Iterator for Generate {
 /// An iterator that yields the result of calling a function N times
 pub struct GenerateN {
     remaining: usize,
-    function: Value,
+    function: KValue,
     vm: Vm,
 }
 
 impl GenerateN {
     /// Creates a new [GenerateN] generator
-    pub fn new(n: usize, function: Value, vm: Vm) -> Self {
+    pub fn new(n: usize, function: KValue, vm: Vm) -> Self {
         Self {
             remaining: n,
             function,

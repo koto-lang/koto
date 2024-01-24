@@ -9,8 +9,8 @@ use crate::{prelude::*, KIteratorOutput as Output, Result};
 #[derive(Clone, KotoCopy, KotoType)]
 pub struct Peekable {
     iter: KIterator,
-    peeked_front: Option<Value>,
-    peeked_back: Option<Value>,
+    peeked_front: Option<KValue>,
+    peeked_back: Option<KValue>,
 }
 
 #[koto_impl(runtime = crate)]
@@ -25,7 +25,7 @@ impl Peekable {
     }
 
     /// Makes an instance of Peekable along with a meta map that allows it be used as a Koto Value
-    pub fn make_value(iter: KIterator) -> Value {
+    pub fn make_value(iter: KIterator) -> KValue {
         KObject::from(Self::new(iter)).into()
     }
 
@@ -46,11 +46,11 @@ impl Peekable {
     }
 
     #[koto_method]
-    fn peek(&mut self) -> Result<Value> {
+    fn peek(&mut self) -> Result<KValue> {
         match self.peeked_front.clone() {
             Some(peeked) => Ok(peeked),
             None => match iter_output_to_result(self.next())? {
-                Value::Null => Ok(Value::Null),
+                KValue::Null => Ok(KValue::Null),
                 peeked => {
                     self.peeked_front = Some(peeked.clone());
                     Ok(peeked)
@@ -60,11 +60,11 @@ impl Peekable {
     }
 
     #[koto_method]
-    fn peek_back(&mut self) -> Result<Value> {
+    fn peek_back(&mut self) -> Result<KValue> {
         match self.peeked_back.clone() {
             Some(peeked) => Ok(peeked),
             None => match iter_output_to_result(self.next_back())? {
-                Value::Null => Ok(Value::Null),
+                KValue::Null => Ok(KValue::Null),
                 peeked => {
                     self.peeked_back = Some(peeked.clone());
                     Ok(peeked)

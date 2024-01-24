@@ -11,7 +11,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple and a Value";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), [value]) => {
+            (KValue::Tuple(t), [value]) => {
                 let t = t.clone();
                 let value = value.clone();
                 for candidate in t.iter() {
@@ -19,8 +19,8 @@ pub fn make_module() -> KMap {
                         .vm
                         .run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone())
                     {
-                        Ok(Value::Bool(false)) => {}
-                        Ok(Value::Bool(true)) => return Ok(true.into()),
+                        Ok(KValue::Bool(false)) => {}
+                        Ok(KValue::Bool(true)) => return Ok(true.into()),
                         Ok(unexpected) => {
                             return type_error_with_slice(
                                 "a Bool from the equality comparison",
@@ -40,9 +40,9 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => match t.first() {
+            (KValue::Tuple(t), []) => match t.first() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Value::Null),
+                None => Ok(KValue::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -53,8 +53,8 @@ pub fn make_module() -> KMap {
             let expected_error = "a Tuple and Number (with optional default Value)";
 
             match ctx.instance_and_args(is_tuple, expected_error)? {
-                (Value::Tuple(tuple), [Value::Number(n)]) => (tuple, n, &Value::Null),
-                (Value::Tuple(tuple), [Value::Number(n), default]) => (tuple, n, default),
+                (KValue::Tuple(tuple), [KValue::Number(n)]) => (tuple, n, &KValue::Null),
+                (KValue::Tuple(tuple), [KValue::Number(n), default]) => (tuple, n, default),
                 (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
             }
         };
@@ -69,9 +69,9 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => match t.last() {
+            (KValue::Tuple(t), []) => match t.last() {
                 Some(value) => Ok(value.clone()),
-                None => Ok(Value::Null),
+                None => Ok(KValue::Null),
             },
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -81,7 +81,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => Ok(Value::Number(t.len().into())),
+            (KValue::Tuple(t), []) => Ok(KValue::Number(t.len().into())),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -90,12 +90,12 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => {
+            (KValue::Tuple(t), []) => {
                 let mut result = t.to_vec();
 
                 sort_values(ctx.vm, &mut result)?;
 
-                Ok(Value::Tuple(result.into()))
+                Ok(KValue::Tuple(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
@@ -105,7 +105,7 @@ pub fn make_module() -> KMap {
         let expected_error = "a Tuple";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
-            (Value::Tuple(t), []) => Ok(Value::List(KList::from_slice(t))),
+            (KValue::Tuple(t), []) => Ok(KValue::List(KList::from_slice(t))),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -113,6 +113,6 @@ pub fn make_module() -> KMap {
     result
 }
 
-fn is_tuple(value: &Value) -> bool {
-    matches!(value, Value::Tuple(_))
+fn is_tuple(value: &KValue) -> bool {
+    matches!(value, KValue::Tuple(_))
 }

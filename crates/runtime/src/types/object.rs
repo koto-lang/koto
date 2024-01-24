@@ -34,7 +34,7 @@ pub trait KotoCopy {
     /// How the object should behave when called from `koto.deep_copy`
     ///
     /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
-    /// by the object (see [Value::deep_copy]).
+    /// by the object (see [KValue::deep_copy]).
     fn deep_copy(&self) -> KObject {
         self.copy()
     }
@@ -48,14 +48,14 @@ pub trait KotoCopy {
 /// lookup by using the `#[koto_method]` attribute, and derives an appropriate implementation of
 /// [KotoLookup].
 pub trait KotoLookup {
-    /// Returns a [Value] corresponding to the specified key within the object
+    /// Returns a [KValue] corresponding to the specified key within the object
     ///
     /// This method is used to retrieve a named entry attached to an object, providing a way to
     /// access the object's methods or associated values.
     ///
     /// The returned value should represent the data associated with the given key. If the key
     /// does not match any entry within the object, `None` should be returned.
-    fn lookup(&self, _key: &ValueKey) -> Option<Value> {
+    fn lookup(&self, _key: &ValueKey) -> Option<KValue> {
         None
     }
 }
@@ -63,7 +63,7 @@ pub trait KotoLookup {
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
 /// [KotoObject]s are added to the Koto runtime by the [KObject] type, and stored as
-/// [Value::Object]s.
+/// [KValue::Object]s.
 ///
 /// ## Example
 ///
@@ -82,16 +82,16 @@ pub trait KotoLookup {
 ///     // Simple methods tagged with `#[koto_method]` can use a `&self` argument.
 ///     // The macro
 ///     #[koto_method(alias = "data")]
-///     fn get_data(&self) -> Value {
+///     fn get_data(&self) -> KValue {
 ///         self.data.into()
 ///     }
 ///
 ///     // An example of a more complex method that makes use of [MethodContext] to return the
 ///     // instance as the result, which allows for chaining of setter operations.
 ///     #[koto_method]
-///     fn set_data(ctx: MethodContext<Self>) -> Result<Value> {
+///     fn set_data(ctx: MethodContext<Self>) -> Result<KValue> {
 ///         match ctx.args {
-///             [Value::Number(n)] => ctx.instance_mut()?.data = n.into(),
+///             [KValue::Number(n)] => ctx.instance_mut()?.data = n.into(),
 ///             unexpected => return type_error_with_slice("a Number", unexpected),
 ///         }
 ///
@@ -122,97 +122,97 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     }
 
     /// Called for indexing operations, e.g. `x[0]`
-    fn index(&self, _index: &Value) -> Result<Value> {
+    fn index(&self, _index: &KValue) -> Result<KValue> {
         unimplemented_error("@index", self.type_string())
     }
 
     /// Allows the object to behave as a function
-    fn call(&mut self, _ctx: &mut CallContext) -> Result<Value> {
+    fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
         unimplemented_error("@||", self.type_string())
     }
 
     /// Defines the behavior of negation (e.g. `-x`)
-    fn negate(&self, _vm: &mut Vm) -> Result<Value> {
+    fn negate(&self, _vm: &mut Vm) -> Result<KValue> {
         unimplemented_error("@negate", self.type_string())
     }
 
     /// The `+` addition operator ()
-    fn add(&self, _rhs: &Value) -> Result<Value> {
+    fn add(&self, _rhs: &KValue) -> Result<KValue> {
         unimplemented_error("@+", self.type_string())
     }
 
     /// The `-` subtraction operator
-    fn subtract(&self, _rhs: &Value) -> Result<Value> {
+    fn subtract(&self, _rhs: &KValue) -> Result<KValue> {
         unimplemented_error("@-", self.type_string())
     }
 
     /// The `*` multiplication operator
-    fn multiply(&self, _rhs: &Value) -> Result<Value> {
+    fn multiply(&self, _rhs: &KValue) -> Result<KValue> {
         unimplemented_error("@*", self.type_string())
     }
 
     /// The `/` division operator
-    fn divide(&self, _rhs: &Value) -> Result<Value> {
+    fn divide(&self, _rhs: &KValue) -> Result<KValue> {
         unimplemented_error("@/", self.type_string())
     }
 
     /// The `%` remainder operator
-    fn remainder(&self, _rhs: &Value) -> Result<Value> {
+    fn remainder(&self, _rhs: &KValue) -> Result<KValue> {
         unimplemented_error("@%", self.type_string())
     }
 
     /// The `+=` in-place addition operator
-    fn add_assign(&mut self, _rhs: &Value) -> Result<()> {
+    fn add_assign(&mut self, _rhs: &KValue) -> Result<()> {
         unimplemented_error("@+=", self.type_string())
     }
 
     /// The `-=` in-place subtraction operator
-    fn subtract_assign(&mut self, _rhs: &Value) -> Result<()> {
+    fn subtract_assign(&mut self, _rhs: &KValue) -> Result<()> {
         unimplemented_error("@-=", self.type_string())
     }
 
     /// The `*=` in-place multiplication operator
-    fn multiply_assign(&mut self, _rhs: &Value) -> Result<()> {
+    fn multiply_assign(&mut self, _rhs: &KValue) -> Result<()> {
         unimplemented_error("@*=", self.type_string())
     }
 
     /// The `/=` in-place division operator
-    fn divide_assign(&mut self, _rhs: &Value) -> Result<()> {
+    fn divide_assign(&mut self, _rhs: &KValue) -> Result<()> {
         unimplemented_error("@/=", self.type_string())
     }
 
     /// The `%=` in-place remainder operator
-    fn remainder_assign(&mut self, _rhs: &Value) -> Result<()> {
+    fn remainder_assign(&mut self, _rhs: &KValue) -> Result<()> {
         unimplemented_error("@%=", self.type_string())
     }
 
     /// The `<` less-than operator
-    fn less(&self, _rhs: &Value) -> Result<bool> {
+    fn less(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@<", self.type_string())
     }
 
     /// The `<=` less-than-or-equal operator
-    fn less_or_equal(&self, _rhs: &Value) -> Result<bool> {
+    fn less_or_equal(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@<=", self.type_string())
     }
 
     /// The `>` greater-than operator
-    fn greater(&self, _rhs: &Value) -> Result<bool> {
+    fn greater(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@>", self.type_string())
     }
 
     /// The `>=` greater-than-or-equal operator
-    fn greater_or_equal(&self, _rhs: &Value) -> Result<bool> {
+    fn greater_or_equal(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@>=", self.type_string())
     }
 
     /// The `==` equality operator
-    fn equal(&self, _rhs: &Value) -> Result<bool> {
+    fn equal(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@==", self.type_string())
     }
 
     /// The `!=` inequality operator
-    fn not_equal(&self, _rhs: &Value) -> Result<bool> {
+    fn not_equal(&self, _rhs: &KValue) -> Result<bool> {
         unimplemented_error("@!=", self.type_string())
     }
 
@@ -328,7 +328,7 @@ impl fmt::Debug for KObject {
 /// [KObject].
 pub struct MethodContext<'a, T> {
     /// The method call arguments
-    pub args: &'a [Value],
+    pub args: &'a [KValue],
     /// A VM that can be used by the method for operations that require a runtime
     pub vm: &'a Vm,
     // The instance of the object for the method call,
@@ -340,7 +340,7 @@ pub struct MethodContext<'a, T> {
 
 impl<'a, T: KotoObject> MethodContext<'a, T> {
     /// Makes a new method context
-    pub fn new(object: &'a KObject, args: &'a [Value], vm: &'a Vm) -> Self {
+    pub fn new(object: &'a KObject, args: &'a [KValue], vm: &'a Vm) -> Self {
         Self {
             object,
             args,
@@ -360,7 +360,7 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
     }
 
     /// Helper for methods that need to return a clone of the instance as the method result
-    pub fn instance_result(&self) -> Result<Value> {
+    pub fn instance_result(&self) -> Result<KValue> {
         Ok(self.object.clone().into())
     }
 }

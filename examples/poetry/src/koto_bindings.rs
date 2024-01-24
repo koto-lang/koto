@@ -6,7 +6,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("new", {
         |ctx| match ctx.args() {
-            [Value::Str(text)] => {
+            [KValue::Str(text)] => {
                 let mut poetry = Poetry::default();
                 poetry.add_source_material(text);
                 Ok(KObject::from(KotoPoetry(poetry)).into())

@@ -18,22 +18,22 @@ impl Vec2 {
     }
 
     #[koto_method]
-    fn angle(&self) -> Value {
+    fn angle(&self) -> KValue {
         Inner::X.angle_between(self.0).into()
     }
 
     #[koto_method]
-    fn length(&self) -> Value {
+    fn length(&self) -> KValue {
         self.0.length().into()
     }
 
     #[koto_method]
-    fn x(&self) -> Value {
+    fn x(&self) -> KValue {
         self.0.x.into()
     }
 
     #[koto_method]
-    fn y(&self) -> Value {
+    fn y(&self) -> KValue {
         self.0.y.into()
     }
 }
@@ -44,53 +44,53 @@ impl KotoObject for Vec2 {
         Ok(())
     }
 
-    fn negate(&self, _vm: &mut Vm) -> Result<Value> {
+    fn negate(&self, _vm: &mut Vm) -> Result<KValue> {
         Ok(Self(-self.0).into())
     }
 
-    fn add(&self, rhs: &Value) -> Result<Value> {
+    fn add(&self, rhs: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, rhs, +)
     }
 
-    fn subtract(&self, rhs: &Value) -> Result<Value> {
+    fn subtract(&self, rhs: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, rhs, -)
     }
 
-    fn multiply(&self, rhs: &Value) -> Result<Value> {
+    fn multiply(&self, rhs: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, rhs, *)
     }
 
-    fn divide(&self, rhs: &Value) -> Result<Value> {
+    fn divide(&self, rhs: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, rhs, /)
     }
 
-    fn add_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
         geometry_arithmetic_assign_op!(self, rhs, +=)
     }
 
-    fn subtract_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
         geometry_arithmetic_assign_op!(self, rhs, -=)
     }
 
-    fn multiply_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
         geometry_arithmetic_assign_op!(self, rhs, *=)
     }
 
-    fn divide_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
         geometry_arithmetic_assign_op!(self, rhs, /=)
     }
 
-    fn equal(&self, rhs: &Value) -> Result<bool> {
+    fn equal(&self, rhs: &KValue) -> Result<bool> {
         geometry_comparison_op!(self, rhs, ==)
     }
 
-    fn not_equal(&self, rhs: &Value) -> Result<bool> {
+    fn not_equal(&self, rhs: &KValue) -> Result<bool> {
         geometry_comparison_op!(self, rhs, !=)
     }
 
-    fn index(&self, index: &Value) -> Result<Value> {
+    fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
-            Value::Number(n) => match usize::from(n) {
+            KValue::Number(n) => match usize::from(n) {
                 0 => Ok(self.x()),
                 1 => Ok(self.y()),
                 other => runtime_error!("index out of range (got {other}, should be <= 1)"),
@@ -125,7 +125,7 @@ impl From<Inner> for Vec2 {
     }
 }
 
-impl From<Vec2> for Value {
+impl From<Vec2> for KValue {
     fn from(point: Vec2) -> Self {
         KObject::from(point).into()
     }

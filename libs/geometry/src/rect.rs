@@ -15,54 +15,54 @@ impl Rect {
     }
 
     #[koto_method]
-    fn left(&self) -> Value {
+    fn left(&self) -> KValue {
         self.0.left().into()
     }
 
     #[koto_method]
-    fn right(&self) -> Value {
+    fn right(&self) -> KValue {
         self.0.right().into()
     }
 
     #[koto_method]
-    fn top(&self) -> Value {
+    fn top(&self) -> KValue {
         self.0.top().into()
     }
 
     #[koto_method]
-    fn bottom(&self) -> Value {
+    fn bottom(&self) -> KValue {
         self.0.bottom().into()
     }
 
     #[koto_method]
-    fn width(&self) -> Value {
+    fn width(&self) -> KValue {
         self.0.w().into()
     }
 
     #[koto_method]
-    fn height(&self) -> Value {
+    fn height(&self) -> KValue {
         self.0.h().into()
     }
 
     #[koto_method]
-    fn center(&self) -> Value {
+    fn center(&self) -> KValue {
         Vec2::from(self.0.xy()).into()
     }
 
     #[koto_method]
-    fn x(&self) -> Value {
+    fn x(&self) -> KValue {
         self.0.x().into()
     }
 
     #[koto_method]
-    fn y(&self) -> Value {
+    fn y(&self) -> KValue {
         self.0.y().into()
     }
 
     #[koto_method]
-    fn contains(&self, args: &[Value]) -> Result<Value> {
+    fn contains(&self, args: &[KValue]) -> Result<KValue> {
         match args {
-            [Value::Object(p)] if p.is_a::<Vec2>() => {
+            [KValue::Object(p)] if p.is_a::<Vec2>() => {
                 let p = p.cast::<Vec2>().unwrap();
                 let result = self.0.contains(p.inner());
                 Ok(result.into())
@@ -72,8 +72,8 @@ impl Rect {
     }
 
     #[koto_method]
-    fn set_center(ctx: MethodContext<Self>) -> Result<Value> {
-        use Value::{Number, Object};
+    fn set_center(ctx: MethodContext<Self>) -> Result<KValue> {
+        use KValue::{Number, Object};
 
         let (x, y) = match ctx.args {
             [Number(x), Number(y)] => (x.into(), y.into()),
@@ -97,11 +97,11 @@ impl KotoObject for Rect {
         Ok(())
     }
 
-    fn equal(&self, rhs: &Value) -> Result<bool> {
+    fn equal(&self, rhs: &KValue) -> Result<bool> {
         geometry_comparison_op!(self, rhs, ==)
     }
 
-    fn not_equal(&self, rhs: &Value) -> Result<bool> {
+    fn not_equal(&self, rhs: &KValue) -> Result<bool> {
         geometry_comparison_op!(self, rhs, !=)
     }
 
@@ -139,7 +139,7 @@ impl From<(f64, f64, f64, f64)> for Rect {
     }
 }
 
-impl From<Rect> for Value {
+impl From<Rect> for KValue {
     fn from(point: Rect) -> Self {
         KObject::from(point).into()
     }

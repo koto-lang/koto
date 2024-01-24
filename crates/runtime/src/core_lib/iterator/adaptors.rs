@@ -103,7 +103,7 @@ impl Iterator for Chunks {
         let mut chunk = None;
 
         for output in self.iter.clone().take(self.chunk_size) {
-            match Value::try_from(output) {
+            match KValue::try_from(output) {
                 Ok(value) => chunk
                     .get_or_insert_with(|| Vec::with_capacity(self.chunk_size))
                     .push(value),
@@ -148,7 +148,7 @@ pub enum ChunksError {
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
     iter: KIterator,
-    cache: Vec<Value>,
+    cache: Vec<KValue>,
     cycle_index: usize,
 }
 
@@ -186,7 +186,7 @@ impl Iterator for Cycle {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(output) = self.iter.next() {
-            match Value::try_from(output) {
+            match KValue::try_from(output) {
                 Ok(value) => {
                     self.cache.push(value.clone());
                     Some(value.into())
@@ -223,13 +223,13 @@ impl Iterator for Cycle {
 /// An iterator that runs a function on each output value from the adapted iterator
 pub struct Each {
     iter: KIterator,
-    function: Value,
+    function: KValue,
     vm: Vm,
 }
 
 impl Each {
     /// Creates a new [Each] adaptor
-    pub fn new(iter: KIterator, function: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, function: KValue, vm: Vm) -> Self {
         Self { iter, function, vm }
     }
 
@@ -387,12 +387,12 @@ pub struct Intersperse {
     iter: KIterator,
     peeked: Option<Output>,
     next_is_separator: bool,
-    separator: Value,
+    separator: KValue,
 }
 
 impl Intersperse {
     /// Creates a new [Intersperse] adaptor
-    pub fn new(iter: KIterator, separator: Value) -> Self {
+    pub fn new(iter: KIterator, separator: KValue) -> Self {
         Self {
             iter,
             peeked: None,
@@ -447,13 +447,13 @@ pub struct IntersperseWith {
     iter: KIterator,
     peeked: Option<Output>,
     next_is_separator: bool,
-    separator_function: Value,
+    separator_function: KValue,
     vm: Vm,
 }
 
 impl IntersperseWith {
     /// Creates a new [IntersperseWith] adaptor
-    pub fn new(iter: KIterator, separator_function: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, separator_function: KValue, vm: Vm) -> Self {
         Self {
             iter,
             peeked: None,
@@ -524,13 +524,13 @@ fn intersperse_size_hint(iter: &KIterator, next_is_separator: bool) -> (usize, O
 /// An iterator that skips over values that fail a predicate, and keeps those that pass
 pub struct Keep {
     iter: KIterator,
-    predicate: Value,
+    predicate: KValue,
     vm: Vm,
 }
 
 impl Keep {
     /// Creates a new [Keep] adaptor
-    pub fn new(iter: KIterator, predicate: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, predicate: KValue, vm: Vm) -> Self {
         Self {
             iter,
             predicate,
@@ -567,8 +567,8 @@ impl Iterator for Keep {
             };
 
             let result = match predicate_result {
-                Ok(Value::Bool(false)) => continue,
-                Ok(Value::Bool(true)) => output,
+                Ok(KValue::Bool(false)) => continue,
+                Ok(KValue::Bool(true)) => output,
                 Ok(unexpected) => Output::Error(
                     format!(
                     "iterator.keep: Expected a Bool to be returned from the predicate, found '{}'",
@@ -823,14 +823,14 @@ impl Iterator for Take {
 /// An adaptor that yields values from an iterator while they pass a predicate
 pub struct TakeWhile {
     iter: KIterator,
-    predicate: Value,
+    predicate: KValue,
     vm: Vm,
     finished: bool,
 }
 
 impl TakeWhile {
     /// Creates a new [Keep] adaptor
-    pub fn new(iter: KIterator, predicate: Value, vm: Vm) -> Self {
+    pub fn new(iter: KIterator, predicate: KValue, vm: Vm) -> Self {
         Self {
             iter,
             predicate,
@@ -873,8 +873,8 @@ impl Iterator for TakeWhile {
         };
 
         let result = match predicate_result {
-            Ok(Value::Bool(true)) => iter_output,
-            Ok(Value::Bool(false)) => {
+            Ok(KValue::Bool(true)) => iter_output,
+            Ok(KValue::Bool(false)) => {
                 self.finished = true;
                 return None;
             }
@@ -900,7 +900,7 @@ impl Iterator for TakeWhile {
 /// An iterator that splits the incoming iterator into overlapping iterators of size N
 pub struct Windows {
     iter: KIterator,
-    cache: VecDeque<Value>,
+    cache: VecDeque<KValue>,
     window_size: usize,
 }
 
@@ -941,7 +941,7 @@ impl Iterator for Windows {
                 break;
             };
 
-            match Value::try_from(output) {
+            match KValue::try_from(output) {
                 Ok(value) => self.cache.push_back(value),
                 Err(error) => return Some(Output::Error(error)),
             }

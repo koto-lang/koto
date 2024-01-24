@@ -17,19 +17,19 @@ pub(crate) enum ErrorKind {
     #[error("{}", display_thrown_value(thrown_value, vm))]
     KotoError {
         /// The thrown value
-        thrown_value: Value,
+        thrown_value: KValue,
         /// A VM that should be used to format the thrown value
         vm: Vm,
     },
     #[error("Expected {expected}, but found {}", get_value_types(unexpected))]
     UnexpectedType {
         expected: String,
-        unexpected: Vec<Value>,
+        unexpected: Vec<KValue>,
     },
     #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
-        lhs: Value,
-        rhs: Value,
+        lhs: KValue,
+        rhs: KValue,
         op: BinaryOp,
     },
     #[error("Empty call stack")]
@@ -40,7 +40,7 @@ pub(crate) enum ErrorKind {
     MissingStringBuilder,
 }
 
-fn display_thrown_value(value: &Value, vm: &Vm) -> String {
+fn display_thrown_value(value: &KValue, vm: &Vm) -> String {
     let mut display_context = DisplayContext::with_vm(vm);
 
     if value.display(&mut display_context).is_ok() {
@@ -73,7 +73,7 @@ impl Error {
     }
 
     /// Initializes an error from a thrown Koto value
-    pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
+    pub(crate) fn from_koto_value(thrown_value: KValue, vm: Vm) -> Self {
         Self::new(ErrorKind::KotoError { thrown_value, vm })
     }
 
@@ -168,19 +168,19 @@ macro_rules! runtime_error {
 }
 
 /// Creates an error that describes a type mismatch
-pub fn type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T> {
+pub fn type_error<T>(expected_str: &str, unexpected: &KValue) -> Result<T> {
     type_error_with_slice(expected_str, &[unexpected.clone()])
 }
 
-/// Creates an error that describes a type mismatch with a slice of [Value]s
-pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[Value]) -> Result<T> {
+/// Creates an error that describes a type mismatch with a slice of [KValue]s
+pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
     runtime_error!(ErrorKind::UnexpectedType {
         expected: expected_str.into(),
         unexpected: unexpected.into(),
     })
 }
 
-fn get_value_types(values: &[Value]) -> String {
+fn get_value_types(values: &[KValue]) -> String {
     match values {
         [] => "no args".to_string(),
         [single_value] => single_value.type_as_string().to_string(),

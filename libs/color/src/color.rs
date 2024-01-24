@@ -59,11 +59,11 @@ macro_rules! color_arithmetic_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     Ok((*$self $op *rhs).into())
                 }
-                Value::Number(n) => {
+                KValue::Number(n) => {
                     Ok((*$self $op f32::from(n)).into())
                 }
                 unexpected => {
@@ -79,12 +79,12 @@ macro_rules! color_arithmetic_assign_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     *$self $op *rhs;
                     Ok(())
                 }
-                Value::Number(n) => {
+                KValue::Number(n) => {
                     *$self $op f32::from(n);
                     Ok(())
                 }
@@ -101,7 +101,7 @@ macro_rules! color_comparison_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
-                Value::Object(rhs) if rhs.is_a::<Self>() => {
+                KValue::Object(rhs) if rhs.is_a::<Self>() => {
                     let rhs = rhs.cast::<Self>().unwrap();
                     Ok(*$self $op *rhs)
                 }
@@ -144,29 +144,29 @@ impl Color {
     }
 
     #[koto_method(alias = "r")]
-    pub fn red(&self) -> Value {
+    pub fn red(&self) -> KValue {
         self.0.color.red.into()
     }
 
     #[koto_method(alias = "g")]
-    pub fn green(&self) -> Value {
+    pub fn green(&self) -> KValue {
         self.0.color.green.into()
     }
 
     #[koto_method(alias = "b")]
-    pub fn blue(&self) -> Value {
+    pub fn blue(&self) -> KValue {
         self.0.color.blue.into()
     }
 
     #[koto_method(alias = "a")]
-    pub fn alpha(&self) -> Value {
+    pub fn alpha(&self) -> KValue {
         self.0.alpha.into()
     }
 
     #[koto_method(alias = "set_r")]
-    pub fn set_red(ctx: MethodContext<Self>) -> Result<Value> {
+    pub fn set_red(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
-            [Value::Number(n)] => {
+            [KValue::Number(n)] => {
                 ctx.instance_mut()?.0.color.red = n.into();
                 ctx.instance_result()
             }
@@ -175,9 +175,9 @@ impl Color {
     }
 
     #[koto_method(alias = "set_g")]
-    pub fn set_green(ctx: MethodContext<Self>) -> Result<Value> {
+    pub fn set_green(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
-            [Value::Number(n)] => {
+            [KValue::Number(n)] => {
                 ctx.instance_mut()?.0.color.green = n.into();
                 ctx.instance_result()
             }
@@ -186,9 +186,9 @@ impl Color {
     }
 
     #[koto_method(alias = "set_b")]
-    pub fn set_blue(ctx: MethodContext<Self>) -> Result<Value> {
+    pub fn set_blue(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
-            [Value::Number(n)] => {
+            [KValue::Number(n)] => {
                 ctx.instance_mut()?.0.color.blue = n.into();
                 ctx.instance_result()
             }
@@ -197,9 +197,9 @@ impl Color {
     }
 
     #[koto_method(alias = "set_a")]
-    pub fn set_alpha(ctx: MethodContext<Self>) -> Result<Value> {
+    pub fn set_alpha(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
-            [Value::Number(n)] => {
+            [KValue::Number(n)] => {
                 ctx.instance_mut()?.0.alpha = n.into();
                 ctx.instance_result()
             }
@@ -208,15 +208,15 @@ impl Color {
     }
 
     #[koto_method]
-    pub fn mix(ctx: MethodContext<Self>) -> Result<Value> {
+    pub fn mix(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
-            [Value::Object(b)] if b.is_a::<Color>() => {
+            [KValue::Object(b)] if b.is_a::<Color>() => {
                 let a = ctx.instance()?;
                 let b = b.cast::<Color>()?;
 
                 Ok(Color::from(a.0.mix(b.0, 0.5)).into())
             }
-            [Value::Object(b), Value::Number(x)] if b.is_a::<Color>() => {
+            [KValue::Object(b), KValue::Number(x)] if b.is_a::<Color>() => {
                 let a = ctx.instance()?;
                 let b = b.cast::<Color>()?;
                 let n = f32::from(x);
@@ -234,49 +234,49 @@ impl KotoObject for Color {
         Ok(())
     }
 
-    fn add(&self, rhs: &Value) -> Result<Value> {
+    fn add(&self, rhs: &KValue) -> Result<KValue> {
         color_arithmetic_op!(self, rhs, +)
     }
 
-    fn subtract(&self, rhs: &Value) -> Result<Value> {
+    fn subtract(&self, rhs: &KValue) -> Result<KValue> {
         color_arithmetic_op!(self, rhs, -)
     }
 
-    fn multiply(&self, rhs: &Value) -> Result<Value> {
+    fn multiply(&self, rhs: &KValue) -> Result<KValue> {
         color_arithmetic_op!(self, rhs, *)
     }
 
-    fn divide(&self, rhs: &Value) -> Result<Value> {
+    fn divide(&self, rhs: &KValue) -> Result<KValue> {
         color_arithmetic_op!(self, rhs, /)
     }
 
-    fn add_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
         color_arithmetic_assign_op!(self, rhs, +=)
     }
 
-    fn subtract_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
         color_arithmetic_assign_op!(self, rhs, -=)
     }
 
-    fn multiply_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
         color_arithmetic_assign_op!(self, rhs, *=)
     }
 
-    fn divide_assign(&mut self, rhs: &Value) -> Result<()> {
+    fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
         color_arithmetic_assign_op!(self, rhs, /=)
     }
 
-    fn equal(&self, rhs: &Value) -> Result<bool> {
+    fn equal(&self, rhs: &KValue) -> Result<bool> {
         color_comparison_op!(self, rhs, ==)
     }
 
-    fn not_equal(&self, rhs: &Value) -> Result<bool> {
+    fn not_equal(&self, rhs: &KValue) -> Result<bool> {
         color_comparison_op!(self, rhs, !=)
     }
 
-    fn index(&self, index: &Value) -> Result<Value> {
+    fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
-            Value::Number(n) => match usize::from(n) {
+            KValue::Number(n) => match usize::from(n) {
                 0 => Ok(self.red()),
                 1 => Ok(self.green()),
                 2 => Ok(self.blue()),
@@ -309,7 +309,7 @@ impl KotoObject for Color {
     }
 }
 
-impl From<Color> for Value {
+impl From<Color> for KValue {
     fn from(color: Color) -> Self {
         KObject::from(color).into()
     }
