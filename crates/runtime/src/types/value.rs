@@ -1,7 +1,7 @@
 //! The core value type used in the Koto runtime
 
 use crate::{prelude::*, KCaptureFunction, KFunction, KMap, KNativeFunction, Result};
-use std::fmt::Write;
+use std::fmt::{self, Write};
 
 /// The core Value type for Koto
 #[derive(Clone, Default)]
@@ -255,6 +255,12 @@ thread_local! {
     static TYPE_GENERATOR: KString = "Generator".into();
     static TYPE_ITERATOR: KString = "Iterator".into();
     static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.type_as_string())
+    }
 }
 
 impl From<()> for Value {
