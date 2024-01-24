@@ -1,11 +1,10 @@
 //! The `koto` core library module
-
+use super::io::File;
 use crate::prelude::*;
-use koto_bytecode::Chunk;
+use crate::Result;
+use koto_derive::{koto_impl, koto_method, KotoCopy, KotoType};
 use koto_memory::Ptr;
 use std::hash::{Hash, Hasher};
-
-use super::io::File;
 
 /// Initializes the `koto` core library module
 pub fn make_module() -> KMap {
@@ -58,8 +57,8 @@ pub fn make_module() -> KMap {
     result.add_fn("load", |ctx| match ctx.args() {
         [KValue::Str(s)] => try_load_koto_script(ctx, s),
         [KValue::Object(o)] if o.is_a::<File>() => {
-            let mut file = o.cast_mut::<File>().unwrap();
-            let contents = file.read_to_kstring()?;
+            let file = o.cast::<File>().unwrap();
+            let contents = file.inner().read_to_string()?;
             try_load_koto_script(ctx, &contents)
         }
         unexpected => type_error_with_slice("a single String or io.File argument", unexpected),
@@ -67,75 +66,156 @@ pub fn make_module() -> KMap {
 
     result.add_fn("run", |ctx| match ctx.args() {
         [KValue::Str(s)] => match try_compile_koto_script(ctx, s) {
-            Ok(chunk) => ctx.vm.run(Ptr::clone(&chunk)),
-            Err(err) => runtime_error!(err.to_string()),
+            Ok(chunk_ptr) => try_run_chunk(ctx.vm, chunk_ptr),
+            Err(err) => Ok(RunResult::from(RunResultInner::Err(err.to_string())).into()),
         },
         [KValue::Object(o)] if o.is_a::<File>() => {
-            let mut file = o.cast_mut::<File>().unwrap();
-            let contents = file.read_to_kstring()?;
+            let file = o.cast::<File>().unwrap();
+            let contents = file.inner().read_to_string()?;
             drop(file);
             match try_compile_koto_script(ctx, &contents) {
-                Ok(chunk) => ctx.vm.run(Ptr::clone(&chunk)),
-                Err(err) => runtime_error!(err.to_string()),
+                Ok(chunk_ptr) => try_run_chunk(ctx.vm, chunk_ptr),
+                Err(err) => Ok(RunResult::from(RunResultInner::Err(err.to_string())).into()),
             }
         }
-        [KValue::Map(m)] if is_chunk(m.get_meta_value(&MetaKey::Type)) => {
-            let f = m.data().get("run").unwrap().clone();
-            ctx.vm.run_function(f, CallArgs::None)
+        [KValue::Object(o)] if o.is_a::<Chunk>() => {
+            let chunk = o.cast::<Chunk>().unwrap();
+            match &chunk.0 {
+                ChunkInner::Ok(chunk_ptr) => {
+                    let chunk_ptr = Ptr::clone(chunk_ptr);
+                    drop(chunk);
+                    try_run_chunk(ctx.vm, chunk_ptr)
+                }
+                ChunkInner::Err(err) => {
+                    Ok(RunResult::from(RunResultInner::Err(err.to_string())).into())
+                }
+            }
         }
         unexpected => {
-            type_error_with_slice("a single String, io.File or chunk argument", unexpected)
+            type_error_with_slice("a single String, io.File or Chunk argument", unexpected)
         }
     });
 
     result
 }
 
-const CHUNK_TYPE_NAME: &str = "Chunk";
-
-fn is_chunk(maybe_type_name: Option<KValue>) -> bool {
-    if let Some(type_name) = maybe_type_name {
-        matches!(type_name, KValue::Str(s) if s == CHUNK_TYPE_NAME)
-    } else {
-        false
+fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<KValue> {
+    match try_compile_koto_script(ctx, script) {
+        Ok(chunk) => Ok(Chunk::from(ChunkInner::Ok(Ptr::clone(&chunk))).into()),
+        Err(err) => Ok(Chunk::from(ChunkInner::Err(err.to_string())).into()),
     }
 }
 
-fn try_load_koto_script(
-    ctx: &CallContext<'_>,
-    script: &KString,
-) -> Result<KValue, crate::error::Error> {
-    let mut result = KMap::with_type(CHUNK_TYPE_NAME);
-
-    match try_compile_koto_script(ctx, script) {
-        Ok(chunk) => {
-            result.insert("ok", true);
-            result.add_fn("run", move |ctx| match ctx.vm.run(Ptr::clone(&chunk)) {
-                Ok(value) => Ok(value),
-                Err(err) => Ok(KString::from(err.to_string()).into()),
-            });
-        }
-        Err(err) => {
-            result.insert("ok", false);
-            result.insert_meta(
-                MetaKey::UnaryOp(UnaryOp::Display),
-                KValue::NativeFunction(KNativeFunction::new(move |_| {
-                    Ok(KString::from(err.to_string()).into())
-                })),
-            );
-        }
+fn try_run_chunk(vm: &mut KotoVm, chunk_ptr: Ptr<koto_bytecode::Chunk>) -> Result<KValue> {
+    match vm.run(chunk_ptr) {
+        Ok(result) => Ok(RunResult::from(RunResultInner::Ok(result)).into()),
+        Err(err) => Ok(RunResult::from(RunResultInner::Err(err.to_string())).into()),
     }
-
-    Ok(result.into())
 }
 
 fn try_compile_koto_script(
     ctx: &CallContext<'_>,
-    script: &KString,
-) -> Result<Ptr<Chunk>, koto_bytecode::LoaderError> {
+    script: &str,
+) -> core::result::Result<Ptr<koto_bytecode::Chunk>, koto_bytecode::LoaderError> {
     ctx.vm.loader().borrow_mut().compile_script(
         script,
         &None,
         koto_bytecode::CompilerSettings::default(),
     )
+}
+
+#[derive(Clone)]
+enum ChunkInner {
+    Ok(Ptr<koto_bytecode::Chunk>),
+    Err(String),
+}
+
+/// The Chunk type used in the koto module
+#[derive(Clone, KotoCopy, KotoType)]
+pub struct Chunk(ChunkInner);
+
+#[koto_impl(runtime = crate)]
+impl Chunk {
+    #[koto_method]
+    fn ok(&self) -> KValue {
+        matches!(self.0, ChunkInner::Ok(_)).into()
+    }
+}
+
+impl KotoObject for Chunk {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        match &self.0 {
+            ChunkInner::Ok(chunk) => {
+                ctx.append(format!("{:?}", chunk));
+            }
+            ChunkInner::Err(err) => {
+                ctx.append(err.to_owned());
+            }
+        }
+        Ok(())
+    }
+}
+
+impl From<ChunkInner> for Chunk {
+    fn from(inner: ChunkInner) -> Self {
+        Self(inner)
+    }
+}
+
+impl From<Chunk> for KValue {
+    fn from(chunk: Chunk) -> Self {
+        KObject::from(chunk).into()
+    }
+}
+
+#[derive(Clone)]
+enum RunResultInner {
+    Ok(KValue),
+    Err(String),
+}
+
+/// The RunResult type used in the koto module
+#[derive(Clone, KotoCopy, KotoType)]
+pub struct RunResult(RunResultInner);
+
+#[koto_impl(runtime = crate)]
+impl RunResult {
+    #[koto_method]
+    fn ok(&self) -> KValue {
+        matches!(self.0, RunResultInner::Ok(_)).into()
+    }
+
+    #[koto_method]
+    fn value(&self) -> KValue {
+        match &self.0 {
+            RunResultInner::Ok(value) => value.clone(),
+            RunResultInner::Err(value) => value.to_owned().into(),
+        }
+    }
+}
+
+impl KotoObject for RunResult {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        match &self.0 {
+            RunResultInner::Ok(value) => {
+                ctx.append(format!("{:?}", value));
+            }
+            RunResultInner::Err(err) => {
+                ctx.append(err.to_owned());
+            }
+        }
+        Ok(())
+    }
+}
+
+impl From<RunResultInner> for RunResult {
+    fn from(inner: RunResultInner) -> Self {
+        Self(inner)
+    }
+}
+
+impl From<RunResult> for KValue {
+    fn from(result: RunResult) -> Self {
+        KObject::from(result).into()
+    }
 }

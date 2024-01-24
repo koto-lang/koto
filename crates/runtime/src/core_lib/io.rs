@@ -165,6 +165,11 @@ impl File {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
+    /// Returns a reference to the inner `Ptr<dyn KotoFile>`
+    pub fn inner(&self) -> &Ptr<dyn KotoFile> {
+        &self.0
+    }
+
     fn stderr(vm: &KotoVm) -> KValue {
         Self(vm.stderr().clone()).into()
     }
@@ -205,10 +210,6 @@ impl File {
     #[koto_method]
     fn read_to_string(&mut self) -> Result<KValue> {
         self.0.read_to_string().map(KValue::from)
-    }
-
-    pub(crate) fn read_to_kstring(&mut self) -> Result<KString> {
-        self.0.read_to_string().map(|s| s.into())
     }
 
     #[koto_method]
