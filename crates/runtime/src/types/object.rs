@@ -1,6 +1,6 @@
 use crate::{prelude::*, Result};
 use downcast_rs::{impl_downcast, Downcast};
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 
 /// A trait for specifying a Koto object's type
 ///
@@ -311,6 +311,12 @@ impl<T: KotoObject> From<T> for KObject {
         Self {
             object: make_ptr_mut!(object),
         }
+    }
+}
+
+impl fmt::Debug for KObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "KObject ({:?})", PtrMut::address(&self.object))
     }
 }
 
