@@ -299,6 +299,11 @@ impl KObject {
     pub fn is_same_instance(&self, other: &Self) -> bool {
         PtrMut::ptr_eq(&self.object, &other.object)
     }
+
+    /// Returns the number of references currently held to the object
+    pub fn ref_count(&self) -> usize {
+        PtrMut::ref_count(&self.object)
+    }
 }
 
 impl<T: KotoObject> From<T> for KObject {
