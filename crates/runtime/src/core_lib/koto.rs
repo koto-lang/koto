@@ -2,6 +2,7 @@
 
 use crate::prelude::*;
 use koto_bytecode::Chunk;
+use koto_memory::Ptr;
 use std::hash::{Hash, Hasher};
 
 use super::io::File;
@@ -55,8 +56,8 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("load", |ctx| match ctx.args() {
-        [Value::Str(s)] => try_load_koto_script(ctx, s),
-        [Value::Object(o)] if o.is_a::<File>() => {
+        [KValue::Str(s)] => try_load_koto_script(ctx, s),
+        [KValue::Object(o)] if o.is_a::<File>() => {
             let mut file = o.cast_mut::<File>().unwrap();
             let contents = file.read_to_kstring()?;
             try_load_koto_script(ctx, &contents)
@@ -65,11 +66,11 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("run", |ctx| match ctx.args() {
-        [Value::Str(s)] => match try_compile_koto_script(ctx, s) {
+        [KValue::Str(s)] => match try_compile_koto_script(ctx, s) {
             Ok(chunk) => ctx.vm.run(Ptr::clone(&chunk)),
             Err(err) => runtime_error!(err.to_string()),
         },
-        [Value::Object(o)] if o.is_a::<File>() => {
+        [KValue::Object(o)] if o.is_a::<File>() => {
             let mut file = o.cast_mut::<File>().unwrap();
             let contents = file.read_to_kstring()?;
             drop(file);
@@ -78,7 +79,7 @@ pub fn make_module() -> KMap {
                 Err(err) => runtime_error!(err.to_string()),
             }
         }
-        [Value::Map(m)] if is_chunk(m.get_meta_value(&MetaKey::Type)) => {
+        [KValue::Map(m)] if is_chunk(m.get_meta_value(&MetaKey::Type)) => {
             let f = m.data().get("run").unwrap().clone();
             ctx.vm.run_function(f, CallArgs::None)
         }
@@ -92,9 +93,9 @@ pub fn make_module() -> KMap {
 
 const CHUNK_TYPE_NAME: &str = "Chunk";
 
-fn is_chunk(maybe_type_name: Option<Value>) -> bool {
+fn is_chunk(maybe_type_name: Option<KValue>) -> bool {
     if let Some(type_name) = maybe_type_name {
-        matches!(type_name, Value::Str(s) if s == CHUNK_TYPE_NAME)
+        matches!(type_name, KValue::Str(s) if s == CHUNK_TYPE_NAME)
     } else {
         false
     }
@@ -103,7 +104,7 @@ fn is_chunk(maybe_type_name: Option<Value>) -> bool {
 fn try_load_koto_script(
     ctx: &CallContext<'_>,
     script: &KString,
-) -> Result<Value, crate::error::Error> {
+) -> Result<KValue, crate::error::Error> {
     let mut result = KMap::with_type(CHUNK_TYPE_NAME);
 
     match try_compile_koto_script(ctx, script) {
@@ -118,7 +119,7 @@ fn try_load_koto_script(
             result.insert("ok", false);
             result.insert_meta(
                 MetaKey::UnaryOp(UnaryOp::Display),
-                Value::NativeFunction(KNativeFunction::new(move |_| {
+                KValue::NativeFunction(KNativeFunction::new(move |_| {
                     Ok(KString::from(err.to_string()).into())
                 })),
             );
