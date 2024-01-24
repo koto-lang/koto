@@ -15,13 +15,19 @@ The Koto project adheres to
 - The `+` operator has been reintroduced for tuples, lists, and maps.
 - Raw strings are now supported. Any string prefixed with `r` will skip
   character escaping and string interpolation.
-- `as` is now available in import expressions for more ergonomic item renaming.
+- `import` expressions can now use `as` for more ergonomic item renaming.
 - Assignments can now be used in `while`/`until` conditions.
 
 #### API
 
 - The `koto_derive` crate has been introduced containing derive macros that make
   it easier to implement `KotoObject`s.
+- `Koto::run_instance_function` has been added.
+- `Ptr`/`PtrMut` now have an associated `ref_count` function.
+
+#### Libs
+
+- A `regex` module has been added, thanks to [@jasal92](https://github.com/jasal82).
 
 ### Changed
 
@@ -35,6 +41,12 @@ The Koto project adheres to
     exception being thrown.
 - Objects can be compared with `null` on the LHS without having to implement 
   `KotoObject::equal` and/or `not_equal`.
+
+#### API
+
+- `Vm` has been renamed to `KotoVm` for the sake of clarity.
+- `Value` has been renamed to `KValue` for consistency with the other core
+  runtime value types, and to avoid polluting the prelude with a generic name.
 
 #### Internals
 
