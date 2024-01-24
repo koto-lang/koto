@@ -1,23 +1,47 @@
 test_path = io.extend_path koto.script_dir, "data", "test_script.koto"
 
 @tests =
-  @test basic_eval: ||
+  @test basic_eval_and_run: ||
+    assert_eq 2, (koto.run "1 + 1").value()
+
+  @test file_eval_and_run: ||
+    file = io.open test_path
+    assert_eq 2, (koto.run file).value()
+  
+  @test chunk_eval_and_run: ||
     match koto.load "1 + 1"
-      chunk if chunk.ok then 
+      chunk if chunk.ok() then 
         assert_eq (koto.type chunk), "Chunk"
-        assert_eq 2, chunk.run()
+        match koto.run chunk
+          result if result.ok() then 
+            assert_eq 2, result.value()
+          error then 
+            throw error
+      error then 
+        throw error
+  
+  @test chunk_from_file_eval_and_run: ||
+    file = io.open test_path
+    match koto.load file
+      chunk if chunk.ok() then 
+        assert_eq (koto.type chunk), "Chunk"
+        match koto.run chunk
+          result if result.ok() then 
+            assert_eq 2, result.value()
+          error then 
+            throw error
       error then 
         throw error
    
   @test basic_eval_parse_failure: ||
     match koto.load "1error1"
-      chunk if chunk.ok then 
-        chunk.run()
+      chunk if chunk.ok() then 
+        "Will not get here."
       error then 
         assert_eq (koto.type error), "Chunk"
         assert_eq (koto.type "$error"), "String"
 
-  # Fails due to a panic in the VM TODO: Discuss whether this is a bug or not
+  # Fails due to a panic in the VM TODO: Fix VM panic bug
   # @test basic_eval_run_failure: ||
   #   match koto.load "1 + error"
   #     chunk if chunk.ok then 
@@ -26,24 +50,8 @@ test_path = io.extend_path koto.script_dir, "data", "test_script.koto"
   #     error then 
   #       throw error
 
-  @test file_eval: ||
-    file = io.open test_path
-    match koto.load file
-      chunk if chunk.ok then 
-        assert_eq 2, chunk.run()
-      error then 
-        throw error
 
-  @test basic_eval_and_run: ||
-    assert_eq 2, koto.run "1 + 1"
 
-  @test file_eval_and_run: ||
-    file = io.open test_path
-    assert_eq 2, koto.run file
 
-  @test chunk_eval_and_run: ||
-    match koto.load "1 + 1"
-      chunk if chunk.ok then 
-        assert_eq 2, koto.run chunk
-      error then 
-        throw error
+
+
