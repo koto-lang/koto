@@ -6,6 +6,6 @@ pub use crate::{
     CallContext, DisplayContext, IsIterable, KCell, KIterator, KIteratorOutput, KList, KMap,
     KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy, KotoFile,
     KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoRead, KotoSend, KotoSync,
-    KotoType, KotoVm, KotoVmSettings, KotoWrite, MetaKey, MetaMap, MethodContext, Ptr, PtrMut,
-    UnaryOp, ValueKey, ValueMap, ValueVec,
+    KotoType, KotoVm, KotoVmSettings, KotoWrite, MetaKey, MetaMap, MethodContext, UnaryOp,
+    ValueKey, ValueMap, ValueVec,
 };

@@ -1,4 +1,4 @@
-use crate::{prelude::*, Borrow, BorrowMut, Error, Result};
+use crate::{prelude::*, Borrow, BorrowMut, Error, PtrMut, Result};
 use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{

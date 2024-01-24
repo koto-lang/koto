@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Result};
+use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::{KotoVm, ModuleImportedCallback};

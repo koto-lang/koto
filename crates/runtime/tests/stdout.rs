@@ -2,7 +2,7 @@ mod runtime_test_utils;
 
 use crate::runtime_test_utils::TestStdout;
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Ptr, PtrMut};
 
 mod vm {
     use super::*;

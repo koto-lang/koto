@@ -1,4 +1,4 @@
-use crate::{prelude::*, KotoVm};
+use crate::{prelude::*, KotoVm, Ptr};
 use koto_bytecode::Chunk;
 use koto_parser::format_source_excerpt;
 use std::{error, fmt};

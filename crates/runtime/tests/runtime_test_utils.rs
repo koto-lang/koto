@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::{prelude::*, KValue::*, KotoVm, Result};
+use koto_runtime::{prelude::*, KValue::*, KotoVm, Ptr, PtrMut, Result};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn test_script(script: &str, expected_output: impl Into<KValue>) {

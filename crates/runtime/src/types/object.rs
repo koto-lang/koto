@@ -1,4 +1,4 @@
-use crate::{prelude::*, Borrow, BorrowMut, Result};
+use crate::{prelude::*, Borrow, BorrowMut, PtrMut, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{fmt, marker::PhantomData};
 

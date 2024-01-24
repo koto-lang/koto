@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, KotoVm, Result};
+use crate::{prelude::*, Error, KotoVm, PtrMut, Result};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto

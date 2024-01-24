@@ -1,4 +1,4 @@
-use crate::{prelude::*, KotoVm, Result};
+use crate::{prelude::*, KotoVm, Ptr, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},

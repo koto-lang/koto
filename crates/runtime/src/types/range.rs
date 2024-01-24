@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error};
+use crate::{prelude::*, Error, Ptr};
 use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
 
 /// The integer range type used by the Koto runtime

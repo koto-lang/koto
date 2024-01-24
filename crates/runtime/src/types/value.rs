@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, KCaptureFunction, KFunction, KMap, KNativeFunction, Result};
+use crate::{prelude::*, KCaptureFunction, KFunction, KMap, KNativeFunction, Ptr, Result};
 use std::fmt::{self, Write};
 
 /// The core Value type for Koto
