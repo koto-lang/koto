@@ -71,10 +71,11 @@ pub fn make_module() -> KMap {
             ctx.vm.run(chunk.inner())
         }
         [KValue::Object(o)] if o.is_a::<File>() => {
-            let file = o.cast::<File>().unwrap();
-            let contents = file.inner().read_to_string()?;
-            let chunk = try_load_koto_script(ctx, &contents)?;
-            drop(file);
+            let chunk = {
+                let file = o.cast::<File>().unwrap();
+                let contents = file.inner().read_to_string()?;
+                try_load_koto_script(ctx, &contents)?
+            };
             ctx.vm.run(chunk.inner())
         }
         [KValue::Object(o)] if o.is_a::<Chunk>() => {
