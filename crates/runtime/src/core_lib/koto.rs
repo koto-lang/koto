@@ -1,5 +1,5 @@
 //! The `koto` core library module
-use super::io::File;
+
 use crate::prelude::*;
 use crate::Result;
 use koto_bytecode::CompilerSettings;
@@ -57,12 +57,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("load", |ctx| match ctx.args() {
         [KValue::Str(s)] => Ok(try_load_koto_script(ctx, s)?.into()),
-        [KValue::Object(o)] if o.is_a::<File>() => {
-            let file = o.cast::<File>().unwrap();
-            let contents = file.inner().read_to_string()?;
-            Ok(try_load_koto_script(ctx, &contents)?.into())
-        }
-        unexpected => type_error_with_slice("a single String or io.File", unexpected),
+        unexpected => type_error_with_slice("a single String", unexpected),
     });
 
     result.add_fn("run", |ctx| match ctx.args() {
@@ -70,19 +65,11 @@ pub fn make_module() -> KMap {
             let chunk = try_load_koto_script(ctx, s)?;
             ctx.vm.run(chunk.inner())
         }
-        [KValue::Object(o)] if o.is_a::<File>() => {
-            let chunk = {
-                let file = o.cast::<File>().unwrap();
-                let contents = file.inner().read_to_string()?;
-                try_load_koto_script(ctx, &contents)?
-            };
-            ctx.vm.run(chunk.inner())
-        }
         [KValue::Object(o)] if o.is_a::<Chunk>() => {
             let chunk = o.cast::<Chunk>().unwrap().inner();
             ctx.vm.run(chunk)
         }
-        unexpected => type_error_with_slice("a single String, io.File, or Chunk", unexpected),
+        unexpected => type_error_with_slice("a single String or Chunk", unexpected),
     });
 
     result

@@ -165,11 +165,6 @@ impl File {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
-    /// Returns a reference to the inner `Ptr<dyn KotoFile>`
-    pub fn inner(&self) -> &Ptr<dyn KotoFile> {
-        &self.0
-    }
-
     fn stderr(vm: &KotoVm) -> KValue {
         Self(vm.stderr().clone()).into()
     }

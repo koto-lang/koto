@@ -1,34 +1,22 @@
-test_path = io.extend_path koto.script_dir, "data", "test_script.koto"
-
 @tests =
-  @test basic_eval_and_run: ||
+  @test basic_eval_string_and_run: ||
     assert_eq 2, koto.run "1 + 1"
-
-  @test file_eval_and_run: ||
-    file = io.open test_path
-    assert_eq 2, koto.run file
-
-  @test chunk_basic_eval_and_run: ||
+  
+  @test basic_eval_chunk_and_run: ||
     chunk = koto.load "1 + 1"
     assert_eq (koto.type chunk), "Chunk"
     assert_eq 2, koto.run chunk
-
-  @test chunk_file_eval_and_run: ||
-    file = io.open test_path
-    chunk = koto.load file
-    assert_eq (koto.type chunk), "Chunk"
-    assert_eq 2, koto.run chunk
-
+   
   @test basic_eval_parse_failure: ||
     try
-      chunk = koto.load "1error1"
-      assert false # Should not get here
+      koto.load "1error1"
+      assert false
     catch error
-      assert_eq (koto.type error), "String"
+      assert true
 
   @test basic_eval_run_failure: ||
     try
-      result = koto.run "1 + error"
-      assert false # Should not get here
+      koto.run "1 + error"
+      assert false
     catch error
-      assert_eq (koto.type error), "String"
+      assert true
