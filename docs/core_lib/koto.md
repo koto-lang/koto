@@ -146,6 +146,8 @@ it can be useful to export items programatically.
 
 Returns the value's hash as an integer, or Null if the value is not hashable.
 
+### Example
+
 ```koto
 from koto import hash
 
@@ -160,6 +162,54 @@ check! null
 print! (hash (1, 2)) == null
 check! false
 ```
+
+## load
+
+```kototype
+|String| -> Chunk
+```
+
+Compiles the string as Koto code and returns a compiled `Chunk` on success, 
+or throws if a compilation error occurs.
+
+### Example
+
+```koto
+chunk = koto.load '1 + 2'
+print! koto.run chunk
+check! 3
+```
+
+### See also
+
+- [`koto.run`](#run)
+
+## run
+
+```kototype
+|String| -> Value
+```
+
+Compiles and runs the provided Koto code, and returns the resulting value.
+Errors thrown while executing the code get rethrown.
+
+```kototype
+|Chunk| -> Value
+```
+
+Runs the compiled `Chunk`, and returns the resulting value.
+Errors thrown while executing the chunk's bytecode get rethrown.
+
+### Example
+
+```koto
+print! koto.run '[1, 2, 3, 4].sum()'
+check! 10
+```
+
+### See also
+
+- [`koto.load`](#load)
 
 ## script_dir
 
