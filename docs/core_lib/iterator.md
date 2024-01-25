@@ -574,6 +574,24 @@ check! null
 - [`iterator.next`](#next)
 - [`iterator.reversed`](#reversed)
 
+## once
+
+```kototype
+|Value| -> Iterator
+```
+
+Returns an iterator that yields the given value a single time.
+
+### Example
+
+```koto
+print! iterator
+  .once 'x'
+  .chain 'abc'
+  .to_tuple()
+check! ('x', 'a', 'b', 'c')
+```
+
 ## peekable
 
 ```kototype

@@ -737,11 +737,7 @@ impl<'source> Parser<'source> {
                 let string = self.parse_string(context)?.unwrap();
 
                 if self.peek_token() == Some(Token::Colon) {
-                    self.consume_braceless_map_start(
-                        MapKey::Str(string.string),
-                        start_span,
-                        &string.context,
-                    )
+                    self.consume_map_block(MapKey::Str(string.string), start_span, &string.context)
                 } else {
                     let string_node = self.push_node_with_span(Str(string.string), string.span)?;
                     self.check_for_lookup_after_node(string_node, &string.context)
@@ -766,7 +762,7 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.consume_braceless_map_start(
+                    self.consume_map_block(
                         MapKey::Meta(meta_key_id, meta_name),
                         start_span,
                         &meta_context,
@@ -1224,7 +1220,7 @@ impl<'source> Parser<'source> {
         };
 
         if self.peek_token() == Some(Token::Colon) {
-            self.consume_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
+            self.consume_map_block(MapKey::Id(constant_index), start_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1826,47 +1822,29 @@ impl<'source> Parser<'source> {
         Ok((entries, last_token_was_a_comma))
     }
 
-    fn consume_braceless_map_start(
+    fn consume_map_block(
         &mut self,
         first_key: MapKey,
         start_span: Span,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        let start_indent = self.current_indent();
-
         if !context.allow_map_block {
             return self.error(SyntaxError::ExpectedLineBreakBeforeMapBlock);
         }
+
+        let start_indent = self.current_indent();
 
         if self.consume_token() != Some(Token::Colon) {
             return self.error(InternalError::ExpectedMapColon);
         }
 
-        if let Some(value) = self.parse_expression(&ExpressionContext::permissive())? {
-            let entries = if context.allow_map_block {
-                let block_context = ExpressionContext::permissive()
-                    .with_expected_indentation(Indentation::Equal(start_indent));
-                return self.parse_map_block((first_key, Some(value)), start_span, &block_context);
-            } else {
-                vec![(first_key, Some(value))]
-            };
+        let mut entries = vec![(first_key, Some(self.consume_map_block_value()?))];
 
-            self.push_node_with_start_span(Node::Map(entries), start_span)
-        } else {
-            self.consume_token_and_error(SyntaxError::ExpectedMapValue)
-        }
-    }
+        let block_context = ExpressionContext::permissive()
+            .with_expected_indentation(Indentation::Equal(start_indent));
 
-    fn parse_map_block(
-        &mut self,
-        first_entry: (MapKey, Option<AstIndex>),
-        start_span: Span,
-        context: &ExpressionContext,
-    ) -> Result<AstIndex, ParserError> {
-        let mut entries = vec![first_entry];
-
-        while self.peek_token_with_context(context).is_some() {
-            self.consume_until_token_with_context(context);
+        while self.peek_token_with_context(&block_context).is_some() {
+            self.consume_until_token_with_context(&block_context);
 
             let Some(key) = self.parse_map_key()? else {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapEntry);
@@ -1876,22 +1854,22 @@ impl<'source> Parser<'source> {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapColon);
             };
 
-            self.consume_next_token_on_same_line();
+            self.consume_next_token_on_same_line(); // ':'
 
-            if let Some(value) = self.parse_expression(&ExpressionContext::inline())? {
-                entries.push((key, Some(value)));
-            } else {
-                // If a value wasn't found on the same line as the key,
-                // look for an indented value
-                if let Some(value) = self.parse_indented_block()? {
-                    entries.push((key, Some(value)));
-                } else {
-                    return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
-                }
-            }
+            entries.push((key, Some(self.consume_map_block_value()?)));
         }
 
         self.push_node_with_start_span(Node::Map(entries), start_span)
+    }
+
+    fn consume_map_block_value(&mut self) -> Result<AstIndex, ParserError> {
+        if let Some(value) = self.parse_indented_block()? {
+            Ok(value)
+        } else if let Some(value) = self.parse_line(&ExpressionContext::permissive())? {
+            Ok(value)
+        } else {
+            self.consume_token_and_error(SyntaxError::ExpectedMapValue)
+        }
     }
 
     fn consume_map_with_braces(

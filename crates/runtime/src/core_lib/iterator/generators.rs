@@ -2,6 +2,33 @@
 
 use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
+/// An iterator that yields a value once
+#[derive(Clone)]
+pub struct Once {
+    value: Option<KValue>,
+}
+
+impl Once {
+    /// Creates a new [Once] generator
+    pub fn new(value: KValue) -> Self {
+        Self { value: Some(value) }
+    }
+}
+
+impl KotoIterator for Once {
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
+    }
+}
+
+impl Iterator for Once {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.value.take().map(Output::Value)
+    }
+}
+
 /// An iterator that repeatedly yields the same value
 pub struct Repeat {
     value: KValue,

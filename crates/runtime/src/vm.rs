@@ -1005,34 +1005,34 @@ impl KotoVm {
     // temp_iterator is used for temporary unpacking operations.
     fn run_make_iterator(
         &mut self,
-        result: u8,
+        result_register: u8,
         iterable_register: u8,
         temp_iterator: bool,
     ) -> Result<()> {
         use KValue::*;
 
-        let iterable = self.clone_register(iterable_register);
+        let value = self.clone_register(iterable_register);
 
-        let iterator = match iterable {
-            _ if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
-                KIterator::with_meta_next(self.spawn_shared_vm(), iterable)?.into()
+        let result = match value {
+            _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
+                KIterator::with_meta_next(self.spawn_shared_vm(), value)?.into()
             }
-            _ if iterable.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let Some(op) = iterable.get_meta_value(&UnaryOp::Iterator.into()) else {
+            _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                let Some(op) = value.get_meta_value(&UnaryOp::Iterator.into()) else {
                     unreachable!()
                 };
                 if op.is_callable() || op.is_generator() {
-                    return self.call_overloaded_unary_op(result, iterable_register, op);
+                    return self.call_overloaded_unary_op(result_register, iterable_register, op);
                 } else {
                     return type_error("callable function from @iterator", &op);
                 }
             }
-            Iterator(_) => iterable,
-            Range(ref r) if temp_iterator && r.is_bounded() => iterable,
+            Iterator(_) => value,
+            Range(ref r) if temp_iterator && r.is_bounded() => value,
             Tuple(_) | Str(_) | TemporaryTuple(_) if temp_iterator => {
                 // Immutable sequences can be iterated over directly when used in temporary
                 // situations like argument unpacking.
-                iterable
+                value
             }
             Range(range) => KIterator::with_range(range)?.into(),
             List(list) => KIterator::with_list(list).into(),
@@ -1043,21 +1043,22 @@ impl KotoVm {
                 use IsIterable::*;
                 let o_inner = o.try_borrow()?;
                 match o_inner.is_iterable() {
-                    NotIterable => {
-                        return runtime_error!("{} is not iterable", o_inner.type_string())
-                    }
+                    NotIterable => KIterator::once(o.clone().into())?.into(),
                     Iterable => o_inner.make_iterator(self)?.into(),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
                     }
                 }
             }
-            unexpected => {
-                return type_error("Iterable while making iterator", &unexpected);
+            _ => {
+                // Single values become 'once' iterators
+                // This behaviour differs from the public `make_iterator` behaviour which expects
+                // that the value is iterable.
+                KIterator::once(value)?.into()
             }
         };
 
-        self.set_register(result, iterator);
+        self.set_register(result_register, result);
         Ok(())
     }
 

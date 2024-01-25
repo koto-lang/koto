@@ -17,6 +17,9 @@ The Koto project adheres to
   character escaping and string interpolation.
 - `import` expressions can now use `as` for more ergonomic item renaming.
 - Assignments can now be used in `while`/`until` conditions.
+- Unpacked assignments with a single value on the RHS are now accepted, 
+  with remaining values being set to `null`.
+  - e.g. `a, b, c = 42` will assign `42` to `a`, and `null` to `b` and `c`.
 
 #### API
 
@@ -28,6 +31,7 @@ The Koto project adheres to
 #### Libs
 
 - A `regex` module has been added, thanks to [@jasal92](https://github.com/jasal82).
+- `iterator.once` has been added.
 
 ### Changed
 

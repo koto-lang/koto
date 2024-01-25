@@ -619,7 +619,7 @@ x =
                     Map(vec![(
                         string_literal_map_key(1, StringQuote::Double),
                         Some(1),
-                    )]), // "foo", 42
+                    )]), // "foo": 42
                     Assign {
                         target: 0,
                         expression: 2,
@@ -664,6 +664,100 @@ x =
                     Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_block_first_entry_is_comma_separated_tuple() {
+            let sources = [
+                "
+x =
+    foo: 10, 20, 30
+",
+                "
+x =
+    foo: 10,
+         20,
+         30,
+",
+                "
+x =
+    foo:
+      10, 20, 30,
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    Id(0), // x
+                    SmallInt(10),
+                    SmallInt(20),
+                    SmallInt(30),
+                    Tuple(vec![1, 2, 3]),
+                    Map(vec![(MapKey::Id(1), Some(4))]), // 5 - foo: 10, 20, 30
+                    Assign {
+                        target: 0,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn map_block_second_entry_is_paren_free_call() {
+            let sources = [
+                "
+x =
+  foo: 1
+  bar: baz 42
+",
+                "
+x =
+  foo: 1
+  bar:
+    baz 42
+",
+                "
+x =
+  foo: 1
+  bar: baz
+    42
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    Id(0), // x
+                    SmallInt(1),
+                    SmallInt(42),
+                    NamedCall {
+                        id: 3,
+                        args: vec![2],
+                    },
+                    Map(vec![
+                        (MapKey::Id(1), Some(1)), // foo: 1
+                        (MapKey::Id(2), Some(3)), // bar: baz 42
+                    ]),
+                    Assign {
+                        target: 0,
+                        expression: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
                 ]),
             )
         }
