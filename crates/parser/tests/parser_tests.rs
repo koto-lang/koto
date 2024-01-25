@@ -710,6 +710,59 @@ x =
         }
 
         #[test]
+        fn map_block_second_entry_is_paren_free_call() {
+            let sources = [
+                "
+x =
+  foo: 1
+  bar: baz 42
+",
+                "
+x =
+  foo: 1
+  bar:
+    baz 42
+",
+                "
+x =
+  foo: 1
+  bar: baz
+    42
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    Id(0), // x
+                    SmallInt(1),
+                    SmallInt(42),
+                    NamedCall {
+                        id: 3,
+                        args: vec![2],
+                    },
+                    Map(vec![
+                        (MapKey::Id(1), Some(1)), // foo: 1
+                        (MapKey::Id(2), Some(3)), // bar: baz 42
+                    ]),
+                    Assign {
+                        target: 0,
+                        expression: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
         fn map_block_meta() {
             let source = r#"
 x =
