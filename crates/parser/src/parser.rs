@@ -1842,11 +1842,15 @@ impl<'source> Parser<'source> {
             return self.error(InternalError::ExpectedMapColon);
         }
 
-        if let Some(value) = self.parse_expression(&ExpressionContext::permissive())? {
+        if let Some(value) = self.parse_line(&ExpressionContext::permissive())? {
             let entries = if context.allow_map_block {
                 let block_context = ExpressionContext::permissive()
                     .with_expected_indentation(Indentation::Equal(start_indent));
-                return self.parse_map_block((first_key, Some(value)), start_span, &block_context);
+                return self.consume_map_block(
+                    (first_key, Some(value)),
+                    start_span,
+                    &block_context,
+                );
             } else {
                 vec![(first_key, Some(value))]
             };
@@ -1857,7 +1861,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_map_block(
+    fn consume_map_block(
         &mut self,
         first_entry: (MapKey, Option<AstIndex>),
         start_span: Span,
@@ -1876,9 +1880,9 @@ impl<'source> Parser<'source> {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapColon);
             };
 
-            self.consume_next_token_on_same_line();
+            self.consume_next_token_on_same_line(); // ':'
 
-            if let Some(value) = self.parse_expression(&ExpressionContext::inline())? {
+            if let Some(value) = self.parse_line(&ExpressionContext::inline())? {
                 entries.push((key, Some(value)));
             } else {
                 // If a value wasn't found on the same line as the key,
