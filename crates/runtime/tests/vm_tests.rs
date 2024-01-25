@@ -414,6 +414,12 @@ l2[1]";
         use super::*;
 
         #[test]
+        fn assign_single_value() {
+            let script = "a, b = 42";
+            test_script(script, tuple(&[42.into(), KValue::Null]));
+        }
+
+        #[test]
         fn assign_two_values() {
             let script = "a, b = 10, 20";
             test_script(script, number_tuple(&[10, 20]));

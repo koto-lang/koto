@@ -25,16 +25,22 @@ assignment targets.
 a, b, c = [-1, -2]
 print! a, b, c
 check! (-1, -2, null)
+
+x, y, z = 42
+print! x, y, z
+check! (42, null, null)
 ```
 
 Unpacking works with any iterable value, including adapted iterators.
 
 ```koto
-a, b, c = 1..10
+r = 1..10
+
+a, b, c = r
 print! a, b, c
 check! (1, 2, 3)
 
-a, b, c = (1..10).each |x| x * 10
+a, b, c = r.each |x| x * 10
 print! a, b, c
 check! (10, 20, 30)
 ```
