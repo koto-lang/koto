@@ -62,7 +62,7 @@ pub fn make_module() -> KMap {
             let contents = file.inner().read_to_string()?;
             Ok(try_load_koto_script(ctx, &contents)?.into())
         }
-        unexpected => type_error_with_slice("a single String or io.File argument", unexpected),
+        unexpected => type_error_with_slice("a single String or io.File", unexpected),
     });
 
     result.add_fn("run", |ctx| match ctx.args() {
@@ -81,9 +81,7 @@ pub fn make_module() -> KMap {
             let chunk = o.cast::<Chunk>().unwrap().inner();
             ctx.vm.run(chunk)
         }
-        unexpected => {
-            type_error_with_slice("a single String, io.File or Chunk argument", unexpected)
-        }
+        unexpected => type_error_with_slice("a single String, io.File, or Chunk", unexpected),
     });
 
     result
