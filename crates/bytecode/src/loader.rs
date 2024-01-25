@@ -3,7 +3,9 @@ use dunce::canonicalize;
 use koto_memory::Ptr;
 use koto_parser::{format_source_excerpt, Parser, ParserError, Span};
 use rustc_hash::FxHasher;
-use std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, io, path::PathBuf};
+use std::{
+    collections::HashMap, error, fmt, hash::BuildHasherDefault, io, ops::Deref, path::PathBuf,
+};
 use thiserror::Error;
 
 /// Errors that can be returned from [Loader] operations
@@ -23,10 +25,10 @@ pub enum LoaderErrorKind {
 }
 
 /// The error type used by the [Loader]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LoaderError {
-    error: Box<LoaderErrorKind>,
-    source: Option<Box<LoaderErrorSource>>,
+    error: Ptr<LoaderErrorKind>,
+    source: Option<Ptr<LoaderErrorSource>>,
 }
 
 #[derive(Debug)]
@@ -48,8 +50,8 @@ impl LoaderError {
             path: source_path,
         };
         Self {
-            error: Box::new(error.into()),
-            source: Some(Box::new(source)),
+            error: LoaderErrorKind::from(error).into(),
+            source: Some(source.into()),
         }
     }
 
@@ -64,14 +66,14 @@ impl LoaderError {
             path: source_path,
         };
         Self {
-            error: Box::new(error.into()),
-            source: Some(Box::new(source)),
+            error: LoaderErrorKind::from(error).into(),
+            source: Some(source.into()),
         }
     }
 
     /// Returns true if the error was caused by the expectation of indentation during parsing
     pub fn is_indentation_error(&self) -> bool {
-        match self.error.as_ref() {
+        match self.error.deref() {
             LoaderErrorKind::Parser(e) => e.is_indentation_error(),
             _ => false,
         }
@@ -97,7 +99,7 @@ impl error::Error for LoaderError {}
 impl From<io::Error> for LoaderError {
     fn from(error: io::Error) -> Self {
         Self {
-            error: Box::new(error.into()),
+            error: Ptr::new(error.into()),
             source: None,
         }
     }
@@ -106,7 +108,7 @@ impl From<io::Error> for LoaderError {
 impl From<LoaderErrorKind> for LoaderError {
     fn from(error: LoaderErrorKind) -> Self {
         Self {
-            error: Box::new(error),
+            error: error.into(),
             source: None,
         }
     }

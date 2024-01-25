@@ -2,6 +2,7 @@
 use super::io::File;
 use crate::prelude::*;
 use crate::Result;
+use koto_bytecode::CompilerSettings;
 use koto_derive::{KotoCopy, KotoType};
 use koto_memory::Ptr;
 use std::hash::{Hash, Hasher};
@@ -89,21 +90,13 @@ pub fn make_module() -> KMap {
 }
 
 fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<Chunk> {
-    match try_compile_koto_script(ctx, script) {
-        Ok(chunk) => Ok(chunk.into()),
-        Err(err) => runtime_error!("{err}"),
-    }
-}
+    let chunk =
+        ctx.vm
+            .loader()
+            .borrow_mut()
+            .compile_script(script, &None, CompilerSettings::default())?;
 
-fn try_compile_koto_script(
-    ctx: &CallContext<'_>,
-    script: &str,
-) -> core::result::Result<Ptr<koto_bytecode::Chunk>, koto_bytecode::LoaderError> {
-    ctx.vm.loader().borrow_mut().compile_script(
-        script,
-        &None,
-        koto_bytecode::CompilerSettings::default(),
-    )
+    Ok(chunk.into())
 }
 
 /// The Chunk type used in the koto module
