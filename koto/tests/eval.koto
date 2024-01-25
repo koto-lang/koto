@@ -7,36 +7,28 @@ test_path = io.extend_path koto.script_dir, "data", "test_script.koto"
   @test file_eval_and_run: ||
     file = io.open test_path
     assert_eq 2, koto.run file
-  
+
   @test chunk_basic_eval_and_run: ||
     chunk = koto.load "1 + 1"
     assert_eq (koto.type chunk), "Chunk"
     assert_eq 2, koto.run chunk
-  
+
   @test chunk_file_eval_and_run: ||
     file = io.open test_path
     chunk = koto.load file
     assert_eq (koto.type chunk), "Chunk"
     assert_eq 2, koto.run chunk
-   
+
   @test basic_eval_parse_failure: ||
     try
       chunk = koto.load "1error1"
       assert false # Should not get here
     catch error
       assert_eq (koto.type error), "String"
-      assert true
 
-  # TODO: koto.run throws an error which is not caught by the try/catch, probably a bug (panic in KotoVm)?
-  # @test basic_eval_run_failure: ||
-  #   try
-  #     result = koto.run "1 + error"
-  #     assert false # Should not get here
-  #   catch error
-  #     assert_eq (koto.type error), "String"
-  #     assert true
-
-
-
-
-
+  @test basic_eval_run_failure: ||
+    try
+      result = koto.run "1 + error"
+      assert false # Should not get here
+    catch error
+      assert_eq (koto.type error), "String"
