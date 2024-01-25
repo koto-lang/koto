@@ -545,6 +545,11 @@ pub fn make_module() -> KMap {
         iter_output_to_result(iter.next_back())
     });
 
+    result.add_fn("once", |ctx| match ctx.args() {
+        [value] => Ok(KIterator::new(generators::Once::new(value.clone())).into()),
+        unexpected => type_error_with_slice("a single value", unexpected),
+    });
+
     result.add_fn("peekable", |ctx| {
         let expected_error = "an iterable";
 

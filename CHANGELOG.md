@@ -28,6 +28,7 @@ The Koto project adheres to
 #### Libs
 
 - A `regex` module has been added, thanks to [@jasal92](https://github.com/jasal82).
+- `iterator.once` has been added.
 
 ### Changed
 

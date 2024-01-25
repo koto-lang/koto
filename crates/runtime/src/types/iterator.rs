@@ -130,6 +130,13 @@ impl KIterator {
         Ok(Self::new(ObjectIterator::new(vm, o)?))
     }
 
+    /// Creates a new KIterator that yields a value once
+    pub fn once(value: KValue) -> Result<Self> {
+        Ok(Self::new(crate::core_lib::iterator::generators::Once::new(
+            value,
+        )))
+    }
+
     /// Makes a copy of the iterator
     ///
     /// See [KotoIterator::make_copy]
