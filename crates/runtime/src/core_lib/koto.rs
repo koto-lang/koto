@@ -117,9 +117,14 @@ impl Chunk {
 }
 
 impl KotoLookup for Chunk {}
+
 impl KotoObject for Chunk {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(format!("{:?}", self.0));
+        ctx.append(format!(
+            "{}({})",
+            Self::type_static(),
+            Ptr::address(&self.0)
+        ));
         Ok(())
     }
 }
