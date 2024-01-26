@@ -3,7 +3,7 @@ globals = {}
 # foo acts as a constructor for the Foo type
 foo = |x|
   # Make a map that contains x, and return its data with the meta map from foo_meta
-  {x}.with_meta_map globals.foo_meta
+  {x}.set_meta globals.foo_meta
 
 # Declaring the overloaded operators once and then cloning the meta map into the foo
 # instance is more efficient than declaring them each time foo is called.
@@ -182,11 +182,11 @@ globals.foo_meta =
     assert_eq f.hello, "Hello"
     assert_eq f.say_hello("you"), "Hello, you!"
 
-  @test get_meta_map: ||
+  @test get_meta: ||
     f = foo 42
-    meta = map.get_meta_map f
+    meta = map.get_meta f
 
-    # get_meta_map returns a map with the argument's meta map, but no data
+    # get_meta returns a map with the argument's meta map, but no data
     assert_eq map.keys(meta).count(), 0
     assert_eq meta.hello, "Hello"
 

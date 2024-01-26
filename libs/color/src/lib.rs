@@ -52,7 +52,7 @@ pub fn make_module() -> KMap {
         unexpected => type_error_with_slice("a String", unexpected),
     });
 
-    result.set_meta_map(Some(meta));
+    result.set_meta_map(Some(meta.into()));
     result
 }
 

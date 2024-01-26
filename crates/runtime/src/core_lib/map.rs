@@ -114,7 +114,7 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("get_meta_map", |ctx| {
+    result.add_fn("get_meta", |ctx| {
         let expected_error = "a Map";
 
         match map_instance_and_args(ctx, expected_error)? {
@@ -325,12 +325,14 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("with_meta_map", |ctx| {
+    result.add_fn("set_meta", |ctx| {
         let expected_error = "two Maps";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(data), [KValue::Map(meta)]) => {
-                Ok(KValue::Map(KMap::from_data_and_meta_maps(data, meta)))
+                let mut data = data.clone();
+                data.set_meta_map(meta.meta_map().cloned());
+                Ok(data.into())
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }

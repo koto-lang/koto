@@ -112,8 +112,8 @@ impl KMap {
     }
 
     /// Sets the KMap's meta map
-    pub fn set_meta_map(&mut self, meta: Option<MetaMap>) {
-        self.meta = meta.map(PtrMut::from)
+    pub fn set_meta_map(&mut self, meta: Option<PtrMut<MetaMap>>) {
+        self.meta = meta;
     }
 
     /// Returns true if the meta map contains an entry with the given key
