@@ -68,11 +68,13 @@ The Koto project adheres to
   - The `rc` variant has slightly better performance at the cost of thread
     safety.
 
-#### REPL
+#### CLI
 
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.
   - e.g. 
     `export { edit_mode: 'vi' }` is now `export { repl: { edit_mode: 'vi' }}`
+- The `--import_tests`/`-T` CLI option will now run tests in the main script
+  along with any tests from imported modules.
 
 ### Removed 
 
