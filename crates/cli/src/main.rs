@@ -23,7 +23,7 @@ FLAGS:
     -i, --show_instructions  Show compiled instructions annotated with source lines
     -b, --show_bytecode      Show the script's compiled bytecode
     -t, --tests              Run the script's tests before running the script
-    -T, --import_tests       Run tests when importing modules
+    -T, --import_tests       Run the script's tests, along with any tests in imported modules
     -c, --config PATH        Config file to load when using the REPL
     -v, --version            Prints version information
     -h, --help               Prints help information
@@ -129,7 +129,7 @@ fn main() -> Result<()> {
     }
 
     let koto_settings = KotoSettings {
-        run_tests: args.run_tests,
+        run_tests: args.run_tests || args.run_import_tests,
         run_import_tests: args.run_import_tests,
         ..Default::default()
     };

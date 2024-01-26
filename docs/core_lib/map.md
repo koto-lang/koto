@@ -124,7 +124,7 @@ check! xyz
 - [`map.get`](#get)
 
 
-## get_meta_map
+## get_meta
 
 ```kototype
 |Map| -> Map
@@ -139,7 +139,7 @@ my_map =
   data: 42
   @type: 'My Map'
 
-meta = map.get_meta_map my_map
+meta = map.get_meta my_map
 
 print! map.keys(my_map).count()
 check! 1
@@ -152,7 +152,7 @@ check! My Map
 
 ### See also
 
-- [`map.with_meta_map`](#with-meta-map)
+- [`map.set_meta`](#set-meta)
 
 ## insert
 
@@ -447,33 +447,27 @@ check! null
 
 - [`map.keys`](#keys)
 
-## with_meta_map
+## set_meta
 
 ```kototype
 |Map, Map| -> Map
 ```
 
-Returns a Map that contains the data from the first argument, and the Meta Map
-from the second argument.
+Sets the first argument's meta map to be an instance of the meta map from the 
+second argument.
 
 ### Example
 
 ```koto
 my_meta =
-  @type: 'My Meta'
+  @type: 'MyMeta'
 
-my_data =
-  foo: 42
-
-x = my_data.with_meta_map my_meta
-
-print! koto.type my_data
-check! Map
+x = {foo: 42}.set_meta my_meta
 
 print! koto.type x
-check! My Meta
+check! MyMeta
 ```
 
 ### See also
 
-- [`map.get_meta_map`](#get-meta-map)
+- [`map.get_meta`](#get-meta)

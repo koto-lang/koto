@@ -280,20 +280,20 @@ check! ('data')
 
 ## Sharing Meta Maps
 
-If you're creating lots of values, then it will likely be more efficient to create a single value with the meta logic, and then share it between values using [`Map.with_meta_map`](../../core/map/#with-meta-map).
+If you're creating lots of values, then it will likely be more efficient to create a single map containing the meta logic, and then share it between instances using [`Map.set_meta`](../../core/map/#set-meta).
 
 ```koto
-# Create an empty map for global values 
-globals = {}
+# Create an empty map for global values
+global = {}
 
 # Define a function that makes a Foo
 foo = |data|
   # Make a map that contains `data`, 
-  # along with the meta map from foo_meta
-  {data}.with_meta_map globals.foo_meta
+  # and then assign a shared copy of the meta map from foo_meta
+  {data}.set_meta global.foo_meta
 
 # Define some meta behaviour in foo_meta
-globals.foo_meta =
+global.foo_meta =
   # Override the + operator
   @+: |other| foo self.data + other.data
 
