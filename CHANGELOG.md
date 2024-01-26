@@ -28,6 +28,13 @@ The Koto project adheres to
 - `Koto::run_instance_function` has been added.
 - `Ptr`/`PtrMut` now have an associated `ref_count` function.
 
+#### Core Library
+
+- `koto.load` has been added, which allows evaluating strings as Koto scripts 
+  which returns a `Chunk` type.
+- `koto.run` has been added, which allows evaluating strings as Koto scripts or 
+  running a `Chunk` type.
+
 #### Libs
 
 - A `regex` module has been added, thanks to [@jasal92](https://github.com/jasal82).

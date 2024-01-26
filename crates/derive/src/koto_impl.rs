@@ -99,7 +99,7 @@ fn wrap_method(
     let type_name = quote! { #struct_ident::type_static() };
     let fn_name = &sig.ident;
     let fn_ident = quote! {#struct_ident::#fn_name};
-    let wrapper_name = format_ident!("{PREFIX_FUNCTION}{fn_name}");
+    let wrapper_name = format_ident!("{PREFIX_FUNCTION}{struct_ident}_{fn_name}");
 
     let arg_count = sig.inputs.len();
     let mut args = sig.inputs.iter();

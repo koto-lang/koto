@@ -234,6 +234,10 @@ impl KotoVm {
 
         // Run the chunk
         let result = self.execute_instructions();
+        if result.is_err() {
+            self.pop_frame(KValue::Null)?;
+        }
+
         // Reset the value stack back to where it was at the start of the run
         self.truncate_registers(result_register);
         result

@@ -1,5 +1,5 @@
 use crate::{prelude::*, KotoVm, Ptr};
-use koto_bytecode::Chunk;
+use koto_bytecode::{Chunk, LoaderError};
 use koto_parser::format_source_excerpt;
 use std::{error, fmt};
 use thiserror::Error;
@@ -32,6 +32,8 @@ pub(crate) enum ErrorKind {
         rhs: KValue,
         op: BinaryOp,
     },
+    #[error(transparent)]
+    CompileError(#[from] LoaderError),
     #[error("Empty call stack")]
     EmptyCallStack,
     #[error("Missing sequence builder")]
@@ -131,9 +133,12 @@ impl From<&str> for Error {
     }
 }
 
-impl From<ErrorKind> for Error {
-    fn from(error: ErrorKind) -> Self {
-        Self::new(error)
+impl<T> From<T> for Error
+where
+    T: Into<ErrorKind>,
+{
+    fn from(error: T) -> Self {
+        Self::new(error.into())
     }
 }
 

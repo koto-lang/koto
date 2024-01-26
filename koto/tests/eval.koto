@@ -1,0 +1,22 @@
+@tests =
+  @test basic_eval_string_and_run: ||
+    assert_eq 2, koto.run "1 + 1"
+  
+  @test basic_eval_chunk_and_run: ||
+    chunk = koto.load "1 + 1"
+    assert_eq (koto.type chunk), "Chunk"
+    assert_eq 2, koto.run chunk
+   
+  @test basic_eval_parse_failure: ||
+    try
+      koto.load "1error1"
+      assert false
+    catch error
+      assert true
+
+  @test basic_eval_run_failure: ||
+    try
+      koto.run "1 + error"
+      assert false
+    catch error
+      assert true

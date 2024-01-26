@@ -1,6 +1,10 @@
 //! The `koto` core library module
 
 use crate::prelude::*;
+use crate::Result;
+use koto_bytecode::CompilerSettings;
+use koto_derive::{KotoCopy, KotoType};
+use koto_memory::Ptr;
 use std::hash::{Hash, Hasher};
 
 /// Initializes the `koto` core library module
@@ -51,5 +55,67 @@ pub fn make_module() -> KMap {
         unexpected => type_error_with_slice("a single argument", unexpected),
     });
 
+    result.add_fn("load", |ctx| match ctx.args() {
+        [KValue::Str(s)] => Ok(try_load_koto_script(ctx, s)?.into()),
+        unexpected => type_error_with_slice("a single String", unexpected),
+    });
+
+    result.add_fn("run", |ctx| match ctx.args() {
+        [KValue::Str(s)] => {
+            let chunk = try_load_koto_script(ctx, s)?;
+            ctx.vm.run(chunk.inner())
+        }
+        [KValue::Object(o)] if o.is_a::<Chunk>() => {
+            let chunk = o.cast::<Chunk>().unwrap().inner();
+            ctx.vm.run(chunk)
+        }
+        unexpected => type_error_with_slice("a single String or Chunk", unexpected),
+    });
+
     result
+}
+
+fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<Chunk> {
+    let chunk =
+        ctx.vm
+            .loader()
+            .borrow_mut()
+            .compile_script(script, &None, CompilerSettings::default())?;
+
+    Ok(chunk.into())
+}
+
+/// The Chunk type used in the koto module
+#[derive(Clone, KotoCopy, KotoType)]
+pub struct Chunk(Ptr<koto_bytecode::Chunk>);
+
+impl Chunk {
+    fn inner(&self) -> Ptr<koto_bytecode::Chunk> {
+        Ptr::clone(&self.0)
+    }
+}
+
+impl KotoLookup for Chunk {}
+
+impl KotoObject for Chunk {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(format!(
+            "{}({})",
+            Self::type_static(),
+            Ptr::address(&self.0)
+        ));
+        Ok(())
+    }
+}
+
+impl From<Ptr<koto_bytecode::Chunk>> for Chunk {
+    fn from(inner: Ptr<koto_bytecode::Chunk>) -> Self {
+        Self(inner)
+    }
+}
+
+impl From<Chunk> for KValue {
+    fn from(chunk: Chunk) -> Self {
+        KObject::from(chunk).into()
+    }
 }

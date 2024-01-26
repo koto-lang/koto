@@ -27,6 +27,13 @@ macro_rules! make_ptr {
 #[derive(Debug, Default)]
 pub struct Ptr<T: ?Sized>(Arc<T>);
 
+impl<T> Ptr<T> {
+    /// Moves the provided value into newly allocated memory
+    pub fn new(value: T) -> Self {
+        Self::from(value)
+    }
+}
+
 impl<T: ?Sized> Ptr<T> {
     /// Returns true if the two `Ptr`s point to the same allocation
     ///

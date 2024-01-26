@@ -28,9 +28,9 @@ macro_rules! make_ptr {
 pub struct Ptr<T: ?Sized>(Rc<T>);
 
 impl<T> Ptr<T> {
-    /// Moves the value into newly allocated memory
+    /// Moves the provided value into newly allocated memory
     pub fn new(value: T) -> Self {
-        Self(Rc::new(value))
+        Self::from(value)
     }
 }
 
@@ -70,7 +70,7 @@ impl<T: Clone> Ptr<T> {
 
 impl<T> From<T> for Ptr<T> {
     fn from(value: T) -> Self {
-        Self::new(value)
+        Self(value.into())
     }
 }
 
