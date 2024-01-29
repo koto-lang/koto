@@ -1,0 +1,23 @@
+name: Update Website
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Trigger Website Update
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ secrets.UPDATE_WEBSITE_TOKEN }}
+        repository: koto-lang/koto.dev
+        event-type: update-koto
