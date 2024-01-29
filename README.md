@@ -99,7 +99,7 @@ print 'The highest amount of fruit is: $amount $fruit'
 The [language guide](docs/language/_index.md) and 
 [core library reference](docs/core_lib) give an overview of Koto's features. 
 
-Rendered versions of the docs are available on the [Koto website](koto-docs).
+Rendered versions of the docs are available on the [Koto website][koto-docs].
 
 There are also some code examples that are a good starting point for getting to 
 know the language.
@@ -110,7 +110,7 @@ know the language.
 
 ### Installation
 
-The most recent [release](cli-crate) of the Koto CLI can be installed with
+The most recent [release][cli-crate] of the Koto CLI can be installed with
 [Cargo](https://rustup.rs):
 
 ```
