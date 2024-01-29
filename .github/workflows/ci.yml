@@ -17,12 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Build
         run: cargo build --verbose
@@ -38,14 +34,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
         with:
-          profile: minimal
-          toolchain: stable
-
-      - uses: extractions/setup-just@v1
+          tool: just@1.5.0
 
       - name: Test with optimizations
         run: just test_release --verbose
@@ -54,15 +47,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: rustfmt, clippy
-
-      - uses: extractions/setup-just@v1
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.5.0
 
       - name: Check formatting
         run: just fmt
@@ -77,16 +68,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-
-      - uses: jetli/wasm-pack-action@v0.3.0
+          targets: wasm32-unknown-unknown
+      - uses: jetli/wasm-pack-action@v0.4.0
         with:
-          version: v0.10.3
+          version: v0.12.1
 
       - name: Run wasm example tests
         run: cd examples/wasm && wasm-pack test --node
