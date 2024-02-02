@@ -73,6 +73,11 @@ impl Koto {
         self.runtime.exports()
     }
 
+    /// Returns a reference to the runtime's exports
+    pub fn exports_mut(&mut self) -> &mut KMap {
+        self.runtime.exports_mut()
+    }
+
     /// Compiles a Koto script, returning the complied chunk if successful
     ///
     /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].

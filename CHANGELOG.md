@@ -27,6 +27,7 @@ The Koto project adheres to
   it easier to implement `KotoObject`s.
 - `Koto::run_instance_function` has been added.
 - `Ptr`/`PtrMut` now have an associated `ref_count` function.
+- `KMap::clear` has been added.
 
 #### Core Library
 

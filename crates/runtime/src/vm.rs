@@ -189,6 +189,11 @@ impl KotoVm {
         &self.exports
     }
 
+    /// Returns a mutable reference to the active module's exports map
+    pub fn exports_mut(&mut self) -> &mut KMap {
+        &mut self.exports
+    }
+
     /// The stdin wrapper used by the VM
     pub fn stdin(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stdin
