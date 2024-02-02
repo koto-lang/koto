@@ -162,6 +162,12 @@ impl KMap {
         self.data().is_empty()
     }
 
+    /// Removes all contents from the data map, and removes the meta map
+    pub fn clear(&mut self) {
+        self.data_mut().clear();
+        self.meta = None;
+    }
+
     /// Returns true if the provided KMap occupies the same memory address
     pub fn is_same_instance(&self, other: &Self) -> bool {
         PtrMut::ptr_eq(&self.data, &other.data)
