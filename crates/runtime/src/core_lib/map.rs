@@ -325,7 +325,7 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("set_meta", |ctx| {
+    result.add_fn("with_meta", |ctx| {
         let expected_error = "two Maps";
 
         match map_instance_and_args(ctx, expected_error)? {

@@ -2855,7 +2855,7 @@ catch _
         fn arithmetic() {
             let script = "
 locals = {}
-foo = |x| {x}.set_meta locals.foo_meta
+foo = |x| {x}.with_meta locals.foo_meta
 locals.foo_meta =
   @+: |other| foo self.x + other.x
   @-: |other| foo self.x - other.x
@@ -2873,7 +2873,7 @@ z.x
         fn arithmetic_assignment() {
             let script = "
 locals = {}
-foo = |x| {x}.set_meta locals.foo_meta
+foo = |x| {x}.with_meta locals.foo_meta
 locals.foo_meta =
   @+=: |y| self.x += y
   @-=: |y| self.x -= y
@@ -3216,7 +3216,7 @@ x.skip(3).reversed().take(3).to_tuple()
         fn basic_access() {
             let script = "
 locals = {}
-foo = |x| {x}.set_meta locals.foo_meta
+foo = |x| {x}.with_meta locals.foo_meta
 locals.foo_meta =
   @meta get_x: || self.x
 a = foo 10
@@ -3229,7 +3229,7 @@ a.x + a.get_x()
         fn lookup_order() {
             let script = "
 locals = {}
-foo = |x| {x, y: 100}.set_meta locals.foo_meta
+foo = |x| {x, y: 100}.with_meta locals.foo_meta
 locals.foo_meta =
   @meta y: 0
 a = foo 10

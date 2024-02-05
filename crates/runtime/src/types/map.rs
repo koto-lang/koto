@@ -112,6 +112,8 @@ impl KMap {
     }
 
     /// Sets the KMap's meta map
+    ///
+    /// Note that this change isn't shared with maps that share the same data.
     pub fn set_meta_map(&mut self, meta: Option<PtrMut<MetaMap>>) {
         self.meta = meta;
     }

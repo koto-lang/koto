@@ -152,7 +152,7 @@ check! My Map
 
 ### See also
 
-- [`map.set_meta`](#set-meta)
+- [`map.with_meta`](#with-meta)
 
 ## insert
 
@@ -447,14 +447,14 @@ check! null
 
 - [`map.keys`](#keys)
 
-## set_meta
+## with_meta
 
 ```kototype
 |Map, Map| -> Map
 ```
 
-Sets the first argument's meta map to be an instance of the meta map from the 
-second argument.
+Returns a new Map that contains the data from the first argument, 
+along with the Meta Map from the second argument.
 
 ### Example
 
@@ -462,7 +462,7 @@ second argument.
 my_meta =
   @type: 'MyMeta'
 
-x = {foo: 42}.set_meta my_meta
+x = {foo: 42}.with_meta my_meta
 
 print! koto.type x
 check! MyMeta
