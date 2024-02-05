@@ -53,7 +53,7 @@ The Koto project adheres to
     exception being thrown.
 - Objects can be compared with `null` on the LHS without having to implement 
   `KotoObject::equal` and/or `not_equal`.
-- `map.with_meta_map` has been replaced with `set_meta`, and `get_meta_map` has
+- `map.with_meta_map` has been renamed to `with_meta`, and `get_meta_map` has
   been renamed to `get_meta`.
 
 #### API

@@ -280,7 +280,7 @@ check! ('data')
 
 ## Sharing Meta Maps
 
-If you're creating lots of values, then it will likely be more efficient to create a single map containing the meta logic, and then share it between instances using [`Map.set_meta`](../../core/map/#set-meta).
+If you're creating lots of values, then it will likely be more efficient to create a single map containing the meta logic, and then share it between instances using [`Map.with_meta`](../../core/map/#with-meta).
 
 ```koto
 # Create an empty map for global values
@@ -290,7 +290,7 @@ global = {}
 foo = |data|
   # Make a map that contains `data`, 
   # and then assign a shared copy of the meta map from foo_meta
-  {data}.set_meta global.foo_meta
+  {data}.with_meta global.foo_meta
 
 # Define some meta behaviour in foo_meta
 global.foo_meta =
