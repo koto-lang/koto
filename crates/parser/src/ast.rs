@@ -23,7 +23,7 @@ pub struct Ast {
     nodes: Vec<AstNode>,
     spans: Vec<Span>,
     constants: ConstantPool,
-    entry_point: u32,
+    entry_point: AstIndex,
 }
 
 impl Ast {
