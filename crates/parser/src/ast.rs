@@ -38,19 +38,19 @@ impl Ast {
     }
 
     /// Pushes a node and corresponding span onto the tree
-    pub fn push(&mut self, node: Node, span: Span) -> Result<AstIndex, ParserError> {
+    pub fn push(&mut self, node: Node, span: Span) -> Result<AstIndex> {
         // We could potentially achieve some compression by
         // using a set for the spans, for now a Vec will do.
         self.spans.push(span);
         let span_index = AstIndex::try_from(self.spans.len() - 1)
-            .map_err(|_| ParserError::new(InternalError::AstCapacityOverflow.into(), span))?;
+            .map_err(|_| Error::new(InternalError::AstCapacityOverflow.into(), span))?;
 
         self.nodes.push(AstNode {
             node,
             span: span_index,
         });
         AstIndex::try_from(self.nodes.len() - 1)
-            .map_err(|_| ParserError::new(InternalError::AstCapacityOverflow.into(), span))
+            .map_err(|_| Error::new(InternalError::AstCapacityOverflow.into(), span))
     }
 
     /// Returns a node for a given node index

@@ -196,7 +196,7 @@ pub enum SyntaxError {
 /// See [ParserError]
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
-pub enum ParserErrorKind {
+pub enum ErrorKind {
     #[error(transparent)]
     InternalError(#[from] InternalError),
     #[error(transparent)]
@@ -208,24 +208,27 @@ pub enum ParserErrorKind {
 /// An error that can be produced by the [Parser](crate::Parser)
 #[derive(Error, Clone, Debug)]
 #[error("{error}")]
-pub struct ParserError {
+pub struct Error {
     /// The error itself
-    pub error: ParserErrorKind,
+    pub error: ErrorKind,
     /// The span in the source string where the error occurred
     pub span: Span,
 }
 
-impl ParserError {
+impl Error {
     /// Initializes a parser error with the specific error type and its associated span
-    pub fn new(error: ParserErrorKind, span: Span) -> Self {
+    pub fn new(error: ErrorKind, span: Span) -> Self {
         Self { error, span }
     }
 
     /// Returns true if the error was caused by the expectation of indentation
     pub fn is_indentation_error(&self) -> bool {
-        matches!(self.error, ParserErrorKind::ExpectedIndentation(_))
+        matches!(self.error, ErrorKind::ExpectedIndentation(_))
     }
 }
+
+/// The result type used by the [Parser](crate::Parser)
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Renders the excerpt of the source corresponding to the given span
 pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<PathBuf>) -> String {

@@ -1,7 +1,7 @@
 use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
 use dunce::canonicalize;
 use koto_memory::Ptr;
-use koto_parser::{format_source_excerpt, Parser, ParserError, Span};
+use koto_parser::{format_source_excerpt, Parser, Span};
 use rustc_hash::FxHasher;
 use std::{
     collections::HashMap, error, fmt, hash::BuildHasherDefault, io, ops::Deref, path::PathBuf,
@@ -13,7 +13,7 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub enum LoaderErrorKind {
     #[error("{0}")]
-    Parser(#[from] ParserError),
+    Parser(#[from] koto_parser::Error),
     #[error("{0}")]
     Compiler(#[from] CompilerError),
     #[error(transparent)]
@@ -40,7 +40,7 @@ struct LoaderErrorSource {
 
 impl LoaderError {
     pub(crate) fn from_parser_error(
-        error: ParserError,
+        error: koto_parser::Error,
         source: &str,
         source_path: Option<PathBuf>,
     ) -> Self {
