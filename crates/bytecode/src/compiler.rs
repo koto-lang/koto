@@ -1,8 +1,8 @@
 use crate::{DebugInfo, FunctionFlags, Op, TypeId};
 use koto_parser::{
-    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstTry, AstUnaryOp, ConstantIndex, Function,
-    IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span, StringContents,
-    StringNode, SwitchArm,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
+    Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
+    StringContents, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
 use std::collections::HashSet;
@@ -481,7 +481,7 @@ impl Compiler {
 
         let node = ast.node(node_index);
 
-        self.span_stack.push(*ast.span(node.span));
+        self.push_span(node, ast);
 
         if !self.frame_stack.is_empty() {
             self.frame_mut().last_node_was_return = matches!(&node.node, Node::Return(_));
@@ -834,7 +834,7 @@ impl Compiler {
             }
         };
 
-        self.span_stack.pop();
+        self.pop_span();
 
         Ok(result)
     }
@@ -867,7 +867,7 @@ impl Compiler {
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
             let arg_node = ast.node(*arg);
-            self.span_stack.push(*ast.span(arg_node.span));
+            self.push_span(arg_node, ast);
             match &arg_node.node {
                 Node::List(nested_args) => {
                     let list_register = arg_index as u8 + 1;
@@ -885,7 +885,7 @@ impl Compiler {
                 }
                 _ => {}
             }
-            self.span_stack.pop();
+            self.pop_span();
         }
 
         let result_register = if allow_implicit_return {
@@ -1123,7 +1123,7 @@ impl Compiler {
             .unwrap();
 
         let target_node = ast.node(target);
-        self.span_stack.push(*ast.span(target_node.span));
+        self.push_span(target_node, ast);
 
         match &target_node.node {
             Node::Id(id_index) => {
@@ -1171,7 +1171,7 @@ impl Compiler {
             ResultRegister::None => None,
         };
 
-        self.span_stack.pop();
+        self.pop_span();
 
         Ok(result)
     }
@@ -1687,7 +1687,7 @@ impl Compiler {
         let finally_offset = self.push_offset_placeholder();
         self.update_offset_placeholder(catch_offset)?;
 
-        self.span_stack.push(*ast.span(ast.node(*catch_block).span));
+        self.push_span(ast.node(*catch_block), ast);
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
@@ -1695,7 +1695,7 @@ impl Compiler {
         self.push_op(TryEnd, &[]);
 
         self.compile_node(try_result_register, *catch_block, ast)?;
-        self.span_stack.pop();
+        self.pop_span();
 
         if pop_catch_register {
             self.pop_register()?;
@@ -2599,7 +2599,7 @@ impl Compiler {
                 }
             };
 
-            self.span_stack.push(*ast.span(next_lookup_node.span));
+            self.push_span(next_lookup_node, ast);
         }
 
         // The lookup chain is complete, now we need to handle:
@@ -3295,7 +3295,7 @@ impl Compiler {
             jumps.alternative_end.clear();
 
             let arm_node = ast.node(*arm_pattern);
-            self.span_stack.push(*ast.span(arm_node.span));
+            self.push_span(arm_node, ast);
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
                     if patterns.len() != match_len {
@@ -3366,7 +3366,7 @@ impl Compiler {
                 self.update_offset_placeholder(*jump_placeholder)?;
             }
 
-            self.span_stack.pop(); // arm node
+            self.pop_span(); // arm node
         }
 
         // Update the match end jump placeholders before the condition
@@ -3720,12 +3720,12 @@ impl Compiler {
                 .unwrap();
 
             // Make the iterator, using the iterator's span in case of errors
-            self.span_stack.push(*ast.span(ast.node(*iterable).span));
+            self.push_span(ast.node(*iterable), ast);
             self.push_op(
                 MakeIterator,
                 &[iterator_register, iterable_register.register],
             );
-            self.span_stack.pop();
+            self.pop_span();
 
             if iterable_register.is_temporary {
                 self.pop_register()?;
@@ -4041,6 +4041,14 @@ impl Compiler {
             error: error.into(),
             span: self.span(),
         }
+    }
+
+    fn push_span(&mut self, node: &AstNode, ast: &Ast) {
+        self.span_stack.push(*ast.span(node.span));
+    }
+
+    fn pop_span(&mut self) {
+        self.span_stack.pop();
     }
 
     fn span(&self) -> Span {
