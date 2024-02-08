@@ -23,7 +23,6 @@ pub struct Ast {
     nodes: Vec<AstNode>,
     spans: Vec<Span>,
     constants: ConstantPool,
-    entry_point: AstIndex,
 }
 
 impl Ast {
@@ -33,7 +32,6 @@ impl Ast {
             nodes: Vec::with_capacity(capacity),
             spans: Vec::with_capacity(capacity),
             constants: ConstantPool::default(),
-            entry_point: 0,
         }
     }
 
@@ -81,16 +79,12 @@ impl Ast {
     }
 
     /// Returns the root node in the tree
-    pub fn entry_point(&self) -> Option<&AstNode> {
-        self.nodes.get(self.entry_point as usize)
-    }
-
-    // Sets the entry point for the AST
-    //
-    // In practice this will always be the last node in the nodes list,
-    // so this could likely be removed.
-    pub(crate) fn set_entry_point(&mut self, index: AstIndex) {
-        self.entry_point = index;
+    pub fn entry_point(&self) -> Option<AstIndex> {
+        if self.nodes.is_empty() {
+            None
+        } else {
+            Some((self.nodes.len() - 1) as AstIndex)
+        }
     }
 
     /// Used in testing to validate the tree's contents

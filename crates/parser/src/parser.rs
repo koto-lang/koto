@@ -253,8 +253,7 @@ impl<'source> Parser<'source> {
             frame_stack: Vec::new(),
         };
 
-        let main_block = parser.consume_main_block()?;
-        parser.ast.set_entry_point(main_block);
+        parser.consume_main_block()?;
         parser.ast.set_constants(parser.constants.build());
 
         Ok(parser.ast)

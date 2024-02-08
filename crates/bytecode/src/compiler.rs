@@ -461,7 +461,7 @@ impl Compiler {
         };
 
         if let Some(entry_point) = ast.entry_point() {
-            compiler.compile_node(ResultRegister::None, entry_point, ast)?;
+            compiler.compile_node(ResultRegister::None, ast.node(entry_point), ast)?;
         }
 
         if compiler.bytes.len() <= u32::MAX as usize {
