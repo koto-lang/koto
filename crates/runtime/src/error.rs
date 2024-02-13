@@ -1,13 +1,13 @@
 use crate::{prelude::*, KotoVm, Ptr};
 use koto_bytecode::{Chunk, LoaderError};
 use koto_parser::format_source_excerpt;
-use std::{error, fmt};
+use std::{error, fmt, time::Duration};
 use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
 #[derive(Error, Clone)]
 #[allow(missing_docs)]
-pub(crate) enum ErrorKind {
+pub enum ErrorKind {
     #[error("{0}")]
     StringError(String),
     /// An error thrown by a Koto script
@@ -21,6 +21,8 @@ pub(crate) enum ErrorKind {
         /// A VM that should be used to format the thrown value
         vm: KotoVm,
     },
+    #[error("Execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
+    Timeout(Duration),
     #[error("Expected {expected}, but found {}", get_value_types(unexpected))]
     UnexpectedType {
         expected: String,
@@ -61,8 +63,10 @@ impl fmt::Debug for ErrorKind {
 /// An error thrown by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct Error {
-    pub(crate) error: ErrorKind,
-    pub(crate) trace: Vec<ErrorFrame>,
+    /// The error that was thrown
+    pub error: ErrorKind,
+    /// The stack trace at the point when the error was thrown
+    pub trace: Vec<ErrorFrame>,
 }
 
 impl Error {

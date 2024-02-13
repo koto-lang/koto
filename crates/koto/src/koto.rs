@@ -2,7 +2,7 @@ use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::{KotoVm, ModuleImportedCallback};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 /// The main interface for the Koto language.
 ///
@@ -53,6 +53,7 @@ impl Koto {
                 stdin: settings.stdin,
                 stdout: settings.stdout,
                 stderr: settings.stderr,
+                execution_limit: Some(Duration::from_secs_f64(1.0)),
                 run_import_tests: settings.run_import_tests,
                 module_imported_callback: settings.module_imported_callback,
             }),

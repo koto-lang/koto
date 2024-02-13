@@ -12,8 +12,8 @@ doc:
 fmt:
   cargo fmt --all -- --check
 
-temp:
-  cargo run -- --tests -i temp.koto
+temp *args:
+  cargo run {{args}} -- --tests -i temp.koto
 
 test *args:
   cargo test {{args}}
@@ -46,5 +46,5 @@ test_runtime:
 wasm:
   cd examples/wasm && wasm-pack test --node
 
-watch command:
-  cargo watch -s "just {{command}}"
+watch command *args:
+  cargo watch -s "just {{command}} {{args}}"
