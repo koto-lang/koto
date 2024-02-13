@@ -5,7 +5,7 @@ mod timeout {
 
     fn test_script_with_timeout(script: &str, should_timeout: bool) {
         let mut vm = KotoVm::with_settings(KotoVmSettings {
-            execution_limit: Some(Duration::from_millis(2)),
+            execution_limit: Some(Duration::from_millis(1)),
             ..Default::default()
         });
 
