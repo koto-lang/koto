@@ -130,7 +130,10 @@ fn main() -> Result<()> {
 
     let koto_settings = KotoSettings {
         run_tests: args.run_tests || args.run_import_tests,
-        run_import_tests: args.run_import_tests,
+        vm_settings: KotoVmSettings {
+            run_import_tests: args.run_import_tests,
+            ..Default::default()
+        },
         ..Default::default()
     };
 

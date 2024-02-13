@@ -1,4 +1,4 @@
-use koto::{prelude::*, runtime::Result, Ptr, PtrMut};
+use koto::{prelude::*, runtime::Result, PtrMut};
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
@@ -15,13 +15,13 @@ impl ExampleTestRunner {
 
         Self {
             output: output.clone(),
-            koto: Koto::with_settings(KotoSettings {
-                stdout: make_ptr!(OutputCapture {
-                    output: output.clone(),
-                }),
-                stderr: make_ptr!(OutputCapture { output }),
-                ..Default::default()
-            }),
+            koto: Koto::with_settings(
+                KotoSettings::default()
+                    .with_stdout(OutputCapture {
+                        output: output.clone(),
+                    })
+                    .with_stderr(OutputCapture { output }),
+            ),
         }
     }
 

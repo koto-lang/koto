@@ -5,6 +5,7 @@ use crate::{
     types::{meta_id_to_key, value::RegisterSlice},
     DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Ptr, Result,
 };
+use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
 use koto_parser::{ConstantIndex, MetaKeyId};
 use rustc_hash::FxHasher;
@@ -13,6 +14,7 @@ use std::{
     fmt,
     hash::BuildHasherDefault,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 macro_rules! call_binary_op_or_else {
@@ -84,15 +86,31 @@ impl<T> ModuleImportedCallback for T where T: Fn(&Path) + KotoSend + KotoSync {}
 pub struct KotoVmSettings {
     /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+
+    /// An optional duration that limits how long execution is allowed to take.
+    ///
+    /// If the limit is reached without execution ending,
+    /// then a [Timeout](ErrorKind::Timeout) error will be returned.
+    ///
+    /// The VM will check against the execution deadline periodically, with an interval of roughly
+    /// one tenth of the overall limit's duration.
+    ///
+    /// The check is performed between VM instructions, so external functions will still be able to
+    /// block execution.
+    pub execution_limit: Option<Duration>,
+
     /// An optional callback that is called whenever a module is imported by the runtime
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
     /// reload the script when one of its dependencies has changed.
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
+
     /// The runtime's stdin
     pub stdin: Ptr<dyn KotoFile>,
+
     /// The runtime's stdout
     pub stdout: Ptr<dyn KotoFile>,
+
     /// The runtime's stderr
     pub stderr: Ptr<dyn KotoFile>,
 }
@@ -101,6 +119,7 @@ impl Default for KotoVmSettings {
     fn default() -> Self {
         Self {
             run_import_tests: true,
+            execution_limit: None,
             module_imported_callback: None,
             stdin: make_ptr!(DefaultStdin::default()),
             stdout: make_ptr!(DefaultStdout::default()),
@@ -633,9 +652,26 @@ impl KotoVm {
     fn execute_instructions(&mut self) -> Result<KValue> {
         let mut result = KValue::Null;
 
+        let mut timeout = self
+            .context
+            .settings
+            .execution_limit
+            .map(ExecutionTimeout::new);
+
         self.instruction_ip = self.ip();
 
         while let Some(instruction) = self.reader.next() {
+            if let Some(timeout) = timeout.as_mut() {
+                if timeout.check_for_timeout() {
+                    return self
+                        .pop_call_stack_on_error(
+                            ErrorKind::Timeout(timeout.execution_limit).into(),
+                            false,
+                        )
+                        .map(|_| KValue::Null);
+                }
+            }
+
             match self.execute_instruction(instruction) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
@@ -646,37 +682,16 @@ impl KotoVm {
                     result = value;
                     break;
                 }
-                Err(mut error) => {
-                    let mut recover_register_and_ip = None;
-
-                    error.extend_trace(self.chunk(), self.instruction_ip);
-
-                    while let Some(frame) = self.call_stack.last() {
-                        if let Some((error_register, catch_ip)) = frame.catch_stack.last() {
-                            recover_register_and_ip = Some((*error_register, *catch_ip));
-                            break;
-                        } else {
-                            if frame.execution_barrier {
-                                return Err(error);
-                            }
-
-                            self.pop_frame(KValue::Null)?;
-
-                            if !self.call_stack.is_empty() {
-                                error.extend_trace(self.chunk(), self.instruction_ip);
-                            }
-                        }
-                    }
-
-                    let Some((register, ip)) = recover_register_and_ip else {
-                        return Err(error);
-                    };
+                Err(error) => {
+                    let (recover_register, ip) =
+                        self.pop_call_stack_on_error(error.clone(), true)?;
 
                     let catch_value = match error.error {
                         ErrorKind::KotoError { thrown_value, .. } => thrown_value,
                         _ => KValue::Str(error.to_string().into()),
                     };
-                    self.set_register(register, catch_value);
+
+                    self.set_register(recover_register, catch_value);
                     self.set_ip(ip);
                 }
             }
@@ -2866,6 +2881,40 @@ impl KotoVm {
         }
     }
 
+    // Called when an error occurs and the stack needs to be unwound
+    //
+    // If `allow_catch` is true and a `catch` expression is encountered then the recovery register
+    // and ip will be returned. Otherwise, the error will be returned with the popped frames added
+    // to the error's stack trace.
+    fn pop_call_stack_on_error(
+        &mut self,
+        mut error: Error,
+        allow_catch: bool,
+    ) -> Result<(u8, u32)> {
+        error.extend_trace(self.chunk(), self.instruction_ip);
+
+        while let Some(frame) = self.call_stack.last() {
+            match frame.catch_stack.last() {
+                Some((error_register, catch_ip)) if allow_catch => {
+                    return Ok((*error_register, *catch_ip))
+                }
+                _ => {
+                    if frame.execution_barrier {
+                        break;
+                    }
+
+                    self.pop_frame(KValue::Null)?;
+
+                    if !self.call_stack.is_empty() {
+                        error.extend_trace(self.chunk(), self.instruction_ip);
+                    }
+                }
+            }
+        }
+
+        Err(error)
+    }
+
     fn new_frame_base(&self) -> Result<u8> {
         u8::try_from(self.registers.len() - self.register_base())
             .map_err(|_| "Overflow of Koto's stack".into())
@@ -3065,4 +3114,75 @@ struct CallInfo {
     frame_base: u8,
     arg_count: u8,
     instance_register: Option<u8>,
+}
+
+struct ExecutionTimeout {
+    // The instant at which the deadline was last checked
+    last_check: Instant,
+    // The time at which a timeout will be reached
+    deadline: Instant,
+    // The target number of seconds to wait between deadline checks
+    interval_seconds: f64,
+    // The number of instructions that should elapse before the next check
+    interval_instructions: usize,
+    // The number of instructions that have elapsed since the last check
+    instructions_since_last_check: usize,
+    // The maximum amount of time that execution is allowed to take
+    execution_limit: Duration,
+}
+
+impl ExecutionTimeout {
+    fn new(execution_limit: Duration) -> Self {
+        let now = Instant::now();
+        let interval_seconds = (execution_limit / 10).as_secs_f64();
+
+        // A rough baseline instruction count that gets adjusted per interval based on the actual
+        // execution duration.
+        let first_interval_instruction_count = if cfg!(debug_assertions) {
+            10_000_000.0
+        } else {
+            100_000_000.0
+        } * interval_seconds;
+
+        Self {
+            last_check: now,
+            deadline: now + execution_limit,
+            interval_seconds,
+            interval_instructions: first_interval_instruction_count as usize,
+            instructions_since_last_check: 0,
+            execution_limit,
+        }
+    }
+
+    // Returns true if the deadline has been reached, and false otherwise
+    //
+    // This should only be called once per instruction.
+    fn check_for_timeout(&mut self) -> bool {
+        if self.instructions_since_last_check < self.interval_instructions {
+            self.instructions_since_last_check += 1;
+            false
+        } else {
+            let now = Instant::now();
+            if now >= self.deadline {
+                true
+            } else {
+                // If the deadline is near then use the remaining time as the next interval's
+                // duration.
+                let remaining = (self.deadline - now).as_secs_f64();
+                let next_interval_duration = self.interval_seconds.min(remaining);
+
+                // Adjust the interval based on how much time elapsed in the previous interval
+                // compared to the next interval's target duration.
+                let elapsed = (now - self.last_check).as_secs_f64();
+                let interval_adjustment = next_interval_duration / elapsed;
+                self.interval_instructions =
+                    (self.interval_instructions as f64 * interval_adjustment) as usize;
+
+                self.instructions_since_last_check = 0;
+                self.last_check = now;
+
+                false
+            }
+        }
+    }
 }

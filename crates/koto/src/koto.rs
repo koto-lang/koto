@@ -2,7 +2,7 @@ use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::{KotoVm, ModuleImportedCallback};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 /// The main interface for the Koto language.
 ///
@@ -49,13 +49,7 @@ impl Koto {
     /// Creates a new instance of Koto with the given settings
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
-            runtime: KotoVm::with_settings(KotoVmSettings {
-                stdin: settings.stdin,
-                stdout: settings.stdout,
-                stderr: settings.stderr,
-                run_import_tests: settings.run_import_tests,
-                module_imported_callback: settings.module_imported_callback,
-            }),
+            runtime: KotoVm::with_settings(settings.vm_settings),
             run_tests: settings.run_tests,
             export_top_level_ids: settings.export_top_level_ids,
             chunk: None,
@@ -268,8 +262,6 @@ impl Koto {
 pub struct KotoSettings {
     /// Whether or not tests should be run when loading a script
     pub run_tests: bool,
-    /// Whether or not tests should be run when importing modules
-    pub run_import_tests: bool,
     /// Whether or not top-level identifiers should be automatically exported
     ///
     /// The default behaviour in Koto is that `export` expressions are required to make a value
@@ -278,25 +270,31 @@ pub struct KotoSettings {
     /// This is used by the REPL, allowing for incremental compilation and execution of expressions
     /// that need to share declared values.
     pub export_top_level_ids: bool,
-    /// The runtime's stdin
-    pub stdin: Ptr<dyn KotoFile>,
-    /// The runtime's stdout
-    pub stdout: Ptr<dyn KotoFile>,
-    /// The runtime's stderr
-    pub stderr: Ptr<dyn KotoFile>,
-    /// An optional callback that is called whenever a module is imported by the runtime
-    ///
-    /// This allows you to track the runtime's dependencies, which might be useful if you want to
-    /// reload the script when one of its dependencies has changed.
-    pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
+    /// Settings that apply to the runtime
+    pub vm_settings: KotoVmSettings,
 }
 
 impl KotoSettings {
+    /// Helper for conveniently defining a maximum execution duration
+    #[must_use]
+    pub fn with_execution_limit(self, limit: Duration) -> Self {
+        Self {
+            vm_settings: KotoVmSettings {
+                execution_limit: Some(limit),
+                ..self.vm_settings
+            },
+            ..self
+        }
+    }
+
     /// Helper for conveniently defining a custom stdin implementation
     #[must_use]
     pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
         Self {
-            stdin: make_ptr!(stdin),
+            vm_settings: KotoVmSettings {
+                stdin: make_ptr!(stdin),
+                ..self.vm_settings
+            },
             ..self
         }
     }
@@ -305,7 +303,10 @@ impl KotoSettings {
     #[must_use]
     pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
         Self {
-            stdout: make_ptr!(stdout),
+            vm_settings: KotoVmSettings {
+                stdout: make_ptr!(stdout),
+                ..self.vm_settings
+            },
             ..self
         }
     }
@@ -314,7 +315,10 @@ impl KotoSettings {
     #[must_use]
     pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
         Self {
-            stderr: make_ptr!(stderr),
+            vm_settings: KotoVmSettings {
+                stderr: make_ptr!(stderr),
+                ..self.vm_settings
+            },
             ..self
         }
     }
@@ -326,7 +330,10 @@ impl KotoSettings {
         callback: impl ModuleImportedCallback + 'static,
     ) -> Self {
         Self {
-            module_imported_callback: Some(Box::new(callback)),
+            vm_settings: KotoVmSettings {
+                module_imported_callback: Some(Box::new(callback)),
+                ..self.vm_settings
+            },
             ..self
         }
     }
@@ -334,15 +341,10 @@ impl KotoSettings {
 
 impl Default for KotoSettings {
     fn default() -> Self {
-        let default_vm_settings = KotoVmSettings::default();
         Self {
             run_tests: true,
-            run_import_tests: true,
             export_top_level_ids: false,
-            stdin: default_vm_settings.stdin,
-            stdout: default_vm_settings.stdout,
-            stderr: default_vm_settings.stderr,
-            module_imported_callback: None,
+            vm_settings: KotoVmSettings::default(),
         }
     }
 }

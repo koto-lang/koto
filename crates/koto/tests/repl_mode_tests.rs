@@ -5,21 +5,23 @@
 //! The exports map gets populated with any top-level assigned IDs, and is then made available to
 //! each subsequent chunk.
 
-use koto::{prelude::*, runtime::Result, Ptr, PtrMut};
+use koto::{prelude::*, runtime::Result, PtrMut};
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
     let output = PtrMut::from(String::new());
 
-    let mut koto = Koto::with_settings(KotoSettings {
-        export_top_level_ids: true,
-        stdout: make_ptr!(OutputCapture {
+    let mut koto = Koto::with_settings(
+        KotoSettings {
+            export_top_level_ids: true,
+            ..Default::default()
+        }
+        .with_stdout(OutputCapture {
+            output: output.clone(),
+        })
+        .with_stderr(OutputCapture {
             output: output.clone(),
         }),
-        stderr: make_ptr!(OutputCapture {
-            output: output.clone(),
-        }),
-        ..Default::default()
-    });
+    );
 
     let mut chunks = Vec::with_capacity(inputs_and_expected_outputs.len());
 

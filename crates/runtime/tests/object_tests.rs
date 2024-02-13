@@ -19,7 +19,7 @@ mod objects {
         }
 
         #[koto_method]
-        fn to_number(&self) -> KValue {
+        fn as_number(&self) -> KValue {
             self.x.into()
         }
 
@@ -260,10 +260,10 @@ mod objects {
         use super::*;
 
         #[test]
-        fn to_number() {
+        fn as_number() {
             let script = "
 x = make_object 42
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 42);
         }
@@ -273,7 +273,7 @@ x.to_number()
             let script = "
 x = make_object 42
 x.invert()
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, -42.0_f64);
         }
@@ -284,7 +284,7 @@ x.to_number()
 x = make_object 42
 y = x
 y.set_all_instances make_object 99
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 99);
         }
@@ -294,7 +294,7 @@ x.to_number()
             let script = "
 x = make_object 42
 x.absorb_values 10, 20, 30
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 102);
         }
@@ -304,7 +304,7 @@ x.to_number()
             let script = "
 x = make_object 1
 x.absorb1 2, 3, 4, 5
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 15);
         }
@@ -314,7 +314,7 @@ x.to_number()
             let script = "
 x = make_object 10
 x.absorb2 20, 30
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 60);
         }
@@ -334,7 +334,7 @@ x.to_number()
             let script = "
 x = make_object -123
 x = -x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 123);
         }
@@ -373,7 +373,7 @@ make_object(10)
         fn add() {
             let script = "
 x = (make_object 11) + (make_object 22) + 33
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 66);
         }
@@ -382,7 +382,7 @@ x.to_number()
         fn subtract() {
             let script = "
 x = (make_object 99) - (make_object 90) - 9
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 0);
         }
@@ -391,7 +391,7 @@ x.to_number()
         fn multiply() {
             let script = "
 x = (make_object 3) * (make_object 11)
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 33);
         }
@@ -400,7 +400,7 @@ x.to_number()
         fn divide() {
             let script = "
 x = (make_object 90) / (make_object 10)
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 9);
         }
@@ -409,7 +409,7 @@ x.to_number()
         fn remainder() {
             let script = "
 x = (make_object 45) % (make_object 10)
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 5);
         }
@@ -420,7 +420,7 @@ x.to_number()
 x = make_object 11
 x += make_object 22
 x += 33
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 66);
         }
@@ -430,7 +430,7 @@ x.to_number()
             let script = "
 x = make_object 11
 x += x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 22);
         }
@@ -441,7 +441,7 @@ x.to_number()
 x = make_object 42
 x -= make_object 20
 x -= 2
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 20);
         }
@@ -451,7 +451,7 @@ x.to_number()
             let script = "
 x = make_object 11
 x -= x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 0);
         }
@@ -462,7 +462,7 @@ x.to_number()
 x = make_object 3
 x *= make_object 11
 x *= 3
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 99);
         }
@@ -472,7 +472,7 @@ x.to_number()
             let script = "
 x = make_object 11
 x *= x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 121);
         }
@@ -483,7 +483,7 @@ x.to_number()
 x = make_object 99
 x /= make_object 3
 x /= 3
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 11);
         }
@@ -493,7 +493,7 @@ x.to_number()
             let script = "
 x = make_object 11
 x /= x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 1);
         }
@@ -504,7 +504,7 @@ x.to_number()
 x = make_object 99
 x %= make_object 90
 x %= 5
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 4);
         }
@@ -514,7 +514,7 @@ x.to_number()
             let script = "
 x = make_object 11
 x /= x
-x.to_number()
+x.as_number()
 ";
             test_object_script(script, 1);
         }
@@ -593,7 +593,7 @@ x()
         fn overloaded_unary_op_as_lookup_root() {
             let script = "
 x = make_object -100
-(-x).to_number()
+(-x).as_number()
 ";
             test_object_script(script, 100);
         }
@@ -603,7 +603,7 @@ x = make_object -100
             let script = "
 x = make_object 100
 y = make_object 100
-(x - y).to_number()
+(x - y).as_number()
 ";
             test_object_script(script, 0);
         }
