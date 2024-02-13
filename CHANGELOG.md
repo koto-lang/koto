@@ -28,6 +28,8 @@ The Koto project adheres to
 - `Koto::run_instance_function` has been added.
 - `Ptr`/`PtrMut` now have an associated `ref_count` function.
 - `KMap::clear` has been added.
+- A maximum execution duration can now be defined in `KotoVmSettings`, 
+  with a timeout error being returned when the deadline is reached.
 
 #### Core Library
 
@@ -61,6 +63,7 @@ The Koto project adheres to
 - `Vm` has been renamed to `KotoVm` for the sake of clarity.
 - `Value` has been renamed to `KValue` for consistency with the other core
   runtime value types, and to avoid polluting the prelude with a generic name.
+- The VM-specific parts of `KotoSettings` are now defined via `KotoVmSettings`.
 
 #### Internals
 
