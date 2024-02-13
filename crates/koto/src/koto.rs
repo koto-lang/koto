@@ -2,7 +2,7 @@ use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::{KotoVm, ModuleImportedCallback};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 /// The main interface for the Koto language.
 ///
@@ -275,6 +275,18 @@ pub struct KotoSettings {
 }
 
 impl KotoSettings {
+    /// Helper for conveniently defining a maximum execution duration
+    #[must_use]
+    pub fn with_execution_limit(self, limit: Duration) -> Self {
+        Self {
+            vm_settings: KotoVmSettings {
+                execution_limit: Some(limit),
+                ..self.vm_settings
+            },
+            ..self
+        }
+    }
+
     /// Helper for conveniently defining a custom stdin implementation
     #[must_use]
     pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
