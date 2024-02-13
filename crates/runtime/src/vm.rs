@@ -663,7 +663,12 @@ impl KotoVm {
         while let Some(instruction) = self.reader.next() {
             if let Some(timeout) = timeout.as_mut() {
                 if timeout.check_for_timeout() {
-                    return runtime_error!(ErrorKind::Timeout(timeout.execution_limit));
+                    return self
+                        .pop_call_stack_on_error(
+                            ErrorKind::Timeout(timeout.execution_limit).into(),
+                            false,
+                        )
+                        .map(|_| KValue::Null);
                 }
             }
 
@@ -677,37 +682,16 @@ impl KotoVm {
                     result = value;
                     break;
                 }
-                Err(mut error) => {
-                    let mut recover_register_and_ip = None;
-
-                    error.extend_trace(self.chunk(), self.instruction_ip);
-
-                    while let Some(frame) = self.call_stack.last() {
-                        if let Some((error_register, catch_ip)) = frame.catch_stack.last() {
-                            recover_register_and_ip = Some((*error_register, *catch_ip));
-                            break;
-                        } else {
-                            if frame.execution_barrier {
-                                return Err(error);
-                            }
-
-                            self.pop_frame(KValue::Null)?;
-
-                            if !self.call_stack.is_empty() {
-                                error.extend_trace(self.chunk(), self.instruction_ip);
-                            }
-                        }
-                    }
-
-                    let Some((register, ip)) = recover_register_and_ip else {
-                        return Err(error);
-                    };
+                Err(error) => {
+                    let (recover_register, ip) =
+                        self.pop_call_stack_on_error(error.clone(), true)?;
 
                     let catch_value = match error.error {
                         ErrorKind::KotoError { thrown_value, .. } => thrown_value,
                         _ => KValue::Str(error.to_string().into()),
                     };
-                    self.set_register(register, catch_value);
+
+                    self.set_register(recover_register, catch_value);
                     self.set_ip(ip);
                 }
             }
@@ -2895,6 +2879,40 @@ impl KotoVm {
                 runtime_error!(ErrorKind::EmptyCallStack)
             }
         }
+    }
+
+    // Called when an error occurs and the stack needs to be unwound
+    //
+    // If `allow_catch` is true and a `catch` expression is encountered then the recovery register
+    // and ip will be returned. Otherwise, the error will be returned with the popped frames added
+    // to the error's stack trace.
+    fn pop_call_stack_on_error(
+        &mut self,
+        mut error: Error,
+        allow_catch: bool,
+    ) -> Result<(u8, u32)> {
+        error.extend_trace(self.chunk(), self.instruction_ip);
+
+        while let Some(frame) = self.call_stack.last() {
+            match frame.catch_stack.last() {
+                Some((error_register, catch_ip)) if allow_catch => {
+                    return Ok((*error_register, *catch_ip))
+                }
+                _ => {
+                    if frame.execution_barrier {
+                        break;
+                    }
+
+                    self.pop_frame(KValue::Null)?;
+
+                    if !self.call_stack.is_empty() {
+                        error.extend_trace(self.chunk(), self.instruction_ip);
+                    }
+                }
+            }
+        }
+
+        Err(error)
     }
 
     fn new_frame_base(&self) -> Result<u8> {
