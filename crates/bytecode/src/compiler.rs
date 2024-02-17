@@ -1,11 +1,13 @@
-use crate::{DebugInfo, FunctionFlags, Op, TypeId};
+use crate::{
+    frame::{Arg, AssignedOrReserved, Frame, FrameError},
+    DebugInfo, FunctionFlags, Op, TypeId,
+};
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
     Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
     StringContents, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
-use std::collections::HashSet;
 use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
@@ -14,8 +16,6 @@ use thiserror::Error;
 enum ErrorKind {
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
-    #[error("the loop stack is empty")]
-    EmptyLoopInfoStack,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
@@ -96,303 +96,8 @@ pub struct CompilerError {
     pub span: Span,
 }
 
-#[derive(Clone, Debug)]
-struct Loop {
-    // The loop's result register,
-    result_register: Option<u8>,
-    // The ip of the start of the loop, used for continue statements
-    start_ip: usize,
-    // Placeholders for jumps to the end of the loop, updated when the loop compilation is complete
-    jump_placeholders: Vec<usize>,
-}
-
-enum Arg {
-    Local(ConstantIndex),
-    Unpacked(ConstantIndex),
-    Placeholder,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum LocalRegister {
-    // The register is assigned to a specific id.
-    Assigned(ConstantIndex),
-    // The register is reserved at the start of an assignment expression,
-    // and it will become assigned at the end of the assignment.
-    // Instructions can be deferred until the register is committed,
-    // e.g. for functions that need to capture themselves after they've been fully assigned.
-    Reserved(ConstantIndex, Vec<DeferredOp>),
-    // The register contains a value not associated with an id, e.g. a wildcard function arg
-    Allocated,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum AssignedOrReserved {
-    Assigned(u8),
-    Reserved(u8),
-    Unassigned,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct DeferredOp {
-    bytes: Vec<u8>,
-    span: Span,
-}
-
-/// The different error types that can be thrown by the Koto runtime
-#[derive(Error, Clone, Debug)]
-enum FrameError {
-    #[error("empty register stack")]
-    EmptyRegisterStack,
-    #[error("local register overflow")]
-    LocalRegisterOverflow,
-    #[error("the frame has reached the maximum number of registers")]
-    StackOverflow,
-    #[error("unable to commit register {0}")]
-    UnableToCommitRegister(u8),
-    #[error("unable to peek register {0}")]
-    UnableToPeekRegister(usize),
-    #[error("unexpected temporary register {0}")]
-    UnexpectedTemporaryRegister(u8),
-    #[error("register {0} hasn't been reserved")]
-    UnreservedRegister(u8),
-}
-
-#[derive(Clone, Debug, Default)]
-struct Frame {
-    loop_stack: Vec<Loop>,
-    register_stack: Vec<u8>,
-    local_registers: Vec<LocalRegister>,
-    exported_ids: HashSet<ConstantIndex>,
-    temporary_base: u8,
-    temporary_count: u8,
-    // Used to decide if an additional return instruction is needed,
-    // e.g. `f = |x| return x`
-    //               ^ explicit return as final expression, implicit return not needed
-    // This is a coarse check, e.g. we currently don't check if the last expression
-    // returns in all branches, but it'll do for now as an optimization for simple cases.
-    last_node_was_return: bool,
-}
-
-impl Frame {
-    fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
-        let temporary_base =
-            // register 0 is always self
-            1
-            // Includes all named args (including unpacked args),
-            // and any locally assigned values.
-            + local_count
-            // Captures get copied to local registers when the function is called.
-            + captures.len() as u8
-            // To get the first temporary register, we also need to include 'unnamed' args, which
-            // are represented in the args list as Placeholders.
-            + args
-                .iter()
-                .filter(|arg| matches!(arg, Arg::Placeholder))
-                .count() as u8;
-
-        // First, assign registers to the 'top-level' args, including placeholder registers
-        let mut local_registers = Vec::with_capacity(1 + args.len() + captures.len());
-        local_registers.push(LocalRegister::Allocated); // self
-        local_registers.extend(args.iter().filter_map(|arg| match arg {
-            Arg::Local(id) => Some(LocalRegister::Assigned(*id)),
-            Arg::Placeholder => Some(LocalRegister::Allocated),
-            _ => None,
-        }));
-
-        // Next, assign registers for the function's captures
-        local_registers.extend(captures.iter().map(|id| LocalRegister::Assigned(*id)));
-
-        // Finally, assign registers for args that will be unpacked when the function is called
-        local_registers.extend(args.iter().filter_map(|arg| match arg {
-            Arg::Unpacked(id) => Some(LocalRegister::Assigned(*id)),
-            _ => None,
-        }));
-
-        Self {
-            register_stack: Vec::with_capacity(temporary_base as usize),
-            local_registers,
-            temporary_base,
-            ..Default::default()
-        }
-    }
-
-    fn push_register(&mut self) -> Result<u8, FrameError> {
-        let new_register = self.temporary_base + self.temporary_count;
-        self.temporary_count += 1;
-
-        if new_register == u8::MAX {
-            Err(FrameError::StackOverflow)
-        } else {
-            self.register_stack.push(new_register);
-            Ok(new_register)
-        }
-    }
-
-    fn get_local_assigned_register(&self, local_name: ConstantIndex) -> Option<u8> {
-        self.local_registers
-            .iter()
-            .position(|local_register| {
-                matches!(local_register,
-                    LocalRegister::Assigned(assigned) if *assigned == local_name
-                )
-            })
-            .map(|position| position as u8)
-    }
-
-    fn get_local_assigned_or_reserved_register(
-        &self,
-        local_name: ConstantIndex,
-    ) -> AssignedOrReserved {
-        for (i, local_register) in self.local_registers.iter().enumerate() {
-            match local_register {
-                LocalRegister::Assigned(assigned) if *assigned == local_name => {
-                    return AssignedOrReserved::Assigned(i as u8);
-                }
-                LocalRegister::Reserved(reserved, _) if *reserved == local_name => {
-                    return AssignedOrReserved::Reserved(i as u8);
-                }
-                _ => {}
-            }
-        }
-        AssignedOrReserved::Unassigned
-    }
-
-    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
-        match self.get_local_assigned_or_reserved_register(local) {
-            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
-            AssignedOrReserved::Reserved(reserved) => Ok(reserved),
-            AssignedOrReserved::Unassigned => {
-                self.local_registers
-                    .push(LocalRegister::Reserved(local, vec![]));
-
-                let new_local_register = self.local_registers.len() - 1;
-
-                if new_local_register < self.temporary_base as usize {
-                    Ok(new_local_register as u8)
-                } else {
-                    Err(FrameError::LocalRegisterOverflow)
-                }
-            }
-        }
-    }
-
-    fn add_to_exported_ids(&mut self, id: ConstantIndex) {
-        self.exported_ids.insert(id);
-    }
-
-    fn defer_op_until_register_is_committed(
-        &mut self,
-        reserved_register: u8,
-        bytes: Vec<u8>,
-        span: Span,
-    ) -> Result<(), FrameError> {
-        match self.local_registers.get_mut(reserved_register as usize) {
-            Some(LocalRegister::Reserved(_, deferred_ops)) => {
-                deferred_ops.push(DeferredOp { bytes, span });
-                Ok(())
-            }
-            _ => Err(FrameError::UnreservedRegister(reserved_register)),
-        }
-    }
-
-    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<DeferredOp>, FrameError> {
-        let local_register = local_register as usize;
-        let (index, deferred_ops) = match self.local_registers.get(local_register) {
-            Some(LocalRegister::Assigned(_)) => {
-                return Ok(vec![]);
-            }
-            Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.to_vec()),
-            _ => return Err(FrameError::UnreservedRegister(local_register as u8)),
-        };
-
-        self.local_registers[local_register] = LocalRegister::Assigned(index);
-        Ok(deferred_ops)
-    }
-
-    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
-        match self.get_local_assigned_or_reserved_register(local) {
-            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
-            AssignedOrReserved::Reserved(reserved) => {
-                let deferred_ops = self.commit_local_register(reserved)?;
-                if deferred_ops.is_empty() {
-                    Ok(reserved)
-                } else {
-                    Err(FrameError::UnableToCommitRegister(reserved))
-                }
-            }
-            AssignedOrReserved::Unassigned => {
-                self.local_registers.push(LocalRegister::Assigned(local));
-                let new_local_register = self.local_registers.len() - 1;
-                if new_local_register < self.temporary_base as usize {
-                    Ok(new_local_register as u8)
-                } else {
-                    Err(FrameError::LocalRegisterOverflow)
-                }
-            }
-        }
-    }
-
-    fn pop_register(&mut self) -> Result<u8, FrameError> {
-        let Some(register) = self.register_stack.pop() else {
-            return Err(FrameError::EmptyRegisterStack);
-        };
-
-        if register >= self.temporary_base {
-            if self.temporary_count == 0 {
-                return Err(FrameError::UnexpectedTemporaryRegister(register));
-            }
-
-            self.temporary_count -= 1;
-        }
-
-        Ok(register)
-    }
-
-    fn peek_register(&self, n: usize) -> Result<u8, FrameError> {
-        self.register_stack
-            .get(self.register_stack.len() - n - 1)
-            .cloned()
-            .ok_or(FrameError::UnableToPeekRegister(n))
-    }
-
-    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), FrameError> {
-        while self.register_stack.len() > stack_count {
-            self.pop_register()?;
-        }
-
-        Ok(())
-    }
-
-    fn next_temporary_register(&self) -> u8 {
-        self.temporary_count + self.temporary_base
-    }
-
-    fn available_registers_count(&self) -> u8 {
-        u8::MAX - self.next_temporary_register()
-    }
-
-    fn captures_for_nested_frame(
-        &self,
-        accessed_non_locals: &[ConstantIndex],
-    ) -> Vec<ConstantIndex> {
-        // The non-locals accessed in the nested frame should be captured if they're in the current
-        // frame's local scope, or if they were exported prior to the nested frame being created.
-        accessed_non_locals
-            .iter()
-            .filter(|&non_local| {
-                self.local_registers.iter().any(|register| match register {
-                    LocalRegister::Assigned(assigned) if assigned == non_local => true,
-                    LocalRegister::Reserved(reserved, _) if reserved == non_local => true,
-                    _ => false,
-                }) || self.exported_ids.contains(non_local)
-            })
-            .cloned()
-            .collect()
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
-enum ResultRegister {
+pub(crate) enum ResultRegister {
     // The result will be ignored, expressions without side-effects can be dropped.
     None,
     // The result can be any temporary register, or an assigned register.
@@ -683,7 +388,7 @@ impl Compiler {
                 self.compile_loop(result_register, Some((*condition, true)), *body, ast)?
             }
             Node::Loop { body } => self.compile_loop(result_register, None, *body, ast)?,
-            Node::Break(expression) => match self.frame().loop_stack.last() {
+            Node::Break(expression) => match self.frame().current_loop() {
                 Some(loop_info) => {
                     let loop_result_register = loop_info.result_register;
 
@@ -710,7 +415,7 @@ impl Compiler {
                 }
                 None => return self.error(ErrorKind::InvalidLoopKeyword("break".into())),
             },
-            Node::Continue => match self.frame().loop_stack.last() {
+            Node::Continue => match self.frame().current_loop() {
                 Some(loop_info) => {
                     let loop_result_register = loop_info.result_register;
                     let loop_start_ip = loop_info.start_ip;
@@ -1190,7 +895,7 @@ impl Compiler {
         }
 
         let result = self.get_result_register(result_register)?;
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
@@ -1413,8 +1118,7 @@ impl Compiler {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
-
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let mut imported = vec![];
 
@@ -1925,7 +1629,7 @@ impl Compiler {
 
         let result = self.get_result_register(result_register)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let comparison_register = match result {
             Some(result) => result.register,
@@ -2219,7 +1923,7 @@ impl Compiler {
                     _ => {
                         let max_batch_size = self.frame().available_registers_count() as usize;
                         for elements_batch in elements.chunks(max_batch_size) {
-                            let stack_count = self.frame().register_stack.len();
+                            let stack_count = self.stack_count();
                             let start_register = self.frame().next_temporary_register();
 
                             for element_node in elements_batch {
@@ -2473,7 +2177,7 @@ impl Compiler {
 
         // At the end of the lookup we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
 
         // Where should the final value in the lookup chain be placed?
@@ -3017,7 +2721,7 @@ impl Compiler {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         // The frame base is an empty register that may be used for an instance value if needed
         // (it's decided at runtime if the instance value will be used or not).
@@ -3179,7 +2883,7 @@ impl Compiler {
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let mut result_jump_placeholders = Vec::new();
 
@@ -3245,7 +2949,7 @@ impl Compiler {
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let match_register = self
             .compile_node(ResultRegister::Any, match_expression, ast)?
@@ -3711,7 +3415,7 @@ impl Compiler {
             None
         };
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let iterator_register = {
             let iterator_register = self.push_register()?;
@@ -3735,11 +3439,8 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
-        self.frame_mut().loop_stack.push(Loop {
-            result_register: body_result_register,
-            start_ip: loop_start_ip,
-            jump_placeholders: vec![],
-        });
+        self.frame_mut()
+            .push_loop(loop_start_ip, body_result_register);
 
         match args.as_slice() {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
@@ -3808,15 +3509,7 @@ impl Compiler {
         )?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
-
-        match self.frame_mut().loop_stack.pop() {
-            Some(loop_info) => {
-                for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder)?;
-                }
-            }
-            None => return self.error(ErrorKind::EmptyLoopInfoStack),
-        }
+        self.pop_loop_and_update_placeholders()?;
 
         self.truncate_register_stack(stack_count)?;
 
@@ -3857,12 +3550,8 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
-
-        self.frame_mut().loop_stack.push(Loop {
-            start_ip: loop_start_ip,
-            result_register: body_result_register,
-            jump_placeholders: Vec::new(),
-        });
+        self.frame_mut()
+            .push_loop(loop_start_ip, body_result_register);
 
         if let Some((condition, negate_condition)) = condition {
             // Condition
@@ -3897,14 +3586,7 @@ impl Compiler {
             }
         }
 
-        match self.frame_mut().loop_stack.pop() {
-            Some(loop_info) => {
-                for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder)?;
-                }
-            }
-            None => return self.error(ErrorKind::EmptyLoopInfoStack),
-        }
+        self.pop_loop_and_update_placeholders()?;
 
         Ok(result)
     }
@@ -3935,13 +3617,22 @@ impl Compiler {
 
     fn push_loop_jump_placeholder(&mut self) -> Result<(), CompilerError> {
         let placeholder = self.push_offset_placeholder();
-        match self.frame_mut().loop_stack.last_mut() {
-            Some(loop_info) => {
-                loop_info.jump_placeholders.push(placeholder);
-                Ok(())
-            }
-            None => self.error(ErrorKind::EmptyLoopInfoStack),
+        self.frame_mut()
+            .push_loop_jump_placeholder(placeholder)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn pop_loop_and_update_placeholders(&mut self) -> Result<(), CompilerError> {
+        let loop_info = self
+            .frame_mut()
+            .pop_loop()
+            .map_err(|e| self.make_error(e))?;
+
+        for placeholder in loop_info.jump_placeholders.iter() {
+            self.update_offset_placeholder(*placeholder)?;
         }
+
+        Ok(())
     }
 
     fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<(), CompilerError> {
@@ -3982,6 +3673,10 @@ impl Compiler {
 
     fn frame_mut(&mut self) -> &mut Frame {
         self.frame_stack.last_mut().expect("Frame stack is empty")
+    }
+
+    fn stack_count(&self) -> usize {
+        self.frame().register_stack_size()
     }
 
     fn push_register(&mut self) -> Result<u8, CompilerError> {
