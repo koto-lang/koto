@@ -86,6 +86,8 @@ enum ErrorKind {
     FrameError(#[from] FrameError),
 }
 
+type Result<T> = std::result::Result<T, CompilerError>;
+
 /// The error type used to report errors during compilation
 #[derive(Error, Clone, Debug)]
 #[error("{error}")]
@@ -130,8 +132,6 @@ impl CompileResult {
     }
 }
 
-type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
-
 /// The settings used by the [Compiler]
 #[derive(Default)]
 pub struct CompilerSettings {
@@ -156,10 +156,7 @@ impl Compiler {
     /// Compiles an [Ast]
     ///
     /// Returns compiled bytecode along with corresponding debug information
-    pub fn compile(
-        ast: &Ast,
-        settings: CompilerSettings,
-    ) -> Result<(Box<[u8]>, DebugInfo), CompilerError> {
+    pub fn compile(ast: &Ast, settings: CompilerSettings) -> Result<(Box<[u8]>, DebugInfo)> {
         let mut compiler = Compiler {
             settings,
             ..Default::default()
@@ -181,7 +178,7 @@ impl Compiler {
         result_register: ResultRegister,
         node_index: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let node = ast.node(node_index);
@@ -544,7 +541,10 @@ impl Compiler {
         Ok(result)
     }
 
-    fn get_result_register(&mut self, result_register: ResultRegister) -> CompileNodeResult {
+    fn get_result_register(
+        &mut self,
+        result_register: ResultRegister,
+    ) -> Result<Option<CompileResult>> {
         let result = match result_register {
             ResultRegister::Fixed(register) => Some(CompileResult::with_assigned(register)),
             ResultRegister::Any => Some(CompileResult::with_temporary(self.push_register()?)),
@@ -562,7 +562,7 @@ impl Compiler {
         captures: &[ConstantIndex],
         ast: &Ast,
         allow_implicit_return: bool,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         self.frame_stack.push(Frame::new(
             local_count,
             &self.collect_args(args, ast)?,
@@ -620,7 +620,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
+    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>> {
         // Collect args for local assignment in the new frame
         // Top-level args need to match the arguments as they appear in the arg list, with
         // Placeholders for wildcards and containers that are being unpacked.
@@ -658,7 +658,7 @@ impl Compiler {
         Ok(result)
     }
 
-    fn collect_nested_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
+    fn collect_nested_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>> {
         let mut result = Vec::new();
 
         for arg in args.iter() {
@@ -687,7 +687,7 @@ impl Compiler {
         container_register: u8,
         args: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         use Op::*;
 
         let mut index_from_end = false;
@@ -760,7 +760,7 @@ impl Compiler {
         result_register: ResultRegister,
         expressions: &[AstIndex],
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::SetNull;
 
         let result = match expressions {
@@ -792,7 +792,7 @@ impl Compiler {
         &mut self,
         target: AstIndex,
         ast: &Ast,
-    ) -> Result<Option<u8>, CompilerError> {
+    ) -> Result<Option<u8>> {
         let result = match &ast.node(target).node {
             Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
@@ -814,7 +814,7 @@ impl Compiler {
         expression: AstIndex,
         export_assignment: bool,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let local_assign_register = self.local_register_for_assign_target(target, ast)?;
@@ -887,7 +887,7 @@ impl Compiler {
         targets: &[AstIndex],
         expression: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         if targets.len() >= u8::MAX as usize {
@@ -901,7 +901,7 @@ impl Compiler {
         let target_registers = targets
             .iter()
             .map(|target| self.local_register_for_assign_target(*target, ast))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         let rhs_node = ast.node(expression);
         let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
@@ -1017,7 +1017,7 @@ impl Compiler {
         &mut self,
         result_register: ResultRegister,
         id: ConstantIndex,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             match result_register {
                 ResultRegister::None => None,
@@ -1044,11 +1044,7 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_value_export(
-        &mut self,
-        id: ConstantIndex,
-        value_register: u8,
-    ) -> Result<(), CompilerError> {
+    fn compile_value_export(&mut self, id: ConstantIndex, value_register: u8) -> Result<()> {
         let id_register = self.push_register()?;
         self.compile_load_string_constant(id_register, id);
         self.push_op(Op::ValueExport, &[id_register, value_register]);
@@ -1062,7 +1058,7 @@ impl Compiler {
         meta_id: MetaKeyId,
         name: Option<ConstantIndex>,
         value_register: u8,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         if let Some(name) = name {
             let name_register = self.push_register()?;
             self.compile_load_string_constant(name_register, name);
@@ -1114,7 +1110,7 @@ impl Compiler {
         from: &[IdOrString],
         items: &[ImportItem],
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
@@ -1254,7 +1250,7 @@ impl Compiler {
         result_register: ResultRegister,
         expression: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let expression_node = ast.node(expression);
 
         match &expression_node.node {
@@ -1269,12 +1265,7 @@ impl Compiler {
         }
     }
 
-    fn compile_from(
-        &mut self,
-        result_register: u8,
-        path: &[IdOrString],
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    fn compile_from(&mut self, result_register: u8, path: &[IdOrString], ast: &Ast) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
@@ -1307,7 +1298,7 @@ impl Compiler {
         result_register: u8,
         item: &IdOrString,
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         use Op::*;
 
         match item {
@@ -1343,7 +1334,7 @@ impl Compiler {
         result_register: ResultRegister,
         try_expression: &AstTry,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let AstTry {
@@ -1424,7 +1415,7 @@ impl Compiler {
         op: AstUnaryOp,
         value: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         let value_register = self.compile_node(ResultRegister::Any, value, ast)?.unwrap();
@@ -1452,7 +1443,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use AstBinaryOp::*;
 
         match op {
@@ -1477,7 +1468,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use AstBinaryOp::*;
 
         let op = match op {
@@ -1531,7 +1522,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use AstBinaryOp::*;
 
         let op = match ast_op {
@@ -1607,7 +1598,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use AstBinaryOp::*;
 
         let get_comparision_op = |ast_op| {
@@ -1712,7 +1703,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         // A register is needed to perform the jump,
@@ -1747,7 +1738,7 @@ impl Compiler {
         result_register: ResultRegister,
         contents: &StringContents,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         match contents {
@@ -1855,7 +1846,7 @@ impl Compiler {
         result_register: ResultRegister,
         elements: &[AstIndex],
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
                 for element in elements.iter() {
@@ -1894,7 +1885,7 @@ impl Compiler {
         elements: &[AstIndex],
         finish_op: Op,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let result = match self.get_result_register(result_register)? {
@@ -1969,7 +1960,7 @@ impl Compiler {
         entries: &[(MapKey, Option<AstIndex>)],
         export_entries: bool,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         // Create the map with an appropriate size hint
@@ -2033,7 +2024,7 @@ impl Compiler {
         result_register: ResultRegister,
         function: &Function,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         if let Some(result) = self.get_result_register(result_register)? {
@@ -2160,7 +2151,7 @@ impl Compiler {
         rhs: Option<u8>,
         rhs_op: Option<Op>,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         if next_node_index.is_none() {
@@ -2495,7 +2486,7 @@ impl Compiler {
         map_register: Option<u8>,
         export_entry: bool,
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         use Op::*;
 
         match key {
@@ -2580,7 +2571,7 @@ impl Compiler {
         value_register: u8,
         key_string_contents: &StringContents,
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         let key_register = self.push_register()?;
         self.compile_string(
             ResultRegister::Fixed(key_register),
@@ -2602,7 +2593,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         // First things first, if a temporary result register is to be used, assign it now.
         let result = self.get_result_register(result_register)?;
 
@@ -2674,7 +2665,7 @@ impl Compiler {
         args: &[AstIndex],
         piped_arg: Option<u8>,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         if let Some(function_register) = self.frame().get_local_assigned_register(function_id) {
             self.compile_call(
                 result_register,
@@ -2717,7 +2708,7 @@ impl Compiler {
         piped_arg: Option<u8>,
         instance: Option<u8>,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
@@ -2785,7 +2776,7 @@ impl Compiler {
         result_register: ResultRegister,
         ast_if: &AstIf,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let AstIf {
@@ -2831,30 +2822,28 @@ impl Compiler {
         // Iterate through the else if blocks and collect their end jump placeholders
         let else_if_jump_ips = else_if_blocks
             .iter()
-            .map(
-                |(else_if_condition, else_if_node)| -> Result<usize, CompilerError> {
-                    let condition = self
-                        .compile_node(ResultRegister::Any, *else_if_condition, ast)?
-                        .unwrap();
+            .map(|(else_if_condition, else_if_node)| -> Result<usize> {
+                let condition = self
+                    .compile_node(ResultRegister::Any, *else_if_condition, ast)?
+                    .unwrap();
 
-                    self.push_op_without_span(JumpIfFalse, &[condition.register]);
-                    let conditon_jump_ip = self.push_offset_placeholder();
+                self.push_op_without_span(JumpIfFalse, &[condition.register]);
+                let conditon_jump_ip = self.push_offset_placeholder();
 
-                    if condition.is_temporary {
-                        self.pop_register()?;
-                    }
+                if condition.is_temporary {
+                    self.pop_register()?;
+                }
 
-                    self.compile_node(expression_result_register, *else_if_node, ast)?;
+                self.compile_node(expression_result_register, *else_if_node, ast)?;
 
-                    self.push_op_without_span(Jump, &[]);
-                    let else_if_jump_ip = self.push_offset_placeholder();
+                self.push_op_without_span(Jump, &[]);
+                let else_if_jump_ip = self.push_offset_placeholder();
 
-                    self.update_offset_placeholder(conditon_jump_ip)?;
+                self.update_offset_placeholder(conditon_jump_ip)?;
 
-                    Ok(else_if_jump_ip)
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?;
+                Ok(else_if_jump_ip)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         // Else - either compile the else block, or set the result to empty
         if let Some(else_node) = else_node {
@@ -2880,7 +2869,7 @@ impl Compiler {
         result_register: ResultRegister,
         arms: &[SwitchArm],
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         let stack_count = self.stack_count();
@@ -2946,7 +2935,7 @@ impl Compiler {
         match_expression: AstIndex,
         arms: &[MatchArm],
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let result = self.get_result_register(result_register)?;
 
         let stack_count = self.stack_count();
@@ -2963,7 +2952,7 @@ impl Compiler {
         let arm_jump_placeholders = arms
             .iter()
             .map(|arm| self.compile_match_arm(result, match_register.register, match_len, arm, ast))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         // Set the result to Null in case there was no matching arm
         if let Some(result) = result {
@@ -2990,7 +2979,7 @@ impl Compiler {
         match_len: usize,
         arm: &MatchArm,
         ast: &Ast,
-    ) -> Result<Option<usize>, CompilerError> {
+    ) -> Result<Option<usize>> {
         let mut jumps = MatchJumpPlaceholders::default();
 
         for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
@@ -3123,7 +3112,7 @@ impl Compiler {
         match_is_container: bool,
         arm_patterns: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         use Op::*;
 
         let mut index_from_end = false;
@@ -3288,7 +3277,7 @@ impl Compiler {
         nested_patterns: &[AstIndex],
         type_check_op: Op,
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         use Op::*;
 
         let value_register = if let Some(pattern_index) = pattern_index {
@@ -3389,7 +3378,7 @@ impl Compiler {
         result_register: ResultRegister, // register that gets the last iteration's result
         ast_for: &AstFor,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let AstFor {
@@ -3534,7 +3523,7 @@ impl Compiler {
         condition: Option<(AstIndex, bool)>, // condition, negate condition
         body: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
@@ -3596,7 +3585,7 @@ impl Compiler {
         result_register: ResultRegister,
         node_index: AstIndex,
         ast: &Ast,
-    ) -> CompileNodeResult {
+    ) -> Result<Option<CompileResult>> {
         let offset_ip = self.push_offset_placeholder();
         let result = self.compile_node(result_register, node_index, ast)?;
         self.update_offset_placeholder(offset_ip)?;
@@ -3615,14 +3604,14 @@ impl Compiler {
         offset_ip
     }
 
-    fn push_loop_jump_placeholder(&mut self) -> Result<(), CompilerError> {
+    fn push_loop_jump_placeholder(&mut self) -> Result<()> {
         let placeholder = self.push_offset_placeholder();
         self.frame_mut()
             .push_loop_jump_placeholder(placeholder)
             .map_err(|e| self.make_error(e))
     }
 
-    fn pop_loop_and_update_placeholders(&mut self) -> Result<(), CompilerError> {
+    fn pop_loop_and_update_placeholders(&mut self) -> Result<()> {
         let loop_info = self
             .frame_mut()
             .pop_loop()
@@ -3635,7 +3624,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<(), CompilerError> {
+    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<()> {
         let offset = self.bytes.len() - offset_ip - 2; // -2 bytes for u16
         match u16::try_from(offset) {
             Ok(offset_u16) => {
@@ -3679,43 +3668,43 @@ impl Compiler {
         self.frame().register_stack_size()
     }
 
-    fn push_register(&mut self) -> Result<u8, CompilerError> {
+    fn push_register(&mut self) -> Result<u8> {
         self.frame_mut()
             .push_register()
             .map_err(|e| self.make_error(e))
     }
 
-    fn pop_register(&mut self) -> Result<u8, CompilerError> {
+    fn pop_register(&mut self) -> Result<u8> {
         self.frame_mut()
             .pop_register()
             .map_err(|e| self.make_error(e))
     }
 
-    fn peek_register(&mut self, n: usize) -> Result<u8, CompilerError> {
+    fn peek_register(&mut self, n: usize) -> Result<u8> {
         self.frame_mut()
             .peek_register(n)
             .map_err(|e| self.make_error(e))
     }
 
-    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), CompilerError> {
+    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<()> {
         self.frame_mut()
             .truncate_register_stack(stack_count)
             .map_err(|e| self.make_error(e))
     }
 
-    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .assign_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
-    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .reserve_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
-    fn commit_local_register(&mut self, register: u8) -> Result<u8, CompilerError> {
+    fn commit_local_register(&mut self, register: u8) -> Result<u8> {
         for deferred_op in self
             .frame_mut()
             .commit_local_register(register)
@@ -3727,7 +3716,7 @@ impl Compiler {
         Ok(register)
     }
 
-    fn error<T>(&self, error: impl Into<ErrorKind>) -> Result<T, CompilerError> {
+    fn error<T>(&self, error: impl Into<ErrorKind>) -> Result<T> {
         Err(self.make_error(error))
     }
 
