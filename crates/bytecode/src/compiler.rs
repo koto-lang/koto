@@ -1,11 +1,13 @@
-use crate::{DebugInfo, FunctionFlags, Op, TypeId};
+use crate::{
+    frame::{Arg, AssignedOrReserved, Frame, FrameError},
+    DebugInfo, FunctionFlags, Op, TypeId,
+};
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
     Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
     StringContents, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
-use std::collections::HashSet;
 use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
@@ -14,8 +16,6 @@ use thiserror::Error;
 enum ErrorKind {
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
-    #[error("the loop stack is empty")]
-    EmptyLoopInfoStack,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
@@ -36,10 +36,6 @@ enum ErrorKind {
     MissingArgumentInForLoop,
     #[error("missing arg register")]
     MissingArgRegister,
-    #[error("missing LHS for binary op")]
-    MissingBinaryOpLhs,
-    #[error("missing RHS for binary op")]
-    MissingBinaryOpRhs,
     #[error("missing item to import")]
     MissingImportItem,
     #[error("missing next node while compiling lookup")]
@@ -54,6 +50,8 @@ enum ErrorKind {
     MissingValueForMapEntry,
     #[error("only one ellipsis is allowed in a match arm")]
     MultipleMatchEllipses,
+    #[error("the compiled expression has no output")]
+    NoResultInExpressionOutput,
     #[error("child lookup node out of position in lookup")]
     OutOfPositionChildNodeInLookup,
     #[error("matching with ellipses is only allowed in first or last position")]
@@ -86,6 +84,8 @@ enum ErrorKind {
     FrameError(#[from] FrameError),
 }
 
+type Result<T> = std::result::Result<T, CompilerError>;
+
 /// The error type used to report errors during compilation
 #[derive(Error, Clone, Debug)]
 #[error("{error}")]
@@ -96,336 +96,98 @@ pub struct CompilerError {
     pub span: Span,
 }
 
-#[derive(Clone, Debug)]
-struct Loop {
-    // The loop's result register,
-    result_register: Option<u8>,
-    // The ip of the start of the loop, used for continue statements
-    start_ip: usize,
-    // Placeholders for jumps to the end of the loop, updated when the loop compilation is complete
-    jump_placeholders: Vec<usize>,
+#[derive(Copy, Clone)]
+struct CompileNodeContext<'a> {
+    ast: &'a Ast,
+    result_register: ResultRegister,
 }
 
-enum Arg {
-    Local(ConstantIndex),
-    Unpacked(ConstantIndex),
-    Placeholder,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum LocalRegister {
-    // The register is assigned to a specific id.
-    Assigned(ConstantIndex),
-    // The register is reserved at the start of an assignment expression,
-    // and it will become assigned at the end of the assignment.
-    // Instructions can be deferred until the register is committed,
-    // e.g. for functions that need to capture themselves after they've been fully assigned.
-    Reserved(ConstantIndex, Vec<DeferredOp>),
-    // The register contains a value not associated with an id, e.g. a wildcard function arg
-    Allocated,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum AssignedOrReserved {
-    Assigned(u8),
-    Reserved(u8),
-    Unassigned,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct DeferredOp {
-    bytes: Vec<u8>,
-    span: Span,
-}
-
-/// The different error types that can be thrown by the Koto runtime
-#[derive(Error, Clone, Debug)]
-enum FrameError {
-    #[error("empty register stack")]
-    EmptyRegisterStack,
-    #[error("local register overflow")]
-    LocalRegisterOverflow,
-    #[error("the frame has reached the maximum number of registers")]
-    StackOverflow,
-    #[error("unable to commit register {0}")]
-    UnableToCommitRegister(u8),
-    #[error("unable to peek register {0}")]
-    UnableToPeekRegister(usize),
-    #[error("unexpected temporary register {0}")]
-    UnexpectedTemporaryRegister(u8),
-    #[error("register {0} hasn't been reserved")]
-    UnreservedRegister(u8),
-}
-
-#[derive(Clone, Debug, Default)]
-struct Frame {
-    loop_stack: Vec<Loop>,
-    register_stack: Vec<u8>,
-    local_registers: Vec<LocalRegister>,
-    exported_ids: HashSet<ConstantIndex>,
-    temporary_base: u8,
-    temporary_count: u8,
-    // Used to decide if an additional return instruction is needed,
-    // e.g. `f = |x| return x`
-    //               ^ explicit return as final expression, implicit return not needed
-    // This is a coarse check, e.g. we currently don't check if the last expression
-    // returns in all branches, but it'll do for now as an optimization for simple cases.
-    last_node_was_return: bool,
-}
-
-impl Frame {
-    fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
-        let temporary_base =
-            // register 0 is always self
-            1
-            // Includes all named args (including unpacked args),
-            // and any locally assigned values.
-            + local_count
-            // Captures get copied to local registers when the function is called.
-            + captures.len() as u8
-            // To get the first temporary register, we also need to include 'unnamed' args, which
-            // are represented in the args list as Placeholders.
-            + args
-                .iter()
-                .filter(|arg| matches!(arg, Arg::Placeholder))
-                .count() as u8;
-
-        // First, assign registers to the 'top-level' args, including placeholder registers
-        let mut local_registers = Vec::with_capacity(1 + args.len() + captures.len());
-        local_registers.push(LocalRegister::Allocated); // self
-        local_registers.extend(args.iter().filter_map(|arg| match arg {
-            Arg::Local(id) => Some(LocalRegister::Assigned(*id)),
-            Arg::Placeholder => Some(LocalRegister::Allocated),
-            _ => None,
-        }));
-
-        // Next, assign registers for the function's captures
-        local_registers.extend(captures.iter().map(|id| LocalRegister::Assigned(*id)));
-
-        // Finally, assign registers for args that will be unpacked when the function is called
-        local_registers.extend(args.iter().filter_map(|arg| match arg {
-            Arg::Unpacked(id) => Some(LocalRegister::Assigned(*id)),
-            _ => None,
-        }));
-
+impl<'a> CompileNodeContext<'a> {
+    fn new(ast: &'a Ast, result_register: ResultRegister) -> Self {
         Self {
-            register_stack: Vec::with_capacity(temporary_base as usize),
-            local_registers,
-            temporary_base,
-            ..Default::default()
+            ast,
+            result_register,
         }
     }
 
-    fn push_register(&mut self) -> Result<u8, FrameError> {
-        let new_register = self.temporary_base + self.temporary_count;
-        self.temporary_count += 1;
-
-        if new_register == u8::MAX {
-            Err(FrameError::StackOverflow)
-        } else {
-            self.register_stack.push(new_register);
-            Ok(new_register)
+    fn with_register(self, result_register: ResultRegister) -> Self {
+        Self {
+            result_register,
+            ..self
         }
     }
 
-    fn get_local_assigned_register(&self, local_name: ConstantIndex) -> Option<u8> {
-        self.local_registers
-            .iter()
-            .position(|local_register| {
-                matches!(local_register,
-                    LocalRegister::Assigned(assigned) if *assigned == local_name
-                )
-            })
-            .map(|position| position as u8)
-    }
-
-    fn get_local_assigned_or_reserved_register(
-        &self,
-        local_name: ConstantIndex,
-    ) -> AssignedOrReserved {
-        for (i, local_register) in self.local_registers.iter().enumerate() {
-            match local_register {
-                LocalRegister::Assigned(assigned) if *assigned == local_name => {
-                    return AssignedOrReserved::Assigned(i as u8);
-                }
-                LocalRegister::Reserved(reserved, _) if *reserved == local_name => {
-                    return AssignedOrReserved::Reserved(i as u8);
-                }
-                _ => {}
-            }
-        }
-        AssignedOrReserved::Unassigned
-    }
-
-    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
-        match self.get_local_assigned_or_reserved_register(local) {
-            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
-            AssignedOrReserved::Reserved(reserved) => Ok(reserved),
-            AssignedOrReserved::Unassigned => {
-                self.local_registers
-                    .push(LocalRegister::Reserved(local, vec![]));
-
-                let new_local_register = self.local_registers.len() - 1;
-
-                if new_local_register < self.temporary_base as usize {
-                    Ok(new_local_register as u8)
-                } else {
-                    Err(FrameError::LocalRegisterOverflow)
-                }
-            }
+    fn with_any_register(self) -> Self {
+        Self {
+            result_register: ResultRegister::Any,
+            ..self
         }
     }
 
-    fn add_to_exported_ids(&mut self, id: ConstantIndex) {
-        self.exported_ids.insert(id);
-    }
-
-    fn defer_op_until_register_is_committed(
-        &mut self,
-        reserved_register: u8,
-        bytes: Vec<u8>,
-        span: Span,
-    ) -> Result<(), FrameError> {
-        match self.local_registers.get_mut(reserved_register as usize) {
-            Some(LocalRegister::Reserved(_, deferred_ops)) => {
-                deferred_ops.push(DeferredOp { bytes, span });
-                Ok(())
-            }
-            _ => Err(FrameError::UnreservedRegister(reserved_register)),
+    fn with_fixed_register(self, register: u8) -> Self {
+        Self {
+            result_register: ResultRegister::Fixed(register),
+            ..self
         }
     }
 
-    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<DeferredOp>, FrameError> {
-        let local_register = local_register as usize;
-        let (index, deferred_ops) = match self.local_registers.get(local_register) {
-            Some(LocalRegister::Assigned(_)) => {
-                return Ok(vec![]);
-            }
-            Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.to_vec()),
-            _ => return Err(FrameError::UnreservedRegister(local_register as u8)),
-        };
-
-        self.local_registers[local_register] = LocalRegister::Assigned(index);
-        Ok(deferred_ops)
-    }
-
-    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, FrameError> {
-        match self.get_local_assigned_or_reserved_register(local) {
-            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
-            AssignedOrReserved::Reserved(reserved) => {
-                let deferred_ops = self.commit_local_register(reserved)?;
-                if deferred_ops.is_empty() {
-                    Ok(reserved)
-                } else {
-                    Err(FrameError::UnableToCommitRegister(reserved))
-                }
-            }
-            AssignedOrReserved::Unassigned => {
-                self.local_registers.push(LocalRegister::Assigned(local));
-                let new_local_register = self.local_registers.len() - 1;
-                if new_local_register < self.temporary_base as usize {
-                    Ok(new_local_register as u8)
-                } else {
-                    Err(FrameError::LocalRegisterOverflow)
-                }
-            }
+    fn compile_for_side_effects(self) -> Self {
+        Self {
+            result_register: ResultRegister::None,
+            ..self
         }
-    }
-
-    fn pop_register(&mut self) -> Result<u8, FrameError> {
-        let Some(register) = self.register_stack.pop() else {
-            return Err(FrameError::EmptyRegisterStack);
-        };
-
-        if register >= self.temporary_base {
-            if self.temporary_count == 0 {
-                return Err(FrameError::UnexpectedTemporaryRegister(register));
-            }
-
-            self.temporary_count -= 1;
-        }
-
-        Ok(register)
-    }
-
-    fn peek_register(&self, n: usize) -> Result<u8, FrameError> {
-        self.register_stack
-            .get(self.register_stack.len() - n - 1)
-            .cloned()
-            .ok_or(FrameError::UnableToPeekRegister(n))
-    }
-
-    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), FrameError> {
-        while self.register_stack.len() > stack_count {
-            self.pop_register()?;
-        }
-
-        Ok(())
-    }
-
-    fn next_temporary_register(&self) -> u8 {
-        self.temporary_count + self.temporary_base
-    }
-
-    fn available_registers_count(&self) -> u8 {
-        u8::MAX - self.next_temporary_register()
-    }
-
-    fn captures_for_nested_frame(
-        &self,
-        accessed_non_locals: &[ConstantIndex],
-    ) -> Vec<ConstantIndex> {
-        // The non-locals accessed in the nested frame should be captured if they're in the current
-        // frame's local scope, or if they were exported prior to the nested frame being created.
-        accessed_non_locals
-            .iter()
-            .filter(|&non_local| {
-                self.local_registers.iter().any(|register| match register {
-                    LocalRegister::Assigned(assigned) if assigned == non_local => true,
-                    LocalRegister::Reserved(reserved, _) if reserved == non_local => true,
-                    _ => false,
-                }) || self.exported_ids.contains(non_local)
-            })
-            .cloned()
-            .collect()
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-enum ResultRegister {
+pub(crate) enum ResultRegister {
     // The result will be ignored, expressions without side-effects can be dropped.
     None,
-    // The result can be any temporary register, or an assigned register.
+    // The result can be an assigned register or placed in a temporary register.
     Any,
     // The result must be placed in the specified register.
     Fixed(u8),
 }
 
-// While compiling a node, ResultRegister::Any might cause a temporary register to be allocated,
-// so the result register should be determined before other temporary registers are allocated.
+// ResultRegister::Any might cause a temporary register to be assigned.
+// This means that when compiling a node, the result register should always be determined as a first
+// step before other temporary registers are assigned, so that the temporary nodes can be discarded
+// without removing the result register.
 #[derive(Clone, Copy, Debug, Default)]
-struct CompileResult {
-    register: u8,
+struct CompileNodeOutput {
+    register: Option<u8>,
+    // The caller of compile_node is responsible for discarding temporary registers when the result
+    // is no longer needed.
     is_temporary: bool,
 }
 
-impl CompileResult {
+impl CompileNodeOutput {
+    fn none() -> Self {
+        Self {
+            register: None,
+            is_temporary: false,
+        }
+    }
+
     fn with_assigned(register: u8) -> Self {
         Self {
-            register,
+            register: Some(register),
             is_temporary: false,
         }
     }
 
     fn with_temporary(register: u8) -> Self {
         Self {
-            register,
+            register: Some(register),
             is_temporary: true,
         }
     }
-}
 
-type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
+    fn unwrap(&self, compiler: &Compiler) -> Result<u8> {
+        self.register
+            .ok_or_else(|| compiler.make_error(ErrorKind::NoResultInExpressionOutput))
+    }
+}
 
 /// The settings used by the [Compiler]
 #[derive(Default)]
@@ -451,17 +213,17 @@ impl Compiler {
     /// Compiles an [Ast]
     ///
     /// Returns compiled bytecode along with corresponding debug information
-    pub fn compile(
-        ast: &Ast,
-        settings: CompilerSettings,
-    ) -> Result<(Box<[u8]>, DebugInfo), CompilerError> {
+    pub fn compile(ast: &Ast, settings: CompilerSettings) -> Result<(Box<[u8]>, DebugInfo)> {
         let mut compiler = Compiler {
             settings,
             ..Default::default()
         };
 
         if let Some(entry_point) = ast.entry_point() {
-            compiler.compile_node(ResultRegister::None, entry_point, ast)?;
+            compiler.compile_node(
+                entry_point,
+                CompileNodeContext::new(ast, ResultRegister::None),
+            )?;
         }
 
         if compiler.bytes.len() <= u32::MAX as usize {
@@ -473,15 +235,14 @@ impl Compiler {
 
     fn compile_node(
         &mut self,
-        result_register: ResultRegister,
         node_index: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let node = ast.node(node_index);
+        let node = ctx.ast.node(node_index);
 
-        self.push_span(node, ast);
+        self.push_span(node, ctx.ast);
 
         if !self.frame_stack.is_empty() {
             self.frame_mut().last_node_was_return = matches!(&node.node, Node::Return(_));
@@ -489,72 +250,68 @@ impl Compiler {
 
         let result = match &node.node {
             Node::Null => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(SetNull, &[result.register]);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
+                    self.push_op(SetNull, &[result]);
                 }
                 result
             }
-            Node::Nested(nested) => self.compile_node(result_register, *nested, ast)?,
-            Node::Id(index) => self.compile_load_id(result_register, *index)?,
-            Node::Lookup(lookup) => {
-                self.compile_lookup(result_register, lookup, None, None, None, ast)?
-            }
+            Node::Nested(nested) => self.compile_node(*nested, ctx)?,
+            Node::Id(index) => self.compile_load_id(*index, ctx)?,
+            Node::Lookup(lookup) => self.compile_lookup(lookup, None, None, None, ctx)?,
             Node::BoolTrue => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(SetTrue, &[result.register]);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
+                    self.push_op(SetTrue, &[result]);
                 }
                 result
             }
             Node::BoolFalse => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(SetFalse, &[result.register]);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
+                    self.push_op(SetFalse, &[result]);
                 }
                 result
             }
             Node::SmallInt(n) => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
                     match *n {
-                        0 => self.push_op(Set0, &[result.register]),
-                        1 => self.push_op(Set1, &[result.register]),
-                        n if n >= 0 => self.push_op(SetNumberU8, &[result.register, n as u8]),
-                        n => {
-                            self.push_op(SetNumberNegU8, &[result.register, n.unsigned_abs() as u8])
-                        }
+                        0 => self.push_op(Set0, &[result]),
+                        1 => self.push_op(Set1, &[result]),
+                        n if n >= 0 => self.push_op(SetNumberU8, &[result, n as u8]),
+                        n => self.push_op(SetNumberNegU8, &[result, n.unsigned_abs() as u8]),
                     }
                 }
                 result
             }
             Node::Float(constant) => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.compile_constant_op(result.register, *constant, LoadFloat);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
+                    self.compile_constant_op(result, *constant, LoadFloat);
                 }
                 result
             }
             Node::Int(constant) => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.compile_constant_op(result.register, *constant, LoadInt);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result) = result.register {
+                    self.compile_constant_op(result, *constant, LoadInt);
                 }
                 result
             }
-            Node::Str(string) => self.compile_string(result_register, &string.contents, ast)?,
+            Node::Str(string) => self.compile_string(&string.contents, ctx)?,
             Node::List(elements) => {
-                self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
+                self.compile_make_sequence(elements, Op::SequenceToList, ctx)?
             }
-            Node::Map(entries) => self.compile_make_map(result_register, entries, false, ast)?,
+            Node::Map(entries) => self.compile_make_map(entries, false, ctx)?,
             Node::Self_ => {
                 // self is always in register 0
-                match result_register {
-                    ResultRegister::None => None,
-                    ResultRegister::Any => Some(CompileResult::with_assigned(0)),
+                match ctx.result_register {
+                    ResultRegister::None => CompileNodeOutput::none(),
+                    ResultRegister::Any => CompileNodeOutput::with_assigned(0),
                     ResultRegister::Fixed(register) => {
                         self.push_op(Op::Copy, &[register, 0]);
-                        Some(CompileResult::with_assigned(register))
+                        CompileNodeOutput::with_assigned(register)
                     }
                 }
             }
@@ -562,139 +319,127 @@ impl Compiler {
                 start,
                 end,
                 inclusive,
-            } => match self.get_result_register(result_register)? {
-                Some(result) => {
-                    let start_register = self
-                        .compile_node(ResultRegister::Any, *start, ast)?
-                        .unwrap();
+            } => {
+                let result = self.assign_result_register(ctx)?;
 
-                    let end_register = self.compile_node(ResultRegister::Any, *end, ast)?.unwrap();
+                if let Some(result_register) = result.register {
+                    let start_result = self.compile_node(*start, ctx.with_any_register())?;
+                    let end_result = self.compile_node(*end, ctx.with_any_register())?;
 
                     let op = if *inclusive { RangeInclusive } else { Range };
                     self.push_op(
                         op,
                         &[
-                            result.register,
-                            start_register.register,
-                            end_register.register,
+                            result_register,
+                            start_result.unwrap(self)?,
+                            end_result.unwrap(self)?,
                         ],
                     );
 
-                    if start_register.is_temporary {
+                    if start_result.is_temporary {
                         self.pop_register()?;
                     }
-                    if end_register.is_temporary {
-                        self.pop_register()?;
-                    }
-
-                    Some(result)
-                }
-                None => {
-                    self.compile_node(ResultRegister::None, *start, ast)?;
-                    self.compile_node(ResultRegister::None, *end, ast)?
-                }
-            },
-            Node::RangeFrom { start } => match self.get_result_register(result_register)? {
-                Some(result) => {
-                    let start_register = self
-                        .compile_node(ResultRegister::Any, *start, ast)?
-                        .unwrap();
-
-                    self.push_op(RangeFrom, &[result.register, start_register.register]);
-
-                    if start_register.is_temporary {
+                    if end_result.is_temporary {
                         self.pop_register()?;
                     }
 
-                    Some(result)
+                    result
+                } else {
+                    self.compile_node(*start, ctx.compile_for_side_effects())?;
+                    self.compile_node(*end, ctx.compile_for_side_effects())?
                 }
-                None => self.compile_node(ResultRegister::None, *start, ast)?,
-            },
-            Node::RangeTo { end, inclusive } => match self.get_result_register(result_register)? {
-                Some(result) => {
-                    let end_register = self.compile_node(ResultRegister::Any, *end, ast)?.unwrap();
+            }
+            Node::RangeFrom { start } => {
+                let result = self.assign_result_register(ctx)?;
+                match result.register {
+                    Some(result_register) => {
+                        let start_result = self.compile_node(*start, ctx.with_any_register())?;
 
-                    let op = if *inclusive {
-                        RangeToInclusive
-                    } else {
-                        RangeTo
-                    };
-                    self.push_op(op, &[result.register, end_register.register]);
+                        self.push_op(RangeFrom, &[result_register, start_result.unwrap(self)?]);
 
-                    if end_register.is_temporary {
-                        self.pop_register()?;
+                        if start_result.is_temporary {
+                            self.pop_register()?;
+                        }
+
+                        result
                     }
-
-                    Some(result)
+                    None => self.compile_node(*start, ctx.compile_for_side_effects())?,
                 }
-                None => self.compile_node(ResultRegister::None, *end, ast)?,
-            },
+            }
+            Node::RangeTo { end, inclusive } => {
+                let result = self.assign_result_register(ctx)?;
+                match result.register {
+                    Some(result_register) => {
+                        let end_result = self.compile_node(*end, ctx.with_any_register())?;
+
+                        let op = if *inclusive {
+                            RangeToInclusive
+                        } else {
+                            RangeTo
+                        };
+                        self.push_op(op, &[result_register, end_result.unwrap(self)?]);
+
+                        if end_result.is_temporary {
+                            self.pop_register()?;
+                        }
+
+                        result
+                    }
+                    None => self.compile_node(*end, ctx.compile_for_side_effects())?,
+                }
+            }
             Node::RangeFull => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(RangeFull, &[result.register]);
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result_register) = result.register {
+                    self.push_op(RangeFull, &[result_register]);
                 }
                 result
             }
             Node::MainBlock { body, local_count } => {
-                self.compile_frame(*local_count as u8, body, &[], &[], ast, true)?;
-                None
+                self.compile_frame(*local_count as u8, body, &[], &[], true, ctx)?;
+                CompileNodeOutput::none()
             }
-            Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
+            Node::Block(expressions) => self.compile_block(expressions, ctx)?,
             Node::Tuple(elements) => {
-                self.compile_make_sequence(result_register, elements, Op::SequenceToTuple, ast)?
+                self.compile_make_sequence(elements, Op::SequenceToTuple, ctx)?
             }
-            Node::TempTuple(elements) => {
-                self.compile_make_temp_tuple(result_register, elements, ast)?
-            }
-            Node::Function(f) => self.compile_function(result_register, f, ast)?,
-            Node::NamedCall { id, args } => {
-                self.compile_named_call(result_register, *id, args, None, ast)?
-            }
-            Node::Import { from, items } => {
-                self.compile_import(result_register, from, items, ast)?
-            }
-            Node::Export(expression) => self.compile_export(result_register, *expression, ast)?,
+            Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
+            Node::Function(f) => self.compile_function(f, ctx)?,
+            Node::NamedCall { id, args } => self.compile_named_call(*id, args, None, ctx)?,
+            Node::Import { from, items } => self.compile_import(from, items, ctx)?,
+            Node::Export(expression) => self.compile_export(*expression, ctx)?,
             Node::Assign { target, expression } => {
-                self.compile_assign(result_register, *target, *expression, false, ast)?
+                self.compile_assign(*target, *expression, false, ctx)?
             }
             Node::MultiAssign {
                 targets,
                 expression,
-            } => self.compile_multi_assign(result_register, targets, *expression, ast)?,
-            Node::UnaryOp { op, value } => {
-                self.compile_unary_op(result_register, *op, *value, ast)?
-            }
-            Node::BinaryOp { op, lhs, rhs } => {
-                self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?
-            }
-            Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
-            Node::Match { expression, arms } => {
-                self.compile_match(result_register, *expression, arms, ast)?
-            }
-            Node::Switch(arms) => self.compile_switch(result_register, arms, ast)?,
+            } => self.compile_multi_assign(targets, *expression, ctx)?,
+            Node::UnaryOp { op, value } => self.compile_unary_op(*op, *value, ctx)?,
+            Node::BinaryOp { op, lhs, rhs } => self.compile_binary_op(*op, *lhs, *rhs, ctx)?,
+            Node::If(ast_if) => self.compile_if(ast_if, ctx)?,
+            Node::Match { expression, arms } => self.compile_match(*expression, arms, ctx)?,
+            Node::Switch(arms) => self.compile_switch(arms, ctx)?,
             Node::Ellipsis(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::Wildcard(_) => return self.error(ErrorKind::UnexpectedWildcard),
-            Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
+            Node::For(ast_for) => self.compile_for(ast_for, ctx)?,
             Node::While { condition, body } => {
-                self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
+                self.compile_loop(Some((*condition, false)), *body, ctx)?
             }
             Node::Until { condition, body } => {
-                self.compile_loop(result_register, Some((*condition, true)), *body, ast)?
+                self.compile_loop(Some((*condition, true)), *body, ctx)?
             }
-            Node::Loop { body } => self.compile_loop(result_register, None, *body, ast)?,
-            Node::Break(expression) => match self.frame().loop_stack.last() {
+            Node::Loop { body } => self.compile_loop(None, *body, ctx)?,
+            Node::Break(expression) => match self.frame().current_loop() {
                 Some(loop_info) => {
                     let loop_result_register = loop_info.result_register;
 
                     match (loop_result_register, expression) {
                         (Some(loop_result_register), Some(expression)) => {
                             self.compile_node(
-                                ResultRegister::Fixed(loop_result_register),
                                 *expression,
-                                ast,
-                            )?
-                            .unwrap();
+                                ctx.with_fixed_register(loop_result_register),
+                            )?;
                         }
                         (Some(loop_result_register), None) => {
                             self.push_op(SetNull, &[loop_result_register]);
@@ -706,11 +451,11 @@ impl Compiler {
                     self.push_op(Jump, &[]);
                     self.push_loop_jump_placeholder()?;
 
-                    None
+                    CompileNodeOutput::none()
                 }
                 None => return self.error(ErrorKind::InvalidLoopKeyword("break".into())),
             },
-            Node::Continue => match self.frame().loop_stack.last() {
+            Node::Continue => match self.frame().current_loop() {
                 Some(loop_info) => {
                     let loop_result_register = loop_info.result_register;
                     let loop_start_ip = loop_info.start_ip;
@@ -720,65 +465,65 @@ impl Compiler {
                     }
                     self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
-                    None
+                    CompileNodeOutput::none()
                 }
                 None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
-            Node::Return(None) => match self.get_result_register(result_register)? {
-                Some(result) => {
-                    self.push_op(SetNull, &[result.register]);
-                    self.push_op(Return, &[result.register]);
-                    Some(result)
+            Node::Return(None) => {
+                let result = self.assign_result_register(ctx)?;
+                match result.register {
+                    Some(result_register) => {
+                        self.push_op(SetNull, &[result_register]);
+                        self.push_op(Return, &[result_register]);
+                    }
+                    None => {
+                        let register = self.push_register()?;
+                        self.push_op(SetNull, &[register]);
+                        self.push_op(Return, &[register]);
+                        self.pop_register()?;
+                    }
                 }
-                None => {
-                    let register = self.push_register()?;
-                    self.push_op(SetNull, &[register]);
-                    self.push_op(Return, &[register]);
-                    self.pop_register()?;
-                    None
-                }
-            },
+                result
+            }
             Node::Return(Some(expression)) => {
-                let expression_register = self
-                    .compile_node(ResultRegister::Any, *expression, ast)?
-                    .unwrap();
+                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
+                let expression_register = expression_result.unwrap(self)?;
 
-                match result_register {
+                match ctx.result_register {
                     ResultRegister::Any => {
-                        self.push_op(Return, &[expression_register.register]);
-                        Some(expression_register)
+                        self.push_op(Return, &[expression_register]);
+                        expression_result
                     }
                     ResultRegister::Fixed(result) => {
-                        self.push_op(Copy, &[result, expression_register.register]);
+                        self.push_op(Copy, &[result, expression_register]);
                         self.push_op(Return, &[result]);
-                        if expression_register.is_temporary {
+                        if expression_result.is_temporary {
                             self.pop_register()?;
                         }
-                        Some(CompileResult::with_assigned(result))
+                        CompileNodeOutput::with_assigned(result)
                     }
                     ResultRegister::None => {
-                        self.push_op(Return, &[expression_register.register]);
-                        if expression_register.is_temporary {
+                        self.push_op(Return, &[expression_register]);
+                        if expression_result.is_temporary {
                             self.pop_register()?;
                         }
-                        None
+                        CompileNodeOutput::none()
                     }
                 }
             }
             Node::Yield(expression) => {
-                let result = self.get_result_register(result_register)?;
+                let result = self.assign_result_register(ctx)?;
 
-                let expression_register = self
-                    .compile_node(ResultRegister::Any, *expression, ast)?
-                    .unwrap();
+                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
+                let expression_register = expression_result.unwrap(self)?;
 
-                self.push_op(Yield, &[expression_register.register]);
+                self.push_op(Yield, &[expression_register]);
 
-                if let Some(result) = result {
-                    self.push_op(Copy, &[result.register, expression_register.register]);
+                if let Some(result_register) = result.register {
+                    self.push_op(Copy, &[result_register, expression_register]);
                 }
 
-                if expression_register.is_temporary {
+                if expression_result.is_temporary {
                     self.pop_register()?;
                 }
 
@@ -787,45 +532,36 @@ impl Compiler {
             Node::Throw(expression) => {
                 // A throw will prevent the result from being used, but the caller should be
                 // provided with a result register regardless.
-                let result = self.get_result_register(result_register)?;
+                let result = self.assign_result_register(ctx)?;
 
-                let expression_register = self
-                    .compile_node(ResultRegister::Any, *expression, ast)?
-                    .unwrap();
+                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
+                let expression_register = expression_result.unwrap(self)?;
 
-                self.push_op(Throw, &[expression_register.register]);
+                self.push_op(Throw, &[expression_register]);
 
-                if expression_register.is_temporary {
+                if expression_result.is_temporary {
                     self.pop_register()?;
                 }
 
                 result
             }
-            Node::Try(try_expression) => {
-                self.compile_try_expression(result_register, try_expression, ast)?
-            }
+            Node::Try(try_expression) => self.compile_try_expression(try_expression, ctx)?,
             Node::Debug {
                 expression_string,
                 expression,
             } => {
-                let result = self.get_result_register(result_register)?;
+                let expression_context = match ctx.result_register {
+                    ResultRegister::None => ctx.with_any_register(),
+                    _ => ctx,
+                };
 
-                let expression_register = self
-                    .compile_node(ResultRegister::Any, *expression, ast)?
-                    .unwrap();
+                let expression_result = self.compile_node(*expression, expression_context)?;
+                let expression_register = expression_result.unwrap(self)?;
 
-                self.push_op(Debug, &[expression_register.register]);
+                self.push_op(Debug, &[expression_register]);
                 self.push_var_u32(*expression_string);
 
-                if let Some(result) = result {
-                    self.push_op(Copy, &[result.register, expression_register.register]);
-                }
-
-                if expression_register.is_temporary {
-                    self.pop_register()?;
-                }
-
-                result
+                expression_result
             }
             Node::Meta(_, _) => {
                 // Meta nodes are currently only compiled in the context of an export assignment,
@@ -839,11 +575,11 @@ impl Compiler {
         Ok(result)
     }
 
-    fn get_result_register(&mut self, result_register: ResultRegister) -> CompileNodeResult {
-        let result = match result_register {
-            ResultRegister::Fixed(register) => Some(CompileResult::with_assigned(register)),
-            ResultRegister::Any => Some(CompileResult::with_temporary(self.push_register()?)),
-            ResultRegister::None => None,
+    fn assign_result_register(&mut self, ctx: CompileNodeContext) -> Result<CompileNodeOutput> {
+        let result = match ctx.result_register {
+            ResultRegister::Fixed(register) => CompileNodeOutput::with_assigned(register),
+            ResultRegister::Any => CompileNodeOutput::with_temporary(self.push_register()?),
+            ResultRegister::None => CompileNodeOutput::none(),
         };
 
         Ok(result)
@@ -855,33 +591,33 @@ impl Compiler {
         expressions: &[AstIndex],
         args: &[AstIndex],
         captures: &[ConstantIndex],
-        ast: &Ast,
         allow_implicit_return: bool,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         self.frame_stack.push(Frame::new(
             local_count,
-            &self.collect_args(args, ast)?,
+            &self.collect_args(args, ctx.ast)?,
             captures,
         ));
 
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
-            let arg_node = ast.node(*arg);
-            self.push_span(arg_node, ast);
+            let arg_node = ctx.ast.node(*arg);
+            self.push_span(arg_node, ctx.ast);
             match &arg_node.node {
                 Node::List(nested_args) => {
                     let list_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ast);
+                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
                     self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ast);
+                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
                     self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
                 }
                 _ => {}
             }
@@ -894,13 +630,13 @@ impl Compiler {
             ResultRegister::None
         };
 
-        let block_result = self.compile_block(result_register, expressions, ast)?;
+        let block_result = self.compile_block(expressions, ctx.with_register(result_register))?;
 
-        if let Some(result) = block_result {
+        if let Some(block_register) = block_result.register {
             if !self.frame().last_node_was_return {
-                self.push_op_without_span(Op::Return, &[result.register]);
+                self.push_op_without_span(Op::Return, &[block_register]);
             }
-            if result.is_temporary {
+            if block_result.is_temporary {
                 self.pop_register()?;
             }
         } else {
@@ -915,7 +651,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
+    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>> {
         // Collect args for local assignment in the new frame
         // Top-level args need to match the arguments as they appear in the arg list, with
         // Placeholders for wildcards and containers that are being unpacked.
@@ -953,7 +689,7 @@ impl Compiler {
         Ok(result)
     }
 
-    fn collect_nested_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
+    fn collect_nested_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>> {
         let mut result = Vec::new();
 
         for arg in args.iter() {
@@ -981,8 +717,8 @@ impl Compiler {
         &mut self,
         container_register: u8,
         args: &[AstIndex],
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         use Op::*;
 
         let mut index_from_end = false;
@@ -996,7 +732,7 @@ impl Compiler {
                 arg_index as u8
             };
 
-            match &ast.node(*arg).node {
+            match &ctx.ast.node(*arg).node {
                 Node::Wildcard(_) => {}
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
@@ -1004,20 +740,20 @@ impl Compiler {
                 }
                 Node::List(nested_args) => {
                     let list_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ast);
+                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(TempIndex, &[list_register, container_register, arg_index]);
                     self.push_op(CheckType, &[list_register, TypeId::List as u8]);
                     self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
                     self.pop_register()?; // list_register
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ast);
+                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
                     self.push_op(CheckType, &[tuple_register, TypeId::Tuple as u8]);
                     self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
                     self.pop_register()?; // tuple_register
                 }
                 Node::Ellipsis(maybe_id) if is_first_arg => {
@@ -1052,27 +788,28 @@ impl Compiler {
 
     fn compile_block(
         &mut self,
-        result_register: ResultRegister,
         expressions: &[AstIndex],
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::SetNull;
 
         let result = match expressions {
-            [] => match self.get_result_register(result_register)? {
-                Some(result) => {
-                    self.push_op(SetNull, &[result.register]);
-                    Some(result)
+            [] => {
+                let result = self.assign_result_register(ctx)?;
+                if let Some(result_register) = result.register {
+                    self.push_op(SetNull, &[result_register]);
+                } else {
+                    return self.error(ErrorKind::MissingResultRegister);
                 }
-                None => return self.error(ErrorKind::MissingResultRegister),
-            },
-            [expression] => self.compile_node(result_register, *expression, ast)?,
+                result
+            }
+            [expression] => self.compile_node(*expression, ctx)?,
             [expressions @ .., last_expression] => {
                 for expression in expressions.iter() {
-                    self.compile_node(ResultRegister::None, *expression, ast)?;
+                    self.compile_node(*expression, ctx.compile_for_side_effects())?;
                 }
 
-                self.compile_node(result_register, *last_expression, ast)?
+                self.compile_node(*last_expression, ctx)?
             }
         };
 
@@ -1086,9 +823,9 @@ impl Compiler {
     fn local_register_for_assign_target(
         &mut self,
         target: AstIndex,
-        ast: &Ast,
-    ) -> Result<Option<u8>, CompilerError> {
-        let result = match &ast.node(target).node {
+        ctx: CompileNodeContext,
+    ) -> Result<Option<u8>> {
+        let result = match &ctx.ast.node(target).node {
             Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
             unexpected => {
@@ -1104,52 +841,50 @@ impl Compiler {
 
     fn compile_assign(
         &mut self,
-        result_register: ResultRegister,
         target: AstIndex,
         expression: AstIndex,
         export_assignment: bool,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let local_assign_register = self.local_register_for_assign_target(target, ast)?;
+        let local_assign_register = self.local_register_for_assign_target(target, ctx)?;
         let value_result_register = match local_assign_register {
             Some(local) => ResultRegister::Fixed(local),
             None => ResultRegister::Any,
         };
 
-        let value_register = self
-            .compile_node(value_result_register, expression, ast)?
-            .unwrap();
+        let value_result =
+            self.compile_node(expression, ctx.with_register(value_result_register))?;
+        let value_register = value_result.unwrap(self)?;
 
-        let target_node = ast.node(target);
-        self.push_span(target_node, ast);
+        let target_node = ctx.ast.node(target);
+        self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
             Node::Id(id_index) => {
-                if !value_register.is_temporary {
+                if !value_result.is_temporary {
                     // To ensure that exported rhs ids with the same name as a local that's
                     // currently being assigned can be loaded correctly, only commit the
                     // reserved local as assigned after the rhs has been compiled.
-                    self.commit_local_register(value_register.register)?;
+                    self.commit_local_register(value_register)?;
                 }
 
                 if export_assignment || self.force_export_assignment() {
-                    self.compile_value_export(*id_index, value_register.register)?;
+                    self.compile_value_export(*id_index, value_register)?;
                 }
             }
             Node::Lookup(lookup) => {
                 self.compile_lookup(
-                    ResultRegister::None,
                     lookup,
                     None,
-                    Some(value_register.register),
+                    Some(value_register),
                     None,
-                    ast,
+                    ctx.compile_for_side_effects(),
                 )?;
             }
             Node::Meta(meta_id, name) => {
-                self.compile_meta_export(*meta_id, *name, value_register.register)?;
+                self.compile_meta_export(*meta_id, *name, value_register)?;
             }
             Node::Wildcard(_) => {}
             unexpected => {
@@ -1160,15 +895,15 @@ impl Compiler {
             }
         };
 
-        let result = match result_register {
+        let result = match ctx.result_register {
             ResultRegister::Fixed(register) => {
-                if register != value_register.register {
-                    self.push_op(Copy, &[register, value_register.register]);
+                if register != value_register {
+                    self.push_op(Copy, &[register, value_register]);
                 }
-                Some(CompileResult::with_assigned(register))
+                CompileNodeOutput::with_assigned(register)
             }
-            ResultRegister::Any => Some(value_register),
-            ResultRegister::None => None,
+            ResultRegister::Any => value_result,
+            ResultRegister::None => CompileNodeOutput::none(),
         };
 
         self.pop_span();
@@ -1178,54 +913,52 @@ impl Compiler {
 
     fn compile_multi_assign(
         &mut self,
-        result_register: ResultRegister,
         targets: &[AstIndex],
         expression: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
         if targets.len() >= u8::MAX as usize {
             return self.error(ErrorKind::TooManyAssignmentTargets(targets.len()));
         }
 
-        let result = self.get_result_register(result_register)?;
-        let stack_count = self.frame().register_stack.len();
+        let result = self.assign_result_register(ctx)?;
+        let stack_count = self.stack_count();
 
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
             .iter()
-            .map(|target| self.local_register_for_assign_target(*target, ast))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|target| self.local_register_for_assign_target(*target, ctx))
+            .collect::<Result<Vec<_>>>()?;
 
-        let rhs_node = ast.node(expression);
+        let rhs_node = ctx.ast.node(expression);
         let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
-        let rhs = self
-            .compile_node(ResultRegister::Any, expression, ast)?
-            .unwrap();
+        let rhs = self.compile_node(expression, ctx.with_any_register())?;
+        let rhs_register = rhs.unwrap(self)?;
 
         // If the result is needed then prepare the creation of a tuple
-        if result.is_some() {
+        if result.register.is_some() {
             self.push_op(SequenceStart, &[targets.len() as u8]);
         }
 
         // If the RHS is a single value then convert it into an iterator
         let iter_register = if rhs_is_temp_tuple {
-            rhs.register
+            rhs_register
         } else {
             let iter_register = if rhs.is_temporary {
-                rhs.register
+                rhs_register
             } else {
                 self.push_register()?
             };
-            self.push_op(MakeIterator, &[iter_register, rhs.register]);
+            self.push_op(MakeIterator, &[iter_register, rhs_register]);
             iter_register
         };
 
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
-            match &ast.node(*target).node {
+            match &ctx.ast.node(*target).node {
                 Node::Id(id_index) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
@@ -1244,7 +977,7 @@ impl Compiler {
                         self.compile_value_export(*id_index, target_register)?;
                     }
 
-                    if result.is_some() {
+                    if result.register.is_some() {
                         self.push_op(SequencePush, &[target_register]);
                     }
                 }
@@ -1258,22 +991,21 @@ impl Compiler {
                     }
 
                     self.compile_lookup(
-                        ResultRegister::None,
                         lookup,
                         None,
                         Some(value_register),
                         None,
-                        ast,
+                        ctx.compile_for_side_effects(),
                     )?;
 
-                    if result.is_some() {
+                    if result.register.is_some() {
                         self.push_op(SequencePush, &[value_register]);
                     }
 
                     self.pop_register()?; // value_register
                 }
                 Node::Wildcard(_) => {
-                    if result.is_some() {
+                    if result.register.is_some() {
                         let value_register = self.push_register()?;
 
                         if rhs_is_temp_tuple {
@@ -1299,8 +1031,8 @@ impl Compiler {
             };
         }
 
-        if let Some(result) = result {
-            self.push_op(SequenceToTuple, &[result.register]);
+        if let Some(result_register) = result.register {
+            self.push_op(SequenceToTuple, &[result_register]);
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -1310,40 +1042,34 @@ impl Compiler {
 
     fn compile_load_id(
         &mut self,
-        result_register: ResultRegister,
         id: ConstantIndex,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         let result = if let Some(local_register) = self.frame().get_local_assigned_register(id) {
-            match result_register {
-                ResultRegister::None => None,
-                ResultRegister::Any => Some(CompileResult::with_assigned(local_register)),
+            match ctx.result_register {
+                ResultRegister::None => CompileNodeOutput::none(),
+                ResultRegister::Any => CompileNodeOutput::with_assigned(local_register),
                 ResultRegister::Fixed(register) => {
                     self.push_op(Op::Copy, &[register, local_register]);
-                    Some(CompileResult::with_assigned(register))
+                    CompileNodeOutput::with_assigned(register)
                 }
             }
         } else {
-            match self.get_result_register(result_register)? {
-                Some(result) => {
-                    self.compile_load_non_local(result.register, id);
-                    Some(result)
-                }
-                None => {
-                    let register = self.push_register()?;
-                    self.compile_load_non_local(register, id);
-                    Some(CompileResult::with_temporary(register))
-                }
+            let result = self.assign_result_register(ctx)?;
+            if let Some(result_register) = result.register {
+                self.compile_load_non_local(result_register, id);
+                result
+            } else {
+                let register = self.push_register()?;
+                self.compile_load_non_local(register, id);
+                CompileNodeOutput::with_temporary(register)
             }
         };
 
         Ok(result)
     }
 
-    fn compile_value_export(
-        &mut self,
-        id: ConstantIndex,
-        value_register: u8,
-    ) -> Result<(), CompilerError> {
+    fn compile_value_export(&mut self, id: ConstantIndex, value_register: u8) -> Result<()> {
         let id_register = self.push_register()?;
         self.compile_load_string_constant(id_register, id);
         self.push_op(Op::ValueExport, &[id_register, value_register]);
@@ -1357,7 +1083,7 @@ impl Compiler {
         meta_id: MetaKeyId,
         name: Option<ConstantIndex>,
         value_register: u8,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<()> {
         if let Some(name) = name {
             let name_register = self.push_register()?;
             self.compile_load_string_constant(name_register, name);
@@ -1405,16 +1131,14 @@ impl Compiler {
 
     fn compile_import(
         &mut self,
-        result_register: ResultRegister,
         from: &[IdOrString],
         items: &[ImportItem],
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let result = self.get_result_register(result_register)?;
-
-        let stack_count = self.frame().register_stack.len();
+        let result = self.assign_result_register(ctx)?;
+        let stack_count = self.stack_count();
 
         let mut imported = vec![];
 
@@ -1422,7 +1146,7 @@ impl Compiler {
             for item in items.iter() {
                 match &item.item {
                     IdOrString::Id(import_id) => {
-                        let import_register = if result.is_some() {
+                        let import_register = if result.register.is_some() {
                             let import_register = if let Some(name) = item.name {
                                 self.assign_local_register(name)?
                             } else {
@@ -1431,9 +1155,9 @@ impl Compiler {
                                 self.push_register()?
                             };
 
-                            self.compile_import_item(import_register, &item.item, ast)?;
+                            self.compile_import_item(import_register, &item.item, ctx)?;
 
-                            if result.is_some() {
+                            if result.register.is_some() {
                                 imported.push(import_register);
                             }
 
@@ -1444,7 +1168,7 @@ impl Compiler {
                             // the import search.
                             let local_id = item.name.unwrap_or(*import_id);
                             let import_register = self.reserve_local_register(local_id)?;
-                            self.compile_import_item(import_register, &item.item, ast)?;
+                            self.compile_import_item(import_register, &item.item, ctx)?;
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
@@ -1463,9 +1187,9 @@ impl Compiler {
                         } else {
                             self.push_register()?
                         };
-                        self.compile_import_item(import_register, &item.item, ast)?;
+                        self.compile_import_item(import_register, &item.item, ctx)?;
 
-                        if result.is_some() {
+                        if result.register.is_some() {
                             imported.push(import_register);
                         }
                     }
@@ -1474,7 +1198,7 @@ impl Compiler {
         } else {
             let from_register = self.push_register()?;
 
-            self.compile_from(from_register, from, ast)?;
+            self.compile_from(from_register, from, ctx)?;
 
             for item in items.iter() {
                 match &item.item {
@@ -1482,7 +1206,7 @@ impl Compiler {
                         let import_register = if let Some(name) = item.name {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
-                        } else if result.is_some() {
+                        } else if result.register.is_some() {
                             // The result of the import is being assigned,
                             // so import the item into a temporary register.
                             self.push_register()?
@@ -1494,7 +1218,7 @@ impl Compiler {
                         // Access the item from from_register
                         self.compile_access_id(import_register, from_register, *import_id);
 
-                        if result.is_some() {
+                        if result.register.is_some() {
                             imported.push(import_register);
                         }
 
@@ -1515,10 +1239,10 @@ impl Compiler {
                             import_register,
                             from_register,
                             &string.contents,
-                            ast,
+                            ctx,
                         )?;
 
-                        if result.is_some() {
+                        if result.register.is_some() {
                             imported.push(import_register);
                         }
                     }
@@ -1526,16 +1250,16 @@ impl Compiler {
             }
         }
 
-        if let Some(result) = result {
+        if let Some(result_register) = result.register {
             match imported.as_slice() {
                 [] => return self.error(ErrorKind::MissingImportItem),
-                [single_item] => self.push_op(Copy, &[result.register, *single_item]),
+                [single_item] => self.push_op(Copy, &[result_register, *single_item]),
                 _ => {
                     self.push_op(SequenceStart, &[imported.len() as u8]);
                     for item in imported.iter() {
                         self.push_op(SequencePush, &[*item]);
                     }
-                    self.push_op(SequenceToTuple, &[result.register]);
+                    self.push_op(SequenceToTuple, &[result_register]);
                 }
             }
         }
@@ -1547,17 +1271,16 @@ impl Compiler {
 
     fn compile_export(
         &mut self,
-        result_register: ResultRegister,
         expression: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let expression_node = ast.node(expression);
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let expression_node = ctx.ast.node(expression);
 
         match &expression_node.node {
             Node::Assign { target, expression } => {
-                self.compile_assign(result_register, *target, *expression, true, ast)
+                self.compile_assign(*target, *expression, true, ctx)
             }
-            Node::Map(entries) => self.compile_make_map(result_register, entries, true, ast),
+            Node::Map(entries) => self.compile_make_map(entries, true, ctx),
             unexpected => self.error(ErrorKind::UnexpectedNode {
                 expected: "ID for export".into(),
                 unexpected: unexpected.clone(),
@@ -1569,15 +1292,15 @@ impl Compiler {
         &mut self,
         result_register: u8,
         path: &[IdOrString],
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, root, ast)?;
+                self.compile_import_item(result_register, root, ctx)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, root, ast)?;
+                self.compile_import_item(result_register, root, ctx)?;
 
                 for nested_item in nested.iter() {
                     match nested_item {
@@ -1588,7 +1311,7 @@ impl Compiler {
                             result_register,
                             result_register,
                             &string.contents,
-                            ast,
+                            ctx,
                         )?,
                     }
                 }
@@ -1602,8 +1325,8 @@ impl Compiler {
         &mut self,
         result_register: u8,
         item: &IdOrString,
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         use Op::*;
 
         match item {
@@ -1623,11 +1346,7 @@ impl Compiler {
                 }
             }
             IdOrString::Str(string) => {
-                self.compile_string(
-                    ResultRegister::Fixed(result_register),
-                    &string.contents,
-                    ast,
-                )?;
+                self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
                 self.push_op(Import, &[result_register]);
                 Ok(())
             }
@@ -1636,10 +1355,9 @@ impl Compiler {
 
     fn compile_try_expression(
         &mut self,
-        result_register: ResultRegister,
         try_expression: &AstTry,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
         let AstTry {
@@ -1649,11 +1367,11 @@ impl Compiler {
             finally_block,
         } = &try_expression;
 
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let (catch_register, pop_catch_register) = match &ast.node(*catch_arg).node {
+        let (catch_register, pop_catch_register) = match &ctx.ast.node(*catch_arg).node {
             Node::Id(id) => (self.assign_local_register(*id)?, false),
             Node::Wildcard(_) => {
                 // The catch argument is being ignored, so just use a dummy register
@@ -1671,12 +1389,14 @@ impl Compiler {
         // The catch block start point is defined via an offset from the current byte
         let catch_offset = self.push_offset_placeholder();
 
-        let try_result_register = match result {
-            Some(result) if finally_block.is_none() => ResultRegister::Fixed(result.register),
+        let try_result_register = match result.register {
+            Some(result_register) if finally_block.is_none() => {
+                ResultRegister::Fixed(result_register)
+            }
             _ => ResultRegister::None,
         };
 
-        self.compile_node(try_result_register, *try_block, ast)?;
+        self.compile_node(*try_block, ctx.with_register(try_result_register))?;
 
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
@@ -1687,14 +1407,14 @@ impl Compiler {
         let finally_offset = self.push_offset_placeholder();
         self.update_offset_placeholder(catch_offset)?;
 
-        self.push_span(ast.node(*catch_block), ast);
+        self.push_span(ctx.ast.node(*catch_block), ctx.ast);
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
 
-        self.compile_node(try_result_register, *catch_block, ast)?;
+        self.compile_node(*catch_block, ctx.with_register(try_result_register))?;
         self.pop_span();
 
         if pop_catch_register {
@@ -1704,11 +1424,11 @@ impl Compiler {
         self.update_offset_placeholder(finally_offset)?;
         if let Some(finally_block) = finally_block {
             // If there's a finally block then the result of the expression is derived from there
-            let finally_result_register = match result {
-                Some(result) => ResultRegister::Fixed(result.register),
+            let finally_result_register = match result.register {
+                Some(result_register) => ResultRegister::Fixed(result_register),
                 _ => ResultRegister::None,
             };
-            self.compile_node(finally_result_register, *finally_block, ast)
+            self.compile_node(*finally_block, ctx.with_register(finally_result_register))
         } else {
             Ok(result)
         }
@@ -1716,25 +1436,25 @@ impl Compiler {
 
     fn compile_unary_op(
         &mut self,
-        result_register: ResultRegister,
         op: AstUnaryOp,
         value: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
-        let value_register = self.compile_node(ResultRegister::Any, value, ast)?.unwrap();
+        let value_result = self.compile_node(value, ctx.with_any_register())?;
+        let value_register = value_result.unwrap(self)?;
 
-        if let Some(result) = result {
+        if let Some(result_register) = result.register {
             let op_code = match op {
                 AstUnaryOp::Negate => Op::Negate,
                 AstUnaryOp::Not => Op::Not,
             };
 
-            self.push_op(op_code, &[result.register, value_register.register]);
+            self.push_op(op_code, &[result_register, value_register]);
         }
 
-        if value_register.is_temporary {
+        if value_result.is_temporary {
             self.pop_register()?;
         }
 
@@ -1743,37 +1463,35 @@ impl Compiler {
 
     fn compile_binary_op(
         &mut self,
-        result_register: ResultRegister,
         op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use AstBinaryOp::*;
 
         match op {
             Add | Subtract | Multiply | Divide | Remainder => {
-                self.compile_arithmetic_op(result_register, op, lhs, rhs, ast)
+                self.compile_arithmetic_op(op, lhs, rhs, ctx)
             }
             AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
-                self.compile_arithmetic_assign_op(result_register, op, lhs, rhs, ast)
+                self.compile_arithmetic_assign_op(op, lhs, rhs, ctx)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
-                self.compile_comparison_op(result_register, op, lhs, rhs, ast)
+                self.compile_comparison_op(op, lhs, rhs, ctx)
             }
-            And | Or => self.compile_logic_op(result_register, op, lhs, rhs, ast),
-            Pipe => self.compile_piped_call(result_register, lhs, rhs, ast),
+            And | Or => self.compile_logic_op(op, lhs, rhs, ctx),
+            Pipe => self.compile_piped_call(lhs, rhs, ctx),
         }
     }
 
     fn compile_arithmetic_op(
         &mut self,
-        result_register: ResultRegister,
         op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use AstBinaryOp::*;
 
         let op = match op {
@@ -1790,31 +1508,25 @@ impl Compiler {
             }
         };
 
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                let lhs = self
-                    .compile_node(ResultRegister::Any, lhs, ast)?
-                    .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpLhs))?;
-                let rhs = self
-                    .compile_node(ResultRegister::Any, rhs, ast)?
-                    .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpRhs))?;
+        let result = self.assign_result_register(ctx)?;
 
-                self.push_op(op, &[result.register, lhs.register, rhs.register]);
+        if let Some(result_register) = result.register {
+            let lhs = self.compile_node(lhs, ctx.with_any_register())?;
+            let lhs_register = lhs.unwrap(self)?;
+            let rhs = self.compile_node(rhs, ctx.with_any_register())?;
+            let rhs_register = rhs.unwrap(self)?;
 
-                if lhs.is_temporary {
-                    self.pop_register()?;
-                }
-                if rhs.is_temporary {
-                    self.pop_register()?;
-                }
+            self.push_op(op, &[result_register, lhs_register, rhs_register]);
 
-                Some(result)
+            if lhs.is_temporary {
+                self.pop_register()?;
             }
-            None => {
-                self.compile_node(ResultRegister::None, lhs, ast)?;
-                self.compile_node(ResultRegister::None, rhs, ast)?;
-                None
+            if rhs.is_temporary {
+                self.pop_register()?;
             }
+        } else {
+            self.compile_node(lhs, ctx.compile_for_side_effects())?;
+            self.compile_node(rhs, ctx.compile_for_side_effects())?;
         };
 
         Ok(result)
@@ -1822,12 +1534,11 @@ impl Compiler {
 
     fn compile_arithmetic_assign_op(
         &mut self,
-        result_register: ResultRegister,
         ast_op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use AstBinaryOp::*;
 
         let op = match ast_op {
@@ -1844,43 +1555,31 @@ impl Compiler {
             }
         };
 
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
-        let rhs = self
-            .compile_node(ResultRegister::Any, rhs, ast)?
-            .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpRhs))?;
+        let rhs = self.compile_node(rhs, ctx.with_any_register())?;
+        let rhs_register = rhs.unwrap(self)?;
 
-        let lhs_node = &ast.node(lhs).node;
+        let lhs_node = &ctx.ast.node(lhs).node;
         let result = if let Node::Lookup(lookup_node) = lhs_node {
-            self.compile_lookup(
-                result_register,
-                lookup_node,
-                None,
-                Some(rhs.register),
-                Some(op),
-                ast,
-            )?
+            self.compile_lookup(lookup_node, None, Some(rhs_register), Some(op), ctx)?
         } else {
-            let lhs = self
-                .compile_node(ResultRegister::Any, lhs, ast)?
-                .ok_or_else(|| self.make_error(ErrorKind::MissingBinaryOpLhs))?;
+            let lhs = self.compile_node(lhs, ctx.with_any_register())?;
+            let lhs_register = lhs.unwrap(self)?;
 
-            self.push_op(op, &[lhs.register, rhs.register]);
+            self.push_op(op, &[lhs_register, rhs_register]);
 
             // If the LHS is a top-level ID and the export flag is enabled, then export the result
             if let Node::Id(id) = lhs_node {
                 if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*id, lhs.register)?;
+                    self.compile_value_export(*id, lhs_register)?;
                 }
             }
 
             // If there's a result register, then copy the result into it
-            let result = if let Some(result) = result {
-                self.push_op(Op::Copy, &[result.register, lhs.register]);
-                Some(result)
-            } else {
-                None
-            };
+            if let Some(result_register) = result.register {
+                self.push_op(Op::Copy, &[result_register, lhs_register]);
+            }
 
             if lhs.is_temporary {
                 self.pop_register()?;
@@ -1898,12 +1597,11 @@ impl Compiler {
 
     fn compile_comparison_op(
         &mut self,
-        result_register: ResultRegister,
         ast_op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use AstBinaryOp::*;
 
         let get_comparision_op = |ast_op| {
@@ -1923,21 +1621,18 @@ impl Compiler {
             })
         };
 
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
-        let comparison_register = match result {
-            Some(result) => result.register,
-            None => self.push_register()?,
-        };
+        // Use the result register for comparisons, or a temporary
+        let comparison_register = result.register.map_or_else(|| self.push_register(), Ok)?;
 
         let mut jump_offsets = Vec::new();
 
         let mut lhs_register = self
-            .compile_node(ResultRegister::Any, lhs, ast)?
-            .unwrap()
-            .register;
+            .compile_node(lhs, ctx.with_any_register())?
+            .unwrap(self)?;
         let mut rhs = rhs;
         let mut ast_op = ast_op;
 
@@ -1945,7 +1640,7 @@ impl Compiler {
             op: rhs_ast_op,
             lhs: rhs_lhs,
             rhs: rhs_rhs,
-        } = ast.node(rhs).node
+        } = ctx.ast.node(rhs).node
         {
             match rhs_ast_op {
                 Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
@@ -1960,9 +1655,8 @@ impl Compiler {
                     //   - chain the two comparisons together with an And
 
                     let rhs_lhs_register = self
-                        .compile_node(ResultRegister::Any, rhs_lhs, ast)?
-                        .unwrap()
-                        .register;
+                        .compile_node(rhs_lhs, ctx.with_any_register())?
+                        .unwrap(self)?;
 
                     // Place the lhs comparison result in the comparison_register
                     let op = get_comparision_op(ast_op).map_err(|e| self.make_error(e))?;
@@ -1982,14 +1676,13 @@ impl Compiler {
 
         // Compile the rhs for the final rhs in the comparison chain
         let rhs_register = self
-            .compile_node(ResultRegister::Any, rhs, ast)?
-            .unwrap()
-            .register;
+            .compile_node(rhs, ctx.with_any_register())?
+            .unwrap(self)?;
 
         // We only need to perform the final comparison if there's a result register
-        if let Some(result) = result {
+        if let Some(result_register) = result.register {
             let op = get_comparision_op(ast_op).map_err(|e| self.make_error(e))?;
-            self.push_op(op, &[result.register, lhs_register, rhs_register]);
+            self.push_op(op, &[result_register, lhs_register, rhs_register]);
         }
 
         for jump_offset in jump_offsets.iter() {
@@ -2003,22 +1696,17 @@ impl Compiler {
 
     fn compile_logic_op(
         &mut self,
-        result_register: ResultRegister,
         op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
         // A register is needed to perform the jump,
         // so if there's no result register use a temporary register
-        let register = match result {
-            Some(result) => result.register,
-            None => self.push_register()?,
-        };
-
-        self.compile_node(ResultRegister::Fixed(register), lhs, ast)?;
+        let register = result.register.map_or_else(|| self.push_register(), Ok)?;
+        self.compile_node(lhs, ctx.with_fixed_register(register))?;
 
         let jump_op = match op {
             AstBinaryOp::And => Op::JumpIfFalse,
@@ -2029,9 +1717,9 @@ impl Compiler {
         self.push_op(jump_op, &[register]);
 
         // If the lhs caused a jump then that's the result, otherwise the result is the rhs
-        self.compile_node_with_jump_offset(ResultRegister::Fixed(register), rhs, ast)?;
+        self.compile_node_with_jump_offset(rhs, ctx.with_fixed_register(register))?;
 
-        if result.is_none() {
+        if result.register.is_none() {
             self.pop_register()?;
         }
 
@@ -2040,11 +1728,10 @@ impl Compiler {
 
     fn compile_string(
         &mut self,
-        result_register: ResultRegister,
         contents: &StringContents,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
         match contents {
             StringContents::Raw {
@@ -2052,15 +1739,15 @@ impl Compiler {
                 ..
             }
             | StringContents::Literal(constant_index) => {
-                if let Some(result) = result {
-                    self.compile_load_string_constant(result.register, *constant_index);
+                if let Some(result_register) = result.register {
+                    self.compile_load_string_constant(result_register, *constant_index);
                 }
             }
             StringContents::Interpolated(nodes) => {
                 let size_hint = nodes.iter().fold(0, |result, node| {
                     match node {
                         StringNode::Literal(constant_index) => {
-                            result + ast.constants().get_str(*constant_index).len()
+                            result + ctx.ast.constants().get_str(*constant_index).len()
                         }
                         StringNode::Expr(_) => {
                             // Q. Why use '1' here?
@@ -2077,12 +1764,12 @@ impl Compiler {
                 match nodes.as_slice() {
                     [] => return self.error(ErrorKind::MissingStringNodes),
                     [StringNode::Literal(constant_index)] => {
-                        if let Some(result) = result {
-                            self.compile_load_string_constant(result.register, *constant_index);
+                        if let Some(result_register) = result.register {
+                            self.compile_load_string_constant(result_register, *constant_index);
                         }
                     }
                     _ => {
-                        if result.is_some() {
+                        if result.register.is_some() {
                             self.push_op(Op::StringStart, &[]);
                             // Limit the size hint to u32::MAX, u64 size hinting can be added later if
                             // it would be useful in practice.
@@ -2092,7 +1779,7 @@ impl Compiler {
                         for node in nodes.iter() {
                             match node {
                                 StringNode::Literal(constant_index) => {
-                                    if result.is_some() {
+                                    if result.register.is_some() {
                                         let node_register = self.push_register()?;
 
                                         self.compile_load_string_constant(
@@ -2105,18 +1792,15 @@ impl Compiler {
                                     }
                                 }
                                 StringNode::Expr(expression_node) => {
-                                    if result.is_some() {
-                                        let expression_result = self
-                                            .compile_node(
-                                                ResultRegister::Any,
-                                                *expression_node,
-                                                ast,
-                                            )?
-                                            .unwrap();
+                                    if result.register.is_some() {
+                                        let expression_result = self.compile_node(
+                                            *expression_node,
+                                            ctx.with_any_register(),
+                                        )?;
 
                                         self.push_op_without_span(
                                             Op::StringPush,
-                                            &[expression_result.register],
+                                            &[expression_result.unwrap(self)?],
                                         );
 
                                         if expression_result.is_temporary {
@@ -2126,17 +1810,16 @@ impl Compiler {
                                         // Compile the expression even though we don't need the result,
                                         // so that side-effects can take place.
                                         self.compile_node(
-                                            ResultRegister::None,
                                             *expression_node,
-                                            ast,
+                                            ctx.compile_for_side_effects(),
                                         )?;
                                     }
                                 }
                             }
                         }
 
-                        if let Some(result) = result {
-                            self.push_op(Op::StringFinish, &[result.register]);
+                        if let Some(result_register) = result.register {
+                            self.push_op(Op::StringFinish, &[result_register]);
                         }
                     }
                 }
@@ -2148,36 +1831,30 @@ impl Compiler {
 
     fn compile_make_temp_tuple(
         &mut self,
-        result_register: ResultRegister,
         elements: &[AstIndex],
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                for element in elements.iter() {
-                    let element_register = self.push_register()?;
-                    self.compile_node(ResultRegister::Fixed(element_register), *element, ast)?;
-                }
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
-                let start_register = self.peek_register(elements.len() - 1)?;
-
-                self.push_op(
-                    Op::MakeTempTuple,
-                    &[result.register, start_register, elements.len() as u8],
-                );
-
-                // If we're making a temp tuple then the registers need to be kept around,
-                // and they should be removed by the caller.
-
-                Some(result)
+        if let Some(result_register) = result.register {
+            for element in elements.iter() {
+                let element_register = self.push_register()?;
+                self.compile_node(*element, ctx.with_fixed_register(element_register))?;
             }
-            None => {
-                // Compile the element nodes for side-effects
-                for element in elements.iter() {
-                    self.compile_node(ResultRegister::None, *element, ast)?;
-                }
 
-                None
+            let start_register = self.peek_register(elements.len() - 1)?;
+
+            self.push_op(
+                Op::MakeTempTuple,
+                &[result_register, start_register, elements.len() as u8],
+            );
+
+            // If we're making a temp tuple then the registers need to be kept around,
+            // and they should be removed by the caller.
+        } else {
+            // Compile the element nodes for side-effects
+            for element in elements.iter() {
+                self.compile_node(*element, ctx.compile_for_side_effects())?;
             }
         };
 
@@ -2186,73 +1863,62 @@ impl Compiler {
 
     fn compile_make_sequence(
         &mut self,
-        result_register: ResultRegister,
         elements: &[AstIndex],
         finish_op: Op,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                match u32::try_from(elements.len()) {
-                    Ok(size_hint) => {
-                        self.push_op(SequenceStart, &[]);
-                        self.push_var_u32(size_hint);
-                    }
-                    Err(_) => {
-                        return self.error(ErrorKind::TooManyContainerEntries(elements.len()));
-                    }
-                }
+        let result = self.assign_result_register(ctx)?;
 
-                match elements {
-                    [] => {}
-                    [single_element] => {
-                        let element = self
-                            .compile_node(ResultRegister::Any, *single_element, ast)?
-                            .unwrap();
-                        self.push_op_without_span(SequencePush, &[element.register]);
-                        if element.is_temporary {
-                            self.pop_register()?;
-                        }
-                    }
-                    _ => {
-                        let max_batch_size = self.frame().available_registers_count() as usize;
-                        for elements_batch in elements.chunks(max_batch_size) {
-                            let stack_count = self.frame().register_stack.len();
-                            let start_register = self.frame().next_temporary_register();
+        if let Some(result_register) = result.register {
+            let Ok(size_hint) = u32::try_from(elements.len()) else {
+                return self.error(ErrorKind::TooManyContainerEntries(elements.len()));
+            };
 
-                            for element_node in elements_batch {
-                                let element_register = self.push_register()?;
-                                self.compile_node(
-                                    ResultRegister::Fixed(element_register),
-                                    *element_node,
-                                    ast,
-                                )?;
-                            }
+            self.push_op(SequenceStart, &[]);
+            self.push_var_u32(size_hint);
 
-                            self.push_op_without_span(
-                                SequencePushN,
-                                &[start_register, elements_batch.len() as u8],
-                            );
-
-                            self.truncate_register_stack(stack_count)?;
-                        }
+            match elements {
+                [] => {}
+                [single_element] => {
+                    let element = self.compile_node(*single_element, ctx.with_any_register())?;
+                    self.push_op_without_span(SequencePush, &[element.unwrap(self)?]);
+                    if element.is_temporary {
+                        self.pop_register()?;
                     }
                 }
+                _ => {
+                    let max_batch_size = self.frame().available_registers_count() as usize;
+                    for elements_batch in elements.chunks(max_batch_size) {
+                        let stack_count = self.stack_count();
+                        let start_register = self.frame().next_temporary_register();
 
-                // Now that the elements have been added to the sequence builder,
-                // add the finishing op.
-                self.push_op(finish_op, &[result.register]);
+                        for element_node in elements_batch {
+                            let element_register = self.push_register()?;
+                            self.compile_node(
+                                *element_node,
+                                ctx.with_fixed_register(element_register),
+                            )?;
+                        }
 
-                Some(result)
+                        self.push_op_without_span(
+                            SequencePushN,
+                            &[start_register, elements_batch.len() as u8],
+                        );
+
+                        self.truncate_register_stack(stack_count)?;
+                    }
+                }
             }
-            None => {
-                // Compile the element nodes for side-effects
-                for element_node in elements.iter() {
-                    self.compile_node(ResultRegister::None, *element_node, ast)?;
-                }
-                None
+
+            // Now that the elements have been added to the sequence builder,
+            // add the finishing op.
+            self.push_op(finish_op, &[result_register]);
+        } else {
+            // Compile the element nodes for side-effects
+            for element_node in elements.iter() {
+                self.compile_node(*element_node, ctx.compile_for_side_effects())?;
             }
         };
 
@@ -2261,52 +1927,45 @@ impl Compiler {
 
     fn compile_make_map(
         &mut self,
-        result_register: ResultRegister,
         entries: &[(MapKey, Option<AstIndex>)],
         export_entries: bool,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
         // Create the map with an appropriate size hint
-        if let Some(result) = result {
-            match u32::try_from(entries.len()) {
-                Ok(size_hint) => {
-                    self.push_op(Op::MakeMap, &[result.register]);
-                    self.push_var_u32(size_hint);
-                }
-                Err(_) => {
-                    return self.error(ErrorKind::TooManyContainerEntries(entries.len()));
-                }
-            }
+        if let Some(result_register) = result.register {
+            let Ok(size_hint) = u32::try_from(entries.len()) else {
+                return self.error(ErrorKind::TooManyContainerEntries(entries.len()));
+            };
+            self.push_op(Op::MakeMap, &[result_register]);
+            self.push_var_u32(size_hint);
         }
 
         // Process the map's entries
-        if result.is_some() || export_entries {
-            let result_register = result.map(|result| result.register);
-
+        if result.register.is_some() || export_entries {
             for (key, maybe_value_node) in entries.iter() {
                 let value = match (key, maybe_value_node) {
                     // A value has been provided for the entry
                     (_, Some(value_node)) => {
                         let value_node = *value_node;
-                        self.compile_node(ResultRegister::Any, value_node, ast)?
-                            .unwrap()
+                        self.compile_node(value_node, ctx.with_any_register())?
                     }
                     // ID-only entry, the value should be locally assigned
                     (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
-                        Some(register) => CompileResult::with_assigned(register),
+                        Some(register) => CompileNodeOutput::with_assigned(register),
                         None => {
                             let register = self.push_register()?;
                             self.compile_load_non_local(register, *id);
-                            CompileResult::with_temporary(register)
+                            CompileNodeOutput::with_temporary(register)
                         }
                     },
                     // No value provided for a string or meta key
                     (_, None) => return self.error(ErrorKind::MissingValueForMapEntry),
                 };
+                let value_register = value.unwrap(self)?;
 
-                self.compile_map_insert(value.register, key, result_register, export_entries, ast)?;
+                self.compile_map_insert(value_register, key, result.register, export_entries, ctx)?;
 
                 if value.is_temporary {
                     self.pop_register()?;
@@ -2316,7 +1975,7 @@ impl Compiler {
             // The map is unused, but the entry values should be compiled for side-effects
             for (_key, value_node) in entries.iter() {
                 if let Some(value_node) = value_node {
-                    self.compile_node(ResultRegister::None, *value_node, ast)?;
+                    self.compile_node(*value_node, ctx.compile_for_side_effects())?;
                 }
             }
         }
@@ -2326,13 +1985,14 @@ impl Compiler {
 
     fn compile_function(
         &mut self,
-        result_register: ResultRegister,
         function: &Function,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        if let Some(result) = self.get_result_register(result_register)? {
+        let result = self.assign_result_register(ctx)?;
+
+        if let Some(result_register) = result.register {
             let arg_count = match u8::try_from(function.args.len()) {
                 Ok(x) => x,
                 Err(_) => {
@@ -2356,7 +2016,7 @@ impl Compiler {
 
             let arg_is_unpacked_tuple = matches!(
                 function.args.as_slice(),
-                &[single_arg] if matches!(ast.node(single_arg).node, Node::Tuple(_))
+                &[single_arg] if matches!(ctx.ast.node(single_arg).node, Node::Tuple(_))
             );
 
             let flags_byte = FunctionFlags {
@@ -2368,9 +2028,8 @@ impl Compiler {
 
             self.push_op(
                 Function,
-                &[result.register, arg_count, capture_count, flags_byte],
+                &[result_register, arg_count, capture_count, flags_byte],
             );
-
             let function_size_ip = self.push_offset_placeholder();
 
             let local_count = match u8::try_from(function.local_count) {
@@ -2384,21 +2043,18 @@ impl Compiler {
             };
 
             let allow_implicit_return = !function.is_generator;
-
             let body_as_slice = [function.body];
-
-            let function_body = match &ast.node(function.body).node {
+            let function_body = match &ctx.ast.node(function.body).node {
                 Node::Block(expressions) => expressions.as_slice(),
                 _ => &body_as_slice,
             };
-
             self.compile_frame(
                 local_count,
                 function_body,
                 &function.args,
                 &captures,
-                ast,
                 allow_implicit_return,
+                ctx,
             )?;
 
             self.update_offset_placeholder(function_size_ip)?;
@@ -2409,14 +2065,14 @@ impl Compiler {
                     .get_local_assigned_or_reserved_register(*capture)
                 {
                     AssignedOrReserved::Assigned(assigned_register) => {
-                        self.push_op(Capture, &[result.register, i as u8, assigned_register]);
+                        self.push_op(Capture, &[result_register, i as u8, assigned_register]);
                     }
                     AssignedOrReserved::Reserved(reserved_register) => {
                         let capture_span = self.span();
                         self.frame_mut()
                             .defer_op_until_register_is_committed(
                                 reserved_register,
-                                vec![Capture as u8, result.register, i as u8, reserved_register],
+                                vec![Capture as u8, result_register, i as u8, reserved_register],
                                 capture_span,
                             )
                             .map_err(|e| self.make_error(e))?;
@@ -2424,16 +2080,14 @@ impl Compiler {
                     AssignedOrReserved::Unassigned => {
                         let capture_register = self.push_register()?;
                         self.compile_load_non_local(capture_register, *capture);
-                        self.push_op(Capture, &[result.register, i as u8, capture_register]);
+                        self.push_op(Capture, &[result_register, i as u8, capture_register]);
                         self.pop_register()?;
                     }
                 }
             }
-
-            Ok(Some(result))
-        } else {
-            Ok(None)
         }
+
+        Ok(result)
     }
 
     // Compiles a lookup chain
@@ -2450,13 +2104,12 @@ impl Compiler {
     // rhs_op - If present, then the op should be applied to the result of the lookup.
     fn compile_lookup(
         &mut self,
-        result_register: ResultRegister,
         (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
         piped_arg_register: Option<u8>,
         rhs: Option<u8>,
         rhs_op: Option<Op>,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
         if next_node_index.is_none() {
@@ -2464,7 +2117,7 @@ impl Compiler {
         }
 
         // If the result is going into a temporary register then assign it now as the first step.
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
         // Keep track of a register for each lookup node.
         // This produces a chain of temporary value registers, allowing lookup operations to access
@@ -2473,16 +2126,16 @@ impl Compiler {
 
         // At the end of the lookup we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
 
         // Where should the final value in the lookup chain be placed?
-        let chain_result_register = match (result, piped_arg_register, rhs_op) {
+        let chain_result_register = match (result.register, piped_arg_register, rhs_op) {
             // No result register and no piped call or assignment operation,
             // so the result of the lookup chain isn't needed.
             (None, None, None) => None,
             // If there's a result register and no piped call, then use the result register
-            (Some(result), None, _) => Some(result.register),
+            (Some(result_register), None, _) => Some(result_register),
             // If there's a piped call after the lookup chain, or an assignment operation,
             // then place the result of the lookup chain in a temporary register.
             _ => Some(self.push_register()?),
@@ -2497,10 +2150,8 @@ impl Compiler {
                         return self.error(ErrorKind::OutOfPositionRootNodeInLookup);
                     }
 
-                    let root = self
-                        .compile_node(ResultRegister::Any, *root_node, ast)?
-                        .unwrap();
-                    node_registers.push(root.register);
+                    let root = self.compile_node(*root_node, ctx.with_any_register())?;
+                    node_registers.push(root.unwrap(self)?);
                 }
                 LookupNode::Id(id) => {
                     // Access by id
@@ -2536,7 +2187,7 @@ impl Compiler {
                         node_register,
                         parent_register,
                         &lookup_string.contents,
-                        ast,
+                        ctx,
                     )?;
                 }
                 LookupNode::Index(index_node) => {
@@ -2552,12 +2203,12 @@ impl Compiler {
                     };
 
                     let index = self
-                        .compile_node(ResultRegister::Any, *index_node, ast)?
-                        .unwrap();
+                        .compile_node(*index_node, ctx.with_any_register())?
+                        .unwrap(self)?;
 
                     let node_register = self.push_register()?;
                     node_registers.push(node_register);
-                    self.push_op(Index, &[node_register, parent_register, index.register]);
+                    self.push_op(Index, &[node_register, parent_register, index]);
                 }
                 LookupNode::Call { args, .. } => {
                     // Function call on a lookup result
@@ -2574,12 +2225,11 @@ impl Compiler {
                     node_registers.push(call_result_register);
 
                     self.compile_call(
-                        ResultRegister::Fixed(call_result_register),
                         function_register,
                         args,
                         None,
                         parent_register,
-                        ast,
+                        ctx.with_fixed_register(call_result_register),
                     )?;
                 }
             }
@@ -2587,7 +2237,7 @@ impl Compiler {
             // Is the lookup chain complete?
             let Some(next) = next_node_index else { break };
 
-            let next_lookup_node = ast.node(next);
+            let next_lookup_node = ctx.ast.node(next);
 
             match next_lookup_node.node.clone() {
                 Node::Lookup((node, next)) => {
@@ -2599,7 +2249,7 @@ impl Compiler {
                 }
             };
 
-            self.push_span(next_lookup_node, ast);
+            self.push_span(next_lookup_node, ctx.ast);
         }
 
         // The lookup chain is complete, now we need to handle:
@@ -2621,18 +2271,17 @@ impl Compiler {
         let string_key = if let LookupNode::Str(lookup_string) = &last_node {
             let key_register = self.push_register()?;
             self.compile_string(
-                ResultRegister::Fixed(key_register),
                 &lookup_string.contents,
-                ast,
+                ctx.with_fixed_register(key_register),
             )?
         } else {
-            None
+            CompileNodeOutput::none()
         };
 
         let index = if let LookupNode::Index(index_node) = last_node {
-            self.compile_node(ResultRegister::Any, index_node, ast)?
+            self.compile_node(index_node, ctx.with_any_register())?
         } else {
-            None
+            CompileNodeOutput::none()
         };
 
         // Do we need to access the value?
@@ -2647,22 +2296,14 @@ impl Compiler {
             LookupNode::Str(_) if !simple_assignment => {
                 self.push_op(
                     AccessString,
-                    &[
-                        access_register,
-                        parent_register,
-                        string_key.unwrap().register, // Guaranteed to be Some
-                    ],
+                    &[access_register, parent_register, string_key.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
             LookupNode::Index(_) if !simple_assignment => {
                 self.push_op(
                     Index,
-                    &[
-                        access_register,
-                        parent_register,
-                        index.unwrap().register, // Guaranteed to be Some
-                    ],
+                    &[access_register, parent_register, index.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
@@ -2685,12 +2326,11 @@ impl Compiler {
                     };
 
                     self.compile_call(
-                        call_result_register,
                         function_register,
                         args,
                         None,
                         parent_register,
-                        ast,
+                        ctx.with_register(call_result_register),
                     )?;
                 }
             }
@@ -2722,27 +2362,19 @@ impl Compiler {
                         &MapKey::Id(*id),
                         Some(parent_register),
                         false,
-                        ast,
+                        ctx,
                     )?;
                 }
                 LookupNode::Str(_) => {
                     self.push_op(
                         MapInsert,
-                        &[
-                            parent_register,
-                            string_key.unwrap().register, // Guaranteed to be Some
-                            value_register,
-                        ],
+                        &[parent_register, string_key.unwrap(self)?, value_register],
                     );
                 }
                 LookupNode::Index(_) => {
                     self.push_op(
                         SetIndex,
-                        &[
-                            parent_register,
-                            index.unwrap().register, // Guaranteed to be Some
-                            value_register,
-                        ],
+                        &[parent_register, index.unwrap(self)?, value_register],
                     );
                 }
                 _ => {}
@@ -2762,19 +2394,18 @@ impl Compiler {
                 [] => unreachable!(),
             };
 
-            let call_result = if let Some(result) = result {
-                ResultRegister::Fixed(result.register)
+            let call_result = if let Some(result_register) = result.register {
+                ResultRegister::Fixed(result_register)
             } else {
                 ResultRegister::None
             };
 
             self.compile_call(
-                call_result,
                 function_register,
                 &piped_call_args,
                 piped_arg_register,
                 parent_register,
-                ast,
+                ctx.with_register(call_result),
             )?;
         }
 
@@ -2790,8 +2421,8 @@ impl Compiler {
         key: &MapKey,
         map_register: Option<u8>,
         export_entry: bool,
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         use Op::*;
 
         match key {
@@ -2814,7 +2445,7 @@ impl Compiler {
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
-                self.compile_string(ResultRegister::Fixed(key_register), &string.contents, ast)?;
+                self.compile_string(&string.contents, ctx.with_fixed_register(key_register))?;
 
                 if let Some(map_register) = map_register {
                     self.push_op_without_span(
@@ -2875,14 +2506,10 @@ impl Compiler {
         result_register: u8,
         value_register: u8,
         key_string_contents: &StringContents,
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         let key_register = self.push_register()?;
-        self.compile_string(
-            ResultRegister::Fixed(key_register),
-            key_string_contents,
-            ast,
-        )?;
+        self.compile_string(key_string_contents, ctx.with_fixed_register(key_register))?;
         self.push_op(
             Op::AccessString,
             &[result_register, value_register, key_register],
@@ -2894,60 +2521,57 @@ impl Compiler {
     // Compiles a node like `f x >> g`, compiling the lhs as the last arg for a call on the rhs
     fn compile_piped_call(
         &mut self,
-        result_register: ResultRegister,
         lhs: AstIndex,
         rhs: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         // First things first, if a temporary result register is to be used, assign it now.
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
         // The piped call should either go into the specified register, or it can be ignored
-        let call_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
+        let call_result_register = if let Some(result_register) = result.register {
+            ResultRegister::Fixed(result_register)
         } else {
             ResultRegister::None
         };
 
         // Next, compile the LHS to produce the value that should be piped into the call
-        let piped_value = self.compile_node(ResultRegister::Any, lhs, ast)?.unwrap();
+        let piped_value = self.compile_node(lhs, ctx.with_any_register())?;
+        let piped_value_register = piped_value.unwrap(self)?;
 
-        let rhs_node = ast.node(rhs);
+        let rhs_node = ctx.ast.node(rhs);
         let result = match &rhs_node.node {
             Node::NamedCall { id, args } => self.compile_named_call(
-                call_result_register,
                 *id,
                 args,
-                Some(piped_value.register),
-                ast,
+                Some(piped_value_register),
+                ctx.with_register(call_result_register),
             ),
             Node::Id(id) => {
                 // Compile a call with the piped arg using the id to access the function
-                self.compile_named_call(result_register, *id, &[], Some(piped_value.register), ast)
+                self.compile_named_call(*id, &[], Some(piped_value_register), ctx)
             }
             Node::Lookup(lookup_node) => {
                 // Compile the lookup, passing in the piped call arg, which will either be appended
                 // to call args at the end of a lookup, or the last node will be turned into a call.
                 self.compile_lookup(
-                    call_result_register,
                     lookup_node,
-                    Some(piped_value.register),
+                    Some(piped_value_register),
                     None,
                     None,
-                    ast,
+                    ctx.with_register(call_result_register),
                 )
             }
             _ => {
                 // If the RHS is none of the above, then compile it assuming that the result will
                 // be a function.
-                let function = self.compile_node(ResultRegister::Any, rhs, ast)?.unwrap();
+                let function = self.compile_node(rhs, ctx.with_any_register())?;
                 let result = self.compile_call(
-                    call_result_register,
-                    function.register,
+                    function.unwrap(self)?,
                     &[],
-                    Some(piped_value.register),
+                    Some(piped_value_register),
                     None,
-                    ast,
+                    ctx.with_register(call_result_register),
                 )?;
                 if function.is_temporary {
                     self.pop_register()?;
@@ -2965,25 +2589,17 @@ impl Compiler {
 
     fn compile_named_call(
         &mut self,
-        result_register: ResultRegister,
         function_id: ConstantIndex,
         args: &[AstIndex],
         piped_arg: Option<u8>,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         if let Some(function_register) = self.frame().get_local_assigned_register(function_id) {
-            self.compile_call(
-                result_register,
-                function_register,
-                args,
-                piped_arg,
-                None,
-                ast,
-            )
+            self.compile_call(function_register, args, piped_arg, None, ctx)
         } else {
-            let result = self.get_result_register(result_register)?;
-            let call_result_register = if let Some(result) = result {
-                ResultRegister::Fixed(result.register)
+            let result = self.assign_result_register(ctx)?;
+            let call_result_register = if let Some(result_register) = result.register {
+                ResultRegister::Fixed(result_register)
             } else {
                 ResultRegister::None
             };
@@ -2992,12 +2608,11 @@ impl Compiler {
             self.compile_load_non_local(function_register, function_id);
 
             self.compile_call(
-                call_result_register,
                 function_register,
                 args,
                 piped_arg,
                 None,
-                ast,
+                ctx.with_register(call_result_register),
             )?;
 
             self.pop_register()?; // function_register
@@ -3007,27 +2622,28 @@ impl Compiler {
 
     fn compile_call(
         &mut self,
-        result_register: ResultRegister,
         function_register: u8,
         args: &[AstIndex],
         piped_arg: Option<u8>,
         instance: Option<u8>,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let result = self.get_result_register(result_register)?;
-        let stack_count = self.frame().register_stack.len();
-
-        // The frame base is an empty register that may be used for an instance value if needed
-        // (it's decided at runtime if the instance value will be used or not).
-        let frame_base = self.push_register()?;
+        let result = self.assign_result_register(ctx)?;
+        let stack_count = self.stack_count();
 
         let mut arg_count = args.len();
 
+        // The frame base is used for the instance register
+        let frame_base = self.push_register()?;
+        if let Some(instance) = instance {
+            self.push_op(Copy, &[frame_base, instance]);
+        }
+
         for arg in args.iter() {
             let arg_register = self.push_register()?;
-            self.compile_node(ResultRegister::Fixed(arg_register), *arg, ast)?;
+            self.compile_node(*arg, ctx.with_fixed_register(arg_register))?;
         }
 
         if let Some(piped_arg) = piped_arg {
@@ -3036,8 +2652,8 @@ impl Compiler {
             self.push_op(Copy, &[arg_register, piped_arg]);
         }
 
-        let call_result_register = if let Some(result) = result {
-            result.register
+        let call_result_register = if let Some(result_register) = result.register {
+            result_register
         } else {
             // The result isn't needed, so it can be placed in the frame's base register
             // (which isn't needed post-call).
@@ -3045,43 +2661,22 @@ impl Compiler {
             frame_base
         };
 
-        match instance {
-            Some(instance_register) => {
-                self.push_op(
-                    CallInstance,
-                    &[
-                        call_result_register,
-                        function_register,
-                        frame_base,
-                        arg_count as u8,
-                        instance_register,
-                    ],
-                );
-            }
-            None => {
-                self.push_op(
-                    Call,
-                    &[
-                        call_result_register,
-                        function_register,
-                        frame_base,
-                        arg_count as u8,
-                    ],
-                );
-            }
-        }
+        self.push_op(
+            Call,
+            &[
+                call_result_register,
+                function_register,
+                frame_base,
+                arg_count as u8,
+            ],
+        );
 
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
     }
 
-    fn compile_if(
-        &mut self,
-        result_register: ResultRegister,
-        ast_if: &AstIf,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+    fn compile_if(&mut self, ast_if: &AstIf, ctx: CompileNodeContext) -> Result<CompileNodeOutput> {
         use Op::*;
 
         let AstIf {
@@ -3091,29 +2686,27 @@ impl Compiler {
             else_node,
         } = ast_if;
 
-        let result = self.get_result_register(result_register)?;
-        let expression_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
-        } else {
-            ResultRegister::None
-        };
+        let result = self.assign_result_register(ctx)?;
 
         // If
-        let condition_register = self
-            .compile_node(ResultRegister::Any, *condition, ast)?
-            .unwrap();
+        let condition_register = self.compile_node(*condition, ctx.with_any_register())?;
 
-        self.push_op_without_span(JumpIfFalse, &[condition_register.register]);
+        self.push_op_without_span(JumpIfFalse, &[condition_register.unwrap(self)?]);
         let condition_jump_ip = self.push_offset_placeholder();
 
         if condition_register.is_temporary {
             self.pop_register()?;
         }
 
-        self.compile_node(expression_result_register, *then_node, ast)?;
+        let expression_context = ctx.with_register(
+            result
+                .register
+                .map_or(ResultRegister::None, ResultRegister::Fixed),
+        );
+        self.compile_node(*then_node, expression_context)?;
 
         let if_jump_ip = {
-            if !else_if_blocks.is_empty() || else_node.is_some() || result.is_some() {
+            if !else_if_blocks.is_empty() || else_node.is_some() || result.register.is_some() {
                 self.push_op_without_span(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
@@ -3127,36 +2720,32 @@ impl Compiler {
         // Iterate through the else if blocks and collect their end jump placeholders
         let else_if_jump_ips = else_if_blocks
             .iter()
-            .map(
-                |(else_if_condition, else_if_node)| -> Result<usize, CompilerError> {
-                    let condition = self
-                        .compile_node(ResultRegister::Any, *else_if_condition, ast)?
-                        .unwrap();
+            .map(|(else_if_condition, else_if_node)| -> Result<usize> {
+                let condition = self.compile_node(*else_if_condition, ctx.with_any_register())?;
 
-                    self.push_op_without_span(JumpIfFalse, &[condition.register]);
-                    let conditon_jump_ip = self.push_offset_placeholder();
+                self.push_op_without_span(JumpIfFalse, &[condition.unwrap(self)?]);
+                let conditon_jump_ip = self.push_offset_placeholder();
 
-                    if condition.is_temporary {
-                        self.pop_register()?;
-                    }
+                if condition.is_temporary {
+                    self.pop_register()?;
+                }
 
-                    self.compile_node(expression_result_register, *else_if_node, ast)?;
+                self.compile_node(*else_if_node, expression_context)?;
 
-                    self.push_op_without_span(Jump, &[]);
-                    let else_if_jump_ip = self.push_offset_placeholder();
+                self.push_op_without_span(Jump, &[]);
+                let else_if_jump_ip = self.push_offset_placeholder();
 
-                    self.update_offset_placeholder(conditon_jump_ip)?;
+                self.update_offset_placeholder(conditon_jump_ip)?;
 
-                    Ok(else_if_jump_ip)
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?;
+                Ok(else_if_jump_ip)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         // Else - either compile the else block, or set the result to empty
         if let Some(else_node) = else_node {
-            self.compile_node(expression_result_register, *else_node, ast)?;
-        } else if let Some(result) = result {
-            self.push_op_without_span(SetNull, &[result.register]);
+            self.compile_node(*else_node, expression_context)?;
+        } else if let Some(result_register) = result.register {
+            self.push_op_without_span(SetNull, &[result_register]);
         }
 
         // We're at the end, so update the if and else if jump placeholders
@@ -3173,29 +2762,26 @@ impl Compiler {
 
     fn compile_switch(
         &mut self,
-        result_register: ResultRegister,
         arms: &[SwitchArm],
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let mut result_jump_placeholders = Vec::new();
 
-        let body_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
-        } else {
-            ResultRegister::None
-        };
+        let switch_arm_context = ctx.with_register(
+            result
+                .register
+                .map_or(ResultRegister::None, ResultRegister::Fixed),
+        );
 
         for arm in arms.iter() {
             let arm_end_jump_placeholder = if let Some(condition) = arm.condition {
-                let condition_register = self
-                    .compile_node(ResultRegister::Any, condition, ast)?
-                    .unwrap();
+                let condition_register = self.compile_node(condition, ctx.with_any_register())?;
 
-                self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
+                self.push_op_without_span(Op::JumpIfFalse, &[condition_register.unwrap(self)?]);
 
                 if condition_register.is_temporary {
                     self.pop_register()?;
@@ -3206,7 +2792,7 @@ impl Compiler {
                 None
             };
 
-            self.compile_node(body_result_register, arm.expression, ast)?;
+            self.compile_node(arm.expression, switch_arm_context)?;
 
             // Add a jump instruction if this anything other than an `else` arm
             if !arm.is_else() {
@@ -3220,10 +2806,10 @@ impl Compiler {
         }
 
         // Set the result register to null, in case no switch arm is executed
-        if let Some(result) = result {
+        if let Some(result_register) = result.register {
             // If the last arm is `else`, then setting to Null isn't necessary
             if matches!(arms.last(), Some(arm) if !arm.is_else()) {
-                self.push_op(Op::SetNull, &[result.register]);
+                self.push_op(Op::SetNull, &[result_register]);
             }
         }
 
@@ -3238,19 +2824,18 @@ impl Compiler {
 
     fn compile_match(
         &mut self,
-        result_register: ResultRegister,
         match_expression: AstIndex,
         arms: &[MatchArm],
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let match_register = self
-            .compile_node(ResultRegister::Any, match_expression, ast)?
-            .unwrap();
-        let match_len = match &ast.node(match_expression).node {
+            .compile_node(match_expression, ctx.with_any_register())?
+            .unwrap(self)?;
+        let match_len = match &ctx.ast.node(match_expression).node {
             Node::TempTuple(expressions) => expressions.len(),
             _ => 1,
         };
@@ -3258,14 +2843,14 @@ impl Compiler {
         // Compile the match arms, collecting their jump offset placeholders
         let arm_jump_placeholders = arms
             .iter()
-            .map(|arm| self.compile_match_arm(result, match_register.register, match_len, arm, ast))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|arm| self.compile_match_arm(result, match_register, match_len, arm, ctx))
+            .collect::<Result<Vec<_>>>()?;
 
         // Set the result to Null in case there was no matching arm
-        if let Some(result) = result {
+        if let Some(result_register) = result.register {
             // If the last arm was `else`, then setting to Null isn't necessary
             if matches!(arms.last(), Some(arm) if !arm.is_else()) {
-                self.push_op(Op::SetNull, &[result.register]);
+                self.push_op(Op::SetNull, &[result_register]);
             }
         }
 
@@ -3281,12 +2866,12 @@ impl Compiler {
 
     fn compile_match_arm(
         &mut self,
-        result: Option<CompileResult>,
+        result: CompileNodeOutput,
         match_register: u8,
         match_len: usize,
         arm: &MatchArm,
-        ast: &Ast,
-    ) -> Result<Option<usize>, CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<Option<usize>> {
         let mut jumps = MatchJumpPlaceholders::default();
 
         for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
@@ -3294,8 +2879,8 @@ impl Compiler {
 
             jumps.alternative_end.clear();
 
-            let arm_node = ast.node(*arm_pattern);
-            self.push_span(arm_node, ast);
+            let arm_node = ctx.ast.node(*arm_pattern);
+            self.push_span(arm_node, ctx.ast);
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
                     if patterns.len() != match_len {
@@ -3330,7 +2915,7 @@ impl Compiler {
                         None, // pattern index
                         patterns,
                         type_check_op,
-                        ast,
+                        ctx,
                     )?;
 
                     None
@@ -3358,7 +2943,7 @@ impl Compiler {
                     },
                     patterns.len() > 1, // match_is_container
                     &patterns,
-                    ast,
+                    ctx,
                 )?;
             }
 
@@ -3378,11 +2963,9 @@ impl Compiler {
         // match foo
         //   x if x > 10 then 99
         if let Some(condition) = arm.condition {
-            let condition_register = self
-                .compile_node(ResultRegister::Any, condition, ast)?
-                .unwrap();
+            let condition_register = self.compile_node(condition, ctx.with_any_register())?;
 
-            self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
+            self.push_op_without_span(Op::JumpIfFalse, &[condition_register.unwrap(self)?]);
             jumps.arm_end.push(self.push_offset_placeholder());
 
             if condition_register.is_temporary {
@@ -3390,13 +2973,10 @@ impl Compiler {
             }
         }
 
-        let body_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
-        } else {
-            ResultRegister::None
-        };
-
-        self.compile_node(body_result_register, arm.expression, ast)?;
+        let body_result_register = result
+            .register
+            .map_or(ResultRegister::None, ResultRegister::Fixed);
+        self.compile_node(arm.expression, ctx.with_register(body_result_register))?;
 
         // Jump to the end of the match expression, unless this is an `else` arm
         let result_jump_placeholder = if !arm.is_else() {
@@ -3418,8 +2998,8 @@ impl Compiler {
         params: MatchArmParameters,
         match_is_container: bool,
         arm_patterns: &[AstIndex],
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         use Op::*;
 
         let mut index_from_end = false;
@@ -3432,7 +3012,7 @@ impl Compiler {
             } else {
                 pattern_index as i8
             };
-            let pattern_node = ast.node(*pattern);
+            let pattern_node = ctx.ast.node(*pattern);
 
             match &pattern_node.node {
                 Node::Null
@@ -3444,7 +3024,7 @@ impl Compiler {
                 | Node::Str(_)
                 | Node::Lookup(_) => {
                     let pattern_register = self.push_register()?;
-                    self.compile_node(ResultRegister::Fixed(pattern_register), *pattern, ast)?;
+                    self.compile_node(*pattern, ctx.with_fixed_register(pattern_register))?;
                     let comparison = self.push_register()?;
 
                     if match_is_container {
@@ -3529,7 +3109,7 @@ impl Compiler {
                         Some(pattern_index),
                         patterns,
                         type_check_op,
-                        ast,
+                        ctx,
                     )?;
                 }
                 Node::Ellipsis(maybe_id) => {
@@ -3583,8 +3163,8 @@ impl Compiler {
         pattern_index: Option<i8>,
         nested_patterns: &[AstIndex],
         type_check_op: Op,
-        ast: &Ast,
-    ) -> Result<(), CompilerError> {
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         use Op::*;
 
         let value_register = if let Some(pattern_index) = pattern_index {
@@ -3616,10 +3196,10 @@ impl Compiler {
 
         let first_or_last_pattern_is_ellipsis = {
             let first_is_ellipsis = nested_patterns.first().map_or(false, |first| {
-                matches!(ast.node(*first).node, Node::Ellipsis(_))
+                matches!(ctx.ast.node(*first).node, Node::Ellipsis(_))
             });
             let last_is_ellipsis = nested_patterns.last().map_or(false, |last| {
-                matches!(ast.node(*last).node, Node::Ellipsis(_))
+                matches!(ctx.ast.node(*last).node, Node::Ellipsis(_))
             });
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
                 return self.error(ErrorKind::MultipleMatchEllipses);
@@ -3670,7 +3250,7 @@ impl Compiler {
             },
             true, // match_is_container
             nested_patterns,
-            ast,
+            ctx,
         )?;
 
         if pattern_index.is_some() {
@@ -3682,10 +3262,9 @@ impl Compiler {
 
     fn compile_for(
         &mut self,
-        result_register: ResultRegister, // register that gets the last iteration's result
         ast_for: &AstFor,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
         let AstFor {
@@ -3702,28 +3281,26 @@ impl Compiler {
         //   jump -> loop_start
         // end:
 
-        let result = self.get_result_register(result_register)?;
+        let result = self.assign_result_register(ctx)?;
 
-        let body_result_register = if let Some(result) = result {
-            self.push_op(SetNull, &[result.register]);
-            Some(result.register)
+        let body_result_register = if let Some(result_register) = result.register {
+            self.push_op(SetNull, &[result_register]);
+            Some(result_register)
         } else {
             None
         };
 
-        let stack_count = self.frame().register_stack.len();
+        let stack_count = self.stack_count();
 
         let iterator_register = {
             let iterator_register = self.push_register()?;
-            let iterable_register = self
-                .compile_node(ResultRegister::Any, *iterable, ast)?
-                .unwrap();
+            let iterable_register = self.compile_node(*iterable, ctx.with_any_register())?;
 
             // Make the iterator, using the iterator's span in case of errors
-            self.push_span(ast.node(*iterable), ast);
+            self.push_span(ctx.ast.node(*iterable), ctx.ast);
             self.push_op(
                 MakeIterator,
-                &[iterator_register, iterable_register.register],
+                &[iterator_register, iterable_register.unwrap(self)?],
             );
             self.pop_span();
 
@@ -3735,16 +3312,13 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
-        self.frame_mut().loop_stack.push(Loop {
-            result_register: body_result_register,
-            start_ip: loop_start_ip,
-            jump_placeholders: vec![],
-        });
+        self.frame_mut()
+            .push_loop(loop_start_ip, body_result_register);
 
         match args.as_slice() {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
-                match &ast.node(*single_arg).node {
+                match &ctx.ast.node(*single_arg).node {
                     Node::Id(id) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
@@ -3778,7 +3352,7 @@ impl Compiler {
                 self.push_op_without_span(MakeIterator, &[temp_register, temp_register]);
 
                 for arg in args.iter() {
-                    match &ast.node(*arg).node {
+                    match &ctx.ast.node(*arg).node {
                         Node::Id(id) => {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
@@ -3800,29 +3374,20 @@ impl Compiler {
         }
 
         self.compile_node(
-            body_result_register.map_or(ResultRegister::None, |register| {
-                ResultRegister::Fixed(register)
-            }),
             *body,
-            ast,
+            ctx.with_register(
+                body_result_register.map_or(ResultRegister::None, ResultRegister::Fixed),
+            ),
         )?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
-
-        match self.frame_mut().loop_stack.pop() {
-            Some(loop_info) => {
-                for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder)?;
-                }
-            }
-            None => return self.error(ErrorKind::EmptyLoopInfoStack),
-        }
+        self.pop_loop_and_update_placeholders()?;
 
         self.truncate_register_stack(stack_count)?;
 
         if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
-                if let Node::Id(id) = &ast.node(*arg).node {
+                if let Node::Id(id) = &ctx.ast.node(*arg).node {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
                         None => return self.error(ErrorKind::MissingArgRegister),
@@ -3837,44 +3402,37 @@ impl Compiler {
 
     fn compile_loop(
         &mut self,
-        result_register: ResultRegister, // register that gets the last iteration's result
         condition: Option<(AstIndex, bool)>, // condition, negate condition
         body: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let result = self.get_result_register(result_register)?;
-        let body_result_register = if let Some(result) = result {
+        let result = self.assign_result_register(ctx)?;
+        let body_result_register = if let Some(result_register) = result.register {
             if condition.is_some() {
                 // If there's a condition, then the result should be set to Null in case
                 // there are no loop iterations
-                self.push_op(SetNull, &[result.register]);
+                self.push_op(SetNull, &[result_register]);
             }
-            Some(result.register)
+            Some(result_register)
         } else {
             None
         };
 
         let loop_start_ip = self.bytes.len();
-
-        self.frame_mut().loop_stack.push(Loop {
-            start_ip: loop_start_ip,
-            result_register: body_result_register,
-            jump_placeholders: Vec::new(),
-        });
+        self.frame_mut()
+            .push_loop(loop_start_ip, body_result_register);
 
         if let Some((condition, negate_condition)) = condition {
             // Condition
-            let condition_register = self
-                .compile_node(ResultRegister::Any, condition, ast)?
-                .unwrap();
+            let condition_register = self.compile_node(condition, ctx.with_any_register())?;
             let op = if negate_condition {
                 JumpIfTrue
             } else {
                 JumpIfFalse
             };
-            self.push_op_without_span(op, &[condition_register.register]);
+            self.push_op_without_span(op, &[condition_register.unwrap(self)?]);
             self.push_loop_jump_placeholder()?;
             if condition_register.is_temporary {
                 self.pop_register()?;
@@ -3882,41 +3440,30 @@ impl Compiler {
         }
 
         let body_result = self.compile_node(
-            body_result_register.map_or(ResultRegister::None, |register| {
-                ResultRegister::Fixed(register)
-            }),
             body,
-            ast,
+            ctx.with_register(
+                body_result_register.map_or(ResultRegister::None, ResultRegister::Fixed),
+            ),
         )?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
-        if let Some(body_result) = body_result {
-            if body_result.is_temporary {
-                self.pop_register()?;
-            }
+        if body_result.is_temporary {
+            self.pop_register()?;
         }
 
-        match self.frame_mut().loop_stack.pop() {
-            Some(loop_info) => {
-                for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder)?;
-                }
-            }
-            None => return self.error(ErrorKind::EmptyLoopInfoStack),
-        }
+        self.pop_loop_and_update_placeholders()?;
 
         Ok(result)
     }
 
     fn compile_node_with_jump_offset(
         &mut self,
-        result_register: ResultRegister,
         node_index: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
         let offset_ip = self.push_offset_placeholder();
-        let result = self.compile_node(result_register, node_index, ast)?;
+        let result = self.compile_node(node_index, ctx)?;
         self.update_offset_placeholder(offset_ip)?;
         Ok(result)
     }
@@ -3933,18 +3480,27 @@ impl Compiler {
         offset_ip
     }
 
-    fn push_loop_jump_placeholder(&mut self) -> Result<(), CompilerError> {
+    fn push_loop_jump_placeholder(&mut self) -> Result<()> {
         let placeholder = self.push_offset_placeholder();
-        match self.frame_mut().loop_stack.last_mut() {
-            Some(loop_info) => {
-                loop_info.jump_placeholders.push(placeholder);
-                Ok(())
-            }
-            None => self.error(ErrorKind::EmptyLoopInfoStack),
-        }
+        self.frame_mut()
+            .push_loop_jump_placeholder(placeholder)
+            .map_err(|e| self.make_error(e))
     }
 
-    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<(), CompilerError> {
+    fn pop_loop_and_update_placeholders(&mut self) -> Result<()> {
+        let loop_info = self
+            .frame_mut()
+            .pop_loop()
+            .map_err(|e| self.make_error(e))?;
+
+        for placeholder in loop_info.jump_placeholders.iter() {
+            self.update_offset_placeholder(*placeholder)?;
+        }
+
+        Ok(())
+    }
+
+    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<()> {
         let offset = self.bytes.len() - offset_ip - 2; // -2 bytes for u16
         match u16::try_from(offset) {
             Ok(offset_u16) => {
@@ -3984,43 +3540,47 @@ impl Compiler {
         self.frame_stack.last_mut().expect("Frame stack is empty")
     }
 
-    fn push_register(&mut self) -> Result<u8, CompilerError> {
+    fn stack_count(&self) -> usize {
+        self.frame().register_stack_size()
+    }
+
+    fn push_register(&mut self) -> Result<u8> {
         self.frame_mut()
             .push_register()
             .map_err(|e| self.make_error(e))
     }
 
-    fn pop_register(&mut self) -> Result<u8, CompilerError> {
+    fn pop_register(&mut self) -> Result<u8> {
         self.frame_mut()
             .pop_register()
             .map_err(|e| self.make_error(e))
     }
 
-    fn peek_register(&mut self, n: usize) -> Result<u8, CompilerError> {
+    fn peek_register(&mut self, n: usize) -> Result<u8> {
         self.frame_mut()
             .peek_register(n)
             .map_err(|e| self.make_error(e))
     }
 
-    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), CompilerError> {
+    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<()> {
         self.frame_mut()
             .truncate_register_stack(stack_count)
             .map_err(|e| self.make_error(e))
     }
 
-    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .assign_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
-    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .reserve_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
-    fn commit_local_register(&mut self, register: u8) -> Result<u8, CompilerError> {
+    fn commit_local_register(&mut self, register: u8) -> Result<u8> {
         for deferred_op in self
             .frame_mut()
             .commit_local_register(register)
@@ -4032,7 +3592,7 @@ impl Compiler {
         Ok(register)
     }
 
-    fn error<T>(&self, error: impl Into<ErrorKind>) -> Result<T, CompilerError> {
+    fn error<T>(&self, error: impl Into<ErrorKind>) -> Result<T> {
         Err(self.make_error(error))
     }
 

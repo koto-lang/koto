@@ -4,6 +4,7 @@
 
 mod chunk;
 mod compiler;
+mod frame;
 mod instruction;
 mod instruction_reader;
 mod loader;

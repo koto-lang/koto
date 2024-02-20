@@ -224,13 +224,6 @@ pub enum Instruction {
         frame_base: u8,
         arg_count: u8,
     },
-    CallInstance {
-        result: u8,
-        function: u8,
-        frame_base: u8,
-        arg_count: u8,
-        instance: u8,
-    },
     Return {
         register: u8,
     },
@@ -465,8 +458,8 @@ impl fmt::Debug for Instruction {
             SequencePushN { start, count } => {
                 write!(f, "SequencePushN\tstart: {start}\tcount: {count}",)
             }
-            SequenceToList { register } => write!(f, "SequenceToList\tregister: {register}"),
-            SequenceToTuple { register } => write!(f, "SequenceToTuple\tregister: {register}"),
+            SequenceToList { register } => write!(f, "SequenceToList\tresult: {register}"),
+            SequenceToTuple { register } => write!(f, "SequenceToTuple\tresult: {register}"),
             Range {
                 register,
                 start,
@@ -588,17 +581,6 @@ impl fmt::Debug for Instruction {
                 "Call\t\tresult: {result}\tfunction: {function}\t\
                  frame base: {frame_base}\targs: {arg_count}",
             ),
-            CallInstance {
-                result,
-                function,
-                frame_base,
-                arg_count,
-                instance,
-            } => write!(
-                f,
-                "CallInstance\tresult: {result}\tfunction: {function}\tframe_base: {frame_base}
-                 \t\t\targs: {arg_count}\t\tinstance: {instance}",
-            ),
             Return { register } => write!(f, "Return\t\tresult: {register}"),
             Yield { register } => write!(f, "Yield\t\tresult: {register}"),
             Throw { register } => write!(f, "Throw\t\tresult: {register}"),
@@ -696,7 +678,7 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "Access\t\tresult: {register}\tvalue: {value}\tkey: {key}"
+                "Access\t\tresult: {register}\tsource: {value}\tkey: {key}"
             ),
             AccessString {
                 register,
@@ -704,7 +686,7 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "AccessString\tresult: {register}\tvalue: {value}\tkey: {key}"
+                "AccessString\tresult: {register}\tsource: {value}\tkey: {key}"
             ),
             TryStart {
                 arg_register,
@@ -715,16 +697,16 @@ impl fmt::Debug for Instruction {
             ),
             TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
-                write!(f, "Debug\t\tregister: {register}\tconstant: {constant}")
+                write!(f, "Debug\t\tvalue: {register}\tconstant: {constant}")
             }
             CheckType { register, type_id } => {
-                write!(f, "CheckType\tregister: {register}\ttype: {type_id:?}")
+                write!(f, "CheckType\tvalue: {register}\ttype: {type_id:?}")
             }
             CheckSizeEqual { register, size } => {
-                write!(f, "CheckSizeEqual\tregister: {register}\tsize: {size}")
+                write!(f, "CheckSizeEqual\tvalue: {register}\tsize: {size}")
             }
             CheckSizeMin { register, size } => {
-                write!(f, "CheckSizeMin\tregister: {register}\tsize: {size}")
+                write!(f, "CheckSizeMin\tvalue: {register}\tsize: {size}")
             }
             StringStart { size_hint } => {
                 write!(f, "StringStart\tsize hint: {size_hint}")
@@ -733,7 +715,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "StringPush\tvalue: {value}")
             }
             StringFinish { register } => {
-                write!(f, "StringFinish\tregister: {register}")
+                write!(f, "StringFinish\tresult: {register}")
             }
         }
     }

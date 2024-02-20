@@ -70,36 +70,28 @@ pub struct CallContext<'a> {
     ///
     /// If a VM needs to be retained after the call, then see [KotoVm::spawn_shared_vm].
     pub vm: &'a mut KotoVm,
-    instance_register: Option<u8>,
-    arg_register: u8,
+    frame_base: u8,
     arg_count: u8,
 }
 
 impl<'a> CallContext<'a> {
     /// Returns a new context for calling external functions
-    pub fn new(
-        vm: &'a mut KotoVm,
-        instance_register: Option<u8>,
-        arg_register: u8,
-        arg_count: u8,
-    ) -> Self {
+    pub fn new(vm: &'a mut KotoVm, frame_base: u8, arg_count: u8) -> Self {
         Self {
             vm,
-            instance_register,
-            arg_register,
+            frame_base,
             arg_count,
         }
     }
 
     /// Returns the `self` instance with which the function was called
-    pub fn instance(&self) -> Option<&KValue> {
-        self.instance_register
-            .map(|register| self.vm.get_register(register))
+    pub fn instance(&self) -> &KValue {
+        self.vm.get_register(self.frame_base)
     }
 
     /// Returns the function call's arguments
     pub fn args(&self) -> &[KValue] {
-        self.vm.register_slice(self.arg_register, self.arg_count)
+        self.vm.register_slice(self.frame_base + 1, self.arg_count)
     }
 
     /// Returns the instance and args with which the function was called
@@ -118,7 +110,7 @@ impl<'a> CallContext<'a> {
         expected_args_message: &str,
     ) -> Result<(&KValue, &[KValue])> {
         match (self.instance(), self.args()) {
-            (Some(instance), args) if instance_check(instance) => Ok((instance, args)),
+            (instance, args) if instance_check(instance) => Ok((instance, args)),
             (_, [first, rest @ ..]) if instance_check(first) => Ok((first, rest)),
             (_, unexpected_args) => type_error_with_slice(expected_args_message, unexpected_args),
         }

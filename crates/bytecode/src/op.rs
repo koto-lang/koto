@@ -311,13 +311,8 @@ pub enum Op {
 
     /// Calls a function
     ///
-    /// `[*result, *function, *first arg, arg count]`
+    /// `[*result, *function, *frame base, arg count]`
     Call,
-
-    /// Calls an instance function
-    ///
-    /// `[*result, *function, *first arg, arg count, *instance]`
-    CallInstance,
 
     /// Returns from the current frame with the given result
     ///
@@ -506,6 +501,7 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused85,
     Unused86,
     Unused87,
     Unused88,

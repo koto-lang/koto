@@ -521,25 +521,24 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("next", |ctx| {
-        let mut iter = match (ctx.instance(), ctx.args()) {
-            // No need to call make_iterator when the argument is already an Iterator
-            (Some(KValue::Iterator(i)), []) => i.clone(),
-            (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
-                ctx.vm.make_iterator(iterable.clone())?
-            }
-            (_, unexpected) => return type_error_with_slice("an iterable", unexpected),
+        let expected_error = "an iterable";
+
+        let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (KValue::Iterator(i), []) => i.clone(),
+            (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
+            (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
         };
 
         iter_output_to_result(iter.next())
     });
 
     result.add_fn("next_back", |ctx| {
-        let mut iter = match (ctx.instance(), ctx.args()) {
-            (Some(KValue::Iterator(i)), []) => i.clone(),
-            (Some(iterable), []) | (None, [iterable]) if iterable.is_iterable() => {
-                ctx.vm.make_iterator(iterable.clone())?
-            }
-            (_, unexpected) => return type_error_with_slice("an iterable", unexpected),
+        let expected_error = "an iterable";
+
+        let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (KValue::Iterator(i), []) => i.clone(),
+            (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
+            (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
         };
 
         iter_output_to_result(iter.next_back())

@@ -44,14 +44,11 @@ pub struct KCaptureFunction {
     //
     // Q. Why use a KList?
     // A. Because capturing values currently works by assigning by index, after the function
-    //    itself has been created.
-    // Q. Why not use a SequenceBuilder?
-    // A. Recursive functions need to capture themselves into the list, and the captured function
-    //    and the assigned function need to share the same captures list. Currently the only way
-    //    for this to work is to allow mutation of the shared list after the creation of the
-    //    function, so a KList is a reasonable choice.
+    //    itself has been created, and the captured function and the assigned function both need to
+    //    share the same captures list. Currently the only way for this to work is to allow mutation
+    //    of the shared list after the creation of the function, so a KList is a reasonable choice.
     // Q. After capturing is complete, what about using Ptr<[Value]> for non-recursive functions,
     //    or Option<Value> for non-recursive functions with a single capture?
-    // A. These could be worth investigating, but for now the KList will do.
+    // A. These could be worth investigating as optimizations, but a KList will do for now.
     pub captures: KList,
 }
