@@ -3376,4 +3376,16 @@ f()";
             test_script(script, 42);
         }
     }
+
+    mod debug {
+        use super::*;
+
+        #[test]
+        fn debug_provides_expression_result() {
+            let script = "
+debug 1 + 1
+";
+            test_script(script, 2);
+        }
+    }
 }

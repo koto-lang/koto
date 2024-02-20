@@ -550,23 +550,18 @@ impl Compiler {
                 expression_string,
                 expression,
             } => {
-                let result = self.assign_result_register(ctx)?;
+                let expression_context = match ctx.result_register {
+                    ResultRegister::None => ctx.with_any_register(),
+                    _ => ctx,
+                };
 
-                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
+                let expression_result = self.compile_node(*expression, expression_context)?;
                 let expression_register = expression_result.unwrap(self)?;
 
                 self.push_op(Debug, &[expression_register]);
                 self.push_var_u32(*expression_string);
 
-                if let Some(result_register) = result.register {
-                    self.push_op(Copy, &[result_register, expression_register]);
-                }
-
-                if expression_result.is_temporary {
-                    self.pop_register()?;
-                }
-
-                result
+                expression_result
             }
             Node::Meta(_, _) => {
                 // Meta nodes are currently only compiled in the context of an export assignment,
