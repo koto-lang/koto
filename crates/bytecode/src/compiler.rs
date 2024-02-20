@@ -2638,11 +2638,13 @@ impl Compiler {
         let result = self.assign_result_register(ctx)?;
         let stack_count = self.stack_count();
 
-        // The frame base is an empty register that may be used for an instance value if needed
-        // (it's decided at runtime if the instance value will be used or not).
-        let frame_base = self.push_register()?;
-
         let mut arg_count = args.len();
+
+        // The frame base is used for the instance register
+        let frame_base = self.push_register()?;
+        if let Some(instance) = instance {
+            self.push_op(Copy, &[frame_base, instance]);
+        }
 
         for arg in args.iter() {
             let arg_register = self.push_register()?;
@@ -2664,31 +2666,15 @@ impl Compiler {
             frame_base
         };
 
-        match instance {
-            Some(instance_register) => {
-                self.push_op(
-                    CallInstance,
-                    &[
-                        call_result_register,
-                        function_register,
-                        frame_base,
-                        arg_count as u8,
-                        instance_register,
-                    ],
-                );
-            }
-            None => {
-                self.push_op(
-                    Call,
-                    &[
-                        call_result_register,
-                        function_register,
-                        frame_base,
-                        arg_count as u8,
-                    ],
-                );
-            }
-        }
+        self.push_op(
+            Call,
+            &[
+                call_result_register,
+                function_register,
+                frame_base,
+                arg_count as u8,
+            ],
+        );
 
         self.truncate_register_stack(stack_count)?;
 

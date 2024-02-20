@@ -370,7 +370,7 @@ fn map_instance_and_args<'a>(
     // For core.map ops, allow using maps with metamaps when the ops are used as standalone
     // functions.
     match (ctx.instance(), ctx.args()) {
-        (Some(instance @ Map(m)), args) if m.meta_map().is_none() => Ok((instance, args)),
+        (instance @ Map(m), args) if m.meta_map().is_none() => Ok((instance, args)),
         (_, [first @ Map(_), rest @ ..]) => Ok((first, rest)),
         (_, unexpected_args) => type_error_with_slice(expected_error, unexpected_args),
     }

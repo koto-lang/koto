@@ -306,12 +306,6 @@ impl KotoVm {
 
         let result_register = self.next_register();
         let frame_base = result_register + 1;
-        // If there's an instance value then it goes in the frame base
-        let instance_register = if instance.is_some() {
-            Some(frame_base)
-        } else {
-            None
-        };
 
         self.registers.push(KValue::Null); // result register
         self.registers.push(instance.unwrap_or_default()); // frame base
@@ -378,7 +372,6 @@ impl KotoVm {
                 result_register,
                 frame_base,
                 arg_count,
-                instance_register,
             },
             function,
             temp_tuple_values,
@@ -820,23 +813,6 @@ impl KotoVm {
                     result_register: result,
                     frame_base,
                     arg_count,
-                    instance_register: None,
-                },
-                self.clone_register(function),
-                None,
-            )?,
-            CallInstance {
-                result,
-                function,
-                frame_base,
-                arg_count,
-                instance,
-            } => self.call_callable(
-                &CallInfo {
-                    result_register: result,
-                    frame_base,
-                    arg_count,
-                    instance_register: Some(instance),
                 },
                 self.clone_register(function),
                 None,
@@ -1930,13 +1906,12 @@ impl KotoVm {
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(KValue::Null); // frame_base
+        self.registers.push(self.clone_register(value_register)); // frame_base
         self.call_callable(
             &CallInfo {
                 result_register,
                 frame_base,
                 arg_count: 0,
-                instance_register: Some(value_register),
             },
             op,
             None,
@@ -1958,14 +1933,13 @@ impl KotoVm {
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(KValue::Null); // frame_base
+        self.registers.push(self.clone_register(lhs_register)); // frame_base
         self.registers.push(rhs); // arg
         self.call_callable(
             &CallInfo {
                 result_register,
                 frame_base,
                 arg_count: 1, // 1 arg, the rhs value
-                instance_register: Some(lhs_register),
             },
             op,
             None,
@@ -2458,14 +2432,7 @@ impl KotoVm {
     }
 
     fn call_external(&mut self, call_info: &CallInfo, callable: ExternalCallable) -> Result<()> {
-        let mut call_context = CallContext::new(
-            self,
-            call_info.instance_register,
-            // The frame base register goes unused for external function calls,
-            // instead the instance register is accessed directly via the call context.
-            call_info.frame_base + 1,
-            call_info.arg_count,
-        );
+        let mut call_context = CallContext::new(self, call_info.frame_base, call_info.arg_count);
 
         let result = match callable {
             ExternalCallable::Function(f) => (f.function)(&mut call_context),
@@ -2504,10 +2471,10 @@ impl KotoVm {
         };
 
         // Place the instance in the first register of the generator vm
-        let instance = call_info
-            .instance_register
-            .map(|register| self.clone_register(register))
-            .unwrap_or_default();
+        let instance = self
+            .get_register_safe(call_info.frame_base)
+            .cloned()
+            .unwrap_or(KValue::Null);
         generator_vm.set_register(0, instance);
 
         let arg_offset = 1;
@@ -2588,13 +2555,6 @@ impl KotoVm {
             f.arg_count
         };
 
-        // Clone the instance register into the first register of the frame
-        let instance = call_info
-            .instance_register
-            .map(|register| self.clone_register(register))
-            .unwrap_or_default();
-        self.set_register(call_info.frame_base, instance);
-
         if f.variadic && call_info.arg_count >= expected_arg_count {
             // The last defined arg is the start of the var_args,
             // e.g. f = |x, y, z...|
@@ -2644,32 +2604,24 @@ impl KotoVm {
     fn call_callable(
         &mut self,
         info: &CallInfo,
-        function: KValue,
+        callable: KValue,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
         use KValue::*;
 
-        match function {
+        match callable {
             Function(f) => self.call_function(info, &f, None, temp_tuple_values),
             CaptureFunction(f) => {
                 self.call_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
             NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
             Object(o) => self.call_external(info, ExternalCallable::Object(o)),
-            ref v if v.contains_meta_key(&MetaKey::Call) => {
-                let f = v.get_meta_value(&MetaKey::Call).unwrap();
-                // Set the map as the instance by placing it in the frame base,
-                // and then passing it into call_callable
-                let instance = function.clone();
-                self.set_register(info.frame_base, instance);
-                self.call_callable(
-                    &CallInfo {
-                        instance_register: Some(info.frame_base),
-                        ..*info
-                    },
-                    f,
-                    temp_tuple_values,
-                )
+            _ if callable.contains_meta_key(&MetaKey::Call) => {
+                let f = callable.get_meta_value(&MetaKey::Call).unwrap();
+                // Set the callable value as the instance by placing it in the frame base,
+                // and then passing the @|| function into call_callable
+                self.set_register(info.frame_base, callable);
+                self.call_callable(info, f, temp_tuple_values)
             }
             unexpected => type_error("callable function", &unexpected),
         }
@@ -3109,11 +3061,11 @@ enum ExternalCallable {
 }
 
 // See Vm::call_callable
+#[derive(Debug)]
 struct CallInfo {
     result_register: u8,
     frame_base: u8,
     arg_count: u8,
-    instance_register: Option<u8>,
 }
 
 struct ExecutionTimeout {
