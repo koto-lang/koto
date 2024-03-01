@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
+use crate::{derive::*, prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {
@@ -529,7 +529,12 @@ pub fn make_module() -> KMap {
             (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
         };
 
-        iter_output_to_result(iter.next())
+        let output = match iter_output_to_result(iter.next())? {
+            None => KValue::Null,
+            Some(output) => IteratorOutput::from(output).into(),
+        };
+
+        Ok(output)
     });
 
     result.add_fn("next_back", |ctx| {
@@ -541,7 +546,12 @@ pub fn make_module() -> KMap {
             (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
         };
 
-        iter_output_to_result(iter.next_back())
+        let output = match iter_output_to_result(iter.next_back())? {
+            None => KValue::Null,
+            Some(output) => IteratorOutput::from(output).into(),
+        };
+
+        Ok(output)
     });
 
     result.add_fn("once", |ctx| match ctx.args() {
@@ -868,12 +878,53 @@ pub(crate) fn collect_pair(iterator_output: Output) -> Output {
     }
 }
 
-pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<KValue> {
-    match iterator_output {
-        Some(Output::Value(value)) => Ok(value),
-        Some(Output::ValuePair(first, second)) => Ok(KValue::Tuple(vec![first, second].into())),
-        Some(Output::Error(error)) => Err(error),
-        None => Ok(KValue::Null),
+pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<Option<KValue>> {
+    let output = match iterator_output {
+        Some(Output::Value(value)) => Some(value),
+        Some(Output::ValuePair(first, second)) => Some(KValue::Tuple(vec![first, second].into())),
+        Some(Output::Error(error)) => return Err(error),
+        None => None,
+    };
+
+    Ok(output)
+}
+
+/// The output type used by operations like `iterator.next()` and `next_back()`
+#[derive(Clone, KotoCopy, KotoType)]
+pub struct IteratorOutput(KValue);
+
+#[koto_impl(runtime = crate)]
+impl IteratorOutput {
+    /// Returns the wrapped output value
+    #[koto_method]
+    pub fn get(&self) -> KValue {
+        self.0.clone()
+    }
+}
+
+impl KotoObject for IteratorOutput {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        ctx.append(Self::type_static());
+        ctx.append('(');
+
+        let mut wrapped_ctx = DisplayContext::default();
+        self.0.display(&mut wrapped_ctx)?;
+        ctx.append(wrapped_ctx.result());
+
+        ctx.append(')');
+        Ok(())
+    }
+}
+
+impl From<KValue> for IteratorOutput {
+    fn from(value: KValue) -> Self {
+        Self(value)
+    }
+}
+
+impl From<IteratorOutput> for KValue {
+    fn from(output: IteratorOutput) -> Self {
+        KObject::from(output).into()
     }
 }
 

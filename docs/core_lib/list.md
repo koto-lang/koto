@@ -313,10 +313,10 @@ end of the list.
 ```koto
 new_entries = (5, 6, 7, 8).iter()
 x = [1, 2]
-print! x.resize_with 4, || new_entries.next()
+print! x.resize_with 4, || new_entries.next().get()
 check! [1, 2, 5, 6]
 
-print! x.resize_with 2, || new_entries.next()
+print! x.resize_with 2, || new_entries.next().get()
 check! [1, 2]
 ```
 

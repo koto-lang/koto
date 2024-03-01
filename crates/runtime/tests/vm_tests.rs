@@ -1770,7 +1770,7 @@ sum = 0
 iter = (1..=5).peekable()
 while i = iter.peek()
   iter.next()
-  sum += i
+  sum += i.get()
 sum
 ";
             test_script(script, 15);
@@ -1848,7 +1848,7 @@ sum = 0
 iter = (1..=5).peekable()
 until not (i = iter.peek())
   iter.next()
-  sum += i
+  sum += i.get()
 sum
 ";
             test_script(script, 15);
@@ -2296,7 +2296,7 @@ foo = |a, b|
     yield 123
   else
     yield -1
-foo([42]).next()
+foo([42]).next().get()
 ";
             test_script(script, 123);
         }
@@ -2437,11 +2437,8 @@ gen().to_tuple()
             let script = "
 iterator.every_other = ||
   n = 0
-  iter = self.iter()
-  loop
-    match iter.next()
-      null then return
-      value if n % 2 == 0 then yield value
+  for output in self
+    if n % 2 == 0 then yield output
     n += 1
 (1..=5).every_other().to_tuple()
 ";
@@ -2734,7 +2731,7 @@ z = copy x
 x.next()
 x.next()
 z.next()
-z.next()
+z.next().get()
 ";
             test_script(script, 2);
         }
@@ -2748,7 +2745,7 @@ z = deep_copy x
 x[0].next()
 x[0].next()
 z[0].next()
-z[0].next()
+z[0].next().get()
 ";
             test_script(script, 2);
         }
@@ -2764,7 +2761,7 @@ x.next() # 1
 y = copy x
 x.next() # 2
 x.next() # 3
-y.next()
+y.next().get()
 ";
             test_script(script, 2);
         }

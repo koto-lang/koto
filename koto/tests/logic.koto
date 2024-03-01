@@ -40,8 +40,8 @@
       loop
         yield count += 1
     f = make_counter()
-    assert 0 < f.next() < 2
-    assert_eq f.next(), 2
+    assert 0 < f.next().get() < 2
+    assert_eq f.next().get(), 2
 
   @test fiddly_chained_comparison: ||
     f = |x, y, z| if x < y < z > y > x then 0 else 1

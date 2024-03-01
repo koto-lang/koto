@@ -80,13 +80,13 @@ y = x # y shares the same iteration position as x.
 z = koto.copy x # z shares the same iteration data (the range 1..=10),
                 # but has a unique iteration position.
 
-print! x.next()
+print! x.next().get()
 check! 1
-print! x.next()
+print! x.next().get()
 check! 2
-print! y.next() # y shares x's iteration position.
+print! y.next().get() # y shares x's iteration position.
 check! 3
-print! z.next() # z's iteration hasn't been impacted by the advancing of x and y.
+print! z.next().get() # z isn't impacted by the advancing of x and y.
 check! 1
 ```
 

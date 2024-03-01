@@ -7,18 +7,18 @@ make_foo = |x|
 @tests =
   @test next: ||
     i = (1..=3).iter()
-    assert_eq i.next(), 1
-    assert_eq i.next(), 2
-    assert_eq i.next(), 3
+    assert_eq i.next().get(), 1
+    assert_eq i.next().get(), 2
+    assert_eq i.next().get(), 3
     assert_eq i.next(), null
 
   @test next_back: ||
     i = (1..=5).iter()
-    assert_eq i.next_back(), 5
-    assert_eq i.next_back(), 4
-    assert_eq i.next(), 1
-    assert_eq i.next_back(), 3
-    assert_eq i.next_back(), 2
+    assert_eq i.next_back().get(), 5
+    assert_eq i.next_back().get(), 4
+    assert_eq i.next().get(), 1
+    assert_eq i.next_back().get(), 3
+    assert_eq i.next_back().get(), 2
     assert_eq i.next_back(), null
 
   @test to_list: ||
@@ -101,12 +101,12 @@ make_foo = |x|
     x = (1..10).iter()
     y = x # x and y share the same iteration count
     z = copy x # z gets a unique iteration count, starting from where x's current count
-    assert_eq x.next(), 1
-    assert_eq x.next(), 2
-    assert_eq y.next(), 3
-    assert_eq y.next(), 4
-    assert_eq z.next(), 1
-    assert_eq z.next(), 2
+    assert_eq x.next().get(), 1
+    assert_eq x.next().get(), 2
+    assert_eq y.next().get(), 3
+    assert_eq y.next().get(), 4
+    assert_eq z.next().get(), 1
+    assert_eq z.next().get(), 2
 
   @test count: ||
     result = 0..10
@@ -163,7 +163,7 @@ make_foo = |x|
     separators = ("! ", "? ").iter()
     assert_eq
       ("a", "b", "c")
-        .intersperse || separators.next()
+        .intersperse || separators.next().get()
         .to_string(),
       "a! b? c"
 
@@ -216,12 +216,12 @@ make_foo = |x|
 
   @test peekable: ||
     i = 'abcde'.peekable()
-    assert_eq i.peek(), 'a'
-    assert_eq i.next(), 'a'
-    assert_eq i.peek_back(), 'e'
-    assert_eq i.next_back(), 'e'
-    assert_eq i.peek_back(), 'd'
-    assert_eq i.peek(), 'b'
+    assert_eq i.peek().get(), 'a'
+    assert_eq i.next().get(), 'a'
+    assert_eq i.peek_back().get(), 'e'
+    assert_eq i.next_back().get(), 'e'
+    assert_eq i.peek_back().get(), 'd'
+    assert_eq i.peek().get(), 'b'
     assert_eq i.to_tuple(), ('b', 'c', 'd')
 
   @test position: ||
@@ -255,7 +255,7 @@ make_foo = |x|
     assert_eq (1, 3, 5, 7).reversed().to_tuple(), (7, 5, 3, 1)
     assert_eq {foo: 42, bar: 99}.reversed().to_tuple(), (('bar', 99), ('foo', 42))
     assert_eq "Héllö".reversed().to_tuple(), ('ö', 'l', 'l', 'é', 'H')
-    assert_eq "Héllö".reversed().next_back(), 'H'
+    assert_eq "Héllö".reversed().next_back().get(), 'H'
 
   @test skip: ||
     assert_eq
@@ -334,11 +334,8 @@ make_foo = |x|
     # Inserting a function into the iterator map makes it available as an iterator adaptor
     iterator.every_other = ||
       n = 0
-      iter = self.iter()
-      loop
-        match iter.next()
-          null then return
-          value if n % 2 == 0 then yield value
+      for output in self
+        if n % 2 == 0 then yield output
         n += 1
 
     # As an adaptor for an iterable

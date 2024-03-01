@@ -8,28 +8,54 @@ reached and `null` is returned.
 
 ```koto
 i = [10, 20].iter()
+
 print! i.next()
-check! 10
+check! IteratorOutput(10)
 print! i.next()
-check! 20
+check! IteratorOutput(20)
 print! i.next()
 check! null
 ```
 
-Iterators can be _adapted_ using adaptors from the
-[`iterator` module](../../core/iterator).
-Iterator adaptors will accept any iterable value (which includes all containers),
+## Iterator Adaptors
+
+Iterators can be _adapted_ using adaptors from the [`iterator` module](../../core/iterator).
+Note that iterator adaptors will accept any iterable value (which includes all containers),
 so it's not necessary to call `.iter()` first.
 
 ```koto
 x = [1, 2, 3, 4, 5].keep |n| n > 3
+
 print! x.next()
-check! 4
+check! IteratorOutput(4)
 print! x.next()
-check! 5
+check! IteratorOutput(5)
 print! x.next()
 check! null
 ```
+## Iterator Chains
+
+Iterator adaptors can be passed into other adaptors, creating _iterator chains_
+that can be as long as you like.
+
+```koto
+print! x = (1, 2, 3, 4, 5)
+  .skip 2
+  .each |n| n * 10
+  .keep |n| n < 50
+  .intersperse 'x'
+check! Iterator
+print! x.next()
+check! IteratorOutput(30)
+print! x.next()
+check! IteratorOutput(x)
+print! x.next()
+check! IteratorOutput(40)
+print! x.next()
+check! null
+```
+
+## Iterator Consumers
 
 Iterators can be also be _consumed_ using functions like
 `.to_list()` and `.to_tuple()`.
@@ -42,7 +68,8 @@ check! (2, 4, 6)
 
 print! (11, 22, 33, 44)
   .keep |n| n % 2 == 0
+  .each |n| n / 11
+  .each number.to_int
   .to_list()
-check! [22, 44]
+check! [2, 4]
 ```
-

@@ -11,11 +11,11 @@ my_first_generator = ||
   yield 3
 
 x = my_first_generator()
-print! x.next()
+print! x.next().get()
 check! 1
-print! x.next()
+print! x.next().get()
 check! 2
-print! x.next()
+print! x.next().get()
 check! 3
 print! x.next()
 check! null
@@ -34,11 +34,11 @@ print! my_generator(10).to_tuple()
 check! (11, 12, 13)
 ```
 
-## Iterator adaptors
+## Custom Iterator Adaptors
 
-A generator that modifies another iterator's output is known as an _iterator adaptor_. 
+A generator that modifies another iterator's output is an _iterator adaptor_. 
 
-Inserting an adaptor into the `iterator` module makes it available in any iterator chain.
+Inserting a generator into the `iterator` module makes it available in any iterator chain.
 
 ```koto
 # Make an iterator adaptor that yields 
