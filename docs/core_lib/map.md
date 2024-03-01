@@ -260,10 +260,10 @@ m =
 
 x = m.keys()
 
-print! x.next()
+print! x.next().get()
 check! hello
 
-print! x.next()
+print! x.next().get()
 check! goodbye
 
 print! x.next()
@@ -433,10 +433,10 @@ m =
 
 x = m.values()
 
-print! x.next()
+print! x.next().get()
 check! -1
 
-print! x.next()
+print! x.next().get()
 check! 99
 
 print! x.next()

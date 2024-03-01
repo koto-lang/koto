@@ -215,6 +215,7 @@ mod guide {
     test_lang_guide_examples!(functions_advanced);
     test_lang_guide_examples!(generators);
     test_lang_guide_examples!(getting_started);
+    test_lang_guide_examples!(iterators);
     test_lang_guide_examples!(lists);
     test_lang_guide_examples!(loops);
     test_lang_guide_examples!(maps);

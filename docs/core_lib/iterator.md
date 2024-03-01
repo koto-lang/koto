@@ -347,7 +347,7 @@ check! a-b-c
 
 separators = (1, 2, 3).iter()
 print! ('a', 'b', 'c')
-  .intersperse || separators.next()
+  .intersperse || separators.next().get()
   .to_tuple(),
 check! ('a', 1, 'b', 2, 'c')
 ```
@@ -373,7 +373,7 @@ modification. If a copy of the iterator is needed then see `koto.copy` and
 ```koto
 i = (1..10).iter()
 i.skip 5
-print! i.next()
+print! i.next().get()
 check! 6
 ```
 
@@ -516,21 +516,29 @@ check! (-3, 99)
 ## next
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> IteratorOutput
 ```
 
-Returns the next value from the iterator.
+Returns the next value from the iterator wrapped in an 
+[`IteratorOutput`](#iteratoroutput), 
+or `null` if the iterator has been exhausted.
 
 ### Example
 
 ```koto
-x = (1, 2).iter()
+x = (1, null, 'x').iter()
 print! x.next()
-check! 1
+check! IteratorOutput(1)
 print! x.next()
-check! 2
+check! IteratorOutput(null)
+print! x.next()
+check! IteratorOutput(x)
 print! x.next()
 check! null
+
+# Call .get() to access the value from an IteratorOutput
+print! 'abc'.next().get()
+check! a
 ```
 
 ### See Also
@@ -540,10 +548,12 @@ check! null
 ## next_back
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> IteratorOutput
 ```
 
-Returns the next value from the end of the iterator.
+Returns the next value from the end of the iterator wrapped in an 
+[`IteratorOutput`](#iteratoroutput), 
+or `null` if the iterator has been exhausted.
 
 This only works with iterators that have a defined end, so attempting to call
 `next_back` on endless iterators like [`iterator.generate`](#generate) will 
@@ -554,17 +564,19 @@ result in an error.
 ```koto
 x = (1..=5).iter()
 print! x.next_back()
-check! 5
+check! IteratorOutput(5)
 print! x.next_back()
-check! 4
+check! IteratorOutput(4)
+
 # calls to next and next_back can be mixed together
 print! x.next()
-check! 1
+check! IteratorOutput(1)
 print! x.next_back()
-check! 3
+check! IteratorOutput(3)
 print! x.next_back()
-check! 2
-# 1 has already been produced by the iterator, so now it's finished
+check! IteratorOutput(2)
+
+# 1 has already been produced by the iterator, so it's now exhausted
 print! x.next_back()
 check! null
 ```
@@ -608,15 +620,19 @@ The peeked value is cached until the iterator is advanced.
 #### Example
 
 ```koto
-x = 'abcdef'.peekable()
+x = 'abc'.peekable()
 print! x.peek()
-check! a
+check! IteratorOutput(a)
 print! x.peek()
-check! a
+check! IteratorOutput(a)
 print! x.next()
-check! a
+check! IteratorOutput(a)
 print! x.peek()
-check! b
+check! IteratorOutput(b)
+print! x.next(), x.next()
+check! (IteratorOutput(b), IteratorOutput(c))
+print! x.peek()
+check! null
 ```
 
 #### See Also
@@ -631,19 +647,19 @@ The peeked value is cached until the iterator is advanced.
 #### Example
 
 ```koto
-x = 'abcdef'.peekable()
+x = 'abc'.peekable()
 print! x.peek_back()
-check! f
+check! IteratorOutput(c)
 print! x.next_back()
-check! f
+check! IteratorOutput(c)
 print! x.peek()
-check! a
+check! IteratorOutput(a)
 print! x.peek_back()
-check! e
-print! x.next_back()
-check! e
-print! x.next()
-check! a
+check! IteratorOutput(b)
+print! x.next_back(), x.next_back()
+check! (IteratorOutput(b), IteratorOutput(a))
+print! x.peek_back()
+check! null
 ```
 
 #### See Also
@@ -761,7 +777,7 @@ Skips over a number of steps in the iterator.
 ### Example
 
 ```koto
-print! (100..200).skip(50).next()
+print! (100..200).skip(50).next().get()
 check! 150
 ```
 
@@ -978,4 +994,30 @@ print! (1, 2, 3)
   .zip ('a', 'b', 'c')
   .to_list()
 check! [(1, 'a'), (2, 'b'), (3, 'c')]
+```
+
+## IteratorOutput
+
+A wrapper for a single item of iterator output.
+
+This exists to allow functions like [`iterator.next`](#next) to return `null` to
+indicate that the iterator has been exhausted, 
+while also allowing `null` to appear in the iterator's output.
+
+
+## IteratorOutput.get
+
+```kototype
+|IteratorOutput| -> Value
+```
+
+Returns the wrapped iterator output value.
+
+### Example
+
+```koto
+print! x = 'abc'.next()
+check! IteratorOutput(a)
+print! x.get()
+check! a
 ```

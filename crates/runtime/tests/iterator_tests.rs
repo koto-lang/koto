@@ -6,6 +6,34 @@ use koto_runtime::KValue;
 mod iterator {
     use super::*;
 
+    mod next {
+        use super::*;
+
+        #[test]
+        fn null_in_output() {
+            let script = "
+x = (1, null, 'x').iter()
+x.next().get() # 1
+x.next().get() # null
+";
+            test_script(script, KValue::Null);
+        }
+    }
+
+    mod next_back {
+        use super::*;
+
+        #[test]
+        fn null_in_output() {
+            let script = "
+x = (1, null, 'x').iter()
+x.next_back().get() # 'x'
+x.next_back().get() # null
+";
+            test_script(script, KValue::Null);
+        }
+    }
+
     mod chain {
         use super::*;
 
@@ -13,11 +41,11 @@ mod iterator {
         fn make_copy_in_first_iter() {
             let script = "
 x = (10..12).chain 12..15
-x.next() # 10
+x.next().get() # 10
 y = copy x
-x.next() # 11
-x.next() # 12
-y.next()
+x.next().get() # 11
+x.next().get() # 12
+y.next().get()
 ";
             test_script(script, 11);
         }
@@ -26,13 +54,13 @@ y.next()
         fn make_copy_in_second_iter() {
             let script = "
 x = (0..2).chain 2..5
-x.next() # 0
-x.next() # 1
-x.next() # 2
+x.next().get() # 0
+x.next().get() # 1
+x.next().get() # 2
 y = copy x
-x.next() # 3
-x.next() # 4
-y.next()
+x.next().get() # 3
+x.next().get() # 4
+y.next().get()
 ";
             test_script(script, 3);
         }
@@ -91,11 +119,11 @@ generator()
         fn make_copy() {
             let script = "
 x = (1..=3).cycle()
-x.next() # 1
+x.next().get() # 1
 y = copy x
-x.next() # 2
-x.next() # 3
-y.next()
+x.next().get() # 2
+x.next().get() # 3
+y.next().get()
 ";
             test_script(script, 2);
         }
@@ -120,11 +148,11 @@ y.next()
         fn make_copy() {
             let script = "
 x = (3, 4, 5, 6).each |x| x * x
-x.next() # 9
+x.next().get() # 9
 y = copy x
-x.next() # 16
-x.next() # 25
-y.next()
+x.next().get() # 16
+x.next().get() # 25
+y.next().get()
 ";
             test_script(script, 16);
         }
@@ -135,7 +163,7 @@ y.next()
 x = (2, 4, 6)
  .each |x| x * x
  .reversed()
-x.next()
+x.next().get()
 ";
             test_script(script, 36);
         }
@@ -148,11 +176,11 @@ x.next()
         fn make_copy() {
             let script = "
 x = (10..20).enumerate()
-x.next() # 0, 10
+x.next().get() # 0, 10
 y = copy x
-x.next() # 1, 11
-x.next() # 2, 12
-y.next()
+x.next().get() # 1, 11
+x.next().get() # 2, 12
+y.next().get()
 ";
             test_script(script, tuple(&[1.into(), 11.into()]));
         }
@@ -165,12 +193,12 @@ y.next()
         fn intersperse_by_value_make_copy() {
             let script = "
 x = (1, 2, 3).intersperse 0
-x.next() # 1
-x.next() # 0
+x.next().get() # 1
+x.next().get() # 0
 y = copy x
-x.next() # 2
-x.next() # 0
-y.next()
+x.next().get() # 2
+x.next().get() # 0
+y.next().get()
 ";
             test_script(script, 2);
         }
@@ -179,12 +207,12 @@ y.next()
         fn intersperse_with_function_make_copy() {
             let script = "
 x = (10, 20, 30).intersperse || 42
-x.next() # 10
-x.next() # 42
+x.next().get() # 10
+x.next().get() # 42
 y = copy x
-x.next() # 20
-x.next() # 42
-y.next()
+x.next().get() # 20
+x.next().get() # 42
+y.next().get()
 ";
             test_script(script, 20);
         }
@@ -197,10 +225,10 @@ y.next()
         fn make_copy() {
             let script = "
 x = 'abcdef'.chars().keep |c| 'bef'.contains c
-x.next() # 'b'
+x.next().get() # 'b'
 y = copy x
-x.next() # 'e'
-y.next()
+x.next().get() # 'e'
+y.next().get()
 ";
             test_script(script, "e");
         }
@@ -215,11 +243,11 @@ y.next()
             let script = "
 i = (1, 2, 3).peekable()
 result = []
-result.push i.peek() # 1
-result.push i.next() # 1
-result.push i.next() # 2
-result.push i.peek() # 3
-result.push i.next() # 3
+result.push i.peek().get() # 1
+result.push i.next().get() # 1
+result.push i.next().get() # 2
+result.push i.peek().get() # 3
+result.push i.next().get() # 3
 result.push i.peek() # null
 result.push i.next() # null
 result
@@ -235,13 +263,13 @@ result
             let script = "
 i = (1, 2, 3).peekable()
 result = []
-result.push i.peek() # 1
-result.push i.peek_back() # 3
-result.push i.peek_back() # 3
-result.push i.next() # 1
-result.push i.next() # 2
-result.push i.peek() # 3
-result.push i.next() # 3
+result.push i.peek().get() # 1
+result.push i.peek_back().get() # 3
+result.push i.peek_back().get() # 3
+result.push i.next().get() # 1
+result.push i.next().get() # 2
+result.push i.peek().get() # 3
+result.push i.next().get() # 3
 result.push i.next() # null
 result.push i.next_back() # null
 result.push i.peek_back() # null
@@ -269,13 +297,13 @@ result
             let script = "
 i = (1, 2, 3).peekable()
 result = []
-result.push i.peek() # 1
-result.push i.peek_back() # 3
-result.push i.peek_back() # 3
-result.push i.next_back() # 3
-result.push i.next_back() # 2
-result.push i.peek_back() # 1
-result.push i.next_back() # 1
+result.push i.peek().get() # 1
+result.push i.peek_back().get() # 3
+result.push i.peek_back().get() # 3
+result.push i.next_back().get() # 3
+result.push i.next_back().get() # 2
+result.push i.peek_back().get() # 1
+result.push i.next_back().get() # 1
 result.push i.peek_back() # null
 result.push i.next_back() # null
 result.push i.next() # null
@@ -318,11 +346,11 @@ result
         fn make_copy() {
             let script = "
 x = 'abcdef'.chars().take 4
-x.next() # 'a'
-x.next() # 'b'
+x.next().get() # 'a'
+x.next().get() # 'b'
 y = copy x
-x.next() # 'c'
-y.next()
+x.next().get() # 'c'
+y.next().get()
 ";
             test_script(script, "c");
         }
@@ -384,11 +412,11 @@ result
         fn make_copy() {
             let script = "
 x = (1..5).zip 11..15
-x.next() # (1, 11)
-x.next() # (2, 12)
+x.next().get() # (1, 11)
+x.next().get() # (2, 12)
 y = copy x
-x.next() # (3, 13)
-y.next()
+x.next().get() # (3, 13)
+y.next().get()
 ";
             test_script(script, number_tuple(&[3, 13]));
         }
@@ -405,10 +433,10 @@ mod map {
         fn make_copy() {
             let script = "
 x = {foo: 42, bar: 99, baz: -1}.keys()
-x.next() # foo
+x.next().get() # foo
 y = copy x
-x.next() # bar
-y.next()
+x.next().get() # bar
+y.next().get()
 ";
             test_script(script, "bar");
         }
@@ -421,10 +449,10 @@ y.next()
         fn make_copy() {
             let script = "
 x = {foo: 42, bar: 99, baz: -1}.values()
-x.next() # 42
+x.next().get() # 42
 y = copy x
-x.next() # 99
-y.next()
+x.next().get() # 99
+y.next().get()
 ";
             test_script(script, 99);
         }
@@ -440,7 +468,7 @@ mod string {
         #[test]
         fn next_back() {
             let script = "
-'abc'.next_back()
+'abc'.next_back().get()
 ";
             test_script(script, "c");
         }
@@ -453,10 +481,10 @@ mod string {
         fn make_copy() {
             let script = "
 x = 'abc'.bytes()
-x.next() # 97
+x.next().get() # 97
 y = copy x
-x.next() # 98
-y.next()
+x.next().get() # 98
+y.next().get()
 ";
             test_script(script, 98);
         }
@@ -469,10 +497,10 @@ y.next()
         fn make_copy() {
             let script = "
 x = 'abc\ndef\nxyz'.lines()
-x.next() # abc
+x.next().get() # abc
 y = copy x
-x.next() # def
-y.next()
+x.next().get() # def
+y.next().get()
 ";
             test_script(script, "def");
         }
@@ -496,10 +524,10 @@ y.next()
         fn make_copy_pattern() {
             let script = "
 x = '1-2-3'.split '-'
-x.next() # 1
+x.next().get() # 1
 y = copy x
-x.next() # 2
-y.next()
+x.next().get() # 2
+y.next().get()
 ";
             test_script(script, "2");
         }
@@ -508,10 +536,10 @@ y.next()
         fn make_copy_predicate() {
             let script = "
 x = '1-2_3'.split |c| '-_'.contains c
-x.next() # 1
+x.next().get() # 1
 y = copy x
-x.next() # 2
-y.next()
+x.next().get() # 2
+y.next().get()
 ";
             test_script(script, "2");
         }

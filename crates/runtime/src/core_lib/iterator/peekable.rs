@@ -2,7 +2,7 @@
 
 use koto_derive::*;
 
-use super::iter_output_to_result;
+use super::{iter_output_to_result, IteratorOutput};
 use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
 
 /// A double-ended peekable iterator for Koto
@@ -47,30 +47,34 @@ impl Peekable {
 
     #[koto_method]
     fn peek(&mut self) -> Result<KValue> {
-        match self.peeked_front.clone() {
-            Some(peeked) => Ok(peeked),
+        let peeked = match self.peeked_front.clone() {
+            Some(peeked) => peeked,
             None => match iter_output_to_result(self.next())? {
-                KValue::Null => Ok(KValue::Null),
-                peeked => {
+                None => return Ok(KValue::Null),
+                Some(peeked) => {
                     self.peeked_front = Some(peeked.clone());
-                    Ok(peeked)
+                    peeked
                 }
             },
-        }
+        };
+
+        Ok(IteratorOutput::from(peeked).into())
     }
 
     #[koto_method]
     fn peek_back(&mut self) -> Result<KValue> {
-        match self.peeked_back.clone() {
-            Some(peeked) => Ok(peeked),
+        let peeked = match self.peeked_back.clone() {
+            Some(peeked) => peeked,
             None => match iter_output_to_result(self.next_back())? {
-                KValue::Null => Ok(KValue::Null),
-                peeked => {
+                None => return Ok(KValue::Null),
+                Some(peeked) => {
                     self.peeked_back = Some(peeked.clone());
-                    Ok(peeked)
+                    peeked
                 }
             },
-        }
+        };
+
+        Ok(IteratorOutput::from(peeked).into())
     }
 }
 

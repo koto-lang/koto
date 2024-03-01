@@ -147,6 +147,19 @@ pub struct KotoVm {
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: u32,
+    // The current execution state
+    execution_state: ExecutionState,
+}
+
+/// The execution state of a VM
+#[derive(Debug, Clone)]
+pub enum ExecutionState {
+    /// The VM is ready to execute instructions
+    Inactive,
+    /// The VM is currently executing instructions
+    Active,
+    /// The VM is executing a generator function that has just yielded a value
+    Suspended,
 }
 
 impl Default for KotoVm {
@@ -167,6 +180,7 @@ impl KotoVm {
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
             instruction_ip: 0,
+            execution_state: ExecutionState::Inactive,
         }
     }
 
@@ -187,6 +201,7 @@ impl KotoVm {
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
             instruction_ip: 0,
+            execution_state: ExecutionState::Inactive,
         }
     }
 
@@ -271,11 +286,13 @@ impl KotoVm {
     ///
     /// This is currently used to support generators, which yield incremental results and then
     /// leave the VM in a suspended state.
-    pub fn continue_running(&mut self) -> Result<KValue> {
-        if self.call_stack.is_empty() {
-            Ok(KValue::Null)
-        } else {
-            self.execute_instructions()
+    pub fn continue_running(&mut self) -> Result<ReturnOrYield> {
+        let result = self.execute_instructions()?;
+
+        match self.execution_state {
+            ExecutionState::Inactive => Ok(ReturnOrYield::Return(result)),
+            ExecutionState::Suspended => Ok(ReturnOrYield::Yield(result)),
+            ExecutionState::Active => unreachable!(),
         }
     }
 
@@ -643,8 +660,6 @@ impl KotoVm {
     }
 
     fn execute_instructions(&mut self) -> Result<KValue> {
-        let mut result = KValue::Null;
-
         let mut timeout = self
             .context
             .settings
@@ -652,6 +667,7 @@ impl KotoVm {
             .map(ExecutionTimeout::new);
 
         self.instruction_ip = self.ip();
+        self.execution_state = ExecutionState::Active;
 
         while let Some(instruction) = self.reader.next() {
             if let Some(timeout) = timeout.as_mut() {
@@ -668,31 +684,34 @@ impl KotoVm {
             match self.execute_instruction(instruction) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
-                    result = value;
-                    break;
+                    self.execution_state = ExecutionState::Inactive;
+                    return Ok(value);
                 }
                 Ok(ControlFlow::Yield(value)) => {
-                    result = value;
-                    break;
+                    self.execution_state = ExecutionState::Suspended;
+                    return Ok(value);
                 }
-                Err(error) => {
-                    let (recover_register, ip) =
-                        self.pop_call_stack_on_error(error.clone(), true)?;
+                Err(error) => match self.pop_call_stack_on_error(error.clone(), true) {
+                    Ok((recover_register, ip)) => {
+                        let catch_value = match error.error {
+                            ErrorKind::KotoError { thrown_value, .. } => thrown_value,
+                            _ => KValue::Str(error.to_string().into()),
+                        };
 
-                    let catch_value = match error.error {
-                        ErrorKind::KotoError { thrown_value, .. } => thrown_value,
-                        _ => KValue::Str(error.to_string().into()),
-                    };
-
-                    self.set_register(recover_register, catch_value);
-                    self.set_ip(ip);
-                }
+                        self.set_register(recover_register, catch_value);
+                        self.set_ip(ip);
+                    }
+                    Err(error) => {
+                        self.execution_state = ExecutionState::Inactive;
+                        return Err(error);
+                    }
+                },
             }
 
             self.instruction_ip = self.ip();
         }
 
-        Ok(result)
+        Ok(KValue::Null)
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow> {
@@ -2463,6 +2482,8 @@ impl KotoVm {
             0, // arguments will be copied starting in register 0
             0,
         );
+        // Set the generator VM's state as suspended
+        generator_vm.execution_state = ExecutionState::Suspended;
 
         let expected_arg_count = if f.variadic {
             f.arg_count - 1
@@ -3137,4 +3158,11 @@ impl ExecutionTimeout {
             }
         }
     }
+}
+
+/// An output value from [KotoVm::continue_running], either from a `return` or `yield` expression
+#[allow(missing_docs)]
+pub enum ReturnOrYield {
+    Return(KValue),
+    Yield(KValue),
 }

@@ -15,9 +15,9 @@
   @test find_all: ||
     r = regex.new '[a-z]{2,3}'
     found = r.find_all('a bc def gh')
-    assert_eq found.next().text(), 'bc'
-    assert_eq found.next().text(), 'def'
-    assert_eq found.next().text(), 'gh'
+    assert_eq found.next().get().text(), 'bc'
+    assert_eq found.next().get().text(), 'def'
+    assert_eq found.next().get().text(), 'gh'
     assert_eq found.next(), null
 
   @test captures: ||

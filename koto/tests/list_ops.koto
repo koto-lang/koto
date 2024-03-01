@@ -97,7 +97,7 @@ make_foo = |x|
   @test resize_with: ||
     z = [42]
     new_entries = (1, 2, 3).iter()
-    z.resize_with 4, || new_entries.next()
+    z.resize_with 4, || new_entries.next().get()
     assert_eq z, [42, 1, 2, 3]
     z.resize_with 2, || 99
     assert_eq z, [42, 1]

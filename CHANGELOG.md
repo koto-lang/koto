@@ -53,10 +53,11 @@ The Koto project adheres to
   - An overload has been added that accepts a number base between 2 and 36.
   - If the string doesn't contain a number, `null` is now returned instead of an
     exception being thrown.
-- Objects can be compared with `null` on the LHS without having to implement 
-  `KotoObject::equal` and/or `not_equal`.
 - `map.with_meta_map` has been renamed to `with_meta`, and `get_meta_map` has
   been renamed to `get_meta`.
+- `iterator.next`/`next_back` and `Peekble.peek`/`peek_back` now return
+  `IteratorOutput` for output values, and `null` when the iterator is exhausted.
+  - `.get()` needs to be called on the output to get the underlying value.
 
 #### API
 
@@ -64,6 +65,8 @@ The Koto project adheres to
 - `Value` has been renamed to `KValue` for consistency with the other core
   runtime value types, and to avoid polluting the prelude with a generic name.
 - The VM-specific parts of `KotoSettings` are now defined via `KotoVmSettings`.
+- Objects can be compared with `null` on the LHS without having to implement 
+  `KotoObject::equal` and/or `not_equal`.
 
 #### Internals
 

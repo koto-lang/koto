@@ -11,11 +11,11 @@ my_first_generator = ||
   yield 3
 
 x = my_first_generator()
-print! x.next()
+print! x.next().get()
 check! 1
-print! x.next()
+print! x.next().get()
 check! 2
-print! x.next()
+print! x.next().get()
 check! 3
 print! x.next()
 check! null
@@ -34,31 +34,28 @@ print! my_generator(10).to_tuple()
 check! (11, 12, 13)
 ```
 
-A generator that takes an iterator as an argument is known as an _iterator adaptor_. 
+## Custom Iterator Adaptors
 
-Inserting an adaptor into the `iterator` module makes it available in any iterator chain.
+A generator that modifies another iterator's output is an _iterator adaptor_. 
+
+Inserting a generator into the `iterator` module makes it available in any iterator chain.
 
 ```koto
 # Make an iterator adaptor that yields 
 # every other value from the adapted iterator
 iterator.every_other = ||
   n = 0
-  loop
-    # self is the iterator being adapted
-    match self.next()
-      # Exit when there are no more values 
-      # produced by the iterator
-      null then 
-        return
-      # If n is even, then yield a value
-      value if n % 2 == 0 then 
-        yield value
+  # When the generator is created, self is initialized with the previous
+  # iterator in the chain, allowing its output to be adapted.
+  for output in self
+    # If n is even, then yield a value
+    if n % 2 == 0
+      yield output
     n += 1
 
 print! 1..10
   .each |n| n * 10
-  .every_other()
+  .every_other() # Skip over every other value in the iterator chain
   .to_list()
 check! [10, 30, 50, 70, 90]
 ```
-
