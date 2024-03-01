@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, KotoVm, PtrMut, Result};
+use crate::{prelude::*, vm::ReturnOrYield, Error, KotoVm, PtrMut, Result};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
@@ -579,11 +579,13 @@ impl Iterator for GeneratorIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.vm.continue_running() {
-            Ok(KValue::Null) => None,
-            Ok(KValue::TemporaryTuple(_)) => {
-                unreachable!("Yield shouldn't produce temporary tuples")
-            }
-            Ok(result) => Some(KIteratorOutput::Value(result)),
+            Ok(ReturnOrYield::Return(_)) => None,
+            Ok(ReturnOrYield::Yield(output)) => match output {
+                KValue::TemporaryTuple(_) => {
+                    unreachable!("Yield shouldn't produce temporary tuples")
+                }
+                result => Some(KIteratorOutput::Value(result)),
+            },
             Err(error) => Some(KIteratorOutput::Error(error)),
         }
     }

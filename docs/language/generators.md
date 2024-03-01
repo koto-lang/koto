@@ -34,7 +34,9 @@ print! my_generator(10).to_tuple()
 check! (11, 12, 13)
 ```
 
-A generator that takes an iterator as an argument is known as an _iterator adaptor_. 
+## Iterator adaptors
+
+A generator that modifies another iterator's output is known as an _iterator adaptor_. 
 
 Inserting an adaptor into the `iterator` module makes it available in any iterator chain.
 
@@ -44,10 +46,10 @@ Inserting an adaptor into the `iterator` module makes it available in any iterat
 iterator.every_other = ||
   n = 0
   loop
-    # self is the iterator being adapted
+    # When the generator is created, self is initialized with the previous
+    # iterator in the chain, allowing its output to be adapted.
     match self.next()
-      # Exit when there are no more values 
-      # produced by the iterator
+      # Exit when there are no more values produced by the iterator
       null then 
         return
       # If n is even, then yield a value
@@ -61,4 +63,3 @@ print! 1..10
   .to_list()
 check! [10, 30, 50, 70, 90]
 ```
-

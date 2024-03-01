@@ -2447,6 +2447,18 @@ iterator.every_other = ||
 ";
             test_script(script, number_tuple(&[1, 3, 5]));
         }
+
+        #[test]
+        fn yielding_null() {
+            let script = "
+gen = ||
+  yield 1
+  yield null
+  yield 3
+gen().to_tuple()
+";
+            test_script(script, tuple(&[1.into(), KValue::Null, 3.into()]));
+        }
     }
 
     mod strings {
