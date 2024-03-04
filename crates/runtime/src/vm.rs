@@ -1007,9 +1007,13 @@ impl KotoVm {
             }
             (Some(Number(start)), None) => KRange::from(start.into()),
             (None, Some(Number(end))) => KRange::to(end.into(), inclusive),
-            (Some(unexpected), _) => return type_error("Number for range start", unexpected),
-            (_, Some(unexpected)) => return type_error("Number for range end", unexpected),
             (None, None) => KRange::unbounded(),
+            (None | Some(Number(_)), Some(unexpected)) => {
+                return type_error("a Number for the range's end", unexpected)
+            }
+            (Some(unexpected), _) => {
+                return type_error("a Number for the range's start", unexpected)
+            }
         };
 
         self.set_register(register, range.into());
