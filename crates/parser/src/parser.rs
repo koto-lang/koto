@@ -461,7 +461,9 @@ impl<'source> Parser<'source> {
         let result = self.parse_expression_start(&[], min_precedence, context)?;
 
         match self.peek_next_token_on_same_line() {
-            Some(Token::Range | Token::RangeInclusive) => self.parse_range(result, context),
+            Some(Token::Range | Token::RangeInclusive) => {
+                self.consume_range(result, context).map(Some)
+            }
             _ => Ok(result),
         }
     }
@@ -1549,22 +1551,20 @@ impl<'source> Parser<'source> {
         Ok(args)
     }
 
-    fn parse_range(
+    fn consume_range(
         &mut self,
         lhs: Option<AstIndex>,
         context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>> {
+    ) -> Result<AstIndex> {
         use Node::{Range, RangeFrom, RangeFull, RangeTo};
 
-        let mut start_span = self.current_span();
-
-        let inclusive = match self.peek_next_token_on_same_line() {
+        let inclusive = match self.consume_next_token_on_same_line() {
             Some(Token::Range) => false,
             Some(Token::RangeInclusive) => true,
-            _ => return Ok(None),
+            _ => return self.error(InternalError::UnexpectedToken),
         };
 
-        self.consume_next_token_on_same_line();
+        let mut start_span = self.current_span();
 
         if lhs.is_none() {
             // e.g.
@@ -1588,7 +1588,6 @@ impl<'source> Parser<'source> {
 
         let range_node = self.push_node_with_start_span(range_node, start_span)?;
         self.check_for_lookup_after_node(range_node, context)
-            .map(Some)
     }
 
     fn consume_export(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
