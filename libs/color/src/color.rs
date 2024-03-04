@@ -29,7 +29,7 @@ macro_rules! impl_arithmetic_op {
     };
 }
 
-macro_rules! impl_arithmetic_assign_op {
+macro_rules! impl_compound_assign_op {
     ($trait:ident, $trait_fn:ident, $op:tt) => {
         impl ops::$trait for Color {
             fn $trait_fn(&mut self, other: Color) -> () {
@@ -49,10 +49,10 @@ impl_arithmetic_op!(Add, add, +);
 impl_arithmetic_op!(Sub, sub, -);
 impl_arithmetic_op!(Mul, mul, *);
 impl_arithmetic_op!(Div, div, /);
-impl_arithmetic_assign_op!(AddAssign, add_assign, +=);
-impl_arithmetic_assign_op!(SubAssign, sub_assign, -=);
-impl_arithmetic_assign_op!(MulAssign, mul_assign, *=);
-impl_arithmetic_assign_op!(DivAssign, div_assign, /=);
+impl_compound_assign_op!(AddAssign, add_assign, +=);
+impl_compound_assign_op!(SubAssign, sub_assign, -=);
+impl_compound_assign_op!(MulAssign, mul_assign, *=);
+impl_compound_assign_op!(DivAssign, div_assign, /=);
 
 #[macro_export]
 macro_rules! color_arithmetic_op {
@@ -75,7 +75,7 @@ macro_rules! color_arithmetic_op {
 }
 
 #[macro_export]
-macro_rules! color_arithmetic_assign_op {
+macro_rules! color_compound_assign_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
@@ -251,19 +251,19 @@ impl KotoObject for Color {
     }
 
     fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
-        color_arithmetic_assign_op!(self, rhs, +=)
+        color_compound_assign_op!(self, rhs, +=)
     }
 
     fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
-        color_arithmetic_assign_op!(self, rhs, -=)
+        color_compound_assign_op!(self, rhs, -=)
     }
 
     fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
-        color_arithmetic_assign_op!(self, rhs, *=)
+        color_compound_assign_op!(self, rhs, *=)
     }
 
     fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
-        color_arithmetic_assign_op!(self, rhs, /=)
+        color_compound_assign_op!(self, rhs, /=)
     }
 
     fn equal(&self, rhs: &KValue) -> Result<bool> {

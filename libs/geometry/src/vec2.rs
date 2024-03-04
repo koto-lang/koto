@@ -65,19 +65,19 @@ impl KotoObject for Vec2 {
     }
 
     fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_arithmetic_assign_op!(self, rhs, +=)
+        geometry_compound_assign_op!(self, rhs, +=)
     }
 
     fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_arithmetic_assign_op!(self, rhs, -=)
+        geometry_compound_assign_op!(self, rhs, -=)
     }
 
     fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_arithmetic_assign_op!(self, rhs, *=)
+        geometry_compound_assign_op!(self, rhs, *=)
     }
 
     fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_arithmetic_assign_op!(self, rhs, /=)
+        geometry_compound_assign_op!(self, rhs, /=)
     }
 
     fn equal(&self, rhs: &KValue) -> Result<bool> {

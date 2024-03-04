@@ -15,7 +15,7 @@ globals.foo_meta =
   @/: |other| foo self.x / other.x
   @%: |other| foo self.x % other.x
 
-  # Modify-Assignment operators
+  # Compound assignment operators
   @+=: |other|
     self.x += other
     self

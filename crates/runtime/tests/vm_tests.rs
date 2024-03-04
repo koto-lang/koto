@@ -71,29 +71,6 @@ a = 99
         fn remainder_with_a_divisor_of_zero() {
             test_script("(1 % 0).is_nan()", true);
         }
-
-        #[test]
-        fn modify_assignment() {
-            let script = "
-a = 1
-a += 6  # 7
-a -= 4  # 3
-a *= 10 # 30
-a /= 3  # 10
-a %= 4  # 2
-";
-            test_script(script, 2);
-        }
-
-        #[test]
-        fn modify_assignment_chain() {
-            let script = "
-a = 1
-b = 2
-c = 3
-a += b *= c";
-            test_script(script, 7);
-        }
     }
 
     mod logic {
@@ -170,7 +147,7 @@ y = y = 2
         }
 
         #[test]
-        fn assignment_ops() {
+        fn compound_assignment_ops() {
             let script = "
 a = 10
 a += 1 # 11
@@ -179,6 +156,18 @@ a /= 2 # 33
 a %= 5
 ";
             test_script(script, 3);
+        }
+
+        #[test]
+        fn compound_assignment_chain() {
+            let script = "
+a = 1
+b = 2
+c = 3
+a += b *= c
+a, b, c
+";
+            test_script(script, number_tuple(&[7, 6, 3]));
         }
     }
 
@@ -2879,7 +2868,7 @@ z.x
         }
 
         #[test]
-        fn arithmetic_assignment() {
+        fn compound_assignment() {
             let script = "
 locals = {}
 foo = |x| {x}.with_meta locals.foo_meta

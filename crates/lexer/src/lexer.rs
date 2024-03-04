@@ -1370,7 +1370,7 @@ r#''bar''#
         }
 
         #[test]
-        fn modify_assign() {
+        fn compound_assignment() {
             let input = "\
 a += 1
 b -= 2
