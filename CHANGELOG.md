@@ -44,7 +44,6 @@ The Koto project adheres to
 - `iterator.once` has been added.
 
 ### Changed
-
 #### Core Library
 
 - `string.to_number` changes:
@@ -91,6 +90,13 @@ The Koto project adheres to
 - `KMap::add_map` and `KMap::add_value` have been removed, `KMap::insert` now
   accepts any value that implements `Into<Value>` and can be used instead.
 
+### Fixed
+
+#### Language
+
+- Chained compound assignment operators are now right-associative and all share 
+  the same precedence.
+
 
 ## [0.12.0] 2023.10.18
 
@@ -106,7 +112,7 @@ The Koto project adheres to
     # 1006
     ```
 - Meta map improvements
-  - Arithmetic-assignment operators (`@+=`, `@*=`, etc.) can now be implemented 
+  - Compound assignment operators (`@+=`, `@*=`, etc.) can now be implemented 
     in meta maps and external values.
   - The function call operator (`@||`) can be implemented to values that behave 
     like functions.

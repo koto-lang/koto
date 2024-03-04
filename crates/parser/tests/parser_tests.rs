@@ -1275,7 +1275,7 @@ x";
         }
 
         #[test]
-        fn modify_assign() {
+        fn compound_assignment() {
             let source = "\
 x += 0
 x -= 1

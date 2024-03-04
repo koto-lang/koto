@@ -1475,7 +1475,7 @@ impl Compiler {
                 self.compile_arithmetic_op(op, lhs, rhs, ctx)
             }
             AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
-                self.compile_arithmetic_assign_op(op, lhs, rhs, ctx)
+                self.compile_compound_assignment_op(op, lhs, rhs, ctx)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
                 self.compile_comparison_op(op, lhs, rhs, ctx)
@@ -1532,7 +1532,7 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_arithmetic_assign_op(
+    fn compile_compound_assignment_op(
         &mut self,
         ast_op: AstBinaryOp,
         lhs: AstIndex,
@@ -1549,7 +1549,7 @@ impl Compiler {
             RemainderAssign => Op::RemainderAssign,
             _ => {
                 return self.error(ErrorKind::InvalidBinaryOp {
-                    kind: "arithmetic assignment".into(),
+                    kind: "compound assignment".into(),
                     op: ast_op,
                 })
             }

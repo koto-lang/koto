@@ -136,7 +136,7 @@ print! x
 check! true
 ```
 
-Arithmetic assignment operators are available, e.g. `x *= y` is shorthand for 
+Compound assignment operators are available, e.g. `x *= y` is shorthand for 
 `x = x * y`.
 
 ```koto

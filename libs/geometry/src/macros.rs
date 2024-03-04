@@ -20,7 +20,7 @@ macro_rules! impl_arithmetic_op {
 }
 
 #[macro_export]
-macro_rules! impl_arithmetic_assign_op {
+macro_rules! impl_compound_assign_op {
     ($type:ident, $trait:ident, $trait_fn:ident, $op:tt) => {
         impl ops::$trait for $type {
             fn $trait_fn(&mut self, other: $type) -> () {
@@ -39,15 +39,15 @@ macro_rules! impl_arithmetic_assign_op {
 #[macro_export]
 macro_rules! impl_arithmetic_ops {
     ($type:ident)=> {
-        use $crate::{impl_arithmetic_op, impl_arithmetic_assign_op};
+        use $crate::{impl_arithmetic_op, impl_compound_assign_op};
         impl_arithmetic_op!($type, Add, add, +);
         impl_arithmetic_op!($type, Sub, sub, -);
         impl_arithmetic_op!($type, Mul, mul, *);
         impl_arithmetic_op!($type, Div, div, /);
-        impl_arithmetic_assign_op!($type, AddAssign, add_assign, +=);
-        impl_arithmetic_assign_op!($type, SubAssign, sub_assign, -=);
-        impl_arithmetic_assign_op!($type, MulAssign, mul_assign, *=);
-        impl_arithmetic_assign_op!($type, DivAssign, div_assign, /=);
+        impl_compound_assign_op!($type, AddAssign, add_assign, +=);
+        impl_compound_assign_op!($type, SubAssign, sub_assign, -=);
+        impl_compound_assign_op!($type, MulAssign, mul_assign, *=);
+        impl_compound_assign_op!($type, DivAssign, div_assign, /=);
 
         impl ops::Neg for $type {
             type Output = Self;
@@ -80,7 +80,7 @@ macro_rules! geometry_arithmetic_op {
 }
 
 #[macro_export]
-macro_rules! geometry_arithmetic_assign_op {
+macro_rules! geometry_compound_assign_op {
     ($self:ident, $rhs:expr, $op:tt) => {
         {
             match $rhs {
