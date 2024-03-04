@@ -3237,8 +3237,9 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
         Pipe => (1, 2),
-        AddAssign | SubtractAssign => (4, MIN_PRECEDENCE_AFTER_PIPE),
-        MultiplyAssign | DivideAssign | RemainderAssign => (6, 5),
+        AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
+            (4, MIN_PRECEDENCE_AFTER_PIPE)
+        }
         Or => (7, 8),
         And => (9, 10),
         // Chained comparisons require right-associativity

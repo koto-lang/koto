@@ -44,7 +44,6 @@ The Koto project adheres to
 - `iterator.once` has been added.
 
 ### Changed
-
 #### Core Library
 
 - `string.to_number` changes:
@@ -90,6 +89,13 @@ The Koto project adheres to
 - `ObjectEntryBuilder` has been replaced with macros from `koto_derive`.
 - `KMap::add_map` and `KMap::add_value` have been removed, `KMap::insert` now
   accepts any value that implements `Into<Value>` and can be used instead.
+
+### Fixed
+
+#### Language
+
+- Chained compound assignment operators are now right-associative and all share 
+  the same precedence.
 
 
 ## [0.12.0] 2023.10.18

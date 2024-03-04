@@ -159,15 +159,27 @@ a %= 5
         }
 
         #[test]
-        fn compound_assignment_chain() {
+        fn compound_assignment_chain_add_first() {
             let script = "
-a = 1
-b = 2
-c = 3
+a = 10
+b = 20
+c = 30
 a += b *= c
 a, b, c
 ";
-            test_script(script, number_tuple(&[7, 6, 3]));
+            test_script(script, number_tuple(&[610, 600, 30]));
+        }
+
+        #[test]
+        fn compound_assignment_chain_multiply_first() {
+            let script = "
+a = 10
+b = 20
+c = 30
+a *= b += c
+a, b, c
+";
+            test_script(script, number_tuple(&[500, 50, 30]));
         }
     }
 
