@@ -1,6 +1,6 @@
 //! Generators used by the `iterator` core library module
 
-use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// An iterator that yields a value once
 #[derive(Clone)]

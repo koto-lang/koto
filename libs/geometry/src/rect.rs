@@ -1,5 +1,5 @@
 use crate::Vec2;
-use koto_runtime::{derive::*, prelude::*, MethodContext, Result};
+use koto_runtime::{derive::*, prelude::*, Result};
 use std::fmt;
 
 type Inner = nannou_core::geom::Rect<f64>;

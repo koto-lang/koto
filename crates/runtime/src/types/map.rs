@@ -3,7 +3,6 @@ use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{
     hash::BuildHasherDefault,
-    iter::IntoIterator,
     ops::{Deref, DerefMut},
 };
 

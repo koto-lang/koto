@@ -5,7 +5,6 @@ pub mod iterators;
 
 use super::iterator::collect_pair;
 use crate::prelude::*;
-use std::convert::TryFrom;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Initializes the `string` core library module
