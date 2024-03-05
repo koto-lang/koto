@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{derive::*, prelude::*, KIteratorOutput as Output, KotoVm, Result};
+use crate::{derive::*, prelude::*, KIteratorOutput as Output, Result};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {

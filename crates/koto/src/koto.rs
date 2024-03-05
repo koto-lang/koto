@@ -1,7 +1,7 @@
 use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
-use koto_runtime::{KotoVm, ModuleImportedCallback};
+use koto_runtime::ModuleImportedCallback;
 use std::{path::PathBuf, time::Duration};
 
 /// The main interface for the Koto language.

@@ -1,7 +1,7 @@
 //! The `map` core library module
 
 use super::{iterator::adaptors, value_sort::compare_values};
-use crate::{prelude::*, KotoVm, Result};
+use crate::{prelude::*, Result};
 use std::cmp::Ordering;
 
 /// Initializes the `map` core library module

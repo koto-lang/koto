@@ -3,7 +3,7 @@
 use koto_derive::*;
 
 use super::{iter_output_to_result, IteratorOutput};
-use crate::{prelude::*, KIteratorOutput as Output, KotoVm, Result};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone, KotoCopy, KotoType)]

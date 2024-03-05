@@ -1,7 +1,7 @@
 //! The `io` core library module
 
 use super::string::format;
-use crate::{derive::*, prelude::*, BufferedFile, Error, KotoVm, MethodContext, Ptr, Result};
+use crate::{derive::*, prelude::*, BufferedFile, Error, Ptr, Result};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
