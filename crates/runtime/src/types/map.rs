@@ -238,7 +238,10 @@ mod tests {
         assert!(m.data().get("test").is_none());
         m.insert("test", KValue::Null);
         assert!(m.data().get("test").is_some());
-        assert!(matches!(m.data_mut().remove("test"), Some(KValue::Null)));
+        assert!(matches!(
+            m.data_mut().shift_remove("test"),
+            Some(KValue::Null)
+        ));
         assert!(m.data().get("test").is_none());
     }
 }
