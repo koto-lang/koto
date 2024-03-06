@@ -28,18 +28,20 @@ print! 'a' + 'Bc' + 'Def'
 check! aBcDef
 ```
 
-Individual elements of a String can be accessed via indexing with `[]` braces.
+Individual elements of a string can be accessed via indexing with `[]` braces.
 
 ```koto
 print! 'abcdef'[3]
 check! d
-print! '👋🥳😆'[1]
-check! 🥳
+print! '👋🥳😆'[0]
+check! 👋
+print! 'xyz'[1..]
+check! yz
 ```
 
 ## String Interpolation
 
-Assigned values can be included in a String by prefixing them with `$`.
+Variables can be easily included in a string by prefixing them with `$`.
 
 ```koto
 xyz = 123
@@ -47,7 +49,10 @@ print! 'The value of xyz is $xyz'
 check! The value of xyz is 123
 ```
 
-The `$` prefix can also be used to include the results of expressions surrounded with `{}` curly braces.
+Including variables in a string this way is known as _string interpolation_.
+
+Expressions can be evaluated directly in an interpolated string by surrounding
+the expression with `${}`.
 
 ```koto
 print! '2 plus 3 is ${2 + 3}.'
@@ -81,27 +86,37 @@ check! Hi 👋
 
 ## Single or Double Quotes
 
-Whether you use `'` or `"` for your strings doesn't make a difference, except that you can use the other quote character freely in the string without having to escape it with `\`.
+Both single `'` and double `"` quotes are valid for defining strings in Koto
+and can be used interchangeably.
+
+A practical reason to choose one over the other is that the alternate
+quote type can be used in a string without needing to use escape characters.
 
 ```koto
-print "This string contains 'single quotes'."
-check! This string contains 'single quotes'.
-
 print 'This string has to escape its \'single quotes\'.'
 check! This string has to escape its 'single quotes'.
+
+print "This string contains unescaped 'single quotes'."
+check! This string contains unescaped 'single quotes'.
 ```
 
 ## Raw Strings
 
-Sometimes it can be preferable to use a _raw string_, which provides the contents of the string without support for escaped characters or interpolated expressions. 
-Like normal strings, raw strings use single or double quotes, but prefixed with an `r`.
+When a string contains a lot of special characters, it can be preferable to use
+a _raw string_. 
+
+Raw strings ignore escape characters and interpolated expressions, 
+providing the raw contents of the string between its _delimiters_.
+
+Raw strings use single or double quotes as the delimiter, prefixed with an `r`.
 
 ```koto
 print r'This string contains special characters: $foo\n\t.'
 check! This string contains special characters: $foo\n\t.
 ```
 
-The `r` prefix can optionally be followed by up to 255 `#`s to extend the sequence of characters that mark the end of the string. 
+For more complex string contents, the delimiter can be extended using up to 255 
+`#` characters after the `r` prefix,
 
 ```koto
 print r#'This string contains "both" 'quote' types.'#

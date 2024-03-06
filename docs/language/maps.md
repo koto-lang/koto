@@ -1,10 +1,9 @@
 # Maps
 
-Maps are Koto's associative containers, containing a series of key/value entries.
+_Maps_ in Koto are containers that contain a series of 
+_entries_ with _keys_ that correspond to [associated][associated] _values_.
 
-They can be declared with `{}` braces (known as _inline syntax_), or by using indented blocks (known as _block syntax_).
-
-With braces:
+Maps can be created using _inline syntax_ with `{}` braces:
 
 ```koto
 m = {apples: 42, oranges: 99, lemons: 63}
@@ -12,7 +11,7 @@ print! m.oranges
 check! 99
 ```
 
-...and as an indented block:
+...or with _block syntax_ using indented entries.
 
 ```koto
 m = 
@@ -23,61 +22,55 @@ print! m.apples
 check! 42
 ```
 
-Nested maps can be declared with additional indentation:
-
-```koto
-m =
-  hello:
-    world: 99
-    everybody: 123
-    to:
-      you: -1
-print! m.hello.world
-check! 99
-print! m.hello.to.you
-check! -1
-```
-
-Maps can be joined together with the `+` operator.
+The `+` operator allows maps to be joined together, creating a new map that
+combines their entries. 
 
 ```koto
 a = {red: 100, blue: 150}
-b = {green: 200}
+b = {green: 200, blue: 99}
 c = a + b
 print! c
-check! {red: 100, blue: 150, green: 200}
+check! {red: 100, blue: 99, green: 200}
 ```
 
 ## Shorthand Values
 
-When using inline syntax, if there's a value available that matches a key's name, then declaring the value is optional.
-
-When using inline syntax, declaring a value for a key is optional. The runtime will look for a value that matches the key's name, and then copy it into the map.
+Koto supports a shorthand notation when creating maps with inline syntax. 
+If a value isn't provided for a key, then Koto will look for a value in scope
+that matches the key's name, and if one is found then it will be used as that
+entry's value.
 
 ```koto
 bar = 'hi!'
-m = {foo: 42, bar, baz: -1}
+m = {foo: 42, bar}
 print! m.bar
 check! hi!
 ```
 
 ## Data Sharing
 
-Once a map has been created, any additional instances of the map share the same data.
+Once a map has been created, its underlying data is shared between other
+instances of the same map. Changes to one instance are reflected in the other.
 
 ```koto
-a = {foo: 99, bar: -1}
+# Create a map and assign it to `a`.
+a = {foo: 99} 
 print! a.foo
 check! 99
+
+# Assign a new instance of the map to `z`.
 z = a
+
+# Modifying the data via `z` is reflected in `a`.
 z.foo = 'Hi!'
 print! a.foo
 check! Hi!
 ```
 
-## Maps and Functions
+## Maps and Self
 
-Any value type can be stored in Maps, including Functions.
+Maps can store any type of value, including functions, 
+which provides a convenient way to group functions together.
 
 ```koto
 m = 
@@ -90,17 +83,23 @@ print! m.bye 'Friend'
 check! Bye, Friend!
 ```
 
-`self` is a special identifier that refers to the instance of the map that the function is contained in. 
+`self` is a special identifier that refers to the instance of the container in
+which the function is contained. 
+
+`self` allows functions to access and modify data from the map, 
+enabling object-like behaviour.
 
 ```koto
 m = 
   name: 'World'
-  hello: || 'Hello, ${self.name}!'
+  say_hello: || 'Hello, ${self.name}!'
 
-print! m.hello()
+print! m.say_hello()
 check! Hello, World!
 
 m.name = 'Friend'
-print! m.hello()
+print! m.say_hello()
 check! Hello, Friend!
 ```
+
+[associated]: https://en.wikipedia.org/wiki/Associative_array

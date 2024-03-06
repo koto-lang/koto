@@ -310,12 +310,17 @@ function `n` times.
 ### Example
 
 ```koto
+from iterator import generate
+
 state = {x: 0}
 f = || state.x += 1
-print! iterator.generate(f).take(5).to_list()
+
+print! generate(f)
+  .take(5)
+  .to_list()
 check! [1, 2, 3, 4, 5]
 
-print! iterator.generate(3, f).to_tuple()
+print! generate(3, f).to_tuple()
 check! (6, 7, 8)
 ```
 
@@ -597,12 +602,16 @@ Returns an iterator that yields the given value a single time.
 ### Example
 
 ```koto
-print! iterator
-  .once 'x'
-  .chain 'abc'
+print! iterator.once(99)
+  .chain('abc')
   .to_tuple()
-check! ('x', 'a', 'b', 'c')
+check! (99, 'a', 'b', 'c')
 ```
+
+### See Also
+
+- [`iterator.generate`](#generate)
+- [`iterator.repeat`](#repeat)
 
 ## peekable
 
@@ -744,6 +753,7 @@ check! ('x', 'x', 'x')
 ### See Also
 
 - [`iterator.generate`](#generate)
+- [`iterator.once`](#once)
 
 ## reversed
 

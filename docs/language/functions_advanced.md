@@ -1,26 +1,60 @@
 # Advanced Functions
 
-Functions in Koto stored by the runtime as values and can hold internal captured state.
+Functions in Koto have some advanced features that are worth exploring.
 
-If a value is accessed in a function that wasn't assigned locally, 
-then the value is copied into the function (or _captured_) when it's created. 
+## Captured Variables
+
+When a variable is accessed in a function that wasn't declared locally, 
+then it gets _captured_ by copying it into the function.
 
 ```koto
 x = 1
 
-# x is assigned outside the function,
-# so it gets captured when it's created.
-f = |n| n + x 
+my_function = |n| 
+  # x is assigned outside the function,
+  # so it gets captured when the function is created.
+  n + x 
 
 # Reassigning x here doesn't modify the value 
-# of x that was captured when f was created.
+# of x that was captured when my_function was created.
 x = 100
 
-print! f 2
+print! my_function 2
 check! 3
 ```
 
-It's worth noting that this behavior is different to many other scripting languages, where captures are often taken by _reference_ rather than by _value_.
+This behavior is different to many other languages, 
+where captures are often taken by _reference_ rather than by _copy_.
+
+It's also worth noting that capture variables will have the same starting value
+each time the function is called. 
+
+```koto
+x = 99
+f = || 
+  # Modifying x only happens with a local copy during a function call.
+  # The value of x at the start of the call matches when the value it had when 
+  # it was captured.
+  x += 1
+
+print! f(), f(), f()
+check! (100, 100, 100)
+```
+
+To modify captured state that can be modified, 
+use a container (like a map) to hold on to mutable values.
+
+```koto
+data = {x: 99}
+
+f = || 
+  # The data map gets captured by the function, 
+  # and its contained values can be modified between calls.
+  data.x += 1
+
+print! f(), f(), f()
+check! (100, 101, 102)
+```
 
 ## Optional Arguments
 
@@ -28,7 +62,7 @@ When calling a function, any missing arguments will be replaced by `null`.
 
 ```koto
 f = |a, b, c|
-  print (a, b, c)
+  print a, b, c
 
 f 1
 check! (1, null, null)
@@ -38,21 +72,24 @@ f 1, 2, 3
 check! (1, 2, 3)
 ```
 
-In simple cases the function can check for missing arguments by using `or`.
+Missing arguments can be replaced with default values by using `or`.
 
 ```koto
 f = |a, b, c|
-  print (a or -1, b or -2, c or -3)
+  print a or -1, b or -2, c or -3
 
-f 1
-check! (1, -2, -3)
+f 42
+check! (42, -2, -3)
+f 99, 100
+check! (99, 100, -3)
 ```
 
-`or` will reject `false`, so if `false` might be a valid input then a
-more-verbose direct comparison against `null` can be used instead.
+`or` will reject `false`, so if `false` would be a valid input then a
+direct comparison against `null` can be used instead.
 
 ```koto
-f = |a| print if a == null then -1 else a
+f = |a| 
+  print if a == null then -1 else a
 
 f()
 check! -1
@@ -62,8 +99,9 @@ check! false
 
 ## Variadic Functions
 
-A function can accept any number of arguments by adding `...` to the last argument. 
-Any additional arguments will be collected into a Tuple which will be assigned to the last argument.
+A [_variadic function_][variadic] can be created by appending `...` to the 
+last argument. 
+When the function is called any extra arguments will be collected into a tuple.
 
 ```koto
 f = |a, b, others...|
@@ -75,7 +113,8 @@ check! a: 1, b: 2, others: (3, 4, 5)
 
 ## Argument Unpacking
 
-Functions that expect List or Tuple arguments can _unpack_ their values directly in the argument declaration.
+Functions that expect list or tuple arguments can _unpack_ their values 
+directly in the argument declaration.
 
 ```koto
 # A function that sums a List of three values
@@ -101,7 +140,8 @@ print! f x
 check! 15
 ```
 
-Ellipses can be used to unpack any number of elements at the start or end of a List or Tuple. 
+Ellipses can be used to unpack any number of elements at the start or end of a 
+list or tuple. 
 
 ```koto
 f = |(..., last)| last * last
@@ -119,11 +159,14 @@ print! f x
 check! 60
 ```
 
-As a performance consideration, when assigning elements this way from a List, a new list will be created with copies of the elements. Unpacking elements from a Tuple is cheaper because the underlying data is shared between sub-tuples.
+As a performance consideration, when assigning elements this way from a list, 
+a new list will be created with copies of the elements. 
+Unpacking elements from a Tuple is cheaper because the underlying data is shared 
+between sub-tuples.
 
 ## Ignoring Arguments
 
-The wildcard `_` can be used as a placeholder for arguments that the function ignores. 
+The wildcard `_` can be used to ignore function arguments.
 
 ```koto
 # A function that takes a List,
@@ -135,8 +178,8 @@ check! 101
 ```
 
 If you would like to keep the name of the ignored value as a reminder, 
-then `_` can be used as a prefix for an identifier (Identifiers starting with 
-`_` can be written to but can't be accessed).
+then `_` can be used as a prefix for an identifier. Identifiers starting with 
+`_` can be written to, but can't be accessed.
 
 ```koto
 my_map = {foo_a: 1, bar_a: 2, foo_b: 3, bar_b: 4}
@@ -146,5 +189,4 @@ print! my_map
 check! (('foo_a', 1), ('foo_b', 3))
 ```
 
-## Captured Values
-
+[variadic]: https://en.wikipedia.org/wiki/Variadic_function

@@ -1,22 +1,24 @@
 # Getting Started
 
-## Installing Koto 
+## The Koto CLI
 
-Installing the Koto command-line interface (CLI) currently requires the 
-[Rust](https://rust-lang.org) toolchain, 
-see [rustup.sh](https://rustup.sh) for installation instructions.
+Koto has been primarily designed as an embeddable extension language for Rust
+projects, however it also offers a command-line interface (CLI). 
+The Koto CLI enables you to run `.koto` scripts directly, 
+and provides an interactive [REPL][repl]. 
+
+Installing the Koto CLI currently requires the [Rust][rust]
+toolchain (see [rustup.sh][rustup] for installation instructions).
 
 With Rust available on your system, the `koto` command can be installed with
 `cargo install koto_cli`.
 
-## REPL
+### REPL
 
-Running `koto` without arguments will start the Koto 
-[REPL](https://en.wikipedia.org/wiki/Read–eval–print_loop), where Koto
-expressions can be entered and evaluated interactively. 
+Running `koto` without any arguments will start the Koto REPL, 
+where Koto expressions can be entered and evaluated interactively. 
 
-
-```lua
+```
 > koto
 Welcome to Koto v0.11.0
 » 1 + 1
@@ -26,12 +28,12 @@ Welcome to Koto v0.11.0
 ➝ hello!
 ```
 
-This guide, along with the [core library reference](../../core), 
+This guide, along with the [core library reference](../core), 
 can be read in the REPL using the `help` command. 
 
-```lua
+```
 > koto
-Welcome to Koto v0.11.0
+Welcome to Koto
 » help bool
 
   Booleans
@@ -45,3 +47,7 @@ Welcome to Koto v0.11.0
   |  # ➝ false
   ...
 ```
+
+[repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
+[rust]: https://rust-lang.org 
+[rustup]: https://rustup.sh

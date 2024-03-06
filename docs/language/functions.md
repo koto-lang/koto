@@ -1,15 +1,16 @@
 # Functions
 
-Functions are values, and are created using a pair of `|` vertical bars, with the function arguments listed between the start and end `|`. 
-
-The _body_ of the function follows, with the result of the body used as the function's result.
+Functions in Koto are created using a pair of vertical bars (`|`), 
+with the function's _arguments_ listed between the bars. 
+The _body_ of the function follows the vertical bars.
 
 ```koto
 hi = || 'Hello!'
 add = |x, y| x + y
 ```
 
-Functions are called with arguments contained in `()` parentheses.
+Functions are _called_ with arguments contained in `()` parentheses.
+The body of the function is evaluated and the result is returned to the caller.
 
 ```koto
 hi = || 'Hello!'
@@ -21,21 +22,25 @@ print! add(50, 5)
 check! 55
 ```
 
-When calling a function with arguments, the parentheses are optional.
+The parentheses for arguments when calling a function are optional and can be 
+ommitted in simple expressions.
 
 ```koto
 square = |x| x * x
 print! square 8
 check! 64
 
-pow = |x, y| x.pow y
-print! pow 2, 3
-check! 8
+add = |x, y| x + y
+print! add 2, 3
+check! 5
+
+# Equivalent to square(add(2, 3))
+print! square add 2, 3 
+check! 25
 ```
 
-## Return 
-
-A function's body can be an indented block, with the final expression in the body used as the function's result.
+A function's body can be an indented block, where the last 
+expression in the body is evaluated as the function's result.
 
 ```koto
 f = |x, y, z|
@@ -46,7 +51,9 @@ print! f 2, 3, 4
 check! 234
 ```
 
-The `return` keyword can be used to exit the function early with a result.
+## Return 
+
+When the function should be exited early, the `return` keyword can be used.
 
 ```koto
 f = |n|
@@ -55,25 +62,30 @@ f = |n|
   n * n
 print! f -1
 check! 42
-print! f 10
-check! 42
+```
+
+If a value isn't provided to `return`, then the returned value is `null`.
+
+```koto
+f = |n|
+  return
+  n * n
+print! f 123
+check! null
 ```
 
 ## Function Piping
 
-When passing the result of a function into another function, it can become a bit
-hard to read, especially when a chain of functions is involved.
-
-Using parentheses can help to disambiguate the expression for the reader, but an
-alternative is available in _function piping_, where the `>>` operator can be
-used to pass the result of one function to another, working from left to right.
+The pipe operator (`>>`) can be used to pass the result of one function to 
+another, working from left to right. This is known as _function piping_, 
+and can aid readability when working with a long chain of function calls.
 
 ```koto
 add = |x, y| x + y
 multiply = |x, y| x * y
 square = |x| x * x
 
-# Chained function calls can be a bit hard to follow
+# Chained function calls can be a bit hard to follow for the reader.
 x = multiply 2, square add 1, 3
 print! x
 check! 32
@@ -83,14 +95,13 @@ x = multiply(2, square(add(1, 3)))
 print! x
 check! 32
 
-# Piping allows for a left-to-right flow of results
+# Piping allows for a left-to-right flow of results.
 x = add(1, 3) >> square >> multiply 2
 print! x
 check! 32
 
-# Call chains can also be broken across lines 
-x = 
-  add 1, 3
+# Call chains can also be broken across lines.
+x = add 1, 3
   >> square 
   >> multiply 2
 print! x
