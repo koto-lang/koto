@@ -1,9 +1,9 @@
 # Lists
 
-Lists are declared with `[]` braces and can contain any values.
+Lists in Koto are created with square brackets (`[]`) and can contain a mix of
+different value types.
 
-Entries in a List can be accessed by index (starting from `0`) by using `[]`
-braces.
+Access list elements by _index_ using square brackets, starting from `0`.
 
 ```koto
 x = ['a', 99, true]
@@ -15,25 +15,29 @@ check! 99
 x[2] = false
 print! x[2]
 check! false
-
-y = [['a', 'b', 'c'], ['x', 'y', 'z']]
-print! y[0][1] 
-check! b
-print! y[1][2] 
-check! z
 ```
 
-Once a List has been created, its data is shared between instances of the List.
+Once a list has been created, its underlying data is shared between other
+instances of the same list. 
+Changes to one instance of the list are reflected in the other.
 
 ```koto
+# Assign a list to x
 x = [10, 20, 30]
+
+# Assign another instance of the list to y
 y = x
+
+# Modify the list through y
 y[1] = 99
-print! x # x and y share the same data
+
+# The change to y is also reflected in x
+print! x 
 check! [10, 99, 30]
 ```
 
-Lists can be joined together with the `+` operator.
+The `+` operator allows lists to be joined together, creating a new list that
+combines their elements.
 
 ```koto
 a = ['a', 'b', 'c']

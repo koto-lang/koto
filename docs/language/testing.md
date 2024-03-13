@@ -1,10 +1,12 @@
 # Testing
 
-Koto includes some features that help you to automatically check that your code is behaving as you expect.
+Koto includes a simple testing framework that help you to check that your code 
+is behaving as you expect through automated checks.
 
 ## Assertions
 
-A collection of assertion functions are available in the [`test` core library module](../../core/test),
+The core library includes a collection of _assertion_ functions in the 
+[`test` module](../core_lib/test),
 which are included by default in the [prelude](./prelude).
 
 ```koto
@@ -23,12 +25,12 @@ check! An assertion failed
 
 ## Organizing Tests
 
-Tests can be organized in a Map by defining `@test` functions. 
+Tests can be organized by collecting `@test` functions in an object. 
 
-The runtime can be configured to automatically run tests when importing modules, 
-e.g. the CLI will run module tests when the `--import_tests` option is used.
-
-The tests can then be run with [`test.run_tests`](../../core/test#run-tests).
+The tests can then be run manually with 
+[`test.run_tests`](../core_lib/test#run-tests).
+For automatic testing, see the description of exporting `@tests` in the
+[following section](./modules#tests-and-main).
 
 ```koto
 basic_tests = 
@@ -38,7 +40,9 @@ basic_tests =
 test.run_tests basic_tests
 ```
 
-`@pre_test` and `@post_test` functions can be used to define shared setup and cleanup steps.
+For setup and cleanup operations shared across tests, 
+`@pre_test` and `@post_test` metakeys can be implemented.
+`@pre_test` will be run before each `@test`, and `@post_test` will be run after.
 
 ```koto
 make_x = |n|
@@ -50,6 +54,9 @@ x_tests =
   @pre_test: || 
     self.x1 = make_x 100
     self.x2 = make_x 200
+      
+  @post_test: ||
+    print 'Test complete'
 
   @test addition: ||
     print 'Testing addition'
@@ -68,8 +75,9 @@ try
 catch _
   print 'A test failed'
 check! Testing addition
+check! Test complete
 check! Testing subtraction
+check! Test complete
 check! About to fail
 check! A test failed
 ```
-

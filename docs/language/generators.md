@@ -1,48 +1,55 @@
 # Generators
 
-Custom iterators can be made with _generator functions_, which are any functions that contain a `yield` expression. 
+Generators are iterators that are made by calling _generator functions_,
+which are any functions that contain a `yield` expression. 
 
-The iterator is paused each time `yield` is encountered, waiting for the caller to continue execution.
+The generator is paused each time `yield` is encountered, 
+waiting for the caller to continue execution.
 
 ```koto
 my_first_generator = ||
   yield 1
   yield 2
-  yield 3
 
 x = my_first_generator()
-print! x.next().get()
-check! 1
-print! x.next().get()
-check! 2
-print! x.next().get()
-check! 3
+print! x.next()
+check! IteratorOutput(1)
+print! x.next()
+check! IteratorOutput(2)
 print! x.next()
 check! null
 ```
 
-Generator functions can have arguments like any other function, and calling them creates an iterator that has access to the `iterator` core library module.
+Generator functions can accept arguments like any other function, 
+and each time they're called a new generator is created.
+
+As with any other iterable value, the [`iterator`][iterator] module's functions 
+are made available to generators.
 
 ```koto
-my_generator = |x|
+make_generator = |x|
   for y in 1..=3
     yield x + y 
 
-print! my_generator(0).to_list()
-check! [1, 2, 3]
-print! my_generator(10).to_tuple()
-check! (11, 12, 13)
+print! make_generator(0).to_tuple()
+check! (1, 2, 3)
+print! make_generator(10)
+  .keep |n| n % 2 == 1
+  .to_list()
+check! [11, 13]
 ```
 
 ## Custom Iterator Adaptors
 
-A generator that modifies another iterator's output is an _iterator adaptor_. 
+Generators can also serve as _iterator adaptors_ by modifying the output of 
+another iterator. 
 
-Inserting a generator into the `iterator` module makes it available in any iterator chain.
+Inserting a generator into the [`iterator`][iterator] module makes it available 
+in any iterator chain.
 
 ```koto
-# Make an iterator adaptor that yields 
-# every other value from the adapted iterator
+# Make an iterator adaptor that yields every 
+# other value from the adapted iterator
 iterator.every_other = ||
   n = 0
   # When the generator is created, self is initialized with the previous
@@ -59,3 +66,5 @@ print! 1..10
   .to_list()
 check! [10, 30, 50, 70, 90]
 ```
+
+[iterator]: ../core_lib/iterator

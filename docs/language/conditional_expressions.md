@@ -12,7 +12,7 @@ if x % 2 == 0 then print 'even' else print 'odd'
 check! odd
 ```
 
-...and multi-line:
+...and multi-line using indented blocks:
 
 ```koto
 x = 24
@@ -33,6 +33,7 @@ x = if 1 + 1 == 2 then 3 else -1
 print! x, x
 check! (3, 3)
 
+# Assign the result of the if expression to foo
 foo = if x > 0
   y = x * 10
   y + 3
@@ -46,8 +47,8 @@ check! (33, 33)
 
 ## switch
 
-`switch` expressions can be used as more minimal alternative to `if`/`else if`/`else` 
-cascades.
+`switch` expressions can be used as a cleaner alternative to 
+`if`/`else if`/`else` cascades.
 
 ```koto
 fib = |n|
@@ -65,7 +66,8 @@ check! 13
 `match` expressions can be used to match a value against a series of patterns, 
 with the matched pattern causing a specific branch of code to be executed.
 
-Patterns can be literals or identifiers. An identifier will accept any value, so they're often used with `if` conditions to refine the match.
+Patterns can be literals or identifiers. An identifier will accept any value, 
+so they're often used with `if` conditions to refine the match.
 
 ```koto
 print! match 40 + 2
@@ -95,8 +97,8 @@ print! (10, 11, 12, 13, 14, 15)
 check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
-List and Tuple entries can be matched against, with `...` available for capturing the 
-rest of the list.
+List and tuple entries can be matched against, 
+with `...` available for capturing the rest of the sequence.
 
 ```koto
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
@@ -108,4 +110,3 @@ print! match ['a', 'b', 'c'].extend [1, 2, 3]
   unmatched then "other: $unmatched"
 check! Starts with 'a', followed by 'b', then 4 others
 ```
-

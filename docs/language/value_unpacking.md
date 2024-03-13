@@ -1,6 +1,7 @@
 # Value Unpacking
 
-Multiple values can be assigned at once by separating the names with commas.
+Multiple assignments can be performed in a single expression by separating the 
+variable names with commas.
 
 ```koto
 a, b = 10, 20
@@ -8,8 +9,8 @@ print! a, b
 check! (10, 20)
 ```
 
-If there's a single value on the right-hand side of the assignment, 
-then it gets _unpacked_ into the assignment targets.
+If there's a single value being assigned, and the value is iterable, 
+then it gets _unpacked_ into the target variables.
 
 ```koto
 my_tuple = 1, 2
@@ -18,8 +19,20 @@ print! y, x
 check! (2, 1)
 ```
 
-If there aren't enough values to unpack, then `null` is assigned to the extra
-assignment targets.
+Unpacking works with any iterable value, including adapted iterators.
+
+```koto
+a, b, c = 1..10
+print! a, b, c
+check! (1, 2, 3)
+
+x, y, z = (a, b, c).each |x| x * 10
+print! x, y, z
+check! (10, 20, 30)
+```
+
+If the value being unpacked doesn't contain enough values for the assignment,
+then `null` is assigned to any remaining variables.
  
 ```koto
 a, b, c = [-1, -2]
@@ -31,16 +44,3 @@ print! x, y, z
 check! (42, null, null)
 ```
 
-Unpacking works with any iterable value, including adapted iterators.
-
-```koto
-r = 1..10
-
-a, b, c = r
-print! a, b, c
-check! (1, 2, 3)
-
-a, b, c = r.each |x| x * 10
-print! a, b, c
-check! (10, 20, 30)
-```

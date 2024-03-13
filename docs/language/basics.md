@@ -2,17 +2,16 @@
 
 Koto programs contain a series of expressions that are evaluated by Koto's runtime.
 
-For example, this program asks for the user's name and then offers them a
-friendly greeting.
+As an example, this simple script prints a friendly greeting.
 
 ```koto,skip_run
-print 'Please enter your name:'
-name = io.stdin().read_line()
-print "Hi there, $name!"
+name = 'World'
+print 'Hello, $name!'
 ```
 
-Try placing the above example in a file named `hello.koto`, and then running 
-`koto hello.koto`, or entering the expressions one at a time in the REPL.
+To see this in action, save the script as `hello.koto`, and then run it with 
+`koto hello.koto`. 
+Alternatively you can try entering the expressions one at a time in the REPL.
 
 ## Comments
 
@@ -56,9 +55,17 @@ print! 12 % 5
 check! 2
 ```
 
-Parentheses can be used to group expressions.
+### Parentheses
+
+Arithmetic operations follow the 
+[conventional order of precedence][operation-order]. 
+Parentheses can be used to group expressions as needed.
 
 ```koto
+# Without parentheses, multiplication is performed before addition
+print! 1 + 2 * 3 + 4
+check! 11
+# With parentheses, the additions are performed first
 print! (1 + 2) * (3 + 4)
 check! 21
 ```
@@ -99,7 +106,7 @@ check! true
 ## Null
 
 The `null` keyword is used to declare a value of type `Null`,
-which represents the absence of a value.
+which indicates the absence of a value.
 
 ```koto
 print! null
@@ -108,9 +115,8 @@ check! null
 
 ### Truthiness
 
-When `null` is encountered in a boolean context, it evaluates as `false`.
-
-Every value except for `false` and `null` evaluates as `true`.
+In boolean contexts (such as logical operations), `null` is treated as being
+equivalent to `false`. Every other value in Koto evaluates as `true`.
 
 ```koto
 print! not null
@@ -120,9 +126,10 @@ print! null or 42
 check! 42
 ```
 
-## Assigning Values
+## Assigning Variables
 
-Values are assigned with `=`, and can be freely reassigned.
+Values are assigned to named identifiers with `=`, and can be freely reassigned.
+Named values like this are known as _variables_.
 
 ```koto
 # Assign the value `42` to `x`
@@ -136,8 +143,8 @@ print! x
 check! true
 ```
 
-Compound assignment operators are available, e.g. `x *= y` is shorthand for 
-`x = x * y`.
+Compound assignment operators are also available. 
+For example, `x *= y` is a simpler way of writing `x = x * y`.
 
 ```koto
 a = 100
@@ -154,7 +161,11 @@ check! 1110
 
 ## Debug
 
-The `debug` expression allows you to quickly display a value while working on a program, along with the expression as a string and its line number.
+The `debug` keyword allows you to quickly display a value while working on a 
+program. 
+
+It prints the result of an expression, prefixed with its line number and the
+original expression as a string.
 
 ```koto
 x = 10 + 20
@@ -162,8 +173,8 @@ debug x / 10
 check! [2] x / 10: 3.0
 ```
 
-The result of a `debug` expression is the value that gets displayed, which can
-be useful when you want to quickly inspect the result of an expression.
+When using `debug`, the displayed value is also the result of the expression, 
+which can be useful if you want to quickly get feedback during development.
 
 ```koto
 x = debug 2 + 2
@@ -171,3 +182,5 @@ check! [1] 2 + 2: 4
 print! x
 check! 4
 ```
+
+[operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
