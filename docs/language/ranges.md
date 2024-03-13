@@ -106,4 +106,4 @@ print! z[2..]
 check! llø
 ```
 
-[iterator]: ../core/iterator
+[iterator]: ../core_lib/iterator

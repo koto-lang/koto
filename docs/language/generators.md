@@ -67,4 +67,4 @@ print! 1..10
 check! [10, 30, 50, 70, 90]
 ```
 
-[iterator]: ../core/iterator
+[iterator]: ../core_lib/iterator

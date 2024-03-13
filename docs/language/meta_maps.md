@@ -166,7 +166,7 @@ check! (10, 11, 12, 13, 14)
 ### `@next_back`
 
 The `@next_back` metakey is used by
-[`iterator.reversed`](../core/iterator/#reversed) when producing a reversed
+[`iterator.reversed`](../core_lib/iterator/#reversed) when producing a reversed
 iterator. 
 
 The runtime will only look for `@next_back` if `@next` is implemented. 
@@ -206,7 +206,7 @@ check! The value of x is 'Foo(-1)'
 ### `@type`
 
 The `@type` metakey takes a string as a value which is used when checking the
-value's type, e.g. with [`koto.type`](../core/koto/#type)
+value's type, e.g. with [`koto.type`](../core_lib/koto/#type)
 
 ```koto
 foo = |n|
@@ -279,7 +279,7 @@ check! ('data')
 ## Sharing Metamaps
 
 Metamaps can be shared between objects by using 
-[`Map.with_meta`](../core/map/#with-meta), which helps to avoid inefficient
+[`Map.with_meta`](../core_lib/map/#with-meta), which helps to avoid inefficient
 duplication when creating a lot of objects.
 
 In the following example, behavior is overridden in a single metamap, which is

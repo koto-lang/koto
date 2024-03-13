@@ -38,7 +38,7 @@ check! null
 ## Iterator Adaptors
 
 The output of an iterator can be modified using _adaptors_ from the 
-[`iterator` module](../core/iterator).
+[`iterator` module][iterator].
 
 ```koto
 # Create an iterator that keeps any value above 3
@@ -105,9 +105,9 @@ check! [22, 44]
 ```
 
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation
-[iterator]: ../core/iterator
-[next]: ../core/iterator#next
-[once]: ../core/iterator#once
-[repeat]: ../core/iterator#repeat
-[to_list]: ../core/iterator#to_list
-[to_tuple]: ../core/iterator#to_tuple
+[iterator]: ../core_lib/iterator
+[next]: ../core_lib/iterator#next
+[once]: ../core_lib/iterator#once
+[repeat]: ../core_lib/iterator#repeat
+[to_list]: ../core_lib/iterator#to_list
+[to_tuple]: ../core_lib/iterator#to_tuple

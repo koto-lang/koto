@@ -6,7 +6,7 @@ is behaving as you expect through automated checks.
 ## Assertions
 
 The core library includes a collection of _assertion_ functions in the 
-[`test` module](../core/test),
+[`test` module](../core_lib/test),
 which are included by default in the [prelude](./prelude).
 
 ```koto
@@ -28,7 +28,7 @@ check! An assertion failed
 Tests can be organized by collecting `@test` functions in an object. 
 
 The tests can then be run manually with 
-[`test.run_tests`](../core/test#run-tests).
+[`test.run_tests`](../core_lib/test#run-tests).
 For automatic testing, see the description of exporting `@tests` in the
 [following section](./modules#tests-and-main).
 
