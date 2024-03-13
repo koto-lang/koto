@@ -1,6 +1,5 @@
 //! The `io` core library module
 
-use super::string::format;
 use crate::{derive::*, prelude::*, BufferedFile, Error, Ptr, Result};
 use std::{
     fmt, fs,
@@ -78,14 +77,6 @@ pub fn make_module() -> KMap {
     result.add_fn("print", |ctx| {
         let result = match ctx.args() {
             [Str(s)] => ctx.vm.stdout().write_line(s.as_str()),
-            [Str(format), format_args @ ..] => {
-                let format = format.clone();
-                let format_args = format_args.to_vec();
-                match format::format_string(ctx.vm, &format, &format_args) {
-                    Ok(result) => ctx.vm.stdout().write_line(&result),
-                    Err(error) => Err(error),
-                }
-            }
             [value] => {
                 let value = value.clone();
                 match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {

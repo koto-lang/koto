@@ -26,9 +26,9 @@ a, b, c = 1..10
 print! a, b, c
 check! (1, 2, 3)
 
-x, y, z = (a, b, c).each |x| x * 10
+x, y, z = 'a-b-c'.split '-'
 print! x, y, z
-check! (10, 20, 30)
+check! ('a', 'b', 'c')
 ```
 
 If the value being unpacked doesn't contain enough values for the assignment,
