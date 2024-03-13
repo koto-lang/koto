@@ -97,12 +97,6 @@ f.exists()
 ## print
 
 ```kototype
-|String, Value...| -> Null
-```
-
-Prints a formatted string to the active output. 
-See [`string.format`](../string/#format) for the formatting syntax.
-
 ```kototype
 |Value| -> Null
 ```
@@ -113,11 +107,13 @@ Prints a single value to the active output.
 |Value, Value...| -> Null
 ```
 
-Prints a series of values to the active output. 
+Prints a series of values to the active output as a tuple.
 
 ### Note
 
-The output for `print` depends on the configuration of the runtime, by default this is stdout.
+- To print formatted strings, see [`string.format`](./string#format).
+- The output for `print` depends on the configuration of the runtime.
+  The default output is `stdout`.
 
 ## read_to_string
 

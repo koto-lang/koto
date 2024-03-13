@@ -44,19 +44,22 @@ The Koto project adheres to
 - `iterator.once` has been added.
 
 ### Changed
+
 #### Core Library
 
+- `io.print` no longer implicitly treats its first argument as a format string. 
+  `string.format` should be explicitly used instead.
+- `iterator.next`/`next_back` and `Peekble.peek`/`peek_back` now return
+  `IteratorOutput` for output values, and `null` when the iterator is exhausted.
+  - `.get()` needs to be called on the output to get the underlying value.
+- `map.with_meta_map` has been renamed to `with_meta`, and `get_meta_map` has
+  been renamed to `get_meta`.
 - `string.to_number` changes:
   - `0x`, `0o`, and `0b` prefixes are understood for parsing hex, octal, or
     binary numbers respectively.
   - An overload has been added that accepts a number base between 2 and 36.
   - If the string doesn't contain a number, `null` is now returned instead of an
     exception being thrown.
-- `map.with_meta_map` has been renamed to `with_meta`, and `get_meta_map` has
-  been renamed to `get_meta`.
-- `iterator.next`/`next_back` and `Peekble.peek`/`peek_back` now return
-  `IteratorOutput` for output values, and `null` when the iterator is exhausted.
-  - `.get()` needs to be called on the output to get the underlying value.
 
 #### API
 
