@@ -895,47 +895,29 @@ impl<'source> Parser<'source> {
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
                     arg_nodes.push(self.push_node(Node::Wildcard(maybe_id))?)
                 }
-                None => {
-                    match self.peek_token() {
-                        Some(Token::Self_) => {
-                            self.consume_token();
-                            return self.error(SyntaxError::SelfArg);
-                        }
-                        Some(Token::SquareOpen) => {
-                            self.consume_token();
-                            let nested_span_start = self.current_span();
-
-                            let list_args = self.parse_nested_function_args(&mut arg_ids)?;
-                            if !matches!(
-                                self.consume_token_with_context(&args_context),
-                                Some((Token::SquareClose, _))
-                            ) {
-                                return self.error(SyntaxError::ExpectedListEnd);
-                            }
-                            arg_nodes.push(self.push_node_with_start_span(
-                                Node::List(list_args),
-                                nested_span_start,
-                            )?);
-                        }
-                        Some(Token::RoundOpen) => {
-                            self.consume_token();
-                            let nested_span_start = self.current_span();
-
-                            let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
-                            if !matches!(
-                                self.consume_token_with_context(&args_context),
-                                Some((Token::RoundClose, _))
-                            ) {
-                                return self.error(SyntaxError::ExpectedCloseParen);
-                            }
-                            arg_nodes.push(self.push_node_with_start_span(
-                                Node::Tuple(tuple_args),
-                                nested_span_start,
-                            )?);
-                        }
-                        _ => break,
+                None => match self.peek_token() {
+                    Some(Token::Self_) => {
+                        self.consume_token();
+                        return self.error(SyntaxError::SelfArg);
                     }
-                }
+                    Some(Token::RoundOpen) => {
+                        self.consume_token();
+                        let nested_span_start = self.current_span();
+
+                        let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
+                        if !matches!(
+                            self.consume_token_with_context(&args_context),
+                            Some((Token::RoundClose, _))
+                        ) {
+                            return self.error(SyntaxError::ExpectedCloseParen);
+                        }
+                        arg_nodes.push(self.push_node_with_start_span(
+                            Node::Tuple(tuple_args),
+                            nested_span_start,
+                        )?);
+                    }
+                    _ => break,
+                },
             }
 
             if self.peek_next_token_on_same_line() == Some(Token::Comma) {
@@ -1001,7 +983,7 @@ impl<'source> Parser<'source> {
 
     // Helper for parse_function() that recursively parses nested function arguments
     // e.g.
-    //   f = |(foo, bar, [x, y])|
+    //   f = |(foo, bar, (x, y))|
     //   #     ^ You are here
     //   #                ^ ...or here
     fn parse_nested_function_args(
@@ -1033,21 +1015,6 @@ impl<'source> Parser<'source> {
                     nested_args.push(self.push_node(Node::Wildcard(maybe_id))?)
                 }
                 None => match self.peek_token() {
-                    Some(Token::SquareOpen) => {
-                        self.consume_token();
-                        let span_start = self.current_span();
-
-                        let list_args = self.parse_nested_function_args(arg_ids)?;
-                        if !matches!(
-                            self.consume_token_with_context(&args_context),
-                            Some((Token::SquareClose, _))
-                        ) {
-                            return self.error(SyntaxError::ExpectedListEnd);
-                        }
-                        nested_args.push(
-                            self.push_node_with_start_span(Node::List(list_args), span_start)?,
-                        );
-                    }
                     Some(Token::RoundOpen) => {
                         self.consume_token();
                         let span_start = self.current_span();
@@ -2470,17 +2437,6 @@ impl<'source> Parser<'source> {
                     None => return self.error(InternalError::IdParseFailure),
                 },
                 Wildcard => self.consume_wildcard(&pattern_context).map(Some)?,
-                SquareOpen => {
-                    self.consume_token_with_context(&pattern_context);
-
-                    let list_patterns = self.parse_nested_match_patterns()?;
-
-                    if self.consume_next_token_on_same_line() != Some(SquareClose) {
-                        return self.error(SyntaxError::ExpectedListEnd);
-                    }
-
-                    Some(self.push_node(Node::List(list_patterns))?)
-                }
                 RoundOpen => {
                     self.consume_token_with_context(&pattern_context);
 
@@ -2513,7 +2469,7 @@ impl<'source> Parser<'source> {
     //
     // e.g.
     //   match x
-    //     (1, 2, [3, 4]) then ...
+    //     (1, 2, (3, 4)) then ...
     //   #  ^ You are here
     //   #         ^...or here
     fn parse_nested_match_patterns(&mut self) -> Result<Vec<AstIndex>> {

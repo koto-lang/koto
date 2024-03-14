@@ -603,23 +603,16 @@ impl Compiler {
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
             let arg_node = ctx.ast.node(*arg);
-            self.push_span(arg_node, ctx.ast);
-            match &arg_node.node {
-                Node::List(nested_args) => {
-                    let list_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
-                }
-                Node::Tuple(nested_args) => {
-                    let tuple_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
-                }
-                _ => {}
+            if let Node::Tuple(nested_args) = &arg_node.node {
+                self.push_span(arg_node, ctx.ast);
+
+                let tuple_register = arg_index as u8 + 1;
+                let size_op = args_size_op(nested_args, ctx.ast);
+                self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
+                self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
+
+                self.pop_span();
             }
-            self.pop_span();
         }
 
         let result_register = if allow_implicit_return {
@@ -670,7 +663,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(_) => result.push(Arg::Placeholder),
-                Node::List(nested) | Node::Tuple(nested) => {
+                Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
                 }
@@ -694,7 +687,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(_) => {}
-                Node::List(nested_args) | Node::Tuple(nested_args) => {
+                Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
                 Node::Ellipsis(Some(id)) => result.push(Arg::Unpacked(*id)),
@@ -735,14 +728,6 @@ impl Compiler {
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
-                }
-                Node::List(nested_args) => {
-                    let list_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(TempIndex, &[list_register, container_register, arg_index]);
-                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
-                    self.pop_register()?; // list_register
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
@@ -2888,7 +2873,7 @@ impl Compiler {
 
                     Some(patterns.clone())
                 }
-                Node::List(patterns) | Node::Tuple(patterns) => {
+                Node::Tuple(patterns) => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
                             expected: match_len,
@@ -3083,7 +3068,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::List(patterns) | Node::Tuple(patterns) => {
+                Node::Tuple(patterns) => {
                     self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register: params.match_register,

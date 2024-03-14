@@ -84,11 +84,11 @@
 
     a = match z
       # ... matches against any number of elements
-      [3, 4, ...] then "starts with 3, 4"
+      (3, 4, ...) then "starts with 3, 4"
       # A name can be given to capture the matched elements
-      [start..., y, 10] then
+      (start..., y, 10) then
         "starts with ${start.size()} elements and ends with [...$y, 10]"
-      # Matched lists and tuples can be nested
-      [a, b, (3, 4), (c, [6, rest...])] then
+      # Matched containers can be nested
+      (a, b, (3, 4), (c, (6, rest...))) then
         a + b + c + rest.size()
     assert_eq a, 10

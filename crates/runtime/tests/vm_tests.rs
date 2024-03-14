@@ -695,8 +695,8 @@ match (1, (2, 3), 4)
         fn match_list() {
             let script = "
 match [1, [2, 3], [4, 5, 6]]
-  [1, [x, -1], [_, y, _]] then x + y
-  [1, [x, 3], [_, 5, y]] then x + y
+  (1, (x, -1), (_, y, _)) then x + y
+  (1, (x, 3), (_, 5, y)) then x + y
   else 123
 ";
             test_script(script, 8);
@@ -707,8 +707,8 @@ match [1, [2, 3], [4, 5, 6]]
             let script = "
 x = [0]
 match x
-  [0] or [1] then 123
-  [x, y] or [x, y, z] then 99
+  (0) or (1) then 123
+  (x, y) or (x, y, z) then 99
   else -1
 ";
             test_script(script, 123);
@@ -719,9 +719,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, ...] then 0
-  [..., 1] then -1
-  [1, ...] then 1
+  (0, ...) then 0
+  (..., 1) then -1
+  (1, ...) then 1
   else 123
 ";
             test_script(script, 1);
@@ -732,9 +732,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, rest...] then rest
-  [rest..., 3, 2, 1] then rest
-  [1, 2, rest...] then rest
+  (0, rest...) then rest
+  (rest..., 3, 2, 1) then rest
+  (1, 2, rest...) then rest
   else 123
 ";
             test_script(script, number_list(&[3, 4, 5]));
@@ -745,9 +745,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, rest...] then rest
-  [rest..., 3, 4, 5] then rest
-  [1, 2, rest...] then rest
+  (0, rest...) then rest
+  (rest..., 3, 4, 5) then rest
+  (1, 2, rest...) then rest
   else 123
 ";
             test_script(script, number_list(&[1, 2]));
@@ -1079,7 +1079,7 @@ f 1, 2, 3
         }
 
         #[test]
-        fn arg_unpacking_tuple() {
+        fn arg_unpacking() {
             let script = "
 f = |a, (_, c), d| a + c + d
 f 1, (2, 3), 4
@@ -1088,7 +1088,7 @@ f 1, (2, 3), 4
         }
 
         #[test]
-        fn arg_unpacking_tuple_nested() {
+        fn arg_unpacking_nested() {
             let script = "
 f = |a, (_, (c, d), _), f| a + c + d + f
 f 1, (2, (3, 4), 5), 6
@@ -1097,18 +1097,9 @@ f 1, (2, (3, 4), 5), 6
         }
 
         #[test]
-        fn arg_unpacking_list() {
-            let script = "
-f = |a, [_, c], d| a + c + d
-f 1, [2, 3], 4
-";
-            test_script(script, 8);
-        }
-
-        #[test]
         fn arg_unpacking_mixed() {
             let script = "
-f = |a, (b, [_, d]), e| a + b + d + e
+f = |a, (b, (_, d)), e| a + b + d + e
 f 1, (2, [3, 4]), 5
 ";
             test_script(script, 12);
@@ -1163,7 +1154,7 @@ f (1, 2, 3, 4, 5)
         #[test]
         fn arg_unpacking_ellipsis_mixed() {
             let script = "
-f = |[a, (tuple_others..., z), list_others...]|
+f = |(a, (tuple_others..., z), list_others...)|
   a + list_others.sum() + tuple_others.size() + z
 f [10, (1, 2, 3), 20, 30]
 ";

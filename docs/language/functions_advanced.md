@@ -113,27 +113,26 @@ check! a: 1, b: 2, others: (3, 4, 5)
 
 ## Argument Unpacking
 
-Functions that expect list or tuple arguments can _unpack_ their values 
-directly in the argument declaration.
+Functions that expect containers as arguments can _unpack_ their contained
+  values directly in the argument declaration by using parentheses.
 
 ```koto
-# A function that sums a List of three values
-f = |[a, b, c]| a + b + c
+# A function that sums a container with three contained values
+f = |(a, b, c)| a + b + c
 
 x = [100, 10, 1]
 print! f x
 check! 111
 ```
 
-In the above example, if anything other than a List with three values is used as
-an argument, then an error will be thrown. 
+Any value that supports indexing operations containing a matching number of
+elements will be unpacked, otherwise an error will be thrown.
 
 Unpacked values can contain nested unpacked values.
 
 ```koto
-# A function that takes a Tuple of Lists
-# and sums their entries
-f = |([a, b], [c, d, e])| 
+# A function that sums elements from nested containers
+f = |((a, b), (c, d, e))| 
   a + b + c + d + e
 x = ([1, 2], [3, 4, 5])
 print! f x
@@ -141,7 +140,7 @@ check! 15
 ```
 
 Ellipses can be used to unpack any number of elements at the start or end of a 
-list or tuple. 
+container.
 
 ```koto
 f = |(..., last)| last * last
@@ -159,19 +158,13 @@ print! f x
 check! 60
 ```
 
-As a performance consideration, when assigning elements this way from a list, 
-a new list will be created with copies of the elements. 
-Unpacking elements from a Tuple is cheaper because the underlying data is shared 
-between sub-tuples.
-
 ## Ignoring Arguments
 
 The wildcard `_` can be used to ignore function arguments.
 
 ```koto
-# A function that takes a List,
-# and sums its first and third values 
-f = |[a, _, c]| a + c
+# A function that sums the first and third elements of a container
+f = |(a, _, c)| a + c
 
 print! f [100, 10, 1]
 check! 101
