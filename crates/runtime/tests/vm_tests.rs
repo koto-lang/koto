@@ -695,7 +695,6 @@ match (1, (2, 3), 4)
         fn match_list() {
             let script = "
 match [1, [2, 3], [4, 5, 6]]
-  (1, (2, 3), (4, 5, 6)) then -1 # Tuples don't match against lists
   [1, [x, -1], [_, y, _]] then x + y
   [1, [x, 3], [_, 5, y]] then x + y
   else 123

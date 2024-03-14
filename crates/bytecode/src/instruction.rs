@@ -258,14 +258,6 @@ pub enum Instruction {
         value: u8,
         index: i8,
     },
-    IsTuple {
-        register: u8,
-        value: u8,
-    },
-    IsList {
-        register: u8,
-        value: u8,
-    },
     Index {
         register: u8,
         value: u8,
@@ -320,10 +312,6 @@ pub enum Instruction {
         register: u8,
         constant: u32,
     },
-    CheckType {
-        register: u8,
-        type_id: TypeId,
-    },
     CheckSizeEqual {
         register: u8,
         size: usize,
@@ -341,27 +329,6 @@ pub enum Instruction {
     StringFinish {
         register: u8,
     },
-}
-
-#[derive(Debug)]
-#[repr(u8)]
-#[allow(missing_docs)]
-pub enum TypeId {
-    List,
-    Tuple,
-}
-
-impl TypeId {
-    /// Produces a [TypeId] from the given byte
-    pub fn from_byte(byte: u8) -> Result<Self, u8> {
-        if byte == Self::List as u8 {
-            Ok(Self::List)
-        } else if byte == Self::Tuple as u8 {
-            Ok(Self::Tuple)
-        } else {
-            Err(byte)
-        }
-    }
 }
 
 /// Flags used to define the properties of a Function
@@ -620,12 +587,6 @@ impl fmt::Debug for Instruction {
                 f,
                 "SliceTo\t\tresult: {register}\tvalue: {value}\tindex: {index}"
             ),
-            IsTuple { register, value } => {
-                write!(f, "IsTuple\t\tresult: {register}\tvalue: {value}")
-            }
-            IsList { register, value } => {
-                write!(f, "IsList\t\tresult: {register}\tvalue: {value}")
-            }
             Index {
                 register,
                 value,
@@ -698,9 +659,6 @@ impl fmt::Debug for Instruction {
             TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
                 write!(f, "Debug\t\tvalue: {register}\tconstant: {constant}")
-            }
-            CheckType { register, type_id } => {
-                write!(f, "CheckType\tvalue: {register}\ttype: {type_id:?}")
             }
             CheckSizeEqual { register, size } => {
                 write!(f, "CheckSizeEqual\tvalue: {register}\tsize: {size}")

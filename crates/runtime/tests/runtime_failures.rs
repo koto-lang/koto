@@ -134,15 +134,6 @@ f (1, 2, 3)
             }
 
             #[test]
-            fn list_unpacking_of_non_list() {
-                let script = r#"
-f = |[a, b]| a + b
-f (1, 2)
-"#;
-                check_script_fails(script);
-            }
-
-            #[test]
             fn list_unpacking_of_list_with_wrong_size() {
                 let script = r#"
 f = |[a, b]| a + b

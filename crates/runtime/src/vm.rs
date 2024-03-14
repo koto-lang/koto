@@ -6,7 +6,7 @@ use crate::{
     DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Ptr, Result,
 };
 use instant::Instant;
-use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader, TypeId};
+use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader};
 use koto_parser::{ConstantIndex, MetaKeyId};
 use rustc_hash::FxHasher;
 use std::{
@@ -860,14 +860,6 @@ impl KotoVm {
                 ));
             }
             Size { register, value } => self.run_size(register, value),
-            IsTuple { register, value } => {
-                let result = matches!(self.get_register(value), KValue::Tuple(_));
-                self.set_register(register, result.into());
-            }
-            IsList { register, value } => {
-                let result = matches!(self.get_register(value), KValue::List(_));
-                self.set_register(register, result.into());
-            }
             IterNext {
                 result,
                 iterator,
@@ -944,7 +936,6 @@ impl KotoVm {
                 self.frame_mut().catch_stack.pop();
             }
             Debug { register, constant } => self.run_debug(register, constant)?,
-            CheckType { register, type_id } => self.run_check_type(register, type_id)?,
             CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
             CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
         }
@@ -2681,23 +2672,6 @@ impl KotoVm {
 
         self.stdout()
             .write_line(&format!("{prefix}{expression_string}: {value_string}"))
-    }
-
-    fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<()> {
-        let value = self.get_register(register);
-        match type_id {
-            TypeId::List => {
-                if !matches!(value, KValue::List(_)) {
-                    return type_error("List", value);
-                }
-            }
-            TypeId::Tuple => {
-                if !matches!(value, KValue::Tuple(_) | KValue::TemporaryTuple(_)) {
-                    return type_error("Tuple", value);
-                }
-            }
-        }
-        Ok(())
     }
 
     fn run_check_size_equal(&self, register: u8, expected_size: usize) -> Result<()> {

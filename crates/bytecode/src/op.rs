@@ -443,16 +443,6 @@ pub enum Op {
     /// `[*result, *value, *key]`
     AccessString,
 
-    /// Sets the result register to true if the value is a List
-    ///
-    /// `[*result, *value]`
-    IsList,
-
-    /// Sets the result register to true if the value is a Tuple
-    ///
-    /// `[*result, *value]`
-    IsTuple,
-
     /// Gets the size of a value
     ///
     /// `[*result, *value]`
@@ -477,15 +467,6 @@ pub enum Op {
     /// `[*value, @expression constant]`
     Debug,
 
-    /// Throws an error if the value doesn't match the expected type
-    ///
-    /// Used when matching function arguments.
-    ///
-    /// See [TypeId](crate::TypeId) for the list of types that are checked against.
-    ///
-    /// `[*value, type]`
-    CheckType,
-
     /// Throws an error if the value doesn't match the expected size
     ///
     /// Used when matching function arguments.
@@ -501,6 +482,9 @@ pub enum Op {
     CheckSizeMin,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused82,
+    Unused83,
+    Unused84,
     Unused85,
     Unused86,
     Unused87,
