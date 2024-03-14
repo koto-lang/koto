@@ -1078,97 +1078,110 @@ f 1, 2, 3
             test_script(script, 3);
         }
 
-        #[test]
-        fn arg_unpacking() {
-            let script = "
+        mod arg_unpacking {
+            use super::*;
+
+            #[test]
+            fn unpack_second_arg() {
+                let script = "
 f = |a, (_, c), d| a + c + d
 f 1, (2, 3), 4
 ";
-            test_script(script, 8);
-        }
+                test_script(script, 8);
+            }
 
-        #[test]
-        fn arg_unpacking_nested() {
-            let script = "
+            #[test]
+            fn nested() {
+                let script = "
 f = |a, (_, (c, d), _), f| a + c + d + f
 f 1, (2, (3, 4), 5), 6
 ";
-            test_script(script, 14);
-        }
+                test_script(script, 14);
+            }
 
-        #[test]
-        fn arg_unpacking_mixed() {
-            let script = "
+            #[test]
+            fn mixed_containers() {
+                let script = "
 f = |a, (b, (_, d)), e| a + b + d + e
 f 1, (2, [3, 4]), 5
 ";
-            test_script(script, 12);
-        }
+                test_script(script, 12);
+            }
 
-        #[test]
-        fn arg_unpacking_with_capture() {
-            let script = "
+            #[test]
+            fn unpacking_with_capture() {
+                let script = "
 x = 10
 f = |a, (b, c)| a + b + c + x
 f 1, (2, 3)
 ";
-            test_script(script, 16);
-        }
+                test_script(script, 16);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_at_end() {
-            let script = "
+            #[test]
+            fn ellipsis_at_end() {
+                let script = "
 f = |(a, b, ...)| a + b
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 3);
-        }
+                test_script(script, 3);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_with_id_at_end() {
-            let script = "
+            #[test]
+            fn ellipsis_with_id_at_end() {
+                let script = "
 f = |(a, b, others...)| a + b + others.size()
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 6);
-        }
+                test_script(script, 6);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_at_start() {
-            let script = "
+            #[test]
+            fn ellipsis_at_start() {
+                let script = "
 f = |(..., y, z)| y + z
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 9);
-        }
+                test_script(script, 9);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_with_id_at_start() {
-            let script = "
+            #[test]
+            fn ellipsis_with_id_at_start() {
+                let script = "
 f = |(others..., y, z)| y + z + others.size()
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 12);
-        }
+                test_script(script, 12);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_mixed() {
-            let script = "
+            #[test]
+            fn unpacking_a_map() {
+                let script = "
+f = |((_, a), (_, b))| a + b
+f {foo: 42, bar: 99}
+";
+                test_script(script, 141);
+            }
+
+            #[test]
+            fn ellipsis_mixed() {
+                let script = "
 f = |(a, (tuple_others..., z), list_others...)|
   a + list_others.sum() + tuple_others.size() + z
 f [10, (1, 2, 3), 20, 30]
 ";
-            test_script(script, 65);
-        }
+                test_script(script, 65);
+            }
 
-        #[test]
-        fn arg_unpacking_temporary_tuple() {
-            let script = "
+            #[test]
+            fn unpacking_a_temporary_tuple() {
+                let script = "
 {foo: 1, bar: 2, baz: 3}
   .keep |(key, _)| key.starts_with 'b'
   .count()
 ";
-            test_script(script, 2);
+                test_script(script, 2);
+            }
         }
 
         #[test]

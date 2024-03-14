@@ -113,8 +113,8 @@ check! a: 1, b: 2, others: (3, 4, 5)
 
 ## Argument Unpacking
 
-Functions that expect containers as arguments can _unpack_ their contained
-  values directly in the argument declaration by using parentheses.
+Functions that expect containers as arguments can _unpack_ the contained
+elements directly in the argument declaration by using parentheses.
 
 ```koto
 # A function that sums a container with three contained values
@@ -125,10 +125,11 @@ print! f x
 check! 111
 ```
 
-Any value that supports indexing operations containing a matching number of
-elements will be unpacked, otherwise an error will be thrown.
+Any container that supports indexing operations (like lists and tuples) 
+with a matching number of elements will be unpacked, 
+otherwise an error will be thrown.
 
-Unpacked values can contain nested unpacked values.
+Unpacked arguments can also be nested.
 
 ```koto
 # A function that sums elements from nested containers

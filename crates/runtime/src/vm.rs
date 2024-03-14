@@ -1221,7 +1221,15 @@ impl KotoVm {
                 let op = v.get_meta_value(&index_op).unwrap();
                 return self.call_overloaded_binary_op(result, value, index.into(), op);
             }
-            unexpected => return type_error("indexable value", unexpected),
+            Map(map) => {
+                let data = map.data();
+                let index = signed_index_to_unsigned(index, data.len());
+                match data.get_index(index) {
+                    Some((key, value)) => Tuple(vec![key.value().clone(), value.clone()].into()),
+                    None => Null,
+                }
+            }
+            unexpected => return type_error("an indexable value", unexpected),
         };
 
         self.set_register(result, result_value);
@@ -1231,6 +1239,8 @@ impl KotoVm {
 
     fn run_slice(&mut self, register: u8, value: u8, index: i8, is_slice_to: bool) -> Result<()> {
         use KValue::*;
+
+        let index_op = BinaryOp::Index.into();
 
         let result = match self.get_register(value) {
             List(list) => {
@@ -1251,6 +1261,22 @@ impl KotoVm {
                     tuple.make_sub_tuple(0..index).map_or(Null, Tuple)
                 } else {
                     tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
+                }
+            }
+            v if v.contains_meta_key(&index_op) => {
+                return runtime_error!(
+                    "Unpacking objects that implement @index isn't currently supported"
+                );
+            }
+            Map(map) => {
+                let data = map.data();
+                let index = signed_index_to_unsigned(index, data.len());
+                if is_slice_to {
+                    data.make_data_slice(..index)
+                        .map_or(Null, |slice| KMap::with_data(slice).into())
+                } else {
+                    data.make_data_slice(index..)
+                        .map_or(Null, |slice| KMap::with_data(slice).into())
                 }
             }
             unexpected => return type_error("List or Tuple", unexpected),
@@ -2647,12 +2673,7 @@ impl KotoVm {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
             KValue::Str(s) => s,
-            other => {
-                return runtime_error!(
-                    "debug: Expected string to display, found '{}'",
-                    other.type_as_string()
-                )
-            }
+            unexpected => return type_error("a displayable value", &unexpected),
         };
 
         let prefix = match (
@@ -2675,26 +2696,34 @@ impl KotoVm {
     }
 
     fn run_check_size_equal(&self, register: u8, expected_size: usize) -> Result<()> {
-        let value_size = self.get_register(register).size();
-
-        if value_size == expected_size {
+        let size = self.get_container_size(register)?;
+        if size == expected_size {
             Ok(())
         } else {
-            runtime_error!(
-                "The provided value has a size of '{value_size}', expected '{expected_size}'"
-            )
+            runtime_error!("The container has a size of '{size}', expected '{expected_size}'")
         }
     }
 
     fn run_check_size_min(&self, register: u8, expected_size: usize) -> Result<()> {
-        let value_size = self.get_register(register).size();
-
-        if value_size >= expected_size {
+        let size = self.get_container_size(register)?;
+        if size >= expected_size {
             Ok(())
         } else {
             runtime_error!(
-                "The provided value has a size of '{value_size}', expected a minimum of '{expected_size}'"
+                "The container has a size of '{size}', expected a minimum of  '{expected_size}'"
             )
+        }
+    }
+
+    fn get_container_size(&self, register: u8) -> Result<usize> {
+        use KValue::*;
+
+        match self.get_register(register) {
+            List(l) => Ok(l.len()),
+            Tuple(t) => Ok(t.len()),
+            TemporaryTuple(RegisterSlice { count, .. }) => Ok(*count as usize),
+            Map(m) => Ok(m.len()),
+            unexpected => type_error("a container", unexpected),
         }
     }
 

@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 use std::{
     hash::BuildHasherDefault,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, RangeBounds},
 };
 
 /// The hasher used throughout the Koto runtime
@@ -24,6 +24,17 @@ impl ValueMap {
             capacity,
             Default::default(),
         ))
+    }
+
+    /// Makes a new ValueMap containing a slice of the map's elements
+    pub fn make_data_slice(&self, range: impl RangeBounds<usize>) -> Option<Self> {
+        self.get_range(range).map(|entries| {
+            Self::from_iter(
+                entries
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            )
+        })
     }
 }
 
