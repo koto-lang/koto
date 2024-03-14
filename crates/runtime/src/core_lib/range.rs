@@ -40,9 +40,9 @@ pub fn make_module() -> KMap {
                 (Some(start), Some((end, inclusive))) => {
                     let n = i64::from(n);
                     let result = if r.is_ascending() {
-                        KRange::bounded(start - n, end + n, inclusive)
+                        KRange::new(Some(start - n), Some((end + n, inclusive)))
                     } else {
-                        KRange::bounded(start + n, end - n, inclusive)
+                        KRange::new(Some(start + n), Some((end - n, inclusive)))
                     };
                     Ok(result.into())
                 }
@@ -104,9 +104,9 @@ pub fn make_module() -> KMap {
                 match (r.start(), r.end()) {
                     (Some(start), Some((end, inclusive))) => {
                         let result = if start <= end {
-                            KRange::bounded(start.min(n), end.max(n + 1), inclusive)
+                            KRange::new(Some(start.min(n)), Some((end.max(n + 1), inclusive)))
                         } else {
-                            KRange::bounded(start.max(n), end.min(n - 1), inclusive)
+                            KRange::new(Some(start.max(n)), Some((end.min(n - 1), inclusive)))
                         };
                         Ok(result.into())
                     }
@@ -117,9 +117,15 @@ pub fn make_module() -> KMap {
                 (Some(start), Some((end, inclusive))) => {
                     let r_b = b.as_sorted_range();
                     let result = if start <= end {
-                        KRange::bounded(start.min(r_b.start), end.max(r_b.end), inclusive)
+                        KRange::new(
+                            Some(start.min(r_b.start)),
+                            Some((end.max(r_b.end), inclusive)),
+                        )
                     } else {
-                        KRange::bounded(start.max(r_b.end - 1), end.min(r_b.start), inclusive)
+                        KRange::new(
+                            Some(start.max(r_b.end - 1)),
+                            Some((end.min(r_b.start), inclusive)),
+                        )
                     };
                     Ok(result.into())
                 }

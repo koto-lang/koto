@@ -188,16 +188,16 @@ a, b, c
 
         #[test]
         fn range() {
-            test_script("0..10", KRange::bounded(0, 10, false));
-            test_script("0..-10", KRange::bounded(0, -10, false));
-            test_script("1 + 1..2 + 2", KRange::bounded(2, 4, false));
+            test_script("0..10", KRange::from(0..10));
+            test_script("0..-10", KRange::from(0..-10));
+            test_script("1 + 1..2 + 2", KRange::from(2..4));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", KRange::bounded(10, 20, true));
-            test_script("4..=0", KRange::bounded(4, 0, true));
-            test_script("2 * 2..=3 * 3", KRange::bounded(4, 9, true));
+            test_script("10..=20", KRange::from(10..=20));
+            test_script("4..=0", KRange::from(4..=0));
+            test_script("2 * 2..=3 * 3", KRange::from(4..=9));
         }
     }
 

@@ -992,13 +992,13 @@ impl KotoVm {
         let start = start_register.map(|r| self.get_register(r));
         let end = end_register.map(|r| self.get_register(r));
 
-        let range = match (start, end) {
+        let (range_start, range_end) = match (start, end) {
             (Some(Number(start)), Some(Number(end))) => {
-                KRange::bounded(start.into(), end.into(), inclusive)
+                (Some(start.into()), Some((end.into(), inclusive)))
             }
-            (Some(Number(start)), None) => KRange::from(start.into()),
-            (None, Some(Number(end))) => KRange::to(end.into(), inclusive),
-            (None, None) => KRange::unbounded(),
+            (Some(Number(start)), None) => (Some(start.into()), None),
+            (None, Some(Number(end))) => (None, Some((end.into(), inclusive))),
+            (None, None) => (None, None),
             (None | Some(Number(_)), Some(unexpected)) => {
                 return type_error("a Number for the range's end", unexpected)
             }
@@ -1007,7 +1007,7 @@ impl KotoVm {
             }
         };
 
-        self.set_register(register, range.into());
+        self.set_register(register, KRange::new(range_start, range_end).into());
         Ok(())
     }
 

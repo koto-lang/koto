@@ -174,7 +174,7 @@ impl Match {
 
         Self {
             text,
-            bounds: KRange::bounded(start as i64, end as i64, false),
+            bounds: KRange::from(start as i64..end as i64),
         }
         .into()
     }
