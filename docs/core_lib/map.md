@@ -308,28 +308,6 @@ check! true
 
 - [`map.insert`](#insert)
 
-## size
-
-```kototype
-|Map| -> Number
-```
-
-Returns the number of entries contained in the map.
-
-### Example
-
-```koto
-print! {}.size()
-check! 0
-
-print! {a: 0, b: 1}.size()
-check! 2
-```
-
-### See also
-
-- [`map.is_empty`](#is-empty)
-
 ## sort
 
 ```kototype
@@ -367,7 +345,7 @@ print! x
 check! {bye: -1, tschüss: 99, hello: 123}
 
 # Sort the map by reversed key length
-x.sort |key, _| -key.size() 
+x.sort |key, _| -(size key)
 print! x
 check! {tschüss: 99, hello: 123, bye: -1}
 ```

@@ -106,7 +106,7 @@ print! match ['a', 'b', 'c'].extend [1, 2, 3]
   (1, ...) then "Starts with '1'"
   (..., 'y', last) then "Ends with 'y' followed by '$last'"
   ('a', x, others...) then
-    "Starts with 'a', followed by '$x', then ${others.size()} others"
+    "Starts with 'a', followed by '$x', then ${size others} others"
   unmatched then "other: $unmatched"
 check! Starts with 'a', followed by 'b', then 4 others
 ```

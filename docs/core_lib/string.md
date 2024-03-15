@@ -267,31 +267,6 @@ print! '10101'.replace '0', 'x'
 check! 1x1x1
 ```
 
-## size
-
-```kototype
-|String| -> Number
-```
-
-Returns the number of graphemes in the string.
-
-### Note
-
-Equivalent to calling `.chars().count()`.
-
-### Example
-
-```koto
-print! ''.size()
-check! 0
-
-print! 'abcdef'.size()
-check! 6
-
-print! '🥳👋😁'.size()
-check! 3
-```
-
 ## split
 
 ```kototype

@@ -74,18 +74,6 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("size", |ctx| {
-        let expected_error = "a Range";
-
-        match ctx.instance_and_args(is_range, expected_error)? {
-            (KValue::Range(r), []) => match r.size() {
-                Some(size) => Ok(size.into()),
-                None => runtime_error!("range.size can't be used with '{r}'"),
-            },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
     result.add_fn("start", |ctx| {
         let expected_error = "a Range";
 

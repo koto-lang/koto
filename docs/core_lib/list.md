@@ -371,25 +371,6 @@ print! x
 check! ['world', 99, -1, 'hello']
 ```
 
-## size
-
-```kototype
-|List| -> Number
-```
-
-Returns the number of values contained in the list.
-
-### Example
-
-```koto
-x = (1..=100).to_list()
-print! x.size()
-check! 100
-
-print! [].size()
-check! 0
-```
-
 ## sort
 
 ```kototype
@@ -416,7 +397,7 @@ print! x
 check! [-1, 1, 42, 99]
 
 x = ['bb', 'ccc', 'a']
-print! x.sort string.size
+print! x.sort size
 check! ['a', 'bb', 'ccc']
 print! x
 check! ['a', 'bb', 'ccc']
@@ -478,7 +459,7 @@ provided function, and then returns the list.
 
 ```koto
 x = ['aaa', 'bb', 'c']
-print! x.transform string.size
+print! x.transform size
 check! [3, 2, 1]
 print! x
 check! [3, 2, 1]

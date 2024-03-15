@@ -132,6 +132,10 @@ mod objects {
             }
         }
 
+        fn size(&self) -> Option<usize> {
+            Some(self.x.abs() as usize)
+        }
+
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
             Ok(self.x.into())
         }
@@ -574,6 +578,16 @@ x = make_object 100
 x[23]
 ";
             test_object_script(script, 123);
+        }
+
+        #[test]
+        fn size() {
+            let script = "
+x = make_object 42
+# Report x as the size
+koto.size x
+";
+            test_object_script(script, 42);
         }
     }
 

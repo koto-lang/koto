@@ -179,7 +179,6 @@ globals.foo_meta =
 
     # Map operations aren't inherited by the Foo meta map, so the map module has to be used directly
     assert_eq map.keys(f).to_list(), ["x"]
-    assert_eq map.size(f), 1
 
     assert_eq f.hello, "Hello"
     assert_eq f.say_hello("you"), "Hello, you!"

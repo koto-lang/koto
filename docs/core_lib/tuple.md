@@ -20,8 +20,6 @@ print! ("goodbye", 123).contains "hello"
 check! false
 ```
 
-## deep_copy
-
 ## first
 
 ```kototype
@@ -86,22 +84,6 @@ check! 42
 
 print! (,).last()
 check! null
-```
-
-## size
-
-```kototype
-|Tuple| -> Number
-```
-
-Returns the number of values contained in the tuple.
-
-### Example
-
-```koto
-x = (10, 20, 30, 40, 50)
-print! x.size()
-check! 5
 ```
 
 ## sort_copy

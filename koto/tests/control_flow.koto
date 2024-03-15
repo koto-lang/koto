@@ -87,8 +87,8 @@
       (3, 4, ...) then "starts with 3, 4"
       # A name can be given to capture the matched elements
       (start..., y, 10) then
-        "starts with ${start.size()} elements and ends with [...$y, 10]"
+        "starts with ${size start} elements and ends with [...$y, 10]"
       # Matched containers can be nested
       (a, b, (3, 4), (c, (6, rest...))) then
-        a + b + c + rest.size()
+        a + b + c + size rest
     assert_eq a, 10

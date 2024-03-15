@@ -18,7 +18,7 @@
   @test evaluated_boundaries: ||
     z = |n| n
     x = ((z 10)..=(z 20)).to_tuple()
-    y = x[1 + 1..x.size() / 2]
+    y = x[1 + 1..(size x) / 2]
     assert_eq y[0], 12
 
   @test from_and_to_ranges: ||
@@ -65,8 +65,8 @@
     assert_eq x.expanded(-5), 5..5
 
   @test range_size: ||
-    assert_eq (0..10).size(), 10
-    assert_eq (0..=10).size(), 11
+    assert_eq size(0..10), 10
+    assert_eq size(0..=10), 11
 
   @test range_start_end: ||
     x = 10..20

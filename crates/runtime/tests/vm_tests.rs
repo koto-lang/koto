@@ -1130,7 +1130,7 @@ f (1, 2, 3, 4, 5)
             #[test]
             fn ellipsis_with_id_at_end() {
                 let script = "
-f = |(a, b, others...)| a + b + others.size()
+f = |(a, b, others...)| a + b + size others
 f (1, 2, 3, 4, 5)
 ";
                 test_script(script, 6);
@@ -1148,7 +1148,7 @@ f (1, 2, 3, 4, 5)
             #[test]
             fn ellipsis_with_id_at_start() {
                 let script = "
-f = |(others..., y, z)| y + z + others.size()
+f = |(others..., y, z)| y + z + size others
 f (1, 2, 3, 4, 5)
 ";
                 test_script(script, 12);
@@ -1167,7 +1167,7 @@ f {foo: 42, bar: 99}
             fn ellipsis_mixed() {
                 let script = "
 f = |(a, (tuple_others..., z), list_others...)|
-  a + list_others.sum() + tuple_others.size() + z
+  a + list_others.sum() + (size tuple_others) + z
 f [10, (1, 2, 3), 20, 30]
 ";
                 test_script(script, 65);
@@ -2226,7 +2226,7 @@ result = {}
   .each |x|
     result.insert(x, x * x)
   .consume()
-result.size()
+size result
 ";
             test_script(script, 5);
         }
@@ -2245,7 +2245,7 @@ equal
         #[test]
         fn range_in_call_args() {
             let script = "
-foo = |range, x| range.size() + x
+foo = |range, x| (size range) + x
 min, max = 0, 10
 foo min..max, 20
 ";
@@ -2585,7 +2585,7 @@ x = 100
         #[test]
         fn inline_map() {
             let script = "
-foo = |m| m.size()
+foo = |m| size m
 '${foo {bar: 42, baz: 99}}!'
 ";
             test_script(script, string("2!"));

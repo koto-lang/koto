@@ -859,7 +859,7 @@ impl KotoVm {
                     self.spawn_shared_vm(),
                 ));
             }
-            Size { register, value } => self.run_size(register, value),
+            Size { register, value } => self.run_size(register, value)?,
             IterNext {
                 result,
                 iterator,
@@ -2004,9 +2004,13 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_size(&mut self, register: u8, value: u8) {
-        let result = self.get_register(value).size();
-        self.set_register(register, KValue::Number(result.into()));
+    fn run_size(&mut self, register: u8, value: u8) -> Result<()> {
+        let result = self
+            .get_register(value)
+            .size()?
+            .map_or_else(|| (-1).into(), KNumber::from);
+        self.set_register(register, KValue::Number(result));
+        Ok(())
     }
 
     fn run_import(&mut self, import_register: u8) -> Result<()> {

@@ -132,29 +132,6 @@ print! (100..).is_inclusive()
 check! false
 ```
 
-## size
-
-```kototype
-|Range| -> Int
-```
-
-Returns the size of the range.
-For non-inclusive ranges, this is equivalent to `range.end() - range.start()`.
-For inclusive ranges, this is equivalent to `range.end() + 1 - range.start()`.
-
-### Example
-
-```koto
-print! (10..20).size()
-check! 10
-
-print! (100..=200).size()
-check! 101
-
-print! (20..0).size()
-check! 20
-```
-
 ## start
 
 ```kototype

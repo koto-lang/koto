@@ -17,7 +17,7 @@ If no arguments were provided then the list is empty.
 
 ```koto
 # Assuming that the script was run with `koto script.koto -- 1 2 "hello"`
-koto.args.size()
+size koto.args
 # 3
 koto.args.first()
 # 1
@@ -228,6 +228,41 @@ String or Null
 
 If a script is being executed then `script_path` provides the path of the
 current script as a String, otherwise `script_path` is Null.
+
+## size
+
+```kototype
+|Value| -> Integer
+```
+
+Returns the _size_ of a value.
+
+The size of a value is typically defined as the number of elements in a
+container, with some notable exceptions:
+
+- For strings, the size is number of bytes in the string data.
+- For ranges, the size is the number of integers in the range. 
+  - For non-inclusive ranges, this is equivalent to 
+    `range.end() - range.start()`.
+  - For inclusive ranges, this is equivalent to 
+    `range.end() + 1 - range.start()`.
+  - If the range is unbounded then an error will be thrown.
+- An error will be thrown if the value doesn't have a defined size.
+
+### Example
+
+```koto
+from koto import size
+print! (size [1, 2, 3]), (size (,))
+check! (3, 0)
+
+print! (size 'hello'), (size 'héllø'), (size '')
+check! (5, 7, 0)
+
+print! (size 10..20), (size 10..=20), (size 20..0)
+check! (10, 11, 20)
+```
+
 
 ## type
 

@@ -150,16 +150,21 @@ impl KValue {
     ///   - [Op::Size](koto_bytecode::Op::Size)
     ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
     ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
-    pub fn size(&self) -> usize {
+    pub fn size(&self) -> Result<Option<usize>> {
         use KValue::*;
 
-        match &self {
-            List(l) => l.len(),
-            Tuple(t) => t.len(),
-            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-            Map(m) => m.len(),
-            _ => 1,
-        }
+        let result = match &self {
+            List(l) => Some(l.len()),
+            Tuple(t) => Some(t.len()),
+            Str(l) => Some(l.len()),
+            Range(r) => r.size(),
+            Map(m) => Some(m.len()),
+            Object(o) => o.try_borrow()?.size(),
+            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count as usize),
+            _ => None,
+        };
+
+        Ok(result)
     }
 
     /// Returns the value's type as a [KString]

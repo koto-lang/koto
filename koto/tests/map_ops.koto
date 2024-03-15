@@ -87,10 +87,6 @@ make_foo = |x|
     assert_eq (m.remove "bar"), 99
     assert_eq (m.remove "foo"), null
 
-  @test size: ||
-    assert_eq {}.size(), 0
-    assert_eq {foo: 42}.size(), 1
-
   @test sort: ||
     m = {foo: 42, bar: 99}
     assert_eq m.keys().to_tuple(), ("foo", "bar")

@@ -50,6 +50,14 @@ pub fn make_module() -> KMap {
     result.insert("script_dir", KValue::Null);
     result.insert("script_path", KValue::Null);
 
+    result.add_fn("size", |ctx| match ctx.args() {
+        [value] => match value.size()? {
+            Some(size) => Ok(size.into()),
+            None => type_error("a value with a defined size", value),
+        },
+        unexpected => type_error_with_slice("a single value", unexpected),
+    });
+
     result.add_fn("type", |ctx| match ctx.args() {
         [value] => Ok(value.type_as_string().into()),
         unexpected => type_error_with_slice("a single argument", unexpected),

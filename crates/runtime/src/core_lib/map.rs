@@ -191,15 +191,6 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("size", |ctx| {
-        let expected_error = "a Map";
-
-        match map_instance_and_args(ctx, expected_error)? {
-            (KValue::Map(m), []) => Ok(KValue::Number(m.len().into())),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
     result.add_fn("sort", |ctx| {
         let expected_error = "a Map and optional sort key function";
 
