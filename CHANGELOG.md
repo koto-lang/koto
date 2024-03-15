@@ -20,6 +20,10 @@ The Koto project adheres to
 - Unpacked assignments with a single value on the RHS are now accepted, 
   with remaining values being set to `null`.
   - e.g. `a, b, c = 42` will assign `42` to `a`, and `null` to `b` and `c`.
+- The `@size` metakey (along with `KObject::size`) has been added to allow 
+  custom value types to work with argument unpacking and pattern matching.
+  - The general rule is now that matching works with any value that declares a
+    size and supports indexing.
 
 #### API
 
@@ -33,10 +37,12 @@ The Koto project adheres to
 
 #### Core Library
 
-- `koto.load` has been added, which allows evaluating strings as Koto scripts 
-  which returns a `Chunk` type.
-- `koto.run` has been added, which allows evaluating strings as Koto scripts or 
-  running a `Chunk` type.
+- Dynamic compilation and evaluation features (`koto.load` and `koto.run`) have 
+  been added, thanks to [@alisomay](https://github.com/alisomay).
+- `koto.size` has been added (and added to the prelude), 
+  replacing the various type-specific `.size()` functions.
+- `string.char_indices` has been added to support the switch to byte-based
+  indexing.
 
 #### Libs
 
@@ -44,6 +50,17 @@ The Koto project adheres to
 - `iterator.once` has been added.
 
 ### Changed
+
+#### Language
+
+- Pattern matching and function argument unpacking now use parentheses for all
+  container types. 
+  - Any uses of `[]` brackets to match against lists can be updated to use
+    parentheses instead.
+- Indexing operations on strings now access bytes instead of grapheme clusters.
+  - This is to avoid the non-linear performance cost of indexing by cluster.
+  - To access clusters via indexing, `string.char_indices` can be called first to
+    retrieve valid indices. 
 
 #### Core Library
 
@@ -69,6 +86,8 @@ The Koto project adheres to
 - The VM-specific parts of `KotoSettings` are now defined via `KotoVmSettings`.
 - Objects can be compared with `null` on the LHS without having to implement 
   `KotoObject::equal` and/or `not_equal`.
+- `KRange` initialization has been revamped to support `From` for
+  `RangeBounds<i64>`.
 
 #### Internals
 
