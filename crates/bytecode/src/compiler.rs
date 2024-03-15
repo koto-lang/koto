@@ -607,8 +607,8 @@ impl Compiler {
                 self.push_span(arg_node, ctx.ast);
 
                 let tuple_register = arg_index as u8 + 1;
-                let size_op = args_size_op(nested_args, ctx.ast);
-                self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
+                let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                self.push_op(size_op, &[tuple_register, size_to_check as u8]);
                 self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
 
                 self.pop_span();
@@ -731,9 +731,9 @@ impl Compiler {
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
-                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
+                    let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                    self.push_op(size_op, &[tuple_register, size_to_check as u8]);
                     self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
                     self.pop_register()?; // tuple_register
                 }
@@ -3571,14 +3571,14 @@ impl Compiler {
     }
 }
 
-fn args_size_op(args: &[AstIndex], ast: &Ast) -> Op {
+fn args_size_op(args: &[AstIndex], ast: &Ast) -> (Op, usize) {
     if args
         .iter()
         .any(|arg| matches!(&ast.node(*arg).node, Node::Ellipsis(_)))
     {
-        Op::CheckSizeMin
+        (Op::CheckSizeMin, args.len() - 1)
     } else {
-        Op::CheckSizeEqual
+        (Op::CheckSizeEqual, args.len())
     }
 }
 

@@ -1137,6 +1137,15 @@ f (1, 2, 3, 4, 5)
             }
 
             #[test]
+            fn ellipsis_at_end_with_no_extra_values() {
+                let script = "
+f = |(a, b, others...)| a + b + size others
+f (1, 2)
+";
+                test_script(script, 3);
+            }
+
+            #[test]
             fn ellipsis_at_start() {
                 let script = "
 f = |(..., y, z)| y + z
@@ -1146,12 +1155,30 @@ f (1, 2, 3, 4, 5)
             }
 
             #[test]
+            fn ellipsis_at_start_with_no_extra_values() {
+                let script = "
+f = |(..., y, z)| y + z
+f (1, 2)
+";
+                test_script(script, 3);
+            }
+
+            #[test]
             fn ellipsis_with_id_at_start() {
                 let script = "
 f = |(others..., y, z)| y + z + size others
 f (1, 2, 3, 4, 5)
 ";
                 test_script(script, 12);
+            }
+
+            #[test]
+            fn ellipsis_at_start_and_end_with_no_extra_values() {
+                let script = "
+f = |(..., y, z)| y + z
+f (1, 2)
+";
+                test_script(script, 3);
             }
 
             #[test]
