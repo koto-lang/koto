@@ -1,6 +1,7 @@
 # Strings
 
-Strings can be declared using `'` or `"` quotes. 
+Strings in Koto contain a sequence of [UTF-8][utf-8] encoded characters, 
+and can be declared using `'` or `"` quotes. 
 
 ```koto
 print! 'Hello, World!'
@@ -28,16 +29,20 @@ print! 'a' + 'Bc' + 'Def'
 check! aBcDef
 ```
 
-Individual elements of a string can be accessed via indexing with `[]` braces.
+Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
 
 ```koto
 print! 'abcdef'[3]
 check! d
-print! '👋🥳😆'[0]
-check! 👋
 print! 'xyz'[1..]
 check! yz
 ```
+
+Care must be taken when using indexing with strings that could contain
+non-[ASCII][ascii] data. 
+If the indexed bytes would produce invalid UTF-8 data then an 
+error will be thrown. To access unicode characters see [`string.chars`][chars].
+
 
 ## String Interpolation
 
@@ -125,3 +130,7 @@ check! This string contains "both" 'quote' types.
 print r##'This string also includes a '#' symbol.'##
 check! This string also includes a '#' symbol.
 ```
+
+[ascii]: https://en.wikipedia.org/wiki/ASCII
+[chars]: ../core_lib/string#chars
+[utf-8]: https://en.wikipedia.org/wiki/UTF-8

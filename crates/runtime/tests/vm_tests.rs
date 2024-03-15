@@ -2490,32 +2490,32 @@ gen().to_tuple()
 
         #[test]
         fn greater_or_equal() {
-            test_script(r#""héllö42" >= "héllö11""#, true);
+            test_script(r#""hello42" >= "hello11""#, true);
             test_script(r#""hello1" >= "hello42""#, false);
         }
 
         #[test]
         fn index_single_index() {
-            test_script("'héllö'[1]", string("é"));
+            test_script("'hello'[1]", string("e"));
         }
 
         #[test]
         fn index_start_and_end() {
-            test_script("'héllö'[1..2]", string("é"));
-            test_script("'héllö'[1..3]", string("él"));
-            test_script("'héllö'[3..5]", string("lö"));
+            test_script("'hello'[1..2]", string("e"));
+            test_script("'hello'[1..3]", string("el"));
+            test_script("'föo'[1..3]", string("ö"));
         }
 
         #[test]
         fn index_from_start() {
-            test_script("'héllö'[2..]", string("llö"));
-            test_script("'héllö'[3..]", string("lö"));
+            test_script("'hello'[2..]", string("llo"));
+            test_script("'hello'[3..]", string("lo"));
         }
 
         #[test]
         fn index_to_end() {
-            test_script("'héllö'[..1]", string("h"));
-            test_script("'héllö'[..=2]", string("hél"));
+            test_script("'hello'[..1]", string("h"));
+            test_script("'hello'[..=2]", string("hel"));
         }
 
         #[test]
@@ -2523,18 +2523,18 @@ gen().to_tuple()
             test_script("'x'[0..1]", string("x"));
             test_script("'x'[1..]", string(""));
             test_script("'x'[1..1]", string(""));
-            test_script("'héllö'[5..]", string(""));
+            test_script("'hello'[5..]", string(""));
         }
 
         #[test]
         fn index_whole_string() {
-            test_script("'héllö'[..]", string("héllö"));
+            test_script("'hello'[..]", string("hello"));
         }
 
         #[test]
         fn index_sub_string() {
-            test_script("'héllö'[3..][..]", string("lö"));
-            test_script("'héllö'[3..][1]", string("ö"));
+            test_script("'hello'[3..][..]", string("lo"));
+            test_script("'hello'[3..][1]", string("o"));
         }
 
         #[test]

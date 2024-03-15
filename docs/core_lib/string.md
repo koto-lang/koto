@@ -6,7 +6,7 @@
 |String| -> Iterator
 ```
 
-Returns an iterator that yields a series of Numbers representing the bytes
+Returns an iterator that yields a series of integers representing the bytes
 contained in the string data.
 
 ### Example
@@ -28,15 +28,13 @@ check! (72, 195, 171, 121, 33)
 
 Returns an iterator that yields the string's characters as strings.
 
-### Note
-
-A 'character' in Koto is defined as a grapheme, so `.chars()` iterates over the
-string's grapheme clusters.
+A 'character' in Koto is defined as being a 
+[unicode grapheme cluster][grapheme-cluster].
 
 ### Note
 
 Note that this is the default iteration behaviour for a string, so calling
-`.chars()` on a string is equivalent to calling `iterator.iter()`.
+`'hello'.chars()` is equivalent to calling `iterator.iter('hello')`.
 
 ### Example
 
@@ -412,3 +410,5 @@ check! x
 print! '     >'.trim()
 check! >
 ```
+
+[grapheme-cluster]: https://www.unicode.org/glossary/#grapheme_cluster

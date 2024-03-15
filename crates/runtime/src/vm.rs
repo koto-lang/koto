@@ -2231,12 +2231,20 @@ impl KotoVm {
                 self.set_register(result_register, Tuple(result))
             }
             (Str(s), Number(n)) => {
-                let index = self.validate_index(n, None)?;
-                let result = s.with_grapheme_indices(index..index + 1);
+                let index = self.validate_index(n, Some(s.len()))?;
+                let Some(result) = s.with_bounds(index..index + 1) else {
+                    return runtime_error!(
+                        "indexing with ({index}) would result in invalid UTF-8 data"
+                    );
+                };
                 self.set_register(result_register, Str(result));
             }
             (Str(s), Range(range)) => {
-                let result = s.with_grapheme_indices(range.indices(s.len()));
+                let Some(result) = s.with_bounds(range.indices(s.len())) else {
+                    return runtime_error!(
+                        "indexing with ({range}) would result in invalid UTF-8 data"
+                    );
+                };
                 self.set_register(result_register, Str(result));
             }
             (Map(m), index) => {
