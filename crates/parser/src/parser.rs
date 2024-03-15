@@ -1945,6 +1945,7 @@ impl<'source> Parser<'source> {
                 "next" => MetaKeyId::Next,
                 "next_back" => MetaKeyId::NextBack,
                 "negate" => MetaKeyId::Negate,
+                "size" => MetaKeyId::Size,
                 "type" => MetaKeyId::Type,
                 "base" => MetaKeyId::Base,
                 "main" => MetaKeyId::Main,

@@ -139,34 +139,6 @@ impl KValue {
         }
     }
 
-    /// Returns the 'size' of the value
-    ///
-    /// A value's size is the number of elements that can used in unpacking expressions
-    /// e.g.
-    /// x = [1, 2, 3] # x has size 3
-    /// a, b, c = x
-    ///
-    /// See:
-    ///   - [Op::Size](koto_bytecode::Op::Size)
-    ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
-    ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
-    pub fn size(&self) -> Result<Option<usize>> {
-        use KValue::*;
-
-        let result = match &self {
-            List(l) => Some(l.len()),
-            Tuple(t) => Some(t.len()),
-            Str(l) => Some(l.len()),
-            Range(r) => r.size(),
-            Map(m) => Some(m.len()),
-            Object(o) => o.try_borrow()?.size(),
-            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count as usize),
-            _ => None,
-        };
-
-        Ok(result)
-    }
-
     /// Returns the value's type as a [KString]
     pub fn type_as_string(&self) -> KString {
         use KValue::*;
@@ -199,7 +171,7 @@ impl KValue {
         }
     }
 
-    /// Returns true if the value is a Map or an External that contains the given meta key
+    /// Returns true if the value is a Map that contains the given meta key
     pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
         use KValue::*;
         match &self {
@@ -208,7 +180,7 @@ impl KValue {
         }
     }
 
-    /// If the value is a Map or an External, returns a clone of the corresponding meta value
+    /// If the value is a Map, returns a clone of the corresponding meta value
     pub fn get_meta_value(&self, key: &MetaKey) -> Option<KValue> {
         use KValue::*;
         match &self {

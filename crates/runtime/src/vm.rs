@@ -449,6 +449,7 @@ impl KotoVm {
                     return type_error("Value with an implementation of @next_back", &unexpected)
                 }
             },
+            Size => self.run_size(result_register, value_register, true)?,
         }
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -859,7 +860,7 @@ impl KotoVm {
                     self.spawn_shared_vm(),
                 ));
             }
-            Size { register, value } => self.run_size(register, value)?,
+            Size { register, value } => self.run_size(register, value, false)?,
             IterNext {
                 result,
                 iterator,
@@ -2004,13 +2005,41 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_size(&mut self, register: u8, value: u8) -> Result<()> {
-        let result = self
-            .get_register(value)
-            .size()?
-            .map_or_else(|| (-1).into(), KNumber::from);
-        self.set_register(register, KValue::Number(result));
-        Ok(())
+    fn run_size(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        throw_if_value_has_no_size: bool,
+    ) -> Result<()> {
+        use KValue::*;
+
+        let size_key = UnaryOp::Size.into();
+        let value = self.get_register(value_register);
+
+        let size = match value {
+            List(l) => Some(l.len()),
+            Tuple(t) => Some(t.len()),
+            Str(l) => Some(l.len()),
+            Range(r) => r.size(),
+            Map(m) if m.contains_meta_key(&size_key) => {
+                let op = m.get_meta_value(&size_key).unwrap();
+                return self.call_overloaded_unary_op(result_register, value_register, op);
+            }
+            Map(m) => Some(m.len()),
+            Object(o) => o.try_borrow()?.size(),
+            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count as usize),
+            _ => None,
+        };
+
+        if let Some(size) = size {
+            self.set_register(result_register, size.into());
+            Ok(())
+        } else if throw_if_value_has_no_size {
+            type_error("a value with a defined size", value)
+        } else {
+            self.set_register(result_register, Null);
+            Ok(())
+        }
     }
 
     fn run_import(&mut self, import_register: u8) -> Result<()> {
@@ -2707,8 +2736,8 @@ impl KotoVm {
             .write_line(&format!("{prefix}{expression_string}: {value_string}"))
     }
 
-    fn run_check_size_equal(&self, register: u8, expected_size: usize) -> Result<()> {
-        let size = self.get_container_size(register)?;
+    fn run_check_size_equal(&mut self, value_register: u8, expected_size: usize) -> Result<()> {
+        let size = self.get_value_size(value_register)?;
         if size == expected_size {
             Ok(())
         } else {
@@ -2716,8 +2745,8 @@ impl KotoVm {
         }
     }
 
-    fn run_check_size_min(&self, register: u8, expected_size: usize) -> Result<()> {
-        let size = self.get_container_size(register)?;
+    fn run_check_size_min(&mut self, value_register: u8, expected_size: usize) -> Result<()> {
+        let size = self.get_value_size(value_register)?;
         if size >= expected_size {
             Ok(())
         } else {
@@ -2727,15 +2756,10 @@ impl KotoVm {
         }
     }
 
-    fn get_container_size(&self, register: u8) -> Result<usize> {
-        use KValue::*;
-
-        match self.get_register(register) {
-            List(l) => Ok(l.len()),
-            Tuple(t) => Ok(t.len()),
-            TemporaryTuple(RegisterSlice { count, .. }) => Ok(*count as usize),
-            Map(m) => Ok(m.len()),
-            unexpected => type_error("a container", unexpected),
+    fn get_value_size(&mut self, value_register: u8) -> Result<usize> {
+        match self.run_unary_op(UnaryOp::Size, self.clone_register(value_register))? {
+            KValue::Number(n) => Ok(n.into()),
+            unexpected => type_error("number for value size", &unexpected),
         }
     }
 

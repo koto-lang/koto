@@ -77,18 +77,32 @@ print! not (foo 10)
 check! false
 ```
 
-### `@[]`
+### `@size` and `@[]`
 
-The `@[]` metakey defines how indexing the object with `[]` should behave.
+The `@size` metakey defines how the object should report its size,
+while the `@[]` metakey defines what values should be returned when indexing is
+performed on the object.
+
+Argument unpacking and pattern matching make use of both of these metakeys.
 
 ```koto
-foo = |n|
-  data: n
-  @[]: |index| self.data + index
+foo = |data|
+  data: data
+  @size: || size self.data
+  @[]: |index| self.data[index]
 
-print! (foo 10)[7]
-check! 17
+x = foo (100, 200, 300)
+print! size x
+check! 3
+print! x[1]
+check! 200
+
+# Unpack the first two elements in the argument and multiply them
+multiply_first_two = |(a, b, ...)| a * b
+print! multiply_first_two x
+check! 20000
 ```
+
 
 ### `@||`
 

@@ -50,7 +50,11 @@ globals.foo_meta =
   @||: || self.x
 
   # Indexing
-  @[]: |index| self.x + index
+  @[]: |index|
+    if not (0..self.x).contains index
+      throw 'invalid index'
+    index
+  @size: || self.x
 
   # Custom iteration
   # @iterator must be a function that returns an iterable value,
@@ -158,8 +162,12 @@ globals.foo_meta =
     assert_eq not foo(0), true
 
   @test index: ||
-    assert_eq foo(10)[5], 15
-    assert_eq foo(100)[-1], 99
+    assert_eq foo(10)[5], 5
+    assert_eq foo(100)[99], 99
+
+  @test size: ||
+    assert_eq (size foo(10)), 10
+    assert_eq (size foo(99)), 99
 
   @test call: ||
     assert_eq foo(99)(), 99

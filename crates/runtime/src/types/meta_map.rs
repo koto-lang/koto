@@ -87,7 +87,7 @@ pub enum MetaKey {
     Main,
     /// `@type`
     ///
-    /// Used to define a [KString](crate::KString) that declare the value's type.
+    /// Provides a [KString](crate::KString) that declares the value's type.
     Type,
     /// `@base`
     ///
@@ -207,6 +207,8 @@ pub enum UnaryOp {
     Negate,
     /// `@not`
     Not,
+    /// `@size`
+    Size,
 }
 
 /// Converts a [MetaKeyId](koto_parser::MetaKeyId) into a [MetaKey]
@@ -238,6 +240,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
+        MetaKeyId::Size => MetaKey::UnaryOp(Size),
         MetaKeyId::Call => MetaKey::Call,
         MetaKeyId::Named => {
             MetaKey::Named(name.ok_or_else(|| Error::from("Missing name for named meta entry"))?)
