@@ -17,7 +17,7 @@ make_foo = |x|
     assert (x.contains 2)
     assert not (x.contains 99)
 
-  @test contains_with_overloaded_equality_op: ||
+  @test contains_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==

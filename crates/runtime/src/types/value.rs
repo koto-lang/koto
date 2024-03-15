@@ -151,7 +151,7 @@ impl KValue {
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
-                Some(_) => "Error: expected string for overloaded type".into(),
+                Some(_) => "Error: expected string as result of @type".into(),
                 None => TYPE_OBJECT.with(|x| x.clone()),
             },
             Map(_) => TYPE_MAP.with(|x| x.clone()),

@@ -767,6 +767,17 @@ match x
         }
 
         #[test]
+        fn match_string_subslice_at_start_with_id() {
+            let script = "
+match 'hello!'
+  ('h', 'x', ...) then 'nope'
+  ('h', 'e', rest...) then 'llo!'
+  else 'abc'
+";
+            test_script(script, "llo!");
+        }
+
+        #[test]
         fn match_on_multiple_expressions_with_alternatives_wildcard() {
             let script = "
 match 0, 1
@@ -2663,7 +2674,7 @@ m.'key$x'
         }
 
         #[test]
-        fn value_with_overloaded_display() {
+        fn value_with_overridden_display() {
             let script = "
 foo = {@display: || 'Foo'}
 '$foo'
@@ -2888,7 +2899,7 @@ catch _
         }
     }
 
-    mod operator_overloading {
+    mod overridden_operators {
         use super::*;
 
         #[test]
@@ -3009,7 +3020,7 @@ foo = |x|
         }
 
         #[test]
-        fn equality_of_list_containing_overloaded_value() {
+        fn equality_of_list_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3025,7 +3036,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn equality_of_map_containing_overloaded_value() {
+        fn equality_of_map_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3041,7 +3052,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn equality_of_tuple_containing_overloaded_value() {
+        fn equality_of_tuple_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3057,7 +3068,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_list_containing_overloaded_value() {
+        fn inequality_of_list_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3073,7 +3084,7 @@ a != b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_map_containing_overloaded_value() {
+        fn inequality_of_map_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3089,7 +3100,7 @@ a != b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_tuple_containing_overloaded_value() {
+        fn inequality_of_tuple_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3119,7 +3130,7 @@ b >= a
         }
 
         #[test]
-        fn equality_of_functions_with_overloaded_captures() {
+        fn equality_of_functions_with_overridden_captures() {
             let script = "
 # Make two functions which capture a different foo
 foos = (0, 1)
@@ -3136,7 +3147,7 @@ foos[0] == foos[1]
         }
 
         #[test]
-        fn map_addition_with_overloaded_operators() {
+        fn map_addition_with_overridden_operators() {
             let script = "
 foo = |a, b|
   @meta a: a
@@ -3156,7 +3167,7 @@ c.get_a() + c.get_b()
         }
     }
 
-    mod overloaded_call {
+    mod overridden_call {
         use super::*;
 
         #[test]
@@ -3189,7 +3200,7 @@ x 10
         }
     }
 
-    mod overloaded_index {
+    mod overridden_index_and_size {
         use super::*;
 
         #[test]
@@ -3201,9 +3212,54 @@ x[1]
 ";
             test_script(script, 11);
         }
+
+        #[test]
+        fn size() {
+            let script = "
+foo = |n|
+  n: n
+  @size: || self.n
+x = foo 99
+size x
+";
+            test_script(script, 99);
+        }
+
+        #[test]
+        fn argument_unpacking() {
+            let script = "
+foo = |data|
+  data: data
+  @[]: |index| self.data[index]
+  @size: || size self.data
+
+f = |(a, b, others...)| a + b + size others
+x = foo (10, 11, 12, 13)
+f x # 10 + 11 + 2
+";
+            test_script(script, 23);
+        }
+
+        #[test]
+        fn match_unpacking() {
+            let script = "
+foo = |data|
+  data: data
+  @[]: |index| self.data[index]
+  @size: || size self.data
+
+match foo (10, 11, 12, 13)
+  (a) then 99
+  (a, b) then -1
+  (a, b, c, others...) then
+    # 10 + 11 + 12 + 1
+    a + b + c + size others
+";
+            test_script(script, 34);
+        }
     }
 
-    mod overloaded_iterator {
+    mod overridden_iterator {
         use super::*;
 
         #[test]
@@ -3220,7 +3276,7 @@ a, b, c
         }
     }
 
-    mod overloaded_next {
+    mod overridden_next {
         use super::*;
 
         #[test]

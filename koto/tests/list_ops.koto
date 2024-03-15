@@ -15,7 +15,7 @@ make_foo = |x|
     assert x.contains 5
     assert not x.contains 15
 
-  @test contains_with_overloaded_equality_op: ||
+  @test contains_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==
@@ -112,7 +112,7 @@ make_foo = |x|
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 
-  @test retain_with_overloaded_equality_op: ||
+  @test retain_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==
@@ -141,7 +141,7 @@ make_foo = |x|
     z.sort size
     assert_eq z, [[1], [2, 3], [4, 5, 6]]
 
-    # values with overloaded operators
+    # values with overridden operators
     a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
     z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
     z.sort()

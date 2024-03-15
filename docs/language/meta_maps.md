@@ -16,17 +16,17 @@ a custom `Foo` object:
 foo = |n|
   data: n
 
-  # Overloading the addition operator
+  # Overriding the addition operator
   @+: |other|
     # A new Foo is made using the result 
     # of adding the two data values together
     foo self.data + other.data
 
-  # Overloading the subtraction operator
+  # Overriding the subtraction operator
   @-: |other|
     foo self.data - other.data
 
-  # Overloading the multiply-assignment operator
+  # Overriding the multiply-assignment operator
   @*=: |other|
     self.data *= other.data
     self
@@ -81,9 +81,14 @@ check! false
 
 The `@size` metakey defines how the object should report its size,
 while the `@[]` metakey defines what values should be returned when indexing is
-performed on the object.
+performed on the object. 
 
-Argument unpacking and pattern matching make use of both of these metakeys.
+If `@size` is implemented, then `@[]` should also be implemented.
+
+The `@[]` implementation can support indexing by any input values that make 
+sense for your object type, but for argument unpacking to work correctly the
+runtime expects that indexing by both single indices and ranges should be 
+supported.
 
 ```koto
 foo = |data|
@@ -101,6 +106,11 @@ check! 200
 multiply_first_two = |(a, b, ...)| a * b
 print! multiply_first_two x
 check! 20000
+
+# Inspect the first element in the object
+print! match x
+  (first, others...) then 'first: $first, remaining: ${size others}'
+check! first: 100, remaining: 2
 ```
 
 

@@ -272,10 +272,6 @@ check! (10, 11, 20)
 
 Returns the type of the input Value as a String.
 
-Note that a map value can override the value returned from `type` by defining
-the `@type` meta value, for more information see
-[the reference for map](map.md#meta-maps-and-overloaded-operations).
-
 ### Example
 
 ```koto

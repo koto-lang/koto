@@ -5,7 +5,7 @@ foo = |x|
   # Make a map that contains x, and return its data with the meta map from foo_meta
   {x}.with_meta globals.foo_meta
 
-# Declaring the overloaded operators once and then cloning the meta map into the foo
+# Declaring the overridden operators once and then cloning the meta map into the foo
 # instance is more efficient than declaring them each time foo is called.
 globals.foo_meta =
   # Arithmetic operators
@@ -144,7 +144,7 @@ globals.foo_meta =
       y: y
       @==: |other|
         # Maps already have equality comparison that compare each member,
-        # so to show the effect of overloading, ignore y
+        # so to show the effect of overriding, ignore y
         self.x == other.x
     assert bar(21, -1) == bar(21, -2)
     assert not (bar(21, -1) == bar(22, -1))

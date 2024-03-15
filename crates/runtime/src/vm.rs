@@ -22,13 +22,13 @@ macro_rules! call_binary_op_or_else {
      $result_register:expr,
      $lhs_register:expr,
      $rhs_value: expr,
-     $overloaded_value:expr,
+     $overridden_value:expr,
      $op:tt,
      $else:tt) => {{
-        let maybe_op = $overloaded_value.get_meta_value(&MetaKey::BinaryOp($op));
+        let maybe_op = $overridden_value.get_meta_value(&MetaKey::BinaryOp($op));
         if let Some(op) = maybe_op {
             let rhs_value = $rhs_value.clone();
-            return $vm.call_overloaded_binary_op($result_register, $lhs_register, rhs_value, op);
+            return $vm.call_overridden_binary_op($result_register, $lhs_register, rhs_value, op);
         } else {
             $else
         }
@@ -443,7 +443,7 @@ impl KotoVm {
                     if !op.is_callable() {
                         return type_error("Callable function from @next_back", &op);
                     }
-                    self.call_overloaded_unary_op(result_register, value_register, op)?
+                    self.call_overridden_unary_op(result_register, value_register, op)?
                 }
                 unexpected => {
                     return type_error("Value with an implementation of @next_back", &unexpected)
@@ -456,7 +456,7 @@ impl KotoVm {
             // If the call stack is the same size, then the result will be in the result register
             Ok(self.clone_register(result_register))
         } else {
-            // If the call stack size has changed, then an overloaded operator has been called.
+            // If the call stack size has changed, then an overridden operator has been called.
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -527,7 +527,7 @@ impl KotoVm {
             // If the call stack is the same size, then the result will be in the result register
             Ok(self.clone_register(result_register))
         } else {
-            // If the call stack size has changed, then an overloaded operator has been called.
+            // If the call stack size has changed, then an overridden operator has been called.
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -1037,7 +1037,7 @@ impl KotoVm {
                     unreachable!()
                 };
                 if op.is_callable() || op.is_generator() {
-                    return self.call_overloaded_unary_op(result_register, iterable_register, op);
+                    return self.call_overridden_unary_op(result_register, iterable_register, op);
                 } else {
                     return type_error("callable function from @iterator", &op);
                 }
@@ -1121,7 +1121,7 @@ impl KotoVm {
                 }
                 let old_frame_count = self.call_stack.len();
                 let call_result_register = self.next_register();
-                self.call_overloaded_unary_op(call_result_register, iterable_register, op)?;
+                self.call_overridden_unary_op(call_result_register, iterable_register, op)?;
                 if self.call_stack.len() == old_frame_count {
                     // If the call stack is the same size,
                     // then the result will be in the result register
@@ -1218,9 +1218,13 @@ impl KotoVm {
                     Null
                 }
             }
+            Str(s) => {
+                let index = signed_index_to_unsigned(index, s.len());
+                s.with_bounds(index..index + 1).map_or(Null, KValue::from)
+            }
             Map(map) if map.contains_meta_key(&index_op) => {
                 let op = map.get_meta_value(&index_op).unwrap();
-                return self.call_overloaded_binary_op(result, value, index.into(), op);
+                return self.call_overridden_binary_op(result, value, index.into(), op);
             }
             Map(map) => {
                 let data = map.data();
@@ -1228,6 +1232,15 @@ impl KotoVm {
                 match data.get_index(index) {
                     Some((key, value)) => Tuple(vec![key.value().clone(), value.clone()].into()),
                     None => Null,
+                }
+            }
+            value @ Object(o) => {
+                let o = o.try_borrow()?;
+                if let Some(size) = o.size() {
+                    let index = signed_index_to_unsigned(index, size);
+                    o.index(&index.into())?
+                } else {
+                    return type_error("a value with a defined size", value);
                 }
             }
             unexpected => return type_error("an indexable value", unexpected),
@@ -1243,7 +1256,7 @@ impl KotoVm {
 
         let index_op = BinaryOp::Index.into();
 
-        let result = match self.get_register(value) {
+        let result = match self.clone_register(value) {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
                 if is_slice_to {
@@ -1264,13 +1277,26 @@ impl KotoVm {
                     tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
                 }
             }
-            Map(m) if m.contains_meta_key(&index_op) => {
-                return runtime_error!(
-                    "Unpacking objects that implement @index isn't currently supported"
-                );
+            Str(s) => {
+                let index = signed_index_to_unsigned(index, s.len());
+                if is_slice_to {
+                    s.with_bounds(0..index).map_or(Null, KValue::from)
+                } else {
+                    s.with_bounds(index..s.len()).map_or(Null, KValue::from)
+                }
             }
-            Map(map) => {
-                let data = map.data();
+            Map(m) if m.contains_meta_key(&index_op) => {
+                let size = self.get_value_size(value)?;
+                let index = signed_index_to_unsigned(index, size) as i64;
+                let range = if is_slice_to {
+                    0..index
+                } else {
+                    index..size as i64
+                };
+                self.run_binary_op(BinaryOp::Index, Map(m), KRange::from(range).into())?
+            }
+            Map(m) => {
+                let data = m.data();
                 let index = signed_index_to_unsigned(index, data.len());
                 if is_slice_to {
                     data.make_data_slice(..index)
@@ -1280,7 +1306,21 @@ impl KotoVm {
                         .map_or(Null, |slice| KMap::with_data(slice).into())
                 }
             }
-            unexpected => return type_error("List or Tuple", unexpected),
+            Object(o) => {
+                let o = o.try_borrow()?;
+                if let Some(size) = o.size() {
+                    let index = signed_index_to_unsigned(index, size) as i64;
+                    let range = if is_slice_to {
+                        0..index
+                    } else {
+                        index..size as i64
+                    };
+                    o.index(&KRange::from(range).into())?
+                } else {
+                    KValue::Null
+                }
+            }
+            unexpected => return type_error("a sliceable value", &unexpected),
         };
 
         self.set_register(register, result);
@@ -1358,7 +1398,7 @@ impl KotoVm {
             Number(n) => Number(-n),
             Map(m) if m.contains_meta_key(&Negate.into()) => {
                 let op = m.get_meta_value(&Negate.into()).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
+                return self.call_overridden_unary_op(result, value, op);
             }
             Object(o) => o.try_borrow()?.negate(self)?,
             unexpected => return type_error("negatable value", &unexpected),
@@ -1377,7 +1417,7 @@ impl KotoVm {
             Bool(b) if !b => Bool(true),
             Map(m) if m.contains_meta_key(&Not.into()) => {
                 let op = m.get_meta_value(&Not.into()).unwrap();
-                return self.call_overloaded_unary_op(result, value, op);
+                return self.call_overridden_unary_op(result, value, op);
             }
             _ => Bool(false), // All other values coerce to true, so return false
         };
@@ -1392,7 +1432,7 @@ impl KotoVm {
         match self.clone_register(value) {
             KValue::Map(m) if m.contains_meta_key(&Display.into()) => {
                 let op = m.get_meta_value(&Display.into()).unwrap();
-                self.call_overloaded_unary_op(result, value, op)
+                self.call_overridden_unary_op(result, value, op)
             }
             other => {
                 let mut display_context = DisplayContext::with_vm(self);
@@ -1430,7 +1470,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Add.into()) => {
                 let op = m.get_meta_value(&Add.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Map(a), Map(b)) => {
                 let mut data = a.data().clone();
@@ -1466,7 +1506,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Subtract.into()) => {
                 let op = m.get_meta_value(&Subtract.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Subtract),
@@ -1488,7 +1528,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Multiply.into()) => {
                 let op = m.get_meta_value(&Multiply.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Multiply),
@@ -1509,7 +1549,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Divide.into()) => {
                 let op = m.get_meta_value(&Divide.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Divide),
@@ -1535,7 +1575,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Remainder.into()) => {
                 let op = m.get_meta_value(&Remainder.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Remainder),
@@ -1561,7 +1601,7 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1588,7 +1628,7 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1615,7 +1655,7 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1642,7 +1682,7 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1669,7 +1709,7 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
-                self.call_overloaded_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1692,7 +1732,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Less.into()) => {
                 let op = m.get_meta_value(&Less.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Less),
@@ -1714,7 +1754,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&LessOrEqual.into()) => {
                 let op = m.get_meta_value(&LessOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
@@ -1736,7 +1776,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Greater.into()) => {
                 let op = m.get_meta_value(&Greater.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Greater),
@@ -1758,7 +1798,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&GreaterOrEqual.into()) => {
                 let op = m.get_meta_value(&GreaterOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
@@ -1796,7 +1836,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
                 let op = m.get_meta_value(&Equal.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -1856,7 +1896,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
                 let op = m.get_meta_value(&NotEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -1933,7 +1973,7 @@ impl KotoVm {
         Ok(true)
     }
 
-    fn call_overloaded_unary_op(
+    fn call_overridden_unary_op(
         &mut self,
         result_register: u8,
         value_register: u8,
@@ -1959,7 +1999,7 @@ impl KotoVm {
         )
     }
 
-    fn call_overloaded_binary_op(
+    fn call_overridden_binary_op(
         &mut self,
         result_register: u8,
         lhs_register: u8,
@@ -2023,7 +2063,7 @@ impl KotoVm {
             Range(r) => r.size(),
             Map(m) if m.contains_meta_key(&size_key) => {
                 let op = m.get_meta_value(&size_key).unwrap();
-                return self.call_overloaded_unary_op(result_register, value_register, op);
+                return self.call_overridden_unary_op(result_register, value_register, op);
             }
             Map(m) => Some(m.len()),
             Object(o) => o.try_borrow()?.size(),
@@ -3099,7 +3139,7 @@ struct Frame {
     // True if the frame should prevent execution from continuing after the frame is exited.
     // e.g.
     //   - a function is being called externally from the VM
-    //   - an overloaded operator is being executed as a result of a regular instruction
+    //   - an overridden operator is being executed as a result of a regular instruction
     //   - an external function is calling back into the VM with a functor
     //   - a module is being imported
     pub execution_barrier: bool,

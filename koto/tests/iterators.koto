@@ -237,7 +237,7 @@ make_foo = |x|
     # An initial value can be provided to override the default initial value of 1
     assert_eq (2, 3, 4).product(10), 240
 
-  @test product_with_overloaded_multiply_operator: ||
+  @test product_with_overridden_multiply_operator: ||
     foo = |x|
       x: x
       @*: |other| foo self.x * other.x
@@ -275,7 +275,7 @@ make_foo = |x|
     # An initial value can be provided to override the default initial value of 0
     assert_eq (1, 2, 3).sum(100), 106
 
-  @test sum_with_overloaded_add_operator: ||
+  @test sum_with_overridden_add_operator: ||
     foo = |x|
       x: x
       @+: |other| foo self.x + other.x
