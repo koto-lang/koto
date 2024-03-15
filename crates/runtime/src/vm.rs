@@ -438,8 +438,8 @@ impl KotoVm {
             Iterator => self.run_make_iterator(result_register, value_register, false)?,
             Next => self.run_iterator_next(Some(result_register), value_register, 0, false)?,
             NextBack => match self.clone_register(value_register) {
-                value if value.contains_meta_key(&NextBack.into()) => {
-                    let op = value.get_meta_value(&NextBack.into()).unwrap();
+                KValue::Map(m) if m.contains_meta_key(&NextBack.into()) => {
+                    let op = m.get_meta_value(&NextBack.into()).unwrap();
                     if !op.is_callable() {
                         return type_error("Callable function from @next_back", &op);
                     }
@@ -545,10 +545,10 @@ impl KotoVm {
         use KValue::*;
 
         match value {
-            _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
+            Map(ref m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
                 KIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
-            _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
+            Map(ref m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
                 // If the value implements @iterator,
                 // first evaluate @iterator and then make an iterator from the result
                 let iterator_call_result = self.run_unary_op(UnaryOp::Iterator, value)?;
@@ -848,8 +848,8 @@ impl KotoVm {
                 let thrown_value = self.clone_register(register);
 
                 match &thrown_value {
-                    KValue::Str(_) => {}
-                    _ if thrown_value.contains_meta_key(&UnaryOp::Display.into()) => {}
+                    KValue::Str(_) | KValue::Object(_) => {}
+                    KValue::Map(m) if m.contains_meta_key(&UnaryOp::Display.into()) => {}
                     other => {
                         return type_error("a String or a value that implements @display", other);
                     }
@@ -1029,11 +1029,11 @@ impl KotoVm {
         let value = self.clone_register(iterable_register);
 
         let result = match value {
-            _ if value.contains_meta_key(&UnaryOp::Next.into()) => {
+            Map(ref map) if map.contains_meta_key(&UnaryOp::Next.into()) => {
                 KIterator::with_meta_next(self.spawn_shared_vm(), value)?.into()
             }
-            _ if value.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                let Some(op) = value.get_meta_value(&UnaryOp::Iterator.into()) else {
+            Map(ref map) if map.contains_meta_key(&UnaryOp::Iterator.into()) => {
+                let Some(op) = map.get_meta_value(&UnaryOp::Iterator.into()) else {
                     unreachable!()
                 };
                 if op.is_callable() || op.is_generator() {
@@ -1114,8 +1114,8 @@ impl KotoVm {
                     None => None,
                 }
             }
-            iterable if iterable.contains_meta_key(&UnaryOp::Next.into()) => {
-                let op = iterable.get_meta_value(&UnaryOp::Next.into()).unwrap();
+            Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
+                let op = m.get_meta_value(&UnaryOp::Next.into()).unwrap();
                 if !op.is_callable() {
                     return type_error("Callable function from @next", &op);
                 }
@@ -1218,8 +1218,8 @@ impl KotoVm {
                     Null
                 }
             }
-            v if v.contains_meta_key(&index_op) => {
-                let op = v.get_meta_value(&index_op).unwrap();
+            Map(map) if map.contains_meta_key(&index_op) => {
+                let op = map.get_meta_value(&index_op).unwrap();
                 return self.call_overloaded_binary_op(result, value, index.into(), op);
             }
             Map(map) => {
@@ -1264,7 +1264,7 @@ impl KotoVm {
                     tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
                 }
             }
-            v if v.contains_meta_key(&index_op) => {
+            Map(m) if m.contains_meta_key(&index_op) => {
                 return runtime_error!(
                     "Unpacking objects that implement @index isn't currently supported"
                 );
@@ -1356,8 +1356,8 @@ impl KotoVm {
 
         let result_value = match self.clone_register(value) {
             Number(n) => Number(-n),
-            v if v.contains_meta_key(&Negate.into()) => {
-                let op = v.get_meta_value(&Negate.into()).unwrap();
+            Map(m) if m.contains_meta_key(&Negate.into()) => {
+                let op = m.get_meta_value(&Negate.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             Object(o) => o.try_borrow()?.negate(self)?,
@@ -1375,8 +1375,8 @@ impl KotoVm {
         let result_value = match &self.get_register(value) {
             Null => Bool(true),
             Bool(b) if !b => Bool(true),
-            v if v.contains_meta_key(&Not.into()) => {
-                let op = v.get_meta_value(&Not.into()).unwrap();
+            Map(m) if m.contains_meta_key(&Not.into()) => {
+                let op = m.get_meta_value(&Not.into()).unwrap();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             _ => Bool(false), // All other values coerce to true, so return false
@@ -1390,8 +1390,8 @@ impl KotoVm {
         use UnaryOp::Display;
 
         match self.clone_register(value) {
-            v if v.contains_meta_key(&Display.into()) => {
-                let op = v.get_meta_value(&Display.into()).unwrap();
+            KValue::Map(m) if m.contains_meta_key(&Display.into()) => {
+                let op = m.get_meta_value(&Display.into()).unwrap();
                 self.call_overloaded_unary_op(result, value, op)
             }
             other => {
@@ -1427,8 +1427,8 @@ impl KotoVm {
                 let result: Vec<_> = a.iter().chain(b.iter()).cloned().collect();
                 Tuple(result.into())
             }
-            (v, _) if v.contains_meta_key(&Add.into()) => {
-                let op = v.get_meta_value(&Add.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Add.into()) => {
+                let op = m.get_meta_value(&Add.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1463,8 +1463,8 @@ impl KotoVm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
-            (v, _) if v.contains_meta_key(&Subtract.into()) => {
-                let op = v.get_meta_value(&Subtract.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Subtract.into()) => {
+                let op = m.get_meta_value(&Subtract.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1485,8 +1485,8 @@ impl KotoVm {
 
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
-            (v, _) if v.contains_meta_key(&Multiply.into()) => {
-                let op = v.get_meta_value(&Multiply.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Multiply.into()) => {
+                let op = m.get_meta_value(&Multiply.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1506,8 +1506,8 @@ impl KotoVm {
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
-            (v, _) if v.contains_meta_key(&Divide.into()) => {
-                let op = v.get_meta_value(&Divide.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Divide.into()) => {
+                let op = m.get_meta_value(&Divide.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1532,8 +1532,8 @@ impl KotoVm {
                 Number(f64::NAN.into())
             }
             (Number(a), Number(b)) => Number(a % b),
-            (v, _) if v.contains_meta_key(&Remainder.into()) => {
-                let op = v.get_meta_value(&Remainder.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Remainder.into()) => {
+                let op = m.get_meta_value(&Remainder.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1556,8 +1556,8 @@ impl KotoVm {
                 self.set_register(lhs, Number(a + b));
                 Ok(())
             }
-            (v, _) if v.contains_meta_key(&AddAssign.into()) => {
-                let op = v.get_meta_value(&AddAssign.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&AddAssign.into()) => {
+                let op = m.get_meta_value(&AddAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1583,8 +1583,8 @@ impl KotoVm {
                 self.set_register(lhs, Number(a - b));
                 Ok(())
             }
-            (v, _) if v.contains_meta_key(&SubtractAssign.into()) => {
-                let op = v.get_meta_value(&SubtractAssign.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&SubtractAssign.into()) => {
+                let op = m.get_meta_value(&SubtractAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1610,8 +1610,8 @@ impl KotoVm {
                 self.set_register(lhs, Number(a * b));
                 Ok(())
             }
-            (v, _) if v.contains_meta_key(&MultiplyAssign.into()) => {
-                let op = v.get_meta_value(&MultiplyAssign.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&MultiplyAssign.into()) => {
+                let op = m.get_meta_value(&MultiplyAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1637,8 +1637,8 @@ impl KotoVm {
                 self.set_register(lhs, Number(a / b));
                 Ok(())
             }
-            (v, _) if v.contains_meta_key(&DivideAssign.into()) => {
-                let op = v.get_meta_value(&DivideAssign.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&DivideAssign.into()) => {
+                let op = m.get_meta_value(&DivideAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1664,8 +1664,8 @@ impl KotoVm {
                 self.set_register(lhs, Number(a % b));
                 Ok(())
             }
-            (v, _) if v.contains_meta_key(&RemainderAssign.into()) => {
-                let op = v.get_meta_value(&RemainderAssign.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&RemainderAssign.into()) => {
+                let op = m.get_meta_value(&RemainderAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
                 let unused = self.next_register();
@@ -1689,8 +1689,8 @@ impl KotoVm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            (v, _) if v.contains_meta_key(&Less.into()) => {
-                let op = v.get_meta_value(&Less.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Less.into()) => {
+                let op = m.get_meta_value(&Less.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1711,8 +1711,8 @@ impl KotoVm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
-            (v, _) if v.contains_meta_key(&LessOrEqual.into()) => {
-                let op = v.get_meta_value(&LessOrEqual.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&LessOrEqual.into()) => {
+                let op = m.get_meta_value(&LessOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1733,8 +1733,8 @@ impl KotoVm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
-            (v, _) if v.contains_meta_key(&Greater.into()) => {
-                let op = v.get_meta_value(&Greater.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Greater.into()) => {
+                let op = m.get_meta_value(&Greater.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1755,8 +1755,8 @@ impl KotoVm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
-            (v, _) if v.contains_meta_key(&GreaterOrEqual.into()) => {
-                let op = v.get_meta_value(&GreaterOrEqual.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&GreaterOrEqual.into()) => {
+                let op = m.get_meta_value(&GreaterOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1793,8 +1793,8 @@ impl KotoVm {
                 let b = b.clone();
                 self.compare_value_ranges(&a, &b)?
             }
-            (v, _) if v.contains_meta_key(&Equal.into()) => {
-                let op = v.get_meta_value(&Equal.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
+                let op = m.get_meta_value(&Equal.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -1853,8 +1853,8 @@ impl KotoVm {
                 let b = b.clone();
                 !self.compare_value_ranges(&a, &b)?
             }
-            (v, _) if v.contains_meta_key(&NotEqual.into()) => {
-                let op = v.get_meta_value(&NotEqual.into()).unwrap();
+            (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
+                let op = m.get_meta_value(&NotEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 return self.call_overloaded_binary_op(result, lhs, rhs_value, op);
             }
@@ -2699,8 +2699,8 @@ impl KotoVm {
             }
             NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
             Object(o) => self.call_external(info, ExternalCallable::Object(o)),
-            _ if callable.contains_meta_key(&MetaKey::Call) => {
-                let f = callable.get_meta_value(&MetaKey::Call).unwrap();
+            Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {
+                let f = m.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the callable value as the instance by placing it in the frame base,
                 // and then passing the @|| function into call_callable
                 self.set_register(info.frame_base, callable);
