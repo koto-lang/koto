@@ -28,7 +28,6 @@ in order.
 - [Errors](errors.md)
 - [Testing](testing.md)
 - [Modules](modules.md)
-- [Prelude](prelude.md)
 
 ## About the Guide
 

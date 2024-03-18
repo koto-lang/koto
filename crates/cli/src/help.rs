@@ -56,7 +56,6 @@ impl Help {
             include_doc!("language/errors.md"),
             include_doc!("language/testing.md"),
             include_doc!("language/modules.md"),
-            include_doc!("language/prelude.md"),
         ];
 
         let reference_files = [
