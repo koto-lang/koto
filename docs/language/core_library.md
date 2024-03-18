@@ -39,6 +39,7 @@ The modules that make up the core library are all included by default in the
 prelude. The following functions are also added to the prelude by default:
 
 - [`io.print`](../core_lib/io#print)
+- [`koto.copy`](../core_lib/koto#copy)
 - [`koto.size`](../core_lib/koto#size)
 - [`koto.type`](../core_lib/koto#type)
 - [`test.assert`](../core_lib/test#assert)

@@ -675,7 +675,7 @@ x + z
             let script = "
 x = make_object 100
 y = x
-z = deep_copy x
+z = koto.deep_copy x
 y -= 50
 z += 200
 x + z
