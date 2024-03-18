@@ -38,7 +38,7 @@ check! (('a', 10), ('b', 20))
 ```
 
 The `+` operator allows tuples to be joined together, 
-creating a new tuple that combines their elements.
+creating a new tuple containing their concatenated elements.
 
 ```koto
 a = 1, 2, 3
@@ -64,8 +64,9 @@ check! ()
 
 ## Tuple Mutability
 
-While tuples have a fixed structure, mutable values contained in the tuple 
-(like lists) can still be modified.
+While tuples have a fixed structure and its contained elements can't be 
+replaced, mutable value types (like lists) can be modified while they're
+contained in tuples.
 
 ```koto
 # A Tuple containing two lists

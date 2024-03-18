@@ -12,9 +12,9 @@ in order.
 - [Getting Started](getting_started.md)
 - [Language Basics](basics.md)
 - [Strings](strings.md)
-- [Functions](functions.md)
 - [Lists](lists.md)
 - [Tuples](tuples.md)
+- [Functions](functions.md)
 - [Maps](maps.md)
 - [Core Library](core_library.md)
 - [Conditional Expressions](conditional_expressions.md)
@@ -31,11 +31,11 @@ in order.
 
 ## About the Guide
 
-The markdown files here serve as the source material for hte
+The markdown files here serve as the source material for the
 [Koto website's language guide](https://koto.dev/docs/next/language),
 and are also included in the `help` feature of the CLI. 
 
 The code examples make use of `print!` and `check!` placeholders which are
 used by tools to validate that the examples work correctly
-(see the ['docs examples' tests](/core/koto/tests/docs_examples.rs)).
+(see the ['docs examples' tests](./crates/koto/tests/docs_examples.rs)).
 The placeholders are then stripped out by the CLI's preprocessor.

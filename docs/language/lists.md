@@ -37,7 +37,7 @@ check! [10, 99, 30]
 ```
 
 The `+` operator allows lists to be joined together, creating a new list that
-combines their elements.
+contains their concatenated elements.
 
 ```koto
 a = ['a', 'b', 'c']
