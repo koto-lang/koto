@@ -2,7 +2,7 @@
 
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
 use koto_runtime::{prelude::*, KValue::*, Ptr, PtrMut, Result};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ops::RangeBounds, rc::Rc};
 
 pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
     let output = PtrMut::from(String::new());
@@ -115,6 +115,10 @@ where
 
 pub fn list(values: &[KValue]) -> KValue {
     KList::from_slice(values).into()
+}
+
+pub fn range(bounds: impl RangeBounds<i64>) -> KValue {
+    KRange::from(bounds).into()
 }
 
 pub fn tuple(values: &[KValue]) -> KValue {

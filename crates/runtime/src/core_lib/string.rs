@@ -31,6 +31,18 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("char_indices", |ctx| {
+        let expected_error = "a String";
+
+        match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), []) => {
+                let result = iterators::CharIndices::new(s.clone());
+                Ok(KIterator::new(result).into())
+            }
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
     result.add_fn("contains", |ctx| {
         let expected_error = "a String";
 

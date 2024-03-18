@@ -43,6 +43,33 @@ print! 'Héllø! 👋'.chars().to_tuple()
 check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 ```
 
+### See Also
+
+- [`string.char-indices`](#char-indices)
+
+## char_indices
+
+```kototype
+|String| -> Iterator
+```
+
+Returns an iterator that yields the indices of each 
+[grapheme cluster][grapheme-cluster] in the string.
+
+Each cluster is represented as a range, which can then be used to extract the
+cluster from the string via indexing.
+
+### Example
+
+```koto
+print! 'Hi 👋'.char_indices().to_tuple()
+check! (0..1, 1..2, 2..3, 3..7)
+```
+
+### See Also
+
+- [`string.chars`](#chars)
+
 ## contains
 
 ```kototype
