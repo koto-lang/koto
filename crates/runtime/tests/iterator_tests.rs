@@ -490,6 +490,29 @@ y.next().get()
         }
     }
 
+    mod char_indices {
+        use super::*;
+
+        #[test]
+        fn text() {
+            let script = "
+'xßîहिं'.char_indices().to_tuple()
+";
+            test_script(
+                script,
+                tuple(&[range(0..1), range(1..3), range(3..5), range(5..14)]),
+            );
+        }
+
+        #[test]
+        fn emojis() {
+            let script = "
+'👍🫶🏽🫱🏼‍🫲🏾'.char_indices().to_tuple()
+";
+            test_script(script, tuple(&[range(0..4), range(4..12), range(12..31)]));
+        }
+    }
+
     mod lines {
         use super::*;
 

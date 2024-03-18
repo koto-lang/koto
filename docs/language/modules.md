@@ -22,25 +22,25 @@ check! 42
 Multiple items from a single module can be imported at the same time.
 
 ```koto
-from tuple import first, last, size
+from tuple import contains, first, last
 
 x = 'a', 'b', 'c'
 print! first x
 check! a
 print! last x
 check! c
-print! size x
-check! 3
+print! contains x, 'b'
+check! true
 ```
 
 Imported items can be renamed using `as` for clarity or to avoid conflicts.
 
 ```koto
-from list import size as list_size
-from tuple import size as tuple_size
-print! list_size [1, 2]
-check! 2
-print! tuple_size (3, 2, 1)
+from list import first as list_first
+from tuple import first as tuple_first
+print! list_first [1, 2]
+check! 1
+print! tuple_first (3, 2, 1)
 check! 3
 ```
 

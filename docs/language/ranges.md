@@ -99,11 +99,11 @@ If the end of the range is ommitted, then the slice includes all remaining
 elements in the container.
 
 ```koto
-z = 'Hëllø'
+z = 'Hëllø'.to_tuple()
 print! z[..2]
-check! Hë
+check! ('H', 'ë')
 print! z[2..]
-check! llø
+check! ('l', 'l', 'ø')
 ```
 
 [iterator]: ../core_lib/iterator

@@ -1,5 +1,10 @@
 use crate::{prelude::*, Error, Ptr};
-use std::{cmp::Ordering, fmt, hash::Hash, ops::Range};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::Hash,
+    ops::{Range, RangeBounds},
+};
 
 /// The integer range type used by the Koto runtime
 ///
@@ -40,38 +45,36 @@ impl From<Bounded64> for Inner {
 }
 
 impl KRange {
-    /// Initializes a From range
-    pub fn from(start: i64) -> Self {
-        Self(Inner::From { start })
-    }
-
-    /// Initializes a To range
-    pub fn to(end: i64, inclusive: bool) -> Self {
-        Self(Inner::To { end, inclusive })
-    }
-
-    /// Initializes a range with the given bounds
-    pub fn bounded(start: i64, end: i64, inclusive: bool) -> Self {
-        match (i32::try_from(start), i32::try_from(end)) {
-            (Ok(start), Ok(end)) => Self(Inner::Bounded {
-                start,
-                end,
-                inclusive,
-            }),
-            _ => Self(
-                Bounded64 {
-                    start,
-                    end,
-                    inclusive,
+    /// Initializes a range with the given start and end bounds
+    ///
+    /// The end bound has an additional flag that specifies whether or not the end of the range is
+    /// inclusive or not.
+    ///
+    /// `KRange` has an implementation of `From` for implementations of `RangeBounds` which might be
+    /// simpler to use, e.g. `KRange::from(10..=20)`
+    pub fn new(start: Option<i64>, end: Option<(i64, bool)>) -> Self {
+        match (start, end) {
+            (Some(start), Some((end, inclusive))) => {
+                match (i32::try_from(start), i32::try_from(end)) {
+                    (Ok(start), Ok(end)) => Self(Inner::Bounded {
+                        start,
+                        end,
+                        inclusive,
+                    }),
+                    _ => Self(
+                        Bounded64 {
+                            start,
+                            end,
+                            inclusive,
+                        }
+                        .into(),
+                    ),
                 }
-                .into(),
-            ),
+            }
+            (Some(start), None) => Self(Inner::From { start }),
+            (None, Some((end, inclusive))) => Self(Inner::To { end, inclusive }),
+            (None, None) => Self(Inner::Unbounded),
         }
-    }
-
-    /// Initializes an unbounded range
-    pub fn unbounded() -> Self {
-        Self(Inner::Unbounded)
     }
 
     /// Returns the start of the range
@@ -162,10 +165,8 @@ impl KRange {
             return None;
         }
 
-        Some(Self::bounded(
-            this.start.max(other.start),
-            this.end.min(other.end),
-            false,
+        Some(Self::from(
+            this.start.max(other.start)..this.end.min(other.end),
         ))
     }
 
@@ -329,6 +330,27 @@ impl KRange {
     }
 }
 
+impl<R> From<R> for KRange
+where
+    R: RangeBounds<i64>,
+{
+    fn from(range: R) -> Self {
+        use std::ops::Bound::*;
+
+        let (start, end) = match (range.start_bound(), range.end_bound()) {
+            (Included(&start), Included(&end)) => (Some(start), Some((end, true))),
+            (Included(&start), Excluded(&end)) => (Some(start), Some((end, false))),
+            (Included(&start), Unbounded) => (Some(start), None),
+            (Unbounded, Included(&end)) => (None, Some((end, true))),
+            (Unbounded, Excluded(&end)) => (None, Some((end, false))),
+            (Unbounded, Unbounded) => (None, None),
+            _ => unimplemented!(),
+        };
+
+        Self::new(start, end)
+    }
+}
+
 impl fmt::Display for KRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(start) = self.start() {
@@ -361,46 +383,46 @@ mod tests {
     fn as_sorted_range() {
         use std::i64::{MAX, MIN};
 
-        assert_eq!(10..20, KRange::bounded(10, 20, false).as_sorted_range());
-        assert_eq!(10..21, KRange::bounded(10, 20, true).as_sorted_range());
-        assert_eq!(11..21, KRange::bounded(20, 10, false).as_sorted_range());
-        assert_eq!(10..21, KRange::bounded(20, 10, true).as_sorted_range());
+        assert_eq!(10..20, KRange::from(10..20).as_sorted_range());
+        assert_eq!(10..21, KRange::from(10..=20).as_sorted_range());
+        assert_eq!(11..21, KRange::from(20..10).as_sorted_range());
+        assert_eq!(10..21, KRange::from(20..=10).as_sorted_range());
 
-        assert_eq!(10..MAX, KRange::from(10).as_sorted_range(),);
-        assert_eq!(MIN..10, KRange::to(10, false).as_sorted_range(),);
+        assert_eq!(10..MAX, KRange::from(10..).as_sorted_range(),);
+        assert_eq!(MIN..10, KRange::from(..10).as_sorted_range(),);
     }
 
     #[test]
     fn intersection() {
         assert_eq!(
-            Some(KRange::bounded(15, 20, false)),
-            KRange::bounded(10, 20, false).intersection(&KRange::bounded(15, 25, false))
+            Some(KRange::from(15..20)),
+            KRange::from(10..20).intersection(&KRange::from(15..25))
         );
         assert_eq!(
-            Some(KRange::bounded(200, 201, false)),
-            KRange::bounded(100, 200, true).intersection(&KRange::bounded(300, 200, true))
+            Some(KRange::from(200..201)),
+            KRange::from(100..=200).intersection(&KRange::from(300..=200))
         );
         assert_eq!(
             None,
-            KRange::bounded(100, 200, false).intersection(&KRange::bounded(0, 50, false))
+            KRange::from(100..200).intersection(&KRange::from(0..50))
         );
     }
 
     #[test]
     fn is_ascending() {
-        assert!(KRange::bounded(10, 20, false).is_ascending());
-        assert!(!KRange::bounded(30, 20, false).is_ascending());
-        assert!(KRange::to(1, true).is_ascending());
-        assert!(KRange::from(20).is_ascending());
+        assert!(KRange::from(10..20).is_ascending());
+        assert!(!KRange::from(30..20).is_ascending());
+        assert!(KRange::from(..=1).is_ascending());
+        assert!(KRange::from(20..).is_ascending());
     }
 
     #[test]
     fn bounded_large() {
         let start_big = 2_i64.pow(42);
         let end_big = 2_i64.pow(43);
-        assert!(KRange::bounded(start_big, end_big, false).is_ascending());
+        assert!(KRange::from(start_big..end_big).is_ascending());
         assert_eq!(
-            KRange::bounded(start_big, end_big, false).size().unwrap(),
+            KRange::from(start_big..end_big).size().unwrap(),
             (end_big - start_big) as usize
         );
     }

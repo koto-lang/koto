@@ -128,8 +128,23 @@ mod objects {
                     let result = self.x + i64::from(index);
                     Ok(result.into())
                 }
+                KValue::Range(range) => match (range.start(), range.end()) {
+                    (Some(start), Some((end, inclusive))) => {
+                        let end = if inclusive {
+                            self.x + end + 1
+                        } else {
+                            self.x + end
+                        };
+                        Ok(KRange::from((self.x + start)..end).into())
+                    }
+                    _ => unimplemented!(),
+                },
                 unexpected => type_error("Number as index", unexpected),
             }
+        }
+
+        fn size(&self) -> Option<usize> {
+            Some(self.x.abs() as usize)
         }
 
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
@@ -575,6 +590,36 @@ x[23]
 ";
             test_object_script(script, 123);
         }
+
+        #[test]
+        fn size() {
+            let script = "
+x = make_object 42
+# Report x as the size
+koto.size x
+";
+            test_object_script(script, 42);
+        }
+
+        #[test]
+        fn function_argument_unpacking() {
+            let script = "
+f = |(a, b, c...)| a + b + size c
+x = make_object 10
+f x # 10 + 11 + 8
+";
+            test_object_script(script, 29);
+        }
+
+        #[test]
+        fn match_arm_unpacking() {
+            let script = "
+match make_object 10
+  (x, y) then -1
+  (rest..., y, z) then (size rest) + y + z # 8 + 18 + 19
+";
+            test_object_script(script, 45);
+        }
     }
 
     #[test]
@@ -590,7 +635,7 @@ x()
         use super::*;
 
         #[test]
-        fn overloaded_unary_op_as_lookup_root() {
+        fn overridden_unary_op_as_lookup_root() {
             let script = "
 x = make_object -100
 (-x).as_number()
@@ -599,7 +644,7 @@ x = make_object -100
         }
 
         #[test]
-        fn overloaded_binary_op_as_lookup_root() {
+        fn overridden_binary_op_as_lookup_root() {
             let script = "
 x = make_object 100
 y = make_object 100

@@ -3273,7 +3273,7 @@ y z";
         }
 
         #[test]
-        fn unpack_call_args_tuple() {
+        fn unpack_call_args() {
             let sources = [
                 "
 |a, (_, (others..., c, _d)), _e|
@@ -3317,57 +3317,6 @@ y z";
                 Some(&[
                     Constant::Str("a"),
                     Constant::Str("others"),
-                    Constant::Str("c"),
-                    Constant::Str("d"),
-                    Constant::Str("e"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn unpack_call_args_list() {
-            let sources = [
-                "
-|a, [_, [c, _d, ...]], e|
-  a
-",
-                "
-| a, 
-  [ _, 
-    [c, _d, ...]
-  ], 
-  e
-|
-  a
-",
-            ];
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    Id(0), // a
-                    Wildcard(None),
-                    Id(1),               // c
-                    Wildcard(Some(2)),   // d
-                    Ellipsis(None),      // ...
-                    List(vec![2, 3, 4]), // ast index 5
-                    List(vec![1, 5]),
-                    Id(3), // e
-                    Id(0),
-                    Function(koto_parser::Function {
-                        args: vec![0, 6, 7],
-                        local_count: 3,
-                        accessed_non_locals: vec![],
-                        body: 8,
-                        is_variadic: false,
-                        is_generator: false,
-                    }),
-                    MainBlock {
-                        body: vec![9],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("a"),
                     Constant::Str("c"),
                     Constant::Str("d"),
                     Constant::Str("e"),

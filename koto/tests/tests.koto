@@ -12,10 +12,10 @@
   # Functions with that are tagged with @test will be automatically run as tests
   @test size: ||
     # assert_eq checks that its two arguments are equal
-    assert_eq self.test_data.size(), 3
+    assert_eq (size self.test_data), 3
 
     # assert_ne checks that its two arguments are not equal
-    assert_ne self.test_data.size(), 1
+    assert_ne (size self.test_data), 1
 
   # Test functions don't have to be instance functions
   @test extra: ||

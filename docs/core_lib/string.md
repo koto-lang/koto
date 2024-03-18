@@ -6,7 +6,7 @@
 |String| -> Iterator
 ```
 
-Returns an iterator that yields a series of Numbers representing the bytes
+Returns an iterator that yields a series of integers representing the bytes
 contained in the string data.
 
 ### Example
@@ -28,15 +28,13 @@ check! (72, 195, 171, 121, 33)
 
 Returns an iterator that yields the string's characters as strings.
 
-### Note
-
-A 'character' in Koto is defined as a grapheme, so `.chars()` iterates over the
-string's grapheme clusters.
+A 'character' in Koto is defined as being a 
+[unicode grapheme cluster][grapheme-cluster].
 
 ### Note
 
 Note that this is the default iteration behaviour for a string, so calling
-`.chars()` on a string is equivalent to calling `iterator.iter()`.
+`'hello'.chars()` is equivalent to calling `iterator.iter('hello')`.
 
 ### Example
 
@@ -44,6 +42,33 @@ Note that this is the default iteration behaviour for a string, so calling
 print! 'Héllø! 👋'.chars().to_tuple()
 check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 ```
+
+### See Also
+
+- [`string.char-indices`](#char-indices)
+
+## char_indices
+
+```kototype
+|String| -> Iterator
+```
+
+Returns an iterator that yields the indices of each 
+[grapheme cluster][grapheme-cluster] in the string.
+
+Each cluster is represented as a range, which can then be used to extract the
+cluster from the string via indexing.
+
+### Example
+
+```koto
+print! 'Hi 👋'.char_indices().to_tuple()
+check! (0..1, 1..2, 2..3, 3..7)
+```
+
+### See Also
+
+- [`string.chars`](#chars)
 
 ## contains
 
@@ -267,31 +292,6 @@ print! '10101'.replace '0', 'x'
 check! 1x1x1
 ```
 
-## size
-
-```kototype
-|String| -> Number
-```
-
-Returns the number of graphemes in the string.
-
-### Note
-
-Equivalent to calling `.chars().count()`.
-
-### Example
-
-```koto
-print! ''.size()
-check! 0
-
-print! 'abcdef'.size()
-check! 6
-
-print! '🥳👋😁'.size()
-check! 3
-```
-
 ## split
 
 ```kototype
@@ -437,3 +437,5 @@ check! x
 print! '     >'.trim()
 check! >
 ```
+
+[grapheme-cluster]: https://www.unicode.org/glossary/#grapheme_cluster

@@ -27,20 +27,15 @@
     foo = |a, _, c, _ignored| a + c
     assert_eq (foo 1, 0, 3, 99), 4
 
-  @test list_unpacking: ||
-    foo = |a, [b, [c, d]], e|
-      a * b * c * d * e
-    assert_eq (foo 1, [2, [3, 4]], 5), 120
-
   @test unpacking_with_ellipses: ||
-    foo = |[others_a..., last], (first, others_b...)|
+    foo = |(others_a..., last), (first, others_b...)|
       others_a.sum() * last + first * others_b.sum()
     assert_eq (foo [1, 2, 3, 10], (100, 1, 2, 3)), 660
 
-  @test tuple_unpacking: ||
+  @test nested_unpacking: ||
     foo = |a, (b, (c, d)), e|
       a + b + c + d + e
-    assert_eq (foo 1, (2, (3, 4)), 5), 15
+    assert_eq (foo 1, [2, (3, 4)], 5), 15
 
   @test missing_args_set_to_empty: ||
     foo = |a, b|

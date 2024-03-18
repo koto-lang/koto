@@ -188,7 +188,7 @@ make_foo = |x|
     assert_eq x.max(|(key, value)| value), ("bar", 99)
 
     x = [[1], [2, 3], [4, 5, 6]]
-    assert_eq x.max(list.size), [4, 5, 6]
+    assert_eq x.max(size), [4, 5, 6]
 
   @test min: ||
     assert_eq (2, -1, 9).min(), -1
@@ -200,7 +200,7 @@ make_foo = |x|
     assert_eq x.min(|(key, value)| value), ("foo", 42)
 
     x = [[1], [2, 3], [4, 5, 6]]
-    assert_eq x.min(list.size), [1]
+    assert_eq x.min(size), [1]
 
   @test min_max: ||
     assert_eq (2, -1, 9).min_max(), (-1, 9)
@@ -212,7 +212,7 @@ make_foo = |x|
     assert_eq x.min_max(|(key, value)| value), (("baz", -1), ("bar", 99))
 
     x = [[1], [2, 3], [4, 5, 6]]
-    assert_eq x.min_max(list.size), ([1], [4, 5, 6])
+    assert_eq x.min_max(size), ([1], [4, 5, 6])
 
   @test peekable: ||
     i = 'abcde'.peekable()
@@ -237,7 +237,7 @@ make_foo = |x|
     # An initial value can be provided to override the default initial value of 1
     assert_eq (2, 3, 4).product(10), 240
 
-  @test product_with_overloaded_multiply_operator: ||
+  @test product_with_overridden_multiply_operator: ||
     foo = |x|
       x: x
       @*: |other| foo self.x * other.x
@@ -275,7 +275,7 @@ make_foo = |x|
     # An initial value can be provided to override the default initial value of 0
     assert_eq (1, 2, 3).sum(100), 106
 
-  @test sum_with_overloaded_add_operator: ||
+  @test sum_with_overridden_add_operator: ||
     foo = |x|
       x: x
       @+: |other| foo self.x + other.x

@@ -56,7 +56,7 @@ match 0
         fn match_ellipsis_out_of_position() {
             let source = "
 match [1, 2, 3]
-  [x, ..., y] then 0
+  (x, ..., y) then 0
 ";
             check_compilation_fails(source);
         }

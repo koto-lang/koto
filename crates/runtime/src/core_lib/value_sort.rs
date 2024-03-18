@@ -1,4 +1,4 @@
-//! As operators can be overloaded, we can't treat values specifically (i.e. use `PartialOrd` and
+//! As operators can be overridden, we can't treat values specifically (i.e. use `PartialOrd` and
 //! `Ord` for example). So we always need to call operators to compare them. This module contains
 //! helpers for comparing and sorting [Value].
 

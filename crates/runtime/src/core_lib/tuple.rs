@@ -77,15 +77,6 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("size", |ctx| {
-        let expected_error = "a Tuple";
-
-        match ctx.instance_and_args(is_tuple, expected_error)? {
-            (KValue::Tuple(t), []) => Ok(KValue::Number(t.len().into())),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
     result.add_fn("sort_copy", |ctx| {
         let expected_error = "a Tuple";
 

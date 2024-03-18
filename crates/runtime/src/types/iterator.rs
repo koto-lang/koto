@@ -410,13 +410,17 @@ struct MetaIterator {
 
 impl MetaIterator {
     fn new(vm: KotoVm, iterator: KValue) -> Result<Self> {
-        match iterator.get_meta_value(&UnaryOp::Next.into()) {
+        let KValue::Map(m) = &iterator else {
+            return runtime_error!("Expected Map with implementation of @next");
+        };
+
+        match m.get_meta_value(&UnaryOp::Next.into()) {
             Some(op) if op.is_callable() => {}
             Some(op) => return type_error("Callable function from @next", &op),
             None => return runtime_error!("Expected implementation of @next"),
         };
 
-        let is_bidirectional = match iterator.get_meta_value(&UnaryOp::NextBack.into()) {
+        let is_bidirectional = match m.get_meta_value(&UnaryOp::NextBack.into()) {
             Some(op) if op.is_callable() => true,
             Some(op) => return type_error("Callable function from @next_back", &op),
             None => false,

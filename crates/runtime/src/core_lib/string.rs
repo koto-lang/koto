@@ -5,7 +5,6 @@ pub mod iterators;
 
 use super::iterator::collect_pair;
 use crate::prelude::*;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Initializes the `string` core library module
 pub fn make_module() -> KMap {
@@ -28,6 +27,18 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(KValue::Iterator(KIterator::with_string(s.clone()))),
+            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+        }
+    });
+
+    result.add_fn("char_indices", |ctx| {
+        let expected_error = "a String";
+
+        match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), []) => {
+                let result = iterators::CharIndices::new(s.clone());
+                Ok(KIterator::new(result).into())
+            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -134,15 +145,6 @@ pub fn make_module() -> KMap {
             (KValue::Str(input), [KValue::Str(pattern), KValue::Str(replace)]) => {
                 Ok(input.replace(pattern.as_str(), replace).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
-    result.add_fn("size", |ctx| {
-        let expected_error = "a String";
-
-        match ctx.instance_and_args(is_string, expected_error)? {
-            (KValue::Str(s), []) => Ok(s.graphemes(true).count().into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });

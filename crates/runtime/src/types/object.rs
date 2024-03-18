@@ -122,8 +122,22 @@ pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + D
     }
 
     /// Called for indexing operations, e.g. `x[0]`
+    ///
+    /// See also: [KotoObject::size]
     fn index(&self, _index: &KValue) -> Result<KValue> {
         unimplemented_error("@index", self.type_string())
+    }
+
+    /// Called when checking for the number of elements contained in the object
+    ///
+    /// The runtime defers to this function when the 'size' of an object is needed
+    /// e.g. when `koto.size` is called, or when unpacking function arguments.
+    ///
+    /// The size should represent the maximum valid index that can be passed to [KotoObject::index].
+    ///
+    /// See also: [KotoObject::index]
+    fn size(&self) -> Option<usize> {
+        None
     }
 
     /// Allows the object to behave as a function

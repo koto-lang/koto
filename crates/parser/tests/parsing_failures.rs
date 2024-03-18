@@ -113,13 +113,13 @@ for x in y if f x
             }
 
             #[test]
-            fn missing_terminator_for_tuple_arg() {
+            fn missing_terminator_for_unpacked_arg() {
                 check_parsing_fails("f = |a, (b, c, d| a");
             }
 
             #[test]
-            fn missing_terminator_for_list_arg() {
-                check_parsing_fails("f = |a, [b, c, d| a");
+            fn square_brackets_used_for_unpacked_arg() {
+                check_parsing_fails("f = |a, [b, c]| a");
             }
 
             #[test]
@@ -288,6 +288,16 @@ match x
                 let source = "
 match
   0 if true then 1
+  else 2
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn square_brackets_used_for_unpacking() {
+                let source = "
+match [1, 2, 3]
+  [x, y, z] then x + y + z
   else 2
 ";
                 check_parsing_fails(source);

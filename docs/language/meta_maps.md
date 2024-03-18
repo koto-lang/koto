@@ -16,17 +16,17 @@ a custom `Foo` object:
 foo = |n|
   data: n
 
-  # Overloading the addition operator
+  # Overriding the addition operator
   @+: |other|
     # A new Foo is made using the result 
     # of adding the two data values together
     foo self.data + other.data
 
-  # Overloading the subtraction operator
+  # Overriding the subtraction operator
   @-: |other|
     foo self.data - other.data
 
-  # Overloading the multiply-assignment operator
+  # Overriding the multiply-assignment operator
   @*=: |other|
     self.data *= other.data
     self
@@ -77,18 +77,42 @@ print! not (foo 10)
 check! false
 ```
 
-### `@[]`
+### `@size` and `@[]`
 
-The `@[]` metakey defines how indexing the object with `[]` should behave.
+The `@size` metakey defines how the object should report its size,
+while the `@[]` metakey defines what values should be returned when indexing is
+performed on the object. 
+
+If `@size` is implemented, then `@[]` should also be implemented.
+
+The `@[]` implementation can support indexing by any input values that make 
+sense for your object type, but for argument unpacking to work correctly the
+runtime expects that indexing by both single indices and ranges should be 
+supported.
 
 ```koto
-foo = |n|
-  data: n
-  @[]: |index| self.data + index
+foo = |data|
+  data: data
+  @size: || size self.data
+  @[]: |index| self.data[index]
 
-print! (foo 10)[7]
-check! 17
+x = foo (100, 200, 300)
+print! size x
+check! 3
+print! x[1]
+check! 200
+
+# Unpack the first two elements in the argument and multiply them
+multiply_first_two = |(a, b, ...)| a * b
+print! multiply_first_two x
+check! 20000
+
+# Inspect the first element in the object
+print! match x
+  (first, others...) then 'first: $first, remaining: ${size others}'
+check! first: 100, remaining: 2
 ```
+
 
 ### `@||`
 

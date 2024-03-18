@@ -97,16 +97,16 @@ print! (10, 11, 12, 13, 14, 15)
 check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
-List and tuple entries can be matched against, 
+List and tuple entries can be matched against by using parentheses, 
 with `...` available for capturing the rest of the sequence.
 
 ```koto
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
-  ['a', 'b'] then "A list containing 'a' and 'b'"
-  [1, ...] then "Starts with '1'"
-  [..., 'y', last] then "Ends with 'y' followed by '$last'"
-  ['a', x, others...] then
-    "Starts with 'a', followed by '$x', then ${others.size()} others"
+  ('a', 'b') then "A list containing 'a' and 'b'"
+  (1, ...) then "Starts with '1'"
+  (..., 'y', last) then "Ends with 'y' followed by '$last'"
+  ('a', x, others...) then
+    "Starts with 'a', followed by '$x', then ${size others} others"
   unmatched then "other: $unmatched"
 check! Starts with 'a', followed by 'b', then 4 others
 ```

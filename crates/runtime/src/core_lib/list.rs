@@ -344,15 +344,6 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("size", |ctx| {
-        let expected_error = "a List";
-
-        match ctx.instance_and_args(is_list, expected_error)? {
-            (KValue::List(l), []) => Ok(KValue::Number(l.len().into())),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
     result.add_fn("sort", |ctx| {
         let expected_error = "a List, and an optional key function";
 

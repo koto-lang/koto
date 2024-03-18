@@ -13,7 +13,7 @@ mod op;
 pub use crate::{
     chunk::{Chunk, DebugInfo},
     compiler::{Compiler, CompilerError, CompilerSettings},
-    instruction::{FunctionFlags, Instruction, TypeId},
+    instruction::{FunctionFlags, Instruction},
     instruction_reader::InstructionReader,
     loader::{Loader, LoaderError},
     op::Op,

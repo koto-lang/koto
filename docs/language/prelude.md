@@ -7,6 +7,7 @@ The modules that make up the core library are all included in the
 prelude, along with the following core library functions.
 
 - [`io.print`](../core_lib/io#print)
+- [`koto.size`](../core_lib/koto#size)
 - [`koto.type`](../core_lib/koto#type)
 - [`test.assert`](../core_lib/test#assert)
 - [`test.assert_eq`](../core_lib/test#assert-eq)

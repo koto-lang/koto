@@ -1,8 +1,6 @@
 //! A collection of string iterators
 
-use crate::{
-    CallArgs, KIterator, KIteratorOutput as Output, KString, KValue, KotoIterator, KotoVm, Result,
-};
+use crate::{prelude::*, KIteratorOutput as Output, Result};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
@@ -36,6 +34,48 @@ impl Iterator for Bytes {
             }
             None => None,
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.input.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+/// An iterator that outputs the individual bytes contained in a string
+#[derive(Clone)]
+pub struct CharIndices {
+    input: KString,
+    index: usize,
+}
+
+impl CharIndices {
+    /// Creates a new [CharIndices] iterator
+    pub fn new(input: KString) -> Self {
+        Self { input, index: 0 }
+    }
+}
+
+impl KotoIterator for CharIndices {
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
+    }
+}
+
+impl Iterator for CharIndices {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input[self.index..]
+            .grapheme_indices(true)
+            .next()
+            .map(|(start, grapheme)| {
+                let start = self.index + start;
+                let end = start + grapheme.len();
+                self.index += grapheme.len();
+                let result = KRange::from(start as i64..end as i64);
+                Output::Value(result.into())
+            })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

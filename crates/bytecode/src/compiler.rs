@@ -1,6 +1,6 @@
 use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
-    DebugInfo, FunctionFlags, Op, TypeId,
+    DebugInfo, FunctionFlags, Op,
 };
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
@@ -603,25 +603,16 @@ impl Compiler {
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
             let arg_node = ctx.ast.node(*arg);
-            self.push_span(arg_node, ctx.ast);
-            match &arg_node.node {
-                Node::List(nested_args) => {
-                    let list_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
-                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
-                }
-                Node::Tuple(nested_args) => {
-                    let tuple_register = arg_index as u8 + 1;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
-                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
-                }
-                _ => {}
+            if let Node::Tuple(nested_args) = &arg_node.node {
+                self.push_span(arg_node, ctx.ast);
+
+                let tuple_register = arg_index as u8 + 1;
+                let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                self.push_op(size_op, &[tuple_register, size_to_check as u8]);
+                self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
+
+                self.pop_span();
             }
-            self.pop_span();
         }
 
         let result_register = if allow_implicit_return {
@@ -672,7 +663,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(_) => result.push(Arg::Placeholder),
-                Node::List(nested) | Node::Tuple(nested) => {
+                Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
                 }
@@ -696,7 +687,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(_) => {}
-                Node::List(nested_args) | Node::Tuple(nested_args) => {
+                Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
                 Node::Ellipsis(Some(id)) => result.push(Arg::Unpacked(*id)),
@@ -738,21 +729,11 @@ impl Compiler {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                 }
-                Node::List(nested_args) => {
-                    let list_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ctx.ast);
-                    self.push_op(TempIndex, &[list_register, container_register, arg_index]);
-                    self.push_op(CheckType, &[list_register, TypeId::List as u8]);
-                    self.push_op(size_op, &[list_register, nested_args.len() as u8]);
-                    self.compile_unpack_nested_args(list_register, nested_args, ctx)?;
-                    self.pop_register()?; // list_register
-                }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
-                    let size_op = args_size_op(nested_args, ctx.ast);
                     self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
-                    self.push_op(CheckType, &[tuple_register, TypeId::Tuple as u8]);
-                    self.push_op(size_op, &[tuple_register, nested_args.len() as u8]);
+                    let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                    self.push_op(size_op, &[tuple_register, size_to_check as u8]);
                     self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
                     self.pop_register()?; // tuple_register
                 }
@@ -2892,7 +2873,7 @@ impl Compiler {
 
                     Some(patterns.clone())
                 }
-                Node::List(patterns) | Node::Tuple(patterns) => {
+                Node::Tuple(patterns) => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
                             expected: match_len,
@@ -2900,11 +2881,6 @@ impl Compiler {
                         });
                     }
 
-                    let type_check_op = if matches!(arm_node.node, Node::List(_)) {
-                        Op::IsList
-                    } else {
-                        Op::IsTuple
-                    };
                     self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register,
@@ -2914,7 +2890,6 @@ impl Compiler {
                         },
                         None, // pattern index
                         patterns,
-                        type_check_op,
                         ctx,
                     )?;
 
@@ -3093,12 +3068,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::List(patterns) | Node::Tuple(patterns) => {
-                    let type_check_op = if matches!(pattern_node.node, Node::List(_)) {
-                        IsList
-                    } else {
-                        IsTuple
-                    };
+                Node::Tuple(patterns) => {
                     self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register: params.match_register,
@@ -3108,7 +3078,6 @@ impl Compiler {
                         },
                         Some(pattern_index),
                         patterns,
-                        type_check_op,
                         ctx,
                     )?;
                 }
@@ -3162,7 +3131,6 @@ impl Compiler {
         params: MatchArmParameters,
         pattern_index: Option<i8>,
         nested_patterns: &[AstIndex],
-        type_check_op: Op,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         use Op::*;
@@ -3180,19 +3148,6 @@ impl Compiler {
         };
 
         let temp_register = self.push_register()?;
-
-        // Check that the container has the correct type
-        self.push_op(type_check_op, &[temp_register, value_register]);
-        self.push_op(JumpIfFalse, &[temp_register]);
-        // If the container has the wrong type, jump to the next match patterns
-        if params.is_last_alternative {
-            params.jumps.arm_end.push(self.push_offset_placeholder());
-        } else {
-            params
-                .jumps
-                .alternative_end
-                .push(self.push_offset_placeholder());
-        }
 
         let first_or_last_pattern_is_ellipsis = {
             let first_is_ellipsis = nested_patterns.first().map_or(false, |first| {
@@ -3616,14 +3571,14 @@ impl Compiler {
     }
 }
 
-fn args_size_op(args: &[AstIndex], ast: &Ast) -> Op {
+fn args_size_op(args: &[AstIndex], ast: &Ast) -> (Op, usize) {
     if args
         .iter()
         .any(|arg| matches!(&ast.node(*arg).node, Node::Ellipsis(_)))
     {
-        Op::CheckSizeMin
+        (Op::CheckSizeMin, args.len() - 1)
     } else {
-        Op::CheckSizeEqual
+        (Op::CheckSizeEqual, args.len())
     }
 }
 

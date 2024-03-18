@@ -584,6 +584,8 @@ pub enum MetaKeyId {
     Negate,
     /// @not
     Not,
+    /// @size
+    Size,
     /// @type
     Type,
     /// @base

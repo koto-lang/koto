@@ -27,16 +27,6 @@
     x = x + "_" + "^"
     assert_eq x, "^_^"
 
-  @test indexing: ||
-    assert_eq "Héllö"[4], "ö"
-    x = "Tschüss"
-    assert_eq x[0..3], "Tsc"
-    assert_eq x[2..=4], "chü"
-    assert_eq x[4..7], "üss"
-    assert_eq x[..=3], "Tsch"
-    assert_eq x[5..], "ss"
-    assert_eq "👋🥳😆"[1], "🥳"
-
   @test escape_codes: ||
     # Ascii characters
     assert_eq '\x4f\x5f\x6f', 'O_o'
@@ -72,7 +62,7 @@
     for c in hello
       hello_chars.push c
     assert_eq hello_chars, hello.to_list()
-    assert_eq hello_chars.size(), 5
+    assert_eq (size hello_chars), 5
 
   @test contains: ||
     assert "O_o".contains("_")
@@ -121,14 +111,6 @@ zzz
     assert_eq ''.replace('foo', 'bar'), ''
     assert_eq ' '.replace(' ', ''), ''
     assert_eq 'hëllø'.replace('ë', 'éé'), 'hééllø'
-
-  @test size: ||
-    # size returns the number of unicode graphemes in the string,
-    # rather than the number of bytes
-    assert_eq "".size(), 0
-    assert_eq "ø".size(), 1
-    assert_eq "abcdef".size(), 6
-    assert_eq "äbcdéf".size(), 6
 
   @test split: ||
     assert_eq "a,b,c".split(",").to_tuple(), ("a", "b", "c")

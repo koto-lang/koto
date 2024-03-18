@@ -188,16 +188,16 @@ a, b, c
 
         #[test]
         fn range() {
-            test_script("0..10", KRange::bounded(0, 10, false));
-            test_script("0..-10", KRange::bounded(0, -10, false));
-            test_script("1 + 1..2 + 2", KRange::bounded(2, 4, false));
+            test_script("0..10", KRange::from(0..10));
+            test_script("0..-10", KRange::from(0..-10));
+            test_script("1 + 1..2 + 2", KRange::from(2..4));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", KRange::bounded(10, 20, true));
-            test_script("4..=0", KRange::bounded(4, 0, true));
-            test_script("2 * 2..=3 * 3", KRange::bounded(4, 9, true));
+            test_script("10..=20", KRange::from(10..=20));
+            test_script("4..=0", KRange::from(4..=0));
+            test_script("2 * 2..=3 * 3", KRange::from(4..=9));
         }
     }
 
@@ -695,9 +695,8 @@ match (1, (2, 3), 4)
         fn match_list() {
             let script = "
 match [1, [2, 3], [4, 5, 6]]
-  (1, (2, 3), (4, 5, 6)) then -1 # Tuples don't match against lists
-  [1, [x, -1], [_, y, _]] then x + y
-  [1, [x, 3], [_, 5, y]] then x + y
+  (1, (x, -1), (_, y, _)) then x + y
+  (1, (x, 3), (_, 5, y)) then x + y
   else 123
 ";
             test_script(script, 8);
@@ -708,8 +707,8 @@ match [1, [2, 3], [4, 5, 6]]
             let script = "
 x = [0]
 match x
-  [0] or [1] then 123
-  [x, y] or [x, y, z] then 99
+  (0) or (1) then 123
+  (x, y) or (x, y, z) then 99
   else -1
 ";
             test_script(script, 123);
@@ -720,9 +719,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, ...] then 0
-  [..., 1] then -1
-  [1, ...] then 1
+  (0, ...) then 0
+  (..., 1) then -1
+  (1, ...) then 1
   else 123
 ";
             test_script(script, 1);
@@ -733,9 +732,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, rest...] then rest
-  [rest..., 3, 2, 1] then rest
-  [1, 2, rest...] then rest
+  (0, rest...) then rest
+  (rest..., 3, 2, 1) then rest
+  (1, 2, rest...) then rest
   else 123
 ";
             test_script(script, number_list(&[3, 4, 5]));
@@ -746,9 +745,9 @@ match x
             let script = "
 x = (1..=5).to_list()
 match x
-  [0, rest...] then rest
-  [rest..., 3, 4, 5] then rest
-  [1, 2, rest...] then rest
+  (0, rest...) then rest
+  (rest..., 3, 4, 5) then rest
+  (1, 2, rest...) then rest
   else 123
 ";
             test_script(script, number_list(&[1, 2]));
@@ -765,6 +764,17 @@ match x
   else 123
 ";
             test_script(script, number_tuple(&[1, 2]));
+        }
+
+        #[test]
+        fn match_string_subslice_at_start_with_id() {
+            let script = "
+match 'hello!'
+  ('h', 'x', ...) then 'nope'
+  ('h', 'e', rest...) then 'llo!'
+  else 'abc'
+";
+            test_script(script, "llo!");
         }
 
         #[test]
@@ -1079,106 +1089,137 @@ f 1, 2, 3
             test_script(script, 3);
         }
 
-        #[test]
-        fn arg_unpacking_tuple() {
-            let script = "
+        mod arg_unpacking {
+            use super::*;
+
+            #[test]
+            fn unpack_second_arg() {
+                let script = "
 f = |a, (_, c), d| a + c + d
 f 1, (2, 3), 4
 ";
-            test_script(script, 8);
-        }
+                test_script(script, 8);
+            }
 
-        #[test]
-        fn arg_unpacking_tuple_nested() {
-            let script = "
+            #[test]
+            fn nested() {
+                let script = "
 f = |a, (_, (c, d), _), f| a + c + d + f
 f 1, (2, (3, 4), 5), 6
 ";
-            test_script(script, 14);
-        }
+                test_script(script, 14);
+            }
 
-        #[test]
-        fn arg_unpacking_list() {
-            let script = "
-f = |a, [_, c], d| a + c + d
-f 1, [2, 3], 4
-";
-            test_script(script, 8);
-        }
-
-        #[test]
-        fn arg_unpacking_mixed() {
-            let script = "
-f = |a, (b, [_, d]), e| a + b + d + e
+            #[test]
+            fn mixed_containers() {
+                let script = "
+f = |a, (b, (_, d)), e| a + b + d + e
 f 1, (2, [3, 4]), 5
 ";
-            test_script(script, 12);
-        }
+                test_script(script, 12);
+            }
 
-        #[test]
-        fn arg_unpacking_with_capture() {
-            let script = "
+            #[test]
+            fn unpacking_with_capture() {
+                let script = "
 x = 10
 f = |a, (b, c)| a + b + c + x
 f 1, (2, 3)
 ";
-            test_script(script, 16);
-        }
+                test_script(script, 16);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_at_end() {
-            let script = "
+            #[test]
+            fn ellipsis_at_end() {
+                let script = "
 f = |(a, b, ...)| a + b
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 3);
-        }
+                test_script(script, 3);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_with_id_at_end() {
-            let script = "
-f = |(a, b, others...)| a + b + others.size()
+            #[test]
+            fn ellipsis_with_id_at_end() {
+                let script = "
+f = |(a, b, others...)| a + b + size others
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 6);
-        }
+                test_script(script, 6);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_at_start() {
-            let script = "
+            #[test]
+            fn ellipsis_at_end_with_no_extra_values() {
+                let script = "
+f = |(a, b, others...)| a + b + size others
+f (1, 2)
+";
+                test_script(script, 3);
+            }
+
+            #[test]
+            fn ellipsis_at_start() {
+                let script = "
 f = |(..., y, z)| y + z
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 9);
-        }
+                test_script(script, 9);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_with_id_at_start() {
-            let script = "
-f = |(others..., y, z)| y + z + others.size()
+            #[test]
+            fn ellipsis_at_start_with_no_extra_values() {
+                let script = "
+f = |(..., y, z)| y + z
+f (1, 2)
+";
+                test_script(script, 3);
+            }
+
+            #[test]
+            fn ellipsis_with_id_at_start() {
+                let script = "
+f = |(others..., y, z)| y + z + size others
 f (1, 2, 3, 4, 5)
 ";
-            test_script(script, 12);
-        }
+                test_script(script, 12);
+            }
 
-        #[test]
-        fn arg_unpacking_ellipsis_mixed() {
-            let script = "
-f = |[a, (tuple_others..., z), list_others...]|
-  a + list_others.sum() + tuple_others.size() + z
+            #[test]
+            fn ellipsis_at_start_and_end_with_no_extra_values() {
+                let script = "
+f = |(..., y, z)| y + z
+f (1, 2)
+";
+                test_script(script, 3);
+            }
+
+            #[test]
+            fn unpacking_a_map() {
+                let script = "
+f = |((_, a), (_, b))| a + b
+f {foo: 42, bar: 99}
+";
+                test_script(script, 141);
+            }
+
+            #[test]
+            fn ellipsis_mixed() {
+                let script = "
+f = |(a, (tuple_others..., z), list_others...)|
+  a + list_others.sum() + (size tuple_others) + z
 f [10, (1, 2, 3), 20, 30]
 ";
-            test_script(script, 65);
-        }
+                test_script(script, 65);
+            }
 
-        #[test]
-        fn arg_unpacking_temporary_tuple() {
-            let script = "
+            #[test]
+            fn unpacking_a_temporary_tuple() {
+                let script = "
 {foo: 1, bar: 2, baz: 3}
   .keep |(key, _)| key.starts_with 'b'
   .count()
 ";
-            test_script(script, 2);
+                test_script(script, 2);
+            }
         }
 
         #[test]
@@ -2223,7 +2264,7 @@ result = {}
   .each |x|
     result.insert(x, x * x)
   .consume()
-result.size()
+size result
 ";
             test_script(script, 5);
         }
@@ -2242,7 +2283,7 @@ equal
         #[test]
         fn range_in_call_args() {
             let script = "
-foo = |range, x| range.size() + x
+foo = |range, x| (size range) + x
 min, max = 0, 10
 foo min..max, 20
 ";
@@ -2487,32 +2528,32 @@ gen().to_tuple()
 
         #[test]
         fn greater_or_equal() {
-            test_script(r#""héllö42" >= "héllö11""#, true);
+            test_script(r#""hello42" >= "hello11""#, true);
             test_script(r#""hello1" >= "hello42""#, false);
         }
 
         #[test]
         fn index_single_index() {
-            test_script("'héllö'[1]", string("é"));
+            test_script("'hello'[1]", string("e"));
         }
 
         #[test]
         fn index_start_and_end() {
-            test_script("'héllö'[1..2]", string("é"));
-            test_script("'héllö'[1..3]", string("él"));
-            test_script("'héllö'[3..5]", string("lö"));
+            test_script("'hello'[1..2]", string("e"));
+            test_script("'hello'[1..3]", string("el"));
+            test_script("'föo'[1..3]", string("ö"));
         }
 
         #[test]
         fn index_from_start() {
-            test_script("'héllö'[2..]", string("llö"));
-            test_script("'héllö'[3..]", string("lö"));
+            test_script("'hello'[2..]", string("llo"));
+            test_script("'hello'[3..]", string("lo"));
         }
 
         #[test]
         fn index_to_end() {
-            test_script("'héllö'[..1]", string("h"));
-            test_script("'héllö'[..=2]", string("hél"));
+            test_script("'hello'[..1]", string("h"));
+            test_script("'hello'[..=2]", string("hel"));
         }
 
         #[test]
@@ -2520,18 +2561,18 @@ gen().to_tuple()
             test_script("'x'[0..1]", string("x"));
             test_script("'x'[1..]", string(""));
             test_script("'x'[1..1]", string(""));
-            test_script("'héllö'[5..]", string(""));
+            test_script("'hello'[5..]", string(""));
         }
 
         #[test]
         fn index_whole_string() {
-            test_script("'héllö'[..]", string("héllö"));
+            test_script("'hello'[..]", string("hello"));
         }
 
         #[test]
         fn index_sub_string() {
-            test_script("'héllö'[3..][..]", string("lö"));
-            test_script("'héllö'[3..][1]", string("ö"));
+            test_script("'hello'[3..][..]", string("lo"));
+            test_script("'hello'[3..][1]", string("o"));
         }
 
         #[test]
@@ -2582,7 +2623,7 @@ x = 100
         #[test]
         fn inline_map() {
             let script = "
-foo = |m| m.size()
+foo = |m| size m
 '${foo {bar: 42, baz: 99}}!'
 ";
             test_script(script, string("2!"));
@@ -2633,7 +2674,7 @@ m.'key$x'
         }
 
         #[test]
-        fn value_with_overloaded_display() {
+        fn value_with_overridden_display() {
             let script = "
 foo = {@display: || 'Foo'}
 '$foo'
@@ -2858,7 +2899,7 @@ catch _
         }
     }
 
-    mod operator_overloading {
+    mod overridden_operators {
         use super::*;
 
         #[test]
@@ -2979,7 +3020,7 @@ foo = |x|
         }
 
         #[test]
-        fn equality_of_list_containing_overloaded_value() {
+        fn equality_of_list_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -2995,7 +3036,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn equality_of_map_containing_overloaded_value() {
+        fn equality_of_map_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3011,7 +3052,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn equality_of_tuple_containing_overloaded_value() {
+        fn equality_of_tuple_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3027,7 +3068,7 @@ a == b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_list_containing_overloaded_value() {
+        fn inequality_of_list_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3043,7 +3084,7 @@ a != b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_map_containing_overloaded_value() {
+        fn inequality_of_map_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3059,7 +3100,7 @@ a != b # Should evaluate to true due to the inverted equality operator
         }
 
         #[test]
-        fn inequality_of_tuple_containing_overloaded_value() {
+        fn inequality_of_tuple_containing_overridden_value() {
             let script = "
 foo = |x|
   x: x
@@ -3089,7 +3130,7 @@ b >= a
         }
 
         #[test]
-        fn equality_of_functions_with_overloaded_captures() {
+        fn equality_of_functions_with_overridden_captures() {
             let script = "
 # Make two functions which capture a different foo
 foos = (0, 1)
@@ -3106,7 +3147,7 @@ foos[0] == foos[1]
         }
 
         #[test]
-        fn map_addition_with_overloaded_operators() {
+        fn map_addition_with_overridden_operators() {
             let script = "
 foo = |a, b|
   @meta a: a
@@ -3126,7 +3167,7 @@ c.get_a() + c.get_b()
         }
     }
 
-    mod overloaded_call {
+    mod overridden_call {
         use super::*;
 
         #[test]
@@ -3159,7 +3200,7 @@ x 10
         }
     }
 
-    mod overloaded_index {
+    mod overridden_index_and_size {
         use super::*;
 
         #[test]
@@ -3171,9 +3212,54 @@ x[1]
 ";
             test_script(script, 11);
         }
+
+        #[test]
+        fn size() {
+            let script = "
+foo = |n|
+  n: n
+  @size: || self.n
+x = foo 99
+size x
+";
+            test_script(script, 99);
+        }
+
+        #[test]
+        fn argument_unpacking() {
+            let script = "
+foo = |data|
+  data: data
+  @[]: |index| self.data[index]
+  @size: || size self.data
+
+f = |(a, b, others...)| a + b + size others
+x = foo (10, 11, 12, 13)
+f x # 10 + 11 + 2
+";
+            test_script(script, 23);
+        }
+
+        #[test]
+        fn match_unpacking() {
+            let script = "
+foo = |data|
+  data: data
+  @[]: |index| self.data[index]
+  @size: || size self.data
+
+match foo (10, 11, 12, 13)
+  (a) then 99
+  (a, b) then -1
+  (a, b, c, others...) then
+    # 10 + 11 + 12 + 1
+    a + b + c + size others
+";
+            test_script(script, 34);
+        }
     }
 
-    mod overloaded_iterator {
+    mod overridden_iterator {
         use super::*;
 
         #[test]
@@ -3190,7 +3276,7 @@ a, b, c
         }
     }
 
-    mod overloaded_next {
+    mod overridden_next {
         use super::*;
 
         #[test]

@@ -1,4 +1,4 @@
-use crate::{Chunk, FunctionFlags, Instruction, Op, TypeId};
+use crate::{Chunk, FunctionFlags, Instruction, Op};
 use koto_memory::Ptr;
 
 /// An iterator that converts bytecode into a series of [Instruction]s
@@ -373,14 +373,6 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
                 index: get_u8!() as i8,
             }),
-            Op::IsTuple => Some(IsTuple {
-                register: get_u8!(),
-                value: get_u8!(),
-            }),
-            Op::IsList => Some(IsList {
-                register: get_u8!(),
-                value: get_u8!(),
-            }),
             Op::Index => Some(Index {
                 register: get_u8!(),
                 value: get_u8!(),
@@ -480,15 +472,6 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_var_u32!(),
             }),
-            Op::CheckType => {
-                let register = get_u8!();
-                match TypeId::from_byte(get_u8!()) {
-                    Ok(type_id) => Some(CheckType { register, type_id }),
-                    Err(byte) => Some(Error {
-                        message: format!("Unexpected value for CheckType id: {byte}"),
-                    }),
-                }
-            }
             Op::CheckSizeEqual => Some(CheckSizeEqual {
                 register: get_u8!(),
                 size: get_u8!() as usize,

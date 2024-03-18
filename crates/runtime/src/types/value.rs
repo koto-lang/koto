@@ -139,29 +139,6 @@ impl KValue {
         }
     }
 
-    /// Returns the 'size' of the value
-    ///
-    /// A value's size is the number of elements that can used in unpacking expressions
-    /// e.g.
-    /// x = [1, 2, 3] # x has size 3
-    /// a, b, c = x
-    ///
-    /// See:
-    ///   - [Op::Size](koto_bytecode::Op::Size)
-    ///   - [Op::CheckSizeEqual](koto_bytecode::Op::CheckSizeEqual).
-    ///   - [Op::CheckSizeMin](koto_bytecode::Op::CheckSizeMin).
-    pub fn size(&self) -> usize {
-        use KValue::*;
-
-        match &self {
-            List(l) => l.len(),
-            Tuple(t) => t.len(),
-            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-            Map(m) => m.len(),
-            _ => 1,
-        }
-    }
-
     /// Returns the value's type as a [KString]
     pub fn type_as_string(&self) -> KString {
         use KValue::*;
@@ -174,7 +151,7 @@ impl KValue {
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
-                Some(_) => "Error: expected string for overloaded type".into(),
+                Some(_) => "Error: expected string as result of @type".into(),
                 None => TYPE_OBJECT.with(|x| x.clone()),
             },
             Map(_) => TYPE_MAP.with(|x| x.clone()),
@@ -191,24 +168,6 @@ impl KValue {
             ),
             Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
             TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
-        }
-    }
-
-    /// Returns true if the value is a Map or an External that contains the given meta key
-    pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
-        use KValue::*;
-        match &self {
-            Map(m) => m.contains_meta_key(key),
-            _ => false,
-        }
-    }
-
-    /// If the value is a Map or an External, returns a clone of the corresponding meta value
-    pub fn get_meta_value(&self, key: &MetaKey) -> Option<KValue> {
-        use KValue::*;
-        match &self {
-            Map(m) => m.get_meta_value(key),
-            _ => None,
         }
     }
 

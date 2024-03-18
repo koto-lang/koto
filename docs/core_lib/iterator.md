@@ -911,7 +911,7 @@ print! ('a', 'b', 'c').to_map()
 check! {a: null, b: null, c: null}
 
 print! ('a', 'bbb', 'cc')
-  .each |x| x, x.size()
+  .each |x| x, size x
   .to_map()
 check! {a: 1, bbb: 3, cc: 2}
 ```

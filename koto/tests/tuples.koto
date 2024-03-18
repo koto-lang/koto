@@ -17,7 +17,7 @@ make_foo = |x|
     assert (x.contains 2)
     assert not (x.contains 99)
 
-  @test contains_with_overloaded_equality_op: ||
+  @test contains_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==
@@ -68,11 +68,6 @@ make_foo = |x|
   @test last: ||
     assert_eq (1, 2, 3).last(), 3
     assert_eq [].to_tuple().last(), null
-
-  @test size: ||
-    assert_eq (1, 2).size(), 2
-    assert_eq (1, 2, 3).size(), 3
-    assert_eq ((1, 2), (3, 4)).size(), 2
 
   @test sort_copy: ||
     assert_eq (3, 1, 2).sort_copy(), (1, 2, 3)

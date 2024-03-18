@@ -15,7 +15,7 @@ make_foo = |x|
     assert x.contains 5
     assert not x.contains 15
 
-  @test contains_with_overloaded_equality_op: ||
+  @test contains_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==
@@ -112,23 +112,19 @@ make_foo = |x|
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 
-  @test retain_with_overloaded_equality_op: ||
+  @test retain_with_overridden_equality_op: ||
     bar = |x|
       x: x
       @==: |other| self.x != other.x # This inverts the usual behaviour of ==
 
     z = [bar(0), bar(1), bar(1), bar(1), bar(2)]
     z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped
-    assert_eq z.size(), 2
+    assert_eq (size z), 2
 
   @test reverse: ||
     a = [1, 2, 3]
     a.reverse()
     assert_eq a, [3, 2, 1]
-
-  @test size: ||
-    assert_eq [].size(), 0
-    assert_eq [1, 2, 3].size(), 3
 
   @test sort: ||
     z = [3, 2, 1]
@@ -142,10 +138,10 @@ make_foo = |x|
 
     # Sorting with a core op
     z = [[4, 5, 6], [1], [2, 3]]
-    z.sort list.size
+    z.sort size
     assert_eq z, [[1], [2, 3], [4, 5, 6]]
 
-    # values with overloaded operators
+    # values with overridden operators
     a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
     z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
     z.sort()
@@ -155,8 +151,8 @@ make_foo = |x|
     z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
     z.sort |n| -n.x # reverse sorting
 
-    a_last = a.size() - 1
-    for n in 0..z.size()
+    a_last = (size a) - 1
+    for n in 0..(size z)
       assert_eq z[n].x, a[a_last - n].x
 
   @test swap: ||
