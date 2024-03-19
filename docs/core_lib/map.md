@@ -239,10 +239,6 @@ print! {hello: -1}.is_empty()
 check! false
 ```
 
-### See also
-
-- [`map.size`](#size)
-
 ## keys
 
 ```kototype
