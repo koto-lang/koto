@@ -197,40 +197,12 @@ mod core_lib {
     test_core_lib_examples!(tuple);
 }
 
-mod guide {
-    macro_rules! test_lang_guide_examples {
-        ($name:ident) => {
-            #[test]
-            fn $name() {
-                super::run_doc_examples(&["language"], stringify!($name))
-            }
-        };
-    }
-
-    test_lang_guide_examples!(basics);
-    test_lang_guide_examples!(conditional_expressions);
-    test_lang_guide_examples!(core_library);
-    test_lang_guide_examples!(errors);
-    test_lang_guide_examples!(functions);
-    test_lang_guide_examples!(functions_advanced);
-    test_lang_guide_examples!(generators);
-    test_lang_guide_examples!(getting_started);
-    test_lang_guide_examples!(iterators);
-    test_lang_guide_examples!(lists);
-    test_lang_guide_examples!(loops);
-    test_lang_guide_examples!(maps);
-    test_lang_guide_examples!(meta_maps);
-    test_lang_guide_examples!(modules);
-    test_lang_guide_examples!(ranges);
-    test_lang_guide_examples!(strings);
-    test_lang_guide_examples!(testing);
-    test_lang_guide_examples!(tuples);
-    test_lang_guide_examples!(value_unpacking);
+#[test]
+fn language_guide() {
+    run_doc_examples(&["."], "language_guide")
 }
 
-mod readme {
-    #[test]
-    fn check_readme() {
-        super::run_doc_examples(&[".."], "README")
-    }
+#[test]
+fn readme() {
+    run_doc_examples(&[".."], "README")
 }
