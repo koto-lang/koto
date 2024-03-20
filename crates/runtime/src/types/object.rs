@@ -80,14 +80,20 @@ pub trait KotoLookup {
 /// #[koto_impl(runtime = koto_runtime)]
 /// impl Foo {
 ///     // Simple methods tagged with `#[koto_method]` can use a `&self` argument.
-///     // The macro
 ///     #[koto_method(alias = "data")]
 ///     fn get_data(&self) -> KValue {
 ///         self.data.into()
 ///     }
 ///
 ///     // An example of a more complex method that makes use of [MethodContext] to return the
-///     // instance as the result, which allows for chaining of setter operations.
+///     // instance as the result, which allows for chaining of setter operations.  e.g.:
+///     // ```koto
+///     // make_foo(42)
+///     //  .set_data(99)
+///     //  .set_data(-1)
+///     //  .get_data()
+///     // # -1
+///     // ```
 ///     #[koto_method]
 ///     fn set_data(ctx: MethodContext<Self>) -> Result<KValue> {
 ///         match ctx.args {

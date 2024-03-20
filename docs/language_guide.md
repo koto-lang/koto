@@ -1,3 +1,11 @@
+A rendered version of this document can be found
+[here](https://koto.dev/docs/next/language).
+
+See the neighbouring [readme][./README.md] for an explanation of the
+`print!` and `check!` commands used in the following example.
+
+---
+
 # The Koto Language Guide
 
 ## Language Basics
