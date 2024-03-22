@@ -610,6 +610,7 @@ dependencies = [
 name = "koto"
 version = "0.13.0"
 dependencies = [
+ "anyhow",
  "criterion",
  "dunce",
  "koto_bytecode",

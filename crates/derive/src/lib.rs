@@ -64,11 +64,11 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// Wrapper functions are generated that take care of checking that the function has been called
 /// with an instance of the correct object type.
 ///
-/// The function can take `&self` or `&mut self` along with an optional `&[Value]` slice of
+/// The function can take `&self` or `&mut self` along with an optional `&[KValue]` slice of
 /// additional arguments, or for more advanced functions a `MethodContext<Self>` can be provided.
 ///
-/// The return type can be ommitted (in which case the result will be `Value::Null`),
-/// or a `Value`, or a `Result<Value>`.
+/// The return type can be ommitted (in which case the result will be `KValue::Null`),
+/// or a `KValue`, or a `Result<KValue>`.
 ///
 /// For cases where it would be preferable to return a clone of the object instance
 /// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self`>
@@ -98,15 +98,15 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 ///     // Add an `x()` method to the Foo object, and also make it available via `get_x()`
 ///     #[koto_method(alias = "get_x")]
-///     fn x(&self) -> Value {
+///     fn x(&self) -> KValue {
 ///         self.x.into()
 ///     }
 ///
 ///     // A wrapper function
 ///     #[koto_method]
-///     fn reset(&mut self, args: &[Value]) -> Result<Value> {
+///     fn reset(&mut self, args: &[KValue]) -> Result<KValue> {
 ///         let reset_value = match args {
-///             [Value::Number(reset_value)] => reset_value.into(),
+///             [KValue::Number(reset_value)] => reset_value.into(),
 ///             [] => 0.0,
 ///             unexpected => return type_error_with_slice("an optional Number", unexpected),
 ///         };
@@ -115,9 +115,9 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///     }
 ///
 ///     #[koto_method]
-///     fn set_x(ctx: MethodContext) -> Result<Value> {
+///     fn set_x(ctx: MethodContext) -> Result<KValue> {
 ///         match args {
-///             [Value::Number(new_x)] => {
+///             [KValue::Number(new_x)] => {
 ///                 ctx.instance_mut()?.x = new_x.into();
 ///                 // Return a clone of the instance that's being modified
 ///                 ctx.instance_result()
