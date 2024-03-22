@@ -171,19 +171,8 @@ Inserts an entry into the map with the given key, and Null as its value.
 If the key already existed in the map, then the old value is returned.
 If the key didn't already exist, then Null is returned.
 
-### Map Keys
-
-Map keys are typically strings, but any _immutable_ value can be used.
-
-Values that can be used as keys are:
-- `Bool`
-- `Number`
-- `Null`
-- `Range`
-- `String`
-- `Tuple` 
-  - A Tuple can only be used as a key when its contained values are immutable, 
-    any mutable value (like a `List` or `Map`) will throw an error.
+See the [language guide](../language_guide.md#map-key-types) for a description 
+of the types of values that can be used as map keys.
 
 ### Example
 
