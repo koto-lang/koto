@@ -16,18 +16,10 @@ To run a Koto script, instantiate `koto::Koto` and call `compile_and_run`:
 hello_world.rs
 ```
 
-## Getting a Return Value
-
-The result of calling `compile_and_run` is a _Koto value_, aka `KValue`.
-
-`KValue` is an enum that contains variants for each of the core Koto value
-types, like `Number`, `String`, etc.
-
-The type of a `KValue` as a string can be retrieved via `KValue::type_as_string`,
-and to render a `KValue`, call `Koto::value_to_string`.
+## Passing Arguments to Koto
 
 ```rust_include
-return_value.rs
+args.rs
 ```
 
 ## Adding Values to the Prelude
@@ -42,12 +34,19 @@ to corresponding Koto types.
 prelude_value.rs
 ```
 
-## Passing Arguments to Koto
+## Getting a Return Value
+
+The result of calling `compile_and_run` is a _Koto value_, aka `KValue`.
+
+`KValue` is an enum that contains variants for each of the core Koto value
+types, like `Number`, `String`, etc.
+
+The type of a `KValue` as a string can be retrieved via `KValue::type_as_string`,
+and to render a `KValue`, call `Koto::value_to_string`.
 
 ```rust_include
-args.rs
+return_value.rs
 ```
-
 
 ## Rust Functions in Koto
 
