@@ -144,7 +144,7 @@ mod objects {
         }
 
         fn size(&self) -> Option<usize> {
-            Some(self.x.abs() as usize)
+            Some(self.x.unsigned_abs() as usize)
         }
 
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
@@ -675,7 +675,7 @@ x + z
             let script = "
 x = make_object 100
 y = x
-z = deep_copy x
+z = koto.deep_copy x
 y -= 50
 z += 200
 x + z

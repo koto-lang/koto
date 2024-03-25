@@ -59,7 +59,6 @@ impl CoreLib {
         default_import!("assert_near", test);
         default_import!("print", io);
         default_import!("copy", koto);
-        default_import!("deep_copy", koto);
         default_import!("size", koto);
         default_import!("type", koto);
 

@@ -25,6 +25,7 @@ thiserror = { workspace = true }
 [dev-dependencies]
 koto_geometry = { path = "../../libs/geometry", version = "^0.13.0" }
 
+anyhow = { workspace = true }
 criterion = { workspace = true }
 mimalloc = { workspace = true }
 pulldown-cmark = { workspace = true }

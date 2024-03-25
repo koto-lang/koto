@@ -58,7 +58,7 @@ impl Poetry {
                 .cloned()
         };
 
-        self.previous = result.clone();
+        self.previous.clone_from(&result);
         result
     }
 }

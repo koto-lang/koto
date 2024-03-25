@@ -106,6 +106,10 @@ The Koto project adheres to
 
 ### Removed 
 
+#### Core Library
+
+- `koto.deep_copy` has been removed from the prelude.
+
 #### API
 
 - `ObjectEntryBuilder` has been replaced with macros from `koto_derive`.

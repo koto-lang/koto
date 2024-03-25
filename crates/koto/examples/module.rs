@@ -1,0 +1,29 @@
+use koto::prelude::*;
+
+fn main() {
+    let script = "
+from my_module import echo, square
+
+print echo 'Hello'
+print square 9
+";
+    let mut koto = Koto::default();
+    koto.prelude().insert("my_module", make_module());
+    koto.compile_and_run(script).unwrap();
+}
+
+fn make_module() -> KMap {
+    let module = KMap::with_type("my_module");
+
+    module.add_fn("echo", |ctx| match ctx.args() {
+        [KValue::Str(s)] => Ok(format!("{s}!").into()),
+        unexpected => type_error_with_slice("a string", unexpected),
+    });
+
+    module.add_fn("square", |ctx| match ctx.args() {
+        [KValue::Number(n)] => Ok((n * n).into()),
+        unexpected => type_error_with_slice("a number", unexpected),
+    });
+
+    module
+}

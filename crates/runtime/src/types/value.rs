@@ -300,6 +300,15 @@ impl From<KNativeFunction> for KValue {
     }
 }
 
+impl<T> From<T> for KValue
+where
+    T: KotoFunction,
+{
+    fn from(value: T) -> Self {
+        Self::NativeFunction(KNativeFunction::new(value))
+    }
+}
+
 /// A slice of a VM's registers
 ///
 /// See [Value::TemporaryTuple]

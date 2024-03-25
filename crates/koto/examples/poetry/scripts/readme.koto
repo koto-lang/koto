@@ -1,5 +1,6 @@
 @main = ||
-  input_file = io.extend_path koto.script_dir, '..', '..', '..', 'README.md'
+  input_file =
+    io.extend_path koto.script_dir, '..', '..', '..', '..', '..', 'docs', 'language_guide.md'
     >> io.read_to_string
   generator = poetry.new input_file
 
@@ -10,7 +11,7 @@
   stanzas = 5
   word_counts = 1, 3, 5, 3, 1
 
-  for _ in 0..stanzas
+  for i in 0..stanzas
     for count in word_counts
       line = generator
         .take count

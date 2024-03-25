@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use pulldown_cmark::HeadingLevel;
 use std::{
     iter::{self, Peekable},
     rc::Rc,
@@ -6,6 +7,14 @@ use std::{
 
 const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
+
+macro_rules! include_doc {
+    ($doc:expr) => {
+        // Including via a symlink to the top-level docs folder to ensure cargo-package
+        // can find it during packaging.
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/", $doc))
+    };
+}
 
 struct HelpEntry {
     // The entry's user-displayed name
@@ -29,35 +38,13 @@ pub struct Help {
 
 impl Help {
     pub fn new() -> Self {
-        macro_rules! include_doc {
-            ($doc:expr) => {
-                // Including via a symlink to the top-level docs folder to ensure cargo-package
-                // can find it during packaging.
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/", $doc))
-            };
-        }
+        let mut result = Self {
+            help_map: IndexMap::new(),
+            guide_topics: Vec::new(),
+            module_names: Vec::new(),
+        };
 
-        let guide_files = [
-            include_doc!("language/basics.md"),
-            include_doc!("language/strings.md"),
-            include_doc!("language/functions.md"),
-            include_doc!("language/lists.md"),
-            include_doc!("language/tuples.md"),
-            include_doc!("language/maps.md"),
-            include_doc!("language/core_library.md"),
-            include_doc!("language/iterators.md"),
-            include_doc!("language/value_unpacking.md"),
-            include_doc!("language/conditional_expressions.md"),
-            include_doc!("language/loops.md"),
-            include_doc!("language/ranges.md"),
-            include_doc!("language/functions_advanced.md"),
-            include_doc!("language/generators.md"),
-            include_doc!("language/meta_maps.md"),
-            include_doc!("language/errors.md"),
-            include_doc!("language/testing.md"),
-            include_doc!("language/modules.md"),
-            include_doc!("language/prelude.md"),
-        ];
+        result.add_help_from_guide();
 
         let reference_files = [
             include_doc!("core_lib/io.md"),
@@ -72,17 +59,6 @@ impl Help {
             include_doc!("core_lib/test.md"),
             include_doc!("core_lib/tuple.md"),
         ];
-
-        let mut result = Self {
-            help_map: IndexMap::new(),
-            guide_topics: Vec::new(),
-            module_names: Vec::new(),
-        };
-
-        for file_contents in guide_files.iter() {
-            result.add_help_from_guide(file_contents);
-        }
-
         for file_contents in reference_files.iter() {
             result.add_help_from_reference(file_contents);
         }
@@ -197,66 +173,83 @@ impl Help {
         }
     }
 
-    fn add_help_from_guide(&mut self, markdown: &str) {
-        let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
+    fn add_help_from_guide(&mut self) {
+        let guide_contents = include_doc!("language_guide.md");
+        let mut parser = pulldown_cmark::Parser::new(guide_contents).peekable();
 
-        // Consume the module overview section
-        let topic = consume_help_section(&mut parser, None);
-        // We should avoid top-level topics without a body
-        debug_assert!(
-            !topic.contents.trim().is_empty(),
-            "Missing contents for {}",
-            topic.name
-        );
+        // Skip the guide intro
+        consume_help_section(&mut parser, None, HeadingLevel::H1, false);
 
-        // Add sub-topics
-        let mut sub_topics = Vec::new();
         while parser.peek().is_some() {
-            sub_topics.push(consume_help_section(&mut parser, None));
-        }
+            // Consume the module overview section
+            let topic = consume_help_section(&mut parser, None, HeadingLevel::H2, false);
+            // We should avoid top-level topics without a body
+            debug_assert!(
+                !topic.contents.trim().is_empty(),
+                "Missing contents for {}",
+                topic.name
+            );
 
-        let see_also = sub_topics
-            .iter()
-            .flat_map(|sub_topic| iter::once(&sub_topic.name).chain(sub_topic.sub_sections.iter()))
-            .cloned()
-            .collect();
-        self.help_map.insert(
-            text_to_key(&topic.name),
-            HelpEntry {
-                name: topic.name.clone(),
-                help: topic.contents,
-                see_also,
-                keywords: vec![],
-            },
-        );
-        self.guide_topics.push(topic.name.clone());
+            // Add sub-topics
+            let mut sub_topics = Vec::new();
+            loop {
+                let sub_topic = consume_help_section(&mut parser, None, HeadingLevel::H3, true);
+                if sub_topic.contents.trim().is_empty() {
+                    break;
+                }
+                sub_topics.push(sub_topic);
+            }
 
-        for sub_topic in sub_topics {
+            let see_also = sub_topics
+                .iter()
+                .flat_map(|sub_topic| {
+                    iter::once(&sub_topic.name).chain(sub_topic.sub_sections.iter())
+                })
+                .cloned()
+                .collect();
             self.help_map.insert(
-                text_to_key(&sub_topic.name),
+                text_to_key(&topic.name),
                 HelpEntry {
-                    name: sub_topic.name,
-                    help: sub_topic.contents,
-                    keywords: sub_topic
-                        .sub_sections
-                        .iter()
-                        .map(|sub_section| text_to_key(sub_section))
-                        .collect(),
-                    see_also: vec![topic.name.clone()],
+                    name: topic.name.clone(),
+                    help: topic.contents,
+                    see_also,
+                    keywords: vec![],
                 },
             );
+            self.guide_topics.push(topic.name.clone());
+
+            for sub_topic in sub_topics {
+                self.help_map.insert(
+                    text_to_key(&sub_topic.name),
+                    HelpEntry {
+                        name: sub_topic.name,
+                        help: sub_topic.contents,
+                        keywords: sub_topic
+                            .sub_sections
+                            .iter()
+                            .map(|sub_section| text_to_key(sub_section))
+                            .collect(),
+                        see_also: vec![topic.name.clone()],
+                    },
+                );
+            }
         }
     }
 
     fn add_help_from_reference(&mut self, markdown: &str) {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
-        let help_section = consume_help_section(&mut parser, None);
+        let help_section = consume_help_section(&mut parser, None, HeadingLevel::H1, false);
 
         // Consume each module entry
         let mut entry_names = Vec::new();
         while parser.peek().is_some() {
-            let module_entry = consume_help_section(&mut parser, Some(&help_section.name));
+            let module_entry = consume_help_section(
+                &mut parser,
+                Some(&help_section.name),
+                HeadingLevel::H2,
+                true,
+            );
             self.help_map.insert(
                 text_to_key(&module_entry.name),
                 HelpEntry {
@@ -295,6 +288,7 @@ struct HelpSection {
 }
 
 enum ParsingMode {
+    WaitingForSectionStart,
     Any,
     Section,
     SubSection,
@@ -302,13 +296,19 @@ enum ParsingMode {
     TypeDeclaration,
 }
 
+// Consumes a section of content between headers
+//
+// - If the title section is being consumed, then the function will break out at the first
+//   sub-header.
+// - If a sub-section is being consumed, then
 fn consume_help_section(
     parser: &mut Peekable<pulldown_cmark::Parser>,
     module_name: Option<&str>,
+    level_to_consume: HeadingLevel,
+    include_sub_sections: bool,
 ) -> HelpSection {
-    use pulldown_cmark::{CodeBlockKind, Event::*, HeadingLevel, Tag::*};
+    use pulldown_cmark::{CodeBlockKind, Event::*, Tag::*};
 
-    let mut section_level = None;
     let mut section_name = String::new();
     let mut sub_section_name = String::new();
     let mut sub_sections = Vec::new();
@@ -316,29 +316,35 @@ fn consume_help_section(
     let mut result = indent.clone();
 
     let mut list_indent = 0;
-    let mut parsing_mode = ParsingMode::Any;
+    let mut parsing_mode = ParsingMode::WaitingForSectionStart;
 
     while let Some(peeked) = parser.peek() {
         match peeked {
             Start(Heading(level, _, _)) => {
-                match section_level {
-                    Some(HeadingLevel::H1) => {
-                        // We've reached the end of the title section, so break out
+                use std::cmp::Ordering::*;
+                let waiting_for_start = matches!(parsing_mode, ParsingMode::WaitingForSectionStart);
+                match level.cmp(&level_to_consume) {
+                    Less => {
                         break;
                     }
-                    Some(section_level) if section_level >= *level => {
-                        // We've reached the end of the section, so break out
-                        break;
+                    Equal => {
+                        if waiting_for_start {
+                            parsing_mode = ParsingMode::Section;
+                        } else {
+                            break;
+                        }
                     }
-                    Some(_) => {
-                        // Start a new subsection
-                        parsing_mode = ParsingMode::SubSection;
-                        sub_section_name.clear();
-                        result.push_str("\n\n");
-                    }
-                    None => {
-                        parsing_mode = ParsingMode::Section;
-                        section_level = Some(*level);
+                    Greater => {
+                        if waiting_for_start {
+                            // Continue consuming until the start of the section is found
+                        } else if include_sub_sections {
+                            // Start a new subsection
+                            parsing_mode = ParsingMode::SubSection;
+                            sub_section_name.clear();
+                            result.push_str("\n\n");
+                        } else {
+                            break;
+                        }
                     }
                 }
             }
@@ -385,6 +391,7 @@ fn consume_help_section(
             Start(Strong) => result.push('*'),
             End(Strong) => result.push('*'),
             Text(text) => match parsing_mode {
+                ParsingMode::WaitingForSectionStart => {}
                 ParsingMode::Any => result.push_str(text),
                 ParsingMode::Section => section_name.push_str(text),
                 ParsingMode::SubSection => {

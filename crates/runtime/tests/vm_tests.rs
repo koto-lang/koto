@@ -183,6 +183,7 @@ a, b, c
         }
     }
 
+    #[allow(clippy::reversed_empty_ranges)]
     mod ranges {
         use super::*;
 
@@ -2205,7 +2206,7 @@ m.foo(10, 1, 2, 3).to_tuple()
         fn deep_copy_list() {
             let script = "
 x = [0, [1, {foo: 2}]]
-x2 = deep_copy x
+x2 = koto.deep_copy x
 x[1][1].foo = 42
 x2[1][1].foo";
             test_script(script, 2);
@@ -2216,7 +2217,7 @@ x2[1][1].foo";
             let script = "
 list = [1, [2]]
 x = (0, list)
-x2 = deep_copy x
+x2 = koto.deep_copy x
 list[1][0] = 42
 x2[1][1][0]";
             test_script(script, 2);
@@ -2226,7 +2227,7 @@ x2[1][1][0]";
         fn deep_copy_map() {
             let script = "
 m = {foo: {bar: -1}}
-m2 = deep_copy m
+m2 = koto.deep_copy m
 m.foo.bar = 99
 m2.foo.bar";
             test_script(script, number(-1));
@@ -2783,7 +2784,7 @@ z.next().get()
             let script = "
 r = 1..10
 x = [r.iter()]
-z = deep_copy x
+z = koto.deep_copy x
 x[0].next()
 x[0].next()
 z[0].next()
@@ -3123,7 +3124,7 @@ foo = |x|
   @>=: |other| self.x >= other.x
 
 a = foo 42
-b = deep_copy a
+b = koto.deep_copy a
 b >= a
 ";
             test_script(script, true);
