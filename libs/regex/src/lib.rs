@@ -126,7 +126,7 @@ pub struct Matches {
 
 impl Matches {}
 
-impl KotoLookup for Matches {}
+impl KotoEntries for Matches {}
 
 impl KotoObject for Matches {
     fn is_iterable(&self) -> IsIterable {

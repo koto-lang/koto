@@ -2351,7 +2351,16 @@ impl KotoVm {
                 map.data_mut().insert(key, value);
                 Ok(())
             }
-            unexpected => type_error("Map", unexpected),
+            KValue::Object(o) => {
+                let o = o.try_borrow()?;
+                if let Some(entries) = o.entries() {
+                    entries.insert(key, value);
+                    Ok(())
+                } else {
+                    runtime_error!("Insertion not supported for '{}'", o.type_string())
+                }
+            }
+            unexpected => type_error("a value that supports insertion", unexpected),
         }
     }
 
@@ -2510,21 +2519,26 @@ impl KotoVm {
             }
             Object(o) => {
                 let o = o.try_borrow()?;
-                if let Some(value) = o.lookup(&key) {
-                    self.set_register(result_register, value);
+
+                let mut result = None;
+                if let Some(entries) = o.entries() {
+                    result = entries.data().get(&key).cloned();
+                }
+
+                // Iterator fallback?
+                if result.is_none() && !matches!(o.is_iterable(), IsIterable::NotIterable) {
+                    result = Some(self.get_core_op(
+                        &key,
+                        &self.context.core_lib.iterator,
+                        false,
+                        &o.type_string(),
+                    )?);
+                }
+
+                if let Some(result) = result {
+                    self.set_register(result_register, result);
                 } else {
-                    // Iterator fallback?
-                    if !matches!(o.is_iterable(), IsIterable::NotIterable) {
-                        let iterator_op = self.get_core_op(
-                            &key,
-                            &self.context.core_lib.iterator,
-                            false,
-                            &accessed_value.type_as_string(),
-                        )?;
-                        self.set_register(result_register, iterator_op);
-                    } else {
-                        return runtime_error!("'{key}' not found in '{}'", o.type_string());
-                    }
+                    return runtime_error!("'{key}' not found in '{}'", o.type_string());
                 }
             }
             unexpected => return type_error("Value that supports '.' access", unexpected),

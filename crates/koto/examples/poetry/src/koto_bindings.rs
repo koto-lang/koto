@@ -22,7 +22,7 @@ pub fn make_module() -> KMap {
 #[koto(type_name = "Poetry")]
 struct KotoPoetry(Poetry);
 
-impl KotoLookup for KotoPoetry {}
+impl KotoEntries for KotoPoetry {}
 
 impl KotoObject for KotoPoetry {
     fn is_iterable(&self) -> IsIterable {

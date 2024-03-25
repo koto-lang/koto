@@ -20,8 +20,8 @@ pub use crate::{
     types::{
         BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
         KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy,
-        KotoFunction, KotoHasher, KotoIterator, KotoLookup, KotoObject, KotoType, MetaKey, MetaMap,
-        MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
+        KotoEntries, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey,
+        MetaMap, MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield},
 };

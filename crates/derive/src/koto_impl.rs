@@ -2,36 +2,38 @@ use crate::{PREFIX_FUNCTION, PREFIX_STATIC};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote, Attribute, FnArg, Ident, ImplItem, ItemImpl, LitStr, Meta,
-    Path, ReturnType, Signature, Token, Type,
+    meta::ParseNestedMeta, parse::Result, parse_macro_input, parse_quote, Attribute, FnArg, Ident,
+    ImplItem, ItemImpl, LitStr, Meta, Path, ReturnType, Signature, Type,
 };
 
-struct KotoImplAttr {
-    pub runtime_path: Path,
+struct KotoImplParser {
+    runtime_path: Path,
 }
 
-impl Parse for KotoImplAttr {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut runtime_path = parse_quote! {::koto::runtime };
-
-        while !input.is_empty() {
-            let ident = input.parse::<Ident>()?;
-            if ident == "runtime" {
-                input.parse::<Token![=]>()?;
-                runtime_path = input.parse()?;
-            } else {
-                return Err(syn::Error::new(ident.span(), "Unsupported attribute"));
-            }
+impl Default for KotoImplParser {
+    fn default() -> Self {
+        Self {
+            runtime_path: parse_quote! {::koto::runtime },
         }
-
-        Ok(KotoImplAttr { runtime_path })
     }
 }
 
-pub(crate) fn generate_koto_lookup_entries(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attr = parse_macro_input!(attr as KotoImplAttr);
-    let runtime = attr.runtime_path;
+impl KotoImplParser {
+    fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
+        if meta.path.is_ident("runtime") {
+            self.runtime_path = meta.value()?.parse()?;
+            Ok(())
+        } else {
+            Err(meta.error("Unsupported attribute"))
+        }
+    }
+}
+
+pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream) -> TokenStream {
+    let mut attrs = KotoImplParser::default();
+    let parser = syn::meta::parser(|meta| attrs.parse(meta));
+    parse_macro_input!(args with parser);
+    let runtime = attrs.runtime_path;
 
     let item_clone = item.clone();
     let input = parse_macro_input!(item_clone as ItemImpl);
@@ -73,17 +75,17 @@ pub(crate) fn generate_koto_lookup_entries(attr: TokenStream, item: TokenStream)
 
         #[automatically_derived]
         thread_local! {
-            static #entries_map_name: #runtime::ValueMap = {
-                let mut result = #runtime::ValueMap::default();
+            static #entries_map_name: #runtime::KMap = {
+                let mut result = #runtime::KMap::default();
                 #(#lookup_inserts)*
                 result
             };
         }
 
         #[automatically_derived]
-        impl #runtime::KotoLookup for #struct_ident {
-            fn lookup(&self, key: &#runtime::ValueKey) -> Option<#runtime::KValue> {
-                #entries_map_name.with(|entries| entries.get(key).cloned())
+        impl #runtime::KotoEntries for #struct_ident {
+            fn entries(&self) -> Option<#runtime::KMap> {
+                #entries_map_name.with(|map| Some(map.clone()))
             }
         }
     };
@@ -212,12 +214,12 @@ fn lookup_insert(
 
         quote! {
             let f = #runtime::KValue::NativeFunction(#runtime::KNativeFunction::new(#wrapper_name));
-            #(result.insert(#fn_names.into(), f.clone());)*
+            #(result.insert(KString::from(#fn_names), f.clone());)*
         }
     } else {
         quote! {
             result.insert(
-                #fn_name.into(),
+                KString::from(#fn_name),
                 #runtime::KValue::NativeFunction(#runtime::KNativeFunction::new(#wrapper_name)));
         }
     }
