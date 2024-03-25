@@ -371,6 +371,7 @@ impl fmt::Display for KRange {
 }
 
 #[cfg(test)]
+#[allow(clippy::reversed_empty_ranges)]
 mod tests {
     use super::*;
 

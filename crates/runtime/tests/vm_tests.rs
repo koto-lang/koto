@@ -183,6 +183,7 @@ a, b, c
         }
     }
 
+    #[allow(clippy::reversed_empty_ranges)]
     mod ranges {
         use super::*;
 

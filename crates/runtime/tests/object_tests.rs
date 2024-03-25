@@ -144,7 +144,7 @@ mod objects {
         }
 
         fn size(&self) -> Option<usize> {
-            Some(self.x.abs() as usize)
+            Some(self.x.unsigned_abs() as usize)
         }
 
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
