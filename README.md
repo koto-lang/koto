@@ -18,7 +18,7 @@ language for [Rust][rust] applications, or as a standalone scripting language.
 - [Koto Language Guide](docs/language_guide.md)
 - [CLI Docs](docs/cli.md)
 - [Online Playground][playground]
-- [Example Rust application with Koto bindings](examples/poetry/)
+- [Example Rust application with Koto bindings](crate/koto/examples/poetry/)
 
 ## MSRV
 

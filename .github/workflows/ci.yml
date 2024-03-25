@@ -27,7 +27,7 @@ jobs:
         run: cargo test --verbose
 
       - name: Run poetry example
-        run: cargo run --example poetry -- -s examples/poetry/scripts/readme.koto
+        run: cargo run --example poetry -- -s crates/koto/examples/poetry/scripts/readme.koto
 
   build_and_test_release:
     # We don't need to test release builds on all platforms for now
@@ -77,4 +77,4 @@ jobs:
           version: v0.12.1
 
       - name: Run wasm example tests
-        run: cd examples/wasm && wasm-pack test --node
+        run: cd crates/koto/examples/wasm && wasm-pack test --node

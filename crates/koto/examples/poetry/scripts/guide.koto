@@ -1,7 +1,8 @@
 @main = ||
-  input_file = io.extend_path 
-    koto.script_dir, '..', '..', '..', 'docs', 'core_lib', 'string.md'
-  generator = poetry.new io.read_to_string input_file
+  input_file =
+    io.extend_path koto.script_dir, '..', 'README.md'
+    >> io.read_to_string
+  generator = poetry.new input_file
 
   separator = '==================================================='
   print separator
@@ -15,7 +16,8 @@
       words = [word, word, word]
       match random.pick 0..4
         n if n < 3 then words[n] = words[n].to_uppercase()
-      print '${words[0]}, ${words[1]}. ${words[2]}!'
+      mark = if random.bool() then '!' else '?'
+      print '${words[0]}, ${words[1]}. ${words[2]}$mark'
     print ''
 
   print separator
