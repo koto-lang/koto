@@ -57,7 +57,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
     koto_copy::derive_koto_copy(input)
 }
 
-/// A helper for deriving `KotoLookup` with functions tagged with `#[koto_method]`
+/// A helper for deriving `KotoEntries` with functions tagged with `#[koto_method]`
 ///
 /// Any function tagged with `#[koto_method]` will be made available via '.' lookup.
 ///

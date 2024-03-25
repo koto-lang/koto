@@ -239,7 +239,7 @@ mod objects {
         }
     }
 
-    impl KotoLookup for TestIterator {}
+    impl KotoEntries for TestIterator {}
 
     impl KotoObject for TestIterator {
         fn is_iterable(&self) -> IsIterable {
@@ -581,6 +581,10 @@ x.as_number()
             let script = "null != (make_object 2)";
             test_object_script(script, true);
         }
+    }
+
+    mod index_and_size {
+        use super::*;
 
         #[test]
         fn index() {
@@ -629,6 +633,17 @@ x = make_object 256
 x()
 ";
         test_object_script(script, 256);
+    }
+
+    #[test]
+    fn insert_via_dot_access() {
+        let script = "
+x = make_object 41
+x.foo = 122
+x.foo += 1
+x.foo
+";
+        test_object_script(script, 123);
     }
 
     mod temporaries {

@@ -40,22 +40,18 @@ pub trait KotoCopy {
     }
 }
 
-/// A trait for defining how objects should behave when '.' access is performed
+/// A trait that allows objects to support '.' lookups
 ///
 /// This is the mechanism for attaching custom methods to objects in the Koto runtime.
 ///
-/// The `#[koto_impl]` provides an easy way to declare methods that should be made available via
-/// lookup by using the `#[koto_method]` attribute, and derives an appropriate implementation of
-/// [KotoLookup].
-pub trait KotoLookup {
-    /// Returns a [KValue] corresponding to the specified key within the object
+/// The `#[koto_impl]` macro provides an easy way to declare methods that should be made available
+/// via lookup by using the `#[koto_method]` attribute, and then derives an appropriate
+/// implementation of [KotoEntries].
+pub trait KotoEntries {
+    /// Returns an optional [KMap] containing entries that can be accessed via the '.' operator.
     ///
-    /// This method is used to retrieve a named entry attached to an object, providing a way to
-    /// access the object's methods or associated values.
-    ///
-    /// The returned value should represent the data associated with the given key. If the key
-    /// does not match any entry within the object, `None` should be returned.
-    fn lookup(&self, _key: &ValueKey) -> Option<KValue> {
+    /// Implementations should return a clone of a cached map. `None` is returned by default.
+    fn entries(&self) -> Option<KMap> {
         None
     }
 }
@@ -75,7 +71,7 @@ pub trait KotoLookup {
 ///     data: i32,
 /// }
 ///
-/// // The `#[koto_impl]` macro derives an implementation of [KotoLookup] containing wrapper
+/// // The `#[koto_impl]` macro derives an implementation of [KotoEntries] containing wrapper
 /// // functions for each impl function tagged with `#[koto_method]`.
 /// #[koto_impl(runtime = koto_runtime)]
 /// impl Foo {
@@ -115,7 +111,7 @@ pub trait KotoLookup {
 /// ```
 ///
 /// See also: [KObject].
-pub trait KotoObject: KotoType + KotoCopy + KotoLookup + KotoSend + KotoSync + Downcast {
+pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + Downcast {
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
     /// By default, the object's type is used as the display string.

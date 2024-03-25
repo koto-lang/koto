@@ -100,7 +100,7 @@ impl Chunk {
     }
 }
 
-impl KotoLookup for Chunk {}
+impl KotoEntries for Chunk {}
 
 impl KotoObject for Chunk {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {

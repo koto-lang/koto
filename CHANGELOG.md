@@ -84,6 +84,7 @@ The Koto project adheres to
 - `Value` has been renamed to `KValue` for consistency with the other core
   runtime value types, and to avoid polluting the prelude with a generic name.
 - The VM-specific parts of `KotoSettings` are now defined via `KotoVmSettings`.
+- The `KotoLookup` trait has been replaced with `KotoEntries`.
 - Objects can be compared with `null` on the LHS without having to implement 
   `KotoObject::equal` and/or `not_equal`.
 - `KRange` initialization has been revamped to support `From` for
