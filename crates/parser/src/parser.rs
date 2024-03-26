@@ -5,6 +5,7 @@ use crate::{
     constant_pool::{ConstantIndex, ConstantPoolBuilder},
     error::{Error, ErrorKind, ExpectedIndentation, InternalError, Result, SyntaxError},
     node::*,
+    StringFormatOptions,
 };
 use koto_lexer::{LexedToken, Lexer, Span, StringType, Token};
 use std::{
@@ -735,7 +736,7 @@ impl<'source> Parser<'source> {
             Token::StringStart { .. } => {
                 let string = self.parse_string(context)?.unwrap();
 
-                if self.peek_token() == Some(Token::Colon) {
+                if self.peek_token() == Some(Token::Colon) && string.context.allow_map_block {
                     self.consume_map_block(MapKey::Str(string.string), start_span, &string.context)
                 } else {
                     let string_node = self.push_node_with_span(Str(string.string), string.span)?;
@@ -1176,7 +1177,7 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
 
-        if self.peek_token() == Some(Token::Colon) {
+        if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
             self.consume_map_block(MapKey::Id(constant_index), start_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
@@ -2714,22 +2715,32 @@ impl<'source> Parser<'source> {
                         let id = self.add_current_slice_as_string_constant()?;
                         self.frame_mut()?.add_id_access(id);
                         let id_node = self.push_node(Node::Id(id))?;
-                        nodes.push(StringNode::Expr(id_node));
+                        nodes.push(StringNode::Expression {
+                            expression: id_node,
+                            format: StringFormatOptions::default(),
+                        });
                     }
                     Some(CurlyOpen) => {
                         self.consume_token();
 
-                        if let Some(expression) =
+                        let Some(expression) =
                             self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
-                        {
-                            nodes.push(StringNode::Expr(expression));
-                        } else {
+                        else {
                             return self.consume_token_and_error(ExpectedExpression);
-                        }
+                        };
+
+                        let format = if self.peek_token() == Some(Colon) {
+                            self.consume_token(); // :
+                            self.consume_format_options()?
+                        } else {
+                            StringFormatOptions::default()
+                        };
 
                         if self.consume_token() != Some(CurlyClose) {
                             return self.error(ExpectedStringPlaceholderEnd);
                         }
+
+                        nodes.push(StringNode::Expression { expression, format });
                     }
                     Some(_) => {
                         return self.consume_token_and_error(UnexpectedTokenAfterDollarInString);
@@ -2754,6 +2765,17 @@ impl<'source> Parser<'source> {
         }
 
         self.error(UnterminatedString)
+    }
+
+    fn consume_format_options(&mut self) -> Result<StringFormatOptions> {
+        use SyntaxError::*;
+
+        if self.consume_token() == Some(Token::StringLiteral) {
+            StringFormatOptions::parse(self.current_token.slice(self.source), &mut self.constants)
+                .map_err(|e| self.make_error(FormatStringError(e)))
+        } else {
+            self.error(ExpectedFormatString)
+        }
     }
 
     fn escape_string_character(&mut self, chars: &mut Peekable<Chars>) -> Result<Option<char>> {

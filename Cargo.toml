@@ -69,6 +69,8 @@ syn = { version = "2.0.41", features = ["full"] }
 tempfile = "3.1"
 # A crate for getting the crate binary in an integration test.
 test_bin = "0.4.0"
+# Provides #[test_case(...)] macro
+test-case = "3.3.1"
 # derive(Error)
 thiserror = "1.0.44"
 # A native Rust encoder and decoder of TOML-formatted files and streams.

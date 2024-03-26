@@ -2719,6 +2719,18 @@ x = ('foo', 'bar')
 ";
             test_script(script, string("('foo', 'bar')"));
         }
+
+        use test_case::test_case;
+
+        #[test_case("'${42:10}'", "        42"; "min width with integer")]
+        #[test_case("'${42:-<10}'", "42--------"; "min width with left-aligned integer")]
+        #[test_case("'${1/3:_^11.3}'", "___0.333___"; "fill with centered float")]
+        #[test_case("'${'hello':.2}'", "he"; "precision with string")]
+        #[test_case("'${'hello':10}'", "hello     "; "min width with string")]
+        #[test_case("'${'hello':~>4.2}'", "~~he"; "right-aligned truncated string")]
+        fn formatted_expression(input: &str, expected: &str) {
+            test_script(input, string(expected));
+        }
     }
 
     mod raw_strings {

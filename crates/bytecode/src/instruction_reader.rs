@@ -1,5 +1,6 @@
-use crate::{Chunk, FunctionFlags, Instruction, Op};
+use crate::{Chunk, FunctionFlags, Instruction, Op, StringFormatFlags};
 use koto_memory::Ptr;
+use koto_parser::StringFormatOptions;
 
 /// An iterator that converts bytecode into a series of [Instruction]s
 #[derive(Clone, Default)]
@@ -483,7 +484,37 @@ impl Iterator for InstructionReader {
             Op::StringStart => Some(StringStart {
                 size_hint: get_var_u32!(),
             }),
-            Op::StringPush => Some(StringPush { value: get_u8!() }),
+            Op::StringPush => {
+                let value = get_u8!();
+                let flags = get_u8!();
+
+                let format_options = if flags != 0 {
+                    let flags = StringFormatFlags::from_byte(flags);
+
+                    let mut options = StringFormatOptions {
+                        alignment: flags.alignment,
+                        ..Default::default()
+                    };
+                    if flags.min_width {
+                        options.min_width = Some(get_var_u32!());
+                    }
+                    if flags.precision {
+                        options.precision = Some(get_var_u32!());
+                    }
+                    if flags.fill_character {
+                        options.fill_character = Some(get_var_u32!());
+                    }
+
+                    Some(options)
+                } else {
+                    None
+                };
+
+                Some(StringPush {
+                    value,
+                    format_options,
+                })
+            }
             Op::StringFinish => Some(StringFinish {
                 register: get_u8!(),
             }),

@@ -2,6 +2,8 @@ use koto_lexer::Span;
 use std::{fmt::Write, path::PathBuf};
 use thiserror::Error;
 
+use crate::string_format_options::StringFormatError;
+
 /// An error that represents a problem with the Parser's internal logic, rather than a user error
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
@@ -97,6 +99,8 @@ pub enum SyntaxError {
     ExpectedForInKeyword,
     #[error("Expected iterable in for loop")]
     ExpectedForIterable,
+    #[error("Expected format string after ':'")]
+    ExpectedFormatString,
     #[error("Expected end of function arguments '|'")]
     ExpectedFunctionArgsEnd,
     #[error("Expected ID in import expression")]
@@ -155,6 +159,8 @@ pub enum SyntaxError {
     ExpectedUntilCondition,
     #[error("Expected condition in while loop")]
     ExpectedWhileCondition,
+    #[error(transparent)]
+    FormatStringError(StringFormatError),
     #[error("Non-inline if expression isn't allowed in this context")]
     IfBlockNotAllowedInThisContext,
     #[error("Found an unexpected token while lexing input")]
@@ -203,6 +209,8 @@ pub enum ErrorKind {
     ExpectedIndentation(#[from] ExpectedIndentation),
     #[error(transparent)]
     SyntaxError(#[from] SyntaxError),
+    #[error(transparent)]
+    StringFormatError(#[from] StringFormatError),
 }
 
 /// An error that can be produced by the [Parser](crate::Parser)

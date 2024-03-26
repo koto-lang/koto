@@ -22,3 +22,4 @@ koto_lexer = { path = "../lexer", version = "^0.13.0" }
 koto_memory = { path = "../memory", version = "^0.13.0", default-features = false }
 
 thiserror = { workspace = true }
+unicode-segmentation = { workspace = true }

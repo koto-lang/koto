@@ -7,6 +7,7 @@ mod constant_pool;
 mod error;
 mod node;
 mod parser;
+mod string_format_options;
 
 pub use crate::{
     ast::*,
@@ -14,5 +15,6 @@ pub use crate::{
     error::{format_source_excerpt, Error, Result},
     node::*,
     parser::Parser,
+    string_format_options::{StringAlignment, StringFormatOptions},
 };
 pub use koto_lexer::{Position, RawStringDelimiter, Span, StringQuote, StringType};

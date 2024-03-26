@@ -15,11 +15,11 @@ arc = ["koto_memory/arc"]
 rc = ["koto_memory/rc"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.13.0", default-features = false  }
+koto_bytecode = { path = "../bytecode", version = "^0.13.0", default-features = false }
 koto_derive = { path = "../derive", version = "^0.13.0" }
 koto_lexer = { path = "../lexer", version = "^0.13.0" }
 koto_memory = { path = "../memory", version = "^0.13.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.13.0", default-features = false  }
+koto_parser = { path = "../parser", version = "^0.13.0", default-features = false }
 
 downcast-rs = { workspace = true }
 indexmap = { workspace = true }
@@ -35,3 +35,6 @@ instant = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 chrono = { workspace = true, features = ["wasmbind"] }
 instant = { workspace = true, features = ["wasm-bindgen"] }
+
+[dev-dependencies]
+test-case = { workspace = true }

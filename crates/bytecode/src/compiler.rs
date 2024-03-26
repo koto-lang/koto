@@ -1,11 +1,11 @@
 use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
-    DebugInfo, FunctionFlags, Op,
+    DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
     Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
-    StringContents, StringNode, SwitchArm,
+    StringContents, StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -1730,13 +1730,20 @@ impl Compiler {
                         StringNode::Literal(constant_index) => {
                             result + ctx.ast.constants().get_str(*constant_index).len()
                         }
-                        StringNode::Expr(_) => {
+                        StringNode::Expression {
+                            format:
+                                StringFormatOptions {
+                                    min_width: Some(min_width),
+                                    ..
+                                },
+                            ..
+                        } => result + *min_width as usize,
+                        StringNode::Expression { .. } => {
                             // Q. Why use '1' here?
                             // A. The expression can result in a displayed string of any length,
                             //    We can make an assumption that the expression will almost always
                             //    produce at least 1 character to display, but it's unhealthy to
-                            //    over-allocate so let's leave it there for now until we have
-                            //    real-world practice that tells us otherwise.
+                            //    over-allocate, so for now let's leave it at that.
                             result + 1
                         }
                     }
@@ -1767,31 +1774,45 @@ impl Compiler {
                                             node_register,
                                             *constant_index,
                                         );
-                                        self.push_op_without_span(Op::StringPush, &[node_register]);
+                                        self.push_op_without_span(
+                                            Op::StringPush,
+                                            &[node_register, 0],
+                                        );
 
                                         self.pop_register()?;
                                     }
                                 }
-                                StringNode::Expr(expression_node) => {
+                                StringNode::Expression { expression, format } => {
                                     if result.register.is_some() {
-                                        let expression_result = self.compile_node(
-                                            *expression_node,
-                                            ctx.with_any_register(),
-                                        )?;
+                                        let expression_result = self
+                                            .compile_node(*expression, ctx.with_any_register())?;
 
+                                        let format_flags = StringFormatFlags::from(*format);
                                         self.push_op_without_span(
                                             Op::StringPush,
-                                            &[expression_result.unwrap(self)?],
+                                            &[
+                                                expression_result.unwrap(self)?,
+                                                format_flags.as_byte(),
+                                            ],
                                         );
+                                        if let Some(min_width) = format.min_width {
+                                            self.push_var_u32(min_width);
+                                        }
+                                        if let Some(precision) = format.precision {
+                                            self.push_var_u32(precision);
+                                        }
+                                        if let Some(fill_constant) = format.fill_character {
+                                            self.push_var_u32(fill_constant);
+                                        }
 
                                         if expression_result.is_temporary {
                                             self.pop_register()?;
                                         }
                                     } else {
-                                        // Compile the expression even though we don't need the result,
-                                        // so that side-effects can take place.
+                                        // Compile the expression even though we don't need the
+                                        // result, so that side-effects can take place.
                                         self.compile_node(
-                                            *expression_node,
+                                            *expression,
                                             ctx.compile_for_side_effects(),
                                         )?;
                                     }

@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringQuote};
+use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -378,7 +378,12 @@ pub enum StringNode {
     /// A string literal
     Literal(ConstantIndex),
     /// An expression that should be evaluated and inserted into the string
-    Expr(AstIndex),
+    Expression {
+        /// The expressions AST index
+        expression: AstIndex,
+        /// Formatting options for the rendered expression
+        format: StringFormatOptions,
+    },
 }
 
 /// A for loop definition

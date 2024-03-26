@@ -1,5 +1,6 @@
 use crate::{Position, Span};
 use std::{collections::VecDeque, iter::Peekable, ops::Range, str::Chars};
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthChar;
 use unicode_xid::UnicodeXID;
 
@@ -153,10 +154,12 @@ enum StringMode {
     // Just after a $ symbol, either an id or a '{' will follow
     TemplateStart,
     // Inside a string template, e.g. '${...}'
-    TemplateExpression,
+    TemplateExpr,
     // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
     // A closing '}' will end the map rather than the template expression.
-    TemplateExpressionInlineMap,
+    TemplateExprInlineMap,
+    // Inside formatting options for a template expression, e.g. '${...:03}'
+    TemplateExprFormat,
     // The start of a raw string has just been consumed, raw string contents follow
     RawStart(RawStringDelimiter),
     // The contents of the raw string have just been consumed, the end delimiter should follow
@@ -494,6 +497,25 @@ impl<'a> TokenLexer<'a> {
         Token::StringEnd
     }
 
+    fn consume_format_options(&mut self, input: &str) -> Token {
+        // Q. Why are graphemes used to find the fill character?
+        // A. Because Koto thinks of 'characters' as grapheme clusters,
+        //    whereas Rust uses codepoints.
+        // Q. Why not simply find the first '}' and use that as the end of the format options?
+        // A. Because '}' is a valid fill character, so it needs to be checked for first.
+        let mut graphemes = input.graphemes(true);
+        let skip_bytes = match (graphemes.next(), graphemes.next()) {
+            (Some(fill), Some("<" | "^" | ">")) => fill.len() + 1,
+            _ => 0,
+        };
+        let Some(end_pos) = input[skip_bytes..].find('}') else {
+            return Token::Error;
+        };
+        self.advance_line(end_pos + skip_bytes);
+        self.string_mode_stack.pop(); // StringMode::TemplateExprFormat
+        Token::StringLiteral
+    }
+
     fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
@@ -754,11 +776,12 @@ impl<'a> TokenLexer<'a> {
                         '{' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
-                            self.string_mode_stack.push(StringMode::TemplateExpression);
+                            self.string_mode_stack.push(StringMode::TemplateExpr);
                             CurlyOpen
                         }
                         _ => Error,
                     },
+                    Some(StringMode::TemplateExprFormat) => self.consume_format_options(remaining),
                     _ => match next_char {
                         c if is_whitespace(c) => {
                             let count = consume_and_count(&mut chars, is_whitespace);
@@ -795,19 +818,15 @@ impl<'a> TokenLexer<'a> {
                             };
 
                             use StringMode::*;
-                            match result {
-                                CurlyOpen => {
-                                    if matches!(string_mode, Some(TemplateExpression)) {
-                                        self.string_mode_stack.push(TemplateExpressionInlineMap);
-                                    }
+                            match (result, string_mode) {
+                                (CurlyOpen, Some(TemplateExpr)) => {
+                                    self.string_mode_stack.push(TemplateExprInlineMap);
                                 }
-                                CurlyClose => {
-                                    if matches!(
-                                        string_mode,
-                                        Some(TemplateExpression | TemplateExpressionInlineMap)
-                                    ) {
-                                        self.string_mode_stack.pop();
-                                    }
+                                (Colon, Some(TemplateExpr)) => {
+                                    self.string_mode_stack.push(TemplateExprFormat);
+                                }
+                                (CurlyClose, Some(TemplateExpr | TemplateExprInlineMap)) => {
+                                    self.string_mode_stack.pop();
                                 }
                                 _ => {}
                             }
@@ -1274,6 +1293,31 @@ r#''bar''#
                     (CurlyClose, None, 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
+                ],
+            );
+        }
+
+        #[test]
+        fn interpolated_string_format_options() {
+            let input = r#"
+'${a + b:_^3.4}'
+"#;
+            use StringQuote::*;
+            check_lexer_output(
+                input,
+                &[
+                    (NewLine, None, 1),
+                    (normal_string(Single), None, 2),
+                    (Dollar, None, 2),
+                    (CurlyOpen, None, 2),
+                    (Id, Some("a"), 2),
+                    (Add, None, 2),
+                    (Id, Some("b"), 2),
+                    (Colon, None, 2),
+                    (StringLiteral, Some("_^3.4"), 2),
+                    (CurlyClose, None, 2),
+                    (StringEnd, None, 2),
+                    (NewLine, None, 2),
                 ],
             );
         }
