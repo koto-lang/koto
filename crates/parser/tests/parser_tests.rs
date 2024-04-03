@@ -3823,12 +3823,12 @@ x.takes_a_map
 
         #[test]
         fn lookup_on_string() {
-            let source = "'{}'.format x";
+            let source = "'fox'.ends_with 'x'";
             check_ast(
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
-                    Id(2),
+                    string_literal(2, StringQuote::Single),
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -3844,8 +3844,8 @@ x.takes_a_map
                     },
                 ],
                 Some(&[
-                    Constant::Str("{}"),
-                    Constant::Str("format"),
+                    Constant::Str("fox"),
+                    Constant::Str("ends_with"),
                     Constant::Str("x"),
                 ]),
             )

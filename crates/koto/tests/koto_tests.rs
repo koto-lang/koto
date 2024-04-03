@@ -123,7 +123,6 @@ mod koto_tests {
     koto_test!(primes);
     koto_test!(ranges);
     koto_test!(strings);
-    koto_test!(string_formatting);
     koto_test!(tests);
     koto_test!(tuples);
     koto_test!(types);

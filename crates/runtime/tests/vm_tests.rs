@@ -2840,14 +2840,14 @@ catch _
 
         #[test]
         fn try_catch_with_throw_string() {
-            let script = r#"
+            let script = "
 x = 1
 try
   x += 1
-  throw "{}".format x
+  throw '${x}'
 catch error
   error
-"#;
+";
             test_script(script, "2");
         }
 

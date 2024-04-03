@@ -464,8 +464,8 @@ check! [3, 2, 1]
 print! x
 check! [3, 2, 1]
 
-print! x.transform |n| '{}'.format n
-check! ['3', '2', '1']
+print! x.transform |n| '${n}!'
+check! ['3!', '2!', '1!']
 print! x
-check! ['3', '2', '1']
+check! ['3!', '2!', '1!']
 ```

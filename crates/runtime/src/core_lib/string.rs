@@ -1,6 +1,5 @@
 //! The `string` core library module
 
-pub mod format;
 pub mod iterators;
 
 use super::iterator::collect_pair;
@@ -68,23 +67,6 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(s.escape_default().to_string().into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
-    result.add_fn("format", |ctx| {
-        let expected_error = "a String optionally followed by additional values";
-
-        match ctx.instance_and_args(is_string, expected_error)? {
-            (KValue::Str(s), []) => Ok(KValue::Str(s.clone())),
-            (KValue::Str(format), format_args) => {
-                let format = format.clone();
-                let format_args = format_args.to_vec();
-                match format::format_string(ctx.vm, &format, &format_args) {
-                    Ok(result) => Ok(result.into()),
-                    Err(error) => Err(error),
-                }
-            }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });

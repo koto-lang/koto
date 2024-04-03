@@ -322,6 +322,76 @@ print r##'This string also includes a '#' symbol.'##
 check! This string also includes a '#' symbol.
 ```
 
+### String Formatting
+
+Interpolated string expressions can be formatted using formatting options
+similar to [Rust's][rust-format-options].
+
+Options can be provided after a `:` separator inside the `${}` expression.
+
+#### Minimum Width and Alignment
+
+A minimum width can be specified, ensuring that the formatted value takes up at
+least that many characters.
+
+```koto
+foo = "abcd"
+print! '_${foo:8}_'
+check! _abcd    _
+```
+
+The minimum width can be prefixed with an alignment modifier:
+
+- `<` - left-aligned
+- `^` - centered
+- `>` - right-aligned
+
+
+```koto
+foo = "abcd"
+print! '_${foo:^8}_'
+check! _  abcd  _
+```
+
+All values are left-aligned if an alignment modifier isn't specified, 
+except for numbers which are right-aligned by default.
+
+```koto
+x = 1.2
+print! '_${x:8}_'
+check! _     1.2_
+```
+
+The alignment modifier can be prefixed with a character which will be used to
+fill any empty space in the formatted string (the default character being ` `).
+
+
+```koto
+x = 1.2
+print! '_${x:~<8}_'
+check! _1.2~~~~~_
+```
+
+#### Maximum Width / Precision 
+
+A maximum width for the interpolated expression can be specified following a 
+`.` character.
+
+```koto
+foo = "abcd"
+print! '${foo:_^8.2}'
+check! ___ab___
+```
+
+For numbers, the maximum width acts as a 'precision' value, or in other words,
+the number of decimal places that will be rendered for the number.
+
+```koto
+x = 1 / 3
+print! '${x:.4}'
+check! 0.3333
+```
+
 ## Lists
 
 Lists in Koto are created with square brackets (`[]`) and can contain a mix of
@@ -2108,6 +2178,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [once]: ../core_lib/iterator#once
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
 [repeat]: ../core_lib/iterator#repeat
+[rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
 [to_list]: ../core_lib/iterator#to_list
 [to_tuple]: ../core_lib/iterator#to_tuple
 [utf-8]: https://en.wikipedia.org/wiki/UTF-8
