@@ -100,6 +100,14 @@ impl Error {
 
         self
     }
+
+    /// Returns true if the error was caused by the parser expecting indentation
+    pub fn is_indentation_error(&self) -> bool {
+        match &self.error {
+            ErrorKind::CompileError(error) => error.is_indentation_error(),
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Error {
@@ -161,8 +169,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Creates a [crate::Error] from a message (with format-like behaviour), wrapped in `Err`
 ///
 /// Wrapping the result in `Err` is a convenience for functions that need to return immediately when
-/// an error has occured. See `make_runtime_error` for the internal function that creates the
-/// internal error itself.
+/// an error has occured.
 #[macro_export]
 macro_rules! runtime_error {
     ($error:literal) => {
