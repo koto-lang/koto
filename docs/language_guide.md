@@ -280,6 +280,19 @@ print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
 
+### Continuing a Long Line 
+
+The end of a line can be escaped with a `\`, which will skip the
+newline and any leading whitespace on the next line.
+
+```koto
+foo = "This string \
+       doesn't contain \
+       newlines."
+print! foo
+check! This string doesn't contain newlines.
+```
+
 ### Single or Double Quotes
 
 Both single `'` and double `"` quotes are valid for defining strings in Koto
