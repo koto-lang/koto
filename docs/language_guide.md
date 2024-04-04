@@ -189,6 +189,138 @@ print! x
 check! 4
 ```
 
+## Lists
+
+Lists in Koto are created with `[]` square brackets and can contain a mix of
+different value types.
+
+Access list elements by _index_ using square brackets, starting from `0`.
+
+```koto
+x = [99, null, true]
+print! x[0]
+check! 99
+print! x[1]
+check! null
+
+x[2] = false
+print! x[2]
+check! false
+```
+
+Once a list has been created, its underlying data is shared between other
+instances of the same list. 
+Changes to one instance of the list are reflected in the other.
+
+```koto
+# Assign a list to x
+x = [10, 20, 30]
+
+# Assign another instance of the list to y
+y = x
+
+# Modify the list through y
+y[1] = 99
+
+# The change to y is also reflected in x
+print! x 
+check! [10, 99, 30]
+```
+
+### Joining Lists
+
+The `+` operator allows lists to be joined together, creating a new list that
+contains their concatenated elements.
+
+```koto
+a = [98, 99, 100]
+b = a + [1, 2, 3]
+print! b
+check! [98, 99, 100, 1, 2, 3]
+```
+
+## Tuples
+
+Tuples in Koto are similiar to lists, 
+but are designed for sequences of values that have a fixed structure.
+
+Unlike lists, tuples can't be resized after creation, 
+and values that are contained in the tuple can't be replaced.
+
+Tuples are declared with a series of expressions separated by commas.
+
+```koto
+x = 100, true, -1
+print! x
+check! (100, true, -1)
+```
+
+Parentheses can be used for grouping to avoid ambiguity.
+
+```koto
+print! (1, 2, 3), (4, 5, 6)
+check! ((1, 2, 3), (4, 5, 6))
+```
+
+Access tuple elements by index using square brackets, starting from `0`.
+
+```koto
+print! x = false, 10
+check! (false, 10)
+print! x[0]
+check! false
+print! x[1]
+check! 10
+
+print! y = true, 20
+check! (true, 20)
+print! x, y
+check! ((false, 10), (true, 20))
+```
+
+### Joining Tuples
+
+The `+` operator allows tuples to be joined together, 
+creating a new tuple containing their concatenated elements.
+
+```koto
+a = 1, 2, 3
+b = a + (4, 5, 6)
+print! b
+check! (1, 2, 3, 4, 5, 6)
+```
+
+### Creating Empty Tuples 
+
+An empty pair of parentheses in Koto resolves to `null`.
+If an empty tuple is needed then use a single `,` inside parentheses.
+
+```koto
+# An empty pair of parentheses resolves to null
+print! () 
+check! null
+
+# A comma inside parentheses creates a tuple 
+print! (,) 
+check! ()
+```
+
+### Tuple Mutability
+
+While tuples have a fixed structure and its contained elements can't be 
+replaced, [_mutable_][immutable] value types (like [lists](#lists)) can be 
+modified while they're contained in tuples.
+
+```koto
+# A Tuple containing two lists
+x = ([1, 2, 3], [4, 5, 6])
+
+# Modify the second list in the tuple
+x[1][0] = 99
+print! x
+check! ([1, 2, 3], [99, 5, 6])
+```
+
 ## Strings
 
 Strings in Koto contain a sequence of [UTF-8][utf-8] encoded characters, 
@@ -219,21 +351,6 @@ Strings can be joined together with the `+` operator.
 print! 'a' + 'Bc' + 'Def'
 check! aBcDef
 ```
-
-Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
-
-```koto
-print! 'abcdef'[3]
-check! d
-print! 'xyz'[1..]
-check! yz
-```
-
-Care must be taken when using indexing with strings that could contain
-non-[ASCII][ascii] data. 
-If the indexed bytes would produce invalid UTF-8 data then an 
-error will be thrown. To access unicode characters see [`string.chars`][chars].
-
 
 ### String Interpolation
 
@@ -309,6 +426,22 @@ print "This string contains unescaped 'single quotes'."
 check! This string contains unescaped 'single quotes'.
 ```
 
+### String Indexing
+
+Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
+
+```koto
+print! 'abcdef'[3]
+check! d
+print! 'xyz'[1..]
+check! yz
+```
+
+Care must be taken when using indexing with strings that could contain
+non-[ASCII][ascii] data. 
+If the indexed bytes would produce invalid UTF-8 data then an 
+error will be thrown. To access unicode characters see [`string.chars`][chars].
+
 ### Raw Strings
 
 When a string contains a lot of special characters, it can be preferable to use
@@ -320,8 +453,8 @@ providing the raw contents of the string between its _delimiters_.
 Raw strings use single or double quotes as the delimiter, prefixed with an `r`.
 
 ```koto
-print r'This string contains special characters: $foo\n\t.'
-check! This string contains special characters: $foo\n\t.
+print r'This string contains special characters: {foo}\n\t.'
+check! This string contains special characters: {foo}\n\t.
 ```
 
 For more complex string contents, the delimiter can be extended using up to 255 
@@ -333,216 +466,6 @@ check! This string contains "both" 'quote' types.
 
 print r##'This string also includes a '#' symbol.'##
 check! This string also includes a '#' symbol.
-```
-
-### String Formatting
-
-Interpolated string expressions can be formatted using formatting options
-similar to [Rust's][rust-format-options].
-
-Options can be provided after a `:` separator inside the `{}` expression.
-
-#### Minimum Width and Alignment
-
-A minimum width can be specified, ensuring that the formatted value takes up at
-least that many characters.
-
-```koto
-foo = "abcd"
-print! '_{foo:8}_'
-check! _abcd    _
-```
-
-The minimum width can be prefixed with an alignment modifier:
-
-- `<` - left-aligned
-- `^` - centered
-- `>` - right-aligned
-
-```koto
-foo = "abcd"
-print! '_{foo:^8}_'
-check! _  abcd  _
-```
-
-All values are left-aligned if an alignment modifier isn't specified, 
-except for numbers which are right-aligned by default.
-
-```koto
-x = 1.2
-print! '_{x:8}_'
-check! _     1.2_
-```
-
-The alignment modifier can be prefixed with a character which will be used to
-fill any empty space in the formatted string (the default character being ` `).
-
-
-```koto
-x = 1.2
-print! '_{x:~<8}_'
-check! _1.2~~~~~_
-```
-
-For numbers, the minimum width can be prefixed with `0`, which will pad the
-number to the specified width with zeroes.
-
-```koto
-x = 1.2
-print! '{x:06}'
-check! 0001.2
-```
-
-#### Maximum Width / Precision 
-
-A maximum width for the interpolated expression can be specified following a 
-`.` character.
-
-```koto
-foo = "abcd"
-print! '{foo:_^8.2}'
-check! ___ab___
-```
-
-For numbers, the maximum width acts as a 'precision' value, or in other words,
-the number of decimal places that will be rendered for the number.
-
-```koto
-x = 1 / 3
-print! '{x:.4}'
-check! 0.3333
-```
-
-## Lists
-
-Lists in Koto are created with `[]` square brackets and can contain a mix of
-different value types.
-
-Access list elements by _index_ using square brackets, starting from `0`.
-
-```koto
-x = ['a', 99, true]
-print! x[0]
-check! a
-print! x[1]
-check! 99
-
-x[2] = false
-print! x[2]
-check! false
-```
-
-Once a list has been created, its underlying data is shared between other
-instances of the same list. 
-Changes to one instance of the list are reflected in the other.
-
-```koto
-# Assign a list to x
-x = [10, 20, 30]
-
-# Assign another instance of the list to y
-y = x
-
-# Modify the list through y
-y[1] = 99
-
-# The change to y is also reflected in x
-print! x 
-check! [10, 99, 30]
-```
-
-### Joining Lists
-
-The `+` operator allows lists to be joined together, creating a new list that
-contains their concatenated elements.
-
-```koto
-a = ['a', 'b', 'c']
-b = a + [1, 2, 3]
-print! b
-check! ['a', 'b', 'c', 1, 2, 3]
-```
-
-## Tuples
-
-Tuples in Koto are similiar to lists, 
-but are designed for sequences of values that have a fixed structure.
-
-Unlike lists, tuples can't be resized after creation, 
-and values that are contained in the tuple can't be replaced.
-
-Tuples are declared with a series of expressions separated by commas.
-
-```koto
-x = 100, 'x', -1
-print! x
-check! (100, 'x', -1)
-```
-
-Parentheses can be used for grouping to avoid ambiguity.
-
-```koto
-print! (1, 2, 3), (4, 5, 6)
-check! ((1, 2, 3), (4, 5, 6))
-```
-
-Access tuple elements by index using square brackets, starting from `0`.
-
-```koto
-print! x = 'a', 10
-check! ('a', 10)
-print! x[0]
-check! a
-print! x[1]
-check! 10
-
-print! y = 'b', 20
-check! ('b', 20)
-print! x, y
-check! (('a', 10), ('b', 20))
-```
-
-### Joining Tuples
-
-The `+` operator allows tuples to be joined together, 
-creating a new tuple containing their concatenated elements.
-
-```koto
-a = 1, 2, 3
-b = a + (4, 5, 6)
-print! b
-check! (1, 2, 3, 4, 5, 6)
-```
-
-### Creating Empty Tuples 
-
-An empty pair of parentheses in Koto resolves to `null`.
-If an empty tuple is needed then use a single `,` inside parentheses.
-
-```koto
-# An empty pair of parentheses resolves to null
-print! () 
-check! null
-
-# A comma inside parentheses creates a tuple 
-print! (,) 
-check! ()
-```
-
-### Tuple Mutability
-
-While tuples have a fixed structure and its contained elements can't be 
-replaced, [_mutable_][immutable] value types (like [lists](#lists)) can be 
-modified while they're contained in tuples.
-
-```koto
-# A Tuple containing two lists
-x = ([1, 2, 3], [4, 5, 6])
-
-# Modify the second list in the tuple
-x[1][0] = 99
-print! x
-check! ([1, 2, 3], [99, 5, 6])
 ```
 
 ## Functions
@@ -1406,6 +1329,84 @@ print! z[..2]
 check! ('H', 'ë')
 print! z[2..]
 check! ('l', 'l', 'ø')
+```
+
+## String Formatting
+
+Interpolated string expressions can be formatted using formatting options
+similar to [Rust's][rust-format-options].
+
+Options can be provided after a `:` separator inside the `{}` expression.
+
+### Minimum Width and Alignment
+
+A minimum width can be specified, ensuring that the formatted value takes up at
+least that many characters.
+
+```koto
+foo = "abcd"
+print! '_{foo:8}_'
+check! _abcd    _
+```
+
+The minimum width can be prefixed with an alignment modifier:
+
+- `<` - left-aligned
+- `^` - centered
+- `>` - right-aligned
+
+```koto
+foo = "abcd"
+print! '_{foo:^8}_'
+check! _  abcd  _
+```
+
+All values are left-aligned if an alignment modifier isn't specified, 
+except for numbers which are right-aligned by default.
+
+```koto
+x = 1.2
+print! '_{x:8}_'
+check! _     1.2_
+```
+
+The alignment modifier can be prefixed with a character which will be used to
+fill any empty space in the formatted string (the default character being ` `).
+
+
+```koto
+x = 1.2
+print! '_{x:~<8}_'
+check! _1.2~~~~~_
+```
+
+For numbers, the minimum width can be prefixed with `0`, which will pad the
+number to the specified width with zeroes.
+
+```koto
+x = 1.2
+print! '{x:06}'
+check! 0001.2
+```
+
+### Maximum Width / Precision 
+
+A maximum width for the interpolated expression can be specified following a 
+`.` character.
+
+```koto
+foo = "abcd"
+print! '{foo:_^8.2}'
+check! ___ab___
+```
+
+For numbers, the maximum width acts as a 'precision' value, or in other words,
+the number of decimal places that will be rendered for the number.
+
+```koto
+x = 1 / 3
+print! '{x:.4}'
+check! 0.3333
 ```
 
 ## Advanced Functions
