@@ -1,4 +1,4 @@
-use koto::{derive::*, prelude::*, runtime};
+use koto::{derive::*, prelude::*, Result};
 
 fn main() {
     let script = "
@@ -22,13 +22,13 @@ struct Foo(i64);
 impl Foo {
     // A simple getter function
     #[koto_method]
-    fn get(&self) -> runtime::Result<KValue> {
+    fn get(&self) -> Result<KValue> {
         Ok(self.0.into())
     }
 
     // A function that returns the object instance as the result
     #[koto_method]
-    fn set(ctx: MethodContext<Self>) -> runtime::Result<KValue> {
+    fn set(ctx: MethodContext<Self>) -> Result<KValue> {
         match ctx.args {
             [KValue::Number(n)] => {
                 ctx.instance_mut()?.0 = n.into();
@@ -40,7 +40,7 @@ impl Foo {
 }
 
 impl KotoObject for Foo {
-    fn display(&self, ctx: &mut DisplayContext) -> runtime::Result<()> {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!("{}({})", self.type_string(), self.0));
         Ok(())
     }

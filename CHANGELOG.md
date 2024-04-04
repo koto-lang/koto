@@ -127,6 +127,7 @@ The Koto project adheres to
 - `ObjectEntryBuilder` has been replaced with macros from `koto_derive`.
 - `KMap::add_map` and `KMap::add_value` have been removed, `KMap::insert` now
   accepts any value that implements `Into<Value>` and can be used instead.
+- `koto::Error/Result` have been replaced with re-exports from `koto_runtime`.
 
 ### Fixed
 

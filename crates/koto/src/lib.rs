@@ -28,14 +28,12 @@
 
 #![warn(missing_docs)]
 
-mod error;
 mod koto;
 pub mod prelude;
 
 pub use koto_bytecode as bytecode;
 pub use koto_parser as parser;
 pub use koto_runtime as runtime;
-pub use koto_runtime::{derive, Borrow, BorrowMut, Ptr, PtrMut};
+pub use koto_runtime::{derive, Borrow, BorrowMut, Error, Ptr, PtrMut, Result};
 
-pub use crate::error::{Error, Result};
 pub use crate::koto::{Koto, KotoSettings};

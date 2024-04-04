@@ -253,8 +253,6 @@ Simple expressions can also be interpolated using the same syntax.
 ```koto
 print! '2 plus 3 is {2 + 3}.'
 check! 2 plus 3 is 5.
-
-
 ```
 
 ### String Escape Codes
@@ -280,6 +278,19 @@ print! '\{\'\"}'
 check! {'"}
 print! 'Hi \u{1F44B}'
 check! Hi 👋
+```
+
+### Continuing a Long Line 
+
+The end of a line can be escaped with a `\`, which will skip the
+newline and any leading whitespace on the next line.
+
+```koto
+foo = "This string \
+       doesn't contain \
+       newlines."
+print! foo
+check! This string doesn't contain newlines.
 ```
 
 ### Single or Double Quotes
@@ -348,7 +359,6 @@ The minimum width can be prefixed with an alignment modifier:
 - `^` - centered
 - `>` - right-aligned
 
-
 ```koto
 foo = "abcd"
 print! '_{foo:^8}_'
@@ -405,7 +415,7 @@ check! 0.3333
 
 ## Lists
 
-Lists in Koto are created with square brackets (`[]`) and can contain a mix of
+Lists in Koto are created with `[]` square brackets and can contain a mix of
 different value types.
 
 Access list elements by _index_ using square brackets, starting from `0`.
@@ -537,7 +547,7 @@ check! ([1, 2, 3], [99, 5, 6])
 
 ## Functions
 
-Functions in Koto are created using a pair of vertical bars (`|`), 
+Functions in Koto are created using a pair of vertical bars (`||`), 
 with the function's _arguments_ listed between the bars. 
 The _body_ of the function follows the vertical bars.
 

@@ -93,7 +93,7 @@ impl Koto {
         let chunk = self.chunk.clone();
         match chunk {
             Some(chunk) => self.run_chunk(chunk),
-            None => Err(Error::NothingToRun),
+            None => runtime_error!("Nothing to run"),
         }
     }
 
@@ -113,9 +113,7 @@ impl Koto {
 
     /// Runs a function with the given arguments
     pub fn run_function(&mut self, function: KValue, args: CallArgs) -> Result<KValue> {
-        self.runtime
-            .run_function(function, args)
-            .map_err(|e| e.into())
+        self.runtime.run_function(function, args)
     }
 
     /// Runs an instance function with the given arguments
@@ -125,9 +123,7 @@ impl Koto {
         function: KValue,
         args: CallArgs,
     ) -> Result<KValue> {
-        self.runtime
-            .run_instance_function(instance, function, args)
-            .map_err(|e| e.into())
+        self.runtime.run_instance_function(instance, function, args)
     }
 
     /// Runs a function in the runtime's exports map
@@ -154,13 +150,13 @@ impl Koto {
     pub fn run_exported_function(&mut self, function_name: &str, args: CallArgs) -> Result<KValue> {
         match self.runtime.get_exported_function(function_name) {
             Some(f) => self.run_function(f, args),
-            None => Err(Error::FunctionNotFound),
+            None => runtime_error!("Function '{function_name}' not found"),
         }
     }
 
     /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: KValue) -> Result<String> {
-        self.runtime.value_to_string(&value).map_err(|e| e.into())
+        self.runtime.value_to_string(&value)
     }
 
     /// Clears the loader's cached modules
@@ -184,7 +180,7 @@ impl Koto {
                 map.insert("args", Tuple(koto_args.into()));
                 Ok(())
             }
-            _ => Err(Error::MissingKotoModuleInPrelude),
+            _ => runtime_error!("missing koto module in the prelude"),
         }
     }
 
@@ -202,8 +198,9 @@ impl Koto {
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
-                let path =
-                    canonicalize(path).map_err(|_| Error::InvalidScriptPath(path.to_owned()))?;
+                let path = canonicalize(path).map_err(|_| {
+                    Error::from(format!("Invalid script path '{}'", path.to_string_lossy()))
+                })?;
 
                 let script_dir = path
                     .parent()
@@ -227,7 +224,7 @@ impl Koto {
                 map.insert("script_path", script_path);
                 Ok(())
             }
-            _ => Err(Error::MissingKotoModuleInPrelude),
+            _ => runtime_error!("missing koto module in the prelude"),
         }
     }
 
@@ -241,7 +238,7 @@ impl Koto {
                     self.runtime.run_tests(tests)?;
                 }
                 Some(other) => {
-                    return Err(Error::InvalidTestsType(other.type_as_string().to_string()));
+                    return type_error("test map", &other);
                 }
                 None => {}
             }
@@ -249,9 +246,7 @@ impl Koto {
 
         let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
         if let Some(main) = maybe_main {
-            self.runtime
-                .run_function(main, CallArgs::None)
-                .map_err(|e| e.into())
+            self.runtime.run_function(main, CallArgs::None)
         } else {
             Ok(result)
         }
