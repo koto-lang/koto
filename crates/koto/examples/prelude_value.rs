@@ -1,8 +1,8 @@
 fn main() {
     let script = "
-print 'name: $name'
-print 'how_many: $how_many'
-print 'yes_or_no: ${if yes_or_no then 'yes' else 'no'}'
+print 'name: {name}'
+print 'how_many: {how_many}'
+print 'yes_or_no: {if yes_or_no then 'yes' else 'no'}'
 ";
     let mut koto = koto::Koto::default();
 

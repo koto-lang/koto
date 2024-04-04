@@ -25,7 +25,6 @@ pub enum Token {
     At,
     Colon,
     Comma,
-    Dollar,
     Dot,
     Ellipsis,
     Function,
@@ -151,14 +150,12 @@ impl TryFrom<char> for StringQuote {
 enum StringMode {
     // Inside a string literal, expecting an end quote or the start of a template expression
     Literal(StringQuote),
-    // Just after a $ symbol, either an id or a '{' will follow
-    TemplateStart,
-    // Inside a string template, e.g. '${...}'
+    // Inside a string template, e.g. '{...}'
     TemplateExpr,
-    // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
+    // Inside an inline map in a template expression, e.g. '{foo({bar: 42})}'
     // A closing '}' will end the map rather than the template expression.
     TemplateExprInlineMap,
-    // Inside formatting options for a template expression, e.g. '${...:03}'
+    // Inside formatting options for a template expression, e.g. '{...:03}'
     TemplateExprFormat,
     // The start of a raw string has just been consumed, raw string contents follow
     RawStart(RawStringDelimiter),
@@ -351,8 +348,10 @@ impl<'a> TokenLexer<'a> {
                     self.advance_to_position(string_bytes, position);
                     return StringLiteral;
                 }
-                '$' => {
+                '{' => {
                     self.advance_to_position(string_bytes, position);
+                    // End the literal here at the start of an interpolated expression,
+                    // it will be resumed after the expression
                     return StringLiteral;
                 }
                 '\\' => {
@@ -361,7 +360,15 @@ impl<'a> TokenLexer<'a> {
                     position.column += 1;
 
                     let skip_next_char = match chars.peek() {
-                        Some('$') => true,
+                        Some('u') => {
+                            chars.next();
+                            string_bytes += 1;
+                            position.column += 1;
+                            // Skip over the start of a unicode escape sequence to avoid it being
+                            // lexed as the start of an interpolated expression.
+                            chars.peek() == Some(&'{')
+                        }
+                        Some('{') => true,
                         Some('\\') => true,
                         Some(&c) if c.try_into() == Ok(end_quote) => true,
                         _ => false,
@@ -754,10 +761,10 @@ impl<'a> TokenLexer<'a> {
                             self.string_mode_stack.pop();
                             StringEnd
                         }
-                        '$' => {
+                        '{' => {
                             self.advance_line(1);
-                            self.string_mode_stack.push(StringMode::TemplateStart);
-                            Dollar
+                            self.string_mode_stack.push(StringMode::TemplateExpr);
+                            CurlyOpen
                         }
                         _ => self.consume_string_literal(chars),
                     },
@@ -765,22 +772,6 @@ impl<'a> TokenLexer<'a> {
                         self.consume_raw_string_contents(chars, delimiter)
                     }
                     Some(StringMode::RawEnd(delimiter)) => self.consume_raw_string_end(delimiter),
-                    Some(StringMode::TemplateStart) => match next_char {
-                        _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
-                            Id => {
-                                self.string_mode_stack.pop();
-                                Id
-                            }
-                            _ => Error,
-                        },
-                        '{' => {
-                            self.advance_line(1);
-                            self.string_mode_stack.pop();
-                            self.string_mode_stack.push(StringMode::TemplateExpr);
-                            CurlyOpen
-                        }
-                        _ => Error,
-                    },
                     Some(StringMode::TemplateExprFormat) => self.consume_format_options(remaining),
                     _ => match next_char {
                         c if is_whitespace(c) => {
@@ -1169,7 +1160,7 @@ false #
         fn strings() {
             let input = r#"
 "hello, world!"
-"escaped \\\"\n\$ string"
+"escaped \\\"\n\{ string"
 "double-\"quoted\" 'string'"
 'single-\'quoted\' "string"'
 ""
@@ -1186,7 +1177,7 @@ false #
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
                     (normal_string(Double), None, 3),
-                    (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
+                    (StringLiteral, Some(r#"escaped \\\"\n\{ string"#), 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
                     (normal_string(Double), None, 4),
@@ -1211,7 +1202,7 @@ false #
         #[test]
         fn raw_strings() {
             let input = r#"
-r"$foo"
+r"{foo}"
 r#''bar''#
 "#;
 
@@ -1220,7 +1211,7 @@ r#''bar''#
                 &[
                     (NewLine, None, 1),
                     (raw_string(StringQuote::Double, 0), None, 2),
-                    (StringLiteral, Some("$foo"), 2),
+                    (StringLiteral, Some("{foo}"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
                     (raw_string(StringQuote::Single, 1), None, 3),
@@ -1234,8 +1225,8 @@ r#''bar''#
         #[test]
         fn interpolated_string_ids() {
             let input = r#"
-"hello $name, how are you?"
-'$foo$bar'
+"hello {name}, how are you?"
+'{foo}{bar}'
 "#;
             use StringQuote::*;
             check_lexer_output(
@@ -1244,16 +1235,19 @@ r#''bar''#
                     (NewLine, None, 1),
                     (normal_string(Double), None, 2),
                     (StringLiteral, Some("hello "), 2),
-                    (Dollar, None, 2),
+                    (CurlyOpen, None, 2),
                     (Id, Some("name"), 2),
+                    (CurlyClose, None, 2),
                     (StringLiteral, Some(", how are you?"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
                     (normal_string(Single), None, 3),
-                    (Dollar, None, 3),
+                    (CurlyOpen, None, 3),
                     (Id, Some("foo"), 3),
-                    (Dollar, None, 3),
+                    (CurlyClose, None, 3),
+                    (CurlyOpen, None, 3),
                     (Id, Some("bar"), 3),
+                    (CurlyClose, None, 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
                 ],
@@ -1263,8 +1257,8 @@ r#''bar''#
         #[test]
         fn interpolated_string_expressions() {
             let input = r#"
-"x + y == ${x + y}"
-'${'{}'.format foo}'
+"x + y == {x + y}"
+'{'\{foo}'}'
 "#;
             use StringQuote::*;
             check_lexer_output(
@@ -1273,7 +1267,6 @@ r#''bar''#
                     (NewLine, None, 1),
                     (normal_string(Double), None, 2),
                     (StringLiteral, Some("x + y == "), 2),
-                    (Dollar, None, 2),
                     (CurlyOpen, None, 2),
                     (Id, Some("x"), 2),
                     (Add, None, 2),
@@ -1282,14 +1275,10 @@ r#''bar''#
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
                     (normal_string(Single), None, 3),
-                    (Dollar, None, 3),
                     (CurlyOpen, None, 3),
                     (normal_string(Single), None, 3),
-                    (StringLiteral, Some("{}"), 3),
+                    (StringLiteral, Some("\\{foo}"), 3),
                     (StringEnd, None, 3),
-                    (Dot, None, 3),
-                    (Id, Some("format"), 3),
-                    (Id, Some("foo"), 3),
                     (CurlyClose, None, 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
@@ -1300,7 +1289,7 @@ r#''bar''#
         #[test]
         fn interpolated_string_format_options() {
             let input = r#"
-'${a + b:_^3.4}'
+'{a + b:_^3.4}'
 "#;
             use StringQuote::*;
             check_lexer_output(
@@ -1308,7 +1297,6 @@ r#''bar''#
                 &[
                     (NewLine, None, 1),
                     (normal_string(Single), None, 2),
-                    (Dollar, None, 2),
                     (CurlyOpen, None, 2),
                     (Id, Some("a"), 2),
                     (Add, None, 2),

@@ -237,22 +237,24 @@ error will be thrown. To access unicode characters see [`string.chars`][chars].
 
 ### String Interpolation
 
-Variables can be easily included in a string by prefixing them with `$`.
+Variables can be easily included in a string by surrounding them with `{}` curly
+braces.
 
 ```koto
 xyz = 123
-print! 'The value of xyz is $xyz'
+print! 'The value of xyz is {xyz}'
 check! The value of xyz is 123
 ```
 
 Including variables in a string this way is known as _string interpolation_.
 
-Expressions can be evaluated directly in an interpolated string by surrounding
-the expression with `${}`.
+Simple expressions can also be interpolated using the same syntax.
 
 ```koto
-print! '2 plus 3 is ${2 + 3}.'
+print! '2 plus 3 is {2 + 3}.'
 check! 2 plus 3 is 5.
+
+
 ```
 
 ### String Escape Codes
@@ -266,7 +268,7 @@ all of which start with a `\`.
 - `\'`: Single quote
 - `\"`: Double quote
 - `\\`: Backslash
-- `\$`: Dollar
+- `\{`: Interpolation start
 - `\u{NNNNNN}`: Unicode character
   - Up to 6 hexadecimal digits can be included within the `{}` braces.
     The maximum value is `\u{10ffff}`.
@@ -274,8 +276,8 @@ all of which start with a `\`.
   - Exactly 2 hexadecimal digits follow the `\x`.
 
 ```koto
-print! '\$\'\"'
-check! $'"
+print! '\{\'\"}'
+check! {'"}
 print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
@@ -327,7 +329,7 @@ check! This string also includes a '#' symbol.
 Interpolated string expressions can be formatted using formatting options
 similar to [Rust's][rust-format-options].
 
-Options can be provided after a `:` separator inside the `${}` expression.
+Options can be provided after a `:` separator inside the `{}` expression.
 
 #### Minimum Width and Alignment
 
@@ -336,7 +338,7 @@ least that many characters.
 
 ```koto
 foo = "abcd"
-print! '_${foo:8}_'
+print! '_{foo:8}_'
 check! _abcd    _
 ```
 
@@ -349,7 +351,7 @@ The minimum width can be prefixed with an alignment modifier:
 
 ```koto
 foo = "abcd"
-print! '_${foo:^8}_'
+print! '_{foo:^8}_'
 check! _  abcd  _
 ```
 
@@ -358,7 +360,7 @@ except for numbers which are right-aligned by default.
 
 ```koto
 x = 1.2
-print! '_${x:8}_'
+print! '_{x:8}_'
 check! _     1.2_
 ```
 
@@ -368,7 +370,7 @@ fill any empty space in the formatted string (the default character being ` `).
 
 ```koto
 x = 1.2
-print! '_${x:~<8}_'
+print! '_{x:~<8}_'
 check! _1.2~~~~~_
 ```
 
@@ -379,7 +381,7 @@ A maximum width for the interpolated expression can be specified following a
 
 ```koto
 foo = "abcd"
-print! '${foo:_^8.2}'
+print! '{foo:_^8.2}'
 check! ___ab___
 ```
 
@@ -388,7 +390,7 @@ the number of decimal places that will be rendered for the number.
 
 ```koto
 x = 1 / 3
-print! '${x:.4}'
+print! '{x:.4}'
 check! 0.3333
 ```
 
@@ -701,8 +703,8 @@ which provides a convenient way to group functions together.
 
 ```koto
 m = 
-  hello: |name| 'Hello, $name!'
-  bye: |name| 'Bye, $name!'
+  hello: |name| 'Hello, {name}!'
+  bye: |name| 'Bye, {name}!'
 
 print! m.hello 'World'
 check! Hello, World!
@@ -719,7 +721,7 @@ enabling object-like behaviour.
 ```koto
 m = 
   name: 'World'
-  say_hello: || 'Hello, ${self.name}!'
+  say_hello: || 'Hello, {self.name}!'
 
 print! m.say_hello()
 check! Hello, World!
@@ -755,7 +757,7 @@ interpolation.
 x = 99
 m =
   'true': 42
-  'key$x': x
+  'key{x}': x
 print! m.'true'
 check! 42
 print! m.key99
@@ -909,9 +911,9 @@ so they're often used with `if` conditions to refine the match.
 print! match 40 + 2
   0 then 'zero'
   1 then 'one'
-  x if x < 10 then 'less than 10: $x'
-  x if x < 50 then 'less than 50: $x'
-  x then 'other: $x'
+  x if x < 10 then 'less than 10: {x}'
+  x if x < 50 then 'less than 50: {x}'
+  x then 'other: {x}'
 check! less than 50: 42
 ```
 
@@ -942,7 +944,7 @@ print! match ['a', 'b', 'c'].extend [1, 2, 3]
   (1, ...) then "Starts with '1'"
   (..., 'y', last) then "Ends with 'y' followed by '$last'"
   ('a', x, others...) then
-    "Starts with 'a', followed by '$x', then ${size others} others"
+    "Starts with 'a', followed by '{x}', then {size others} others"
   unmatched then "other: $unmatched"
 check! Starts with 'a', followed by 'b', then 4 others
 ```
@@ -1494,7 +1496,7 @@ When the function is called any extra arguments will be collected into a tuple.
 
 ```koto
 f = |a, b, others...|
-  print "a: $a, b: $b, others: $others"
+  print "a: {a}, b: {b}, others: {others}"
 
 f 1, 2, 3, 4, 5
 check! a: 1, b: 2, others: (3, 4, 5)
@@ -1683,7 +1685,7 @@ check! 20000
 
 # Inspect the first element in the object
 print! match x
-  (first, others...) then 'first: $first, remaining: ${size others}'
+  (first, others...) then 'first: {first}, remaining: {size others}'
 check! first: 100, remaining: 2
 ```
 
@@ -1791,13 +1793,13 @@ displaying the object as a string.
 ```koto
 foo = |n|
   data: n
-  @display: || 'Foo(${self.data})'
+  @display: || 'Foo({self.data})'
 
 print! foo 42
 check! Foo(42)
 
 x = foo -1
-print! "The value of x is '$x'"
+print! "The value of x is '{x}'"
 check! The value of x is 'Foo(-1)'
 ```
 
@@ -1828,7 +1830,7 @@ In the following example, two kinds of animals are created that share the
 ```koto
 animal = |name|
   name: name
-  speak: || '${self.noise}! My name is ${self.name}!'
+  speak: || '{self.noise}! My name is {self.name}!'
 
 dog = |name|
   @base: animal name
@@ -1861,7 +1863,7 @@ foo = |n|
       0 then "zero"
       n if n < 0 then "negative"
       else "positive"
-    "${self.data} is $info"
+    "{self.data} is {info}"
 
 x = foo -1
 print! x.hello
@@ -1899,7 +1901,7 @@ global.foo_meta =
   @+: |other| foo self.data + other.data
 
   # Define how the object should be displayed 
-  @display: || "Foo(${self.data})"
+  @display: || "Foo({self.data})"
 
 print! (foo 10) + (foo 20)
 check! Foo(30)
@@ -1939,7 +1941,7 @@ f = || throw "!Error!"
 try
   f()
 catch error
-  print "Caught an error: '$error'"
+  print "Caught an error: '{error}'"
 check! Caught an error: '!Error!'
 ```
 

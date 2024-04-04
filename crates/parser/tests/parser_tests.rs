@@ -182,9 +182,9 @@ null"#;
         #[test]
         fn strings_with_interpolated_ids() {
             let source = r#"
-'Hello, $name!'
-"$foo"
-'$x $y'
+'Hello, {name}!'
+"{foo}"
+'{x} {y}'
 "#;
             check_ast(
                 source,
@@ -245,7 +245,7 @@ null"#;
         #[test]
         fn string_with_interpolated_expression() {
             let source = "
-'${123 + 456}!'
+'{123 + 456}!'
 ";
             check_ast(
                 source,
@@ -279,7 +279,7 @@ null"#;
         #[test]
         fn string_with_formatted_expression() {
             let source = "
-'!${a:_>3.2}!'
+'!{a:_>3.2}!'
 ";
             check_ast(
                 source,

@@ -17,7 +17,7 @@
       match random.pick 0..4
         n if n < 3 then words[n] = words[n].to_uppercase()
       mark = if random.bool() then '!' else '?'
-      print '${words[0]}, ${words[1]}. ${words[2]}$mark'
+      print '{words[0]}, {words[1]}. {words[2]}{mark}'
     print ''
 
   print separator

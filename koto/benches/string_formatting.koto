@@ -7,7 +7,7 @@ tens = '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty
 number_to_english = |n|
   n = n.floor()
   switch
-    n < 0 then 'minus ${number_to_english n.abs()}'
+    n < 0 then 'minus {number_to_english n.abs()}'
     n < 20 then digits[n]
     n < 100 then
       x = (n / 10).floor()
@@ -15,15 +15,15 @@ number_to_english = |n|
       if y == 0
         tens[x]
       else
-        '${tens[x]}-${digits[y]}'
+        '{tens[x]}-{digits[y]}'
     n < 1000 then
       x = (n / 100).floor()
       x_string = number_to_english x
       y = n % 100
       if y == 0
-        '$x_string hundred'
+        '{x_string} hundred'
       else
-        '$x_string hundred and ${number_to_english y}'
+        '{x_string} hundred and {number_to_english y}'
     else '???'
 
 @main = ||

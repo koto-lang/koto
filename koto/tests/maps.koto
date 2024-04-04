@@ -38,12 +38,12 @@
 
     # Keys can also be defined dynamically using string interpolation
     a = 123
-    z = {'key$a': 42}
+    z = {'key{a}': 42}
     assert_eq z.key123, 42
-    assert_eq z."key$a", 42
+    assert_eq z."key{a}", 42
 
-    z.'key$a' = a
-    assert_eq z.'key$a', a
+    z.'key{a}' = a
+    assert_eq z.'key{a}', a
 
   @test unicode_keys: ||
     x = {ƒöó: 123}

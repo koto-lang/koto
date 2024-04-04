@@ -189,8 +189,6 @@ pub enum SyntaxError {
     UnexpectedSwitchElse,
     #[error("Unexpected token")]
     UnexpectedToken,
-    #[error("Unexpected token after '$' in string, expected '$ID' or '${{expression}}'")]
-    UnexpectedTokenAfterDollarInString,
     #[error("Unicode value out of range, the maximum is \\u{{10ffff}}")]
     UnicodeEscapeCodeOutOfRange,
     #[error("Unterminated numeric escape code")]

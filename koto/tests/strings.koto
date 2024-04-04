@@ -10,18 +10,6 @@
     # Strings can use either double or single quotes.
     assert_eq "Hello", 'Hello'
 
-  @test interpolation: ||
-    # Identifiers prefixed with $ are formatted into the string.
-    hello = "Hello"
-    world = "World"
-    assert_eq "$hello, $world!", "Hello, World!"
-
-    x = 99
-    assert_eq "$x$x-$x$x", "9999-9999"
-
-    # Expressions can be formatted into the string with ${...} syntax.
-    assert_eq "x times 10 is ${x * 10}", "x times 10 is 990"
-
   @test addition: ||
     x = "^"
     x = x + "_" + "^"
@@ -32,9 +20,9 @@
     assert_eq '\x4f\x5f\x6f', 'O_o'
     # Unicode characters
     assert_eq '\u{1f98b}', '🦋'
-    # Escaped dollar sign
+    # Escaped {
     x = 123
-    assert_eq '$x\$x', '123\x24x'
+    assert_eq '{x}\{x}', r'123{x}'
 
   @test escaped_newlines: ||
     x = "foo \
@@ -44,9 +32,9 @@
 
   @test raw_strings: ||
     assert_eq r'\r\n', '\\r\\n'
-    assert_eq r'${1 + 1}', '\${1 + 1}'
-    assert_eq r#''$foo''#, "'\$foo'"
-    assert_eq r##'#${2 * 2}'##, '#\${2 * 2}'
+    assert_eq r'{1 + 1}', '\{1 + 1}'
+    assert_eq r#''{foo}''#, "'\{foo}'"
+    assert_eq r##'#{2 * 2}'##, '#\{2 * 2}'
 
   @test bytes: ||
     assert_eq "Hëy".bytes().to_tuple(), (72, 195, 171, 121)
@@ -77,11 +65,11 @@
     x = "
 "
     if os.name() == "windows"
-      assert_eq x.escape(), "\\r\\n"
+      assert_eq x.escape(), r"\r\n"
     else
-      assert_eq x.escape(), "\\n"
+      assert_eq x.escape(), r"\n"
 
-    assert_eq "👋".escape(), "\\u{1f44b}"
+    assert_eq "👋".escape(), r"\u{1f44b}"
 
   @test from_bytes: ||
     assert_eq (string.from_bytes (72, 195, 171, 121)), "Hëy"

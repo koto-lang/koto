@@ -44,7 +44,7 @@ make_foo = |x|
     # each output pair is inserted as a key/value pair.
     assert_eq
       1..=3
-        .each |n| "entry $n", n
+        .each |n| "entry {n}", n
         .to_map(),
       {"entry 1": 1, "entry 2": 2, "entry 3": 3}
 
@@ -345,5 +345,5 @@ make_foo = |x|
 
     # As an adaptor in an adaptor chain
     assert_eq
-      (10..15).each(|x| '$x').every_other().to_tuple(),
+      (10..15).each(|x| '{x}').every_other().to_tuple(),
       ('10', '12', '14')

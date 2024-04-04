@@ -2709,44 +2709,26 @@ impl<'source> Parser<'source> {
 
                     nodes.push(StringNode::Literal(self.add_string_constant(&contents)?));
                 }
-                Dollar => match self.peek_token() {
-                    Some(Id) => {
-                        self.consume_token();
-                        let id = self.add_current_slice_as_string_constant()?;
-                        self.frame_mut()?.add_id_access(id);
-                        let id_node = self.push_node(Node::Id(id))?;
-                        nodes.push(StringNode::Expression {
-                            expression: id_node,
-                            format: StringFormatOptions::default(),
-                        });
+                CurlyOpen => {
+                    let Some(expression) =
+                        self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
+                    else {
+                        return self.consume_token_and_error(ExpectedExpression);
+                    };
+
+                    let format = if self.peek_token() == Some(Colon) {
+                        self.consume_token(); // :
+                        self.consume_format_options()?
+                    } else {
+                        StringFormatOptions::default()
+                    };
+
+                    if self.consume_token() != Some(CurlyClose) {
+                        return self.error(ExpectedStringPlaceholderEnd);
                     }
-                    Some(CurlyOpen) => {
-                        self.consume_token();
 
-                        let Some(expression) =
-                            self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
-                        else {
-                            return self.consume_token_and_error(ExpectedExpression);
-                        };
-
-                        let format = if self.peek_token() == Some(Colon) {
-                            self.consume_token(); // :
-                            self.consume_format_options()?
-                        } else {
-                            StringFormatOptions::default()
-                        };
-
-                        if self.consume_token() != Some(CurlyClose) {
-                            return self.error(ExpectedStringPlaceholderEnd);
-                        }
-
-                        nodes.push(StringNode::Expression { expression, format });
-                    }
-                    Some(_) => {
-                        return self.consume_token_and_error(UnexpectedTokenAfterDollarInString);
-                    }
-                    None => break,
-                },
+                    nodes.push(StringNode::Expression { expression, format });
+                }
                 StringEnd => {
                     let contents = match nodes.as_slice() {
                         [] => StringContents::Literal(self.add_string_constant("")?),
@@ -2786,7 +2768,7 @@ impl<'source> Parser<'source> {
         };
 
         let result = match next {
-            '\\' | '\'' | '"' | '$' => Ok(next),
+            '\\' | '\'' | '"' | '{' => Ok(next),
             'n' => Ok('\n'),
             'r' => Ok('\r'),
             't' => Ok('\t'),

@@ -55,7 +55,7 @@ mod vm {
     fn print_loop() {
         let script = "
 for i in 0..5
-  print 'foo $i'
+  print 'foo {i}'
 ";
         check_logged_output(
             script,

@@ -52,7 +52,7 @@ import test_module
   @test import_multiple_items_with_from_using_string: ||
     module_name = "test_module"
     bar = "bar"
-    from "$module_name" import "foo" as x, "$bar" as y
+    from "{module_name}" import "foo" as x, "{bar}" as y
     assert_eq x, 42
     assert_eq y, -1
 

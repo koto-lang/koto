@@ -122,5 +122,5 @@ my_tests =
 try
   test.run_tests my_tests
 catch error
-  print "An error occurred while running my_tests:\n  {}", error
+  print "An error occurred while running my_tests:\n  {error}"
 ```
