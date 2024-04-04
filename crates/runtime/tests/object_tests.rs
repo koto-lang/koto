@@ -340,7 +340,7 @@ x.as_number()
 
         #[test]
         fn display() {
-            let script = "'{}'.format make_object 42";
+            let script = "'{make_object 42}'";
             test_object_script(script, string("TestObject: 42"));
         }
 

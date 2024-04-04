@@ -1,6 +1,6 @@
 use std::fmt;
 
-use koto_parser::MetaKeyId;
+use koto_parser::{ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions};
 
 /// Decoded instructions produced by an [InstructionReader](crate::InstructionReader) for execution
 /// in the runtime
@@ -28,19 +28,19 @@ pub enum Instruction {
     },
     LoadFloat {
         register: u8,
-        constant: u32,
+        constant: ConstantIndex,
     },
     LoadInt {
         register: u8,
-        constant: u32,
+        constant: ConstantIndex,
     },
     LoadString {
         register: u8,
-        constant: u32,
+        constant: ConstantIndex,
     },
     LoadNonLocal {
         register: u8,
-        constant: u32,
+        constant: ConstantIndex,
     },
     ValueExport {
         name: u8,
@@ -310,7 +310,7 @@ pub enum Instruction {
     TryEnd,
     Debug {
         register: u8,
-        constant: u32,
+        constant: ConstantIndex,
     },
     CheckSizeEqual {
         register: u8,
@@ -325,6 +325,7 @@ pub enum Instruction {
     },
     StringPush {
         value: u8,
+        format_options: Option<StringFormatOptions>,
     },
     StringFinish {
         register: u8,
@@ -371,6 +372,76 @@ impl FunctionFlags {
             result |= Self::ARG_IS_UNPACKED_TUPLE;
         }
         result
+    }
+}
+
+/// TODO
+pub struct StringFormatFlags {
+    /// TODO
+    pub alignment: StringAlignment,
+    /// TODO
+    pub min_width: bool,
+    /// TODO
+    pub precision: bool,
+    /// TODO
+    pub fill_character: bool,
+}
+
+impl StringFormatFlags {
+    /// Set to true when min_width is defined
+    pub const MIN_WIDTH: u8 = 1 << 2; // The first two bits are taken up by the alignment enum
+    /// Set to true when precision is defined
+    pub const PRECISION: u8 = 1 << 3;
+    /// Set to true when fill_character is defined
+    pub const FILL_CHARACTER: u8 = 1 << 4;
+
+    /// TODO
+    pub fn from_byte(byte: u8) -> Self {
+        use StringAlignment::*;
+        let alignment_bits = byte & 0b11;
+        let alignment = if alignment_bits == Default as u8 {
+            Default
+        } else if alignment_bits == Left as u8 {
+            Left
+        } else if alignment_bits == Center as u8 {
+            Center
+        } else {
+            Right
+        };
+        Self {
+            alignment,
+            min_width: byte & Self::MIN_WIDTH != 0,
+            precision: byte & Self::PRECISION != 0,
+            fill_character: byte & Self::FILL_CHARACTER != 0,
+        }
+    }
+
+    /// Returns a byte containing the packed flags
+    pub fn as_byte(&self) -> u8 {
+        let mut result = self.alignment as u8;
+
+        if self.min_width {
+            result |= Self::MIN_WIDTH;
+        }
+        if self.precision {
+            result |= Self::PRECISION;
+        }
+        if self.fill_character {
+            result |= Self::FILL_CHARACTER;
+        }
+
+        result
+    }
+}
+
+impl From<StringFormatOptions> for StringFormatFlags {
+    fn from(options: StringFormatOptions) -> Self {
+        Self {
+            alignment: options.alignment,
+            min_width: options.min_width.is_some(),
+            precision: options.precision.is_some(),
+            fill_character: options.fill_character.is_some(),
+        }
     }
 }
 
@@ -669,8 +740,24 @@ impl fmt::Debug for Instruction {
             StringStart { size_hint } => {
                 write!(f, "StringStart\tsize hint: {size_hint}")
             }
-            StringPush { value } => {
-                write!(f, "StringPush\tvalue: {value}")
+            StringPush {
+                value,
+                format_options,
+            } => {
+                write!(f, "StringPush\tvalue: {value}")?;
+                if let Some(opts) = format_options {
+                    write!(f, "\talign: {:?}", opts.alignment)?;
+                    if let Some(min_width) = opts.min_width {
+                        write!(f, "\tmin_width: {min_width}")?;
+                    }
+                    if let Some(precision) = opts.precision {
+                        write!(f, "\tprecision: {precision}")?;
+                    }
+                    if let Some(fill_character) = opts.fill_character {
+                        write!(f, "\tfill_character: {fill_character}")?;
+                    }
+                }
+                Ok(())
             }
             StringFinish { register } => {
                 write!(f, "StringFinish\tresult: {register}")

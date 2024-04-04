@@ -82,14 +82,14 @@ globals.foo_meta =
         null
 
   # Formatting
-  @display: || "Foo (${self.x})"
+  @display: || "Foo ({self.x})"
 
   # Type
   @type: "Foo"
 
   # Named meta entries are accessible on the value but don't appear as map entries
   @meta hello: "Hello"
-  @meta say_hello: |name| "${self.hello}, $name!"
+  @meta say_hello: |name| "{self.hello}, {name}!"
 
 @tests =
   @test add: ||
@@ -177,7 +177,7 @@ globals.foo_meta =
     assert_eq foo(4).to_list(), [0, 1, 2, 3]
 
   @test display: ||
-    assert_eq "${foo -1}", "Foo (-1)"
+    assert_eq "{foo -1}", "Foo (-1)"
 
   @test type: ||
     assert_eq (koto.type (foo 0)), "Foo"

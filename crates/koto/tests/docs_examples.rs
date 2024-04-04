@@ -176,14 +176,31 @@ fn run_doc_examples(subfolder: &[&str], name: &str) {
 }
 
 mod core_lib {
-    macro_rules! test_core_lib_examples {
-        ($name:ident) => {
+    macro_rules! test_doc_examples {
+        ($path: expr, $name:ident) => {
             #[test]
+            #[allow(non_snake_case)]
             fn $name() {
-                super::run_doc_examples(&["core_lib"], stringify!($name))
+                super::run_doc_examples($path, stringify!($name))
             }
         };
     }
+
+    macro_rules! test_top_level_examples {
+        ($name:ident) => {
+            test_doc_examples!(&["."], $name);
+        };
+    }
+
+    macro_rules! test_core_lib_examples {
+        ($name:ident) => {
+            test_doc_examples!(&["core_lib"], $name);
+        };
+    }
+
+    test_top_level_examples!(about);
+    test_top_level_examples!(language_guide);
+    test_top_level_examples!(README);
 
     test_core_lib_examples!(iterator);
     test_core_lib_examples!(koto);
@@ -195,14 +212,4 @@ mod core_lib {
     test_core_lib_examples!(string);
     test_core_lib_examples!(test);
     test_core_lib_examples!(tuple);
-}
-
-#[test]
-fn language_guide() {
-    run_doc_examples(&["."], "language_guide")
-}
-
-#[test]
-fn readme() {
-    run_doc_examples(&[".."], "README")
 }

@@ -7,7 +7,7 @@ use crate::{
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader};
-use koto_parser::{ConstantIndex, MetaKeyId};
+use koto_parser::{ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions};
 use rustc_hash::FxHasher;
 use std::{
     collections::HashMap,
@@ -16,6 +16,7 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 macro_rules! call_binary_op_or_else {
     ($vm:expr,
@@ -770,7 +771,10 @@ impl KotoVm {
             StringStart { size_hint } => self
                 .string_builders
                 .push(String::with_capacity(size_hint as usize)),
-            StringPush { value } => self.run_string_push(value)?,
+            StringPush {
+                value,
+                format_options,
+            } => self.run_string_push(value, &format_options)?,
             StringFinish { register } => self.run_string_finish(register)?,
             Range {
                 register,
@@ -2846,19 +2850,87 @@ impl KotoVm {
         }
     }
 
-    fn run_string_push(&mut self, value_register: u8) -> Result<()> {
+    fn run_string_push(
+        &mut self,
+        value_register: u8,
+        format_options: &Option<StringFormatOptions>,
+    ) -> Result<()> {
         let value = self.clone_register(value_register);
+        let value_is_number = matches!(&value, KValue::Number(_));
 
-        match self.run_unary_op(UnaryOp::Display, value)? {
-            KValue::Str(string) => {
-                if let Some(builder) = self.string_builders.last_mut() {
-                    builder.push_str(&string);
-                    Ok(())
+        // Render the value as a string, applying the precision option if specified
+        let precision = format_options.and_then(|options| options.precision);
+        let rendered = match value {
+            KValue::Number(n) => match precision {
+                Some(precision) if n.is_f64() || n.is_i64_in_f64_range() => {
+                    format!("{:.*}", precision as usize, f64::from(n))
+                }
+                _ => n.to_string(),
+            },
+            other => match self.run_unary_op(UnaryOp::Display, other)? {
+                KValue::Str(rendered) => match precision {
+                    Some(precision) => {
+                        // precision acts as a maximum width for non-number values
+                        let mut truncated =
+                            String::with_capacity((precision as usize).min(rendered.len()));
+                        for grapheme in rendered.graphemes(true).take(precision as usize) {
+                            truncated.push_str(grapheme);
+                        }
+                        truncated
+                    }
+                    None => rendered.to_string(),
+                },
+                other => return type_error("String", &other),
+            },
+        };
+
+        // Apply other formatting options to the rendered string
+        let result = match format_options {
+            Some(options) => {
+                let len = rendered.graphemes(true).count();
+                let min_width = options.min_width.unwrap_or(0) as usize;
+                if len < min_width {
+                    let fill = match options.fill_character {
+                        Some(constant) => self.value_string_from_constant(constant),
+                        None => KString::from(" "),
+                    };
+                    let fill_chars = min_width - len;
+
+                    match options.alignment {
+                        StringAlignment::Default => {
+                            if value_is_number {
+                                // Right-alignment by default for numbers
+                                fill.repeat(fill_chars) + &rendered
+                            } else {
+                                // Left alignment by default for non-numbers
+                                rendered + &fill.repeat(fill_chars)
+                            }
+                        }
+                        StringAlignment::Left => rendered + &fill.repeat(fill_chars),
+                        StringAlignment::Center => {
+                            let half_fill_chars = fill_chars as f32 / 2.0;
+                            format!(
+                                "{}{}{}",
+                                fill.repeat(half_fill_chars.floor() as usize),
+                                rendered,
+                                fill.repeat(half_fill_chars.ceil() as usize),
+                            )
+                        }
+                        StringAlignment::Right => fill.repeat(fill_chars) + &rendered,
+                    }
                 } else {
-                    runtime_error!(ErrorKind::MissingStringBuilder)
+                    rendered
                 }
             }
-            other => type_error("String", &other),
+            None => rendered,
+        };
+
+        // Add the result to the string builder
+        if let Some(builder) = self.string_builders.last_mut() {
+            builder.push_str(&result);
+            Ok(())
+        } else {
+            runtime_error!(ErrorKind::MissingStringBuilder)
         }
     }
 

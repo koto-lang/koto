@@ -182,9 +182,9 @@ null"#;
         #[test]
         fn strings_with_interpolated_ids() {
             let source = r#"
-'Hello, $name!'
-"$foo"
-'$x $y'
+'Hello, {name}!'
+"{foo}"
+'{x} {y}'
 "#;
             check_ast(
                 source,
@@ -194,23 +194,35 @@ null"#;
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Literal(0),
-                            StringNode::Expr(0),
+                            StringNode::Expression {
+                                expression: 0,
+                                format: StringFormatOptions::default(),
+                            },
                             StringNode::Literal(2),
                         ]),
                     }),
                     Id(3),
                     Str(AstString {
                         quote: StringQuote::Double,
-                        contents: StringContents::Interpolated(vec![StringNode::Expr(2)]),
+                        contents: StringContents::Interpolated(vec![StringNode::Expression {
+                            expression: 2,
+                            format: StringFormatOptions::default(),
+                        }]),
                     }),
                     Id(4),
                     Id(6), // 5
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
-                            StringNode::Expr(4),
+                            StringNode::Expression {
+                                expression: 4,
+                                format: StringFormatOptions::default(),
+                            },
                             StringNode::Literal(5),
-                            StringNode::Expr(5),
+                            StringNode::Expression {
+                                expression: 5,
+                                format: StringFormatOptions::default(),
+                            },
                         ]),
                     }),
                     MainBlock {
@@ -233,7 +245,7 @@ null"#;
         #[test]
         fn string_with_interpolated_expression() {
             let source = "
-'${123 + 456}!'
+'{123 + 456}!'
 ";
             check_ast(
                 source,
@@ -248,7 +260,10 @@ null"#;
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
-                            StringNode::Expr(2),
+                            StringNode::Expression {
+                                expression: 2,
+                                format: StringFormatOptions::default(),
+                            },
                             StringNode::Literal(1),
                         ]),
                     }),
@@ -261,6 +276,39 @@ null"#;
             )
         }
 
+        #[test]
+        fn string_with_formatted_expression() {
+            let source = "
+'!{a:_>3.2}!'
+";
+            check_ast(
+                source,
+                &[
+                    Id(1),
+                    Str(AstString {
+                        quote: StringQuote::Single,
+                        contents: StringContents::Interpolated(vec![
+                            StringNode::Literal(0),
+                            StringNode::Expression {
+                                expression: 0,
+                                format: StringFormatOptions {
+                                    alignment: StringAlignment::Right,
+                                    min_width: Some(3),
+                                    precision: Some(2),
+                                    fill_character: Some(2),
+                                },
+                            },
+                            StringNode::Literal(0),
+                        ]),
+                    }),
+                    MainBlock {
+                        body: vec![1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("!"), Constant::Str("a"), Constant::Str("_")]),
+            )
+        }
         #[test]
         fn raw_strings() {
             let source = r###"
@@ -3775,12 +3823,12 @@ x.takes_a_map
 
         #[test]
         fn lookup_on_string() {
-            let source = "'{}'.format x";
+            let source = "'fox'.ends_with 'x'";
             check_ast(
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
-                    Id(2),
+                    string_literal(2, StringQuote::Single),
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -3796,8 +3844,8 @@ x.takes_a_map
                     },
                 ],
                 Some(&[
-                    Constant::Str("{}"),
-                    Constant::Str("format"),
+                    Constant::Str("fox"),
+                    Constant::Str("ends_with"),
                     Constant::Str("x"),
                 ]),
             )

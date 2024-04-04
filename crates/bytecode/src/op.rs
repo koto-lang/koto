@@ -5,12 +5,15 @@
 /// [InstructionReader](crate::InstructionReader).
 ///
 /// In the comments for each operation, the additional bytes are specified inside square brackets.
-/// - Bytes prefixed with * show that the byte is referring to a register.
-/// - Values prefixed with @ indicate a variable-sized integer.
-///   - The 7 least significant bits are included in the integer.
-///   - The 8th bit in a byte is a continuation flag.
-///   - Continuation bits are shifted by N*7 and included in the resulting integer.
-///   - Currently only (up to) 32 bits are used, and integers are unsigned.
+/// Byte prefixes:
+/// * - Shows that the byte is referring to a register.
+/// @ - Indicates a variable-sized integer.
+///     - The 7 least significant bits are included in the integer.
+///     - The 8th bit in a byte is a continuation flag.
+///     - Continuation bits are shifted by N*7 and included in the resulting integer.
+///     - Currently only (up to) 32 bits are used, and integers are unsigned.
+/// ? - used for optional values, the presence of which will be indicated by previous flags in the
+///     instruction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 #[allow(missing_docs)] // Allowed for the UnusedX ops
@@ -141,10 +144,11 @@ pub enum Op {
 
     /// Pushes a value to the end of the current string
     ///
-    /// Strings will have their contents added directly to the string being built.
-    /// Other values will be formatted and then added to the string.
+    /// Values will be rendered and then formatted according to the specified format flags.
     ///
-    /// `[*value]`
+    /// See [StringFormatFlags](crate::StringFormatFlags) for a description of the the format flags.
+    ///
+    /// `[*value, format_flags, ?min_width, ?precision, ?@fill_character]`
     StringPush,
 
     /// Places the finished string in the target register

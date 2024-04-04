@@ -16,7 +16,7 @@ print 'Hello, World!'
 check! Hello, World!
 
 square = |n| n * n
-print! '8 squared is ${square 8}'
+print! '8 squared is {square 8}'
 check! 8 squared is 64
 
 print! (2, 4, 6, 8)

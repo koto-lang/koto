@@ -126,7 +126,7 @@ mod repl_mode {
             (
                 "
 for x in min..=max
-  print 'x: $x'
+  print 'x: {x}'
 ",
                 "
 x: 1

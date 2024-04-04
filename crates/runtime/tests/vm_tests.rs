@@ -2589,7 +2589,7 @@ gen().to_tuple()
         fn id() {
             let script = "
 x = 1
-'$x + $x'
+'{x} + {x}'
 ";
             test_script(script, string("1 + 1"));
         }
@@ -2598,7 +2598,7 @@ x = 1
         fn id_from_capture() {
             let script = "
 x = 1
-f = || '$x.$x'
+f = || '{x}.{x}'
 f()
 ";
             test_script(script, string("1.1"));
@@ -2608,7 +2608,7 @@ f()
         fn expression() {
             let script = "
 x = 100
-'sqrt(x): ${x.sqrt()}'
+'sqrt(x): {x.sqrt()}'
 ";
             test_script(script, string("sqrt(x): 10.0"));
         }
@@ -2616,7 +2616,7 @@ x = 100
         #[test]
         fn nested_expression() {
             let script = "
-'foo${': ${42}'}'
+'foo{': {42}'}'
 ";
             test_script(script, string("foo: 42"));
         }
@@ -2625,7 +2625,7 @@ x = 100
         fn inline_map() {
             let script = "
 foo = |m| size m
-'${foo {bar: 42, baz: 99}}!'
+'{foo {bar: 42, baz: 99}}!'
 ";
             test_script(script, string("2!"));
         }
@@ -2634,7 +2634,7 @@ foo = |m| size m
         fn using_capture() {
             let script = "
 x = 10
-f = || 'x * 2 == ${x * 2}'
+f = || 'x * 2 == {x * 2}'
 f()
 ";
             test_script(script, string("x * 2 == 20"));
@@ -2645,7 +2645,7 @@ f()
             let script = "
 x = 99
 m =
-  'key$x': 'foo'
+  'key{x}': 'foo'
 m.key99
 ";
             test_script(script, string("foo"));
@@ -2656,8 +2656,8 @@ m.key99
             let script = "
 x = 99
 m =
-  'key$x': 'foo'
-m.'key$x'
+  'key{x}': 'foo'
+m.'key{x}'
 ";
             test_script(script, string("foo"));
         }
@@ -2667,9 +2667,9 @@ m.'key$x'
             let script = "
 x = 99
 m =
-  'key$x': 'foo'
-m.'key$x' = 123
-m.'key$x'
+  'key{x}': 'foo'
+m.'key{x}' = 123
+m.'key{x}'
 ";
             test_script(script, 123);
         }
@@ -2678,7 +2678,7 @@ m.'key$x'
         fn value_with_overridden_display() {
             let script = "
 foo = {@display: || 'Foo'}
-'$foo'
+'{foo}'
 ";
             test_script(script, string("Foo"));
         }
@@ -2686,7 +2686,7 @@ foo = {@display: || 'Foo'}
         #[test]
         fn multiple_expressions() {
             let script = "
-'${1, 2, 3}'
+'{1, 2, 3}'
 ";
             test_script(script, string("(1, 2, 3)"));
         }
@@ -2696,7 +2696,7 @@ foo = {@display: || 'Foo'}
             let script = "
 x = [1, 2]
 x.push x
-'$x'
+'{x}'
 ";
             test_script(script, string("[1, 2, [...]]"));
         }
@@ -2706,7 +2706,7 @@ x.push x
             let script = "
 x = {foo: 1, bar: 2}
 x.baz = x
-'$x'
+'{x}'
 ";
             test_script(script, string("{foo: 1, bar: 2, baz: {...}}"));
         }
@@ -2715,9 +2715,29 @@ x.baz = x
         fn strings_in_tuples() {
             let script = "
 x = ('foo', 'bar')
-'$x'
+'{x}'
 ";
             test_script(script, string("('foo', 'bar')"));
+        }
+
+        #[test]
+        fn escaped_curly_brace() {
+            let script = r#"
+'\{x}'
+"#;
+            test_script(script, string("{x}"));
+        }
+
+        use test_case::test_case;
+
+        #[test_case("'{42:10}'", "        42"; "min width with integer")]
+        #[test_case("'{42:-<10}'", "42--------"; "min width with left-aligned integer")]
+        #[test_case("'{1/3:_^11.3}'", "___0.333___"; "fill with centered float")]
+        #[test_case("'{'hello':.2}'", "he"; "precision with string")]
+        #[test_case("'{'hello':10}'", "hello     "; "min width with string")]
+        #[test_case("'{'hello':~>4.2}'", "~~he"; "right-aligned truncated string")]
+        fn formatted_expression(input: &str, expected: &str) {
+            test_script(input, string(expected));
         }
     }
 
@@ -2727,36 +2747,36 @@ x = ('foo', 'bar')
         #[test]
         fn unescaped_backslashes() {
             let script = r"
-r'\r\n\\\$\'
+r'\r\n\\\{\'
 ";
-            test_script(script, string(r"\r\n\\\$\"));
+            test_script(script, string(r"\r\n\\\{\"));
         }
 
         #[test]
         fn uninterpolated_expressions() {
             let script = r"
 foo, bar = 42, 99
-r'$foo + $bar == ${foo + bar}'
+r'{foo} + {bar} == {foo + bar}'
 ";
-            test_script(script, string(r"$foo + $bar == ${foo + bar}"));
+            test_script(script, string(r"{foo} + {bar} == {foo + bar}"));
         }
 
         #[test]
         fn multiline() {
             let script = r#"
 r"
-$foo
+{foo}
 \n
-$bar
+{bar}
 "
 "#;
             test_script(
                 script,
                 string(
                     r"
-$foo
+{foo}
 \n
-$bar
+{bar}
 ",
                 ),
             );
@@ -2828,14 +2848,14 @@ catch _
 
         #[test]
         fn try_catch_with_throw_string() {
-            let script = r#"
+            let script = "
 x = 1
 try
   x += 1
-  throw "{}".format x
+  throw '{x}'
 catch error
   error
-"#;
+";
             test_script(script, "2");
         }
 
@@ -3348,7 +3368,7 @@ animal = |name|
 
 dog = |name|
   @base: animal name
-  speak: || 'Woof! My name is ${self.name}'
+  speak: || 'Woof! My name is {self.name}'
 
 dog('Fido').speak()
 ";

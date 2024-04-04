@@ -6,14 +6,14 @@
 
   @test find: ||
     # Regexes can be created via a regex call or via regex.new
-    r = regex.new '[a-z]{3}'
+    r = regex.new r'[a-z]{3}'
     found = r.find 'a bc def gh'
     assert_eq found.text(), 'def'
     assert_eq found.range(), 5..8
     assert not r.find 'x 123 y'
 
   @test find_all: ||
-    r = regex.new '[a-z]{2,3}'
+    r = regex.new r'[a-z]{2,3}'
     found = r.find_all('a bc def gh')
     assert_eq found.next().get().text(), 'bc'
     assert_eq found.next().get().text(), 'def'

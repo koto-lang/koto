@@ -45,7 +45,7 @@ print! x.baz
 check! 123
 
 x = {}
-print! x.extend 'abc'.each |c| c, '$c!'
+print! x.extend 'abc'.each |c| c, '{c}!'
 check! {a: 'a!', b: 'b!', c: 'c!'}
 print! x.c
 check! c!

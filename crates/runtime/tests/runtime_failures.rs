@@ -226,7 +226,7 @@ x.reversed().next()
             #[test]
             fn missing_interpolated_id() {
                 let script = "
-x = '$foo'
+x = '{foo}'
 ";
                 check_script_fails(script);
             }

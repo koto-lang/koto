@@ -138,7 +138,7 @@ impl Koto {
     /// fn main() -> koto::Result<()> {
     ///     let mut koto = Koto::default();
     ///
-    ///     koto.compile_and_run("export say_hello = |name| 'Hello, $name!'")?;
+    ///     koto.compile_and_run("export say_hello = |name| 'Hello, {name}!'")?;
     ///
     ///     match koto.run_exported_function("say_hello", CallArgs::Single("World".into()))? {
     ///         KValue::Str(result) => assert_eq!(result, "Hello, World!"),
