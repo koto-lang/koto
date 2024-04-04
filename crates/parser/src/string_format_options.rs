@@ -19,8 +19,7 @@ pub struct StringFormatOptions {
 }
 
 impl StringFormatOptions {
-    /// TODO
-    #[allow(unused)]
+    /// Parses a format string
     pub(crate) fn parse(
         format_string: &str,
         constants: &mut ConstantPoolBuilder,

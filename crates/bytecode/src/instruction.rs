@@ -375,15 +375,15 @@ impl FunctionFlags {
     }
 }
 
-/// TODO
+/// Format flags used by the [StringPush][crate::Op::StringPush] op
 pub struct StringFormatFlags {
-    /// TODO
+    /// The alignment of the string
     pub alignment: StringAlignment,
-    /// TODO
+    /// True if a min width value is specified
     pub min_width: bool,
-    /// TODO
+    /// True if a precision value is specified
     pub precision: bool,
-    /// TODO
+    /// True if a fill character is specified
     pub fill_character: bool,
 }
 
@@ -395,7 +395,7 @@ impl StringFormatFlags {
     /// Set to true when fill_character is defined
     pub const FILL_CHARACTER: u8 = 1 << 4;
 
-    /// TODO
+    /// Decodes a byte into format flags
     pub fn from_byte(byte: u8) -> Self {
         use StringAlignment::*;
         let alignment_bits = byte & 0b11;
