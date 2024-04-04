@@ -374,6 +374,15 @@ print! '_{x:~<8}_'
 check! _1.2~~~~~_
 ```
 
+For numbers, the minimum width can be prefixed with `0`, which will pad the
+number to the specified width with zeroes.
+
+```koto
+x = 1.2
+print! '{x:06}'
+check! 0001.2
+```
+
 #### Maximum Width / Precision 
 
 A maximum width for the interpolated expression can be specified following a 

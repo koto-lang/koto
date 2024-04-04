@@ -2731,6 +2731,8 @@ x = ('foo', 'bar')
         use test_case::test_case;
 
         #[test_case("'{42:10}'", "        42"; "min width with integer")]
+        #[test_case("'{42:06}'", "000042"; "min width with zero-prefixed integer")]
+        #[test_case("'{42:1<4}'", "4211"; "min width with integer fill")]
         #[test_case("'{42:-<10}'", "42--------"; "min width with left-aligned integer")]
         #[test_case("'{1/3:_^11.3}'", "___0.333___"; "fill with centered float")]
         #[test_case("'{'hello':.2}'", "he"; "precision with string")]
