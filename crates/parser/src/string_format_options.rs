@@ -37,19 +37,26 @@ impl StringFormatOptions {
             _ => unreachable!(),
         };
 
+        let mut add_string_constant = |s: &str| {
+            constants
+                .add_string(s)
+                .map_err(|_| StringFormatError::InternalError)
+        };
+
         while let Some(next) = chars.next() {
             match (next, chars.peek(), position) {
                 // Check for single-char fill character at the start of the string
                 (_, Some('<' | '^' | '>'), Start) => {
-                    let fill_constant = constants
-                        .add_string(&format_string[0..1])
-                        .map_err(|_| StringFormatError::InternalError)?;
-                    result.fill_character = Some(fill_constant);
+                    result.fill_character = Some(add_string_constant(&format_string[0..1])?);
                     result.alignment = char_to_alignment(chars.next().unwrap());
                     position = MinWidth;
                 }
                 ('<' | '^' | '>', _, Start | Alignment) => {
                     result.alignment = char_to_alignment(next);
+                    position = MinWidth;
+                }
+                ('0', Some('0'..='9'), Start | MinWidth) => {
+                    result.fill_character = Some(add_string_constant("0")?);
                     position = MinWidth;
                 }
                 ('0'..='9', _, Start | MinWidth) => {
@@ -66,10 +73,7 @@ impl StringFormatOptions {
                     let fill = format_string.graphemes(true).next().unwrap();
                     // The fill grapheme cluster can only appear at the start of the format string
                     chars = format_string[fill.len()..].chars().peekable();
-                    let fill_constant = constants
-                        .add_string(fill)
-                        .map_err(|_| StringFormatError::InternalError)?;
-                    result.fill_character = Some(fill_constant);
+                    result.fill_character = Some(add_string_constant(fill)?);
                     position = Alignment;
                 }
                 (other, _, _) => {
@@ -162,6 +166,14 @@ mod tests {
                 "10",
                 StringFormatOptions {
                     min_width: Some(10),
+                    ..Default::default()
+                },
+            ),
+            (
+                "08",
+                StringFormatOptions {
+                    fill_character: Some(0),
+                    min_width: Some(8),
                     ..Default::default()
                 },
             ),
