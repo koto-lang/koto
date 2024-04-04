@@ -15,6 +15,7 @@ The Koto project adheres to
 - The `+` operator has been reintroduced for tuples, lists, and maps.
 - Raw strings are now supported. Any string prefixed with `r` will skip
   character escaping and string interpolation.
+- Formatting options have been added for interpolated strings.
 - `import` expressions can now use `as` for more ergonomic item renaming.
 - Assignments can now be used in `while`/`until` conditions.
 - Unpacked assignments with a single value on the RHS are now accepted, 
@@ -53,6 +54,12 @@ The Koto project adheres to
 
 #### Language
 
+- String interpolation has been updated:
+  - The `$` prefix has been removed from interpolated expressions.
+    e.g. `'${1 + 1}'` is now `{1 + 1}`
+  - Id-only interpolation (without the `{}` braces) has been removed.
+    e.g. `'$foo` is now `{foo}`
+  - The `\$` escape sequence has been replaced with `\{`.
 - Pattern matching and function argument unpacking now use parentheses for all
   container types. 
   - Any uses of `[]` brackets to match against lists can be updated to use
@@ -65,7 +72,7 @@ The Koto project adheres to
 #### Core Library
 
 - `io.print` no longer implicitly treats its first argument as a format string. 
-  `string.format` should be explicitly used instead.
+  Interpolated strings should be used instead.
 - `iterator.next`/`next_back` and `Peekble.peek`/`peek_back` now return
   `IteratorOutput` for output values, and `null` when the iterator is exhausted.
   - `.get()` needs to be called on the output to get the underlying value.
@@ -110,6 +117,10 @@ The Koto project adheres to
 #### Core Library
 
 - `koto.deep_copy` has been removed from the prelude.
+- `string.format` has been removed now that formatting options have been added
+  to interpolated strings.
+  - If dynamically generating format strings was useful, then this can still be
+    achieved by evaluating a generated string with `koto.run`.
 
 #### API
 
