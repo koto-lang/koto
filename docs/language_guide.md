@@ -1336,7 +1336,12 @@ check! ('l', 'l', 'ø')
 Interpolated string expressions can be formatted using formatting options
 similar to [Rust's][rust-format-options].
 
-Options can be provided after a `:` separator inside the `{}` expression.
+Inside an interpolated expression, options are provided after a `:` separator.
+
+```koto
+print! '{number.pi:𝜋^8.2}'
+check! 𝜋𝜋3.14𝜋𝜋
+```
 
 ### Minimum Width and Alignment
 
