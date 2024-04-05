@@ -2,7 +2,7 @@ fn main() {
     let script = "
 if (size koto.args) > 0
   for i, arg in koto.args.enumerate()
-    print '${i + 1}: $arg'
+    print '{i + 1}: {arg}'
 else
   print 'No arguments'
 ";

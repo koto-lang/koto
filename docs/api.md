@@ -16,17 +16,26 @@ To run a Koto script, instantiate `koto::Koto` and call `compile_and_run`:
 hello_world.rs
 ```
 
-## Passing Arguments to Koto
+## Getting a Return Value
+
+The result of calling `compile_and_run` is a `KValue`, which is Koto's main
+value type.
+
+`KValue` is an enum that contains variants for each of the core Koto types, 
+like `Number`, `String`, etc.
+
+The type of a `KValue` as a string can be retrieved via `KValue::type_as_string`,
+and to render a `KValue`, call `Koto::value_to_string`.
 
 ```rust_include
-args.rs
+return_value.rs
 ```
 
 ## Adding Values to the Prelude
 
 The runtime's prelude is a `KMap`, which is Koto's standard hashmap type. 
 
-Values can be added via `KMap::insert`, taking any value that implements
+can be added via `KMap::insert`, taking any value that implements
 `Into<KValue>`. Basic types like strings and numbers are automatically converted
 to corresponding Koto types. 
 
@@ -34,18 +43,13 @@ to corresponding Koto types.
 prelude_value.rs
 ```
 
-## Getting a Return Value
+## Passing Arguments to Koto
 
-The result of calling `compile_and_run` is a _Koto value_, aka `KValue`.
-
-`KValue` is an enum that contains variants for each of the core Koto value
-types, like `Number`, `String`, etc.
-
-The type of a `KValue` as a string can be retrieved via `KValue::type_as_string`,
-and to render a `KValue`, call `Koto::value_to_string`.
+The arguments that are accessible in a script from `koto.args` can be set via
+`Koto::set_args`.
 
 ```rust_include
-return_value.rs
+args.rs
 ```
 
 ## Rust Functions in Koto
@@ -60,8 +64,8 @@ rust_function.rs
 ## Adding a Module to the Prelude
 
 
-A module in Koto is simply a `KMap`, conventionally with a defined `@type`,
-which contains a collection of useful functionality.
+A module in Koto is simply a `KMap`, conventionally with a defined `@type`.
+The `KMap::with_type` initializer sets up an empty map with a `@type` entry.
 
 ```rust_include
 module.rs
@@ -69,7 +73,9 @@ module.rs
 
 ## Adding a Custom Object Type
 
-Rust types that implement `KotoObject` can be used in the Koto runtime.
+Any Rust type that implements `KotoObject` can be used in the Koto runtime.
+`KotoObject` requires `KotoType`, `KotoCopy`, and `KotoEntries` to be
+implemented. Macros are available to help get everything set up.
 
 ```rust_include
 rust_object.rs

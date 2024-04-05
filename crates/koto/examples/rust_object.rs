@@ -7,10 +7,15 @@ print foo.get()
 print foo.set 99
 ";
     let mut koto = Koto::default();
+
     koto.prelude().add_fn("make_foo", |ctx| match ctx.args() {
-        [KValue::Number(n)] => Ok(Foo(n.into()).into()),
+        [KValue::Number(n)] => {
+            let result = Foo::new(*n);
+            Ok(KObject::from(result).into())
+        }
         unexpected => type_error_with_slice("a number", unexpected),
     });
+
     koto.compile_and_run(script).unwrap();
 }
 
@@ -20,6 +25,10 @@ struct Foo(i64);
 // koto_impl generates Koto functions for any function tagged with #[koto_method]
 #[koto_impl]
 impl Foo {
+    fn new(n: KNumber) -> Self {
+        Self(n.into())
+    }
+
     // A simple getter function
     #[koto_method]
     fn get(&self) -> Result<KValue> {
@@ -43,11 +52,5 @@ impl KotoObject for Foo {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!("{}({})", self.type_string(), self.0));
         Ok(())
-    }
-}
-
-impl From<Foo> for KValue {
-    fn from(x: Foo) -> Self {
-        KObject::from(x).into()
     }
 }
