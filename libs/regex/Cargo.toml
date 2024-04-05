@@ -1,6 +1,6 @@
 [package]
 name = "koto_regex"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["jasal82 <johannes.asal@gmx.de>"]
 edition = "2021"
 license = "MIT"
@@ -10,6 +10,6 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../crates/runtime", version = "^0.13.0" }
+koto_runtime = { path = "../../crates/runtime", version = "^0.14.0" }
 
 regex = { workspace = true }

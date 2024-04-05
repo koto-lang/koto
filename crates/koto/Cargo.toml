@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -15,15 +15,15 @@ arc = ["koto_bytecode/arc", "koto_runtime/arc", "koto_parser/arc"]
 rc = ["koto_bytecode/rc", "koto_runtime/rc", "koto_parser/rc"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.13.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.13.0", default-features = false }
-koto_runtime = { path = "../runtime", version = "^0.13.0", default-features = false }
+koto_bytecode = { path = "../bytecode", version = "^0.14.0", default-features = false }
+koto_parser = { path = "../parser", version = "^0.14.0", default-features = false }
+koto_runtime = { path = "../runtime", version = "^0.14.0", default-features = false }
 
 dunce = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-koto_geometry = { path = "../../libs/geometry", version = "^0.13.0" }
+koto_geometry = { path = "../../libs/geometry", version = "^0.14.0" }
 
 anyhow = { workspace = true }
 criterion = { workspace = true }

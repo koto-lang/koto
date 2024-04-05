@@ -1,6 +1,6 @@
 [package]
 name = "koto_bytecode"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -15,8 +15,8 @@ arc = ["koto_memory/arc"]
 rc = ["koto_memory/rc"]
 
 [dependencies]
-koto_memory = { path = "../memory", version = "^0.13.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.13.0", default-features = false }
+koto_memory = { path = "../memory", version = "^0.14.0", default-features = false }
+koto_parser = { path = "../parser", version = "^0.14.0", default-features = false }
 
 dunce = { workspace = true }
 rustc-hash = { workspace = true }

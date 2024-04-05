@@ -1,6 +1,6 @@
 [package]
 name = "lib_tests"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 publish = false
@@ -10,12 +10,12 @@ description = "A test runner for the standard Koto libraries"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-koto = { path = "../../crates/koto", version = "^0.13.0" }
-koto_color = { path = "../color", version = "^0.13.0" }
-koto_geometry = { path = "../geometry", version = "^0.13.0" }
-koto_json = { path = "../json", version = "^0.13.0" }
-koto_random = { path = "../random", version = "^0.13.0" }
-koto_regex = { path = "../regex", version = "^0.13.0" }
-koto_tempfile = { path = "../tempfile", version = "^0.13.0" }
-koto_toml = { path = "../toml", version = "^0.13.0" }
-koto_yaml = { path = "../yaml", version = "^0.13.0" }
+koto = { path = "../../crates/koto", version = "^0.14.0" }
+koto_color = { path = "../color", version = "^0.14.0" }
+koto_geometry = { path = "../geometry", version = "^0.14.0" }
+koto_json = { path = "../json", version = "^0.14.0" }
+koto_random = { path = "../random", version = "^0.14.0" }
+koto_regex = { path = "../regex", version = "^0.14.0" }
+koto_tempfile = { path = "../tempfile", version = "^0.14.0" }
+koto_toml = { path = "../toml", version = "^0.14.0" }
+koto_yaml = { path = "../yaml", version = "^0.14.0" }
