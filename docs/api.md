@@ -35,9 +35,9 @@ return_value.rs
 
 The runtime's prelude is a `KMap`, which is Koto's standard hashmap type. 
 
-can be added via `KMap::insert`, taking any value that implements
-`Into<KValue>`. Basic types like strings and numbers are automatically converted
-to corresponding Koto types. 
+Values can be added to the prelude via `KMap::insert`, taking any Rust value
+that implements `Into<KValue>`. Basic types like strings and numbers are
+automatically converted to corresponding Koto types. 
 
 ```rust_include
 prelude_value.rs
