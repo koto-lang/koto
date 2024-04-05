@@ -46,7 +46,8 @@ impl StringFormatOptions {
             match (next, chars.peek(), position) {
                 // Check for single-char fill character at the start of the string
                 (_, Some('<' | '^' | '>'), Start) => {
-                    result.fill_character = Some(add_string_constant(&format_string[0..1])?);
+                    result.fill_character =
+                        Some(add_string_constant(&format_string[0..next.len_utf8()])?);
                     result.alignment = char_to_alignment(chars.next().unwrap());
                     position = MinWidth;
                 }
@@ -202,6 +203,15 @@ mod tests {
                 StringFormatOptions {
                     alignment: StringAlignment::Center,
                     fill_character: Some(0),
+                    ..Default::default()
+                },
+            ),
+            (
+                "𝜇<.9",
+                StringFormatOptions {
+                    alignment: StringAlignment::Left,
+                    fill_character: Some(0),
+                    precision: Some(9),
                     ..Default::default()
                 },
             ),
