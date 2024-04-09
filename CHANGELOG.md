@@ -8,6 +8,13 @@ The Koto project adheres to
 
 ## [0.14.0] Unreleased
 
+### Added 
+
+#### API
+
+- `KMap::get` has been introduced as simpler alternative to 
+  `KMap::data().get().cloned()`.
+
 ### Changed
 
 #### API 

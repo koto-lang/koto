@@ -246,7 +246,7 @@ impl KotoVm {
 
     /// Returns the named value from the exports map, or None if no matching value is found
     pub fn get_exported_value(&self, id: &str) -> Option<KValue> {
-        self.exports.data().get(id).cloned()
+        self.exports.get(id)
     }
 
     /// Returns the named function from the exports map
@@ -952,10 +952,8 @@ impl KotoVm {
 
         let non_local = self
             .exports
-            .data()
             .get(name)
-            .cloned()
-            .or_else(|| self.context.prelude.data().get(name).cloned());
+            .or_else(|| self.context.prelude.get(name));
 
         if let Some(non_local) = non_local {
             self.set_register(register, non_local);
@@ -1958,7 +1956,7 @@ impl KotoVm {
         }
 
         for (key_a, value_a) in map_a.data().iter() {
-            let Some(value_b) = map_b.data().get(key_a).cloned() else {
+            let Some(value_b) = map_b.get(key_a) else {
                 return Ok(false);
             };
             match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b)? {
@@ -2096,14 +2094,14 @@ impl KotoVm {
         };
 
         // Is the import in the exports?
-        let maybe_in_exports = self.exports.data().get(&import_name).cloned();
+        let maybe_in_exports = self.exports.get(&import_name);
         if let Some(value) = maybe_in_exports {
             self.set_register(import_register, value);
             return Ok(());
         }
 
         // Is the import in the prelude?
-        let maybe_in_prelude = self.context.prelude.data().get(&import_name).cloned();
+        let maybe_in_prelude = self.context.prelude.get(&import_name);
         if let Some(value) = maybe_in_prelude {
             self.set_register(import_register, value);
             return Ok(());
@@ -2474,7 +2472,7 @@ impl KotoVm {
                 let mut lookup_map = map.clone();
                 let mut access_result = None;
                 while access_result.is_none() {
-                    let maybe_value = lookup_map.data().get(&key).cloned();
+                    let maybe_value = lookup_map.get(&key);
                     match maybe_value {
                         Some(value) => access_result = Some(value),
                         // Fallback to the map module when there's no metamap
@@ -2525,7 +2523,7 @@ impl KotoVm {
 
                 let mut result = None;
                 if let Some(entries) = o.entries() {
-                    result = entries.data().get(&key).cloned();
+                    result = entries.get(&key);
                 }
 
                 // Iterator fallback?
@@ -2557,8 +2555,8 @@ impl KotoVm {
         iterator_fallback: bool,
         module_name: &str,
     ) -> Result<KValue> {
-        let maybe_op = match module.data().get(key).cloned() {
-            None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
+        let maybe_op = match module.get(key) {
+            None if iterator_fallback => self.context.core_lib.iterator.get(key),
             maybe_op => maybe_op,
         };
 

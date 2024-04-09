@@ -49,7 +49,7 @@ impl CoreLib {
 
         macro_rules! default_import {
             ($name:expr, $module:ident) => {{
-                result.insert($name, self.$module.data().get($name).unwrap().clone());
+                result.insert($name, self.$module.get($name).unwrap());
             }};
         }
 

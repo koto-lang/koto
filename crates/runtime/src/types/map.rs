@@ -1,8 +1,8 @@
 use crate::{prelude::*, Borrow, BorrowMut, Error, PtrMut, Result};
-use indexmap::IndexMap;
+use indexmap::{Equivalent, IndexMap};
 use rustc_hash::FxHasher;
 use std::{
-    hash::BuildHasherDefault,
+    hash::{BuildHasherDefault, Hash},
     ops::{Deref, DerefMut, RangeBounds},
 };
 
@@ -135,6 +135,14 @@ impl KMap {
             .map_or(false, |meta| meta.borrow().contains_key(key))
     }
 
+    /// Returns a clone of the data value corresponding to the given key
+    pub fn get<K: ?Sized>(&self, key: &K) -> Option<KValue>
+    where
+        K: Hash + Equivalent<ValueKey>,
+    {
+        self.data.borrow().get(key).cloned()
+    }
+
     /// Returns a clone of the meta value corresponding to the given key
     pub fn get_meta_value(&self, key: &MetaKey) -> Option<KValue> {
         self.meta
@@ -245,13 +253,13 @@ mod tests {
     fn get_and_remove_with_string() {
         let m = KMap::default();
 
-        assert!(m.data().get("test").is_none());
+        assert!(m.get("test").is_none());
         m.insert("test", KValue::Null);
-        assert!(m.data().get("test").is_some());
+        assert!(m.get("test").is_some());
         assert!(matches!(
             m.data_mut().shift_remove("test"),
             Some(KValue::Null)
         ));
-        assert!(m.data().get("test").is_none());
+        assert!(m.get("test").is_none());
     }
 }

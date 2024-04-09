@@ -31,6 +31,15 @@ and to render a `KValue`, call `Koto::value_to_string`.
 return_value.rs
 ```
 
+## Getting an Exported Value
+
+Values that are exported from the script are inserted in to the _exports_ map,
+which can be accessed by calling `Koto::exports()`.
+
+```rust_include
+exported_values.rs
+```
+
 ## Adding Values to the Prelude
 
 The runtime's prelude is a `KMap`, which is Koto's standard hashmap type. 
