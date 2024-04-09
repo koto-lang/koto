@@ -9,8 +9,10 @@ export foo = |a, b| '{a} + {b} is {a + b}'
 
     // Running the script exports the `foo` function
     koto.compile_and_run(script).unwrap();
+    let foo = koto.exports().get("foo").unwrap();
+    assert!(foo.is_callable());
 
-    let result = koto.run_exported_function("foo", &[1.into(), 2.into()])?;
+    let result = koto.call_function(foo, &[1.into(), 2.into()])?;
     println!("Result: {}", koto.value_to_string(result)?);
 
     Ok(())

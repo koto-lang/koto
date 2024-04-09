@@ -22,6 +22,15 @@ The Koto project adheres to
 - The use of `CallArgs` has been simplified with the introduction of `From`
   implementations for single values, arrays, and slices. 
   - `CallArgs::None` has been removed, instead you can pass in `&[]`.
+- The `run_function`/`run_instance_function` methods in `Koto` and `KotoVm` have
+  been renamed to `call_function` and `call_instance_function`.
+
+### Removed
+
+#### API
+
+- `Koto::run_exported_function` has been removed. Functions can be accessed via
+  `Koto::exports().get()` and then called with `Koto::call_function()`.
 
 ## [0.13.0] 2024.04.05
 

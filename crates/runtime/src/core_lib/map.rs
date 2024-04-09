@@ -230,7 +230,7 @@ pub fn make_module() -> KMap {
                                     value: &KValue|
                  -> Result<KValue> {
                     let value =
-                        vm.run_function(f.clone(), &[key.value().clone(), value.clone()])?;
+                        vm.call_function(f.clone(), &[key.value().clone(), value.clone()])?;
                     cache.insert(key.clone(), value.clone());
                     Ok(value)
                 };
@@ -342,7 +342,7 @@ fn do_map_update(
         map.data_mut().insert(key.clone(), default);
     }
     let value = map.get(&key).unwrap();
-    match vm.run_function(f, value) {
+    match vm.call_function(f, value) {
         Ok(new_value) => {
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)

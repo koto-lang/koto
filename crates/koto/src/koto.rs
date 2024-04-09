@@ -111,51 +111,28 @@ impl Koto {
         self.run()
     }
 
-    /// Runs a function with the given arguments
-    pub fn run_function(&mut self, function: KValue, args: CallArgs) -> Result<KValue> {
-        self.runtime.run_function(function, args)
+    /// Calls a function with the given arguments
+    ///
+    /// If the provided value isn't [callable](KValue::is_callable) then an error will be returned.
+    pub fn call_function<'a>(
+        &mut self,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KValue> {
+        self.runtime.call_function(function, args)
     }
 
-    /// Runs an instance function with the given arguments
-    pub fn run_instance_function(
+    /// Calls an instance function with the given arguments
+    ///
+    /// If the provided value isn't [callable](KValue::is_callable) then an error will be returned.
+    pub fn call_instance_function<'a>(
         &mut self,
         instance: KValue,
         function: KValue,
-        args: CallArgs,
-    ) -> Result<KValue> {
-        self.runtime.run_instance_function(instance, function, args)
-    }
-
-    /// Runs a function in the runtime's exports map
-    ///
-    /// ```
-    /// use koto::prelude::*;
-    ///
-    /// fn main() -> koto::Result<()> {
-    ///     let mut koto = Koto::default();
-    ///
-    ///     koto.compile_and_run("export say_hello = |name| 'Hello, {name}!'")?;
-    ///
-    ///     match koto.run_exported_function("say_hello", "World")? {
-    ///         KValue::Str(result) => assert_eq!(result, "Hello, World!"),
-    ///         other => panic!(
-    ///             "Unexpected result: {}",
-    ///             koto.value_to_string(other)?
-    ///         ),
-    ///     }
-    ///
-    ///     Ok(())
-    /// }
-    /// ```
-    pub fn run_exported_function<'a>(
-        &mut self,
-        function_name: &str,
         args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
-        match self.runtime.get_exported_function(function_name) {
-            Some(f) => self.run_function(f, args.into()),
-            None => runtime_error!("Function '{function_name}' not found"),
-        }
+        self.runtime
+            .call_instance_function(instance, function, args)
     }
 
     /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
@@ -250,7 +227,7 @@ impl Koto {
 
         let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
         if let Some(main) = maybe_main {
-            self.runtime.run_function(main, &[])
+            self.runtime.call_function(main, &[])
         } else {
             Ok(result)
         }

@@ -244,22 +244,6 @@ impl KotoVm {
         &self.context.settings.stderr
     }
 
-    /// Returns the named value from the exports map, or None if no matching value is found
-    pub fn get_exported_value(&self, id: &str) -> Option<KValue> {
-        self.exports.get(id)
-    }
-
-    /// Returns the named function from the exports map
-    ///
-    /// None is returned if no matching value is found, or if a matching value is found which isn't
-    /// a callable function.
-    pub fn get_exported_function(&self, id: &str) -> Option<KValue> {
-        match self.get_exported_value(id) {
-            Some(function) if function.is_callable() => Some(function),
-            _ => None,
-        }
-    }
-
     /// Runs the provided [Chunk], returning the resulting [KValue]
     pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         // Set up an execution frame to run the chunk in
@@ -297,8 +281,8 @@ impl KotoVm {
         }
     }
 
-    /// Runs a function with some given arguments
-    pub fn run_function<'a>(
+    /// Calls a function with some given arguments
+    pub fn call_function<'a>(
         &mut self,
         function: KValue,
         args: impl Into<CallArgs<'a>>,
@@ -307,7 +291,7 @@ impl KotoVm {
     }
 
     /// Runs an instance function with some given arguments
-    pub fn run_instance_function<'a>(
+    pub fn call_instance_function<'a>(
         &mut self,
         instance: KValue,
         function: KValue,
@@ -624,8 +608,11 @@ impl KotoVm {
 
                     if let Some(pre_test) = &pre_test {
                         if pre_test.is_callable() {
-                            let pre_test_result =
-                                self.run_instance_function(self_arg.clone(), pre_test.clone(), &[]);
+                            let pre_test_result = self.call_instance_function(
+                                self_arg.clone(),
+                                pre_test.clone(),
+                                &[],
+                            );
 
                             if let Err(error) = pre_test_result {
                                 return make_test_error(error, "Error while preparing to run test");
@@ -633,7 +620,7 @@ impl KotoVm {
                         }
                     }
 
-                    let test_result = self.run_instance_function(self_arg.clone(), test, &[]);
+                    let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
 
                     if let Err(error) = test_result {
                         return make_test_error(error, "Error while running test");
@@ -641,7 +628,7 @@ impl KotoVm {
 
                     if let Some(post_test) = &post_test {
                         if post_test.is_callable() {
-                            let post_test_result = self.run_instance_function(
+                            let post_test_result = self.call_instance_function(
                                 self_arg.clone(),
                                 post_test.clone(),
                                 &[],
@@ -2181,7 +2168,7 @@ impl KotoVm {
                 let maybe_main = self.exports.get_meta_value(&MetaKey::Main);
                 match maybe_main {
                     Some(main) if main.is_callable() => {
-                        self.run_function(main, &[])?;
+                        self.call_function(main, &[])?;
                     }
                     Some(unexpected) => return type_error("callable function", &unexpected),
                     None => {}
@@ -2676,7 +2663,7 @@ impl KotoVm {
         Ok(())
     }
 
-    fn call_function(
+    fn call_koto_function(
         &mut self,
         call_info: &CallInfo,
         f: &KFunction,
@@ -2748,9 +2735,9 @@ impl KotoVm {
         use KValue::*;
 
         match callable {
-            Function(f) => self.call_function(info, &f, None, temp_tuple_values),
+            Function(f) => self.call_koto_function(info, &f, None, temp_tuple_values),
             CaptureFunction(f) => {
-                self.call_function(info, &f.info, Some(&f.captures), temp_tuple_values)
+                self.call_koto_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
             NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
             Object(o) => self.call_external(info, ExternalCallable::Object(o)),
@@ -3182,7 +3169,7 @@ pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
 /// Typical use will be to use the `From` implementations, either providing a single value that
 /// implements `Into<KValue>`, or an array or slice of `KValue`s.
 ///
-/// See [KotoVm::run_function].
+/// See [KotoVm::call_function].
 pub enum CallArgs<'a> {
     /// Represents a function call with a single argument.
     Single(KValue),
