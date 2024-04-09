@@ -8,6 +8,14 @@ The Koto project adheres to
 
 ## [0.14.0] Unreleased
 
+### Changed
+
+#### API 
+
+- The use of `CallArgs` has been simplified with the introduction of `From`
+  implementations for single values, arrays, and slices. 
+  - `CallArgs::None` has been removed, instead you can pass in `&[]`.
+
 ## [0.13.0] 2024.04.05
 
 ### Added

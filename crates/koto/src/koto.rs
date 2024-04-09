@@ -136,7 +136,7 @@ impl Koto {
     ///
     ///     koto.compile_and_run("export say_hello = |name| 'Hello, {name}!'")?;
     ///
-    ///     match koto.run_exported_function("say_hello", CallArgs::Single("World".into()))? {
+    ///     match koto.run_exported_function("say_hello", "World")? {
     ///         KValue::Str(result) => assert_eq!(result, "Hello, World!"),
     ///         other => panic!(
     ///             "Unexpected result: {}",
@@ -147,9 +147,13 @@ impl Koto {
     ///     Ok(())
     /// }
     /// ```
-    pub fn run_exported_function(&mut self, function_name: &str, args: CallArgs) -> Result<KValue> {
+    pub fn run_exported_function<'a>(
+        &mut self,
+        function_name: &str,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KValue> {
         match self.runtime.get_exported_function(function_name) {
-            Some(f) => self.run_function(f, args),
+            Some(f) => self.run_function(f, args.into()),
             None => runtime_error!("Function '{function_name}' not found"),
         }
     }
@@ -246,7 +250,7 @@ impl Koto {
 
         let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
         if let Some(main) = maybe_main {
-            self.runtime.run_function(main, CallArgs::None)
+            self.runtime.run_function(main, &[])
         } else {
             Ok(result)
         }

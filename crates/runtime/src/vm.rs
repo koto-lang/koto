@@ -298,18 +298,22 @@ impl KotoVm {
     }
 
     /// Runs a function with some given arguments
-    pub fn run_function(&mut self, function: KValue, args: CallArgs) -> Result<KValue> {
-        self.call_and_run_function(None, function, args)
+    pub fn run_function<'a>(
+        &mut self,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KValue> {
+        self.call_and_run_function(None, function, args.into())
     }
 
     /// Runs an instance function with some given arguments
-    pub fn run_instance_function(
+    pub fn run_instance_function<'a>(
         &mut self,
         instance: KValue,
         function: KValue,
-        args: CallArgs,
+        args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
-        self.call_and_run_function(Some(instance), function, args)
+        self.call_and_run_function(Some(instance), function, args.into())
     }
 
     fn call_and_run_function(
@@ -328,7 +332,6 @@ impl KotoVm {
         self.registers.push(KValue::Null); // result register
         self.registers.push(instance.unwrap_or_default()); // frame base
         let (arg_count, temp_tuple_values) = match args {
-            CallArgs::None => (0, None),
             CallArgs::Single(arg) => {
                 self.registers.push(arg);
                 (1, None)
@@ -621,11 +624,8 @@ impl KotoVm {
 
                     if let Some(pre_test) = &pre_test {
                         if pre_test.is_callable() {
-                            let pre_test_result = self.run_instance_function(
-                                self_arg.clone(),
-                                pre_test.clone(),
-                                CallArgs::None,
-                            );
+                            let pre_test_result =
+                                self.run_instance_function(self_arg.clone(), pre_test.clone(), &[]);
 
                             if let Err(error) = pre_test_result {
                                 return make_test_error(error, "Error while preparing to run test");
@@ -633,8 +633,7 @@ impl KotoVm {
                         }
                     }
 
-                    let test_result =
-                        self.run_instance_function(self_arg.clone(), test, CallArgs::None);
+                    let test_result = self.run_instance_function(self_arg.clone(), test, &[]);
 
                     if let Err(error) = test_result {
                         return make_test_error(error, "Error while running test");
@@ -645,7 +644,7 @@ impl KotoVm {
                             let post_test_result = self.run_instance_function(
                                 self_arg.clone(),
                                 post_test.clone(),
-                                CallArgs::None,
+                                &[],
                             );
 
                             if let Err(error) = post_test_result {
@@ -2184,7 +2183,7 @@ impl KotoVm {
                 let maybe_main = self.exports.get_meta_value(&MetaKey::Main);
                 match maybe_main {
                     Some(main) if main.is_callable() => {
-                        self.run_function(main, CallArgs::None)?;
+                        self.run_function(main, &[])?;
                     }
                     Some(unexpected) => return type_error("callable function", &unexpected),
                     None => {}
@@ -3182,13 +3181,11 @@ pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
 
 /// Function call arguments
 ///
-/// This enum provides flexibility in how you'd like to pass arguments to a function.
+/// Typical use will be to use the `From` implementations, either providing a single value that
+/// implements `Into<KValue>`, or an array or slice of `KValue`s.
+///
+/// See [KotoVm::run_function].
 pub enum CallArgs<'a> {
-    /// Indicates that the function will be called without any arguments.
-    ///
-    /// This is used for functions that do not require input from the caller.
-    None,
-
     /// Represents a function call with a single argument.
     Single(KValue),
 
@@ -3197,9 +3194,30 @@ pub enum CallArgs<'a> {
 
     /// Arguments are bundled together as a tuple and then passed to the function.
     ///
-    /// If the function unpacks the tuple in its arguments list then a temporary tuple will be used,
-    /// which avoids the creation of an allocated tuple.
+    /// If the called function unpacks the tuple in its arguments list,
+    /// then a temporary tuple will be used, which avoids the allocation of a regular KTuple.
     AsTuple(&'a [KValue]),
+}
+
+impl<T> From<T> for CallArgs<'static>
+where
+    T: Into<KValue>,
+{
+    fn from(value: T) -> Self {
+        CallArgs::Single(value.into())
+    }
+}
+
+impl<'a> From<&'a [KValue]> for CallArgs<'a> {
+    fn from(args: &'a [KValue]) -> Self {
+        CallArgs::Separate(args)
+    }
+}
+
+impl<'a, const N: usize> From<&'a [KValue; N]> for CallArgs<'a> {
+    fn from(args: &'a [KValue; N]) -> Self {
+        CallArgs::Separate(args.as_ref())
+    }
 }
 
 // A cache of the export maps of imported modules

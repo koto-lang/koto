@@ -228,10 +228,8 @@ pub fn make_module() -> KMap {
                                     key: &ValueKey,
                                     value: &KValue|
                  -> Result<KValue> {
-                    let value = vm.run_function(
-                        f.clone(),
-                        CallArgs::Separate(&[key.value().clone(), value.clone()]),
-                    )?;
+                    let value =
+                        vm.run_function(f.clone(), &[key.value().clone(), value.clone()])?;
                     cache.insert(key.clone(), value.clone());
                     Ok(value)
                 };
@@ -343,7 +341,7 @@ fn do_map_update(
         map.data_mut().insert(key.clone(), default);
     }
     let value = map.data().get(&key).cloned().unwrap();
-    match vm.run_function(f, CallArgs::Single(value)) {
+    match vm.run_function(f, value) {
         Ok(new_value) => {
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)

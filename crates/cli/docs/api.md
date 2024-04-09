@@ -52,13 +52,24 @@ The arguments that are accessible in a script from `koto.args` can be set via
 args.rs
 ```
 
-## Rust Functions in Koto
+## Calling Rust Functions in Koto
 
 Any Rust function that implements `KotoFunction` can be made available to the
 Koto runtime. 
 
 ```rust_include
 rust_function.rs
+```
+
+## Calling Koto Functions in Rust
+
+`Koto::call_function` can be used to call Koto functions, or any other callable
+Koto values.
+
+
+
+```rust_include
+koto_function.rs
 ```
 
 ## Adding a Module to the Prelude

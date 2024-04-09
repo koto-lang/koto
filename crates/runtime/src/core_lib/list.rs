@@ -245,7 +245,7 @@ pub fn make_module() -> KMap {
                     Ordering::Less => {
                         l.data_mut().reserve(new_size);
                         for _ in 0..new_size - len {
-                            let new_value = ctx.vm.run_function(f.clone(), CallArgs::None)?;
+                            let new_value = ctx.vm.run_function(f.clone(), &[])?;
                             l.data_mut().push(new_value);
                         }
                     }
@@ -270,10 +270,7 @@ pub fn make_module() -> KMap {
                     let mut write_index = 0;
                     for read_index in 0..l.len() {
                         let value = l.data()[read_index].clone();
-                        match ctx
-                            .vm
-                            .run_function(f.clone(), CallArgs::Single(value.clone()))
-                        {
+                        match ctx.vm.run_function(f.clone(), value.clone()) {
                             Ok(KValue::Bool(result)) => {
                                 if result {
                                     l.data_mut()[write_index] = value;
@@ -362,15 +359,12 @@ pub fn make_module() -> KMap {
                 let mut pairs = l
                     .data()
                     .iter()
-                    .map(|value| {
-                        match ctx
-                            .vm
-                            .run_function(f.clone(), CallArgs::Single(value.clone()))
-                        {
+                    .map(
+                        |value| match ctx.vm.run_function(f.clone(), value.clone()) {
                             Ok(key) => Ok((key, value.clone())),
                             Err(e) => Err(e),
-                        }
-                    })
+                        },
+                    )
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let mut error = None;
@@ -436,10 +430,7 @@ pub fn make_module() -> KMap {
                 let f = f.clone();
 
                 for value in l.data_mut().iter_mut() {
-                    *value = match ctx
-                        .vm
-                        .run_function(f.clone(), CallArgs::Single(value.clone()))
-                    {
+                    *value = match ctx.vm.run_function(f.clone(), value.clone()) {
                         Ok(result) => result,
                         Err(error) => return Err(error),
                     }
