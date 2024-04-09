@@ -31,6 +31,8 @@ The Koto project adheres to
 
 - `Koto::run_exported_function` has been removed. Functions can be accessed via
   `Koto::exports().get()` and then called with `Koto::call_function()`.
+- `Koto::run_with_args` has been removed. For equivalent behaviour, 
+  `Koto::set_args` can be called before calling `Koto::run`.
 
 ## [0.13.0] 2024.04.05
 

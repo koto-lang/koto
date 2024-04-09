@@ -97,12 +97,6 @@ impl Koto {
         }
     }
 
-    /// A helper for calling [set_args](Koto::set_args) followed by [run](Koto::run).
-    pub fn run_with_args(&mut self, args: &[String]) -> Result<KValue> {
-        self.set_args(args)?;
-        self.run()
-    }
-
     /// Compiles and runs a Koto script, and returns the script's result
     ///
     /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).

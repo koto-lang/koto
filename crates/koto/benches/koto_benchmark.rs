@@ -7,7 +7,6 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 struct BenchmarkRunner {
     runtime: Koto,
-    args: Vec<String>,
 }
 
 impl BenchmarkRunner {
@@ -26,7 +25,8 @@ impl BenchmarkRunner {
 
         match runtime.compile(&script) {
             Ok(_) => {
-                if let Err(error) = runtime.run_with_args(args) {
+                runtime.set_args(args).unwrap();
+                if let Err(error) = runtime.run() {
                     panic!("{error}");
                 }
             }
@@ -37,14 +37,11 @@ impl BenchmarkRunner {
         // and can be skipped on subsequent runs
         runtime.set_run_tests(false);
 
-        Self {
-            runtime,
-            args: args.to_vec(),
-        }
+        Self { runtime }
     }
 
     fn run(&mut self) {
-        if let Err(error) = self.runtime.run_with_args(&self.args) {
+        if let Err(error) = self.runtime.run() {
             panic!("{error}");
         }
     }
