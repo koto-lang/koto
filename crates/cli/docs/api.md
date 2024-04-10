@@ -84,8 +84,8 @@ koto_function.rs
 ## Adding a Module to the Prelude
 
 
-A module in Koto is simply a `KMap`, conventionally with a defined `@type`.
-The `KMap::with_type` initializer sets up an empty map with a `@type` entry.
+A module in Koto is simply a `KMap`, conventionally with a defined
+[`@type`][type].
 
 ```rust_include
 module.rs
@@ -95,8 +95,10 @@ module.rs
 
 Any Rust type that implements `KotoObject` can be used in the Koto runtime.
 `KotoObject` requires `KotoType`, `KotoCopy`, and `KotoEntries` to be
-implemented. Macros are available to help get everything set up.
+implemented. 
 
 ```rust_include
 rust_object.rs
 ```
+
+[type]: ./language_guide.md#type

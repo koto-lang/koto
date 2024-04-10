@@ -1,4 +1,4 @@
-use koto::{Koto, Result};
+use koto::{prelude::*, Result};
 
 fn main() -> Result<()> {
     let script = "
