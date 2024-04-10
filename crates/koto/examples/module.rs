@@ -13,6 +13,7 @@ print square 9
 }
 
 fn make_module() -> KMap {
+    // The `KMap::with_type` initializer sets up an empty map with a `@type` entry.
     let module = KMap::with_type("my_module");
 
     module.add_fn("echo", |ctx| match ctx.args() {

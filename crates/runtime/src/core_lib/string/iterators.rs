@@ -244,10 +244,7 @@ impl Iterator for SplitWith {
                     .input
                     .with_bounds(grapheme_start..grapheme_end)
                     .unwrap();
-                match self
-                    .vm
-                    .run_function(self.predicate.clone(), CallArgs::Single(Str(x)))
-                {
+                match self.vm.call_function(self.predicate.clone(), x) {
                     Ok(Bool(split_match)) => {
                         if split_match {
                             end = Some(grapheme_start);

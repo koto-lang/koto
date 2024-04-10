@@ -129,7 +129,7 @@ impl Iterator for Generate {
 
     fn next(&mut self) -> Option<Self::Item> {
         let function = self.function.clone();
-        let result = match self.vm.run_function(function, CallArgs::None) {
+        let result = match self.vm.call_function(function, &[]) {
             Ok(result) => Output::Value(result),
             Err(error) => Output::Error(error),
         };
@@ -173,7 +173,7 @@ impl Iterator for GenerateN {
         if self.remaining > 0 {
             self.remaining -= 1;
             let function = self.function.clone();
-            let result = match self.vm.run_function(function, CallArgs::None) {
+            let result = match self.vm.call_function(function, &[]) {
                 Ok(result) => Output::Value(result),
                 Err(error) => Output::Error(error),
             };

@@ -64,7 +64,7 @@ impl Hash for KNativeFunction {
 pub struct CallContext<'a> {
     /// The VM making the call
     ///
-    /// The VM can be used for operations like [KotoVm::run_function], although
+    /// The VM can be used for operations like [KotoVm::call_function], although
     /// the [CallContext::args] and [CallContext::instance] functions return references,
     /// so the values need to be cloned before mutable operations can be called.
     ///

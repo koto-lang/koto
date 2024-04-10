@@ -20,12 +20,10 @@ pub fn make_module() -> KMap {
 
                 for output in ctx.vm.make_iterator(iterable)? {
                     let predicate_result = match output {
-                        Output::Value(value) => ctx
-                            .vm
-                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
                         Output::ValuePair(a, b) => ctx
                             .vm
-                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
                         Output::Error(error) => return Err(error),
                     };
 
@@ -61,12 +59,10 @@ pub fn make_module() -> KMap {
 
                 for output in ctx.vm.make_iterator(iterable)? {
                     let predicate_result = match output {
-                        Output::Value(value) => ctx
-                            .vm
-                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
                         Output::ValuePair(a, b) => ctx
                             .vm
-                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
                         Output::Error(error) => return Err(error),
                     };
 
@@ -144,10 +140,11 @@ pub fn make_module() -> KMap {
                 for output in ctx.vm.make_iterator(iterable)? {
                     match output {
                         Output::Value(value) => {
-                            ctx.vm.run_function(f.clone(), CallArgs::Single(value))?;
+                            ctx.vm.call_function(f.clone(), value)?;
                         }
                         Output::ValuePair(a, b) => {
-                            ctx.vm.run_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
+                            ctx.vm
+                                .call_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
                         }
                         Output::Error(error) => return Err(error),
                     }
@@ -234,10 +231,7 @@ pub fn make_module() -> KMap {
                 for output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
                     match output {
                         Output::Value(value) => {
-                            match ctx
-                                .vm
-                                .run_function(predicate.clone(), CallArgs::Single(value.clone()))
-                            {
+                            match ctx.vm.call_function(predicate.clone(), value.clone()) {
                                 Ok(KValue::Bool(result)) => {
                                     if result {
                                         return Ok(value);
@@ -296,10 +290,7 @@ pub fn make_module() -> KMap {
                         for value in iterator.map(collect_pair) {
                             match value {
                                 Output::Value(value) => {
-                                    match ctx.vm.run_function(
-                                        f.clone(),
-                                        CallArgs::Separate(&[fold_result, value]),
-                                    ) {
+                                    match ctx.vm.call_function(f.clone(), &[fold_result, value]) {
                                         Ok(result) => fold_result = result,
                                         Err(error) => return Some(Output::Error(error)),
                                     }
@@ -484,9 +475,7 @@ pub fn make_module() -> KMap {
                 for iter_output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
                     match iter_output {
                         Output::Value(value) => {
-                            let key = ctx
-                                .vm
-                                .run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
+                            let key = ctx.vm.call_function(key_fn.clone(), value.clone())?;
                             let value_and_key = (value, key);
 
                             result = Some(match result {
@@ -583,12 +572,10 @@ pub fn make_module() -> KMap {
 
                 for (i, output) in ctx.vm.make_iterator(iterable)?.enumerate() {
                     let predicate_result = match output {
-                        Output::Value(value) => ctx
-                            .vm
-                            .run_function(predicate.clone(), CallArgs::Single(value)),
+                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
                         Output::ValuePair(a, b) => ctx
                             .vm
-                            .run_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
+                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
                         Output::Error(error) => return Err(error),
                     };
 
@@ -985,7 +972,7 @@ fn run_iterator_comparison_by_key(
     for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
         match iter_output {
             Output::Value(value) => {
-                let key = vm.run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
+                let key = vm.call_function(key_fn.clone(), value.clone())?;
                 let value_and_key = (value, key);
 
                 result_and_key = Some(match result_and_key {

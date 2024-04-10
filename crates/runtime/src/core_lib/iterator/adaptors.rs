@@ -236,8 +236,8 @@ impl Each {
     fn map_output(&mut self, output: Output) -> Output {
         let function = self.function.clone();
         let functor_result = match output {
-            Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
-            Output::ValuePair(a, b) => self.vm.run_function(function, CallArgs::AsTuple(&[a, b])),
+            Output::Value(value) => self.vm.call_function(function, value),
+            Output::ValuePair(a, b) => self.vm.call_function(function, CallArgs::AsTuple(&[a, b])),
             other => return other,
         };
         match functor_result {
@@ -487,10 +487,7 @@ impl Iterator for IntersperseWith {
             let result = if self.next_is_separator {
                 self.peeked = next;
                 Some(
-                    match self
-                        .vm
-                        .run_function(self.separator_function.clone(), CallArgs::None)
-                    {
+                    match self.vm.call_function(self.separator_function.clone(), &[]) {
                         Ok(result) => Output::Value(result),
                         Err(error) => Output::Error(error),
                     },
@@ -557,12 +554,10 @@ impl Iterator for Keep {
         for output in &mut self.iter {
             let predicate = self.predicate.clone();
             let predicate_result = match &output {
-                Output::Value(value) => self
-                    .vm
-                    .run_function(predicate, CallArgs::Single(value.clone())),
+                Output::Value(value) => self.vm.call_function(predicate, value.clone()),
                 Output::ValuePair(a, b) => self
                     .vm
-                    .run_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
+                    .call_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
                 error @ Output::Error(_) => return Some(error.clone()),
             };
 
@@ -863,12 +858,10 @@ impl Iterator for TakeWhile {
         let iter_output = self.iter.next()?;
         let predicate = self.predicate.clone();
         let predicate_result = match &iter_output {
-            Output::Value(value) => self
-                .vm
-                .run_function(predicate, CallArgs::Single(value.clone())),
+            Output::Value(value) => self.vm.call_function(predicate, value.clone()),
             Output::ValuePair(a, b) => self
                 .vm
-                .run_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
+                .call_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
             error @ Output::Error(_) => return Some(error.clone()),
         };
 

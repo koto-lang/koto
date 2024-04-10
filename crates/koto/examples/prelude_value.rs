@@ -1,10 +1,12 @@
+use koto::prelude::*;
+
 fn main() {
     let script = "
 print 'name: {name}'
 print 'how_many: {how_many}'
 print 'yes_or_no: {if yes_or_no then 'yes' else 'no'}'
 ";
-    let mut koto = koto::Koto::default();
+    let mut koto = Koto::default();
 
     let prelude = koto.prelude();
     prelude.insert("name", "Alice");

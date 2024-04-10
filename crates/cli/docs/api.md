@@ -31,6 +31,15 @@ and to render a `KValue`, call `Koto::value_to_string`.
 return_value.rs
 ```
 
+## Getting an Exported Value
+
+Values that are exported from the script are inserted in to the _exports_ map,
+which can be accessed by calling `Koto::exports()`.
+
+```rust_include
+exported_values.rs
+```
+
 ## Adding Values to the Prelude
 
 The runtime's prelude is a `KMap`, which is Koto's standard hashmap type. 
@@ -52,7 +61,7 @@ The arguments that are accessible in a script from `koto.args` can be set via
 args.rs
 ```
 
-## Rust Functions in Koto
+## Calling Rust Functions in Koto
 
 Any Rust function that implements `KotoFunction` can be made available to the
 Koto runtime. 
@@ -61,11 +70,22 @@ Koto runtime.
 rust_function.rs
 ```
 
+## Calling Koto Functions in Rust
+
+`Koto::call_function` can be used to call Koto functions, or any other callable
+Koto values.
+
+
+
+```rust_include
+koto_function.rs
+```
+
 ## Adding a Module to the Prelude
 
 
-A module in Koto is simply a `KMap`, conventionally with a defined `@type`.
-The `KMap::with_type` initializer sets up an empty map with a `@type` entry.
+A module in Koto is simply a `KMap`, conventionally with a defined
+[`@type`][type].
 
 ```rust_include
 module.rs
@@ -75,8 +95,10 @@ module.rs
 
 Any Rust type that implements `KotoObject` can be used in the Koto runtime.
 `KotoObject` requires `KotoType`, `KotoCopy`, and `KotoEntries` to be
-implemented. Macros are available to help get everything set up.
+implemented. 
 
 ```rust_include
 rust_object.rs
 ```
+
+[type]: ./language_guide.md#type

@@ -89,10 +89,11 @@ pub fn make_module() -> KMap {
             }
         };
 
-        match map.data().get(&ValueKey::try_from(key.clone())?) {
-            Some(value) => Ok(value.clone()),
-            None => Ok(default.clone()),
-        }
+        let result = map
+            .get(&ValueKey::try_from(key.clone())?)
+            .unwrap_or_else(|| default.clone());
+
+        Ok(result)
     });
 
     result.add_fn("get_index", |ctx| {
@@ -228,10 +229,8 @@ pub fn make_module() -> KMap {
                                     key: &ValueKey,
                                     value: &KValue|
                  -> Result<KValue> {
-                    let value = vm.run_function(
-                        f.clone(),
-                        CallArgs::Separate(&[key.value().clone(), value.clone()]),
-                    )?;
+                    let value =
+                        vm.call_function(f.clone(), &[key.value().clone(), value.clone()])?;
                     cache.insert(key.clone(), value.clone());
                     Ok(value)
                 };
@@ -342,8 +341,8 @@ fn do_map_update(
     if !map.data().contains_key(&key) {
         map.data_mut().insert(key.clone(), default);
     }
-    let value = map.data().get(&key).cloned().unwrap();
-    match vm.run_function(f, CallArgs::Single(value)) {
+    let value = map.get(&key).unwrap();
+    match vm.call_function(f, value) {
         Ok(new_value) => {
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)

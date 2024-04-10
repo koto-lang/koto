@@ -8,6 +8,32 @@ The Koto project adheres to
 
 ## [0.14.0] Unreleased
 
+### Added 
+
+#### API
+
+- `KMap::get` has been introduced as simpler alternative to 
+  `KMap::data().get().cloned()`.
+
+### Changed
+
+#### API 
+
+- The use of `CallArgs` has been simplified with the introduction of `From`
+  implementations for single values, arrays, and slices. 
+  - `CallArgs::None` has been removed, instead you can pass in `&[]`.
+- The `run_function`/`run_instance_function` methods in `Koto` and `KotoVm` have
+  been renamed to `call_function` and `call_instance_function`.
+
+### Removed
+
+#### API
+
+- `Koto::run_exported_function` has been removed. Functions can be accessed via
+  `Koto::exports().get()` and then called with `Koto::call_function()`.
+- `Koto::run_with_args` has been removed. For equivalent behaviour, 
+  `Koto::set_args` can be called before calling `Koto::run`.
+
 ## [0.13.0] 2024.04.05
 
 ### Added
