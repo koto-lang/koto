@@ -1,10 +1,7 @@
-mod runtime_test_utils;
-
 mod objects {
-    use crate::runtime_test_utils::*;
     use koto_runtime::{prelude::*, Result};
-
     use koto_derive::*;
+    use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
     #[koto(use_copy)]
@@ -341,7 +338,7 @@ x.as_number()
         #[test]
         fn display() {
             let script = "'{make_object 42}'";
-            test_object_script(script, string("TestObject: 42"));
+            test_object_script(script, "TestObject: 42");
         }
 
         #[test]

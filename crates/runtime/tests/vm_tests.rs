@@ -1,10 +1,6 @@
-mod runtime_test_utils;
-
 mod vm {
-    use crate::runtime_test_utils::{
-        number, number_list, number_tuple, run_script_with_vm, string, test_script, tuple,
-    };
     use koto_runtime::prelude::*;
+    use koto_test_utils::*;
 
     mod literals {
         use super::*;
@@ -59,7 +55,7 @@ mod vm {
             let script = "
 a = 99
 -a";
-            test_script(script, number(-99));
+            test_script(script, -99_i64);
         }
 
         #[test]
@@ -393,7 +389,7 @@ l = [1, 2, 3]
 l2 = l
 l[1] = -1
 l2[1]";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -497,7 +493,7 @@ xy = 10, 7
 x, y = xy
 type xy
 ";
-            test_script(script, string("Tuple"));
+            test_script(script, "Tuple");
         }
 
         #[test]
@@ -537,7 +533,7 @@ else if 1 < 2
 else
   99
 x";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -788,7 +784,7 @@ match 0, 1
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
   else -5
 ";
-            test_script(script, number(-4));
+            test_script(script, -4_i64);
         }
 
         #[test]
@@ -801,7 +797,7 @@ match 0, 1
   0, _ or 1, _ then -4
   else -5
 ";
-            test_script(script, number(-3));
+            test_script(script, -3_i64);
         }
 
         #[test]
@@ -1962,7 +1958,7 @@ result";
             let script = "
 m = {foo: -1}
 m.foo";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -1989,7 +1985,7 @@ m.bar";
 foo, baz = 42, -1
 m = {foo, bar: 99, baz}
 m.baz";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -2066,7 +2062,7 @@ m = {foo: 42}
 m2 = m
 m.foo = -1
 m2.foo";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -2118,7 +2114,7 @@ m = {bar: 0}
 l = [m, m, m]
 l[1].bar = -1
 l[1].bar";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -2163,7 +2159,7 @@ m[1]";
             let script = "
 m = {get_map: || { foo: -1 }}
 m.get_map().foo";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -2230,7 +2226,7 @@ m = {foo: {bar: -1}}
 m2 = koto.deep_copy m
 m.foo.bar = 99
 m2.foo.bar";
-            test_script(script, number(-1));
+            test_script(script, -1_i64);
         }
 
         #[test]
@@ -2506,7 +2502,7 @@ gen().to_tuple()
 
         #[test]
         fn addition() {
-            test_script(r#""Hello, " + "World!""#, string("Hello, World!"));
+            test_script(r#""Hello, " + "World!""#, "Hello, World!");
         }
 
         #[test]
@@ -2535,50 +2531,50 @@ gen().to_tuple()
 
         #[test]
         fn index_single_index() {
-            test_script("'hello'[1]", string("e"));
+            test_script("'hello'[1]", "e");
         }
 
         #[test]
         fn index_start_and_end() {
-            test_script("'hello'[1..2]", string("e"));
-            test_script("'hello'[1..3]", string("el"));
-            test_script("'föo'[1..3]", string("ö"));
+            test_script("'hello'[1..2]", "e");
+            test_script("'hello'[1..3]", "el");
+            test_script("'föo'[1..3]", "ö");
         }
 
         #[test]
         fn index_from_start() {
-            test_script("'hello'[2..]", string("llo"));
-            test_script("'hello'[3..]", string("lo"));
+            test_script("'hello'[2..]", "llo");
+            test_script("'hello'[3..]", "lo");
         }
 
         #[test]
         fn index_to_end() {
-            test_script("'hello'[..1]", string("h"));
-            test_script("'hello'[..=2]", string("hel"));
+            test_script("'hello'[..1]", "h");
+            test_script("'hello'[..=2]", "hel");
         }
 
         #[test]
         fn index_from_one_past_the_end() {
-            test_script("'x'[0..1]", string("x"));
-            test_script("'x'[1..]", string(""));
-            test_script("'x'[1..1]", string(""));
-            test_script("'hello'[5..]", string(""));
+            test_script("'x'[0..1]", "x");
+            test_script("'x'[1..]", "");
+            test_script("'x'[1..1]", "");
+            test_script("'hello'[5..]", "");
         }
 
         #[test]
         fn index_whole_string() {
-            test_script("'hello'[..]", string("hello"));
+            test_script("'hello'[..]", "hello");
         }
 
         #[test]
         fn index_sub_string() {
-            test_script("'hello'[3..][..]", string("lo"));
-            test_script("'hello'[3..][1]", string("o"));
+            test_script("'hello'[3..][..]", "lo");
+            test_script("'hello'[3..][1]", "o");
         }
 
         #[test]
         fn escaped_backslash() {
-            test_script(r#""\\""#, string("\\"));
+            test_script(r#""\\""#, "\\");
         }
     }
 
@@ -2591,7 +2587,7 @@ gen().to_tuple()
 x = 1
 '{x} + {x}'
 ";
-            test_script(script, string("1 + 1"));
+            test_script(script, "1 + 1");
         }
 
         #[test]
@@ -2601,7 +2597,7 @@ x = 1
 f = || '{x}.{x}'
 f()
 ";
-            test_script(script, string("1.1"));
+            test_script(script, "1.1");
         }
 
         #[test]
@@ -2610,7 +2606,7 @@ f()
 x = 100
 'sqrt(x): {x.sqrt()}'
 ";
-            test_script(script, string("sqrt(x): 10.0"));
+            test_script(script, "sqrt(x): 10.0");
         }
 
         #[test]
@@ -2618,7 +2614,7 @@ x = 100
             let script = "
 'foo{': {42}'}'
 ";
-            test_script(script, string("foo: 42"));
+            test_script(script, "foo: 42");
         }
 
         #[test]
@@ -2627,7 +2623,7 @@ x = 100
 foo = |m| size m
 '{foo {bar: 42, baz: 99}}!'
 ";
-            test_script(script, string("2!"));
+            test_script(script, "2!");
         }
 
         #[test]
@@ -2637,7 +2633,7 @@ x = 10
 f = || 'x * 2 == {x * 2}'
 f()
 ";
-            test_script(script, string("x * 2 == 20"));
+            test_script(script, "x * 2 == 20");
         }
 
         #[test]
@@ -2648,7 +2644,7 @@ m =
   'key{x}': 'foo'
 m.key99
 ";
-            test_script(script, string("foo"));
+            test_script(script, "foo");
         }
 
         #[test]
@@ -2659,7 +2655,7 @@ m =
   'key{x}': 'foo'
 m.'key{x}'
 ";
-            test_script(script, string("foo"));
+            test_script(script, "foo");
         }
 
         #[test]
@@ -2680,7 +2676,7 @@ m.'key{x}'
 foo = {@display: || 'Foo'}
 '{foo}'
 ";
-            test_script(script, string("Foo"));
+            test_script(script, "Foo");
         }
 
         #[test]
@@ -2688,7 +2684,7 @@ foo = {@display: || 'Foo'}
             let script = "
 '{1, 2, 3}'
 ";
-            test_script(script, string("(1, 2, 3)"));
+            test_script(script, "(1, 2, 3)");
         }
 
         #[test]
@@ -2698,7 +2694,7 @@ x = [1, 2]
 x.push x
 '{x}'
 ";
-            test_script(script, string("[1, 2, [...]]"));
+            test_script(script, "[1, 2, [...]]");
         }
 
         #[test]
@@ -2708,7 +2704,7 @@ x = {foo: 1, bar: 2}
 x.baz = x
 '{x}'
 ";
-            test_script(script, string("{foo: 1, bar: 2, baz: {...}}"));
+            test_script(script, "{foo: 1, bar: 2, baz: {...}}");
         }
 
         #[test]
@@ -2717,7 +2713,7 @@ x.baz = x
 x = ('foo', 'bar')
 '{x}'
 ";
-            test_script(script, string("('foo', 'bar')"));
+            test_script(script, "('foo', 'bar')");
         }
 
         #[test]
@@ -2725,7 +2721,7 @@ x = ('foo', 'bar')
             let script = r#"
 '\{x}'
 "#;
-            test_script(script, string("{x}"));
+            test_script(script, "{x}");
         }
 
         use test_case::test_case;
@@ -2739,7 +2735,7 @@ x = ('foo', 'bar')
         #[test_case("'{'hello':10}'", "hello     "; "min width with string")]
         #[test_case("'{'hello':~>4.2}'", "~~he"; "right-aligned truncated string")]
         fn formatted_expression(input: &str, expected: &str) {
-            test_script(input, string(expected));
+            test_script(input, expected);
         }
     }
 
@@ -2751,7 +2747,7 @@ x = ('foo', 'bar')
             let script = r"
 r'\r\n\\\{\'
 ";
-            test_script(script, string(r"\r\n\\\{\"));
+            test_script(script, r"\r\n\\\{\");
         }
 
         #[test]
@@ -2760,7 +2756,7 @@ r'\r\n\\\{\'
 foo, bar = 42, 99
 r'{foo} + {bar} == {foo + bar}'
 ";
-            test_script(script, string(r"{foo} + {bar} == {foo + bar}"));
+            test_script(script, r"{foo} + {bar} == {foo + bar}");
         }
 
         #[test]
@@ -2774,13 +2770,11 @@ r"
 "#;
             test_script(
                 script,
-                string(
-                    r"
+                r"
 {foo}
 \n
 {bar}
 ",
-                ),
             );
         }
     }

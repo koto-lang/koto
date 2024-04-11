@@ -617,8 +617,8 @@ dependencies = [
  "koto_geometry",
  "koto_parser",
  "koto_runtime",
+ "koto_test_utils",
  "mimalloc",
- "pulldown-cmark",
  "test_bin",
  "thiserror",
 ]
@@ -767,6 +767,7 @@ dependencies = [
  "koto_lexer",
  "koto_memory",
  "koto_parser",
+ "koto_test_utils",
  "rustc-hash",
  "smallvec",
  "test-case",
@@ -788,6 +789,15 @@ version = "0.14.0"
 dependencies = [
  "koto_runtime",
  "tempfile",
+]
+
+[[package]]
+name = "koto_test_utils"
+version = "0.14.0"
+dependencies = [
+ "koto_bytecode",
+ "koto_runtime",
+ "pulldown-cmark",
 ]
 
 [[package]]
