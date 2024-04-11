@@ -2501,6 +2501,9 @@ f 42";
 f(x, -x)
 ",
                 "
+f(x,-x)
+",
+                "
 f(
   x,
   -x
@@ -2539,13 +2542,27 @@ f(x,
         }
 
         #[test]
-        fn call_with_indented_args() {
-            let source = "
+        fn call_without_parentheses() {
+            let sources = [
+                "
+foo x, y
+",
+                "
+foo x,y
+",
+                "
 foo
   x,
-  y";
-            check_ast(
-                source,
+  y
+",
+                "
+foo x,
+    y
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(1),
                     Id(2),
