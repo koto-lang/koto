@@ -20,9 +20,9 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<KValue> {
             match sequence
                 .iter()
                 .map(yaml_value_to_koto_value)
-                .collect::<Result<ValueVec>>()
+                .collect::<Result<Vec<_>>>()
             {
-                Ok(result) => KValue::List(KList::with_data(result)),
+                Ok(result) => KValue::Tuple(result.into()),
                 Err(e) => return Err(e),
             }
         }
