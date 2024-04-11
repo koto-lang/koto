@@ -3,10 +3,10 @@ use koto_bytecode::{CompilerSettings, Loader};
 use koto_runtime::{prelude::*, Result};
 
 /// Runs a script and validates its output
-pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
+pub fn check_script_output(script: &str, expected_output: impl Into<KValue>) {
     let (vm, output) = OutputCapture::make_vm_with_output_capture();
 
-    if let Err(e) = run_script_with_vm(vm, script, expected_output) {
+    if let Err(e) = check_script_output_with_vm(vm, script, expected_output) {
         let output = output.captured_output();
         if !output.is_empty() {
             println!("Stdout:\n-------\n\n{output}\n-------\n");
@@ -16,7 +16,7 @@ pub fn test_script(script: &str, expected_output: impl Into<KValue>) {
 }
 
 /// Runs a script and validates its output using a provided Vm
-pub fn run_script_with_vm(
+pub fn check_script_output_with_vm(
     mut vm: KotoVm,
     script: &str,
     expected_output: impl Into<KValue>,

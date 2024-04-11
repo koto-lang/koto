@@ -1,6 +1,6 @@
 mod objects {
-    use koto_runtime::{prelude::*, Result};
     use koto_derive::*;
+    use koto_runtime::{prelude::*, Result};
     use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
@@ -263,7 +263,7 @@ mod objects {
             _ => runtime_error!("make_object: Expected a Number"),
         });
 
-        if let Err(e) = run_script_with_vm(vm, script, expected_output.into()) {
+        if let Err(e) = check_script_output_with_vm(vm, script, expected_output.into()) {
             panic!("{e}");
         }
     }

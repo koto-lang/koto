@@ -18,4 +18,3 @@ pub fn script_instructions(script: &str, chunk: Ptr<Chunk>) -> String {
 
     result
 }
-
