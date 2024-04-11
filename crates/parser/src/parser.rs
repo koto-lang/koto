@@ -1073,7 +1073,7 @@ impl<'source> Parser<'source> {
 
                 if new_line {
                     arg_context.expected_indentation = Indentation::Equal(peeked.info.indent);
-                } else if self.peek_token() != Some(Token::Whitespace) {
+                } else if args.is_empty() && self.peek_token() != Some(Token::Whitespace) {
                     break;
                 }
 

@@ -34,6 +34,14 @@ The Koto project adheres to
 - `Koto::run_with_args` has been removed. For equivalent behaviour, 
   `Koto::set_args` can be called before calling `Koto::run`.
 
+### Fixed
+
+#### Language
+
+- Arguments in paren-free function calls no longer require whitespace after
+  commas. e.g. `f 1,2,3` would previously be rejected.
+
+
 ## [0.13.0] 2024.04.05
 
 ### Added
