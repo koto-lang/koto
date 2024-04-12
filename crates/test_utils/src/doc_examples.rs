@@ -12,8 +12,9 @@ struct ExampleTestRunner {
 }
 
 impl ExampleTestRunner {
-    fn new() -> Self {
+    fn new(mut prelude_entries: ValueMap) -> Self {
         let (vm, output) = OutputCapture::make_vm_with_output_capture();
+        vm.prelude().data_mut().extend(prelude_entries.drain(..));
 
         Self {
             loader: Loader::default(),
@@ -97,14 +98,13 @@ Actual:
 /// The following additional code block tags can be used to control how an example is tested.
 /// - `skip_check`: the example will be compiled and run, but the output won't be checked.
 /// - `skip_run`: the example will be compiled but not run.
-pub fn run_koto_examples_in_markdown(markdown: &str) -> Result<()> {
+pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) -> Result<()> {
     use pulldown_cmark::{CodeBlockKind, Event::*, Parser, Tag::*};
 
     let mut in_heading = false;
     let mut in_koto_code = false;
 
-    let mut runner = ExampleTestRunner::new();
-    let mut heading = String::with_capacity(128);
+    let mut runner = ExampleTestRunner::new(prelude_entries);
     let mut code_block = String::with_capacity(128);
     let mut script = String::with_capacity(128);
     let mut expected_output = String::with_capacity(128);

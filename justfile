@@ -25,7 +25,16 @@ test_benches:
   cargo test --benches
 
 test_docs:
-  cargo test --test docs_examples
+  cargo test \
+    --test docs_examples \
+    --test color_docs \
+    --test geometry_docs \
+    --test json_docs \
+    --test random_docs \
+    --test regex_docs \
+    --test tempfile_docs \
+    --test toml_docs \
+    --test yaml_docs
 
 test_koto:
   cargo test --test koto_tests

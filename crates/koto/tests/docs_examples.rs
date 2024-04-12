@@ -1,4 +1,4 @@
-use koto::Result;
+use koto::{prelude::*, Result};
 use koto_test_utils::run_koto_examples_in_markdown;
 use std::{fs, path::PathBuf};
 
@@ -11,37 +11,36 @@ fn run_doc_examples(subfolder: Option<&[&str]>, name: &str) -> Result<()> {
     path.push(format!("{name}.md"));
     path = path.canonicalize().unwrap();
     let markdown = fs::read_to_string(&path).unwrap();
-    run_koto_examples_in_markdown(&markdown)
+    run_koto_examples_in_markdown(&markdown, ValueMap::default())
 }
+
+macro_rules! test_doc_examples {
+    ($path: expr, $name:ident) => {
+        #[test]
+        #[allow(non_snake_case)]
+        fn $name() -> Result<()> {
+            run_doc_examples($path, stringify!($name))
+        }
+    };
+}
+
+macro_rules! test_top_level_examples {
+    ($name:ident) => {
+        test_doc_examples!(None, $name);
+    };
+}
+
+test_top_level_examples!(about);
+test_top_level_examples!(language_guide);
 
 mod core_lib {
     use super::*;
-
-    macro_rules! test_doc_examples {
-        ($path: expr, $name:ident) => {
-            #[test]
-            #[allow(non_snake_case)]
-            fn $name() -> Result<()> {
-                run_doc_examples($path, stringify!($name))
-            }
-        };
-    }
-
-    macro_rules! test_top_level_examples {
-        ($name:ident) => {
-            test_doc_examples!(None, $name);
-        };
-    }
 
     macro_rules! test_core_lib_examples {
         ($name:ident) => {
             test_doc_examples!(Some(&["core_lib"]), $name);
         };
     }
-
-    test_top_level_examples!(about);
-    test_top_level_examples!(language_guide);
-    test_top_level_examples!(README);
 
     test_core_lib_examples!(iterator);
     test_core_lib_examples!(koto);

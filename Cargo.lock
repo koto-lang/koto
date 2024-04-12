@@ -674,6 +674,7 @@ name = "koto_color"
 version = "0.14.0"
 dependencies = [
  "koto_runtime",
+ "koto_test_utils",
  "palette 0.7.5",
 ]
 
@@ -691,6 +692,7 @@ name = "koto_geometry"
 version = "0.14.0"
 dependencies = [
  "koto_runtime",
+ "koto_test_utils",
  "nannou_core",
 ]
 
@@ -700,6 +702,7 @@ version = "0.14.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
+ "koto_test_utils",
  "serde_json",
 ]
 
@@ -750,6 +753,7 @@ dependencies = [
  "getrandom",
  "koto_derive",
  "koto_runtime",
+ "koto_test_utils",
  "lazy_static",
  "rand",
  "rand_chacha",
@@ -760,6 +764,7 @@ name = "koto_regex"
 version = "0.14.0"
 dependencies = [
  "koto_runtime",
+ "koto_test_utils",
  "regex",
 ]
 
@@ -797,6 +802,7 @@ name = "koto_tempfile"
 version = "0.14.0"
 dependencies = [
  "koto_runtime",
+ "koto_test_utils",
  "tempfile",
 ]
 
@@ -816,6 +822,7 @@ version = "0.14.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
+ "koto_test_utils",
  "toml",
 ]
 
@@ -834,6 +841,7 @@ version = "0.14.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
+ "koto_test_utils",
  "serde_yaml",
 ]
 

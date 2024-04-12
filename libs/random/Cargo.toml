@@ -19,3 +19,6 @@ rand_chacha = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true }
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", version = "^0.14.0" }

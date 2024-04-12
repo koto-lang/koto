@@ -16,3 +16,6 @@ koto_runtime = { path = "../../crates/runtime", version = "^0.14.0" }
 koto_serialize = { path = "../../crates/serialize", version = "^0.14.0" }
 
 serde_yaml = { workspace = true }
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", version = "^0.14.0" }

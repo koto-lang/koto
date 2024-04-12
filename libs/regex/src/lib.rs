@@ -32,6 +32,20 @@ impl Regex {
     }
 
     #[koto_method]
+    fn find(&self, args: &[KValue]) -> Result<KValue> {
+        match args {
+            [KValue::Str(text)] => {
+                let m = self.0.find(text);
+                match m {
+                    Some(m) => Ok(Match::make_value(text.clone(), m.start(), m.end())),
+                    None => Ok(KValue::Null),
+                }
+            }
+            unexpected => type_error_with_slice("a string", unexpected),
+        }
+    }
+
+    #[koto_method]
     fn find_all(&self, args: &[KValue]) -> Result<KValue> {
         match args {
             [KValue::Str(text)] => {
@@ -42,20 +56,6 @@ impl Regex {
                     last_index: 0,
                 }
                 .into())
-            }
-            unexpected => type_error_with_slice("a string", unexpected),
-        }
-    }
-
-    #[koto_method]
-    fn find(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => {
-                let m = self.0.find(text);
-                match m {
-                    Some(m) => Ok(Match::make_value(text.clone(), m.start(), m.end())),
-                    None => Ok(KValue::Null),
-                }
             }
             unexpected => type_error_with_slice("a string", unexpected),
         }

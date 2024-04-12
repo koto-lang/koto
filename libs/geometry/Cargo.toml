@@ -13,5 +13,7 @@ keywords = ["scripting", "language", "koto"]
 
 [dependencies]
 koto_runtime = { path = "../../crates/runtime", version = "^0.14.0" }
-
 nannou_core = { workspace = true }
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", version = "^0.14.0" }

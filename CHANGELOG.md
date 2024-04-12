@@ -15,6 +15,10 @@ The Koto project adheres to
 - `KMap::get` has been introduced as simpler alternative to 
   `KMap::data().get().cloned()`.
 
+#### Libs
+
+- Markdown docs have been added for the extra libs.
+
 ### Changed
 
 #### API 

@@ -49,7 +49,7 @@ pub fn make_module() -> KMap {
         [Str(s)] => named(s),
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
         [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),
-        unexpected => type_error_with_slice("a String", unexpected),
+        unexpected => type_error_with_slice("a color name, rgb, or rgba values", unexpected),
     });
 
     result.set_meta_map(Some(meta.into()));
