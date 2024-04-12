@@ -13,4 +13,5 @@ keywords = ["scripting", "language", "koto"]
 koto_bytecode = { path = "../bytecode", version = "^0.14.0" }
 koto_runtime = { path = "../runtime", version = "^0.14.0" }
 
+itertools = { workspace = true }
 pulldown-cmark = { workspace = true }

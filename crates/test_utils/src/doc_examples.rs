@@ -1,3 +1,4 @@
+use itertools::join;
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
 use koto_runtime::{prelude::*, Error, Ptr, Result};
 use std::ops::Deref;
@@ -21,13 +22,14 @@ impl ExampleTestRunner {
         }
     }
 
-    fn compile_example(&mut self, script: &str, heading: &str) -> Result<Ptr<Chunk>> {
+    fn compile_example(&mut self, script: &str, sections: &[String]) -> Result<Ptr<Chunk>> {
         self.loader
             .compile_script(script, &None, CompilerSettings::default())
             .map_err(|error| {
                 Error::from(format!(
                     "
-An example in '{heading}' failed to compile: {error}"
+An example in '{}' failed to compile: {error}",
+                    join(sections.iter(), ".")
                 ))
             })
     }
@@ -35,13 +37,13 @@ An example in '{heading}' failed to compile: {error}"
     fn run_example(
         &mut self,
         script: &str,
-        heading: &str,
+        sections: &[String],
         expected_output: &str,
         skip_check: bool,
     ) -> Result<()> {
         self.output.clear();
 
-        let chunk = self.compile_example(script, heading)?;
+        let chunk = self.compile_example(script, sections)?;
 
         if let Err(error) = self.vm.run(chunk.clone()) {
             println!("\n--------\n{script}\n--------\n");
@@ -60,7 +62,7 @@ An example in '{heading}' failed to compile: {error}"
             if expected_output != output.deref() {
                 return runtime_error!(
                     "
-Example output mismatch in '{heading}':
+Example output mismatch in '{}':
 
 --------
 
@@ -73,6 +75,7 @@ Expected:
 Actual:
 {}
 ",
+                    join(sections.iter(), " / "),
                     output.deref()
                 );
             }
@@ -107,14 +110,22 @@ pub fn run_koto_examples_in_markdown(markdown: &str) -> Result<()> {
     let mut expected_output = String::with_capacity(128);
     let mut skip_check = false;
     let mut skip_run = false;
+    let mut headings: Vec<String> = Vec::with_capacity(4);
+    let mut current_level = None;
 
     for event in Parser::new(markdown) {
         match event {
             Text(text) if in_koto_code => code_block.push_str(&text),
-            Text(text) if in_heading => heading.push_str(&text),
-            Code(inline_code) if in_heading => heading.push_str(&inline_code),
-            Start(Heading(_, _, _)) => {
-                heading.clear();
+            Text(text) if in_heading => headings.last_mut().unwrap().push_str(&text),
+            Code(inline_code) if in_heading => headings.last_mut().unwrap().push_str(&inline_code),
+            Start(Heading(new_level, _, _)) => {
+                if let Some(current_level) = current_level {
+                    if new_level <= current_level {
+                        headings.truncate(new_level as usize - 1);
+                    }
+                }
+                headings.push(String::new());
+                current_level = Some(new_level);
                 in_heading = true;
             }
             End(Heading(_, _, _)) => {
@@ -150,9 +161,9 @@ pub fn run_koto_examples_in_markdown(markdown: &str) -> Result<()> {
                 }
 
                 if skip_run {
-                    runner.compile_example(&script, &heading)?;
+                    runner.compile_example(&script, &headings)?;
                 } else {
-                    runner.run_example(&script, &heading, &expected_output, skip_check)?;
+                    runner.run_example(&script, &headings, &expected_output, skip_check)?;
                 }
             }
             _ => {}
