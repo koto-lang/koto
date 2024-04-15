@@ -1,7 +1,7 @@
 A rendered version of this document can be found
 [here](https://koto.dev/docs/next/language).
 
-See the neighbouring [readme][./README.md] for an explanation of the
+See the neighbouring [readme](./README.md) for an explanation of the
 `print!` and `check!` commands used in the following example.
 
 ---
@@ -2192,21 +2192,21 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 
 [ascii]: https://en.wikipedia.org/wiki/ASCII
 [associated]: https://en.wikipedia.org/wiki/Associative_array
-[chars]: ../core_lib/string#chars
+[chars]: ./core_lib/string.md#chars
 [cli]: ../cli
 [compound-assignment]: https://en.wikipedia.org/wiki/Augmented_assignment
-[core]: ../core_lib
+[core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
-[iterator]: ../core_lib/iterator
-[map-get]: ../core_lib/map#get
-[map-insert]: ../core_lib/map#insert
+[iterator]: ./core_lib/iterator.md
+[map-get]: ./core_lib/map.md#get
+[map-insert]: ./core_lib/map.md#insert
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation
-[next]: ../core_lib/iterator#next
-[once]: ../core_lib/iterator#once
+[next]: ./core_lib/iterator.md#next
+[once]: ./core_lib/iterator.md#once
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
-[repeat]: ../core_lib/iterator#repeat
+[repeat]: ./core_lib/iterator.md#repeat
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
-[to_list]: ../core_lib/iterator#to_list
-[to_tuple]: ../core_lib/iterator#to_tuple
+[to_list]: ./core_lib/iterator.md#to_list
+[to_tuple]: ./core_lib/iterator.md#to_tuple
 [utf-8]: https://en.wikipedia.org/wiki/UTF-8
 [variadic]: https://en.wikipedia.org/wiki/Variadic_function
