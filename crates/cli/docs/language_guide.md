@@ -764,14 +764,14 @@ made available in a Koto script without the need for first calling `import`.
 The modules that make up the core library are all included by default in the 
 prelude. The following functions are also added to the prelude by default:
 
-- [`io.print`](../core_lib/io#print)
-- [`koto.copy`](../core_lib/koto#copy)
-- [`koto.size`](../core_lib/koto#size)
-- [`koto.type`](../core_lib/koto#type)
-- [`test.assert`](../core_lib/test#assert)
-- [`test.assert_eq`](../core_lib/test#assert-eq)
-- [`test.assert_ne`](../core_lib/test#assert-ne)
-- [`test.assert_near`](../core_lib/test#assert-near)
+- [`io.print`](./core_lib/io.md#print)
+- [`koto.copy`](./core_lib/koto.md#copy)
+- [`koto.size`](./core_lib/koto.md#size)
+- [`koto.type`](./core_lib/koto.md#type)
+- [`test.assert`](./core_lib/test.md#assert)
+- [`test.assert_eq`](./core_lib/test.md#assert-eq)
+- [`test.assert_ne`](./core_lib/test.md#assert-ne)
+- [`test.assert_near`](./core_lib/test.md#assert-near)
 
 ```koto
 print 'io.print is available without needing to be imported'
@@ -1791,7 +1791,7 @@ check! (10, 11, 12, 13, 14)
 #### `@next_back`
 
 The `@next_back` metakey is used by
-[`iterator.reversed`](../core_lib/iterator/#reversed) when producing a reversed
+[`iterator.reversed`](./core_lib/iterator.md#reversed) when producing a reversed
 iterator. 
 
 The runtime will only look for `@next_back` if `@next` is implemented. 
@@ -1831,7 +1831,7 @@ check! The value of x is 'Foo(-1)'
 #### `@type`
 
 The `@type` metakey takes a string as a value which is used when checking the
-value's type, e.g. with [`koto.type`](../core_lib/koto/#type)
+value's type, e.g. with [`koto.type`](./core_lib/koto.md#type)
 
 ```koto
 foo = |n|
@@ -1904,7 +1904,7 @@ check! ('data')
 ### Sharing Metamaps
 
 Metamaps can be shared between objects by using 
-[`Map.with_meta`](../core_lib/map/#with-meta), which helps to avoid inefficient
+[`Map.with_meta`](./core_lib/map.md#with-meta), which helps to avoid inefficient
 duplication when creating a lot of objects.
 
 In the following example, behavior is overridden in a single metamap, which is
@@ -1978,8 +1978,8 @@ is behaving as you expect through automated checks.
 ### Assertions
 
 The core library includes a collection of _assertion_ functions in the 
-[`test` module](../core_lib/test),
-which are included by default in the [prelude](./prelude).
+[`test` module](./core_lib/test.md),
+which are included by default in the [prelude](#prelude).
 
 ```koto
 try 
@@ -2000,9 +2000,9 @@ check! An assertion failed
 Tests can be organized by collecting `@test` functions in an object. 
 
 The tests can then be run manually with 
-[`test.run_tests`](../core_lib/test#run-tests).
+[`test.run_tests`](./core_lib/test.md#run-tests).
 For automatic testing, see the description of exporting `@tests` in the
-[following section](./modules#tests-and-main).
+[following section](#modules).
 
 ```koto
 basic_tests = 
@@ -2193,7 +2193,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [ascii]: https://en.wikipedia.org/wiki/ASCII
 [associated]: https://en.wikipedia.org/wiki/Associative_array
 [chars]: ./core_lib/string.md#chars
-[cli]: ../cli
+[cli]: ..
 [compound-assignment]: https://en.wikipedia.org/wiki/Augmented_assignment
 [core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
