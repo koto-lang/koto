@@ -13,12 +13,6 @@ impl Vec3 {
     }
 
     #[koto_method]
-    fn angle(&self) -> KValue {
-        let v = self.0;
-        (v.x + v.y + v.z).into()
-    }
-
-    #[koto_method]
     fn x(&self) -> KValue {
         self.0.x.into()
     }
