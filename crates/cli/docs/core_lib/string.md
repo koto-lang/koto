@@ -18,7 +18,7 @@ check! (72, 195, 171, 121, 33)
 
 ### See Also
 
-- [`string.from_bytes`](#from-bytes)
+- [`string.from_bytes`](#from_bytes)
 
 ## chars
 
@@ -45,7 +45,7 @@ check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 
 ### See Also
 
-- [`string.char-indices`](#char-indices)
+- [`string.char_indices`](#char_indices)
 
 ## char_indices
 

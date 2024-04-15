@@ -384,8 +384,8 @@ check! 6
 
 ### See Also
 
-- [`koto.copy`](../koto#copy)
-- [`koto.deep_copy`](../koto#deep_copy)
+- [`koto.copy`](./koto.md#copy)
+- [`koto.deep_copy`](./koto.md#deep_copy)
 
 ## keep
 

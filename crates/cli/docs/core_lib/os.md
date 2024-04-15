@@ -148,7 +148,7 @@ Returns a string representing the DateTime's timezone offset in seconds.
 
 ## Timer
 
-See [`os.start_timer`](#start-timer).
+See [`os.start_timer`](#start_timer).
 
 ## Timer.@- (subtract)
 

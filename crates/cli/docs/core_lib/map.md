@@ -89,7 +89,7 @@ check! xyz
 
 ### See also
 
-- [`map.get_index`](#get-index)
+- [`map.get_index`](#get_index)
 
 ## get_index
 
@@ -152,7 +152,7 @@ check! My Map
 
 ### See also
 
-- [`map.with_meta`](#with-meta)
+- [`map.with_meta`](#with_meta)
 
 ## insert
 
