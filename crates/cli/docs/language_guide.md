@@ -769,9 +769,9 @@ prelude. The following functions are also added to the prelude by default:
 - [`koto.size`](./core_lib/koto.md#size)
 - [`koto.type`](./core_lib/koto.md#type)
 - [`test.assert`](./core_lib/test.md#assert)
-- [`test.assert_eq`](./core_lib/test.md#assert-eq)
-- [`test.assert_ne`](./core_lib/test.md#assert-ne)
-- [`test.assert_near`](./core_lib/test.md#assert-near)
+- [`test.assert_eq`](./core_lib/test.md#assert_eq)
+- [`test.assert_ne`](./core_lib/test.md#assert_ne)
+- [`test.assert_near`](./core_lib/test.md#assert_near)
 
 ```koto
 print 'io.print is available without needing to be imported'
@@ -1904,7 +1904,7 @@ check! ('data')
 ### Sharing Metamaps
 
 Metamaps can be shared between objects by using 
-[`Map.with_meta`](./core_lib/map.md#with-meta), which helps to avoid inefficient
+[`Map.with_meta`](./core_lib/map.md#with_meta), which helps to avoid inefficient
 duplication when creating a lot of objects.
 
 In the following example, behavior is overridden in a single metamap, which is
@@ -2000,7 +2000,7 @@ check! An assertion failed
 Tests can be organized by collecting `@test` functions in an object. 
 
 The tests can then be run manually with 
-[`test.run_tests`](./core_lib/test.md#run-tests).
+[`test.run_tests`](./core_lib/test.md#run_tests).
 For automatic testing, see the description of exporting `@tests` in the
 [following section](#modules).
 
