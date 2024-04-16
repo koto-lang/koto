@@ -14,11 +14,11 @@ language for [Rust][rust] applications, or as a standalone scripting language.
 
 ## Info
 
-- [About Koto](docs/about.md)
-- [Koto Language Guide](docs/language_guide.md)
-- [CLI Docs](docs/cli.md)
+- [About Koto](crates/cli/docs/about.md)
+- [Koto Language Guide](crates/cli/docs/language_guide.md)
+- [CLI Docs](crates/cli/docs/cli.md)
 - [Online Playground][playground]
-- [Example Rust application with Koto bindings](crate/koto/examples/poetry/)
+- [Example Rust application with Koto bindings](crates/koto/examples/poetry/)
 
 ## MSRV
 

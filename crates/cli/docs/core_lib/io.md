@@ -111,7 +111,7 @@ Prints a series of values to the active output as a tuple.
 
 ### Note
 
-- To print formatted strings, see [`string.format`](./string#format).
+- To print formatted strings, see [`string.format`](./string.md#format).
 - The output for `print` depends on the configuration of the runtime.
   The default output is `stdout`.
 

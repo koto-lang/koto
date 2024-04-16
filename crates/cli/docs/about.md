@@ -106,5 +106,5 @@ Basic editor support is available for Koto:
 [koto-object]: https://github.com/koto-lang/koto/blob/main/crates/runtime/src/types/object.rs
 [playground]: https://koto.dev/play
 [rust]: https://rust-lang.org
-[testing]: ./language_guide#testing
+[testing]: ./language_guide.md#testing
 [type-hints]: https://github.com/koto-lang/koto/issues/298

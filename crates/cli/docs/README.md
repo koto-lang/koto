@@ -10,10 +10,10 @@ and are also included in the `help` command of the CLI.
 
 The code examples in the docs make use of `print!` and `check!` placeholders 
 which are used by various preprocessor tools.
-- The ['docs examples' tests](./crates/koto/tests/docs_examples.rs) validate
+- The ['docs examples' tests](../../koto/tests/docs_examples.rs) validate
   that the code examples work correctly by checking the example's output against
   expectations defined by the `check!` commands.
-- The [CLI's help command](./crates/cli/src/help.rs) replaces the `check!`
+- The [CLI's help command](../src/help.rs) replaces the `check!`
   commands with comments showing the expected output.
 
 ### `skip_check` and `skip_run`

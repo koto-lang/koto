@@ -626,7 +626,7 @@ check! -1
 
 - [`number.ceil`](#ceil)
 - [`number.floor`](#floor)
-- [`number.to_int`](#to-int)
+- [`number.to_int`](#to_int)
 
 ## shift_left
 
