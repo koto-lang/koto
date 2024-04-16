@@ -492,6 +492,20 @@ print! add(50, 5)
 check! 55
 ```
 
+A function's body can be an indented block, where the last 
+expression in the body is evaluated as the function's result.
+
+```koto
+f = |x, y, z|
+  x *= 100
+  y *= 10
+  x + y + z
+print! f(2, 3, 4)
+check! 234
+```
+
+### Optional Call Parentheses
+
 The parentheses for arguments when calling a function are optional and can be 
 ommitted in simple expressions.
 
@@ -509,17 +523,11 @@ print! square add 2, 3
 check! 25
 ```
 
-A function's body can be an indented block, where the last 
-expression in the body is evaluated as the function's result.
+Something to watch out for is that whitespace is important in Koto, and because
+of optional parentheses, `f(1, 2)` is _not the same_ as `f (1, 2)`. The former
+is parsed as a call to `f` with two arguments, whereas the latter is a call to
+`f` with a tuple as the single argument.
 
-```koto
-f = |x, y, z|
-  x *= 100
-  y *= 10
-  x + y + z
-print! f 2, 3, 4
-check! 234
-```
 
 ### Return 
 
