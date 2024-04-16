@@ -51,8 +51,8 @@ Welcome to Koto
 ```
 
 [cli]: https://en.wikipedia.org/wiki/Command-line_interface
-[core]: ../core_lib
-[guide]: language_guide.md
+[core]: ./core_lib/
+[guide]: ./language_guide.md
 [repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
 [rust]: https://rust-lang.org 
 [rustup]: https://rustup.sh
