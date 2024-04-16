@@ -1,4 +1,4 @@
-checks: fmt clippy clippy_rc test test_rc doc wasm
+checks: fmt clippy clippy_rc test test_rc check_links doc wasm
 
 check_links:
   mlc --offline README.md
