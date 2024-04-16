@@ -1,5 +1,9 @@
 checks: fmt clippy clippy_rc test test_rc doc wasm
 
+check_links:
+  mlc --offline README.md
+  mlc --offline docs
+
 clippy:
   cargo clippy --workspace -- -D warnings
 
@@ -11,6 +15,9 @@ doc:
 
 fmt:
   cargo fmt --all -- --check
+
+setup:
+  cargo install cargo-watch mlc wasm-pack
 
 temp *args:
   cargo run {{args}} -- --tests -i temp.koto
