@@ -1,8 +1,8 @@
 A rendered version of this document can be found
 [here](https://koto.dev/docs/next/api).
 
-The Rust code examples are included from the [Koto examples
-dir](/crates/koto/examples).
+The Rust code examples are included from the 
+[Koto examples dir](../../koto/examples).
 
 ---
 

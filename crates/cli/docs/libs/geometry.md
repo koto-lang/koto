@@ -2,8 +2,8 @@
 
 Utilities for working with geometry in Koto.
 
-The module contains the [`Vec2`](vec2), [`Vec3`](vec3), and
-[`Rect`](rect) types.
+The module contains the [`Vec2`](#vec2-1), [`Vec3`](#vec3-1), and
+[`Rect`](#rect-1) types.
 
 ## rect
 
