@@ -49,13 +49,24 @@ impl Regex {
     fn find_all(&self, args: &[KValue]) -> Result<KValue> {
         match args {
             [KValue::Str(text)] => {
-                let matches = self.0.find_iter(text);
-                Ok(Matches {
-                    text: text.clone(),
-                    matches: matches.map(|m| (m.start(), m.end())).collect(),
-                    last_index: 0,
-                }
-                .into())
+                let matches: Vec<(usize, usize)> = self
+                    .0
+                    .find_iter(text)
+                    .map(|m| (m.start(), m.end()))
+                    .collect();
+
+                let result = if matches.is_empty() {
+                    KValue::Null
+                } else {
+                    Matches {
+                        text: text.clone(),
+                        matches,
+                        last_index: 0,
+                    }
+                    .into()
+                };
+
+                Ok(result)
             }
             unexpected => type_error_with_slice("a string", unexpected),
         }

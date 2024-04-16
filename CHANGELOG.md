@@ -29,6 +29,10 @@ The Koto project adheres to
 - The `run_function`/`run_instance_function` methods in `Koto` and `KotoVm` have
   been renamed to `call_function` and `call_instance_function`.
 
+#### Libs
+
+- `regex.find_all` now returns `null` when no matches are found.
+
 ### Removed
 
 #### API

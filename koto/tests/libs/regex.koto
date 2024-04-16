@@ -14,11 +14,13 @@
 
   @test find_all: ||
     r = regex.new r'[a-z]{2,3}'
-    found = r.find_all('a bc def gh')
+    found = r.find_all 'a bc def gh'
     assert_eq found.next().get().text(), 'bc'
     assert_eq found.next().get().text(), 'def'
     assert_eq found.next().get().text(), 'gh'
     assert_eq found.next(), null
+
+    assert_eq r.find_all('123'), null
 
   @test captures: ||
     r = regex.new r'(?<a>\d)(?<b>\S)(\d)'
