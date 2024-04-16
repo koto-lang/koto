@@ -26,11 +26,10 @@
     r = regex.new r'(?<a>\d)(?<b>\S)(\d)'
     captures = r.captures 'hello 7f9!'
     assert_eq captures.get(0).text(), '7f9'
-    assert_eq captures.get(1).text(), '7'
-    assert_eq captures.get(2).text(), 'f'
-    assert_eq captures.get(3).text(), '9'
     assert_eq captures.a.text(), '7'
     assert_eq captures.b.text(), 'f'
+    assert_eq captures.get(3).text(), '9'
+    assert_eq captures.keys().to_tuple(), (0, 'a', 'b', 3)
 
   @test replace_all: ||
     r = regex.new r'(?<first>\S+)\s+(?<last>\S+)'

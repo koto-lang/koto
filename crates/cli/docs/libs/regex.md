@@ -83,8 +83,6 @@ check! ('def', 5..8)
 check! ('gh', 9..11)
 ```
 
-
-
 ## Regex.captures
 
 ```kototype
@@ -104,24 +102,25 @@ captures starting at index 1.
 
 ```koto
 # Make a regex that will match against two words inside <> braces
-r = regex.new r'<(?<a>\S+)\s+(?<b>\S+)>'
+r = regex.new r'<(?<group_a>\S+)\s+(\S+)>'
 captures = r.captures '!!! <Hello, World!> ???'
 
 # Entry 0 contains the complete match
 print! captures.get(0).text()
 check! <Hello, World!>
 
-# Named captured groups 
-print! captures.a.text()
+# Named captured groups use the name as the lookup key
+print! captures.group_a.text()
 check! Hello,
-print! captures.b.text()
-check! World!
 
-# The capture groups are also available by index
-print! captures.get(1).text()
-check! Hello,
+# Groups without names use their group index as the lookup key
 print! captures.get(2).text()
 check! World!
+
+# Named capture groups are also available by index
+group_name, capture = captures.get_index(1)
+print! group_name, capture.text()
+check! ('group_a', 'Hello,')
 ```
 
 ## Regex.replace_all

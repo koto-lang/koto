@@ -87,12 +87,12 @@ impl Regex {
                                 let match_ =
                                     Match::make_value(text.clone(), capture.start(), capture.end());
 
-                                // Insert the match with the capture group's index
-                                result.insert(i.into(), match_.clone());
-
                                 if let Some(name) = name {
                                     // Also insert the match with the capture group's name
                                     result.insert(name.into(), match_);
+                                } else {
+                                    // Insert the match with the capture group's index
+                                    result.insert(i.into(), match_);
                                 }
                             } else {
                                 result.insert(i.into(), KValue::Null);

@@ -32,6 +32,8 @@ The Koto project adheres to
 #### Libs
 
 - `regex.find_all` now returns `null` when no matches are found.
+- `regex.captures` now doesn't add extra by-index entries for named capture
+  groups. `map.get_index` can be used to explicitly retrieve groups by index.
 
 ### Removed
 
