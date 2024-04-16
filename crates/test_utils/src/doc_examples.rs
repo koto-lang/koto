@@ -54,6 +54,7 @@ An example in '{}' failed to compile: {error}",
                 "Instructions\n------------\n{}",
                 Chunk::instructions_as_string(chunk, &script_lines)
             );
+            println!("{error}");
 
             return Err(error);
         }

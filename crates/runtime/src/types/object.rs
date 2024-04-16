@@ -346,6 +346,10 @@ pub struct MethodContext<'a, T> {
     /// The method call arguments
     pub args: &'a [KValue],
     /// A VM that can be used by the method for operations that require a runtime
+    //
+    // Q. Why isn't this a mutable reference like in CallContext?
+    // A. Because the arguments (including the object instance) have already been retrieved by
+    //    reference from the VM, disallowing a mutable reference.
     pub vm: &'a KotoVm,
     // The instance of the object for the method call,
     // accessable via the context's `instance`/`instance_mut` functions

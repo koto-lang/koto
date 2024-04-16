@@ -18,6 +18,7 @@ The Koto project adheres to
 #### Libs
 
 - Markdown docs have been added for the extra libs.
+- `random.pick` can now be used with objects and maps that implement `@[]`
 
 ### Changed
 

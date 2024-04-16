@@ -28,6 +28,14 @@
     x = ("foo", "bar", "baz")
     assert x.contains random.pick x
 
+  @test pick_map_with_index: ||
+    m =
+      data: (10, 20, 30)
+      @[]: |i| self.data[i]
+      @size: || size self.data
+
+    assert m.data.contains random.pick m
+
   @test generator: ||
     get_rng_output = |rng|
       0..10
