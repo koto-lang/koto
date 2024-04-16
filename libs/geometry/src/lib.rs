@@ -23,6 +23,11 @@ pub fn make_module() -> KMap {
             [Number(x), Number(y), Number(width), Number(height)] => {
                 (x.into(), y.into(), width.into(), height.into())
             }
+            [Object(xy), Object(size)] if xy.is_a::<Vec2>() && size.is_a::<Vec2>() => {
+                let xy = xy.cast::<Vec2>().unwrap().inner();
+                let size = size.cast::<Vec2>().unwrap().inner();
+                (xy.x, xy.y, size.x, size.y)
+            }
             unexpected => return type_error_with_slice("4 Numbers", unexpected),
         };
 

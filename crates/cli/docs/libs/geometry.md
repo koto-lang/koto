@@ -15,6 +15,7 @@ Initializes a default `Rect` with each component set to `0`.
 
 ```kototype
 |x: Number, y: Number, width: Number, height: Number| -> Rect
+|xy: Vec2, size: Vec2| -> Rect
 ```
 
 Initializes a `Rect` with corresponding position and size.
@@ -23,13 +24,16 @@ Initializes a `Rect` with corresponding position and size.
 ### Example
 
 ```koto
-from geometry import rect
+from geometry import rect, vec2
 
 print! rect()
 check! Rect{x: 0, y: 0, width: 0, height: 0}
 
 print! rect 10, 20, 30, 40
 check! Rect{x: 10, y: 20, width: 30, height: 40}
+
+print! rect (vec2 -1, 2), (vec2 99, 100)
+check! Rect{x: -1, y: 2, width: 99, height: 100}
 ```
 
 ## vec2
