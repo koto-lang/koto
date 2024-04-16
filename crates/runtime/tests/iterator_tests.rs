@@ -1,7 +1,5 @@
-mod runtime_test_utils;
-
-use crate::runtime_test_utils::*;
 use koto_runtime::KValue;
+use koto_test_utils::*;
 
 mod iterator {
     use super::*;
@@ -16,7 +14,7 @@ x = (1, null, 'x').iter()
 x.next().get() # 1
 x.next().get() # null
 ";
-            test_script(script, KValue::Null);
+            check_script_output(script, KValue::Null);
         }
     }
 
@@ -30,7 +28,7 @@ x = (1, null, 'x').iter()
 x.next_back().get() # 'x'
 x.next_back().get() # null
 ";
-            test_script(script, KValue::Null);
+            check_script_output(script, KValue::Null);
         }
     }
 
@@ -47,7 +45,7 @@ x.next().get() # 11
 x.next().get() # 12
 y.next().get()
 ";
-            test_script(script, 11);
+            check_script_output(script, 11);
         }
 
         #[test]
@@ -62,7 +60,7 @@ x.next().get() # 3
 x.next().get() # 4
 y.next().get()
 ";
-            test_script(script, 3);
+            check_script_output(script, 3);
         }
     }
 
@@ -81,7 +79,7 @@ generator()
   .flatten()
   .to_tuple()
 ";
-            test_script(script, number_tuple(&[3, 4]));
+            check_script_output(script, number_tuple(&[3, 4]));
         }
 
         #[test]
@@ -93,7 +91,7 @@ generator()
   .each |w| w.to_tuple()
   .to_tuple()
 ";
-            test_script(
+            check_script_output(
                 script,
                 tuple(&[
                     number_tuple(&[1, 2]),
@@ -112,7 +110,7 @@ generator()
             let script = "
 [].cycle().next()
 ";
-            test_script(script, KValue::Null);
+            check_script_output(script, KValue::Null);
         }
 
         #[test]
@@ -125,7 +123,7 @@ x.next().get() # 2
 x.next().get() # 3
 y.next().get()
 ";
-            test_script(script, 2);
+            check_script_output(script, 2);
         }
 
         #[test]
@@ -137,7 +135,7 @@ y.next().get()
   .take 7
   .to_tuple()
 ";
-            test_script(script, number_tuple(&[1, 2, 3, 1, 2, 3, 1]));
+            check_script_output(script, number_tuple(&[1, 2, 3, 1, 2, 3, 1]));
         }
     }
 
@@ -154,7 +152,7 @@ x.next().get() # 16
 x.next().get() # 25
 y.next().get()
 ";
-            test_script(script, 16);
+            check_script_output(script, 16);
         }
 
         #[test]
@@ -165,7 +163,7 @@ x = (2, 4, 6)
  .reversed()
 x.next().get()
 ";
-            test_script(script, 36);
+            check_script_output(script, 36);
         }
     }
 
@@ -182,7 +180,7 @@ x.next().get() # 1, 11
 x.next().get() # 2, 12
 y.next().get()
 ";
-            test_script(script, tuple(&[1.into(), 11.into()]));
+            check_script_output(script, tuple(&[1.into(), 11.into()]));
         }
     }
 
@@ -200,7 +198,7 @@ x.next().get() # 2
 x.next().get() # 0
 y.next().get()
 ";
-            test_script(script, 2);
+            check_script_output(script, 2);
         }
 
         #[test]
@@ -214,7 +212,7 @@ x.next().get() # 20
 x.next().get() # 42
 y.next().get()
 ";
-            test_script(script, 20);
+            check_script_output(script, 20);
         }
     }
 
@@ -230,7 +228,7 @@ y = copy x
 x.next().get() # 'e'
 y.next().get()
 ";
-            test_script(script, "e");
+            check_script_output(script, "e");
         }
     }
 
@@ -252,7 +250,7 @@ result.push i.peek() # null
 result.push i.next() # null
 result
 ";
-            test_script(
+            check_script_output(
                 script,
                 list(&[1.into(), 1.into(), 2.into(), 3.into(), 3.into(), Null, Null]),
             );
@@ -275,7 +273,7 @@ result.push i.next_back() # null
 result.push i.peek_back() # null
 result
 ";
-            test_script(
+            check_script_output(
                 script,
                 list(&[
                     1.into(),
@@ -309,7 +307,7 @@ result.push i.next_back() # null
 result.push i.next() # null
 result
 ";
-            test_script(
+            check_script_output(
                 script,
                 list(&[
                     1.into(),
@@ -335,7 +333,7 @@ result
             let script = "
 [].skip(1).to_tuple()
 ";
-            test_script(script, tuple(&[]));
+            check_script_output(script, tuple(&[]));
         }
     }
 
@@ -352,7 +350,7 @@ y = copy x
 x.next().get() # 'c'
 y.next().get()
 ";
-            test_script(script, "c");
+            check_script_output(script, "c");
         }
     }
 
@@ -370,7 +368,7 @@ generator()
   .flatten()
   .to_tuple()
 ";
-            test_script(script, number_tuple(&[1, 2, 2, 3, 3, 4]));
+            check_script_output(script, number_tuple(&[1, 2, 2, 3, 3, 4]));
         }
 
         #[test]
@@ -382,7 +380,7 @@ for a, b in (1..=5).windows(2)
   result.push b
 result
 ";
-            test_script(script, number_list(&[1, 2, 2, 3, 3, 4, 4, 5]));
+            check_script_output(script, number_list(&[1, 2, 2, 3, 3, 4, 4, 5]));
         }
 
         #[test]
@@ -394,7 +392,7 @@ result
   .each |w| w.to_tuple()
   .to_tuple()
 ";
-            test_script(
+            check_script_output(
                 script,
                 tuple(&[
                     number_tuple(&[1, 2, 3]),
@@ -418,7 +416,7 @@ y = copy x
 x.next().get() # (3, 13)
 y.next().get()
 ";
-            test_script(script, number_tuple(&[3, 13]));
+            check_script_output(script, number_tuple(&[3, 13]));
         }
     }
 }
@@ -438,7 +436,7 @@ y = copy x
 x.next().get() # bar
 y.next().get()
 ";
-            test_script(script, "bar");
+            check_script_output(script, "bar");
         }
     }
 
@@ -454,7 +452,7 @@ y = copy x
 x.next().get() # 99
 y.next().get()
 ";
-            test_script(script, 99);
+            check_script_output(script, 99);
         }
     }
 }
@@ -470,7 +468,7 @@ mod string {
             let script = "
 'abc'.next_back().get()
 ";
-            test_script(script, "c");
+            check_script_output(script, "c");
         }
     }
 
@@ -486,7 +484,7 @@ y = copy x
 x.next().get() # 98
 y.next().get()
 ";
-            test_script(script, 98);
+            check_script_output(script, 98);
         }
     }
 
@@ -498,7 +496,7 @@ y.next().get()
             let script = "
 'xßîहिं'.char_indices().to_tuple()
 ";
-            test_script(
+            check_script_output(
                 script,
                 tuple(&[range(0..1), range(1..3), range(3..5), range(5..14)]),
             );
@@ -509,7 +507,7 @@ y.next().get()
             let script = "
 '👍🫶🏽🫱🏼‍🫲🏾'.char_indices().to_tuple()
 ";
-            test_script(script, tuple(&[range(0..4), range(4..12), range(12..31)]));
+            check_script_output(script, tuple(&[range(0..4), range(4..12), range(12..31)]));
         }
     }
 
@@ -525,7 +523,7 @@ y = copy x
 x.next().get() # def
 y.next().get()
 ";
-            test_script(script, "def");
+            check_script_output(script, "def");
         }
 
         #[test]
@@ -533,7 +531,7 @@ y.next().get()
             let script = "
 'abc\r\ndef\r\nxyz\r\n\r\n'.lines().to_tuple()
 ";
-            test_script(
+            check_script_output(
                 script,
                 tuple(&["abc".into(), "def".into(), "xyz".into(), "".into()]),
             );
@@ -552,7 +550,7 @@ y = copy x
 x.next().get() # 2
 y.next().get()
 ";
-            test_script(script, "2");
+            check_script_output(script, "2");
         }
 
         #[test]
@@ -564,7 +562,7 @@ y = copy x
 x.next().get() # 2
 y.next().get()
 ";
-            test_script(script, "2");
+            check_script_output(script, "2");
         }
     }
 }

@@ -15,6 +15,11 @@ The Koto project adheres to
 - `KMap::get` has been introduced as simpler alternative to 
   `KMap::data().get().cloned()`.
 
+#### Libs
+
+- Markdown docs have been added for the extra libs.
+- `random.pick` can now be used with objects and maps that implement `@[]`
+
 ### Changed
 
 #### API 
@@ -24,6 +29,12 @@ The Koto project adheres to
   - `CallArgs::None` has been removed, instead you can pass in `&[]`.
 - The `run_function`/`run_instance_function` methods in `Koto` and `KotoVm` have
   been renamed to `call_function` and `call_instance_function`.
+
+#### Libs
+
+- `regex.find_all` now returns `null` when no matches are found.
+- `regex.captures` now doesn't add extra by-index entries for named capture
+  groups. `map.get_index` can be used to explicitly retrieve groups by index.
 
 ### Removed
 

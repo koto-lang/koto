@@ -9,10 +9,19 @@ homepage = "https://koto.dev"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["arc"]
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
 
 [dependencies]
-koto_runtime = { path = "../../crates/runtime", version = "^0.14.0" }
 koto_serialize = { path = "../../crates/serialize", version = "^0.14.0" }
-
 serde_json = { workspace = true }
+
+[dependencies.koto_runtime]
+path = "../../crates/runtime"
+version = "^0.14.0"
+default-features = false
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", version = "^0.14.0" }

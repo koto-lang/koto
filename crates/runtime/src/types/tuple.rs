@@ -148,15 +148,21 @@ impl Default for KTuple {
     }
 }
 
+impl From<Vec<KValue>> for KTuple {
+    fn from(data: Vec<KValue>) -> Self {
+        Self(Inner::Full(data.into()))
+    }
+}
+
 impl From<&[KValue]> for KTuple {
     fn from(data: &[KValue]) -> Self {
         Self(Inner::Full(data.into()))
     }
 }
 
-impl From<Vec<KValue>> for KTuple {
-    fn from(data: Vec<KValue>) -> Self {
-        Self(Inner::Full(data.into()))
+impl<const N: usize> From<&[KValue; N]> for KTuple {
+    fn from(data: &[KValue; N]) -> Self {
+        Self::from(data.as_slice())
     }
 }
 

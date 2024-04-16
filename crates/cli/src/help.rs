@@ -31,7 +31,9 @@ pub struct Help {
     // The list of guide topics
     guide_topics: Vec<Rc<str>>,
     // The list of core library module names
-    module_names: Vec<Rc<str>>,
+    core_lib_names: Vec<Rc<str>>,
+    // The list of extra module names
+    extra_lib_names: Vec<Rc<str>>,
 }
 
 impl Help {
@@ -39,12 +41,13 @@ impl Help {
         let mut result = Self {
             help_map: IndexMap::new(),
             guide_topics: Vec::new(),
-            module_names: Vec::new(),
+            core_lib_names: Vec::new(),
+            extra_lib_names: Vec::new(),
         };
 
         result.add_help_from_guide();
 
-        let reference_files = [
+        let core_lib_files = [
             include_doc!("core_lib/io.md"),
             include_doc!("core_lib/iterator.md"),
             include_doc!("core_lib/koto.md"),
@@ -57,10 +60,25 @@ impl Help {
             include_doc!("core_lib/test.md"),
             include_doc!("core_lib/tuple.md"),
         ];
-        for file_contents in reference_files.iter() {
-            result.add_help_from_reference(file_contents);
+        for file_contents in core_lib_files.iter() {
+            let module_name = result.add_help_from_reference(file_contents);
+            result.core_lib_names.push(module_name);
         }
 
+        let extra_lib_files = [
+            include_doc!("libs/color.md"),
+            include_doc!("libs/geometry.md"),
+            include_doc!("libs/json.md"),
+            include_doc!("libs/random.md"),
+            include_doc!("libs/regex.md"),
+            include_doc!("libs/tempfile.md"),
+            include_doc!("libs/toml.md"),
+            include_doc!("libs/yaml.md"),
+        ];
+        for file_contents in extra_lib_files.iter() {
+            let module_name = result.add_help_from_reference(file_contents);
+            result.extra_lib_names.push(module_name);
+        }
         result
     }
 
@@ -161,7 +179,18 @@ impl Help {
   Help is available for the following core library modules:",
                 );
 
-                for module_name in self.module_names.iter() {
+                for module_name in self.core_lib_names.iter() {
+                    help.push_str("\n    - ");
+                    help.push_str(module_name);
+                }
+
+                help.push_str(
+                    "
+
+  Help is available for the following additional modules:",
+                );
+
+                for module_name in self.extra_lib_names.iter() {
                     help.push_str("\n    - ");
                     help.push_str(module_name);
                 }
@@ -234,7 +263,7 @@ impl Help {
         }
     }
 
-    fn add_help_from_reference(&mut self, markdown: &str) {
+    fn add_help_from_reference(&mut self, markdown: &str) -> Rc<str> {
         let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
         let help_section = consume_help_section(&mut parser, None, HeadingLevel::H1, false);
@@ -271,7 +300,8 @@ impl Help {
                 },
             );
         }
-        self.module_names.push(help_section.name.clone());
+
+        help_section.name
     }
 }
 

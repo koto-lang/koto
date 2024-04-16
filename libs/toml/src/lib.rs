@@ -1,25 +1,19 @@
 //! A Koto language module for working with TOML data
 
-use koto_runtime::prelude::*;
+use koto_runtime::{prelude::*, Result};
 use koto_serialize::SerializableValue;
 use toml::Value as Toml;
 
-pub fn toml_to_koto_value(value: &Toml) -> Result<KValue, String> {
+pub fn toml_to_koto_value(value: &Toml) -> Result<KValue> {
     let result = match value {
         Toml::Boolean(b) => KValue::Bool(*b),
         Toml::Integer(i) => KValue::Number(i.into()),
         Toml::Float(f) => KValue::Number(f.into()),
         Toml::String(s) => KValue::Str(s.as_str().into()),
-        Toml::Array(a) => {
-            match a
-                .iter()
-                .map(toml_to_koto_value)
-                .collect::<Result<ValueVec, String>>()
-            {
-                Ok(result) => KValue::List(KList::with_data(result)),
-                Err(e) => return Err(e),
-            }
-        }
+        Toml::Array(a) => match a.iter().map(toml_to_koto_value).collect::<Result<Vec<_>>>() {
+            Ok(result) => KValue::Tuple(result.into()),
+            Err(e) => return Err(e),
+        },
         Toml::Table(o) => {
             let map = KMap::with_capacity(o.len());
             for (key, value) in o.iter() {

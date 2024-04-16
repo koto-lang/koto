@@ -1,28 +1,22 @@
 mod runtime {
-    use koto_bytecode::{Chunk, CompilerSettings, Loader};
+    use koto_bytecode::{CompilerSettings, Loader};
     use koto_runtime::KotoVm;
+    use koto_test_utils::script_instructions;
 
     fn check_script_fails(script: &str) {
         let mut vm = KotoVm::default();
-
-        let print_chunk = |script: &str, chunk| {
-            println!("{script}\n");
-            let script_lines = script.lines().collect::<Vec<_>>();
-
-            println!("{}", Chunk::instructions_as_string(chunk, &script_lines));
-        };
 
         let mut loader = Loader::default();
         let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
-                print_chunk(script, vm.chunk());
+                println!("{}", script_instructions(script, vm.chunk()));
                 panic!("Error while compiling script: {error}");
             }
         };
 
         if let Ok(result) = vm.run(chunk) {
-            print_chunk(script, vm.chunk());
+            println!("{}", script_instructions(script, vm.chunk()));
             panic!(
                 "Script didn't fail as expected, result: {}",
                 vm.value_to_string(&result).unwrap()

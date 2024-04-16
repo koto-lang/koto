@@ -1,10 +1,7 @@
-mod runtime_test_utils;
-
 mod objects {
-    use crate::runtime_test_utils::*;
-    use koto_runtime::{prelude::*, Result};
-
     use koto_derive::*;
+    use koto_runtime::{prelude::*, Result};
+    use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
     #[koto(use_copy)]
@@ -266,7 +263,7 @@ mod objects {
             _ => runtime_error!("make_object: Expected a Number"),
         });
 
-        if let Err(e) = run_script_with_vm(vm, script, expected_output.into()) {
+        if let Err(e) = check_script_output_with_vm(vm, script, expected_output.into()) {
             panic!("{e}");
         }
     }
@@ -341,7 +338,7 @@ x.as_number()
         #[test]
         fn display() {
             let script = "'{make_object 42}'";
-            test_object_script(script, string("TestObject: 42"));
+            test_object_script(script, "TestObject: 42");
         }
 
         #[test]

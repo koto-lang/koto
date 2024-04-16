@@ -1,24 +1,12 @@
-mod runtime_test_utils;
-
-use crate::runtime_test_utils::TestStdout;
 use koto_bytecode::{Chunk, CompilerSettings, Loader};
-use koto_runtime::{prelude::*, Ptr, PtrMut};
+use koto_runtime::Ptr;
+use koto_test_utils::OutputCapture;
 
 mod vm {
     use super::*;
 
     fn check_logged_output(script: &str, expected_output: &str) {
-        let output = PtrMut::from(String::new());
-
-        let mut vm = KotoVm::with_settings(KotoVmSettings {
-            stdout: make_ptr!(TestStdout {
-                output: output.clone(),
-            }),
-            stderr: make_ptr!(TestStdout {
-                output: output.clone(),
-            }),
-            ..Default::default()
-        });
+        let (mut vm, output) = OutputCapture::make_vm_with_output_capture();
 
         let print_chunk = |script: &str, chunk: Ptr<Chunk>| {
             println!("{script}\n");
@@ -42,7 +30,7 @@ mod vm {
 
         match vm.run(chunk) {
             Ok(_) => {
-                assert_eq!(output.borrow().as_str(), expected_output);
+                assert_eq!(output.captured_output().as_str(), expected_output);
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());

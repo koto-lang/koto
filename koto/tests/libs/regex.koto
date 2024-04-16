@@ -14,21 +14,22 @@
 
   @test find_all: ||
     r = regex.new r'[a-z]{2,3}'
-    found = r.find_all('a bc def gh')
+    found = r.find_all 'a bc def gh'
     assert_eq found.next().get().text(), 'bc'
     assert_eq found.next().get().text(), 'def'
     assert_eq found.next().get().text(), 'gh'
     assert_eq found.next(), null
 
+    assert_eq r.find_all('123'), null
+
   @test captures: ||
     r = regex.new r'(?<a>\d)(?<b>\S)(\d)'
     captures = r.captures 'hello 7f9!'
     assert_eq captures.get(0).text(), '7f9'
-    assert_eq captures.get(1).text(), '7'
-    assert_eq captures.get(2).text(), 'f'
-    assert_eq captures.get(3).text(), '9'
     assert_eq captures.a.text(), '7'
     assert_eq captures.b.text(), 'f'
+    assert_eq captures.get(3).text(), '9'
+    assert_eq captures.keys().to_tuple(), (0, 'a', 'b', 3)
 
   @test replace_all: ||
     r = regex.new r'(?<first>\S+)\s+(?<last>\S+)'

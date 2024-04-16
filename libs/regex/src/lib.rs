@@ -32,22 +32,6 @@ impl Regex {
     }
 
     #[koto_method]
-    fn find_all(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => {
-                let matches = self.0.find_iter(text);
-                Ok(Matches {
-                    text: text.clone(),
-                    matches: matches.map(|m| (m.start(), m.end())).collect(),
-                    last_index: 0,
-                }
-                .into())
-            }
-            unexpected => type_error_with_slice("a string", unexpected),
-        }
-    }
-
-    #[koto_method]
     fn find(&self, args: &[KValue]) -> Result<KValue> {
         match args {
             [KValue::Str(text)] => {
@@ -56,6 +40,33 @@ impl Regex {
                     Some(m) => Ok(Match::make_value(text.clone(), m.start(), m.end())),
                     None => Ok(KValue::Null),
                 }
+            }
+            unexpected => type_error_with_slice("a string", unexpected),
+        }
+    }
+
+    #[koto_method]
+    fn find_all(&self, args: &[KValue]) -> Result<KValue> {
+        match args {
+            [KValue::Str(text)] => {
+                let matches: Vec<(usize, usize)> = self
+                    .0
+                    .find_iter(text)
+                    .map(|m| (m.start(), m.end()))
+                    .collect();
+
+                let result = if matches.is_empty() {
+                    KValue::Null
+                } else {
+                    Matches {
+                        text: text.clone(),
+                        matches,
+                        last_index: 0,
+                    }
+                    .into()
+                };
+
+                Ok(result)
             }
             unexpected => type_error_with_slice("a string", unexpected),
         }
@@ -76,12 +87,12 @@ impl Regex {
                                 let match_ =
                                     Match::make_value(text.clone(), capture.start(), capture.end());
 
-                                // Insert the match with the capture group's index
-                                result.insert(i.into(), match_.clone());
-
                                 if let Some(name) = name {
                                     // Also insert the match with the capture group's name
                                     result.insert(name.into(), match_);
+                                } else {
+                                    // Insert the match with the capture group's index
+                                    result.insert(i.into(), match_);
                                 }
                             } else {
                                 result.insert(i.into(), KValue::Null);

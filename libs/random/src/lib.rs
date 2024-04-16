@@ -27,7 +27,10 @@ pub fn make_module() -> KMap {
     result.add_fn("number", |_| THREAD_RNG.with_borrow_mut(|rng| rng.number()));
 
     result.add_fn("pick", |ctx| {
-        THREAD_RNG.with_borrow_mut(|rng| rng.pick(ctx.args()))
+        THREAD_RNG.with_borrow_mut(|rng| match ctx.args() {
+            [arg] => rng.pick_inner(arg.clone(), ctx.vm),
+            unexpected => type_error_with_slice("a single argument", unexpected),
+        })
     });
 
     result.add_fn("seed", |ctx| {
@@ -58,33 +61,49 @@ impl ChaChaRng {
     }
 
     #[koto_method]
-    fn pick(&mut self, args: &[KValue]) -> Result<KValue> {
+    fn pick(ctx: MethodContext<Self>) -> Result<KValue> {
+        match ctx.args {
+            [arg] => ctx
+                .instance_mut()?
+                .pick_inner(arg.clone(), &mut ctx.vm.spawn_shared_vm()),
+            unexpected => type_error_with_slice("a single argument", unexpected),
+        }
+    }
+
+    fn pick_inner(&mut self, arg: KValue, vm: &mut KotoVm) -> Result<KValue> {
         use KValue::*;
 
-        match args {
-            [List(l)] => {
+        match arg {
+            // Handle basic containers directly
+            List(l) => {
                 let index = self.0.gen_range(0..l.len());
                 Ok(l.data()[index].clone())
             }
-            [Map(m)] => {
+            Range(r) => {
+                let result = self.0.gen_range(r.as_sorted_range());
+                Ok(result.into())
+            }
+            Tuple(t) => {
+                let index = self.0.gen_range(0..t.len());
+                Ok(t[index].clone())
+            }
+            Map(m) if !m.contains_meta_key(&BinaryOp::Index.into()) => {
                 let index = self.0.gen_range(0..m.len());
                 match m.data().get_index(index) {
                     Some((key, value)) => {
-                        let data = vec![key.value().clone(), value.clone()];
-                        Ok(Tuple(KTuple::from(data)))
+                        Ok(Tuple(KTuple::from(&[key.value().clone(), value.clone()])))
                     }
                     None => unreachable!(), // The index is guaranteed to be within range
                 }
             }
-            [Range(r)] => {
-                let result = self.0.gen_range(r.as_sorted_range());
-                Ok(result.into())
-            }
-            [Tuple(t)] => {
-                let index = self.0.gen_range(0..t.len());
-                Ok(t[index].clone())
-            }
-            unexpected => type_error_with_slice("a container or range as argument", unexpected),
+            // Cover other cases like objects and maps with @[] ops via the vm
+            input => match vm.run_unary_op(UnaryOp::Size, input.clone())? {
+                Number(size) => {
+                    let index = self.0.gen_range(0..(size.as_i64() as usize));
+                    vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
+                }
+                unexpected => type_error("a number from @size", &unexpected),
+            },
         }
     }
 

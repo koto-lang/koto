@@ -9,7 +9,18 @@ homepage = "https://koto.dev"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
-[dependencies]
-koto_runtime = { path = "../../crates/runtime", version = "^0.14.0" }
+[features]
+default = ["arc"]
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
 
+[dependencies]
 regex = { workspace = true }
+
+[dependencies.koto_runtime]
+path = "../../crates/runtime"
+version = "^0.14.0"
+default-features = false
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", version = "^0.14.0" }
