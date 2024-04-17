@@ -23,8 +23,8 @@ dunce = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-koto_geometry = { path = "../../libs/geometry", version = "^0.14.0" }
-koto_test_utils = { path = "../test_utils", version = "^0.14.0" }
+koto_geometry = { path = "../../libs/geometry" }
+koto_test_utils = { path = "../test_utils" }
 
 anyhow = { workspace = true }
 criterion = { workspace = true }
