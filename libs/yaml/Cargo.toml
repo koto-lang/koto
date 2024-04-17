@@ -24,4 +24,4 @@ version = "^0.15.0"
 default-features = false
 
 [dev-dependencies]
-koto_test_utils = { path = "../../crates/test_utils" }
+koto_test_utils = { path = "../../crates/test_utils", default-features = false }
