@@ -1,6 +1,6 @@
 [package]
 name = "koto_test_utils"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2021"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 license = "MIT"
@@ -20,10 +20,10 @@ pulldown-cmark = { workspace = true }
 
 [dependencies.koto_bytecode]
 path = "../../crates/bytecode"
-version = "^0.14.0"
+version = "^0.15.0"
 default-features = false
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.14.0"
+version = "^0.15.0"
 default-features = false

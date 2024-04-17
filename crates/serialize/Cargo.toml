@@ -1,6 +1,6 @@
 [package]
 name = "koto_serialize"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -19,5 +19,5 @@ serde = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.14.0"
+version = "^0.15.0"
 default-features = false

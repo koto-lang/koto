@@ -1,6 +1,6 @@
 [package]
 name = "koto_parser"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -18,8 +18,8 @@ rc = ["koto_memory/rc"]
 panic_on_parser_error = []
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.14.0" }
-koto_memory = { path = "../memory", version = "^0.14.0", default-features = false }
+koto_lexer = { path = "../lexer", version = "^0.15.0" }
+koto_memory = { path = "../memory", version = "^0.15.0", default-features = false }
 
 thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }

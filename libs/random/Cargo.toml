@@ -1,6 +1,6 @@
 [package]
 name = "koto_random"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -15,7 +15,7 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
-koto_derive = { path = "../../crates/derive", version = "^0.14.0" }
+koto_derive = { path = "../../crates/derive", version = "^0.15.0" }
 
 lazy_static = { workspace = true }
 rand = { workspace = true }
@@ -23,7 +23,7 @@ rand_chacha = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.14.0"
+version = "^0.15.0"
 default-features = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

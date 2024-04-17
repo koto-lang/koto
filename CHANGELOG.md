@@ -6,7 +6,10 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0] Unreleased
+## [0.15.0] Unreleased
+
+
+## [0.14.0] 2024.04.17
 
 ### Added 
 

@@ -617,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "koto"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "criterion",
@@ -634,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "koto_bytecode"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "dunce",
  "koto_memory",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "koto_cli"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -671,7 +671,7 @@ dependencies = [
 
 [[package]]
 name = "koto_color"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_test_utils",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "koto_derive"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "koto_geometry"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_test_utils",
@@ -698,7 +698,7 @@ dependencies = [
 
 [[package]]
 name = "koto_json"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
@@ -708,7 +708,7 @@ dependencies = [
 
 [[package]]
 name = "koto_lexer"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "unicode-segmentation",
  "unicode-width",
@@ -717,14 +717,14 @@ dependencies = [
 
 [[package]]
 name = "koto_memory"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "parking_lot",
 ]
 
 [[package]]
 name = "koto_parser"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_lexer",
  "koto_memory",
@@ -734,7 +734,7 @@ dependencies = [
 
 [[package]]
 name = "koto_poetry"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "hotwatch",
@@ -748,7 +748,7 @@ dependencies = [
 
 [[package]]
 name = "koto_random"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "getrandom",
  "koto_derive",
@@ -761,7 +761,7 @@ dependencies = [
 
 [[package]]
 name = "koto_regex"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_test_utils",
@@ -770,7 +770,7 @@ dependencies = [
 
 [[package]]
 name = "koto_runtime"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "chrono",
  "downcast-rs",
@@ -791,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "koto_serialize"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "serde",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "koto_tempfile"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_test_utils",
@@ -808,7 +808,7 @@ dependencies = [
 
 [[package]]
 name = "koto_test_utils"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "itertools 0.12.1",
  "koto_bytecode",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "koto_toml"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "koto_wasm"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto",
  "wasm-bindgen",
@@ -837,7 +837,7 @@ dependencies = [
 
 [[package]]
 name = "koto_yaml"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
@@ -859,7 +859,7 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "lib_tests"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "koto",
  "koto_color",
