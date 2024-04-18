@@ -58,6 +58,7 @@ pub enum Token {
     Less,
     LessOrEqual,
 
+    // Pipe tokens are created at the parsing time tokens
     Pipe,
 
     // Keywords
@@ -701,8 +702,6 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("..=", RangeInclusive);
         check_symbol!("..", Range);
 
-        check_symbol!(">>", Pipe);
-
         check_symbol!("==", Equal);
         check_symbol!("!=", NotEqual);
         check_symbol!(">=", GreaterOrEqual);
@@ -1312,14 +1311,13 @@ r#''bar''#
 
         #[test]
         fn operators() {
-            let input = "> >= >> < <=";
+            let input = "> >= < <=";
 
             check_lexer_output(
                 input,
                 &[
                     (Greater, None, 1),
                     (GreaterOrEqual, None, 1),
-                    (Pipe, None, 1),
                     (Less, None, 1),
                     (LessOrEqual, None, 1),
                 ],
