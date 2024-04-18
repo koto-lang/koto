@@ -1424,6 +1424,79 @@ c *= 3";
         }
 
         #[test]
+        fn assignment_with_type_hint() {
+            let input = "my_var: Number = 42";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("my_var"), 1),
+                    (Colon, None, 1),
+                    (Id, Some("Number"), 1),
+                    (Assign, None, 1),
+                    (Number, Some("42"), 1),
+                ],
+            )
+        }
+
+        #[test]
+        fn assignment_with_generic_type_hint() {
+            let input = "my_var: List<Number> = [42, 43]";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("my_var"), 1),
+                    (Colon, None, 1),
+                    (Id, Some("List"), 1),
+                    (Less, None, 1),
+                    (Id, Some("Number"), 1),
+                    (Greater, None, 1),
+                    (Assign, None, 1),
+                    (SquareOpen, None, 1),
+                    (Number, Some("42"), 1),
+                    (Comma, None, 1),
+                    (Number, Some("43"), 1),
+                    (SquareClose, None, 1),
+                ],
+            )
+        }
+
+        #[test]
+        fn assignment_with_nested_generic_type_hint() {
+            let input = "my_var: List<List<Number>> = [[42, 43], [97, 13]]";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Id, Some("my_var"), 1),
+                    (Colon, None, 1),
+                    (Id, Some("List"), 1),
+                    (Less, None, 1),
+                    (Id, Some("List"), 1),
+                    (Less, None, 1),
+                    (Id, Some("Number"), 1),
+                    (Greater, None, 1),
+                    (Greater, None, 1),
+                    (Assign, None, 1),
+                    (SquareOpen, None, 1),
+                    (SquareOpen, None, 1),
+                    (Number, Some("42"), 1),
+                    (Comma, None, 1),
+                    (Number, Some("43"), 1),
+                    (SquareClose, None, 1),
+                    (Comma, None, 1),
+                    (SquareOpen, None, 1),
+                    (Number, Some("97"), 1),
+                    (Comma, None, 1),
+                    (Number, Some("13"), 1),
+                    (SquareClose, None, 1),
+                    (SquareClose, None, 1),
+                ],
+            )
+        }
+
+        #[test]
         fn ranges() {
             let input = "\
 a[..=9]
