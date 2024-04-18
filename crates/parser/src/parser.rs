@@ -543,9 +543,24 @@ impl<'source> Parser<'source> {
         {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(context) {
-            if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
+            let maybe_pipe = match next.token {
+                Token::Greater => {
+                    if matches!(self.peek_token_n(next.peek_count + 1), Some(Token::Greater)) {
+                        Some(Token::Pipe)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            if let Some((left_priority, right_priority)) =
+                operator_precedence(maybe_pipe.unwrap_or(next.token))
+            {
                 if left_priority >= min_precedence {
                     let (op, _) = self.consume_token_with_context(context).unwrap();
+                    if maybe_pipe.is_some() {
+                        self.consume_token();
+                    }
                     let op_span = self.current_span();
 
                     // Move on to the token after the operator
@@ -602,7 +617,7 @@ impl<'source> Parser<'source> {
                         Equal => AstBinaryOp::Equal,
                         NotEqual => AstBinaryOp::NotEqual,
 
-                        Greater => AstBinaryOp::Greater,
+                        Greater if maybe_pipe.is_none() => AstBinaryOp::Greater,
                         GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
                         Less => AstBinaryOp::Less,
                         LessOrEqual => AstBinaryOp::LessOrEqual,
@@ -610,7 +625,7 @@ impl<'source> Parser<'source> {
                         And => AstBinaryOp::And,
                         Or => AstBinaryOp::Or,
 
-                        Pipe => AstBinaryOp::Pipe,
+                        Greater if maybe_pipe.is_some() => AstBinaryOp::Pipe,
 
                         _ => unreachable!(), // The list of tokens here matches the operators in
                                              // operator_precedence()
