@@ -1450,7 +1450,7 @@ check! 3
 This behavior is different to many other languages, 
 where captures are often taken by _reference_ rather than by _copy_.
 
-It's also worth noting that capture variables will have the same starting value
+It's also worth noting that captured variables will have the same starting value
 each time the function is called. 
 
 ```koto
@@ -1465,8 +1465,8 @@ print! f(), f(), f()
 check! (100, 100, 100)
 ```
 
-To modify captured state that can be modified, 
-use a container (like a map) to hold on to mutable values.
+To modify captured values, use a container (like a map) to hold on to mutable 
+data.
 
 ```koto
 data = {x: 99}
