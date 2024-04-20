@@ -1088,7 +1088,7 @@ check! 40
 
 ### Iterator Consumers
 
-Iterators can be also be _consumed_ using functions like
+Iterators can also be _consumed_ using functions like
 [`.to_list()`][to_list] and [`.to_tuple()`][to_tuple], 
 allowing the output of an iterator to be easily captured in a container.
 
@@ -1271,7 +1271,7 @@ check! 10
 print! r.end()
 check! null
  
-# Create an unbounded range up to and including 10
+# Create an unbounded range up to and including 100
 r = ..=100
 print! r.start()
 check! null
