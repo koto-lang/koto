@@ -16,7 +16,7 @@ As an example, this simple script prints a friendly greeting.
 
 ```koto,skip_run
 name = 'World'
-print 'Hello, $name!'
+print 'Hello, {name}!'
 ```
 
 ### Comments
@@ -892,10 +892,10 @@ with `...` available for capturing the rest of the sequence.
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
   ('a', 'b') then "A list containing 'a' and 'b'"
   (1, ...) then "Starts with '1'"
-  (..., 'y', last) then "Ends with 'y' followed by '$last'"
+  (..., 'y', last) then "Ends with 'y' followed by '{last}'"
   ('a', x, others...) then
     "Starts with 'a', followed by '{x}', then {size others} others"
-  unmatched then "other: $unmatched"
+  unmatched then "other: {unmatched}"
 check! Starts with 'a', followed by 'b', then 4 others
 ```
 
@@ -2119,7 +2119,7 @@ Single values can be assigned to and exported at the same time:
 # my_module.koto #
 ##################
 
-export say_hello = |name| 'Hello, $name!'
+export say_hello = |name| 'Hello, {name}!'
 
 ##################
 ##################
@@ -2166,7 +2166,7 @@ the use of `export` is optional when adding entries to the module's metamap.
 # my_module.koto #
 ##################
 
-export say_hello = |name| 'Hello, $name!'
+export say_hello = |name| 'Hello, {name}!'
 
 @main = || # Equivalent to export @main =
   print '`my_module` initialized'
