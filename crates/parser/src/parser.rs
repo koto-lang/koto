@@ -1954,7 +1954,6 @@ impl<'source> Parser<'source> {
             Some(Token::GreaterOrEqual) => MetaKeyId::GreaterOrEqual,
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
-            Some(Token::Not) => MetaKeyId::Not,
             Some(Token::Id) => match self.current_token.slice(self.source) {
                 "display" => MetaKeyId::Display,
                 "iterator" => MetaKeyId::Iterator,

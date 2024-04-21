@@ -422,7 +422,6 @@ impl KotoVm {
         match op {
             Display => self.run_display(result_register, value_register)?,
             Negate => self.run_negate(result_register, value_register)?,
-            Not => self.run_not(result_register, value_register)?,
             Iterator => self.run_make_iterator(result_register, value_register, false)?,
             Next => self.run_iterator_next(Some(result_register), value_register, 0, false)?,
             NextBack => match self.clone_register(value_register) {
@@ -1398,18 +1397,13 @@ impl KotoVm {
 
     fn run_not(&mut self, result: u8, value: u8) -> Result<()> {
         use KValue::*;
-        use UnaryOp::Not;
 
-        let result_value = match &self.get_register(value) {
-            Null => Bool(true),
-            Bool(b) if !b => Bool(true),
-            Map(m) if m.contains_meta_key(&Not.into()) => {
-                let op = m.get_meta_value(&Not.into()).unwrap();
-                return self.call_overridden_unary_op(result, value, op);
-            }
-            _ => Bool(false), // All other values coerce to true, so return false
+        let result_bool = match &self.get_register(value) {
+            Null => true,
+            Bool(b) if !b => true,
+            _ => false, // All other values coerce to true, so return false
         };
-        self.set_register(result, result_value);
+        self.set_register(result, result_bool.into());
 
         Ok(())
     }

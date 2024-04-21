@@ -1673,19 +1673,6 @@ print! x.data
 check! -100
 ```
 
-#### `@not`
-
-The `@not` metakey overrides the `not` operator.
-
-```koto
-foo = |n|
-  data: n
-  @not: || self.data == 0
-
-print! not (foo 10)
-check! false
-```
-
 #### `@size` and `@[]`
 
 The `@size` metakey defines how the object should report its size,

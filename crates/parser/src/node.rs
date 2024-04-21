@@ -587,8 +587,6 @@ pub enum MetaKeyId {
     NextBack,
     /// @negate
     Negate,
-    /// @not
-    Not,
     /// @size
     Size,
     /// @type

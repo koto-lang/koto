@@ -43,9 +43,6 @@ globals.foo_meta =
   # Negation (e.g. -foo)
   @negate: || foo -self.x
 
-  # Not (e.g. !foo)
-  @not: || if self.x == 0 then true else false
-
   # Function call
   @||: || self.x
 
@@ -156,10 +153,6 @@ globals.foo_meta =
 
   @test negate: ||
     assert_eq -foo(1), foo(-1)
-
-  @test test_not: ||
-    assert_eq not foo(1), false
-    assert_eq not foo(0), true
 
   @test index: ||
     assert_eq foo(10)[5], 5
