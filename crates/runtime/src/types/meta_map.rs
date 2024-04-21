@@ -205,8 +205,6 @@ pub enum UnaryOp {
     NextBack,
     /// `@negate`
     Negate,
-    /// `@not`
-    Not,
     /// `@size`
     Size,
 }
@@ -238,7 +236,6 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Next => MetaKey::UnaryOp(Next),
         MetaKeyId::NextBack => MetaKey::UnaryOp(NextBack),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
-        MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Size => MetaKey::UnaryOp(Size),
         MetaKeyId::Call => MetaKey::Call,

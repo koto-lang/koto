@@ -41,6 +41,10 @@ The Koto project adheres to
 
 ### Removed
 
+#### Language
+
+- The `@not` metakey has been removed.
+
 #### API
 
 - `Koto::run_exported_function` has been removed. Functions can be accessed via
