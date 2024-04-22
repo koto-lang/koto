@@ -669,7 +669,7 @@ impl<'source> Parser<'source> {
             .peek_token_with_context(context)
             .map(|token| token.token)
         {
-            Some(Token::Assign) => {}
+            Some(Token::Assign | Token::Colon) => {}
             _ => return Ok(None),
         }
 
@@ -677,8 +677,12 @@ impl<'source> Parser<'source> {
 
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
+            dbg!(&self.ast);
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
+                    // TODO: Handle the type hint
+                    self.consume_if_type_hint(context)?;
+
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => {}
@@ -995,6 +999,66 @@ impl<'source> Parser<'source> {
                 end: span_end,
             },
         )
+    }
+
+    // Parses the types and returns information about the type if next is a colon
+    fn consume_if_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
+        if let Some(PeekInfo {
+            token: Token::Colon,
+            ..
+        }) = self.peek_token_with_context(context)
+        {
+            self.consume_token_with_context(context);
+            self.consume_type_hint(context)
+        } else {
+            Ok(None)
+        }
+    }
+
+    // Parses the types and returns information about the type
+    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
+        let mut type_hint = TypeHint {
+            type_name: self
+                .parse_id(context)?
+                .expect("There should be an identifier but other token found")
+                .0,
+            inner: vec![],
+        };
+
+        if let Some(PeekInfo {
+            token: Token::Less, ..
+        }) = self.peek_token_with_context(context)
+        {
+            self.consume_token_with_context(context);
+            type_hint.inner.push(
+                self.consume_type_hint(context)?
+                    .expect("No identifier while parsing token"),
+            );
+
+            match self.peek_token_with_context(context) {
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                }) => {
+                    self.consume_token();
+                    type_hint.inner.push(
+                        self.consume_type_hint(context)?
+                            .expect("No identifier after comma"),
+                    );
+                }
+                Some(PeekInfo {
+                    token: Token::Greater,
+                    ..
+                }) => {}
+                Some(_) | None => {
+                    self.consume_token_and_error(SyntaxError::UnexpectedToken)?;
+                }
+            }
+            // Consume the Less token
+            self.consume_token();
+        }
+
+        Ok(Some(type_hint))
     }
 
     // Helper for parse_function() that recursively parses nested function arguments
@@ -3247,4 +3311,11 @@ struct ParseStringOutput {
     string: AstString,
     span: Span,
     context: ExpressionContext,
+}
+
+// Returned by Parser::consume_type_hint()
+#[derive(Debug)]
+struct TypeHint {
+    type_name: ConstantIndex,
+    inner: Vec<TypeHint>,
 }

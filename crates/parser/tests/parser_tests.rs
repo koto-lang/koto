@@ -1186,6 +1186,27 @@ min..max
         }
 
         #[test]
+        fn single_with_type_hint() {
+            let source = "a: Number = 1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    SmallInt(1),
+                    Assign {
+                        target: 0,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
         fn tuple() {
             let source = "x = 1, 0";
             check_ast(
