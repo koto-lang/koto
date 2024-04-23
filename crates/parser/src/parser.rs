@@ -868,6 +868,11 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
+            // Reserved keywords
+            Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            Token::Let => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            // An error occurred in the lexer
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
         };

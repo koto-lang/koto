@@ -169,6 +169,8 @@ pub enum SyntaxError {
     MatchEllipsisOutsideOfNestedPatterns,
     #[error("'else' can only be used in the last arm in a match expression")]
     MatchElseNotInLastArm,
+    #[error("Keyword reserved for future use")]
+    ReservedKeyword,
     #[error("'self' doesn't need to be declared as an argument")]
     SelfArg,
     #[error("'else' can only be used in the last arm in a switch expression")]

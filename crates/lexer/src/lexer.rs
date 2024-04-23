@@ -58,7 +58,7 @@ pub enum Token {
     Less,
     LessOrEqual,
 
-    // Pipe tokens are created at the parsing time tokens
+    // Pipe is detected by the parser instead of the lexer
     Pipe,
 
     // Keywords
@@ -93,6 +93,11 @@ pub enum Token {
     Until,
     While,
     Yield,
+
+    // Reserved keywords
+    Await,
+    Const,
+    Let,
 }
 
 impl Token {
@@ -639,8 +644,10 @@ impl<'a> TokenLexer<'a> {
         if !matches!(self.previous_token, Some(Token::Dot)) {
             check_keyword!("as", As);
             check_keyword!("and", And);
+            check_keyword!("await", Await);
             check_keyword!("break", Break);
             check_keyword!("catch", Catch);
+            check_keyword!("const", Const);
             check_keyword!("continue", Continue);
             check_keyword!("debug", Debug);
             check_keyword!("export", Export);
@@ -651,6 +658,7 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("if", If);
             check_keyword!("import", Import);
             check_keyword!("in", In);
+            check_keyword!("let", Let);
             check_keyword!("loop", Loop);
             check_keyword!("match", Match);
             check_keyword!("not", Not);
