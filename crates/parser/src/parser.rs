@@ -116,6 +116,9 @@ struct ExpressionContext {
     allow_map_block: bool,
     // The indentation rules for the current context
     expected_indentation: Indentation,
+    // This allows the type hint like this:
+    // x: Number
+    allow_type_hint: bool,
 }
 
 // The indentation that should be expected on following lines for an expression to continue
@@ -142,6 +145,7 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+            allow_type_hint: false,
         }
     }
 
@@ -151,6 +155,7 @@ impl ExpressionContext {
             allow_linebreaks: false,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+            allow_type_hint: false,
         }
     }
 
@@ -160,6 +165,7 @@ impl ExpressionContext {
             allow_linebreaks: false,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+            allow_type_hint: false,
         }
     }
 
@@ -171,6 +177,7 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+            allow_type_hint: false,
         }
     }
 
@@ -183,6 +190,7 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Flexible,
+            allow_type_hint: false,
         }
     }
 
@@ -197,6 +205,7 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Flexible,
+            allow_type_hint: false,
         }
     }
 
@@ -219,12 +228,20 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation,
+            allow_type_hint: false,
         }
     }
 
     fn with_expected_indentation(&self, expected_indentation: Indentation) -> Self {
         Self {
             expected_indentation,
+            ..*self
+        }
+    }
+
+    fn with_type_hint(&self) -> Self {
+        Self {
+            allow_type_hint: true,
             ..*self
         }
     }
@@ -538,9 +555,11 @@ impl<'source> Parser<'source> {
         let start_line = self.current_line;
         let start_indent = self.current_indent();
 
-        if let Some(assignment_expression) =
-            self.parse_assign_expression(expression_start, previous_expressions, context)?
-        {
+        if let Some(assignment_expression) = self.parse_assign_expression(
+            expression_start,
+            previous_expressions,
+            &context.with_type_hint(),
+        )? {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(context) {
             let maybe_pipe = match next.token {
@@ -1003,15 +1022,21 @@ impl<'source> Parser<'source> {
 
     // Parses the types and returns information about the type if next is a colon
     fn consume_if_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
-        if let Some(PeekInfo {
-            token: Token::Colon,
-            ..
-        }) = self.peek_token_with_context(context)
-        {
-            self.consume_token_with_context(context);
-            self.consume_type_hint(context)
-        } else {
-            Ok(None)
+        match (
+            self.peek_token_with_context(context),
+            context.allow_type_hint,
+        ) {
+            (
+                Some(PeekInfo {
+                    token: Token::Colon,
+                    ..
+                }),
+                true,
+            ) => {
+                self.consume_token_with_context(context);
+                self.consume_type_hint(context)
+            }
+            _ => Ok(None),
         }
     }
 
@@ -1270,6 +1295,8 @@ impl<'source> Parser<'source> {
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
+                    // TODO: Handle the type hint
+                    self.consume_if_type_hint(context)?;
                     self.push_node(Node::Id(constant_index))
                 } else {
                     self.push_node_with_start_span(
