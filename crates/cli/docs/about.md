@@ -87,6 +87,18 @@ the [CLI](./cli.md), and see how well it works in your
   but modern tooling like an LSP implementation, auto-formatting,
   or linting are still topics for the future.
 
+## Influences
+
+Koto was influenced by and is indebted to many other languages.
+- **Scope:** [Lua][lua] was a strong influence on Koto, showing the strength of 
+  a minimalistic feature set in a companion scripting language. 
+- **Syntax:** [Coffeescript][coffeescript] and [Moonscript][moonscript] show how 
+  languages can be easy on the eye by minimizing visual distractions, 
+  while also managing to avoid inexpressive terseness.
+- **Language Design:** Although the syntax and core purpose is very different,
+  [Rust][rust] had a huge impact on Koto's design, in particular Rust's 
+  [rich iterator support][rust-iterators] was a majoa influence on emphasizing 
+  the role of iterators in Koto.
 
 ## Tooling
 
@@ -98,13 +110,17 @@ Basic editor support is available for Koto:
 
 
 [async]: https://github.com/koto-lang/koto/issues/277
+[coffeescript]: https://coffeescript.org
 [discord]: https://discord.gg/JeV8RuK4CT
 [discussions]: https://github.com/koto-lang/koto/discussions
 [issues]: https://github.com/koto-lang/koto/issues
 [iterator]: ./core_lib/iterator.md
 [koto]: https://koto.dev
 [koto-object]: https://github.com/koto-lang/koto/blob/main/crates/runtime/src/types/object.rs
+[lua]: https://www.lua.org
+[moonscript]: https://moonscript.org
 [playground]: https://koto.dev/play
 [rust]: https://rust-lang.org
+[rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html
 [testing]: ./language_guide.md#testing
 [type-hints]: https://github.com/koto-lang/koto/issues/298
