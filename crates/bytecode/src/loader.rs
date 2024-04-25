@@ -27,15 +27,21 @@ pub enum LoaderErrorKind {
 /// The error type used by the [Loader]
 #[derive(Clone, Debug)]
 pub struct LoaderError {
-    error: Ptr<LoaderErrorKind>,
-    source: Option<Ptr<LoaderErrorSource>>,
+    /// The error
+    pub error: Ptr<LoaderErrorKind>,
+    /// The source of the error
+    pub source: Option<Ptr<LoaderErrorSource>>,
 }
 
+/// The source of a [LoaderError]
 #[derive(Debug)]
-struct LoaderErrorSource {
-    contents: String,
-    span: Span,
-    path: Option<PathBuf>,
+pub struct LoaderErrorSource {
+    /// The script's contents
+    pub contents: String,
+    /// The span in the script where the error occurred
+    pub span: Span,
+    /// The script's path
+    pub path: Option<PathBuf>,
 }
 
 impl LoaderError {
