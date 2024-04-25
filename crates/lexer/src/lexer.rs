@@ -93,6 +93,7 @@ pub enum Token {
     Until,
     While,
     Yield,
+    Let,
 }
 
 impl Token {
@@ -666,6 +667,7 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("until", Until);
             check_keyword!("while", While);
             check_keyword!("yield", Yield);
+            check_keyword!("let", Let);
         }
 
         // If no keyword matched, then consume as an Id
@@ -1424,12 +1426,28 @@ c *= 3";
         }
 
         #[test]
-        fn assignment_with_type_hint() {
-            let input = "my_var: Number = 42";
+        fn varible_declaration() {
+            let input = "let my_var = 42";
 
             check_lexer_output(
                 input,
                 &[
+                    (Let, None, 1),
+                    (Id, Some("my_var"), 1),
+                    (Assign, None, 1),
+                    (Number, Some("42"), 1),
+                ],
+            )
+        }
+
+        #[test]
+        fn variable_declaration_with_type_hint() {
+            let input = "let my_var: Number = 42";
+
+            check_lexer_output(
+                input,
+                &[
+                    (Let, None, 1),
                     (Id, Some("my_var"), 1),
                     (Colon, None, 1),
                     (Id, Some("Number"), 1),
@@ -1440,12 +1458,13 @@ c *= 3";
         }
 
         #[test]
-        fn assignment_with_generic_type_hint() {
-            let input = "my_var: List<Number> = [42, 43]";
+        fn variable_declaration_with_generic_type_hint() {
+            let input = "let my_var: List<Number> = [42, 43]";
 
             check_lexer_output(
                 input,
                 &[
+                    (Let, None, 1),
                     (Id, Some("my_var"), 1),
                     (Colon, None, 1),
                     (Id, Some("List"), 1),
@@ -1463,12 +1482,13 @@ c *= 3";
         }
 
         #[test]
-        fn assignment_with_nested_generic_type_hint() {
-            let input = "my_var: List<List<Number>> = [[42, 43], [97, 13]]";
+        fn variable_declaration_with_nested_generic_type_hint() {
+            let input = "let my_var: List<List<Number>> = [[42, 43], [97, 13]]";
 
             check_lexer_output(
                 input,
                 &[
+                    (Let, None, 1),
                     (Id, Some("my_var"), 1),
                     (Colon, None, 1),
                     (Id, Some("List"), 1),

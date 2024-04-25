@@ -116,8 +116,10 @@ struct ExpressionContext {
     allow_map_block: bool,
     // The indentation rules for the current context
     expected_indentation: Indentation,
-    // This allows the type hint like this:
-    // x: Number
+    // This allows the type hints.
+    // e.g.
+    // let x: Number = 42
+    //      ^~~ This is the beginning of our type hint
     allow_type_hint: bool,
 }
 
@@ -228,7 +230,7 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation,
-            allow_type_hint: false,
+            allow_type_hint: self.allow_type_hint,
         }
     }
 
@@ -242,6 +244,13 @@ impl ExpressionContext {
     fn with_type_hint(&self) -> Self {
         Self {
             allow_type_hint: true,
+            ..*self
+        }
+    }
+
+    fn without_type_hint(&self) -> Self {
+        Self {
+            allow_type_hint: false,
             ..*self
         }
     }
@@ -555,11 +564,9 @@ impl<'source> Parser<'source> {
         let start_line = self.current_line;
         let start_indent = self.current_indent();
 
-        if let Some(assignment_expression) = self.parse_assign_expression(
-            expression_start,
-            previous_expressions,
-            &context.with_type_hint(),
-        )? {
+        if let Some(assignment_expression) =
+            self.parse_assign_expression(expression_start, previous_expressions, context)?
+        {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(context) {
             let maybe_pipe = match next.token {
@@ -688,7 +695,7 @@ impl<'source> Parser<'source> {
             .peek_token_with_context(context)
             .map(|token| token.token)
         {
-            Some(Token::Assign | Token::Colon) => {}
+            Some(Token::Assign) => {}
             _ => return Ok(None),
         }
 
@@ -696,12 +703,8 @@ impl<'source> Parser<'source> {
 
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
-            dbg!(&self.ast);
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
-                    // TODO: Handle the type hint
-                    self.consume_if_type_hint(context)?;
-
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => {}
@@ -892,6 +895,9 @@ impl<'source> Parser<'source> {
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
+            Token::Let => self
+                .consume_variable_declaration(context)
+                .map(|i| i.unwrap()),
             _ => return Ok(None),
         };
 
@@ -1022,21 +1028,15 @@ impl<'source> Parser<'source> {
 
     // Parses the types and returns information about the type if next is a colon
     fn consume_if_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
-        match (
-            self.peek_token_with_context(context),
+        if let (Some(Token::Colon), true) = (
+            self.peek_token_with_context(context)
+                .map(|token| token.token),
             context.allow_type_hint,
         ) {
-            (
-                Some(PeekInfo {
-                    token: Token::Colon,
-                    ..
-                }),
-                true,
-            ) => {
-                self.consume_token_with_context(context);
-                self.consume_type_hint(context)
-            }
-            _ => Ok(None),
+            self.consume_token_with_context(context);
+            self.consume_type_hint(context)
+        } else {
+            Ok(None)
         }
     }
 
@@ -1045,7 +1045,7 @@ impl<'source> Parser<'source> {
         let mut type_hint = TypeHint {
             type_name: self
                 .parse_id(context)?
-                .expect("There should be an identifier but other token found")
+                .expect("There should be an identifier but other kind of token found")
                 .0,
             inner: vec![],
         };
@@ -1220,6 +1220,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a single `_` wildcard, along with its optional following id
+
     fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context);
         let slice = self.current_token.slice(self.source);
@@ -1295,8 +1296,8 @@ impl<'source> Parser<'source> {
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
-                    // TODO: Handle the type hint
                     self.consume_if_type_hint(context)?;
+
                     self.push_node(Node::Id(constant_index))
                 } else {
                     self.push_node_with_start_span(
@@ -2773,6 +2774,38 @@ impl<'source> Parser<'source> {
             }),
             start_span,
         )
+    }
+
+    fn consume_variable_declaration(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<Option<AstIndex>> {
+        self.consume_token_with_context(context); // Token::Let
+        let mut targets = vec![];
+
+        match self.parse_term(&context.with_type_hint())? {
+            Some(term) => targets.push(term),
+            None => return Ok(None),
+        };
+
+        while let Some(Token::Comma) = self
+            .peek_token_with_context(context)
+            .map(|token| token.token)
+        {
+            self.consume_token_with_context(context);
+            // Should we avoid this repetation?
+            match self.parse_term(&context.with_type_hint())? {
+                Some(term) => targets.push(term),
+                None => break,
+            };
+        }
+
+        let last_target = targets.pop().unwrap();
+
+        match self.parse_assign_expression(last_target, &targets, &context.with_type_hint())? {
+            Some(val) => Ok(Some(val)),
+            None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
+        }
     }
 
     fn parse_string(&mut self, context: &ExpressionContext) -> Result<Option<ParseStringOutput>> {
