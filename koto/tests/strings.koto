@@ -62,14 +62,8 @@
     assert not "a,b,c".ends_with(",b")
 
   @test escape: ||
-    x = "
-"
-    if os.name() == "windows"
-      assert_eq x.escape(), r"\r\n"
-    else
-      assert_eq x.escape(), r"\n"
-
-    assert_eq "👋".escape(), r"\u{1f44b}"
+    assert_eq '\r\n'.escape(), r'\r\n'
+    assert_eq '👋'.escape(), r'\u{1f44b}'
 
   @test from_bytes: ||
     assert_eq (string.from_bytes (72, 195, 171, 121)), "Hëy"
