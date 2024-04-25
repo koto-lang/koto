@@ -222,7 +222,6 @@ mod tests {
                     fill_character: Some(0),
                     min_width: Some(20),
                     precision: Some(10),
-                    ..Default::default()
                 },
             ),
             (
