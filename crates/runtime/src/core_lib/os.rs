@@ -31,32 +31,33 @@ pub fn make_module() -> KMap {
 
 /// The underlying data type returned by `os.time()`
 #[derive(Clone, Debug, KotoCopy, KotoType)]
-pub struct DateTime(chrono::DateTime<Local>);
+pub struct DateTime(chrono::DateTime<FixedOffset>);
 
 #[koto_impl(runtime = crate)]
 impl DateTime {
-    fn with_chrono_datetime(time: chrono::DateTime<Local>) -> KValue {
+    fn with_chrono_datetime(time: chrono::DateTime<FixedOffset>) -> KValue {
         KObject::from(Self(time)).into()
     }
 
     fn now() -> KValue {
-        Self::with_chrono_datetime(Local::now())
+        Self::with_chrono_datetime(Local::now().fixed_offset())
     }
 
     fn from_seconds(seconds: f64, maybe_offset: Option<i64>) -> Result<KValue> {
         let seconds_i64 = seconds as i64;
         let sub_nanos = (seconds.fract() * 1.0e9) as u32;
-        let offset = match maybe_offset {
-            Some(offset) => match FixedOffset::east_opt(offset as i32) {
-                Some(offset) => offset,
-                None => return runtime_error!("time offset is out of range: {offset}"),
-            },
-            None => *Local::now().offset(),
-        };
-        match NaiveDateTime::from_timestamp_opt(seconds_i64, sub_nanos) {
-            Some(utc) => Ok(Self::with_chrono_datetime(
-                chrono::DateTime::<Local>::from_naive_utc_and_offset(utc, offset),
-            )),
+        match chrono::DateTime::from_timestamp(seconds_i64, sub_nanos) {
+            Some(utc) => {
+                let offset = match maybe_offset {
+                    Some(offset) => match FixedOffset::east_opt(offset as i32) {
+                        Some(offset) => offset,
+                        None => return runtime_error!("time offset is out of range: {offset}"),
+                    },
+                    None => *Local::now().offset(),
+                };
+                let local = utc.with_timezone(&offset);
+                Ok(Self::with_chrono_datetime(local))
+            }
             None => runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
