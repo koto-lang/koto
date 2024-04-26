@@ -266,7 +266,7 @@ impl<'a> TokenLexer<'a> {
             consumed_bytes,
             Position {
                 line: self.current_position().line + 1,
-                column: 1,
+                column: 0,
             },
         );
 
@@ -311,11 +311,11 @@ impl<'a> TokenLexer<'a> {
                         }
                         char_bytes += 1;
                         position.line += 1;
-                        position.column = 1;
+                        position.column = 0;
                     }
                     '\n' => {
                         position.line += 1;
-                        position.column = 1;
+                        position.column = 0;
                     }
                     _ => {}
                 }
@@ -393,13 +393,13 @@ impl<'a> TokenLexer<'a> {
                     }
                     string_bytes += 2;
                     position.line += 1;
-                    position.column = 1;
+                    position.column = 0;
                 }
                 '\n' => {
                     chars.next();
                     string_bytes += 1;
                     position.line += 1;
-                    position.column = 1;
+                    position.column = 0;
                 }
                 _ => {
                     chars.next();
@@ -485,12 +485,12 @@ impl<'a> TokenLexer<'a> {
                     }
                     string_bytes += 2;
                     position.line += 1;
-                    position.column = 1;
+                    position.column = 0;
                 }
                 '\n' => {
                     string_bytes += 1;
                     position.line += 1;
-                    position.column = 1;
+                    position.column = 0;
                 }
                 _ => {
                     string_bytes += c.len_utf8();
@@ -1102,15 +1102,15 @@ mod tests {
             check_lexer_output(
                 input,
                 &[
-                    (Id, Some("id"), 1),
-                    (Id, Some("id1"), 1),
-                    (Id, Some("id_2"), 1),
-                    (Id, Some("i_d_3"), 1),
-                    (Id, Some("ïd_ƒôûr"), 1),
-                    (If, None, 1),
-                    (Id, Some("iff"), 1),
-                    (Wildcard, Some("_"), 1),
-                    (Wildcard, Some("_foo"), 1),
+                    (Id, Some("id"), 0),
+                    (Id, Some("id1"), 0),
+                    (Id, Some("id_2"), 0),
+                    (Id, Some("i_d_3"), 0),
+                    (Id, Some("ïd_ƒôûr"), 0),
+                    (If, None, 0),
+                    (Id, Some("iff"), 0),
+                    (Wildcard, Some("_"), 0),
+                    (Wildcard, Some("_foo"), 0),
                 ],
             );
         }
@@ -1125,16 +1125,16 @@ bar 2";
             check_lexer_output_indented(
                 input,
                 &[
-                    (If, None, 1, 0),
-                    (True, None, 1, 0),
-                    (Then, None, 1, 0),
-                    (NewLine, None, 1, 0),
-                    (Id, Some("foo"), 2, 2),
-                    (Number, Some("1"), 2, 2),
-                    (NewLine, None, 2, 2),
-                    (NewLine, None, 3, 0),
-                    (Id, Some("bar"), 4, 0),
-                    (Number, Some("2"), 4, 0),
+                    (If, None, 0, 0),
+                    (True, None, 0, 0),
+                    (Then, None, 0, 0),
+                    (NewLine, None, 0, 0),
+                    (Id, Some("foo"), 1, 2),
+                    (Number, Some("1"), 1, 2),
+                    (NewLine, None, 1, 2),
+                    (NewLine, None, 2, 0),
+                    (Id, Some("bar"), 3, 0),
+                    (Number, Some("2"), 3, 0),
                 ],
             );
         }
@@ -1151,14 +1151,14 @@ false #
             check_lexer_output(
                 input,
                 &[
-                    (CommentSingle, Some("# single"), 1),
-                    (NewLine, None, 1),
-                    (True, None, 2),
-                    (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 2),
-                    (True, None, 5),
-                    (NewLine, None, 5),
-                    (RoundOpen, None, 6),
-                    (RoundClose, None, 6),
+                    (CommentSingle, Some("# single"), 0),
+                    (NewLine, None, 0),
+                    (True, None, 1),
+                    (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 1),
+                    (True, None, 4),
+                    (NewLine, None, 4),
+                    (RoundOpen, None, 5),
+                    (RoundClose, None, 5),
                 ],
             );
         }
@@ -1178,30 +1178,30 @@ false #
             check_lexer_output(
                 input,
                 &[
+                    (NewLine, None, 0),
+                    (normal_string(Double), None, 1),
+                    (StringLiteral, Some("hello, world!"), 1),
+                    (StringEnd, None, 1),
                     (NewLine, None, 1),
                     (normal_string(Double), None, 2),
-                    (StringLiteral, Some("hello, world!"), 2),
+                    (StringLiteral, Some(r#"escaped \\\"\n\{ string"#), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
                     (normal_string(Double), None, 3),
-                    (StringLiteral, Some(r#"escaped \\\"\n\{ string"#), 3),
+                    (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 3),
                     (StringEnd, None, 3),
                     (NewLine, None, 3),
-                    (normal_string(Double), None, 4),
-                    (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
+                    (normal_string(Single), None, 4),
+                    (StringLiteral, Some(r#"single-\'quoted\' "string""#), 4),
                     (StringEnd, None, 4),
                     (NewLine, None, 4),
-                    (normal_string(Single), None, 5),
-                    (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
+                    (normal_string(Double), None, 5),
                     (StringEnd, None, 5),
                     (NewLine, None, 5),
                     (normal_string(Double), None, 6),
+                    (StringLiteral, Some(r"\\"), 6),
                     (StringEnd, None, 6),
                     (NewLine, None, 6),
-                    (normal_string(Double), None, 7),
-                    (StringLiteral, Some(r"\\"), 7),
-                    (StringEnd, None, 7),
-                    (NewLine, None, 7),
                 ],
             );
         }
@@ -1216,15 +1216,15 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
+                    (NewLine, None, 0),
+                    (raw_string(StringQuote::Double, 0), None, 1),
+                    (StringLiteral, Some("{foo}"), 1),
+                    (StringEnd, None, 1),
                     (NewLine, None, 1),
-                    (raw_string(StringQuote::Double, 0), None, 2),
-                    (StringLiteral, Some("{foo}"), 2),
+                    (raw_string(StringQuote::Single, 1), None, 2),
+                    (StringLiteral, Some("'bar'"), 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (raw_string(StringQuote::Single, 1), None, 3),
-                    (StringLiteral, Some("'bar'"), 3),
-                    (StringEnd, None, 3),
-                    (NewLine, None, 3),
                 ],
             );
         }
@@ -1239,24 +1239,24 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
+                    (NewLine, None, 0),
+                    (normal_string(Double), None, 1),
+                    (StringLiteral, Some("hello "), 1),
+                    (CurlyOpen, None, 1),
+                    (Id, Some("name"), 1),
+                    (CurlyClose, None, 1),
+                    (StringLiteral, Some(", how are you?"), 1),
+                    (StringEnd, None, 1),
                     (NewLine, None, 1),
-                    (normal_string(Double), None, 2),
-                    (StringLiteral, Some("hello "), 2),
+                    (normal_string(Single), None, 2),
                     (CurlyOpen, None, 2),
-                    (Id, Some("name"), 2),
+                    (Id, Some("foo"), 2),
                     (CurlyClose, None, 2),
-                    (StringLiteral, Some(", how are you?"), 2),
+                    (CurlyOpen, None, 2),
+                    (Id, Some("bar"), 2),
+                    (CurlyClose, None, 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (normal_string(Single), None, 3),
-                    (CurlyOpen, None, 3),
-                    (Id, Some("foo"), 3),
-                    (CurlyClose, None, 3),
-                    (CurlyOpen, None, 3),
-                    (Id, Some("bar"), 3),
-                    (CurlyClose, None, 3),
-                    (StringEnd, None, 3),
-                    (NewLine, None, 3),
                 ],
             );
         }
@@ -1271,24 +1271,24 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
+                    (NewLine, None, 0),
+                    (normal_string(Double), None, 1),
+                    (StringLiteral, Some("x + y == "), 1),
+                    (CurlyOpen, None, 1),
+                    (Id, Some("x"), 1),
+                    (Add, None, 1),
+                    (Id, Some("y"), 1),
+                    (CurlyClose, None, 1),
+                    (StringEnd, None, 1),
                     (NewLine, None, 1),
-                    (normal_string(Double), None, 2),
-                    (StringLiteral, Some("x + y == "), 2),
+                    (normal_string(Single), None, 2),
                     (CurlyOpen, None, 2),
-                    (Id, Some("x"), 2),
-                    (Add, None, 2),
-                    (Id, Some("y"), 2),
+                    (normal_string(Single), None, 2),
+                    (StringLiteral, Some("\\{foo}"), 2),
+                    (StringEnd, None, 2),
                     (CurlyClose, None, 2),
                     (StringEnd, None, 2),
                     (NewLine, None, 2),
-                    (normal_string(Single), None, 3),
-                    (CurlyOpen, None, 3),
-                    (normal_string(Single), None, 3),
-                    (StringLiteral, Some("\\{foo}"), 3),
-                    (StringEnd, None, 3),
-                    (CurlyClose, None, 3),
-                    (StringEnd, None, 3),
-                    (NewLine, None, 3),
                 ],
             );
         }
@@ -1302,17 +1302,17 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
+                    (NewLine, None, 0),
+                    (normal_string(Single), None, 1),
+                    (CurlyOpen, None, 1),
+                    (Id, Some("a"), 1),
+                    (Add, None, 1),
+                    (Id, Some("b"), 1),
+                    (Colon, None, 1),
+                    (StringLiteral, Some("_^3.4"), 1),
+                    (CurlyClose, None, 1),
+                    (StringEnd, None, 1),
                     (NewLine, None, 1),
-                    (normal_string(Single), None, 2),
-                    (CurlyOpen, None, 2),
-                    (Id, Some("a"), 2),
-                    (Add, None, 2),
-                    (Id, Some("b"), 2),
-                    (Colon, None, 2),
-                    (StringLiteral, Some("_^3.4"), 2),
-                    (CurlyClose, None, 2),
-                    (StringEnd, None, 2),
-                    (NewLine, None, 2),
                 ],
             );
         }
@@ -1324,10 +1324,10 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
-                    (Greater, None, 1),
-                    (GreaterOrEqual, None, 1),
-                    (Less, None, 1),
-                    (LessOrEqual, None, 1),
+                    (Greater, None, 0),
+                    (GreaterOrEqual, None, 0),
+                    (Less, None, 0),
+                    (LessOrEqual, None, 0),
                 ],
             );
         }
@@ -1347,25 +1347,25 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
-                    (Number, Some("123"), 1),
+                    (Number, Some("123"), 0),
+                    (NewLine, None, 0),
+                    (Number, Some("55.5"), 1),
                     (NewLine, None, 1),
-                    (Number, Some("55.5"), 2),
+                    (Subtract, None, 2),
+                    (Number, Some("1e-3"), 2),
                     (NewLine, None, 2),
-                    (Subtract, None, 3),
-                    (Number, Some("1e-3"), 3),
+                    (Number, Some("0.5e+9"), 3),
                     (NewLine, None, 3),
-                    (Number, Some("0.5e+9"), 4),
+                    (Subtract, None, 4),
+                    (Number, Some("8e8"), 4),
                     (NewLine, None, 4),
-                    (Subtract, None, 5),
-                    (Number, Some("8e8"), 5),
+                    (Number, Some("0xabadcafe"), 5),
                     (NewLine, None, 5),
-                    (Number, Some("0xabadcafe"), 6),
+                    (Number, Some("0xABADCAFE"), 6),
                     (NewLine, None, 6),
-                    (Number, Some("0xABADCAFE"), 7),
+                    (Number, Some("0o707606"), 7),
                     (NewLine, None, 7),
-                    (Number, Some("0o707606"), 8),
-                    (NewLine, None, 8),
-                    (Number, Some("0b1010101"), 9),
+                    (Number, Some("0b1010101"), 8),
                 ],
             );
         }
@@ -1380,29 +1380,29 @@ r#''bar''#
             check_lexer_output(
                 input,
                 &[
-                    (Number, Some("1.0"), 1),
+                    (Number, Some("1.0"), 0),
+                    (Dot, None, 0),
+                    (Id, Some("sin"), 0),
+                    (RoundOpen, None, 0),
+                    (RoundClose, None, 0),
+                    (NewLine, None, 0),
+                    (Subtract, None, 1),
+                    (Number, Some("1e-3"), 1),
                     (Dot, None, 1),
-                    (Id, Some("sin"), 1),
+                    (Id, Some("abs"), 1),
                     (RoundOpen, None, 1),
                     (RoundClose, None, 1),
                     (NewLine, None, 1),
-                    (Subtract, None, 2),
-                    (Number, Some("1e-3"), 2),
+                    (Number, Some("1"), 2),
                     (Dot, None, 2),
-                    (Id, Some("abs"), 2),
-                    (RoundOpen, None, 2),
-                    (RoundClose, None, 2),
+                    (Id, Some("min"), 2),
+                    (Id, Some("x"), 2),
                     (NewLine, None, 2),
-                    (Number, Some("1"), 3),
+                    (Number, Some("9"), 3),
                     (Dot, None, 3),
-                    (Id, Some("min"), 3),
-                    (Id, Some("x"), 3),
-                    (NewLine, None, 3),
-                    (Number, Some("9"), 4),
-                    (Dot, None, 4),
-                    (Id, Some("exp"), 4),
-                    (RoundOpen, None, 4),
-                    (RoundClose, None, 4),
+                    (Id, Some("exp"), 3),
+                    (RoundOpen, None, 3),
+                    (RoundClose, None, 3),
                 ],
             );
         }
@@ -1416,17 +1416,17 @@ c *= 3";
             check_lexer_output(
                 input,
                 &[
-                    (Id, Some("a"), 1),
-                    (AddAssign, None, 1),
-                    (Number, Some("1"), 1),
+                    (Id, Some("a"), 0),
+                    (AddAssign, None, 0),
+                    (Number, Some("1"), 0),
+                    (NewLine, None, 0),
+                    (Id, Some("b"), 1),
+                    (SubtractAssign, None, 1),
+                    (Number, Some("2"), 1),
                     (NewLine, None, 1),
-                    (Id, Some("b"), 2),
-                    (SubtractAssign, None, 2),
-                    (Number, Some("2"), 2),
-                    (NewLine, None, 2),
-                    (Id, Some("c"), 3),
-                    (MultiplyAssign, None, 3),
-                    (Number, Some("3"), 3),
+                    (Id, Some("c"), 2),
+                    (MultiplyAssign, None, 2),
+                    (Number, Some("3"), 2),
                 ],
             );
         }
@@ -1439,23 +1439,23 @@ x = [i for i in 0..5]";
             check_lexer_output(
                 input,
                 &[
-                    (Id, Some("a"), 1),
+                    (Id, Some("a"), 0),
+                    (SquareOpen, None, 0),
+                    (RangeInclusive, None, 0),
+                    (Number, Some("9"), 0),
+                    (SquareClose, None, 0),
+                    (NewLine, None, 0),
+                    (Id, Some("x"), 1),
+                    (Assign, None, 1),
                     (SquareOpen, None, 1),
-                    (RangeInclusive, None, 1),
-                    (Number, Some("9"), 1),
+                    (Id, Some("i"), 1),
+                    (For, None, 1),
+                    (Id, Some("i"), 1),
+                    (In, None, 1),
+                    (Number, Some("0"), 1),
+                    (Range, None, 1),
+                    (Number, Some("5"), 1),
                     (SquareClose, None, 1),
-                    (NewLine, None, 1),
-                    (Id, Some("x"), 2),
-                    (Assign, None, 2),
-                    (SquareOpen, None, 2),
-                    (Id, Some("i"), 2),
-                    (For, None, 2),
-                    (Id, Some("i"), 2),
-                    (In, None, 2),
-                    (Number, Some("0"), 2),
-                    (Range, None, 2),
-                    (Number, Some("5"), 2),
-                    (SquareClose, None, 2),
                 ],
             );
         }
@@ -1470,31 +1470,31 @@ f()";
             check_lexer_output_indented(
                 input,
                 &[
-                    (Export, None, 1, 0),
-                    (Id, Some("f"), 1, 0),
-                    (Assign, None, 1, 0),
-                    (Function, None, 1, 0),
-                    (Id, Some("a"), 1, 0),
-                    (Comma, None, 1, 0),
-                    (Id, Some("b"), 1, 0),
-                    (Ellipsis, None, 1, 0),
-                    (Function, None, 1, 0),
-                    (NewLine, None, 1, 0),
+                    (Export, None, 0, 0),
+                    (Id, Some("f"), 0, 0),
+                    (Assign, None, 0, 0),
+                    (Function, None, 0, 0),
+                    (Id, Some("a"), 0, 0),
+                    (Comma, None, 0, 0),
+                    (Id, Some("b"), 0, 0),
+                    (Ellipsis, None, 0, 0),
+                    (Function, None, 0, 0),
+                    (NewLine, None, 0, 0),
+                    (Id, Some("c"), 1, 2),
+                    (Assign, None, 1, 2),
+                    (Id, Some("a"), 1, 2),
+                    (Add, None, 1, 2),
+                    (Id, Some("b"), 1, 2),
+                    (Dot, None, 1, 2),
+                    (Id, Some("size"), 1, 2),
+                    (RoundOpen, None, 1, 2),
+                    (RoundClose, None, 1, 2),
+                    (NewLine, None, 1, 2),
                     (Id, Some("c"), 2, 2),
-                    (Assign, None, 2, 2),
-                    (Id, Some("a"), 2, 2),
-                    (Add, None, 2, 2),
-                    (Id, Some("b"), 2, 2),
-                    (Dot, None, 2, 2),
-                    (Id, Some("size"), 2, 2),
-                    (RoundOpen, None, 2, 2),
-                    (RoundClose, None, 2, 2),
                     (NewLine, None, 2, 2),
-                    (Id, Some("c"), 3, 2),
-                    (NewLine, None, 3, 2),
-                    (Id, Some("f"), 4, 0),
-                    (RoundOpen, None, 4, 0),
-                    (RoundClose, None, 4, 0),
+                    (Id, Some("f"), 3, 0),
+                    (RoundOpen, None, 3, 0),
+                    (RoundClose, None, 3, 0),
                 ],
             );
         }
@@ -1505,14 +1505,14 @@ f()";
             check_lexer_output(
                 input,
                 &[
-                    (Number, Some("1"), 1),
-                    (Add, None, 1),
-                    (If, None, 1),
-                    (True, None, 1),
-                    (Then, None, 1),
-                    (Number, Some("0"), 1),
-                    (Else, None, 1),
-                    (Number, Some("1"), 1),
+                    (Number, Some("1"), 0),
+                    (Add, None, 0),
+                    (If, None, 0),
+                    (True, None, 0),
+                    (Then, None, 0),
+                    (Number, Some("0"), 0),
+                    (Else, None, 0),
+                    (Number, Some("1"), 0),
                 ],
             );
         }
@@ -1529,19 +1529,19 @@ else
             check_lexer_output_indented(
                 input,
                 &[
-                    (If, None, 1, 0),
-                    (True, None, 1, 0),
-                    (NewLine, None, 1, 0),
-                    (Number, Some("0"), 2, 2),
-                    (NewLine, None, 2, 2),
-                    (ElseIf, None, 3, 0),
-                    (False, None, 3, 0),
-                    (NewLine, None, 3, 0),
-                    (Number, Some("1"), 4, 2),
-                    (NewLine, None, 4, 2),
-                    (Else, None, 5, 0),
-                    (NewLine, None, 5, 0),
-                    (Number, Some("0"), 6, 2),
+                    (If, None, 0, 0),
+                    (True, None, 0, 0),
+                    (NewLine, None, 0, 0),
+                    (Number, Some("0"), 1, 2),
+                    (NewLine, None, 1, 2),
+                    (ElseIf, None, 2, 0),
+                    (False, None, 2, 0),
+                    (NewLine, None, 2, 0),
+                    (Number, Some("1"), 3, 2),
+                    (NewLine, None, 3, 2),
+                    (Else, None, 4, 0),
+                    (NewLine, None, 4, 0),
+                    (Number, Some("0"), 5, 2),
                 ],
             );
         }
@@ -1553,18 +1553,18 @@ else
             check_lexer_output(
                 input,
                 &[
-                    (Id, Some("m"), 1),
-                    (Dot, None, 1),
-                    (Id, Some("检验"), 1),
-                    (Dot, None, 1),
-                    (Id, Some("foo"), 1),
-                    (SquareOpen, None, 1),
-                    (Number, Some("1"), 1),
-                    (SquareClose, None, 1),
-                    (Dot, None, 1),
-                    (Id, Some("bär"), 1),
-                    (RoundOpen, None, 1),
-                    (RoundClose, None, 1),
+                    (Id, Some("m"), 0),
+                    (Dot, None, 0),
+                    (Id, Some("检验"), 0),
+                    (Dot, None, 0),
+                    (Id, Some("foo"), 0),
+                    (SquareOpen, None, 0),
+                    (Number, Some("1"), 0),
+                    (SquareClose, None, 0),
+                    (Dot, None, 0),
+                    (Id, Some("bär"), 0),
+                    (RoundOpen, None, 0),
+                    (RoundClose, None, 0),
                 ],
             );
         }
@@ -1576,11 +1576,11 @@ else
             check_lexer_output(
                 input,
                 &[
-                    (Id, Some("foo"), 1),
-                    (Dot, None, 1),
-                    (Id, Some("and"), 1),
-                    (RoundOpen, None, 1),
-                    (RoundClose, None, 1),
+                    (Id, Some("foo"), 0),
+                    (Dot, None, 0),
+                    (Id, Some("and"), 0),
+                    (RoundOpen, None, 0),
+                    (RoundClose, None, 0),
                 ],
             );
         }
@@ -1592,11 +1592,11 @@ else
             check_lexer_output(
                 input,
                 &[
-                    (Number, Some("123"), 1),
+                    (Number, Some("123"), 0),
+                    (NewLine, None, 0),
+                    (Number, Some("456"), 1),
                     (NewLine, None, 1),
-                    (Number, Some("456"), 2),
-                    (NewLine, None, 2),
-                    (Number, Some("789"), 3),
+                    (Number, Some("789"), 2),
                 ],
             );
         }
