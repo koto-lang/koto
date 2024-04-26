@@ -3,7 +3,7 @@ use koto_memory::Ptr;
 use koto_parser::{ConstantPool, Span};
 use std::{
     fmt::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 /// Debug information for a Koto program
@@ -66,13 +66,13 @@ impl Chunk {
     pub fn new(
         bytes: Box<[u8]>,
         constants: ConstantPool,
-        source_path: Option<PathBuf>,
+        source_path: Option<&Path>,
         debug_info: DebugInfo,
     ) -> Self {
         Self {
             bytes,
             constants,
-            source_path,
+            source_path: source_path.map(Path::to_path_buf),
             debug_info,
         }
     }

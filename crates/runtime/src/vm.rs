@@ -2095,7 +2095,7 @@ impl KotoVm {
             .context
             .loader
             .borrow_mut()
-            .compile_module(&import_name, source_path)
+            .compile_module(&import_name, source_path.as_deref())
         {
             Ok(result) => result,
             Err(error) => return runtime_error!("Failed to import '{import_name}': {error}"),

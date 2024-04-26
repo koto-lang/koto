@@ -6,7 +6,12 @@ use crossterm::tty::IsTty;
 use koto::prelude::*;
 use repl::{Repl, ReplSettings};
 use rustyline::EditMode;
-use std::{env, error::Error, fs, io, path::PathBuf};
+use std::{
+    env,
+    error::Error,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -162,7 +167,7 @@ fn main() -> Result<()> {
 
     if let Some(script) = script {
         let mut koto = Koto::with_settings(koto_settings);
-        if let Err(error) = koto.set_script_path(script_path.map(|path| path.into())) {
+        if let Err(error) = koto.set_script_path(script_path.as_deref().map(Path::new)) {
             bail!("{error}");
         }
 

@@ -8,12 +8,7 @@ use hotwatch::{
 };
 use koto::{Koto, KotoSettings};
 use poetry::*;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    str::FromStr,
-    time::Duration,
-};
+use std::{fs, path::Path, time::Duration};
 
 fn version_string() -> String {
     format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
@@ -92,8 +87,8 @@ fn main() -> Result<()> {
         .insert("poetry", koto_bindings::make_module());
     koto.prelude().insert("random", koto_random::make_module());
 
-    let script_path = PathBuf::from_str(&args.script).context("Failed to parse script path")?;
-    koto.set_script_path(Some(script_path.clone()))
+    let script_path = Path::new(&args.script);
+    koto.set_script_path(Some(script_path))
         .expect("Failed to set script path");
 
     if args.watch {

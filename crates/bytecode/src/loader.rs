@@ -4,7 +4,12 @@ use koto_memory::Ptr;
 use koto_parser::{format_source_excerpt, Parser, Span};
 use rustc_hash::FxHasher;
 use std::{
-    collections::HashMap, error, fmt, hash::BuildHasherDefault, io, ops::Deref, path::PathBuf,
+    collections::HashMap,
+    error, fmt,
+    hash::BuildHasherDefault,
+    io,
+    ops::Deref,
+    path::{Path, PathBuf},
 };
 use thiserror::Error;
 
@@ -48,12 +53,12 @@ impl LoaderError {
     pub(crate) fn from_parser_error(
         error: koto_parser::Error,
         source: &str,
-        source_path: Option<PathBuf>,
+        source_path: Option<&Path>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path,
+            path: source_path.map(Path::to_path_buf),
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -64,12 +69,12 @@ impl LoaderError {
     pub(crate) fn from_compiler_error(
         error: CompilerError,
         source: &str,
-        source_path: Option<PathBuf>,
+        source_path: Option<&Path>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path,
+            path: source_path.map(Path::to_path_buf),
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -93,7 +98,7 @@ impl fmt::Display for LoaderError {
             write!(
                 f,
                 "{}",
-                format_source_excerpt(&source.contents, &source.span, &source.path)
+                format_source_excerpt(&source.contents, &source.span, source.path.as_deref())
             )?;
         }
         Ok(())
@@ -127,15 +132,16 @@ pub struct Loader {
 }
 
 impl Loader {
-    fn compile(
+    /// Compiles a script
+    pub fn compile_script(
         &mut self,
         script: &str,
-        script_path: Option<PathBuf>,
-        compiler_settings: CompilerSettings,
+        script_path: Option<&Path>,
+        settings: CompilerSettings,
     ) -> Result<Ptr<Chunk>, LoaderError> {
         match Parser::parse(script) {
             Ok(ast) => {
-                let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
+                let (bytes, mut debug_info) = match Compiler::compile(&ast, settings) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),
                     Err(e) => return Err(LoaderError::from_compiler_error(e, script, script_path)),
                 };
@@ -148,28 +154,18 @@ impl Loader {
         }
     }
 
-    /// Compiles a script
-    pub fn compile_script(
-        &mut self,
-        script: &str,
-        script_path: &Option<PathBuf>,
-        settings: CompilerSettings,
-    ) -> Result<Ptr<Chunk>, LoaderError> {
-        self.compile(script, script_path.clone(), settings)
-    }
-
     /// Finds a module from its name, and then compiles it
     pub fn compile_module(
         &mut self,
         name: &str,
-        load_from_path: Option<PathBuf>,
+        load_from_path: Option<&Path>,
     ) -> Result<CompileModuleResult, LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let search_folder = match &load_from_path {
             Some(path) => match canonicalize(path)? {
                 canonicalized if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
-                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.clone()).into()),
+                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.into()).into()),
                 },
                 canonicalized => canonicalized,
             },
@@ -188,9 +184,9 @@ impl Loader {
                 None => {
                     let script = std::fs::read_to_string(&module_path)?;
 
-                    let chunk = self.compile(
+                    let chunk = self.compile_script(
                         &script,
-                        Some(module_path.clone()),
+                        Some(&module_path),
                         CompilerSettings::default(),
                     )?;
 

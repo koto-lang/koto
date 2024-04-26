@@ -17,6 +17,7 @@ The Koto project adheres to
 #### API
 
 - The line and column numbers referred to in spans are now zero-based. 
+- Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
 
 ## [0.14.0] 2024.04.17
 

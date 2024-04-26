@@ -1,5 +1,5 @@
 use koto_lexer::Span;
-use std::{fmt::Write, path::PathBuf};
+use std::{fmt::Write, path::Path};
 use thiserror::Error;
 
 use crate::string_format_options::StringFormatError;
@@ -239,7 +239,7 @@ impl Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Renders the excerpt of the source corresponding to the given span
-pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<PathBuf>) -> String {
+pub fn format_source_excerpt(source: &str, span: &Span, source_path: Option<&Path>) -> String {
     let Span { start, end } = span;
 
     let (excerpt, padding) = {

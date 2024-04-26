@@ -121,7 +121,7 @@ impl fmt::Display for Error {
                 Some(span) => f.write_str(&format_source_excerpt(
                     &chunk.debug_info.source,
                     &span,
-                    &chunk.source_path,
+                    chunk.source_path.as_deref(),
                 ))?,
                 None => write!(f, "Runtime error at instruction {}", instruction)?,
             }
