@@ -721,7 +721,7 @@ impl KotoVm {
                 self.set_register(register, n.into());
             }
             LoadString { register, constant } => {
-                let string = self.value_string_from_constant(constant);
+                let string = self.koto_string_from_constant(constant);
                 self.set_register(register, string.into());
             }
             LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
@@ -903,7 +903,7 @@ impl KotoVm {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, self.value_string_from_constant(key))?,
+            } => self.run_access(register, value, self.koto_string_from_constant(key))?,
             AccessString {
                 register,
                 value,
@@ -2869,7 +2869,7 @@ impl KotoVm {
                 let min_width = options.min_width.unwrap_or(0) as usize;
                 if len < min_width {
                     let fill = match options.fill_character {
-                        Some(constant) => self.value_string_from_constant(constant),
+                        Some(constant) => self.koto_string_from_constant(constant),
                         None => KString::from(" "),
                     };
                     let fill_chars = min_width - len;
@@ -3110,13 +3110,12 @@ impl KotoVm {
         self.reader.chunk.constants.get_str(constant_index)
     }
 
-    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> KString {
-        let constants = &self.reader.chunk.constants;
-        let bounds = constants.get_str_bounds(constant_index);
-
-        KString::new_with_bounds(constants.string_data().clone(), bounds)
-            // The bounds have been already checked in the constant pool
-            .unwrap()
+    fn koto_string_from_constant(&self, constant_index: ConstantIndex) -> KString {
+        self.reader
+            .chunk
+            .constants
+            .get_string_slice(constant_index)
+            .into()
     }
 }
 
