@@ -16,7 +16,7 @@ As an example, this simple script prints a friendly greeting.
 
 ```koto,skip_run
 name = 'World'
-print 'Hello, $name!'
+print 'Hello, {name}!'
 ```
 
 ### Comments
@@ -892,10 +892,10 @@ with `...` available for capturing the rest of the sequence.
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
   ('a', 'b') then "A list containing 'a' and 'b'"
   (1, ...) then "Starts with '1'"
-  (..., 'y', last) then "Ends with 'y' followed by '$last'"
+  (..., 'y', last) then "Ends with 'y' followed by '{last}'"
   ('a', x, others...) then
     "Starts with 'a', followed by '{x}', then {size others} others"
-  unmatched then "other: $unmatched"
+  unmatched then "other: {unmatched}"
 check! Starts with 'a', followed by 'b', then 4 others
 ```
 
@@ -1088,7 +1088,7 @@ check! 40
 
 ### Iterator Consumers
 
-Iterators can be also be _consumed_ using functions like
+Iterators can also be _consumed_ using functions like
 [`.to_list()`][to_list] and [`.to_tuple()`][to_tuple], 
 allowing the output of an iterator to be easily captured in a container.
 
@@ -1271,7 +1271,7 @@ check! 10
 print! r.end()
 check! null
  
-# Create an unbounded range up to and including 10
+# Create an unbounded range up to and including 100
 r = ..=100
 print! r.start()
 check! null
@@ -1450,7 +1450,7 @@ check! 3
 This behavior is different to many other languages, 
 where captures are often taken by _reference_ rather than by _copy_.
 
-It's also worth noting that capture variables will have the same starting value
+It's also worth noting that captured variables will have the same starting value
 each time the function is called. 
 
 ```koto
@@ -1465,8 +1465,8 @@ print! f(), f(), f()
 check! (100, 100, 100)
 ```
 
-To modify captured state that can be modified, 
-use a container (like a map) to hold on to mutable values.
+To modify captured values, use a container (like a map) to hold on to mutable 
+data.
 
 ```koto
 data = {x: 99}
@@ -1671,19 +1671,6 @@ foo = |n|
 x = -foo(100)
 print! x.data
 check! -100
-```
-
-#### `@not`
-
-The `@not` metakey overrides the `not` operator.
-
-```koto
-foo = |n|
-  data: n
-  @not: || self.data == 0
-
-print! not (foo 10)
-check! false
 ```
 
 #### `@size` and `@[]`
@@ -2119,7 +2106,7 @@ Single values can be assigned to and exported at the same time:
 # my_module.koto #
 ##################
 
-export say_hello = |name| 'Hello, $name!'
+export say_hello = |name| 'Hello, {name}!'
 
 ##################
 ##################
@@ -2166,7 +2153,7 @@ the use of `export` is optional when adding entries to the module's metamap.
 # my_module.koto #
 ##################
 
-export say_hello = |name| 'Hello, $name!'
+export say_hello = |name| 'Hello, {name}!'
 
 @main = || # Equivalent to export @main =
   print '`my_module` initialized'

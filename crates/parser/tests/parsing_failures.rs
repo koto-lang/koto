@@ -380,5 +380,24 @@ switch
                 check_parsing_fails("from foo import bar as");
             }
         }
+
+        mod reserved_keywords {
+            use super::*;
+
+            #[test]
+            fn r#await() {
+                check_parsing_fails("await = 99");
+            }
+
+            #[test]
+            fn r#const() {
+                check_parsing_fails("const = 99");
+            }
+
+            #[test]
+            fn r#let() {
+                check_parsing_fails("let = 99");
+            }
+        }
     }
 }

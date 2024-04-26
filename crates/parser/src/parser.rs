@@ -894,6 +894,11 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
+            // Reserved keywords
+            Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            Token::Let => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            // An error occurred in the lexer
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             Token::Let => self
                 .consume_variable_declaration(context)
@@ -2046,7 +2051,6 @@ impl<'source> Parser<'source> {
             Some(Token::GreaterOrEqual) => MetaKeyId::GreaterOrEqual,
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
-            Some(Token::Not) => MetaKeyId::Not,
             Some(Token::Id) => match self.current_token.slice(self.source) {
                 "display" => MetaKeyId::Display,
                 "iterator" => MetaKeyId::Iterator,

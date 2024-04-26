@@ -8,6 +8,11 @@ The Koto project adheres to
 
 ## [0.15.0] Unreleased
 
+### Changed
+
+#### Language
+
+- `await`, `const`, and `let` have been reserved as keywords for future use.
 
 ## [0.14.0] 2024.04.17
 
@@ -40,6 +45,10 @@ The Koto project adheres to
   groups. `map.get_index` can be used to explicitly retrieve groups by index.
 
 ### Removed
+
+#### Language
+
+- The `@not` metakey has been removed.
 
 #### API
 

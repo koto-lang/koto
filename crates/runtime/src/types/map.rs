@@ -136,9 +136,9 @@ impl KMap {
     }
 
     /// Returns a clone of the data value corresponding to the given key
-    pub fn get<K: ?Sized>(&self, key: &K) -> Option<KValue>
+    pub fn get<K>(&self, key: &K) -> Option<KValue>
     where
-        K: Hash + Equivalent<ValueKey>,
+        K: Hash + Equivalent<ValueKey> + ?Sized,
     {
         self.data.borrow().get(key).cloned()
     }
