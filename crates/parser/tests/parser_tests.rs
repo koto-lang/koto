@@ -1,6 +1,10 @@
 mod parser {
     use koto_parser::{Node::*, *};
 
+    fn id(index: AstIndex) -> Node {
+        Node::Id(index, None)
+    }
+
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
         println!("{source}");
 
@@ -84,7 +88,7 @@ null"#;
                     Float(0),
                     string_literal(1, StringQuote::Double),
                     string_literal(2, StringQuote::Single),
-                    Id(3),
+                    id(3),
                     Null,
                     MainBlock {
                         body: vec![0, 1, 2, 3, 4, 5, 6, 7],
@@ -189,7 +193,7 @@ null"#;
             check_ast(
                 source,
                 &[
-                    Id(1),
+                    id(1),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -201,7 +205,7 @@ null"#;
                             StringNode::Literal(2),
                         ]),
                     }),
-                    Id(3),
+                    id(3),
                     Str(AstString {
                         quote: StringQuote::Double,
                         contents: StringContents::Interpolated(vec![StringNode::Expression {
@@ -209,8 +213,8 @@ null"#;
                             format: StringFormatOptions::default(),
                         }]),
                     }),
-                    Id(4),
-                    Id(6), // 5
+                    id(4),
+                    id(6), // 5
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -284,7 +288,7 @@ null"#;
             check_ast(
                 source,
                 &[
-                    Id(1),
+                    id(1),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -374,12 +378,12 @@ r##'#$bar'##
                 source,
                 &[
                     Float(0),
-                    Id(1),
+                    id(1),
                     UnaryOp {
                         op: AstUnaryOp::Negate,
                         value: 1,
                     },
-                    Id(2),
+                    id(2),
                     SmallInt(0),
                     Lookup((LookupNode::Index(4), None)), // 5
                     Lookup((LookupNode::Root(3), Some(5))),
@@ -422,9 +426,9 @@ r##'#$bar'##
                 source,
                 &[
                     SmallInt(0),
-                    Id(0),
+                    id(0),
                     string_literal(1, StringQuote::Double),
-                    Id(0),
+                    id(0),
                     SmallInt(-1),
                     List(vec![0, 1, 2, 3, 4]),
                     List(vec![]),
@@ -499,7 +503,7 @@ x = [
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
@@ -551,7 +555,7 @@ x =
                 &sources,
                 &[
                     Map(vec![]),
-                    Id(0),
+                    id(0),
                     SmallInt(42),
                     string_literal(4, StringQuote::Single),
                     SmallInt(99),
@@ -625,7 +629,7 @@ x"#;
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     SmallInt(0),
                     Map(vec![(MapKey::Id(1), Some(2))]), // foo, 0
@@ -639,7 +643,7 @@ x"#;
                         target: 0,
                         expression: 5,
                     },
-                    Id(0),
+                    id(0),
                     MainBlock {
                         body: vec![6, 7],
                         local_count: 1,
@@ -662,7 +666,7 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![(
                         string_literal_map_key(1, StringQuote::Double),
@@ -691,7 +695,7 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![
                         (MapKey::Id(2), Some(1)), // bar: 42
@@ -738,7 +742,7 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
@@ -781,7 +785,7 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(1),
                     SmallInt(42),
                     NamedCall {
@@ -821,7 +825,7 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
@@ -956,20 +960,20 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     Assign {
                         target: 0,
                         expression: 1,
                     },
-                    Id(1),
+                    id(1),
                     SmallInt(10),
                     Assign {
                         target: 3,
                         expression: 4,
                     }, // 5
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     Range {
                         start: 6,
                         end: 7,
@@ -990,10 +994,10 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(1), None)),
                     Lookup((LookupNode::Root(0), Some(1))),
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(2), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     Range {
@@ -1170,7 +1174,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     Assign {
                         target: 0,
@@ -1191,7 +1195,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(0),
                     Tuple(vec![1, 2]),
@@ -1214,7 +1218,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     Tuple(vec![1, 2]),
@@ -1241,8 +1245,8 @@ min..max
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     SmallInt(0),
                     Lookup((LookupNode::Index(2), None)),
                     Lookup((LookupNode::Root(1), Some(3))),
@@ -1272,8 +1276,8 @@ x";
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     SmallInt(1),
                     SmallInt(0),
                     TempTuple(vec![2, 3]),
@@ -1281,7 +1285,7 @@ x";
                         targets: vec![0, 1],
                         expression: 4,
                     }, // 5
-                    Id(0),
+                    id(0),
                     MainBlock {
                         body: vec![5, 6],
                         local_count: 2,
@@ -1297,10 +1301,10 @@ x";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Wildcard(None),
                     Wildcard(Some(1)),
-                    Id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -1333,35 +1337,35 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     BinaryOp {
                         op: AstBinaryOp::AddAssign,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::SubtractAssign,
                         lhs: 3,
                         rhs: 4,
                     }, // 5
-                    Id(0),
+                    id(0),
                     SmallInt(2),
                     BinaryOp {
                         op: AstBinaryOp::MultiplyAssign,
                         lhs: 6,
                         rhs: 7,
                     },
-                    Id(0),
+                    id(0),
                     SmallInt(3), // 10
                     BinaryOp {
                         op: AstBinaryOp::DivideAssign,
                         lhs: 9,
                         rhs: 10,
                     },
-                    Id(0),
+                    id(0),
                     SmallInt(4),
                     BinaryOp {
                         op: AstBinaryOp::RemainderAssign,
@@ -1385,7 +1389,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -1402,6 +1406,60 @@ x %= 4";
                     },
                 ],
                 Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
+    }
+
+    mod variable_declaration {
+        use super::*;
+
+        #[test]
+        fn single() {
+            let source = "let a = 1";
+
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    Assign {
+                        target: 0,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn single_with_type_hint() {
+            let source = "let a: Number = 1";
+
+            check_ast(
+                source,
+                &[
+                    Id(
+                        0,
+                        Some(TypeHint {
+                            type_name: 1,
+                            inner: vec![],
+                        }),
+                    ),
+                    SmallInt(1),
+                    Assign {
+                        target: 0,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("Number")]),
             )
         }
     }
@@ -1424,7 +1482,7 @@ export a =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(1),
                     BinaryOp {
@@ -1623,7 +1681,7 @@ export
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
-                    Id(1),
+                    id(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 0,
@@ -1644,9 +1702,9 @@ export
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(1),
-                    Id(2), // y
+                    id(2), // y
                     NamedCall {
                         id: 1, // f
                         args: vec![2],
@@ -1698,7 +1756,7 @@ a =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(2),
                     SmallInt(3),
@@ -1751,7 +1809,7 @@ a = (1
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(2),
                     BinaryOp {
@@ -1923,7 +1981,7 @@ a",
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     BoolFalse,
                     SmallInt(0),
                     BoolTrue,
@@ -1941,7 +1999,7 @@ a",
                         target: 0,
                         expression: 8,
                     },
-                    Id(0),
+                    id(0),
                     MainBlock {
                         body: vec![9, 10],
                         local_count: 1,
@@ -1957,8 +2015,8 @@ a",
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     BoolTrue,
                     SmallInt(0),
                     SmallInt(1),
@@ -2005,7 +2063,7 @@ a",
                         else_if_blocks: vec![],
                         else_node: None,
                     }),
-                    Id(0),
+                    id(0),
                     Block(vec![2, 3]),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -2036,12 +2094,12 @@ for x, _, _y, z in foo
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     Wildcard(None),
                     Wildcard(Some(1)), // _y
-                    Id(2),             // z
-                    Id(3),             // foo
-                    Id(0),             // x - 5
+                    id(2),             // z
+                    id(3),             // foo
+                    id(0),             // x - 5
                     NamedCall {
                         id: 2, // z
                         args: vec![5],
@@ -2073,14 +2131,14 @@ while x > y
             check_ast(
                 source,
                 &[
-                    Id(0), // x
-                    Id(1), // y
+                    id(0), // x
+                    id(1), // y
                     BinaryOp {
                         op: AstBinaryOp::Greater,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Id(0), // x
+                    id(0), // x
                     NamedCall {
                         id: 2, // f
                         args: vec![3],
@@ -2106,14 +2164,14 @@ until x < y
             check_ast(
                 source,
                 &[
-                    Id(0), // x
-                    Id(1), // y
+                    id(0), // x
+                    id(1), // y
                     BinaryOp {
                         op: AstBinaryOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Id(1), // y
+                    id(1), // y
                     NamedCall {
                         id: 2, // f
                         args: vec![3],
@@ -2143,9 +2201,9 @@ for x in y
                 source,
                 &[
                     List(vec![]),
-                    Id(0), // x
-                    Id(1), // y
-                    Id(0), // x
+                    id(0), // x
+                    id(1), // y
+                    id(0), // x
                     For(AstFor {
                         args: vec![1],
                         iterable: 2,
@@ -2169,9 +2227,9 @@ for a in x.zip y
             check_ast(
                 source,
                 &[
-                    Id(0), // a
-                    Id(1), // x
-                    Id(3), // y
+                    id(0), // a
+                    id(1), // x
+                    id(3), // y
                     Lookup((
                         LookupNode::Call {
                             args: vec![2],
@@ -2181,7 +2239,7 @@ for a in x.zip y
                     )),
                     Lookup((LookupNode::Id(2), Some(3))),
                     Lookup((LookupNode::Root(1), Some(4))), // ast 5
-                    Id(0),                                  // a
+                    id(0),                                  // a
                     For(AstFor {
                         args: vec![0],
                         iterable: 5,
@@ -2213,7 +2271,7 @@ a()";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(42),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -2227,7 +2285,7 @@ a()";
                         target: 0,
                         expression: 2,
                     },
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -2261,10 +2319,10 @@ a()";
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
-                    Id(1),
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
+                    id(0),
+                    id(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 2,
@@ -2293,10 +2351,10 @@ a()";
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
+                    id(0),
+                    id(1),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -2342,15 +2400,15 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(1), // x
-                    Id(2), // y
-                    Id(1), // x
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    id(1), // x
                     Assign {
                         target: 2,
                         expression: 3,
                     },
-                    Id(2), // 5
+                    id(2), // 5
                     Block(vec![4, 5]),
                     Function(koto_parser::Function {
                         args: vec![1],
@@ -2389,11 +2447,11 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(1), // x
-                    Id(2), // y
-                    Id(3), // z
-                    Id(3), // z
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    id(3), // z
+                    id(3), // z
                     Function(koto_parser::Function {
                         args: vec![3],
                         local_count: 1,
@@ -2406,7 +2464,7 @@ f 42";
                         target: 2,
                         expression: 5,
                     },
-                    Id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 2, // y
                         args: vec![7],
@@ -2449,8 +2507,8 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(1),
-                    Id(1),
+                    id(1),
+                    id(1),
                     UnaryOp {
                         op: AstUnaryOp::Negate,
                         value: 1,
@@ -2474,7 +2532,7 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(1),
+                    id(1),
                     SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Subtract,
@@ -2517,9 +2575,9 @@ f(x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
-                    Id(1),
-                    Id(1),
+                    id(0),
+                    id(1),
+                    id(1),
                     UnaryOp {
                         op: AstUnaryOp::Negate,
                         value: 2,
@@ -2564,8 +2622,8 @@ foo x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(1),
-                    Id(2),
+                    id(1),
+                    id(2),
                     NamedCall {
                         id: 0, // foo
                         args: vec![0, 1],
@@ -2588,9 +2646,9 @@ foo
             check_ast(
                 source,
                 &[
-                    Id(1),
-                    Id(2),
-                    Id(2),
+                    id(1),
+                    id(2),
+                    id(2),
                     Function(koto_parser::Function {
                         args: vec![1],
                         local_count: 1,
@@ -2621,12 +2679,12 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(1),
+                    id(1),
                     NamedCall {
                         id: 0,
                         args: vec![0],
                     },
-                    Id(1),
+                    id(1),
                     NamedCall {
                         id: 0,
                         args: vec![2],
@@ -2646,9 +2704,9 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(1), // x
-                    Id(1), // x
+                    id(0), // f
+                    id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0, // f
                         args: vec![2],
@@ -2680,10 +2738,10 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(1), // g
-                    Id(2), // x
-                    Id(2),
+                    id(0), // f
+                    id(1), // g
+                    id(2), // x
+                    id(2),
                     NamedCall {
                         id: 0,
                         args: vec![3],
@@ -2697,8 +2755,8 @@ f x";
                         is_generator: false,
                     }), // 5
                     Nested(5),
-                    Id(2), // x
-                    Id(2), // x
+                    id(2), // x
+                    id(2), // x
                     NamedCall {
                         id: 1, // g
                         args: vec![8],
@@ -2732,18 +2790,18 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0, // f
                         args: vec![0],
                     },
-                    Id(2), // g
+                    id(2), // g
                     BinaryOp {
                         op: AstBinaryOp::Pipe,
                         lhs: 1,
                         rhs: 2,
                     },
-                    Id(3), // h
+                    id(3), // h
                     BinaryOp {
                         op: AstBinaryOp::Pipe,
                         lhs: 3,
@@ -2773,8 +2831,8 @@ foo.bar x
             check_ast(
                 source,
                 &[
-                    Id(0), // foo
-                    Id(2), // x
+                    id(0), // foo
+                    id(2), // x
                     Lookup((
                         LookupNode::Call {
                             args: vec![1],
@@ -2784,13 +2842,13 @@ foo.bar x
                     )),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
-                    Id(3), // 5 - y
+                    id(3), // 5 - y
                     BinaryOp {
                         op: AstBinaryOp::Pipe,
                         lhs: 4,
                         rhs: 5,
                     },
-                    Id(4), // z
+                    id(4), // z
                     BinaryOp {
                         op: AstBinaryOp::Pipe,
                         lhs: 6,
@@ -2818,11 +2876,11 @@ foo.bar x
                 source,
                 &[
                     SmallInt(42),
-                    Id(2), // x
+                    id(2), // x
                     Self_, // self
                     Lookup((LookupNode::Id(0), None)),
                     Lookup((LookupNode::Root(2), Some(3))),
-                    Id(2), // 5
+                    id(2), // 5
                     Assign {
                         target: 4,
                         expression: 5,
@@ -2859,8 +2917,8 @@ f = ||
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(2),
+                    id(0),
+                    id(2),
                     SmallInt(0),
                     Map(vec![(MapKey::Id(1), Some(1)), (MapKey::Id(3), Some(2))]),
                     Function(koto_parser::Function {
@@ -2900,8 +2958,8 @@ f = ||
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(3), // x
+                    id(0), // f
+                    id(3), // x
                     Map(vec![
                         (MapKey::Id(2), Some(1)), // bar: x
                     ]),
@@ -2947,13 +3005,13 @@ f()";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(42),
-                    Id(3), // x
+                    id(3), // x
                     Self_,
                     Lookup((LookupNode::Id(1), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
-                    Id(3),
+                    id(3),
                     Assign {
                         target: 5,
                         expression: 6,
@@ -2979,7 +3037,7 @@ f()";
                         target: 0,
                         expression: 10,
                     },
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -3015,11 +3073,11 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    Id(0), // f
-                    Id(1), // n
-                    Id(2), // f2
-                    Id(1),
-                    Id(3),       // i
+                    id(0), // f
+                    id(1), // n
+                    id(2), // f2
+                    id(1),
+                    id(3),       // i
                     SmallInt(0), // ast 5
                     SmallInt(1),
                     Range {
@@ -3027,14 +3085,14 @@ f = |n|
                         end: 6,
                         inclusive: false,
                     },
-                    Id(3), // i
-                    Id(1),
+                    id(3), // i
+                    id(1),
                     BinaryOp {
                         op: AstBinaryOp::Equal,
                         lhs: 8,
                         rhs: 9,
                     }, // ast 10
-                    Id(3),
+                    id(3),
                     Return(Some(11)),
                     If(AstIf {
                         condition: 10,
@@ -3059,7 +3117,7 @@ f = |n|
                         target: 2,
                         expression: 15,
                     },
-                    Id(2),
+                    id(2),
                     Block(vec![16, 17]),
                     Function(koto_parser::Function {
                         args: vec![1],
@@ -3097,8 +3155,8 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(0),
+                    id(0),
+                    id(0),
                     SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Add,
@@ -3109,7 +3167,7 @@ f = |n|
                         target: 0,
                         expression: 3,
                     },
-                    Id(0), // 5
+                    id(0), // 5
                     Block(vec![4, 5]),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -3137,15 +3195,15 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     SmallInt(1),
                     Assign {
                         target: 1,
                         expression: 2,
                     },
                     Nested(3),
-                    Id(1), // 5
+                    id(1), // 5
                     Tuple(vec![4, 5]),
                     Assign {
                         target: 0,
@@ -3176,7 +3234,7 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::AddAssign,
@@ -3208,7 +3266,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0), // z
+                    id(0), // z
                     SmallInt(0),
                     SmallInt(20),
                     Range {
@@ -3217,8 +3275,8 @@ y z";
                         inclusive: false,
                     },
                     List(vec![3]),
-                    Id(2), // 5 - x
-                    Id(2),
+                    id(2), // 5 - x
+                    id(2),
                     SmallInt(1),
                     BinaryOp {
                         op: AstBinaryOp::Greater,
@@ -3241,7 +3299,7 @@ y z";
                         target: 0,
                         expression: 10,
                     },
-                    Id(0), // z
+                    id(0), // z
                     NamedCall {
                         id: 1, // y
                         args: vec![12],
@@ -3357,15 +3415,15 @@ y z";
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0), // a
+                    id(0), // a
                     Wildcard(None),
                     Ellipsis(Some(1)),    // others
-                    Id(2),                // c
+                    id(2),                // c
                     Wildcard(Some(3)),    // d
                     Tuple(vec![2, 3, 4]), // ast index 5
                     Tuple(vec![1, 5]),
                     Wildcard(Some(4)), // e
-                    Id(0),
+                    id(0),
                     Function(koto_parser::Function {
                         args: vec![0, 6, 7],
                         local_count: 3,
@@ -3400,11 +3458,11 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     Lookup((LookupNode::Index(1), None)),
                     Lookup((LookupNode::Root(0), Some(2))),
-                    Id(0),
+                    id(0),
                     SmallInt(1), // 5
                     Lookup((LookupNode::Index(5), None)),
                     Lookup((LookupNode::Root(4), Some(6))),
@@ -3427,7 +3485,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     RangeFull,
                     Lookup((LookupNode::Index(1), None)),
                     Lookup((LookupNode::Root(0), Some(2))),
@@ -3446,7 +3504,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(3),
                     RangeTo {
                         end: 1,
@@ -3469,7 +3527,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(10),
                     RangeFrom { start: 1 },
                     SmallInt(0),
@@ -3491,7 +3549,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(1), None)),
                     Lookup((LookupNode::Root(0), Some(1))),
                     MainBlock {
@@ -3509,7 +3567,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -3534,7 +3592,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -3567,7 +3625,7 @@ x.bar()."baz" = 1
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Str(AstString {
                             quote: StringQuote::Double,
@@ -3608,7 +3666,7 @@ x.bar()."baz" = 1
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -3637,7 +3695,7 @@ x.foo
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -3666,7 +3724,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![
                         (MapKey::Id(2), Some(1)), // foo: 42
@@ -3716,10 +3774,10 @@ x.takes_a_map
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(1), None)),
                     Lookup((LookupNode::Root(0), Some(1))),
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(2), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     List(vec![2, 5]),
@@ -3742,7 +3800,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0, // f
                         args: vec![0],
@@ -3765,7 +3823,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0, // f
                         args: vec![0],
@@ -3789,13 +3847,13 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    Id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0, // f
                         args: vec![0],
                     },
                     Nested(1),
-                    Id(2), // y
+                    id(2), // y
                     Lookup((
                         LookupNode::Call {
                             args: vec![3],
@@ -3887,11 +3945,11 @@ x = ( 0
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     Tuple(vec![1, 2]),
-                    Id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: vec![4],
@@ -3936,11 +3994,11 @@ x = [ 0
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     List(vec![1, 2]),
-                    Id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: vec![4],
@@ -3991,7 +4049,7 @@ x = { y
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Id(0),
+                    id(0),
                     Map(vec![(MapKey::Id(1), None), (MapKey::Id(2), None)]),
                     Lookup((
                         LookupNode::Call {
@@ -4092,9 +4150,9 @@ x = { y
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Nested(0),
-                    Id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: vec![2],
@@ -4128,7 +4186,7 @@ x.iter()
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(1),
                     Lookup((
                         LookupNode::Call {
@@ -4179,10 +4237,10 @@ foo.bar
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(1), None)),
                     Lookup((LookupNode::Root(0), Some(1))),
-                    Id(0),
+                    id(0),
                     Lookup((LookupNode::Id(2), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     BinaryOp {
@@ -4252,8 +4310,8 @@ assert_eq x, "hello"
                         op: AstUnaryOp::Not,
                         value: 0,
                     },
-                    Id(0),
-                    Id(0),
+                    id(0),
+                    id(0),
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 2,
@@ -4263,7 +4321,7 @@ assert_eq x, "hello"
                         expression_string: 1,
                         expression: 4,
                     }, // 5
-                    Id(0), // x
+                    id(0), // x
                     string_literal(3, StringQuote::Double),
                     NamedCall {
                         id: 2,
@@ -4367,7 +4425,7 @@ assert_eq x, "hello"
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Import {
                         from: vec![1.into()],
                         items: vec![import_id(2)],
@@ -4501,7 +4559,7 @@ catch e
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -4510,8 +4568,8 @@ catch e
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
-                    Id(1), // e
-                    Id(1),
+                    id(1), // e
+                    id(1),
                     Debug {
                         expression_string: 1,
                         expression: 4,
@@ -4542,9 +4600,9 @@ catch _
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Wildcard(None),
-                    Id(1),
+                    id(1),
                     Try(AstTry {
                         try_block: 0,
                         catch_arg: 1,
@@ -4571,9 +4629,9 @@ catch _error
             check_ast(
                 source,
                 &[
-                    Id(0),             // x
+                    id(0),             // x
                     Wildcard(Some(1)), // error
-                    Id(2),             // y
+                    id(2),             // y
                     Try(AstTry {
                         try_block: 0,
                         catch_arg: 1,
@@ -4606,7 +4664,7 @@ finally
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -4615,8 +4673,8 @@ finally
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
-                    Id(1), // e
-                    Id(1),
+                    id(1), // e
+                    id(1),
                     Debug {
                         expression_string: 1,
                         expression: 4,
@@ -4643,7 +4701,7 @@ finally
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Throw(0),
                     MainBlock {
                         body: vec![1],
@@ -4681,7 +4739,7 @@ throw
             check_ast(
                 source,
                 &[
-                    Id(1),
+                    id(1),
                     string_literal(3, StringQuote::Double),
                     Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(1))]),
                     Throw(2),
@@ -4713,12 +4771,12 @@ x = match y
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(42),
-                    Id(2), // 5
+                    id(2), // 5
                     SmallInt(-1),
                     Match {
                         expression: 1,
@@ -4758,7 +4816,7 @@ match x
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     string_literal(1, StringQuote::Single),
                     SmallInt(99),
                     string_literal(2, StringQuote::Double),
@@ -4803,18 +4861,18 @@ match (x, y, z)
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
-                    Id(2),
+                    id(0),
+                    id(1),
+                    id(2),
                     Tuple(vec![0, 1, 2]),
                     SmallInt(0),
-                    Id(3), // 5
+                    id(3), // 5
                     Wildcard(None),
                     Tuple(vec![4, 5, 6]),
-                    Id(3),
+                    id(3),
                     Wildcard(None),
                     SmallInt(0), // 10
-                    Id(4),
+                    id(4),
                     Tuple(vec![10, 11]),
                     Wildcard(Some(5)),
                     Tuple(vec![9, 12, 13]),
@@ -4860,7 +4918,7 @@ match x
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Ellipsis(None),
                     SmallInt(0),
                     Tuple(vec![1, 2]),
@@ -4903,7 +4961,7 @@ match y
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     Ellipsis(Some(1)),
                     SmallInt(0),
                     SmallInt(1),
@@ -4955,9 +5013,9 @@ match x
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
-                    Id(1),
+                    id(0),
+                    id(1),
+                    id(1),
                     SmallInt(5),
                     BinaryOp {
                         op: AstBinaryOp::Greater,
@@ -4965,8 +5023,8 @@ match x
                         rhs: 3,
                     },
                     SmallInt(0), // 5
-                    Id(1),
-                    Id(1),
+                    id(1),
+                    id(1),
                     SmallInt(10),
                     BinaryOp {
                         op: AstBinaryOp::Less,
@@ -4974,7 +5032,7 @@ match x
                         rhs: 8,
                     },
                     SmallInt(1), // 10
-                    Id(1),
+                    id(1),
                     SmallInt(-1),
                     Match {
                         expression: 0,
@@ -5017,8 +5075,8 @@ match x, y
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     TempTuple(vec![0, 1]),
                     SmallInt(0),
                     SmallInt(1),
@@ -5026,12 +5084,12 @@ match x, y
                     SmallInt(2),
                     SmallInt(3),
                     TempTuple(vec![6, 7]),
-                    Id(2),
+                    id(2),
                     SmallInt(0), // 10
-                    Id(3),
+                    id(3),
                     Null,
                     TempTuple(vec![11, 12]),
-                    Id(3),
+                    id(3),
                     SmallInt(0), // 15
                     Match {
                         expression: 2,
@@ -5077,7 +5135,7 @@ match x.foo 42
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -5124,8 +5182,8 @@ match x
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    id(0),
+                    id(1),
                     Lookup((LookupNode::Id(2), None)),
                     Lookup((LookupNode::Root(1), Some(2))),
                     SmallInt(0),
@@ -5156,7 +5214,7 @@ match x
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     string_literal(1, StringQuote::Single),
@@ -5204,15 +5262,15 @@ switch
                         rhs: 1,
                     },
                     SmallInt(0),
-                    Id(0),
-                    Id(1), // 5
+                    id(0),
+                    id(1), // 5
                     BinaryOp {
                         op: AstBinaryOp::Greater,
                         lhs: 4,
                         rhs: 5,
                     },
                     SmallInt(1),
-                    Id(0),
+                    id(0),
                     Switch(vec![
                         SwitchArm {
                             condition: Some(2),
@@ -5248,7 +5306,7 @@ switch
                 &[
                     BoolTrue,
                     SmallInt(1),
-                    Id(0),
+                    id(0),
                     Debug {
                         expression_string: 0,
                         expression: 2,

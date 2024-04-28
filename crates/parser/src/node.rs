@@ -1,4 +1,6 @@
-use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
+use crate::{
+    ast::AstIndex, constant_pool::ConstantIndex, parser::TypeHint, StringFormatOptions, StringQuote,
+};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -14,7 +16,7 @@ pub enum Node {
     Nested(AstIndex),
 
     /// An identifer
-    Id(ConstantIndex),
+    Id(ConstantIndex, Option<TypeHint>),
 
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
@@ -271,7 +273,7 @@ impl fmt::Display for Node {
         match self {
             Null => write!(f, "Null"),
             Nested(_) => write!(f, "Nested"),
-            Id(_) => write!(f, "Id"),
+            Id(..) => write!(f, "Id"),
             Meta(_, _) => write!(f, "Meta"),
             Lookup(_) => write!(f, "Lookup"),
             BoolTrue => write!(f, "BoolTrue"),

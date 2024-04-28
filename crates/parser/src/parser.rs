@@ -247,13 +247,6 @@ impl ExpressionContext {
             ..*self
         }
     }
-
-    fn without_type_hint(&self) -> Self {
-        Self {
-            allow_type_hint: false,
-            ..*self
-        }
-    }
 }
 
 /// Koto's parser
@@ -704,7 +697,7 @@ impl<'source> Parser<'source> {
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index) => {
+                Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => {}
@@ -894,15 +887,14 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
-            // Reserved keywords
-            Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
-            Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
-            Token::Let => self.consume_token_and_error(SyntaxError::ReservedKeyword),
-            // An error occurred in the lexer
-            Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             Token::Let => self
                 .consume_variable_declaration(context)
                 .map(|i| i.unwrap()),
+            // Reserved keywords
+            Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
+            // An error occurred in the lexer
+            Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
         };
 
@@ -934,7 +926,7 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    arg_nodes.push(self.push_node(Node::Id(constant_index))?);
+                    arg_nodes.push(self.push_node(Node::Id(constant_index, None))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
@@ -1032,26 +1024,27 @@ impl<'source> Parser<'source> {
     }
 
     // Parses the types and returns information about the type if next is a colon
-    fn consume_if_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
+    fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
         if let (Some(Token::Colon), true) = (
             self.peek_token_with_context(context)
                 .map(|token| token.token),
             context.allow_type_hint,
         ) {
             self.consume_token_with_context(context);
-            self.consume_type_hint(context)
+            self.consume_type_hint(context).map(Some)
         } else {
             Ok(None)
         }
     }
 
     // Parses the types and returns information about the type
-    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
+    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<TypeHint> {
+        let Some((type_name, _)) = self.parse_id(context)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedTypeHint);
+        };
+
         let mut type_hint = TypeHint {
-            type_name: self
-                .parse_id(context)?
-                .expect("There should be an identifier but other kind of token found")
-                .0,
+            type_name,
             inner: vec![],
         };
 
@@ -1060,10 +1053,7 @@ impl<'source> Parser<'source> {
         }) = self.peek_token_with_context(context)
         {
             self.consume_token_with_context(context);
-            type_hint.inner.push(
-                self.consume_type_hint(context)?
-                    .expect("No identifier while parsing token"),
-            );
+            type_hint.inner.push(self.consume_type_hint(context)?);
 
             match self.peek_token_with_context(context) {
                 Some(PeekInfo {
@@ -1071,10 +1061,7 @@ impl<'source> Parser<'source> {
                     ..
                 }) => {
                     self.consume_token();
-                    type_hint.inner.push(
-                        self.consume_type_hint(context)?
-                            .expect("No identifier after comma"),
-                    );
+                    type_hint.inner.push(self.consume_type_hint(context)?);
                 }
                 Some(PeekInfo {
                     token: Token::Greater,
@@ -1088,7 +1075,7 @@ impl<'source> Parser<'source> {
             self.consume_token();
         }
 
-        Ok(Some(type_hint))
+        Ok(type_hint)
     }
 
     // Helper for parse_function() that recursively parses nested function arguments
@@ -1115,7 +1102,7 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
                     } else {
-                        Node::Id(constant_index)
+                        Node::Id(constant_index, None)
                     };
 
                     nested_args.push(self.push_node(arg_node)?);
@@ -1294,16 +1281,16 @@ impl<'source> Parser<'source> {
 
             let lookup_context = id_context.lookup_start();
             if self.next_token_is_lookup_start(&lookup_context) {
-                let id_index = self.push_node(Node::Id(constant_index))?;
+                let id_index = self.push_node(Node::Id(constant_index, None))?;
                 self.consume_lookup(id_index, &lookup_context)
             } else {
                 let start_span = self.current_span();
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
-                    self.consume_if_type_hint(context)?;
+                    let type_hint = self.parse_type_hint(context)?;
 
-                    self.push_node(Node::Id(constant_index))
+                    self.push_node(Node::Id(constant_index, type_hint))
                 } else {
                     self.push_node_with_start_span(
                         Node::NamedCall {
@@ -2106,7 +2093,7 @@ impl<'source> Parser<'source> {
             match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                    args.push(self.push_node(Node::Id(id))?);
+                    args.push(self.push_node(Node::Id(id, None))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
                     args.push(self.push_node(Node::Wildcard(maybe_id))?);
@@ -2536,7 +2523,7 @@ impl<'source> Parser<'source> {
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
                             }
                         } else {
-                            let id_node = self.push_node(Node::Id(id))?;
+                            let id_node = self.push_node(Node::Id(id, None))?;
                             if self.next_token_is_lookup_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.consume_lookup(id_node, &pattern_context)?
@@ -2746,7 +2733,7 @@ impl<'source> Parser<'source> {
         let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
             Some(IdOrWildcard::Id(id)) => {
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                self.push_node(Node::Id(id))?
+                self.push_node(Node::Id(id, None))?
             }
             Some(IdOrWildcard::Wildcard(maybe_id)) => self.push_node(Node::Wildcard(maybe_id))?,
             None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
@@ -3377,9 +3364,11 @@ struct ParseStringOutput {
     context: ExpressionContext,
 }
 
-// Returned by Parser::consume_type_hint()
-#[derive(Debug)]
-struct TypeHint {
-    type_name: ConstantIndex,
-    inner: Vec<TypeHint>,
+/// The type hint returned by Parser::consume_type_hint()
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeHint {
+    /// The constant index of the types name
+    pub type_name: ConstantIndex,
+    /// The inner types of generic declaration
+    pub inner: Vec<TypeHint>,
 }

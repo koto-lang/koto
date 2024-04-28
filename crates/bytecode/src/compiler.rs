@@ -257,7 +257,7 @@ impl Compiler {
                 result
             }
             Node::Nested(nested) => self.compile_node(*nested, ctx)?,
-            Node::Id(index) => self.compile_load_id(*index, ctx)?,
+            Node::Id(index, ..) => self.compile_load_id(*index, ctx)?,
             Node::Lookup(lookup) => self.compile_lookup(lookup, None, None, None, ctx)?,
             Node::BoolTrue => {
                 let result = self.assign_result_register(ctx)?;
@@ -661,7 +661,7 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(Arg::Local(*id_index)),
+                Node::Id(id_index, _) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(_) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
@@ -685,7 +685,7 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id) => result.push(Arg::Unpacked(*id)),
+                Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(_) => {}
                 Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
@@ -725,7 +725,7 @@ impl Compiler {
 
             match &ctx.ast.node(*arg).node {
                 Node::Wildcard(_) => {}
-                Node::Id(constant_index) => {
+                Node::Id(constant_index, ..) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                 }
@@ -807,7 +807,7 @@ impl Compiler {
         ctx: CompileNodeContext,
     ) -> Result<Option<u8>> {
         let result = match &ctx.ast.node(target).node {
-            Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
+            Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
@@ -843,7 +843,7 @@ impl Compiler {
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
-            Node::Id(id_index) => {
+            Node::Id(id_index, _) => {
                 if !value_result.is_temporary {
                     // To ensure that exported rhs ids with the same name as a local that's
                     // currently being assigned can be loaded correctly, only commit the
@@ -940,7 +940,7 @@ impl Compiler {
             targets.iter().zip(target_registers.iter()).enumerate()
         {
             match &ctx.ast.node(*target).node {
-                Node::Id(id_index) => {
+                Node::Id(id_index, _) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
                     if rhs_is_temp_tuple {
@@ -1285,7 +1285,7 @@ impl Compiler {
 
                 for nested_item in nested.iter() {
                     match nested_item {
-                        IdOrString::Id(id) => {
+                        IdOrString::Id(id, ..) => {
                             self.compile_access_id(result_register, result_register, *id)
                         }
                         IdOrString::Str(string) => self.compile_access_string(
@@ -1311,7 +1311,7 @@ impl Compiler {
         use Op::*;
 
         match item {
-            IdOrString::Id(id) => {
+            IdOrString::Id(id, ..) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
                     // It might be better for this to be reported as an error?
@@ -1353,7 +1353,7 @@ impl Compiler {
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
         let (catch_register, pop_catch_register) = match &ctx.ast.node(*catch_arg).node {
-            Node::Id(id) => (self.assign_local_register(*id)?, false),
+            Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
             Node::Wildcard(_) => {
                 // The catch argument is being ignored, so just use a dummy register
                 (self.push_register()?, true)
@@ -1551,7 +1551,7 @@ impl Compiler {
             self.push_op(op, &[lhs_register, rhs_register]);
 
             // If the LHS is a top-level ID and the export flag is enabled, then export the result
-            if let Node::Id(id) = lhs_node {
+            if let Node::Id(id, ..) = lhs_node {
                 if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
                     self.compile_value_export(*id, lhs_register)?;
                 }
@@ -1954,14 +1954,16 @@ impl Compiler {
                         self.compile_node(value_node, ctx.with_any_register())?
                     }
                     // ID-only entry, the value should be locally assigned
-                    (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
-                        Some(register) => CompileNodeOutput::with_assigned(register),
-                        None => {
-                            let register = self.push_register()?;
-                            self.compile_load_non_local(register, *id);
-                            CompileNodeOutput::with_temporary(register)
+                    (MapKey::Id(id, ..), None) => {
+                        match self.frame().get_local_assigned_register(*id) {
+                            Some(register) => CompileNodeOutput::with_assigned(register),
+                            None => {
+                                let register = self.push_register()?;
+                                self.compile_load_non_local(register, *id);
+                                CompileNodeOutput::with_temporary(register)
+                            }
                         }
-                    },
+                    }
                     // No value provided for a string or meta key
                     (_, None) => return self.error(ErrorKind::MissingValueForMapEntry),
                 };
@@ -2155,7 +2157,7 @@ impl Compiler {
                     let root = self.compile_node(*root_node, ctx.with_any_register())?;
                     node_registers.push(root.unwrap(self)?);
                 }
-                LookupNode::Id(id) => {
+                LookupNode::Id(id, ..) => {
                     // Access by id
                     // e.g. x.foo()
                     //    - x = Root
@@ -2291,7 +2293,7 @@ impl Compiler {
         // If rhs_op is None, then Yes if rhs is also None (simple access)
         // If rhs is Some and rhs_op is None, then it's a simple assignment
         match &last_node {
-            LookupNode::Id(id) if !simple_assignment => {
+            LookupNode::Id(id, ..) if !simple_assignment => {
                 self.compile_access_id(access_register, parent_register, *id);
                 node_registers.push(access_register);
             }
@@ -2358,7 +2360,7 @@ impl Compiler {
             };
 
             match &last_node {
-                LookupNode::Id(id) => {
+                LookupNode::Id(id, ..) => {
                     self.compile_map_insert(
                         value_register,
                         &MapKey::Id(*id),
@@ -2428,7 +2430,7 @@ impl Compiler {
         use Op::*;
 
         match key {
-            MapKey::Id(id) => {
+            MapKey::Id(id, ..) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
 
@@ -2549,7 +2551,7 @@ impl Compiler {
                 Some(piped_value_register),
                 ctx.with_register(call_result_register),
             ),
-            Node::Id(id) => {
+            Node::Id(id, ..) => {
                 // Compile a call with the piped arg using the id to access the function
                 self.compile_named_call(*id, &[], Some(piped_value_register), ctx)
             }
@@ -3061,7 +3063,7 @@ impl Compiler {
                     self.pop_register()?; // comparison_register
                     self.pop_register()?; // pattern_register
                 }
-                Node::Id(id) => {
+                Node::Id(id, ..) => {
                     let id_register = self.assign_local_register(*id)?;
                     if match_is_container {
                         self.push_op(
@@ -3295,7 +3297,7 @@ impl Compiler {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
                 match &ctx.ast.node(*single_arg).node {
-                    Node::Id(id) => {
+                    Node::Id(id, ..) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
@@ -3329,7 +3331,7 @@ impl Compiler {
 
                 for arg in args.iter() {
                     match &ctx.ast.node(*arg).node {
-                        Node::Id(id) => {
+                        Node::Id(id, ..) => {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
                         }
@@ -3363,7 +3365,7 @@ impl Compiler {
 
         if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
-                if let Node::Id(id) = &ctx.ast.node(*arg).node {
+                if let Node::Id(id, ..) = &ctx.ast.node(*arg).node {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
                         None => return self.error(ErrorKind::MissingArgRegister),

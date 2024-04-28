@@ -15,6 +15,7 @@ pub use crate::{
     error::{format_source_excerpt, Error, Result},
     node::*,
     parser::Parser,
+    parser::TypeHint,
     string_format_options::{StringAlignment, StringFormatOptions},
 };
 pub use koto_lexer::{Position, RawStringDelimiter, Span, StringQuote, StringType};
