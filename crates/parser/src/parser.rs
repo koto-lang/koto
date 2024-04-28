@@ -887,9 +887,7 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
-            Token::Let => self
-                .consume_variable_declaration(context)
-                .map(|i| i.unwrap()),
+            Token::Let => self.consume_variable_declaration(context),
             // Reserved keywords
             Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
@@ -2767,16 +2765,13 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn consume_variable_declaration(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>> {
+    fn consume_variable_declaration(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Let
         let mut targets = vec![];
 
         match self.parse_term(&context.with_type_hint())? {
             Some(term) => targets.push(term),
-            None => return Ok(None),
+            None => return self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
         };
 
         while let Some(Token::Comma) = self
@@ -2794,7 +2789,7 @@ impl<'source> Parser<'source> {
         let last_target = targets.pop().unwrap();
 
         match self.parse_assign_expression(last_target, &targets, &context.with_type_hint())? {
-            Some(val) => Ok(Some(val)),
+            Some(val) => Ok(val),
             None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
         }
     }
