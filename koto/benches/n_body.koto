@@ -70,7 +70,7 @@ init_bodies = ||
 
 bodies = [sun, jupiter, saturn, uranus, neptune]
 
-advance = |bodies, nbodies, dt|
+advance = |bodies, dt|
   for i, bi in bodies.enumerate()
     bi_pos = bi.pos
     bi_vel = bi.vel
@@ -111,7 +111,7 @@ run_nbody = |n|
   offset_momentum bodies, nbody
   initial_energy = get_energy bodies, nbody
   for _ in 0..n
-    advance bodies, nbody, 0.01
+    advance bodies, 0.01
   end_energy = get_energy bodies, nbody
   initial_energy, end_energy
 
