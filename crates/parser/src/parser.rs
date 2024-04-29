@@ -251,7 +251,7 @@ impl<'source> Parser<'source> {
             constants: ConstantPoolBuilder::default(),
             lexer: Lexer::new(source),
             current_token: LexedToken::default(),
-            current_line: 1,
+            current_line: 0,
             frame_stack: Vec::new(),
         };
 

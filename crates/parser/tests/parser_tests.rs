@@ -32,7 +32,7 @@ mod parser {
                     assert_eq!(ast.constants().size(), 0);
                 }
             }
-            Err(error) => panic!("{error} - {}", error.span.start),
+            Err(error) => panic!("{error} - {:?}", error.span.start),
         }
     }
 

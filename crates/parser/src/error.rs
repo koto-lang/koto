@@ -1,5 +1,5 @@
 use koto_lexer::Span;
-use std::{fmt::Write, path::PathBuf};
+use std::{fmt::Write, path::Path};
 use thiserror::Error;
 
 use crate::string_format_options::StringFormatError;
@@ -239,18 +239,18 @@ impl Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Renders the excerpt of the source corresponding to the given span
-pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<PathBuf>) -> String {
+pub fn format_source_excerpt(source: &str, span: &Span, source_path: Option<&Path>) -> String {
     let Span { start, end } = span;
 
     let (excerpt, padding) = {
         let excerpt_lines = source
             .lines()
-            .skip((start.line - 1) as usize)
+            .skip((start.line) as usize)
             .take((end.line - start.line + 1) as usize)
             .collect::<Vec<_>>();
 
         let line_numbers = (start.line..=end.line)
-            .map(|n| n.to_string())
+            .map(|n| (n + 1).to_string())
             .collect::<Vec<_>>();
 
         let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
@@ -267,7 +267,7 @@ pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<Pat
             write!(
                 excerpt,
                 "{padding}|{}{}",
-                " ".repeat(start.column as usize),
+                " ".repeat(start.column as usize + 1),
                 "^".repeat((end.column - start.column) as usize)
             )
             .ok();
@@ -295,9 +295,9 @@ pub fn format_source_excerpt(source: &str, span: &Span, source_path: &Option<Pat
             path.display()
         };
 
-        format!("{display_path} - {}:{}", start.line, start.column)
+        format!("{display_path} - {}:{}", start.line + 1, start.column + 1)
     } else {
-        format!("{}:{}", start.line, start.column)
+        format!("{}:{}", start.line + 1, start.column + 1)
     };
 
     format!("{position_info}\n{padding}|\n{excerpt}")

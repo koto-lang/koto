@@ -240,7 +240,7 @@ Returns the _size_ of a value.
 The size of a value is typically defined as the number of elements in a
 container, with some notable exceptions:
 
-- For strings, the size is number of bytes in the string data.
+- For strings, the size is the number of bytes in the string data.
 - For ranges, the size is the number of integers in the range. 
   - For non-inclusive ranges, this is equivalent to 
     `range.end() - range.start()`.
@@ -253,6 +253,7 @@ container, with some notable exceptions:
 
 ```koto
 from koto import size
+
 print! (size [1, 2, 3]), (size (,))
 check! (3, 0)
 
@@ -270,7 +271,7 @@ check! (10, 11, 20)
 |Value| -> String
 ```
 
-Returns the type of the input Value as a String.
+Returns the type of the input value as a String.
 
 ### Example
 

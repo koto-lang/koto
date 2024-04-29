@@ -8,6 +8,7 @@ mod error;
 mod node;
 mod parser;
 mod string_format_options;
+mod string_slice;
 
 pub use crate::{
     ast::*,
@@ -16,5 +17,6 @@ pub use crate::{
     node::*,
     parser::Parser,
     string_format_options::{StringAlignment, StringFormatOptions},
+    string_slice::StringSlice,
 };
 pub use koto_lexer::{Position, RawStringDelimiter, Span, StringQuote, StringType};

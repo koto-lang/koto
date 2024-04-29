@@ -6,7 +6,7 @@ use std::{
     ops::Range,
 };
 
-use crate::error::InternalError;
+use crate::{error::InternalError, StringSlice};
 
 /// The type used to refer to constants in the [ConstantPool]
 pub type ConstantIndex = u32;
@@ -82,7 +82,7 @@ impl ConstantPool {
         &self.string_data
     }
 
-    /// Returns the string corresponding to the provided index
+    /// Returns the string corresponding to the provided index as a &str
     ///
     /// Warning! Panics if there isn't a string at the provided index
     #[inline]
@@ -91,10 +91,16 @@ impl ConstantPool {
         unsafe { self.string_data.get_unchecked(self.get_str_bounds(index)) }
     }
 
-    /// Returns bounds in the concatenated string data corresponding to the provided index
+    /// Returns the string corresponding to the provided index as a string slice
     ///
     /// Warning! Panics if there isn't a string at the provided index
-    pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
+    #[inline]
+    pub fn get_string_slice(&self, index: ConstantIndex) -> StringSlice {
+        // Safety: The bounds have already been checked while the pool is being prepared
+        unsafe { StringSlice::new_unchecked(self.string_data.clone(), self.get_str_bounds(index)) }
+    }
+
+    fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
         match self.constants.get(index as usize) {
             Some(ConstantEntry::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),

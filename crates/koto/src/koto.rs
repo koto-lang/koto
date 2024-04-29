@@ -2,7 +2,10 @@ use crate::{prelude::*, Error, Ptr, Result};
 use dunce::canonicalize;
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 /// The main interface for the Koto language.
 ///
@@ -78,7 +81,7 @@ impl Koto {
     pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>> {
         let chunk = self.runtime.loader().borrow_mut().compile_script(
             script,
-            &self.script_path,
+            self.script_path.as_deref(),
             CompilerSettings {
                 export_top_level_ids: self.export_top_level_ids,
             },
@@ -168,7 +171,7 @@ impl Koto {
     }
 
     /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
-    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<()> {
+    pub fn set_script_path(&mut self, path: Option<&Path>) -> Result<()> {
         use KValue::{Map, Null, Str};
 
         let (script_dir, script_path) = match &path {
@@ -191,7 +194,7 @@ impl Koto {
             None => (Null, Null),
         };
 
-        self.script_path = path;
+        self.script_path = path.map(Path::to_path_buf);
 
         match self.runtime.prelude().data_mut().get("koto") {
             Some(Map(map)) => {

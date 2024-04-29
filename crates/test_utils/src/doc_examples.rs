@@ -25,7 +25,7 @@ impl ExampleTestRunner {
 
     fn compile_example(&mut self, script: &str, sections: &[String]) -> Result<Ptr<Chunk>> {
         self.loader
-            .compile_script(script, &None, CompilerSettings::default())
+            .compile_script(script, None, CompilerSettings::default())
             .map_err(|error| {
                 Error::from(format!(
                     "
