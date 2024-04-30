@@ -1,10 +1,6 @@
 mod parser {
     use koto_parser::{Node::*, *};
 
-    fn node_id(index: u32) -> Node {
-        Node::Id(index.into(), None)
-    }
-
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
         println!("{source}");
 
@@ -57,9 +53,9 @@ mod parser {
         }
     }
 
-    // fn id(constant: u32) -> Node {
-    //     Node::Id(constant.into())
-    // }
+    fn id(constant: u32) -> Node {
+        Node::Id(constant.into(), None)
+    }
 
     fn int(constant: u32) -> Node {
         Node::Int(constant.into())
@@ -157,7 +153,7 @@ null"#;
                     float(0),
                     string_literal(1, StringQuote::Double),
                     string_literal(2, StringQuote::Single),
-                    node_id(3),
+                    id(3),
                     Null,
                     MainBlock {
                         body: expressions(&[0, 1, 2, 3, 4, 5, 6, 7]),
@@ -262,7 +258,7 @@ null"#;
             check_ast(
                 source,
                 &[
-                    node_id(1),
+                    id(1),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -274,7 +270,7 @@ null"#;
                             StringNode::Literal(2.into()),
                         ]),
                     }),
-                    node_id(3),
+                    id(3),
                     Str(AstString {
                         quote: StringQuote::Double,
                         contents: StringContents::Interpolated(vec![StringNode::Expression {
@@ -282,8 +278,8 @@ null"#;
                             format: StringFormatOptions::default(),
                         }]),
                     }),
-                    node_id(4),
-                    node_id(6), // 5
+                    id(4),
+                    id(6), // 5
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -353,7 +349,7 @@ null"#;
             check_ast(
                 source,
                 &[
-                    node_id(1),
+                    id(1),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
@@ -443,9 +439,9 @@ r##'#$bar'##
                 source,
                 &[
                     float(0),
-                    node_id(1),
+                    id(1),
                     unary_op(AstUnaryOp::Negate, 1),
-                    node_id(2),
+                    id(2),
                     SmallInt(0),
                     lookup_index(4, None), // 5
                     lookup_root(3, Some(5)),
@@ -478,9 +474,9 @@ r##'#$bar'##
                 source,
                 &[
                     SmallInt(0),
-                    node_id(0),
+                    id(0),
                     string_literal(1, StringQuote::Double),
-                    node_id(0),
+                    id(0),
                     SmallInt(-1),
                     List(expressions(&[0, 1, 2, 3, 4])),
                     List(expressions(&[])),
@@ -555,7 +551,7 @@ x = [
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
@@ -604,7 +600,7 @@ x =
                 &sources,
                 &[
                     Map(vec![]),
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
                     string_literal(4, StringQuote::Single),
                     SmallInt(99),
@@ -675,7 +671,7 @@ x"#;
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     SmallInt(0),
                     Map(vec![id_entry(1, Some(2))]), // foo, 0
@@ -686,7 +682,7 @@ x"#;
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(4.into())), // @-: -1
                     ]), // 5
                     assign(0, 5),
-                    node_id(0),
+                    id(0),
                     MainBlock {
                         body: expressions(&[6, 7]),
                         local_count: 1,
@@ -709,7 +705,7 @@ x =
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![string_entry(1, StringQuote::Double, Some(1))]), // "foo": 42
                     assign(0, 2),
@@ -732,7 +728,7 @@ x =
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![
                         id_entry(2, Some(1)), // bar: 42
@@ -776,7 +772,7 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
@@ -816,7 +812,7 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(1),
                     SmallInt(42),
                     NamedCall {
@@ -853,7 +849,7 @@ x =
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
@@ -968,14 +964,14 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     assign(0, 1),
-                    node_id(1),
+                    id(1),
                     SmallInt(10),
                     assign(3, 4), // 5
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     range(6, 7, false),
                     MainBlock {
                         body: expressions(&[2, 5, 8]),
@@ -992,10 +988,10 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     lookup_id(1, None),
                     lookup_root(0, Some(1)),
-                    node_id(0),
+                    id(0),
                     lookup_id(2, None),
                     lookup_root(3, Some(4)), // 5
                     range(2, 5, false),
@@ -1156,7 +1152,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     assign(0, 1),
                     MainBlock {
@@ -1174,7 +1170,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(0),
                     Tuple(expressions(&[1, 2])),
@@ -1194,7 +1190,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     Tuple(expressions(&[1, 2])),
@@ -1218,8 +1214,8 @@ min..max
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     SmallInt(0),
                     lookup_index(2, None),
                     lookup_root(1, Some(3)),
@@ -1249,8 +1245,8 @@ x";
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     SmallInt(1),
                     SmallInt(0),
                     TempTuple(expressions(&[2, 3])),
@@ -1258,7 +1254,7 @@ x";
                         targets: expressions(&[0, 1]),
                         expression: 4.into(),
                     }, // 5
-                    node_id(0),
+                    id(0),
                     MainBlock {
                         body: expressions(&[5, 6]),
                         local_count: 2,
@@ -1274,10 +1270,10 @@ x";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Wildcard(None),
                     Wildcard(Some(1.into())),
-                    node_id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -1310,19 +1306,19 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     binary_op(AstBinaryOp::AddAssign, 0, 1),
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     binary_op(AstBinaryOp::SubtractAssign, 3, 4), // 5
-                    node_id(0),
+                    id(0),
                     SmallInt(2),
                     binary_op(AstBinaryOp::MultiplyAssign, 6, 7),
-                    node_id(0),
+                    id(0),
                     SmallInt(3), // 10
                     binary_op(AstBinaryOp::DivideAssign, 9, 10),
-                    node_id(0),
+                    id(0),
                     SmallInt(4),
                     binary_op(AstBinaryOp::RemainderAssign, 12, 13),
                     MainBlock {
@@ -1342,7 +1338,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -1373,7 +1369,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     Assign {
                         target: 0.into(),
@@ -1435,7 +1431,7 @@ export a =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(1),
                     binary_op(AstBinaryOp::Add, 1, 2),
@@ -1587,7 +1583,7 @@ export
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
-                    node_id(1),
+                    id(1),
                     binary_op(AstBinaryOp::Add, 0, 1),
                     MainBlock {
                         body: expressions(&[2]),
@@ -1604,9 +1600,9 @@ export
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(1),
-                    node_id(2), // y
+                    id(2), // y
                     NamedCall {
                         id: 1.into(), // f
                         args: expressions(&[2]),
@@ -1651,7 +1647,7 @@ a =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(2),
                     SmallInt(3),
@@ -1693,7 +1689,7 @@ a = (1
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     SmallInt(2),
                     binary_op(AstBinaryOp::Add, 1, 2),
@@ -1826,7 +1822,7 @@ a",
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     BoolFalse,
                     SmallInt(0),
                     BoolTrue,
@@ -1841,7 +1837,7 @@ a",
                         else_node: Some(7.into()),
                     }),
                     assign(0, 8),
-                    node_id(0),
+                    id(0),
                     MainBlock {
                         body: expressions(&[9, 10]),
                         local_count: 1,
@@ -1857,8 +1853,8 @@ a",
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     BoolTrue,
                     SmallInt(0),
                     SmallInt(1),
@@ -1905,7 +1901,7 @@ a",
                         else_if_blocks: vec![],
                         else_node: None,
                     }),
-                    node_id(0),
+                    id(0),
                     Block(expressions(&[2, 3])),
                     Function(koto_parser::Function {
                         args: expressions(&[]),
@@ -1936,12 +1932,12 @@ for x, _, _y, z in foo
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     Wildcard(None),
                     Wildcard(Some(1.into())), // _y
-                    node_id(2),               // z
-                    node_id(3),               // foo
-                    node_id(0),               // x - 5
+                    id(2),                    // z
+                    id(3),                    // foo
+                    id(0),                    // x - 5
                     NamedCall {
                         id: 2.into(), // z
                         args: expressions(&[5]),
@@ -1973,10 +1969,10 @@ while x > y
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
-                    node_id(1), // y
+                    id(0), // x
+                    id(1), // y
                     binary_op(AstBinaryOp::Greater, 0, 1),
-                    node_id(0), // x
+                    id(0), // x
                     NamedCall {
                         id: 2.into(), // f
                         args: expressions(&[3]),
@@ -2002,10 +1998,10 @@ until x < y
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
-                    node_id(1), // y
+                    id(0), // x
+                    id(1), // y
                     binary_op(AstBinaryOp::Less, 0, 1),
-                    node_id(1), // y
+                    id(1), // y
                     NamedCall {
                         id: 2.into(), // f
                         args: expressions(&[3]),
@@ -2035,9 +2031,9 @@ for x in y
                 source,
                 &[
                     List(expressions(&[])),
-                    node_id(0), // x
-                    node_id(1), // y
-                    node_id(0), // x
+                    id(0), // x
+                    id(1), // y
+                    id(0), // x
                     For(AstFor {
                         args: expressions(&[1]),
                         iterable: 2.into(),
@@ -2061,9 +2057,9 @@ for a in x.zip y
             check_ast(
                 source,
                 &[
-                    node_id(0), // a
-                    node_id(1), // x
-                    node_id(3), // y
+                    id(0), // a
+                    id(1), // x
+                    id(3), // y
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[2]),
@@ -2073,7 +2069,7 @@ for a in x.zip y
                     )),
                     lookup_id(2, Some(3)),
                     lookup_root(1, Some(4)), // ast 5
-                    node_id(0),              // a
+                    id(0),                   // a
                     For(AstFor {
                         args: expressions(&[0]),
                         iterable: 5.into(),
@@ -2105,7 +2101,7 @@ a()";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
                     Function(koto_parser::Function {
                         args: expressions(&[]),
@@ -2116,7 +2112,7 @@ a()";
                         is_generator: false,
                     }),
                     assign(0, 2),
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -2150,10 +2146,10 @@ a()";
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
-                    node_id(1),
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
+                    id(0),
+                    id(1),
                     binary_op(AstBinaryOp::Add, 2, 3),
                     Function(koto_parser::Function {
                         args: expressions(&[0, 1]),
@@ -2178,10 +2174,10 @@ a()";
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
+                    id(0),
+                    id(1),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -2223,12 +2219,12 @@ f 42";
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(1), // x
-                    node_id(2), // y
-                    node_id(1), // x
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    id(1), // x
                     assign(2, 3),
-                    node_id(2), // 5
+                    id(2), // 5
                     Block(expressions(&[4, 5])),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
@@ -2264,11 +2260,11 @@ f 42";
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(1), // x
-                    node_id(2), // y
-                    node_id(3), // z
-                    node_id(3), // z
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    id(3), // z
+                    id(3), // z
                     Function(koto_parser::Function {
                         args: expressions(&[3]),
                         local_count: 1,
@@ -2278,7 +2274,7 @@ f 42";
                         is_generator: false,
                     }), // 5
                     assign(2, 5),
-                    node_id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 2.into(), // y
                         args: expressions(&[7]),
@@ -2318,8 +2314,8 @@ f 42";
             check_ast(
                 source,
                 &[
-                    node_id(1),
-                    node_id(1),
+                    id(1),
+                    id(1),
                     unary_op(AstUnaryOp::Negate, 1),
                     NamedCall {
                         id: 0.into(), // f
@@ -2340,7 +2336,7 @@ f 42";
             check_ast(
                 source,
                 &[
-                    node_id(1),
+                    id(1),
                     SmallInt(1),
                     binary_op(AstBinaryOp::Subtract, 0, 1),
                     NamedCall {
@@ -2379,9 +2375,9 @@ f(x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
-                    node_id(1),
-                    node_id(1),
+                    id(0),
+                    id(1),
+                    id(1),
                     unary_op(AstUnaryOp::Negate, 2),
                     Lookup((
                         LookupNode::Call {
@@ -2423,8 +2419,8 @@ foo x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(1),
-                    node_id(2),
+                    id(1),
+                    id(2),
                     NamedCall {
                         id: 0.into(), // foo
                         args: expressions(&[0, 1]),
@@ -2447,9 +2443,9 @@ foo
             check_ast(
                 source,
                 &[
-                    node_id(1),
-                    node_id(2),
-                    node_id(2),
+                    id(1),
+                    id(2),
+                    id(2),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
                         local_count: 1,
@@ -2480,12 +2476,12 @@ f x";
             check_ast(
                 source,
                 &[
-                    node_id(1),
+                    id(1),
                     NamedCall {
                         id: 0.into(),
                         args: expressions(&[0]),
                     },
-                    node_id(1),
+                    id(1),
                     NamedCall {
                         id: 0.into(),
                         args: expressions(&[2]),
@@ -2505,9 +2501,9 @@ f x";
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(1), // x
-                    node_id(1), // x
+                    id(0), // f
+                    id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0.into(), // f
                         args: expressions(&[2]),
@@ -2536,10 +2532,10 @@ f x";
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(1), // g
-                    node_id(2), // x
-                    node_id(2),
+                    id(0), // f
+                    id(1), // g
+                    id(2), // x
+                    id(2),
                     NamedCall {
                         id: 0.into(),
                         args: expressions(&[3]),
@@ -2553,8 +2549,8 @@ f x";
                         is_generator: false,
                     }), // 5
                     Nested(5.into()),
-                    node_id(2), // x
-                    node_id(2), // x
+                    id(2), // x
+                    id(2), // x
                     NamedCall {
                         id: 1.into(), // g
                         args: expressions(&[8]),
@@ -2588,14 +2584,14 @@ f x";
             check_ast(
                 source,
                 &[
-                    node_id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0.into(), // f
                         args: expressions(&[0]),
                     },
-                    node_id(2), // g
+                    id(2), // g
                     binary_op(AstBinaryOp::Pipe, 1, 2),
-                    node_id(3),                         // h
+                    id(3),                              // h
                     binary_op(AstBinaryOp::Pipe, 3, 4), // 5
                     MainBlock {
                         body: expressions(&[5]),
@@ -2621,8 +2617,8 @@ foo.bar x
             check_ast(
                 source,
                 &[
-                    node_id(0), // foo
-                    node_id(2), // x
+                    id(0), // foo
+                    id(2), // x
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[1]),
@@ -2632,9 +2628,9 @@ foo.bar x
                     )),
                     lookup_id(1, Some(2)),
                     lookup_root(0, Some(3)),
-                    node_id(3), // 5 - y
+                    id(3), // 5 - y
                     binary_op(AstBinaryOp::Pipe, 4, 5),
-                    node_id(4), // z
+                    id(4), // z
                     binary_op(AstBinaryOp::Pipe, 6, 7),
                     MainBlock {
                         body: expressions(&[8]),
@@ -2658,11 +2654,11 @@ foo.bar x
                 source,
                 &[
                     SmallInt(42),
-                    node_id(2), // x
-                    Self_,      // self
+                    id(2), // x
+                    Self_, // self
                     lookup_id(0, None),
                     lookup_root(2, Some(3)),
-                    node_id(2), // 5
+                    id(2), // 5
                     assign(4, 5),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
@@ -2696,8 +2692,8 @@ f = ||
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(2),
+                    id(0),
+                    id(2),
                     SmallInt(0),
                     Map(vec![id_entry(1, Some(1)), id_entry(3, Some(2))]),
                     Function(koto_parser::Function {
@@ -2734,8 +2730,8 @@ f = ||
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(3), // x
+                    id(0), // f
+                    id(3), // x
                     Map(vec![
                         id_entry(2, Some(1)), // bar: x
                     ]),
@@ -2778,13 +2774,13 @@ f()";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
-                    node_id(3), // x
+                    id(3), // x
                     Self_,
                     lookup_id(1, None),
                     lookup_root(3, Some(4)), // 5
-                    node_id(3),
+                    id(3),
                     assign(5, 6),
                     Function(koto_parser::Function {
                         args: expressions(&[2]),
@@ -2804,7 +2800,7 @@ f()";
                         is_generator: false,
                     }),
                     assign(0, 10),
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -2840,18 +2836,18 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    node_id(0), // f
-                    node_id(1), // n
-                    node_id(2), // f2
-                    node_id(1),
-                    node_id(3),  // i
+                    id(0), // f
+                    id(1), // n
+                    id(2), // f2
+                    id(1),
+                    id(3),       // i
                     SmallInt(0), // ast 5
                     SmallInt(1),
                     range(5, 6, false),
-                    node_id(3), // i
-                    node_id(1),
+                    id(3), // i
+                    id(1),
                     binary_op(AstBinaryOp::Equal, 8, 9), // ast 10
-                    node_id(3),
+                    id(3),
                     Return(Some(11.into())),
                     If(AstIf {
                         condition: 10.into(),
@@ -2873,7 +2869,7 @@ f = |n|
                         is_generator: false,
                     }), // ast 15
                     assign(2, 15),
-                    node_id(2),
+                    id(2),
                     Block(expressions(&[16, 17])),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
@@ -2908,12 +2904,12 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(0),
+                    id(0),
+                    id(0),
                     SmallInt(1),
                     binary_op(AstBinaryOp::Add, 1, 2),
                     assign(0, 3),
-                    node_id(0), // 5
+                    id(0), // 5
                     Block(expressions(&[4, 5])),
                     Function(koto_parser::Function {
                         args: expressions(&[]),
@@ -2941,12 +2937,12 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     SmallInt(1),
                     assign(1, 2),
                     Nested(3.into()),
-                    node_id(1), // 5
+                    id(1), // 5
                     Tuple(expressions(&[4, 5])),
                     assign(0, 6),
                     Function(koto_parser::Function {
@@ -2974,7 +2970,7 @@ f = |n|
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     binary_op(AstBinaryOp::AddAssign, 0, 1),
                     Function(koto_parser::Function {
@@ -3002,13 +2998,13 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0), // z
+                    id(0), // z
                     SmallInt(0),
                     SmallInt(20),
                     range(1, 2, false),
                     List(expressions(&[3])),
-                    node_id(2), // 5 - x
-                    node_id(2),
+                    id(2), // 5 - x
+                    id(2),
                     SmallInt(1),
                     binary_op(AstBinaryOp::Greater, 6, 7),
                     Function(koto_parser::Function {
@@ -3024,7 +3020,7 @@ y z";
                         args: expressions(&[4, 9]),
                     }, // 10
                     assign(0, 10),
-                    node_id(0), // z
+                    id(0), // z
                     NamedCall {
                         id: 1.into(), // y
                         args: expressions(&[12]),
@@ -3140,15 +3136,15 @@ y z";
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0), // a
+                    id(0), // a
                     Wildcard(None),
                     Ellipsis(Some(1.into())),       // others
-                    node_id(2),                     // c
+                    id(2),                          // c
                     Wildcard(Some(3.into())),       // d
                     Tuple(expressions(&[2, 3, 4])), // ast index 5
                     Tuple(expressions(&[1, 5])),
                     Wildcard(Some(4.into())), // e
-                    node_id(0),
+                    id(0),
                     Function(koto_parser::Function {
                         args: expressions(&[0, 6, 7]),
                         local_count: 3,
@@ -3183,11 +3179,11 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     lookup_index(1, None),
                     lookup_root(0, Some(2)),
-                    node_id(0),
+                    id(0),
                     SmallInt(1), // 5
                     lookup_index(5, None),
                     lookup_root(4, Some(6)),
@@ -3207,7 +3203,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     RangeFull,
                     lookup_index(1, None),
                     lookup_root(0, Some(2)),
@@ -3226,7 +3222,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(3),
                     RangeTo {
                         end: 1.into(),
@@ -3249,7 +3245,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(10),
                     RangeFrom { start: 1.into() },
                     SmallInt(0),
@@ -3271,7 +3267,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     lookup_id(1, None),
                     lookup_root(0, Some(1)),
                     MainBlock {
@@ -3289,7 +3285,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -3314,7 +3310,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -3343,7 +3339,7 @@ x.bar()."baz" = 1
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Str(AstString {
                             quote: StringQuote::Double,
@@ -3381,7 +3377,7 @@ x.bar()."baz" = 1
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -3410,7 +3406,7 @@ x.foo
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -3439,7 +3435,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    node_id(0), // x
+                    id(0), // x
                     SmallInt(42),
                     Map(vec![
                         id_entry(2, Some(1)), // foo: 42
@@ -3489,10 +3485,10 @@ x.takes_a_map
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     lookup_id(1, None),
                     lookup_root(0, Some(1)),
-                    node_id(0),
+                    id(0),
                     lookup_id(2, None),
                     lookup_root(3, Some(4)), // 5
                     List(expressions(&[2, 5])),
@@ -3515,7 +3511,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    node_id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0.into(), // f
                         args: expressions(&[0]),
@@ -3538,7 +3534,7 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    node_id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0.into(), // f
                         args: expressions(&[0]),
@@ -3562,13 +3558,13 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
-                    node_id(1), // x
+                    id(1), // x
                     NamedCall {
                         id: 0.into(), // f
                         args: expressions(&[0]),
                     },
                     Nested(1.into()),
-                    node_id(2), // y
+                    id(2), // y
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[3]),
@@ -3660,11 +3656,11 @@ x = ( 0
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     Tuple(expressions(&[1, 2])),
-                    node_id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[4]),
@@ -3706,11 +3702,11 @@ x = [ 0
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     List(expressions(&[1, 2])),
-                    node_id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[4]),
@@ -3758,7 +3754,7 @@ x = { y
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    node_id(0),
+                    id(0),
                     Map(vec![id_entry(1, None), id_entry(2, None)]),
                     Lookup((
                         LookupNode::Call {
@@ -3848,9 +3844,9 @@ x = { y
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Nested(0.into()),
-                    node_id(2),
+                    id(2),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[2]),
@@ -3884,7 +3880,7 @@ x.iter()
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(1),
                     Lookup((
                         LookupNode::Call {
@@ -3935,10 +3931,10 @@ foo.bar
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     lookup_id(1, None),
                     lookup_root(0, Some(1)),
-                    node_id(0),
+                    id(0),
                     lookup_id(2, None),
                     lookup_root(3, Some(4)), // 5
                     binary_op(AstBinaryOp::Or, 2, 5),
@@ -3996,8 +3992,8 @@ debug x + x
                 &[
                     BoolTrue,
                     unary_op(AstUnaryOp::Not, 0),
-                    node_id(0),
-                    node_id(0),
+                    id(0),
+                    id(0),
                     binary_op(AstBinaryOp::Add, 2, 3),
                     Debug {
                         expression_string: 1.into(),
@@ -4096,7 +4092,7 @@ debug x + x
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Import {
                         from: vec![1.into()],
                         items: vec![import_id(2)],
@@ -4227,7 +4223,7 @@ catch e
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -4236,8 +4232,8 @@ catch e
                         None,
                     )),
                     lookup_root(0, Some(1)),
-                    node_id(1), // e
-                    node_id(1),
+                    id(1), // e
+                    id(1),
                     Debug {
                         expression_string: 1.into(),
                         expression: 4.into(),
@@ -4268,9 +4264,9 @@ catch _
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Wildcard(None),
-                    node_id(1),
+                    id(1),
                     Try(AstTry {
                         try_block: 0.into(),
                         catch_arg: 1.into(),
@@ -4297,9 +4293,9 @@ catch _error
             check_ast(
                 source,
                 &[
-                    node_id(0),               // x
+                    id(0),                    // x
                     Wildcard(Some(1.into())), // error
-                    node_id(2),               // y
+                    id(2),                    // y
                     Try(AstTry {
                         try_block: 0.into(),
                         catch_arg: 1.into(),
@@ -4332,7 +4328,7 @@ finally
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -4341,8 +4337,8 @@ finally
                         None,
                     )),
                     lookup_root(0, Some(1)),
-                    node_id(1), // e
-                    node_id(1),
+                    id(1), // e
+                    id(1),
                     Debug {
                         expression_string: 1.into(),
                         expression: 4.into(),
@@ -4369,7 +4365,7 @@ finally
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Throw(0.into()),
                     MainBlock {
                         body: expressions(&[1]),
@@ -4407,7 +4403,7 @@ throw
             check_ast(
                 source,
                 &[
-                    node_id(1),
+                    id(1),
                     string_literal(3, StringQuote::Double),
                     Map(vec![id_entry(0, Some(0)), id_entry(2, Some(1))]),
                     Throw(2.into()),
@@ -4439,12 +4435,12 @@ x = match y
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(42),
-                    node_id(2), // 5
+                    id(2), // 5
                     SmallInt(-1),
                     Match {
                         expression: 1.into(),
@@ -4481,7 +4477,7 @@ match x
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     string_literal(1, StringQuote::Single),
                     SmallInt(99),
                     string_literal(2, StringQuote::Double),
@@ -4526,18 +4522,18 @@ match (x, y, z)
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
-                    node_id(2),
+                    id(0),
+                    id(1),
+                    id(2),
                     Tuple(expressions(&[0, 1, 2])),
                     SmallInt(0),
-                    node_id(3), // 5
+                    id(3), // 5
                     Wildcard(None),
                     Tuple(expressions(&[4, 5, 6])),
-                    node_id(3),
+                    id(3),
                     Wildcard(None),
                     SmallInt(0), // 10
-                    node_id(4),
+                    id(4),
                     Tuple(expressions(&[10, 11])),
                     Wildcard(Some(5.into())),
                     Tuple(expressions(&[9, 12, 13])),
@@ -4583,7 +4579,7 @@ match x
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Ellipsis(None),
                     SmallInt(0),
                     Tuple(expressions(&[1, 2])),
@@ -4626,7 +4622,7 @@ match y
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     Ellipsis(Some(1.into())),
                     SmallInt(0),
                     SmallInt(1),
@@ -4678,18 +4674,18 @@ match x
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
-                    node_id(1),
+                    id(0),
+                    id(1),
+                    id(1),
                     SmallInt(5),
                     binary_op(AstBinaryOp::Greater, 2, 3),
                     SmallInt(0), // 5
-                    node_id(1),
-                    node_id(1),
+                    id(1),
+                    id(1),
                     SmallInt(10),
                     binary_op(AstBinaryOp::Less, 7, 8),
                     SmallInt(1), // 10
-                    node_id(1),
+                    id(1),
                     SmallInt(-1),
                     Match {
                         expression: 0.into(),
@@ -4732,8 +4728,8 @@ match x, y
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     TempTuple(expressions(&[0, 1])),
                     SmallInt(0),
                     SmallInt(1),
@@ -4741,12 +4737,12 @@ match x, y
                     SmallInt(2),
                     SmallInt(3),
                     TempTuple(expressions(&[6, 7])),
-                    node_id(2),
+                    id(2),
                     SmallInt(0), // 10
-                    node_id(3),
+                    id(3),
                     Null,
                     TempTuple(expressions(&[11, 12])),
-                    node_id(3),
+                    id(3),
                     SmallInt(0), // 15
                     Match {
                         expression: 2.into(),
@@ -4792,7 +4788,7 @@ match x.foo 42
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
@@ -4839,8 +4835,8 @@ match x
             check_ast(
                 source,
                 &[
-                    node_id(0),
-                    node_id(1),
+                    id(0),
+                    id(1),
                     lookup_id(2, None),
                     lookup_root(1, Some(2)),
                     SmallInt(0),
@@ -4871,7 +4867,7 @@ match x
             check_ast(
                 source,
                 &[
-                    node_id(0),
+                    id(0),
                     SmallInt(0),
                     SmallInt(1),
                     string_literal(1, StringQuote::Single),
@@ -4915,11 +4911,11 @@ switch
                     SmallInt(0),
                     binary_op(AstBinaryOp::Equal, 0, 1),
                     SmallInt(0),
-                    node_id(0),
-                    node_id(1), // 5
+                    id(0),
+                    id(1), // 5
                     binary_op(AstBinaryOp::Greater, 4, 5),
                     SmallInt(1),
-                    node_id(0),
+                    id(0),
                     Switch(vec![
                         SwitchArm {
                             condition: Some(2.into()),
@@ -4955,7 +4951,7 @@ switch
                 &[
                     BoolTrue,
                     SmallInt(1),
-                    node_id(0),
+                    id(0),
                     Debug {
                         expression_string: 0.into(),
                         expression: 2.into(),
