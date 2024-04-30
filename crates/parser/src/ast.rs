@@ -1,8 +1,51 @@
-use crate::{error::*, ConstantPool, Node};
 use koto_lexer::Span;
+use std::{fmt, num::TryFromIntError, ops::Deref};
+
+use crate::{error::*, ConstantPool, Node};
 
 /// The index type used by nodes in the [Ast]
-pub type AstIndex = u32;
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct AstIndex(u32);
+
+impl Deref for AstIndex {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<AstIndex> for u32 {
+    fn from(value: AstIndex) -> Self {
+        value.0
+    }
+}
+
+impl From<AstIndex> for usize {
+    fn from(value: AstIndex) -> Self {
+        value.0 as usize
+    }
+}
+
+impl From<u32> for AstIndex {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl TryFrom<usize> for AstIndex {
+    type Error = TryFromIntError;
+
+    fn try_from(value: usize) -> std::result::Result<Self, Self::Error> {
+        Ok(Self(u32::try_from(value)?))
+    }
+}
+
+impl fmt::Display for AstIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// A [Node] in the [Ast], along with its corresponding [Span]
 #[derive(Clone, Debug, Default)]
@@ -53,12 +96,12 @@ impl Ast {
 
     /// Returns a node for a given node index
     pub fn node(&self, index: AstIndex) -> &AstNode {
-        &self.nodes[index as usize]
+        &self.nodes[usize::from(index)]
     }
 
     /// Returns a span for a given span index
     pub fn span(&self, index: AstIndex) -> &Span {
-        &self.spans[index as usize]
+        &self.spans[usize::from(index)]
     }
 
     /// Returns the constant pool referred to by the AST
@@ -83,7 +126,7 @@ impl Ast {
         if self.nodes.is_empty() {
             None
         } else {
-            Some((self.nodes.len() - 1) as AstIndex)
+            AstIndex::try_from(self.nodes.len() - 1).ok()
         }
     }
 
