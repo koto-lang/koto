@@ -296,7 +296,7 @@ pub enum Instruction {
     Access {
         register: u8,
         value: u8,
-        key: u32,
+        key: ConstantIndex,
     },
     AccessString {
         register: u8,
