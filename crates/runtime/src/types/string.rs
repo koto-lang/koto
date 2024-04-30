@@ -1,4 +1,5 @@
 use crate::{prelude::*, Ptr, Result};
+use koto_parser::StringSlice;
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -26,12 +27,6 @@ enum Inner {
     Slice(Ptr<StringSlice>),
 }
 
-#[derive(Clone)]
-pub struct StringSlice {
-    string: Ptr<str>,
-    bounds: Range<usize>,
-}
-
 impl KString {
     /// Returns the empty string
     ///
@@ -44,36 +39,19 @@ impl KString {
     ///
     /// If the bounds aren't valid for the data then `None` is returned.
     pub fn new_with_bounds(string: Ptr<str>, bounds: Range<usize>) -> Option<Self> {
-        if string.get(bounds.clone()).is_some() {
-            Some(Self::from(StringSlice { string, bounds }))
-        } else {
-            None
-        }
+        StringSlice::new(string, bounds).map(Self::from)
     }
 
     /// Returns a new KString with shared data and new bounds
     ///
     /// If the bounds aren't valid for the string then `None` is returned.
-    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Option<Self> {
+    pub fn with_bounds(&self, new_bounds: Range<usize>) -> Option<Self> {
         let slice = match &self.0 {
             Inner::Full(string) => StringSlice::from(string.clone()),
             Inner::Slice(slice) => slice.deref().clone(),
         };
 
-        new_bounds.end += slice.bounds.start;
-        new_bounds.start += slice.bounds.start;
-
-        if new_bounds.end <= slice.bounds.end && slice.string.get(new_bounds.clone()).is_some() {
-            Some(
-                StringSlice {
-                    string: slice.string.clone(),
-                    bounds: new_bounds,
-                }
-                .into(),
-            )
-        } else {
-            None
-        }
+        slice.with_bounds(new_bounds).map(Self::from)
     }
 
     /// Returns a new KString with shared data and bounds defined by the grapheme indices
@@ -127,13 +105,15 @@ impl KString {
         match self.clone().graphemes(true).next() {
             Some(grapheme) => match &mut self.0 {
                 Inner::Full(string) => {
-                    let (popped, rest) = StringSlice::from(string.clone()).split(grapheme.len());
+                    let (popped, rest) = StringSlice::from(string.clone())
+                        .split(grapheme.len())
+                        .unwrap();
                     *self = rest.into();
                     Some(popped.into())
                 }
                 Inner::Slice(slice) => {
-                    let (popped, rest) = slice.split(grapheme.len());
-                    Ptr::make_mut(slice).bounds = rest.bounds;
+                    let (popped, rest) = slice.split(grapheme.len()).unwrap();
+                    *Ptr::make_mut(slice) = rest;
                     Some(popped.into())
                 }
             },
@@ -146,14 +126,16 @@ impl KString {
         match self.clone().graphemes(true).next_back() {
             Some(grapheme) => match &mut self.0 {
                 Inner::Full(string) => {
-                    let (rest, popped) =
-                        StringSlice::from(string.clone()).split(string.len() - grapheme.len());
+                    let (rest, popped) = StringSlice::from(string.clone())
+                        .split(string.len() - grapheme.len())
+                        .unwrap();
                     *self = rest.into();
                     Some(popped.into())
                 }
                 Inner::Slice(slice) => {
-                    let (rest, popped) = slice.split(slice.bounds.len() - grapheme.len());
-                    Ptr::make_mut(slice).bounds = rest.bounds;
+                    let (rest, popped) =
+                        slice.split(slice.as_str().len() - grapheme.len()).unwrap();
+                    *Ptr::make_mut(slice) = rest;
                     Some(popped.into())
                 }
             },
@@ -170,10 +152,7 @@ impl KString {
     pub fn as_str(&self) -> &str {
         match &self.0 {
             Inner::Full(string) => string,
-            Inner::Slice(slice) => {
-                // Safety: bounds have already been checked in new_with_bounds / with_bounds
-                unsafe { slice.string.get_unchecked(slice.bounds.clone()) }
-            }
+            Inner::Slice(slice) => slice.as_str(),
         }
     }
 
@@ -187,22 +166,6 @@ impl KString {
             ctx.append(self);
         }
         Ok(())
-    }
-}
-
-impl StringSlice {
-    fn split(&self, offset: usize) -> (Self, Self) {
-        let split_point = self.bounds.start + offset;
-        (
-            StringSlice {
-                string: self.string.clone(),
-                bounds: self.bounds.start..split_point,
-            },
-            StringSlice {
-                string: self.string.clone(),
-                bounds: split_point..self.bounds.end,
-            },
-        )
     }
 }
 
@@ -272,13 +235,6 @@ impl fmt::Display for KString {
 impl fmt::Debug for KString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
-    }
-}
-
-impl From<Ptr<str>> for StringSlice {
-    fn from(string: Ptr<str>) -> Self {
-        let bounds = 0..string.len();
-        Self { string, bounds }
     }
 }
 

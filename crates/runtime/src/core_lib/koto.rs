@@ -85,7 +85,7 @@ fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<Chunk> {
         ctx.vm
             .loader()
             .borrow_mut()
-            .compile_script(script, &None, CompilerSettings::default())?;
+            .compile_script(script, None, CompilerSettings::default())?;
 
     Ok(chunk.into())
 }

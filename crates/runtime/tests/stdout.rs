@@ -20,7 +20,7 @@ mod vm {
         };
 
         let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
+        let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
                 print_chunk(script, vm.chunk());

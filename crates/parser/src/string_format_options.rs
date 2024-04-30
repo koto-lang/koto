@@ -172,7 +172,7 @@ mod tests {
             (
                 "08",
                 StringFormatOptions {
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     min_width: Some(8),
                     ..Default::default()
                 },
@@ -202,7 +202,7 @@ mod tests {
                 "_^",
                 StringFormatOptions {
                     alignment: StringAlignment::Center,
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     ..Default::default()
                 },
             ),
@@ -210,7 +210,7 @@ mod tests {
                 "𝜇<.9",
                 StringFormatOptions {
                     alignment: StringAlignment::Left,
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     precision: Some(9),
                     ..Default::default()
                 },
@@ -219,7 +219,7 @@ mod tests {
                 "🫶🏽>20.10",
                 StringFormatOptions {
                     alignment: StringAlignment::Right,
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     min_width: Some(20),
                     precision: Some(10),
                 },
@@ -236,7 +236,7 @@ mod tests {
                 "}>2",
                 StringFormatOptions {
                     alignment: StringAlignment::Right,
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     min_width: Some(2),
                     ..Default::default()
                 },
@@ -245,7 +245,7 @@ mod tests {
                 "8^4",
                 StringFormatOptions {
                     alignment: StringAlignment::Center,
-                    fill_character: Some(0),
+                    fill_character: Some(0.into()),
                     min_width: Some(4),
                     ..Default::default()
                 },

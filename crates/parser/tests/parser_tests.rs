@@ -36,7 +36,7 @@ mod parser {
                     assert_eq!(ast.constants().size(), 0);
                 }
             }
-            Err(error) => panic!("{error} - {}", error.span.start),
+            Err(error) => panic!("{error} - {:?}", error.span.start),
         }
     }
 
@@ -50,19 +50,88 @@ mod parser {
         }
     }
 
-    fn simple_string(literal_index: ConstantIndex, quotation_mark: StringQuote) -> AstString {
+    fn simple_string(literal_index: u32, quotation_mark: StringQuote) -> AstString {
         AstString {
             quote: quotation_mark,
-            contents: StringContents::Literal(literal_index),
+            contents: StringContents::Literal(literal_index.into()),
         }
     }
 
-    fn string_literal(literal_index: ConstantIndex, quotation_mark: StringQuote) -> Node {
+    fn id(constant: u32) -> Node {
+        Node::Id(constant.into())
+    }
+
+    fn int(constant: u32) -> Node {
+        Node::Int(constant.into())
+    }
+
+    fn float(constant: u32) -> Node {
+        Node::Float(constant.into())
+    }
+
+    fn string_literal(literal_index: u32, quotation_mark: StringQuote) -> Node {
         Node::Str(simple_string(literal_index, quotation_mark))
     }
 
-    fn string_literal_map_key(literal_index: ConstantIndex, quotation_mark: StringQuote) -> MapKey {
-        MapKey::Str(simple_string(literal_index, quotation_mark))
+    fn expressions(ast_indices: &[u32]) -> Vec<AstIndex> {
+        ast_indices.iter().map(|i| AstIndex::from(*i)).collect()
+    }
+
+    fn unary_op(op: AstUnaryOp, value: u32) -> Node {
+        Node::UnaryOp {
+            op,
+            value: value.into(),
+        }
+    }
+
+    fn binary_op(op: AstBinaryOp, lhs: u32, rhs: u32) -> Node {
+        Node::BinaryOp {
+            op,
+            lhs: lhs.into(),
+            rhs: rhs.into(),
+        }
+    }
+
+    fn assign(target: u32, expression: u32) -> Node {
+        Node::Assign {
+            target: target.into(),
+            expression: expression.into(),
+        }
+    }
+
+    fn string_entry(
+        literal_index: u32,
+        quotation_mark: StringQuote,
+        value: Option<u32>,
+    ) -> (MapKey, Option<AstIndex>) {
+        (
+            MapKey::Str(simple_string(literal_index, quotation_mark)),
+            value.map(AstIndex::from),
+        )
+    }
+
+    fn id_entry(key: u32, value: Option<u32>) -> (MapKey, Option<AstIndex>) {
+        (MapKey::Id(key.into()), value.map(AstIndex::from))
+    }
+
+    fn range(start: u32, end: u32, inclusive: bool) -> Node {
+        Node::Range {
+            start: start.into(),
+            end: end.into(),
+            inclusive,
+        }
+    }
+
+    fn lookup_id(id: u32, next: Option<u32>) -> Node {
+        Lookup((LookupNode::Id(id.into()), next.map(AstIndex::from)))
+    }
+
+    fn lookup_index(index: u32, next: Option<u32>) -> Node {
+        Lookup((LookupNode::Index(index.into()), next.map(AstIndex::from)))
+    }
+
+    fn lookup_root(index: u32, next: Option<u32>) -> Node {
+        Lookup((LookupNode::Root(index.into()), next.map(AstIndex::from)))
     }
 
     mod values {
@@ -85,13 +154,13 @@ null"#;
                     BoolTrue,
                     BoolFalse,
                     SmallInt(1),
-                    Float(0),
+                    float(0),
                     string_literal(1, StringQuote::Double),
                     string_literal(2, StringQuote::Single),
                     id(3),
                     Null,
                     MainBlock {
-                        body: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                        body: expressions(&[0, 1, 2, 3, 4, 5, 6, 7]),
                         local_count: 0,
                     },
                 ],
@@ -121,14 +190,14 @@ null"#;
                 &[
                     SmallInt(1),
                     SmallInt(1),
-                    Int(0),
-                    Int(1),
+                    int(0),
+                    int(1),
                     SmallInt(1),
                     SmallInt(64),
                     SmallInt(1),
                     SmallInt(4),
                     MainBlock {
-                        body: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                        body: expressions(&[0, 1, 2, 3, 4, 5, 6, 7]),
                         local_count: 0,
                     },
                 ],
@@ -152,7 +221,7 @@ null"#;
                     string_literal(0, StringQuote::Double),
                     string_literal(1, StringQuote::Double),
                     MainBlock {
-                        body: vec![0, 1],
+                        body: expressions(&[0, 1]),
                         local_count: 0,
                     },
                 ],
@@ -175,7 +244,7 @@ null"#;
                     string_literal(0, StringQuote::Double),
                     string_literal(1, StringQuote::Single),
                     MainBlock {
-                        body: vec![0, 1],
+                        body: expressions(&[0, 1]),
                         local_count: 0,
                     },
                 ],
@@ -197,19 +266,19 @@ null"#;
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
-                            StringNode::Literal(0),
+                            StringNode::Literal(0.into()),
                             StringNode::Expression {
-                                expression: 0,
+                                expression: 0.into(),
                                 format: StringFormatOptions::default(),
                             },
-                            StringNode::Literal(2),
+                            StringNode::Literal(2.into()),
                         ]),
                     }),
                     id(3),
                     Str(AstString {
                         quote: StringQuote::Double,
                         contents: StringContents::Interpolated(vec![StringNode::Expression {
-                            expression: 2,
+                            expression: 2.into(),
                             format: StringFormatOptions::default(),
                         }]),
                     }),
@@ -219,18 +288,18 @@ null"#;
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Expression {
-                                expression: 4,
+                                expression: 4.into(),
                                 format: StringFormatOptions::default(),
                             },
-                            StringNode::Literal(5),
+                            StringNode::Literal(5.into()),
                             StringNode::Expression {
-                                expression: 5,
+                                expression: 5.into(),
                                 format: StringFormatOptions::default(),
                             },
                         ]),
                     }),
                     MainBlock {
-                        body: vec![1, 3, 6],
+                        body: expressions(&[1, 3, 6]),
                         local_count: 0,
                     },
                 ],
@@ -255,24 +324,20 @@ null"#;
                 source,
                 &[
                     SmallInt(123),
-                    Int(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    int(0),
+                    binary_op(AstBinaryOp::Add, 0, 1),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
                             StringNode::Expression {
-                                expression: 2,
+                                expression: 2.into(),
                                 format: StringFormatOptions::default(),
                             },
-                            StringNode::Literal(1),
+                            StringNode::Literal(1.into()),
                         ]),
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -292,21 +357,21 @@ null"#;
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Interpolated(vec![
-                            StringNode::Literal(0),
+                            StringNode::Literal(0.into()),
                             StringNode::Expression {
-                                expression: 0,
+                                expression: 0.into(),
                                 format: StringFormatOptions {
                                     alignment: StringAlignment::Right,
                                     min_width: Some(3),
                                     precision: Some(2),
-                                    fill_character: Some(2),
+                                    fill_character: Some(2.into()),
                                 },
                             },
-                            StringNode::Literal(0),
+                            StringNode::Literal(0.into()),
                         ]),
                     }),
                     MainBlock {
-                        body: vec![1],
+                        body: expressions(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -328,33 +393,33 @@ r##'#$bar'##
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Raw {
-                            constant: 0,
+                            constant: 0.into(),
                             hash_count: 0,
                         },
                     }),
                     Str(AstString {
                         quote: StringQuote::Double,
                         contents: StringContents::Raw {
-                            constant: 1,
+                            constant: 1.into(),
                             hash_count: 0,
                         },
                     }),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Raw {
-                            constant: 2,
+                            constant: 2.into(),
                             hash_count: 1,
                         },
                     }),
                     Str(AstString {
                         quote: StringQuote::Single,
                         contents: StringContents::Raw {
-                            constant: 3,
+                            constant: 3.into(),
                             hash_count: 2,
                         },
                     }),
                     MainBlock {
-                        body: vec![0, 1, 2, 3],
+                        body: expressions(&[0, 1, 2, 3]),
                         local_count: 0,
                     },
                 ],
@@ -377,34 +442,21 @@ r##'#$bar'##
             check_ast(
                 source,
                 &[
-                    Float(0),
+                    float(0),
                     id(1),
-                    UnaryOp {
-                        op: AstUnaryOp::Negate,
-                        value: 1,
-                    },
+                    unary_op(AstUnaryOp::Negate, 1),
                     id(2),
                     SmallInt(0),
-                    Lookup((LookupNode::Index(4), None)), // 5
-                    Lookup((LookupNode::Root(3), Some(5))),
-                    UnaryOp {
-                        op: AstUnaryOp::Negate,
-                        value: 6,
-                    },
+                    lookup_index(4, None), // 5
+                    lookup_root(3, Some(5)),
+                    unary_op(AstUnaryOp::Negate, 6),
                     SmallInt(1),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 8,
-                        rhs: 9,
-                    }, // 10
-                    Nested(10),
-                    UnaryOp {
-                        op: AstUnaryOp::Negate,
-                        value: 11,
-                    },
+                    binary_op(AstBinaryOp::Add, 8, 9), // 10
+                    Nested(10.into()),
+                    unary_op(AstUnaryOp::Negate, 11),
                     MainBlock {
-                        body: vec![0, 2, 7, 12],
+                        body: expressions(&[0, 2, 7, 12]),
                         local_count: 0,
                     },
                 ],
@@ -430,10 +482,10 @@ r##'#$bar'##
                     string_literal(1, StringQuote::Double),
                     id(0),
                     SmallInt(-1),
-                    List(vec![0, 1, 2, 3, 4]),
-                    List(vec![]),
+                    List(expressions(&[0, 1, 2, 3, 4])),
+                    List(expressions(&[])),
                     MainBlock {
-                        body: vec![5, 6],
+                        body: expressions(&[5, 6]),
                         local_count: 0,
                     },
                 ],
@@ -452,11 +504,11 @@ r##'#$bar'##
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(-1),
-                    List(vec![1, 2]),
+                    List(expressions(&[1, 2])),
                     SmallInt(2),
-                    List(vec![0, 3, 4]), // 5
+                    List(expressions(&[0, 3, 4])), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -509,13 +561,10 @@ x = [
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0), // 5
-                    List(vec![1, 2, 3, 4, 5]),
-                    Assign {
-                        target: 0,
-                        expression: 6,
-                    },
+                    List(expressions(&[1, 2, 3, 4, 5])),
+                    assign(0, 6),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -560,17 +609,14 @@ x =
                     string_literal(4, StringQuote::Single),
                     SmallInt(99),
                     Map(vec![
-                        (string_literal_map_key(1, StringQuote::Single), Some(2)),
-                        (MapKey::Id(2), None),
-                        (MapKey::Id(3), Some(3)),
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
+                        string_entry(1, StringQuote::Single, Some(2)),
+                        id_entry(2, None),
+                        id_entry(3, Some(3)),
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(4.into())),
                     ]), // 5
-                    Assign {
-                        target: 1,
-                        expression: 5,
-                    },
+                    assign(1, 5),
                     MainBlock {
-                        body: vec![0, 6],
+                        body: expressions(&[0, 6]),
                         local_count: 1,
                     },
                 ],
@@ -599,12 +645,12 @@ x =
                     SmallInt(42),
                     string_literal(3, StringQuote::Double),
                     Map(vec![
-                        (string_literal_map_key(0, StringQuote::Single), Some(0)),
-                        (MapKey::Id(1), None),
-                        (MapKey::Id(2), Some(1)),
+                        string_entry(0, StringQuote::Single, Some(0)),
+                        id_entry(1, None),
+                        id_entry(2, Some(1)),
                     ]),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -632,20 +678,17 @@ x"#;
                     id(0), // x
                     SmallInt(42),
                     SmallInt(0),
-                    Map(vec![(MapKey::Id(1), Some(2))]), // foo, 0
+                    Map(vec![id_entry(1, Some(2))]), // foo, 0
                     SmallInt(-1),
                     Map(vec![
-                        (MapKey::Id(1), Some(1)),                                  // foo: 42
-                        (string_literal_map_key(2, StringQuote::Double), Some(3)), // "baz": nested map
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),        // @-: -1
+                        id_entry(1, Some(1)),                                      // foo: 42
+                        string_entry(2, StringQuote::Double, Some(3)), // "baz": nested map
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4.into())), // @-: -1
                     ]), // 5
-                    Assign {
-                        target: 0,
-                        expression: 5,
-                    },
+                    assign(0, 5),
                     id(0),
                     MainBlock {
-                        body: vec![6, 7],
+                        body: expressions(&[6, 7]),
                         local_count: 1,
                     },
                 ],
@@ -668,16 +711,10 @@ x =
                 &[
                     id(0), // x
                     SmallInt(42),
-                    Map(vec![(
-                        string_literal_map_key(1, StringQuote::Double),
-                        Some(1),
-                    )]), // "foo": 42
-                    Assign {
-                        target: 0,
-                        expression: 2,
-                    },
+                    Map(vec![string_entry(1, StringQuote::Double, Some(1))]), // "foo": 42
+                    assign(0, 2),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 1,
                     },
                 ],
@@ -698,17 +735,14 @@ x =
                     id(0), // x
                     SmallInt(42),
                     Map(vec![
-                        (MapKey::Id(2), Some(1)), // bar: 42
+                        id_entry(2, Some(1)), // bar: 42
                     ]),
                     Map(vec![
-                        (MapKey::Id(1), Some(2)), // foo: ...
+                        id_entry(1, Some(2)), // foo: ...
                     ]),
-                    Assign {
-                        target: 0,
-                        expression: 3,
-                    },
+                    assign(0, 3),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 1,
                     },
                 ],
@@ -746,14 +780,11 @@ x =
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
-                    Tuple(vec![1, 2, 3]),
-                    Map(vec![(MapKey::Id(1), Some(4))]), // 5 - foo: 10, 20, 30
-                    Assign {
-                        target: 0,
-                        expression: 5,
-                    },
+                    Tuple(expressions(&[1, 2, 3])),
+                    Map(vec![id_entry(1, Some(4))]), // 5 - foo: 10, 20, 30
+                    assign(0, 5),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -789,19 +820,16 @@ x =
                     SmallInt(1),
                     SmallInt(42),
                     NamedCall {
-                        id: 3,
-                        args: vec![2],
+                        id: 3.into(),
+                        args: expressions(&[2]),
                     },
                     Map(vec![
-                        (MapKey::Id(1), Some(1)), // foo: 1
-                        (MapKey::Id(2), Some(3)), // bar: baz 42
+                        id_entry(1, Some(1)), // foo: 1
+                        id_entry(2, Some(3)), // bar: baz 42
                     ]),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -830,16 +858,16 @@ x =
                     SmallInt(1),
                     SmallInt(0),
                     Map(vec![
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(1)),
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(2)),
-                        (MapKey::Meta(MetaKeyId::Named, Some(1)), Some(3)),
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(1.into())),
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(2.into())),
+                        (
+                            MapKey::Meta(MetaKeyId::Named, Some(1.into())),
+                            Some(3.into()),
+                        ),
                     ]),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -863,17 +891,17 @@ x =
                     SmallInt(1),
                     SmallInt(0),
                     Map(vec![
-                        (MapKey::Meta(MetaKeyId::PreTest, None), Some(1)),
-                        (MapKey::Meta(MetaKeyId::PostTest, None), Some(2)),
-                        (MapKey::Meta(MetaKeyId::Test, Some(0)), Some(3)),
+                        (MapKey::Meta(MetaKeyId::PreTest, None), Some(1.into())),
+                        (MapKey::Meta(MetaKeyId::PostTest, None), Some(2.into())),
+                        (
+                            MapKey::Meta(MetaKeyId::Test, Some(0.into())),
+                            Some(3.into()),
+                        ),
                     ]),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
-                    Export(5),
+                    assign(0, 4), // 5
+                    Export(5.into()),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -895,20 +923,12 @@ x =
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    Range {
-                        start: 0,
-                        end: 1,
-                        inclusive: false,
-                    },
+                    range(0, 1, false),
                     SmallInt(0),
                     SmallInt(1),
-                    Range {
-                        start: 3,
-                        end: 4,
-                        inclusive: true,
-                    }, // 5
+                    range(3, 4, true), // 5
                     MainBlock {
-                        body: vec![2, 5],
+                        body: expressions(&[2, 5]),
                         local_count: 0,
                     },
                 ],
@@ -924,25 +944,13 @@ x =
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Add, 0, 1),
                     SmallInt(1),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 3,
-                        rhs: 4,
-                    }, // 5
-                    Range {
-                        start: 2,
-                        end: 5,
-                        inclusive: false,
-                    },
+                    binary_op(AstBinaryOp::Add, 3, 4), // 5
+                    range(2, 5, false),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -962,25 +970,15 @@ min..max
                 &[
                     id(0),
                     SmallInt(0),
-                    Assign {
-                        target: 0,
-                        expression: 1,
-                    },
+                    assign(0, 1),
                     id(1),
                     SmallInt(10),
-                    Assign {
-                        target: 3,
-                        expression: 4,
-                    }, // 5
+                    assign(3, 4), // 5
                     id(0),
                     id(1),
-                    Range {
-                        start: 6,
-                        end: 7,
-                        inclusive: false,
-                    },
+                    range(6, 7, false),
                     MainBlock {
-                        body: vec![2, 5, 8],
+                        body: expressions(&[2, 5, 8]),
                         local_count: 2,
                     },
                 ],
@@ -995,18 +993,14 @@ min..max
                 source,
                 &[
                     id(0),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_id(1, None),
+                    lookup_root(0, Some(1)),
                     id(0),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
-                    Range {
-                        start: 2,
-                        end: 5,
-                        inclusive: false,
-                    },
+                    lookup_id(2, None),
+                    lookup_root(3, Some(4)), // 5
+                    range(2, 5, false),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -1028,29 +1022,17 @@ min..max
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    Range {
-                        start: 0,
-                        end: 1,
-                        inclusive: false,
-                    },
-                    List(vec![2]),
+                    range(0, 1, false),
+                    List(expressions(&[2])),
                     SmallInt(0),
                     SmallInt(10), // 5
-                    Range {
-                        start: 4,
-                        end: 5,
-                        inclusive: false,
-                    },
+                    range(4, 5, false),
                     SmallInt(10),
                     SmallInt(0),
-                    Range {
-                        start: 7,
-                        end: 8,
-                        inclusive: true,
-                    },
-                    List(vec![6, 9]),
+                    range(7, 8, true),
+                    List(expressions(&[6, 9])),
                     MainBlock {
-                        body: vec![3, 10],
+                        body: expressions(&[3, 10]),
                         local_count: 0,
                     },
                 ],
@@ -1071,9 +1053,9 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(vec![0, 1, 2]),
+                    Tuple(expressions(&[0, 1, 2])),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1087,9 +1069,9 @@ min..max
             check_ast(
                 source,
                 &[
-                    Tuple(vec![]),
+                    Tuple(expressions(&[])),
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 0,
                     },
                 ],
@@ -1105,7 +1087,7 @@ min..max
                 &[
                     Null,
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 0,
                     },
                 ],
@@ -1137,9 +1119,9 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(vec![0, 1, 2]),
+                    Tuple(expressions(&[0, 1, 2])),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1154,9 +1136,9 @@ min..max
                 source,
                 &[
                     SmallInt(1),
-                    Tuple(vec![0]),
+                    Tuple(expressions(&[0])),
                     MainBlock {
-                        body: vec![1],
+                        body: expressions(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -1176,12 +1158,9 @@ min..max
                 &[
                     id(0),
                     SmallInt(1),
-                    Assign {
-                        target: 0,
-                        expression: 1,
-                    },
+                    assign(0, 1),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -1198,13 +1177,10 @@ min..max
                     id(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(vec![1, 2]),
-                    Assign {
-                        target: 0,
-                        expression: 3,
-                    },
+                    Tuple(expressions(&[1, 2])),
+                    assign(0, 3),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 1,
                     },
                 ],
@@ -1221,17 +1197,14 @@ min..max
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(vec![1, 2]),
+                    Tuple(expressions(&[1, 2])),
                     SmallInt(2),
                     SmallInt(3), // 5
-                    Tuple(vec![4, 5]),
-                    Tuple(vec![3, 6]),
-                    Assign {
-                        target: 0,
-                        expression: 7,
-                    },
+                    Tuple(expressions(&[4, 5])),
+                    Tuple(expressions(&[3, 6])),
+                    assign(0, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -1248,17 +1221,17 @@ min..max
                     id(0),
                     id(1),
                     SmallInt(0),
-                    Lookup((LookupNode::Index(2), None)),
-                    Lookup((LookupNode::Root(1), Some(3))),
+                    lookup_index(2, None),
+                    lookup_root(1, Some(3)),
                     SmallInt(1), // 5
                     SmallInt(0),
-                    TempTuple(vec![5, 6]),
+                    TempTuple(expressions(&[5, 6])),
                     MultiAssign {
-                        targets: vec![0, 4],
-                        expression: 7,
+                        targets: expressions(&[0, 4]),
+                        expression: 7.into(),
                     },
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 1, // y is assumed to be non-local
                     },
                 ],
@@ -1280,14 +1253,14 @@ x";
                     id(1),
                     SmallInt(1),
                     SmallInt(0),
-                    TempTuple(vec![2, 3]),
+                    TempTuple(expressions(&[2, 3])),
                     MultiAssign {
-                        targets: vec![0, 1],
-                        expression: 4,
+                        targets: expressions(&[0, 1]),
+                        expression: 4.into(),
                     }, // 5
                     id(0),
                     MainBlock {
-                        body: vec![5, 6],
+                        body: expressions(&[5, 6]),
                         local_count: 2,
                     },
                 ],
@@ -1303,22 +1276,22 @@ x";
                 &[
                     id(0),
                     Wildcard(None),
-                    Wildcard(Some(1)),
+                    Wildcard(Some(1.into())),
                     id(2),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    lookup_root(3, Some(4)), // 5
                     MultiAssign {
-                        targets: vec![0, 1, 2],
-                        expression: 5,
+                        targets: expressions(&[0, 1, 2]),
+                        expression: 5.into(),
                     },
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -1339,41 +1312,21 @@ x %= 4";
                 &[
                     id(0),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::AddAssign,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::AddAssign, 0, 1),
                     id(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::SubtractAssign,
-                        lhs: 3,
-                        rhs: 4,
-                    }, // 5
+                    binary_op(AstBinaryOp::SubtractAssign, 3, 4), // 5
                     id(0),
                     SmallInt(2),
-                    BinaryOp {
-                        op: AstBinaryOp::MultiplyAssign,
-                        lhs: 6,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::MultiplyAssign, 6, 7),
                     id(0),
                     SmallInt(3), // 10
-                    BinaryOp {
-                        op: AstBinaryOp::DivideAssign,
-                        lhs: 9,
-                        rhs: 10,
-                    },
+                    binary_op(AstBinaryOp::DivideAssign, 9, 10),
                     id(0),
                     SmallInt(4),
-                    BinaryOp {
-                        op: AstBinaryOp::RemainderAssign,
-                        lhs: 12,
-                        rhs: 13,
-                    },
+                    binary_op(AstBinaryOp::RemainderAssign, 12, 13),
                     MainBlock {
-                        body: vec![2, 5, 8, 11, 14],
+                        body: expressions(&[2, 5, 8, 11, 14]),
                         local_count: 0,
                     }, // 15
                 ],
@@ -1392,16 +1345,16 @@ x %= 4";
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(1))),
-                    Lookup((LookupNode::Root(0), Some(2))),
-                    List(vec![3]),
+                    lookup_id(1, Some(1)),
+                    lookup_root(0, Some(2)),
+                    List(expressions(&[3])),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1485,18 +1438,11 @@ export a =
                     id(0),
                     SmallInt(1),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Assign {
-                        target: 0,
-                        expression: 3,
-                    },
-                    Export(4), // 5
+                    binary_op(AstBinaryOp::Add, 1, 2),
+                    assign(0, 3),
+                    Export(4.into()), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -1518,12 +1464,12 @@ export
                     SmallInt(123),
                     SmallInt(99),
                     Map(vec![
-                        (MapKey::Id(0), Some(0)), // a: 123
-                        (MapKey::Id(1), Some(1)), // b: 99
+                        id_entry(0, Some(0)), // a: 123
+                        id_entry(1, Some(1)), // b: 99
                     ]),
-                    Export(2),
+                    Export(2.into()),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1556,19 +1502,11 @@ export
                 &[
                     SmallInt(1),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Subtract,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Subtract, 0, 1),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 2,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Add, 2, 3),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1585,24 +1523,12 @@ export
                     SmallInt(1),
                     SmallInt(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Multiply,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Multiply, 1, 2),
+                    binary_op(AstBinaryOp::Add, 0, 3),
                     SmallInt(0), // 5
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 4,
-                        rhs: 5,
-                    },
+                    binary_op(AstBinaryOp::Add, 4, 5),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -1618,27 +1544,15 @@ export
                 &[
                     SmallInt(1),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 1,
-                    },
-                    Nested(2),
+                    binary_op(AstBinaryOp::Add, 0, 1),
+                    Nested(2.into()),
                     SmallInt(1),
                     SmallInt(0), // 5
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 4,
-                        rhs: 5,
-                    },
-                    Nested(6),
-                    BinaryOp {
-                        op: AstBinaryOp::Multiply,
-                        lhs: 3,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::Add, 4, 5),
+                    Nested(6.into()),
+                    binary_op(AstBinaryOp::Multiply, 3, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -1654,19 +1568,11 @@ export
                 &[
                     SmallInt(18),
                     SmallInt(3),
-                    BinaryOp {
-                        op: AstBinaryOp::Divide,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Divide, 0, 1),
                     SmallInt(4),
-                    BinaryOp {
-                        op: AstBinaryOp::Remainder,
-                        lhs: 2,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Remainder, 2, 3),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1682,13 +1588,9 @@ export
                 &[
                     string_literal(0, StringQuote::Single),
                     id(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Add, 0, 1),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -1706,20 +1608,13 @@ export
                     SmallInt(1),
                     id(2), // y
                     NamedCall {
-                        id: 1, // f
-                        args: vec![2],
+                        id: 1.into(), // f
+                        args: expressions(&[2]),
                     },
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 3,
-                    },
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
+                    binary_op(AstBinaryOp::Add, 1, 3),
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -1760,22 +1655,11 @@ a =
                     SmallInt(1),
                     SmallInt(2),
                     SmallInt(3),
-                    BinaryOp {
-                        op: AstBinaryOp::Multiply,
-                        lhs: 2,
-                        rhs: 3,
-                    },
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 4,
-                    }, // 5
-                    Assign {
-                        target: 0,
-                        expression: 5,
-                    },
+                    binary_op(AstBinaryOp::Multiply, 2, 3),
+                    binary_op(AstBinaryOp::Add, 1, 4), // 5
+                    assign(0, 5),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -1812,24 +1696,13 @@ a = (1
                     id(0),
                     SmallInt(1),
                     SmallInt(2),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Nested(3),
+                    binary_op(AstBinaryOp::Add, 1, 2),
+                    Nested(3.into()),
                     SmallInt(3), // 5
-                    BinaryOp {
-                        op: AstBinaryOp::Multiply,
-                        lhs: 4,
-                        rhs: 5,
-                    },
-                    Assign {
-                        target: 0,
-                        expression: 6,
-                    },
+                    binary_op(AstBinaryOp::Multiply, 4, 5),
+                    assign(0, 6),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -1849,31 +1722,15 @@ a = (1
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Less,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Less, 0, 1),
                     SmallInt(1),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Greater,
-                        lhs: 3,
-                        rhs: 4,
-                    },
-                    BinaryOp {
-                        op: AstBinaryOp::And,
-                        lhs: 2,
-                        rhs: 5,
-                    },
+                    binary_op(AstBinaryOp::Greater, 3, 4),
+                    binary_op(AstBinaryOp::And, 2, 5),
                     BoolTrue,
-                    BinaryOp {
-                        op: AstBinaryOp::Or,
-                        lhs: 6,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::Or, 6, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -1890,18 +1747,10 @@ a = (1
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::LessOrEqual,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    BinaryOp {
-                        op: AstBinaryOp::Less,
-                        lhs: 0,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::LessOrEqual, 1, 2),
+                    binary_op(AstBinaryOp::Less, 0, 3),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1924,18 +1773,14 @@ a = (1
                     SmallInt(0),
                     SmallInt(1),
                     If(AstIf {
-                        condition: 1,
-                        then_node: 2,
+                        condition: 1.into(),
+                        then_node: 2.into(),
                         else_if_blocks: vec![],
-                        else_node: Some(3),
+                        else_node: Some(3.into()),
                     }),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 0,
-                        rhs: 4,
-                    },
+                    binary_op(AstBinaryOp::Add, 0, 4),
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -1990,18 +1835,15 @@ a",
                     SmallInt(0),
                     SmallInt(1),
                     If(AstIf {
-                        condition: 1,
-                        then_node: 2,
-                        else_if_blocks: vec![(3, 4), (5, 6)],
-                        else_node: Some(7),
+                        condition: 1.into(),
+                        then_node: 2.into(),
+                        else_if_blocks: vec![(3.into(), 4.into()), (5.into(), 6.into())],
+                        else_node: Some(7.into()),
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 8,
-                    },
+                    assign(0, 8),
                     id(0),
                     MainBlock {
-                        body: vec![9, 10],
+                        body: expressions(&[9, 10]),
                         local_count: 1,
                     }, // 10
                 ],
@@ -2020,22 +1862,22 @@ a",
                     BoolTrue,
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(vec![3, 4]), // 5
+                    Tuple(expressions(&[3, 4])), // 5
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(vec![6, 7]),
+                    Tuple(expressions(&[6, 7])),
                     If(AstIf {
-                        condition: 2,
-                        then_node: 5,
+                        condition: 2.into(),
+                        then_node: 5.into(),
                         else_if_blocks: vec![],
-                        else_node: Some(8),
+                        else_node: Some(8.into()),
                     }),
                     MultiAssign {
-                        targets: vec![0, 1],
-                        expression: 9,
+                        targets: expressions(&[0, 1]),
+                        expression: 9.into(),
                     }, // 10
                     MainBlock {
-                        body: vec![10],
+                        body: expressions(&[10]),
                         local_count: 2,
                     },
                 ],
@@ -2058,23 +1900,23 @@ a",
                     BoolTrue,
                     Return(None),
                     If(AstIf {
-                        condition: 0,
-                        then_node: 1,
+                        condition: 0.into(),
+                        then_node: 1.into(),
                         else_if_blocks: vec![],
                         else_node: None,
                     }),
                     id(0),
-                    Block(vec![2, 3]),
+                    Block(expressions(&[2, 3])),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![0],
-                        body: 4,
+                        accessed_non_locals: vec![0.into()],
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2096,21 +1938,21 @@ for x, _, _y, z in foo
                 &[
                     id(0), // x
                     Wildcard(None),
-                    Wildcard(Some(1)), // _y
-                    id(2),             // z
-                    id(3),             // foo
-                    id(0),             // x - 5
+                    Wildcard(Some(1.into())), // _y
+                    id(2),                    // z
+                    id(3),                    // foo
+                    id(0),                    // x - 5
                     NamedCall {
-                        id: 2, // z
-                        args: vec![5],
+                        id: 2.into(), // z
+                        args: expressions(&[5]),
                     },
                     For(AstFor {
-                        args: vec![0, 1, 2, 3],
-                        iterable: 4,
-                        body: 6,
+                        args: expressions(&[0, 1, 2, 3]),
+                        iterable: 4.into(),
+                        body: 6.into(),
                     }),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 2, // x, z
                     },
                 ],
@@ -2133,22 +1975,18 @@ while x > y
                 &[
                     id(0), // x
                     id(1), // y
-                    BinaryOp {
-                        op: AstBinaryOp::Greater,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Greater, 0, 1),
                     id(0), // x
                     NamedCall {
-                        id: 2, // f
-                        args: vec![3],
+                        id: 2.into(), // f
+                        args: expressions(&[3]),
                     },
                     While {
-                        condition: 2,
-                        body: 4,
+                        condition: 2.into(),
+                        body: 4.into(),
                     }, // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2166,22 +2004,18 @@ until x < y
                 &[
                     id(0), // x
                     id(1), // y
-                    BinaryOp {
-                        op: AstBinaryOp::Less,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Less, 0, 1),
                     id(1), // y
                     NamedCall {
-                        id: 2, // f
-                        args: vec![3],
+                        id: 2.into(), // f
+                        args: expressions(&[3]),
                     },
                     Until {
-                        condition: 2,
-                        body: 4,
+                        condition: 2.into(),
+                        body: 4.into(),
                     }, // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2200,17 +2034,17 @@ for x in y
             check_ast(
                 source,
                 &[
-                    List(vec![]),
+                    List(expressions(&[])),
                     id(0), // x
                     id(1), // y
                     id(0), // x
                     For(AstFor {
-                        args: vec![1],
-                        iterable: 2,
-                        body: 3,
+                        args: expressions(&[1]),
+                        iterable: 2.into(),
+                        body: 3.into(),
                     }),
                     MainBlock {
-                        body: vec![0, 4],
+                        body: expressions(&[0, 4]),
                         local_count: 1,
                     },
                 ],
@@ -2232,21 +2066,21 @@ for a in x.zip y
                     id(3), // y
                     Lookup((
                         LookupNode::Call {
-                            args: vec![2],
+                            args: expressions(&[2]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(2), Some(3))),
-                    Lookup((LookupNode::Root(1), Some(4))), // ast 5
-                    id(0),                                  // a
+                    lookup_id(2, Some(3)),
+                    lookup_root(1, Some(4)), // ast 5
+                    id(0),                   // a
                     For(AstFor {
-                        args: vec![0],
-                        iterable: 5,
-                        body: 6,
+                        args: expressions(&[0]),
+                        iterable: 5.into(),
+                        body: 6.into(),
                     }),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2274,28 +2108,25 @@ a()";
                     id(0),
                     SmallInt(42),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 1,
+                        body: 1.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 2,
-                    },
+                    assign(0, 2),
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 5
-                    Lookup((LookupNode::Root(4), Some(5))),
+                    lookup_root(4, Some(5)),
                     MainBlock {
-                        body: vec![3, 6],
+                        body: expressions(&[3, 6]),
                         local_count: 1,
                     },
                 ],
@@ -2323,21 +2154,17 @@ a()";
                     id(1),
                     id(0),
                     id(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 2,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Add, 2, 3),
                     Function(koto_parser::Function {
-                        args: vec![0, 1],
+                        args: expressions(&[0, 1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 4,
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2357,28 +2184,24 @@ a()";
                     id(1),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(2), Some(4))), // 5
-                    Lookup((LookupNode::Root(3), Some(5))),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 2,
-                        rhs: 6,
-                    },
+                    lookup_id(2, Some(4)), // 5
+                    lookup_root(3, Some(5)),
+                    binary_op(AstBinaryOp::Add, 2, 6),
                     Function(koto_parser::Function {
-                        args: vec![0, 1],
+                        args: expressions(&[0, 1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 7,
+                        body: 7.into(),
                         is_variadic: true,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -2404,31 +2227,25 @@ f 42";
                     id(1), // x
                     id(2), // y
                     id(1), // x
-                    Assign {
-                        target: 2,
-                        expression: 3,
-                    },
+                    assign(2, 3),
                     id(2), // 5
-                    Block(vec![4, 5]),
+                    Block(expressions(&[4, 5])),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 6,
+                        body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 7,
-                    },
+                    assign(0, 7),
                     SmallInt(42),
                     NamedCall {
-                        id: 0,
-                        args: vec![9],
+                        id: 0.into(),
+                        args: expressions(&[9]),
                     }, // 10
                     MainBlock {
-                        body: vec![8, 10],
+                        body: expressions(&[8, 10]),
                         local_count: 1,
                     },
                 ],
@@ -2453,42 +2270,36 @@ f 42";
                     id(3), // z
                     id(3), // z
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: expressions(&[3]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 4,
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
-                    Assign {
-                        target: 2,
-                        expression: 5,
-                    },
+                    assign(2, 5),
                     id(1), // x
                     NamedCall {
-                        id: 2, // y
-                        args: vec![7],
+                        id: 2.into(), // y
+                        args: expressions(&[7]),
                     },
-                    Block(vec![6, 8]),
+                    Block(expressions(&[6, 8])),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 9,
+                        body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
-                    Assign {
-                        target: 0,
-                        expression: 10,
-                    },
+                    assign(0, 10),
                     SmallInt(42),
                     NamedCall {
-                        id: 0, // f
-                        args: vec![12],
+                        id: 0.into(), // f
+                        args: expressions(&[12]),
                     },
                     MainBlock {
-                        body: vec![11, 13],
+                        body: expressions(&[11, 13]),
                         local_count: 1,
                     },
                 ],
@@ -2509,16 +2320,13 @@ f 42";
                 &[
                     id(1),
                     id(1),
-                    UnaryOp {
-                        op: AstUnaryOp::Negate,
-                        value: 1,
-                    },
+                    unary_op(AstUnaryOp::Negate, 1),
                     NamedCall {
-                        id: 0, // f
-                        args: vec![0, 2],
+                        id: 0.into(), // f
+                        args: expressions(&[0, 2]),
                     },
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -2534,17 +2342,13 @@ f 42";
                 &[
                     id(1),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Subtract,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Subtract, 0, 1),
                     NamedCall {
-                        id: 0, // f
-                        args: vec![2],
+                        id: 0.into(), // f
+                        args: expressions(&[2]),
                     },
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -2578,20 +2382,17 @@ f(x,
                     id(0),
                     id(1),
                     id(1),
-                    UnaryOp {
-                        op: AstUnaryOp::Negate,
-                        value: 2,
-                    },
+                    unary_op(AstUnaryOp::Negate, 2),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1, 3],
+                            args: expressions(&[1, 3]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Root(0), Some(4))),
+                    lookup_root(0, Some(4)),
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2625,11 +2426,11 @@ foo x,
                     id(1),
                     id(2),
                     NamedCall {
-                        id: 0, // foo
-                        args: vec![0, 1],
+                        id: 0.into(), // foo
+                        args: expressions(&[0, 1]),
                     },
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -2650,19 +2451,19 @@ foo
                     id(2),
                     id(2),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 2,
+                        body: 2.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     NamedCall {
-                        id: 0, // foo
-                        args: vec![0, 3],
+                        id: 0.into(), // foo
+                        args: expressions(&[0, 3]),
                     },
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -2681,16 +2482,16 @@ f x";
                 &[
                     id(1),
                     NamedCall {
-                        id: 0,
-                        args: vec![0],
+                        id: 0.into(),
+                        args: expressions(&[0]),
                     },
                     id(1),
                     NamedCall {
-                        id: 0,
-                        args: vec![2],
+                        id: 0.into(),
+                        args: expressions(&[2]),
                     }, // 5
                     MainBlock {
-                        body: vec![1, 3],
+                        body: expressions(&[1, 3]),
                         local_count: 0,
                     },
                 ],
@@ -2708,23 +2509,20 @@ f x";
                     id(1), // x
                     id(1), // x
                     NamedCall {
-                        id: 0, // f
-                        args: vec![2],
+                        id: 0.into(), // f
+                        args: expressions(&[2]),
                     },
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 1,
-                        accessed_non_locals: vec![0],
-                        body: 3,
+                        accessed_non_locals: vec![0.into()],
+                        body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -2743,40 +2541,40 @@ f x";
                     id(2), // x
                     id(2),
                     NamedCall {
-                        id: 0,
-                        args: vec![3],
+                        id: 0.into(),
+                        args: expressions(&[3]),
                     },
                     Function(koto_parser::Function {
-                        args: vec![2],
+                        args: expressions(&[2]),
                         local_count: 1,
-                        accessed_non_locals: vec![0],
-                        body: 4,
+                        accessed_non_locals: vec![0.into()],
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
-                    Nested(5),
+                    Nested(5.into()),
                     id(2), // x
                     id(2), // x
                     NamedCall {
-                        id: 1, // g
-                        args: vec![8],
+                        id: 1.into(), // g
+                        args: expressions(&[8]),
                     },
                     Function(koto_parser::Function {
-                        args: vec![7],
+                        args: expressions(&[7]),
                         local_count: 1,
-                        accessed_non_locals: vec![1],
-                        body: 9,
+                        accessed_non_locals: vec![1.into()],
+                        body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
-                    Nested(10),
-                    TempTuple(vec![6, 11]),
+                    Nested(10.into()),
+                    TempTuple(expressions(&[6, 11])),
                     MultiAssign {
-                        targets: vec![0, 1],
-                        expression: 12,
+                        targets: expressions(&[0, 1]),
+                        expression: 12.into(),
                     },
                     MainBlock {
-                        body: vec![13],
+                        body: expressions(&[13]),
                         local_count: 2,
                     },
                 ],
@@ -2792,23 +2590,15 @@ f x";
                 &[
                     id(1), // x
                     NamedCall {
-                        id: 0, // f
-                        args: vec![0],
+                        id: 0.into(), // f
+                        args: expressions(&[0]),
                     },
                     id(2), // g
-                    BinaryOp {
-                        op: AstBinaryOp::Pipe,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    id(3), // h
-                    BinaryOp {
-                        op: AstBinaryOp::Pipe,
-                        lhs: 3,
-                        rhs: 4,
-                    }, // 5
+                    binary_op(AstBinaryOp::Pipe, 1, 2),
+                    id(3),                              // h
+                    binary_op(AstBinaryOp::Pipe, 3, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2835,27 +2625,19 @@ foo.bar x
                     id(2), // x
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     id(3), // 5 - y
-                    BinaryOp {
-                        op: AstBinaryOp::Pipe,
-                        lhs: 4,
-                        rhs: 5,
-                    },
+                    binary_op(AstBinaryOp::Pipe, 4, 5),
                     id(4), // z
-                    BinaryOp {
-                        op: AstBinaryOp::Pipe,
-                        lhs: 6,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::Pipe, 6, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -2878,24 +2660,21 @@ foo.bar x
                     SmallInt(42),
                     id(2), // x
                     Self_, // self
-                    Lookup((LookupNode::Id(0), None)),
-                    Lookup((LookupNode::Root(2), Some(3))),
+                    lookup_id(0, None),
+                    lookup_root(2, Some(3)),
                     id(2), // 5
-                    Assign {
-                        target: 4,
-                        expression: 5,
-                    },
+                    assign(4, 5),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 6,
+                        body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(1), Some(7))]),
+                    Map(vec![id_entry(0, Some(0)), id_entry(1, Some(7))]),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -2920,21 +2699,18 @@ f = ||
                     id(0),
                     id(2),
                     SmallInt(0),
-                    Map(vec![(MapKey::Id(1), Some(1)), (MapKey::Id(3), Some(2))]),
+                    Map(vec![id_entry(1, Some(1)), id_entry(3, Some(2))]),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![2],
-                        body: 3,
+                        accessed_non_locals: vec![2.into()],
+                        body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    },
+                    assign(0, 4),
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -2961,27 +2737,24 @@ f = ||
                     id(0), // f
                     id(3), // x
                     Map(vec![
-                        (MapKey::Id(2), Some(1)), // bar: x
+                        id_entry(2, Some(1)), // bar: x
                     ]),
                     SmallInt(0),
                     Map(vec![
-                        (MapKey::Id(1), Some(2)), // foo: ...
-                        (MapKey::Id(4), Some(3)), // baz: 0
+                        id_entry(1, Some(2)), // foo: ...
+                        id_entry(4, Some(3)), // baz: 0
                     ]),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![3],
-                        body: 4,
+                        accessed_non_locals: vec![3.into()],
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 5
-                    Assign {
-                        target: 0,
-                        expression: 5,
-                    },
+                    assign(0, 5),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -3009,45 +2782,39 @@ f()";
                     SmallInt(42),
                     id(3), // x
                     Self_,
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    lookup_id(1, None),
+                    lookup_root(3, Some(4)), // 5
                     id(3),
-                    Assign {
-                        target: 5,
-                        expression: 6,
-                    },
+                    assign(5, 6),
                     Function(koto_parser::Function {
-                        args: vec![2],
+                        args: expressions(&[2]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 7,
+                        body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
-                    Map(vec![(MapKey::Id(1), Some(1)), (MapKey::Id(2), Some(8))]),
+                    Map(vec![id_entry(1, Some(1)), id_entry(2, Some(8))]),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 9,
+                        body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 10,
-                    },
+                    assign(0, 10),
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 15
-                    Lookup((LookupNode::Root(12), Some(13))),
+                    lookup_root(12, Some(13)),
                     MainBlock {
-                        body: vec![11, 14],
+                        body: expressions(&[11, 14]),
                         local_count: 1,
                     },
                 ],
@@ -3080,59 +2847,45 @@ f = |n|
                     id(3),       // i
                     SmallInt(0), // ast 5
                     SmallInt(1),
-                    Range {
-                        start: 5,
-                        end: 6,
-                        inclusive: false,
-                    },
+                    range(5, 6, false),
                     id(3), // i
                     id(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Equal,
-                        lhs: 8,
-                        rhs: 9,
-                    }, // ast 10
+                    binary_op(AstBinaryOp::Equal, 8, 9), // ast 10
                     id(3),
-                    Return(Some(11)),
+                    Return(Some(11.into())),
                     If(AstIf {
-                        condition: 10,
-                        then_node: 12,
+                        condition: 10.into(),
+                        then_node: 12.into(),
                         else_if_blocks: vec![],
                         else_node: None,
                     }),
                     For(AstFor {
-                        args: vec![4],
-                        iterable: 7,
-                        body: 13,
+                        args: expressions(&[4]),
+                        iterable: 7.into(),
+                        body: 13.into(),
                     }),
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: expressions(&[3]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 14,
+                        body: 14.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // ast 15
-                    Assign {
-                        target: 2,
-                        expression: 15,
-                    },
+                    assign(2, 15),
                     id(2),
-                    Block(vec![16, 17]),
+                    Block(expressions(&[16, 17])),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: expressions(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 18,
+                        body: 18.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Assign {
-                        target: 0,
-                        expression: 19,
-                    }, // ast 20
+                    assign(0, 19), // ast 20
                     MainBlock {
-                        body: vec![20],
+                        body: expressions(&[20]),
                         local_count: 1,
                     },
                 ],
@@ -3158,27 +2911,20 @@ f = |n|
                     id(0),
                     id(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Assign {
-                        target: 0,
-                        expression: 3,
-                    },
+                    binary_op(AstBinaryOp::Add, 1, 2),
+                    assign(0, 3),
                     id(0), // 5
-                    Block(vec![4, 5]),
+                    Block(expressions(&[4, 5])),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 1,
-                        accessed_non_locals: vec![0], // initial read of x via capture
-                        body: 6,
+                        accessed_non_locals: vec![0.into()], // initial read of x via capture
+                        body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -3198,27 +2944,21 @@ f = |n|
                     id(0),
                     id(1),
                     SmallInt(1),
-                    Assign {
-                        target: 1,
-                        expression: 2,
-                    },
-                    Nested(3),
+                    assign(1, 2),
+                    Nested(3.into()),
                     id(1), // 5
-                    Tuple(vec![4, 5]),
-                    Assign {
-                        target: 0,
-                        expression: 6,
-                    },
+                    Tuple(expressions(&[4, 5])),
+                    assign(0, 6),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 2,
                         accessed_non_locals: vec![], // b is locally assigned when accessed
-                        body: 7,
+                        body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -3236,21 +2976,17 @@ f = |n|
                 &[
                     id(0),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::AddAssign,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::AddAssign, 0, 1),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![0], // initial read of x via capture
-                        body: 2,
+                        accessed_non_locals: vec![0.into()], // initial read of x via capture
+                        body: 2.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3269,43 +3005,32 @@ y z";
                     id(0), // z
                     SmallInt(0),
                     SmallInt(20),
-                    Range {
-                        start: 1,
-                        end: 2,
-                        inclusive: false,
-                    },
-                    List(vec![3]),
+                    range(1, 2, false),
+                    List(expressions(&[3])),
                     id(2), // 5 - x
                     id(2),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Greater,
-                        lhs: 6,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::Greater, 6, 7),
                     Function(koto_parser::Function {
-                        args: vec![5],
+                        args: expressions(&[5]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 8,
+                        body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     NamedCall {
-                        id: 1, // y
-                        args: vec![4, 9],
+                        id: 1.into(), // y
+                        args: expressions(&[4, 9]),
                     }, // 10
-                    Assign {
-                        target: 0,
-                        expression: 10,
-                    },
+                    assign(0, 10),
                     id(0), // z
                     NamedCall {
-                        id: 1, // y
-                        args: vec![12],
+                        id: 1.into(), // y
+                        args: expressions(&[12]),
                     },
                     MainBlock {
-                        body: vec![11, 13],
+                        body: expressions(&[11, 13]),
                         local_count: 1,
                     },
                 ],
@@ -3320,17 +3045,17 @@ y z";
                 source,
                 &[
                     SmallInt(1),
-                    Yield(0),
+                    Yield(0.into()),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 1,
+                        body: 1.into(),
                         is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -3346,18 +3071,18 @@ y z";
                 &[
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(vec![0, 1]),
-                    Yield(2),
+                    Tuple(expressions(&[0, 1])),
+                    Yield(2.into()),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 3,
+                        body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3376,18 +3101,18 @@ y z";
                 source,
                 &[
                     SmallInt(42),
-                    Map(vec![(MapKey::Id(0), Some(0))]),
-                    Yield(1),
+                    Map(vec![id_entry(0, Some(0))]),
+                    Yield(1.into()),
                     Function(koto_parser::Function {
-                        args: vec![],
+                        args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 2,
+                        body: 2.into(),
                         is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3417,23 +3142,23 @@ y z";
                 &[
                     id(0), // a
                     Wildcard(None),
-                    Ellipsis(Some(1)),    // others
-                    id(2),                // c
-                    Wildcard(Some(3)),    // d
-                    Tuple(vec![2, 3, 4]), // ast index 5
-                    Tuple(vec![1, 5]),
-                    Wildcard(Some(4)), // e
+                    Ellipsis(Some(1.into())),       // others
+                    id(2),                          // c
+                    Wildcard(Some(3.into())),       // d
+                    Tuple(expressions(&[2, 3, 4])), // ast index 5
+                    Tuple(expressions(&[1, 5])),
+                    Wildcard(Some(4.into())), // e
                     id(0),
                     Function(koto_parser::Function {
-                        args: vec![0, 6, 7],
+                        args: expressions(&[0, 6, 7]),
                         local_count: 3,
                         accessed_non_locals: vec![],
-                        body: 8,
+                        body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![9],
+                        body: expressions(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -3460,18 +3185,15 @@ y z";
                 &[
                     id(0),
                     SmallInt(0),
-                    Lookup((LookupNode::Index(1), None)),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    lookup_index(1, None),
+                    lookup_root(0, Some(2)),
                     id(0),
                     SmallInt(1), // 5
-                    Lookup((LookupNode::Index(5), None)),
-                    Lookup((LookupNode::Root(4), Some(6))),
-                    Assign {
-                        target: 3,
-                        expression: 7,
-                    },
+                    lookup_index(5, None),
+                    lookup_root(4, Some(6)),
+                    assign(3, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -3487,10 +3209,10 @@ y z";
                 &[
                     id(0),
                     RangeFull,
-                    Lookup((LookupNode::Index(1), None)),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    lookup_index(1, None),
+                    lookup_root(0, Some(2)),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3507,13 +3229,13 @@ y z";
                     id(0),
                     SmallInt(3),
                     RangeTo {
-                        end: 1,
+                        end: 1.into(),
                         inclusive: false,
                     },
-                    Lookup((LookupNode::Index(2), None)),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_index(2, None),
+                    lookup_root(0, Some(3)),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3529,13 +3251,13 @@ y z";
                 &[
                     id(0),
                     SmallInt(10),
-                    RangeFrom { start: 1 },
+                    RangeFrom { start: 1.into() },
                     SmallInt(0),
-                    Lookup((LookupNode::Index(3), None)),
-                    Lookup((LookupNode::Index(2), Some(4))), // 5
-                    Lookup((LookupNode::Root(0), Some(5))),
+                    lookup_index(3, None),
+                    lookup_index(2, Some(4)), // 5
+                    lookup_root(0, Some(5)),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3544,16 +3266,16 @@ y z";
         }
 
         #[test]
-        fn lookup_id() {
+        fn lookup_with_id() {
             let source = "x.foo";
             check_ast(
                 source,
                 &[
                     id(0),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_id(1, None),
+                    lookup_root(0, Some(1)),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -3562,7 +3284,7 @@ y z";
         }
 
         #[test]
-        fn lookup_call() {
+        fn lookup_with_call() {
             let source = "x.bar()";
             check_ast(
                 source,
@@ -3570,15 +3292,15 @@ y z";
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(1))),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    lookup_id(1, Some(1)),
+                    lookup_root(0, Some(2)),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3595,21 +3317,17 @@ y z";
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(1))),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    lookup_id(1, Some(1)),
+                    lookup_root(0, Some(2)),
                     SmallInt(1),
-                    BinaryOp {
-                        op: AstBinaryOp::Subtract,
-                        lhs: 3,
-                        rhs: 4,
-                    }, // 5
+                    binary_op(AstBinaryOp::Subtract, 3, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3629,26 +3347,23 @@ x.bar()."baz" = 1
                     Lookup((
                         LookupNode::Str(AstString {
                             quote: StringQuote::Double,
-                            contents: StringContents::Literal(2),
+                            contents: StringContents::Literal(2.into()),
                         }),
                         None,
                     )),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
-                        Some(1),
+                        Some(1.into()),
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     SmallInt(1), // 5
-                    Assign {
-                        target: 4,
-                        expression: 5,
-                    },
+                    assign(4, 5),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3670,15 +3385,15 @@ x.bar()."baz" = 1
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3699,15 +3414,15 @@ x.foo
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3727,19 +3442,19 @@ x.takes_a_map
                     id(0), // x
                     SmallInt(42),
                     Map(vec![
-                        (MapKey::Id(2), Some(1)), // foo: 42
+                        id_entry(2, Some(1)), // foo: 42
                     ]),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![2],
+                            args: expressions(&[2]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(3))), // takes_a_map
-                    Lookup((LookupNode::Root(0), Some(4))), // @5
+                    lookup_id(1, Some(3)),   // takes_a_map
+                    lookup_root(0, Some(4)), // @5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3775,14 +3490,14 @@ x.takes_a_map
                 &sources,
                 &[
                     id(0),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_id(1, None),
+                    lookup_root(0, Some(1)),
                     id(0),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
-                    List(vec![2, 5]),
+                    lookup_id(2, None),
+                    lookup_root(3, Some(4)), // 5
+                    List(expressions(&[2, 5])),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3802,14 +3517,14 @@ x.takes_a_map
                 &[
                     id(1), // x
                     NamedCall {
-                        id: 0, // f
-                        args: vec![0],
+                        id: 0.into(), // f
+                        args: expressions(&[0]),
                     },
-                    Nested(1),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(2), Some(3))),
+                    Nested(1.into()),
+                    lookup_id(2, None),
+                    lookup_root(2, Some(3)),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3825,15 +3540,15 @@ x.takes_a_map
                 &[
                     id(1), // x
                     NamedCall {
-                        id: 0, // f
-                        args: vec![0],
+                        id: 0.into(), // f
+                        args: expressions(&[0]),
                     },
-                    Nested(1),
+                    Nested(1.into()),
                     SmallInt(0),
-                    Lookup((LookupNode::Index(3), None)),
-                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    lookup_index(3, None),
+                    lookup_root(2, Some(4)), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3849,21 +3564,21 @@ x.takes_a_map
                 &[
                     id(1), // x
                     NamedCall {
-                        id: 0, // f
-                        args: vec![0],
+                        id: 0.into(), // f
+                        args: expressions(&[0]),
                     },
-                    Nested(1),
+                    Nested(1.into()),
                     id(2), // y
                     Lookup((
                         LookupNode::Call {
-                            args: vec![3],
+                            args: expressions(&[3]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    lookup_root(2, Some(4)), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3880,15 +3595,15 @@ x.takes_a_map
                     SmallInt(1),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(0), Some(1))),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    lookup_id(0, Some(1)),
+                    lookup_root(0, Some(2)),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3906,15 +3621,15 @@ x.takes_a_map
                     string_literal(2, StringQuote::Single),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3948,23 +3663,20 @@ x = ( 0
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(vec![1, 2]),
+                    Tuple(expressions(&[1, 2])),
                     id(2),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![4],
+                            args: expressions(&[4]),
                             with_parens: false,
                         },
                         None,
                     )), // 5
-                    Lookup((LookupNode::Id(1), Some(5))),
-                    Lookup((LookupNode::Root(3), Some(6))),
-                    Assign {
-                        target: 0,
-                        expression: 7,
-                    },
+                    lookup_id(1, Some(5)),
+                    lookup_root(3, Some(6)),
+                    assign(0, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -3997,23 +3709,20 @@ x = [ 0
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    List(vec![1, 2]),
+                    List(expressions(&[1, 2])),
                     id(2),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![4],
+                            args: expressions(&[4]),
                             with_parens: false,
                         },
                         None,
                     )), // 5
-                    Lookup((LookupNode::Id(1), Some(5))),
-                    Lookup((LookupNode::Root(3), Some(6))),
-                    Assign {
-                        target: 0,
-                        expression: 7,
-                    },
+                    lookup_id(1, Some(5)),
+                    lookup_root(3, Some(6)),
+                    assign(0, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -4050,22 +3759,19 @@ x = { y
                 &sources,
                 &[
                     id(0),
-                    Map(vec![(MapKey::Id(1), None), (MapKey::Id(2), None)]),
+                    Map(vec![id_entry(1, None), id_entry(2, None)]),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(3), Some(2))),
-                    Lookup((LookupNode::Root(1), Some(3))),
-                    Assign {
-                        target: 0,
-                        expression: 4,
-                    }, // 5
+                    lookup_id(3, Some(2)),
+                    lookup_root(1, Some(3)),
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -4086,23 +3792,19 @@ x = { y
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    Range {
-                        start: 0,
-                        end: 1,
-                        inclusive: false,
-                    },
-                    Nested(2),
+                    range(0, 1, false),
+                    Nested(2.into()),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(0), Some(4))), // 5
-                    Lookup((LookupNode::Root(3), Some(5))),
+                    lookup_id(0, Some(4)), // 5
+                    lookup_root(3, Some(5)),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -4121,22 +3823,18 @@ x = { y
                 &[
                     SmallInt(0),
                     SmallInt(1),
-                    Range {
-                        start: 0,
-                        end: 1,
-                        inclusive: false,
-                    },
+                    range(0, 1, false),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(0), Some(3))),
-                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    lookup_id(0, Some(3)),
+                    lookup_root(2, Some(4)), // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -4151,20 +3849,20 @@ x = { y
                 source,
                 &[
                     id(0),
-                    Nested(0),
+                    Nested(0.into()),
                     id(2),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![2],
+                            args: expressions(&[2]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(3))),
-                    Lookup((LookupNode::Root(1), Some(4))), // 5
-                    Nested(5),
+                    lookup_id(1, Some(3)),
+                    lookup_root(1, Some(4)), // 5
+                    Nested(5.into()),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -4190,31 +3888,31 @@ x.iter()
                     SmallInt(1),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(3), Some(2))),
+                    lookup_id(3, Some(2)),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
-                        Some(3),
+                        Some(3.into()),
                     )),
-                    Lookup((LookupNode::Id(2), Some(4))), // 5
+                    lookup_id(2, Some(4)), // 5
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
-                        Some(5),
+                        Some(5.into()),
                     )),
-                    Lookup((LookupNode::Id(1), Some(6))),
-                    Lookup((LookupNode::Root(0), Some(7))),
+                    lookup_id(1, Some(6)),
+                    lookup_root(0, Some(7)),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4238,24 +3936,16 @@ foo.bar
                 source,
                 &[
                     id(0),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_id(1, None),
+                    lookup_root(0, Some(1)),
                     id(0),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
-                    BinaryOp {
-                        op: AstBinaryOp::Or,
-                        lhs: 2,
-                        rhs: 5,
-                    },
+                    lookup_id(2, None),
+                    lookup_root(3, Some(4)), // 5
+                    binary_op(AstBinaryOp::Or, 2, 5),
                     BoolFalse,
-                    BinaryOp {
-                        op: AstBinaryOp::Or,
-                        lhs: 6,
-                        rhs: 7,
-                    },
+                    binary_op(AstBinaryOp::Or, 6, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4285,9 +3975,9 @@ return 1";
                     Continue,
                     Return(None),
                     SmallInt(1),
-                    Return(Some(3)),
+                    Return(Some(3.into())),
                     MainBlock {
-                        body: vec![0, 1, 2, 4],
+                        body: expressions(&[0, 1, 2, 4]),
                         local_count: 0,
                     },
                 ],
@@ -4296,48 +3986,29 @@ return 1";
         }
 
         #[test]
-        fn expressions() {
+        fn keywords_with_args() {
             let source = r#"
 not true
 debug x + x
-assert_eq x, "hello"
 "#;
             check_ast(
                 source,
                 &[
                     BoolTrue,
-                    UnaryOp {
-                        op: AstUnaryOp::Not,
-                        value: 0,
-                    },
+                    unary_op(AstUnaryOp::Not, 0),
                     id(0),
                     id(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Add,
-                        lhs: 2,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Add, 2, 3),
                     Debug {
-                        expression_string: 1,
-                        expression: 4,
+                        expression_string: 1.into(),
+                        expression: 4.into(),
                     }, // 5
-                    id(0), // x
-                    string_literal(3, StringQuote::Double),
-                    NamedCall {
-                        id: 2,
-                        args: vec![6, 7],
-                    },
                     MainBlock {
-                        body: vec![1, 5, 8],
+                        body: expressions(&[1, 5]),
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("x + x"),
-                    Constant::Str("assert_eq"),
-                    Constant::Str("hello"),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("x + x")]),
             )
         }
     }
@@ -4345,14 +4016,14 @@ assert_eq x, "hello"
     mod import {
         use super::*;
 
-        fn import_id(id: ConstantIndex) -> ImportItem {
+        fn import_id(id: u32) -> ImportItem {
             ImportItem {
                 item: id.into(),
                 name: None,
             }
         }
 
-        fn import_string(literal_index: ConstantIndex, quotation_mark: StringQuote) -> ImportItem {
+        fn import_string(literal_index: u32, quotation_mark: StringQuote) -> ImportItem {
             ImportItem {
                 item: simple_string(literal_index, quotation_mark).into(),
                 name: None,
@@ -4370,7 +4041,7 @@ assert_eq x, "hello"
                         items: vec![import_id(0)],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 1,
                     },
                 ],
@@ -4388,11 +4059,11 @@ assert_eq x, "hello"
                         from: vec![],
                         items: vec![ImportItem {
                             item: 0.into(),
-                            name: Some(1),
+                            name: Some(1.into()),
                         }],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 1,
                     },
                 ],
@@ -4411,7 +4082,7 @@ assert_eq x, "hello"
                         items: vec![import_id(1)],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 1,
                     },
                 ],
@@ -4430,12 +4101,9 @@ assert_eq x, "hello"
                         from: vec![1.into()],
                         items: vec![import_id(2)],
                     },
-                    Assign {
-                        target: 0,
-                        expression: 1,
-                    },
+                    assign(0, 1),
                     MainBlock {
-                        body: vec![2],
+                        body: expressions(&[2]),
                         local_count: 2, // x and bar both assigned locally
                     },
                 ],
@@ -4475,7 +4143,7 @@ import foo,
                         ],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 2, // foo and baz, bar needs to be assigned
                     },
                 ],
@@ -4508,7 +4176,7 @@ from foo import bar,
                         items: vec![import_id(1), import_id(2)],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 2,
                     },
                 ],
@@ -4531,7 +4199,7 @@ from foo import bar,
                         items: vec![import_id(2), import_id(3)],
                     },
                     MainBlock {
-                        body: vec![0],
+                        body: expressions(&[0]),
                         local_count: 2,
                     },
                 ],
@@ -4562,26 +4230,26 @@ catch e
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_root(0, Some(1)),
                     id(1), // e
                     id(1),
                     Debug {
-                        expression_string: 1,
-                        expression: 4,
+                        expression_string: 1.into(),
+                        expression: 4.into(),
                     }, // ast 5
                     Try(AstTry {
-                        try_block: 2,
-                        catch_arg: 3,
-                        catch_block: 5,
+                        try_block: 2.into(),
+                        catch_arg: 3.into(),
+                        catch_block: 5.into(),
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -4604,13 +4272,13 @@ catch _
                     Wildcard(None),
                     id(1),
                     Try(AstTry {
-                        try_block: 0,
-                        catch_arg: 1,
-                        catch_block: 2,
+                        try_block: 0.into(),
+                        catch_arg: 1.into(),
+                        catch_block: 2.into(),
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -4629,17 +4297,17 @@ catch _error
             check_ast(
                 source,
                 &[
-                    id(0),             // x
-                    Wildcard(Some(1)), // error
-                    id(2),             // y
+                    id(0),                    // x
+                    Wildcard(Some(1.into())), // error
+                    id(2),                    // y
                     Try(AstTry {
-                        try_block: 0,
-                        catch_arg: 1,
-                        catch_block: 2,
+                        try_block: 0.into(),
+                        catch_arg: 1.into(),
+                        catch_block: 2.into(),
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -4667,27 +4335,27 @@ finally
                     id(0),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![],
+                            args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Root(0), Some(1))),
+                    lookup_root(0, Some(1)),
                     id(1), // e
                     id(1),
                     Debug {
-                        expression_string: 1,
-                        expression: 4,
+                        expression_string: 1.into(),
+                        expression: 4.into(),
                     }, // ast 5
                     SmallInt(0),
                     Try(AstTry {
-                        try_block: 2,
-                        catch_arg: 3,
-                        catch_block: 5,
-                        finally_block: Some(6),
+                        try_block: 2.into(),
+                        catch_arg: 3.into(),
+                        catch_block: 5.into(),
+                        finally_block: Some(6.into()),
                     }),
                     MainBlock {
-                        body: vec![7],
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -4702,9 +4370,9 @@ finally
                 source,
                 &[
                     id(0),
-                    Throw(0),
+                    Throw(0.into()),
                     MainBlock {
-                        body: vec![1],
+                        body: expressions(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -4719,9 +4387,9 @@ finally
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
-                    Throw(0),
+                    Throw(0.into()),
                     MainBlock {
-                        body: vec![1],
+                        body: expressions(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -4741,10 +4409,10 @@ throw
                 &[
                     id(1),
                     string_literal(3, StringQuote::Double),
-                    Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(1))]),
-                    Throw(2),
+                    Map(vec![id_entry(0, Some(0)), id_entry(2, Some(1))]),
+                    Throw(2.into()),
                     MainBlock {
-                        body: vec![3],
+                        body: expressions(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -4779,26 +4447,23 @@ x = match y
                     id(2), // 5
                     SmallInt(-1),
                     Match {
-                        expression: 1,
+                        expression: 1.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![2, 3],
+                                patterns: expressions(&[2, 3]),
                                 condition: None,
-                                expression: 4,
+                                expression: 4.into(),
                             },
                             MatchArm {
-                                patterns: vec![5],
+                                patterns: expressions(&[5]),
                                 condition: None,
-                                expression: 6,
+                                expression: 6.into(),
                             },
                         ],
                     },
-                    Assign {
-                        target: 0,
-                        expression: 7,
-                    },
+                    assign(0, 7),
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 2,
                     },
                 ],
@@ -4823,22 +4488,22 @@ match x
                     string_literal(3, StringQuote::Double),
                     Break(None), // 5
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![1],
+                                patterns: expressions(&[1]),
                                 condition: None,
-                                expression: 2,
+                                expression: 2.into(),
                             },
                             MatchArm {
-                                patterns: vec![3, 4],
+                                patterns: expressions(&[3, 4]),
                                 condition: None,
-                                expression: 5,
+                                expression: 5.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![6],
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -4864,36 +4529,36 @@ match (x, y, z)
                     id(0),
                     id(1),
                     id(2),
-                    Tuple(vec![0, 1, 2]),
+                    Tuple(expressions(&[0, 1, 2])),
                     SmallInt(0),
                     id(3), // 5
                     Wildcard(None),
-                    Tuple(vec![4, 5, 6]),
+                    Tuple(expressions(&[4, 5, 6])),
                     id(3),
                     Wildcard(None),
                     SmallInt(0), // 10
                     id(4),
-                    Tuple(vec![10, 11]),
-                    Wildcard(Some(5)),
-                    Tuple(vec![9, 12, 13]),
+                    Tuple(expressions(&[10, 11])),
+                    Wildcard(Some(5.into())),
+                    Tuple(expressions(&[9, 12, 13])),
                     SmallInt(0), // 15
                     Match {
-                        expression: 3,
+                        expression: 3.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![7],
+                                patterns: expressions(&[7]),
                                 condition: None,
-                                expression: 8,
+                                expression: 8.into(),
                             },
                             MatchArm {
-                                patterns: vec![14],
+                                patterns: expressions(&[14]),
                                 condition: None,
-                                expression: 15,
+                                expression: 15.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![16],
+                        body: expressions(&[16]),
                         local_count: 2,
                     },
                 ],
@@ -4921,29 +4586,29 @@ match x
                     id(0),
                     Ellipsis(None),
                     SmallInt(0),
-                    Tuple(vec![1, 2]),
+                    Tuple(expressions(&[1, 2])),
                     SmallInt(0),
                     SmallInt(1), // 5
                     Ellipsis(None),
-                    Tuple(vec![5, 6]),
+                    Tuple(expressions(&[5, 6])),
                     SmallInt(1),
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![3],
+                                patterns: expressions(&[3]),
                                 condition: None,
-                                expression: 4,
+                                expression: 4.into(),
                             },
                             MatchArm {
-                                patterns: vec![7],
+                                patterns: expressions(&[7]),
                                 condition: None,
-                                expression: 8,
+                                expression: 8.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![9],
+                        body: expressions(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -4962,33 +4627,33 @@ match y
                 source,
                 &[
                     id(0),
-                    Ellipsis(Some(1)),
+                    Ellipsis(Some(1.into())),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(vec![1, 2, 3]),
+                    Tuple(expressions(&[1, 2, 3])),
                     SmallInt(0), // 5
                     SmallInt(1),
                     SmallInt(0),
-                    Ellipsis(Some(2)),
-                    Tuple(vec![6, 7, 8]),
+                    Ellipsis(Some(2.into())),
+                    Tuple(expressions(&[6, 7, 8])),
                     SmallInt(1), // 10
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![4],
+                                patterns: expressions(&[4]),
                                 condition: None,
-                                expression: 5,
+                                expression: 5.into(),
                             },
                             MatchArm {
-                                patterns: vec![9],
+                                patterns: expressions(&[9]),
                                 condition: None,
-                                expression: 10,
+                                expression: 10.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![11],
+                        body: expressions(&[11]),
                         local_count: 2,
                     },
                 ],
@@ -5017,45 +4682,37 @@ match x
                     id(1),
                     id(1),
                     SmallInt(5),
-                    BinaryOp {
-                        op: AstBinaryOp::Greater,
-                        lhs: 2,
-                        rhs: 3,
-                    },
+                    binary_op(AstBinaryOp::Greater, 2, 3),
                     SmallInt(0), // 5
                     id(1),
                     id(1),
                     SmallInt(10),
-                    BinaryOp {
-                        op: AstBinaryOp::Less,
-                        lhs: 7,
-                        rhs: 8,
-                    },
+                    binary_op(AstBinaryOp::Less, 7, 8),
                     SmallInt(1), // 10
                     id(1),
                     SmallInt(-1),
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![1],
-                                condition: Some(4),
-                                expression: 5,
+                                patterns: expressions(&[1]),
+                                condition: Some(4.into()),
+                                expression: 5.into(),
                             },
                             MatchArm {
-                                patterns: vec![6],
-                                condition: Some(9),
-                                expression: 10,
+                                patterns: expressions(&[6]),
+                                condition: Some(9.into()),
+                                expression: 10.into(),
                             },
                             MatchArm {
-                                patterns: vec![11],
+                                patterns: expressions(&[11]),
                                 condition: None,
-                                expression: 12,
+                                expression: 12.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![13],
+                        body: expressions(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -5077,42 +4734,42 @@ match x, y
                 &[
                     id(0),
                     id(1),
-                    TempTuple(vec![0, 1]),
+                    TempTuple(expressions(&[0, 1])),
                     SmallInt(0),
                     SmallInt(1),
-                    TempTuple(vec![3, 4]), // 5
+                    TempTuple(expressions(&[3, 4])), // 5
                     SmallInt(2),
                     SmallInt(3),
-                    TempTuple(vec![6, 7]),
+                    TempTuple(expressions(&[6, 7])),
                     id(2),
                     SmallInt(0), // 10
                     id(3),
                     Null,
-                    TempTuple(vec![11, 12]),
+                    TempTuple(expressions(&[11, 12])),
                     id(3),
                     SmallInt(0), // 15
                     Match {
-                        expression: 2,
+                        expression: 2.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![5, 8],
-                                condition: Some(9),
-                                expression: 10,
+                                patterns: expressions(&[5, 8]),
+                                condition: Some(9.into()),
+                                expression: 10.into(),
                             },
                             MatchArm {
-                                patterns: vec![13],
+                                patterns: expressions(&[13]),
                                 condition: None,
-                                expression: 14,
+                                expression: 14.into(),
                             },
                             MatchArm {
-                                patterns: vec![],
+                                patterns: expressions(&[]),
                                 condition: None,
-                                expression: 15,
+                                expression: 15.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![16],
+                        body: expressions(&[16]),
                         local_count: 1,
                     },
                 ],
@@ -5139,33 +4796,33 @@ match x.foo 42
                     SmallInt(42),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(1), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    lookup_id(1, Some(2)),
+                    lookup_root(0, Some(3)),
                     Null, // 5
                     SmallInt(0),
                     SmallInt(1),
                     Match {
-                        expression: 4,
+                        expression: 4.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![5],
+                                patterns: expressions(&[5]),
                                 condition: None,
-                                expression: 6,
+                                expression: 6.into(),
                             },
                             MatchArm {
-                                patterns: vec![],
+                                patterns: expressions(&[]),
                                 condition: None,
-                                expression: 7,
+                                expression: 7.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![8],
+                        body: expressions(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -5184,19 +4841,19 @@ match x
                 &[
                     id(0),
                     id(1),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(1), Some(2))),
+                    lookup_id(2, None),
+                    lookup_root(1, Some(2)),
                     SmallInt(0),
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![MatchArm {
-                            patterns: vec![3],
+                            patterns: expressions(&[3]),
                             condition: None,
-                            expression: 4,
+                            expression: 4.into(),
                         }],
                     },
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -5218,24 +4875,24 @@ match x
                     SmallInt(0),
                     SmallInt(1),
                     string_literal(1, StringQuote::Single),
-                    Throw(3),
+                    Throw(3.into()),
                     Match {
-                        expression: 0,
+                        expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: vec![1],
+                                patterns: expressions(&[1]),
                                 condition: None,
-                                expression: 2,
+                                expression: 2.into(),
                             },
                             MatchArm {
-                                patterns: vec![],
+                                patterns: expressions(&[]),
                                 condition: None,
-                                expression: 4,
+                                expression: 4.into(),
                             },
                         ],
                     }, // 5
                     MainBlock {
-                        body: vec![5],
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -5256,37 +4913,29 @@ switch
                 &[
                     SmallInt(1),
                     SmallInt(0),
-                    BinaryOp {
-                        op: AstBinaryOp::Equal,
-                        lhs: 0,
-                        rhs: 1,
-                    },
+                    binary_op(AstBinaryOp::Equal, 0, 1),
                     SmallInt(0),
                     id(0),
                     id(1), // 5
-                    BinaryOp {
-                        op: AstBinaryOp::Greater,
-                        lhs: 4,
-                        rhs: 5,
-                    },
+                    binary_op(AstBinaryOp::Greater, 4, 5),
                     SmallInt(1),
                     id(0),
                     Switch(vec![
                         SwitchArm {
-                            condition: Some(2),
-                            expression: 3,
+                            condition: Some(2.into()),
+                            expression: 3.into(),
                         },
                         SwitchArm {
-                            condition: Some(6),
-                            expression: 7,
+                            condition: Some(6.into()),
+                            expression: 7.into(),
                         },
                         SwitchArm {
                             condition: None,
-                            expression: 8,
+                            expression: 8.into(),
                         },
                     ]),
                     MainBlock {
-                        body: vec![9],
+                        body: expressions(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -5308,21 +4957,21 @@ switch
                     SmallInt(1),
                     id(0),
                     Debug {
-                        expression_string: 0,
-                        expression: 2,
+                        expression_string: 0.into(),
+                        expression: 2.into(),
                     },
                     Switch(vec![
                         SwitchArm {
-                            condition: Some(0),
-                            expression: 1,
+                            condition: Some(0.into()),
+                            expression: 1.into(),
                         },
                         SwitchArm {
                             condition: None,
-                            expression: 3,
+                            expression: 3.into(),
                         },
                     ]),
                     MainBlock {
-                        body: vec![4],
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],

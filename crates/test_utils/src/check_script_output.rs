@@ -24,7 +24,7 @@ pub fn check_script_output_with_vm(
     let expected_output = expected_output.into();
 
     let mut loader = Loader::default();
-    let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
+    let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {
             println!("{script}\n");

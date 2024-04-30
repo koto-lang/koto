@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths: &[PathBuf]) {
+fn run_script(script: &str, script_path: &Path, expected_module_paths: &[PathBuf]) {
     let loaded_module_paths = PtrMut::from(vec![]);
 
     let mut koto = Koto::with_settings(
@@ -17,7 +17,7 @@ fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths:
             move |path: &Path| loaded_module_paths.borrow_mut().push(path.to_path_buf())
         }),
     );
-    koto.set_script_path(script_path).unwrap();
+    koto.set_script_path(Some(script_path)).unwrap();
 
     match koto.compile(script) {
         Ok(_) => match koto.run() {
@@ -76,7 +76,7 @@ fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
         })
         .collect::<Vec<_>>();
 
-    run_script(&script, Some(script_path), &expected_module_paths);
+    run_script(&script, &script_path, &expected_module_paths);
 }
 
 macro_rules! koto_test {

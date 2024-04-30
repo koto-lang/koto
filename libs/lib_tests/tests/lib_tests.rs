@@ -1,12 +1,15 @@
 use koto::prelude::*;
-use std::{fs::read_to_string, path::PathBuf};
+use std::{
+    fs::read_to_string,
+    path::{Path, PathBuf},
+};
 
-fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool) {
+fn run_script(script: &str, path: &Path, should_fail_at_runtime: bool) {
     let mut koto = Koto::with_settings(KotoSettings {
         run_tests: true,
         ..Default::default()
     });
-    koto.set_script_path(path).unwrap();
+    koto.set_script_path(Some(path)).unwrap();
 
     let prelude = koto.prelude();
     prelude.insert("color", koto_color::make_module());
@@ -48,7 +51,7 @@ fn load_and_run_script(script_path: &str) {
     let script =
         read_to_string(&path).unwrap_or_else(|_| panic!("Unable to load path '{:?}'", &path));
 
-    run_script(&script, Some(path), false);
+    run_script(&script, &path, false);
 }
 
 macro_rules! lib_test {

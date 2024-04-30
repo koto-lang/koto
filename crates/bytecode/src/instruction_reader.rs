@@ -124,19 +124,19 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: get_var_u32!(),
+                constant: get_var_u32!().into(),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: get_var_u32!(),
+                constant: get_var_u32!().into(),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: get_var_u32!(),
+                constant: get_var_u32!().into(),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: get_var_u32!(),
+                constant: get_var_u32!().into(),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -457,7 +457,7 @@ impl Iterator for InstructionReader {
             Op::Access => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
-                key: get_var_u32!(),
+                key: get_var_u32!().into(),
             }),
             Op::AccessString => Some(AccessString {
                 register: get_u8!(),
@@ -471,7 +471,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: get_var_u32!(),
+                constant: get_var_u32!().into(),
             }),
             Op::CheckSizeEqual => Some(CheckSizeEqual {
                 register: get_u8!(),
@@ -502,7 +502,7 @@ impl Iterator for InstructionReader {
                         options.precision = Some(get_var_u32!());
                     }
                     if flags.fill_character {
-                        options.fill_character = Some(get_var_u32!());
+                        options.fill_character = Some(get_var_u32!().into());
                     }
 
                     Some(options)

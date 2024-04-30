@@ -559,7 +559,7 @@ impl Compiler {
                 let expression_register = expression_result.unwrap(self)?;
 
                 self.push_op(Debug, &[expression_register]);
-                self.push_var_u32(*expression_string);
+                self.push_var_u32(u32::from(*expression_string));
 
                 expression_result
             }
@@ -1087,9 +1087,9 @@ impl Compiler {
         self.compile_constant_op(result_register, id, Op::LoadNonLocal);
     }
 
-    fn compile_constant_op(&mut self, result_register: u8, id: u32, op: Op) {
+    fn compile_constant_op(&mut self, result_register: u8, id: ConstantIndex, op: Op) {
         self.push_op(op, &[result_register]);
-        self.push_var_u32(id);
+        self.push_var_u32(id.into());
     }
 
     fn push_var_u32(&mut self, mut n: u32) {
@@ -1802,7 +1802,7 @@ impl Compiler {
                                             self.push_var_u32(precision);
                                         }
                                         if let Some(fill_constant) = format.fill_character {
-                                            self.push_var_u32(fill_constant);
+                                            self.push_var_u32(fill_constant.into());
                                         }
 
                                         if expression_result.is_temporary {
@@ -2502,7 +2502,7 @@ impl Compiler {
 
     fn compile_access_id(&mut self, result: u8, value: u8, key: ConstantIndex) {
         self.push_op(Op::Access, &[result, value]);
-        self.push_var_u32(key);
+        self.push_var_u32(key.into());
     }
 
     fn compile_access_string(

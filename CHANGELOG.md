@@ -14,6 +14,12 @@ The Koto project adheres to
 
 - `await`, `const`, and `let` have been reserved as keywords for future use.
 
+#### API
+
+- The line and column numbers referred to in spans are now zero-based. 
+- Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
+- `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.
+
 ## [0.14.0] 2024.04.17
 
 ### Added 

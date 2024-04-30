@@ -3,7 +3,7 @@
 An example of integrating Koto into a Rust application, in this case a simple
 Markov chain generator that produces generated 'poetry'.
 
-`cargo run --example poetry -- scripts/readme.koto`
+`cargo run --example poetry -- -s scripts/readme.koto`
 
 ## `poetry.rs`
 

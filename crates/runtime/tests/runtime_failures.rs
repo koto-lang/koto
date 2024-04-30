@@ -7,7 +7,7 @@ mod runtime {
         let mut vm = KotoVm::default();
 
         let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None, CompilerSettings::default()) {
+        let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
                 println!("{}", script_instructions(script, vm.chunk()));

@@ -3,13 +3,55 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt,
     hash::{Hash, Hasher},
-    ops::Range,
+    num::TryFromIntError,
+    ops::{Deref, Range},
 };
 
-use crate::error::InternalError;
+use crate::{error::InternalError, StringSlice};
 
 /// The type used to refer to constants in the [ConstantPool]
-pub type ConstantIndex = u32;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ConstantIndex(u32);
+
+impl Deref for ConstantIndex {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<ConstantIndex> for u32 {
+    fn from(value: ConstantIndex) -> Self {
+        value.0
+    }
+}
+
+impl From<ConstantIndex> for usize {
+    fn from(value: ConstantIndex) -> Self {
+        value.0 as usize
+    }
+}
+
+impl From<u32> for ConstantIndex {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl TryFrom<usize> for ConstantIndex {
+    type Error = TryFromIntError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Ok(Self(u32::try_from(value)?))
+    }
+}
+
+impl fmt::Display for ConstantIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 // An entry in the list of constants contained in a [ConstantPool]
 #[derive(Clone, Debug, PartialEq)]
@@ -82,7 +124,7 @@ impl ConstantPool {
         &self.string_data
     }
 
-    /// Returns the string corresponding to the provided index
+    /// Returns the string corresponding to the provided index as a &str
     ///
     /// Warning! Panics if there isn't a string at the provided index
     #[inline]
@@ -91,11 +133,17 @@ impl ConstantPool {
         unsafe { self.string_data.get_unchecked(self.get_str_bounds(index)) }
     }
 
-    /// Returns bounds in the concatenated string data corresponding to the provided index
+    /// Returns the string corresponding to the provided index as a string slice
     ///
     /// Warning! Panics if there isn't a string at the provided index
-    pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
-        match self.constants.get(index as usize) {
+    #[inline]
+    pub fn get_string_slice(&self, index: ConstantIndex) -> StringSlice {
+        // Safety: The bounds have already been checked while the pool is being prepared
+        unsafe { StringSlice::new_unchecked(self.string_data.clone(), self.get_str_bounds(index)) }
+    }
+
+    fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
+        match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
         }
@@ -105,7 +153,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an f64 at the provided index
     pub fn get_f64(&self, index: ConstantIndex) -> f64 {
-        match self.constants.get(index as usize) {
+        match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::F64(n)) => *n,
             _ => panic!("Invalid index"),
         }
@@ -115,7 +163,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an i64 at the provided index
     pub fn get_i64(&self, index: ConstantIndex) -> i64 {
-        match self.constants.get(index as usize) {
+        match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::I64(n)) => *n,
             _ => panic!("Invalid index"),
         }
@@ -203,7 +251,7 @@ impl ConstantPoolBuilder {
         match self.string_map.get(s) {
             Some(index) => Ok(*index),
             None => {
-                let result = u32::try_from(self.constants.len())
+                let result = ConstantIndex::try_from(self.constants.len())
                     .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
 
                 let start = self.string_data.len();
@@ -225,7 +273,7 @@ impl ConstantPoolBuilder {
         match self.float_map.get(&n_u64) {
             Some(index) => Ok(*index),
             None => {
-                let result = u32::try_from(self.constants.len())
+                let result = ConstantIndex::try_from(self.constants.len())
                     .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
                 self.constants.push(ConstantEntry::F64(n));
                 n_u64.hash(&mut self.hasher);
@@ -239,7 +287,7 @@ impl ConstantPoolBuilder {
         match self.int_map.get(&n) {
             Some(index) => Ok(*index),
             None => {
-                let result = u32::try_from(self.constants.len())
+                let result = ConstantIndex::try_from(self.constants.len())
                     .map_err(|_| InternalError::ConstantPoolCapacityOverflow)?;
                 self.constants.push(ConstantEntry::I64(n));
                 n.hash(&mut self.hasher);
@@ -250,7 +298,7 @@ impl ConstantPoolBuilder {
     }
 
     pub fn get_str(&self, index: ConstantIndex) -> &str {
-        match self.constants.get(index as usize) {
+        match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::Str(range)) => {
                 // Safety: The bounds have already been checked while the pool is being prepared
                 unsafe { self.string_data.get_unchecked(range.clone()) }
@@ -284,17 +332,17 @@ mod tests {
         let s2 = "test2";
 
         // 1 byte for string length
-        assert_eq!(0, builder.add_string(s1).unwrap());
-        assert_eq!(1, builder.add_string(s2).unwrap());
+        assert_eq!(ConstantIndex(0), builder.add_string(s1).unwrap());
+        assert_eq!(ConstantIndex(1), builder.add_string(s2).unwrap());
 
         // don't duplicate string_data
-        assert_eq!(0, builder.add_string(s1).unwrap());
-        assert_eq!(1, builder.add_string(s2).unwrap());
+        assert_eq!(ConstantIndex(0), builder.add_string(s1).unwrap());
+        assert_eq!(ConstantIndex(1), builder.add_string(s2).unwrap());
 
         let pool = builder.build();
 
-        assert_eq!(s1, pool.get_str(0));
-        assert_eq!(s2, pool.get_str(1));
+        assert_eq!(s1, pool.get_str(0.into()));
+        assert_eq!(s2, pool.get_str(1.into()));
 
         assert_eq!(2, pool.size());
     }
@@ -306,17 +354,17 @@ mod tests {
         let n1 = 3;
         let n2 = 9.87654321;
 
-        assert_eq!(0, builder.add_i64(n1).unwrap());
-        assert_eq!(1, builder.add_f64(n2).unwrap());
+        assert_eq!(ConstantIndex(0), builder.add_i64(n1).unwrap());
+        assert_eq!(ConstantIndex(1), builder.add_f64(n2).unwrap());
 
         // don't duplicate numbers
-        assert_eq!(0, builder.add_i64(n1).unwrap());
-        assert_eq!(1, builder.add_f64(n2).unwrap());
+        assert_eq!(ConstantIndex(0), builder.add_i64(n1).unwrap());
+        assert_eq!(ConstantIndex(1), builder.add_f64(n2).unwrap());
 
         let pool = builder.build();
 
-        assert_eq!(n1, pool.get_i64(0));
-        assert!(floats_are_equal(n2, pool.get_f64(1)));
+        assert_eq!(n1, pool.get_i64(0.into()));
+        assert!(floats_are_equal(n2, pool.get_f64(1.into())));
 
         assert_eq!(2, pool.size());
     }
@@ -330,17 +378,17 @@ mod tests {
         let s1 = "O_o";
         let s2 = "^_^";
 
-        assert_eq!(0, builder.add_f64(n1).unwrap());
-        assert_eq!(1, builder.add_string(s1).unwrap());
-        assert_eq!(2, builder.add_i64(n2).unwrap());
-        assert_eq!(3, builder.add_string(s2).unwrap());
+        assert_eq!(ConstantIndex(0), builder.add_f64(n1).unwrap());
+        assert_eq!(ConstantIndex(1), builder.add_string(s1).unwrap());
+        assert_eq!(ConstantIndex(2), builder.add_i64(n2).unwrap());
+        assert_eq!(ConstantIndex(3), builder.add_string(s2).unwrap());
 
         let pool = builder.build();
 
-        assert!(floats_are_equal(n1, pool.get_f64(0)));
-        assert_eq!(s1, pool.get_str(1));
-        assert_eq!(n2, pool.get_i64(2));
-        assert_eq!(s2, pool.get_str(3));
+        assert!(floats_are_equal(n1, pool.get_f64(0.into())));
+        assert_eq!(s1, pool.get_str(1.into()));
+        assert_eq!(n2, pool.get_i64(2.into()));
+        assert_eq!(s2, pool.get_str(3.into()));
 
         assert_eq!(4, pool.size());
     }

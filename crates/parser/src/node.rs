@@ -663,6 +663,12 @@ pub enum IdOrString {
     Str(AstString),
 }
 
+impl From<u32> for IdOrString {
+    fn from(id: u32) -> Self {
+        Self::Id(id.into())
+    }
+}
+
 impl From<ConstantIndex> for IdOrString {
     fn from(id: ConstantIndex) -> Self {
         Self::Id(id)
