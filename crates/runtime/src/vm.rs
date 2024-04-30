@@ -933,7 +933,7 @@ impl KotoVm {
         Ok(control_flow)
     }
 
-    fn run_load_non_local(&mut self, register: u8, constant_index: u32) -> Result<()> {
+    fn run_load_non_local(&mut self, register: u8, constant_index: ConstantIndex) -> Result<()> {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
