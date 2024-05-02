@@ -1187,14 +1187,14 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_id_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let start_span = self.current_span();
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
+        let id_span = self.current_span();
 
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
             let id_node = self.push_node(Node::Id(constant_index))?;
-            self.consume_map_block(id_node, start_span, &id_context)
+            self.consume_map_block(id_node, id_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1203,18 +1203,17 @@ impl<'source> Parser<'source> {
                 let id_index = self.push_node(Node::Id(constant_index))?;
                 self.consume_lookup(id_index, &lookup_context)
             } else {
-                let start_span = self.current_span();
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
                     self.push_node(Node::Id(constant_index))
                 } else {
-                    self.push_node_with_start_span(
+                    self.push_node_with_span(
                         Node::NamedCall {
                             id: constant_index,
                             args,
                         },
-                        start_span,
+                        id_span,
                     )
                 }
             }
