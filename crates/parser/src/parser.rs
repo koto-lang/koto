@@ -1335,7 +1335,7 @@ impl<'source> Parser<'source> {
                         Some(Token::Id | Token::StringStart { .. })
                     ) {
                         // This check prevents detached dot accesses, e.g. `x. foo`
-                        return self.error(SyntaxError::ExpectedMapKey);
+                        return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     } else if let Some((id, _)) = self.parse_id(&restricted)? {
                         node_start_span = self.current_span();
                         lookup.push((LookupNode::Id(id), node_start_span));
