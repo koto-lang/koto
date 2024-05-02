@@ -21,16 +21,6 @@ pub enum Node {
     /// A lookup node, and optionally the node that follows it in the lookup chain
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
 
-    /// A parentheses-free call on a named id, e.g. `foo 1, 2, 3`
-    ///
-    /// Calls with parentheses or on temporary values are parsed as Lookups
-    NamedCall {
-        /// The id of the function to be called
-        id: ConstantIndex,
-        /// The arguments to pass to the function
-        args: Vec<AstIndex>,
-    },
-
     /// The `true` keyword
     BoolTrue,
 

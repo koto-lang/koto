@@ -26,6 +26,8 @@ The Koto project adheres to
 
 - `koto_parser::MapKey` and `IdOrString` have been removed, map keys and import 
   IDs are now represented as AST nodes.
+- `Node::NamedCall` has been removed, with all calls represented by expression
+  chains.
 
 ## [0.14.0] 2024.04.17
 

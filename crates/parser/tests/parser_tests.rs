@@ -119,16 +119,26 @@ mod parser {
         }
     }
 
+    fn lookup_call(args: &[u32], with_parens: bool, next: Option<u32>) -> Node {
+        Node::Lookup((
+            LookupNode::Call {
+                args: args.iter().map(AstIndex::from).collect(),
+                with_parens,
+            },
+            next.map(AstIndex::from),
+        ))
+    }
+
     fn lookup_id(id: u32, next: Option<u32>) -> Node {
-        Lookup((LookupNode::Id(id.into()), next.map(AstIndex::from)))
+        Node::Lookup((LookupNode::Id(id.into()), next.map(AstIndex::from)))
     }
 
     fn lookup_index(index: u32, next: Option<u32>) -> Node {
-        Lookup((LookupNode::Index(index.into()), next.map(AstIndex::from)))
+        Node::Lookup((LookupNode::Index(index.into()), next.map(AstIndex::from)))
     }
 
     fn lookup_root(index: u32, next: Option<u32>) -> Node {
-        Lookup((LookupNode::Root(index.into()), next.map(AstIndex::from)))
+        Node::Lookup((LookupNode::Root(index.into()), next.map(AstIndex::from)))
     }
 
     mod values {
@@ -782,16 +792,15 @@ x =
                     id(0), // x
                     id(1), // foo
                     SmallInt(1),
-                    id(2), // bar
-                    SmallInt(42),
-                    NamedCall {
-                        id: 3.into(), // baz
-                        args: expressions(&[4]),
-                    }, // 5
-                    map_block(&[(1, 2), (3, 5)]),
-                    assign(0, 6),
+                    id(2),        // bar
+                    id(3),        // baz
+                    SmallInt(42), // 5
+                    lookup_call(&[5], false, None),
+                    lookup_root(4, Some(6)),
+                    map_block(&[(1, 2), (3, 7)]),
+                    assign(0, 8),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: expressions(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -1505,15 +1514,14 @@ export
                 &[
                     id(0), // x
                     SmallInt(1),
+                    id(1), // f
                     id(2), // y
-                    NamedCall {
-                        id: 1.into(), // f
-                        args: expressions(&[2]),
-                    },
-                    binary_op(AstBinaryOp::Add, 1, 3),
-                    assign(0, 4), // 5
+                    lookup_call(&[3], false, None),
+                    lookup_root(2, Some(4)), // 5
+                    binary_op(AstBinaryOp::Add, 1, 5),
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -1831,7 +1839,7 @@ a",
         fn for_block() {
             let source = "\
 for x, _, _y, z in foo
-  z x";
+  x";
             check_ast(
                 source,
                 &[
@@ -1841,17 +1849,13 @@ for x, _, _y, z in foo
                     id(2),                    // z
                     id(3),                    // foo
                     id(0),                    // x - 5
-                    NamedCall {
-                        id: 2.into(), // z
-                        args: expressions(&[5]),
-                    },
                     For(AstFor {
                         args: expressions(&[0, 1, 2, 3]),
                         iterable: 4.into(),
-                        body: 6.into(),
+                        body: 5.into(),
                     }),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: expressions(&[6]),
                         local_count: 2, // x, z
                     },
                 ],
@@ -1868,7 +1872,7 @@ for x, _, _y, z in foo
         fn while_block() {
             let source = "\
 while x > y
-  f x";
+  x";
             check_ast(
                 source,
                 &[
@@ -1876,20 +1880,16 @@ while x > y
                     id(1), // y
                     binary_op(AstBinaryOp::Greater, 0, 1),
                     id(0), // x
-                    NamedCall {
-                        id: 2.into(), // f
-                        args: expressions(&[3]),
-                    },
                     While {
                         condition: 2.into(),
-                        body: 4.into(),
-                    }, // 5
+                        body: 3.into(),
+                    },
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -1897,28 +1897,24 @@ while x > y
         fn until_block() {
             let source = "\
 until x < y
-  f y";
+  x";
             check_ast(
                 source,
                 &[
                     id(0), // x
                     id(1), // y
                     binary_op(AstBinaryOp::Less, 0, 1),
-                    id(1), // y
-                    NamedCall {
-                        id: 2.into(), // f
-                        args: expressions(&[3]),
-                    },
+                    id(0), // x
                     Until {
                         condition: 2.into(),
-                        body: 4.into(),
-                    }, // 5
+                        body: 3.into(),
+                    },
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -2138,13 +2134,12 @@ f 42";
                         is_generator: false,
                     }),
                     assign(0, 7),
-                    SmallInt(42),
-                    NamedCall {
-                        id: 0.into(),
-                        args: expressions(&[9]),
-                    }, // 10
+                    id(0),        // f
+                    SmallInt(42), // 10
+                    lookup_call(&[10], false, None),
+                    lookup_root(9, Some(11)),
                     MainBlock {
-                        body: expressions(&[8, 10]),
+                        body: expressions(&[8, 12]),
                         local_count: 1,
                     },
                 ],
@@ -2159,7 +2154,7 @@ f = |x|
   y = |z|
     z
   y x
-f 42";
+";
             check_ast(
                 source,
                 &[
@@ -2175,30 +2170,24 @@ f 42";
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
-                    }), // 5
+                    }),
                     assign(2, 5),
+                    id(2), // y
                     id(1), // x
-                    NamedCall {
-                        id: 2.into(), // y
-                        args: expressions(&[7]),
-                    },
-                    Block(expressions(&[6, 8])),
+                    lookup_call(&[8], false, None),
+                    lookup_root(7, Some(9)), // 10
+                    Block(expressions(&[6, 10])),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 9.into(),
+                        body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
-                    assign(0, 10),
-                    SmallInt(42),
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[12]),
-                    },
+                    assign(0, 12),
                     MainBlock {
-                        body: expressions(&[11, 13]),
+                        body: expressions(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -2217,15 +2206,14 @@ f 42";
             check_ast(
                 source,
                 &[
+                    id(0),
                     id(1),
                     id(1),
-                    unary_op(AstUnaryOp::Negate, 1),
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[0, 2]),
-                    },
+                    unary_op(AstUnaryOp::Negate, 2),
+                    lookup_call(&[1, 3], false, None),
+                    lookup_root(0, Some(4)), // 5
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2239,15 +2227,14 @@ f 42";
             check_ast(
                 source,
                 &[
-                    id(1),
+                    id(0), // f
+                    id(1), // x
                     SmallInt(1),
-                    binary_op(AstBinaryOp::Subtract, 0, 1),
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[2]),
-                    },
+                    binary_op(AstBinaryOp::Subtract, 1, 2),
+                    lookup_call(&[3], false, None),
+                    lookup_root(0, Some(4)), // 5
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2322,14 +2309,13 @@ foo x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    id(1),
-                    id(2),
-                    NamedCall {
-                        id: 0.into(), // foo
-                        args: expressions(&[0, 1]),
-                    },
+                    id(0), //foo
+                    id(1), // x
+                    id(2), // y
+                    lookup_call(&[1, 2], false, None),
+                    lookup_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -2346,23 +2332,22 @@ foo
             check_ast(
                 source,
                 &[
-                    id(1),
-                    id(2),
-                    id(2),
+                    id(0), // foo
+                    id(1), // x
+                    id(2), // y
+                    id(2), // y
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: expressions(&[2]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 2.into(),
+                        body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    NamedCall {
-                        id: 0.into(), // foo
-                        args: expressions(&[0, 3]),
-                    },
+                    lookup_call(&[1, 4], false, None), // 5
+                    lookup_root(0, Some(5)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -2379,18 +2364,16 @@ f x";
             check_ast(
                 source,
                 &[
+                    id(0),
                     id(1),
-                    NamedCall {
-                        id: 0.into(),
-                        args: expressions(&[0]),
-                    },
-                    id(1),
-                    NamedCall {
-                        id: 0.into(),
-                        args: expressions(&[2]),
-                    }, // 5
+                    lookup_call(&[1], false, None),
+                    lookup_root(0, Some(2)),
+                    id(0),
+                    id(1), // 5
+                    lookup_call(&[5], false, None),
+                    lookup_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[1, 3]),
+                        body: expressions(&[3, 7]),
                         local_count: 0,
                     },
                 ],
@@ -2406,22 +2389,21 @@ f x";
                 &[
                     id(0), // f
                     id(1), // x
+                    id(0), // f
                     id(1), // x
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[2]),
-                    },
+                    lookup_call(&[3], false, None),
+                    lookup_root(2, Some(4)), // 5
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
                         local_count: 1,
                         accessed_non_locals: vec![0.into()],
-                        body: 3.into(),
+                        body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    assign(0, 4), // 5
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2435,45 +2417,43 @@ f x";
             check_ast(
                 source,
                 &[
-                    id(0), // f
-                    id(1), // g
-                    id(2), // x
-                    id(2),
-                    NamedCall {
-                        id: 0.into(),
-                        args: expressions(&[3]),
-                    },
+                    id(0),                          // f
+                    id(1),                          // g
+                    id(2),                          // x
+                    id(0),                          // f
+                    id(2),                          // x
+                    lookup_call(&[4], false, None), // 5
+                    lookup_root(3, Some(5)),
                     Function(koto_parser::Function {
                         args: expressions(&[2]),
                         local_count: 1,
                         accessed_non_locals: vec![0.into()],
-                        body: 4.into(),
+                        body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
-                    }), // 5
-                    Nested(5.into()),
+                    }),
+                    Nested(7.into()),
                     id(2), // x
+                    id(1), // 10 - g
                     id(2), // x
-                    NamedCall {
-                        id: 1.into(), // g
-                        args: expressions(&[8]),
-                    },
+                    lookup_call(&[11], false, None),
+                    lookup_root(10, Some(12)),
                     Function(koto_parser::Function {
-                        args: expressions(&[7]),
+                        args: expressions(&[9]),
                         local_count: 1,
                         accessed_non_locals: vec![1.into()],
-                        body: 9.into(),
+                        body: 13.into(),
                         is_variadic: false,
                         is_generator: false,
-                    }), // 10
-                    Nested(10.into()),
-                    TempTuple(expressions(&[6, 11])),
+                    }),
+                    Nested(14.into()), // 15
+                    TempTuple(expressions(&[8, 15])),
                     MultiAssign {
                         targets: expressions(&[0, 1]),
-                        expression: 12.into(),
+                        expression: 16.into(),
                     },
                     MainBlock {
-                        body: expressions(&[13]),
+                        body: expressions(&[17]),
                         local_count: 2,
                     },
                 ],
@@ -2487,17 +2467,16 @@ f x";
             check_ast(
                 source,
                 &[
+                    id(0), // f
                     id(1), // x
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[0]),
-                    },
-                    id(2), // g
-                    binary_op(AstBinaryOp::Pipe, 1, 2),
-                    id(3),                              // h
+                    lookup_call(&[1], false, None),
+                    lookup_root(0, Some(2)),
+                    id(2),                              // g
                     binary_op(AstBinaryOp::Pipe, 3, 4), // 5
+                    id(3),                              // h
+                    binary_op(AstBinaryOp::Pipe, 5, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -2901,39 +2880,33 @@ f = |n|
         fn call_with_function() {
             let source = "\
 z = y [0..20], |x| x > 1
-y z";
+";
             check_ast(
                 source,
                 &[
                     id(0), // z
+                    id(1), // y
                     SmallInt(0),
                     SmallInt(20),
-                    range(1, 2, false),
-                    List(expressions(&[3])),
-                    id(2), // 5 - x
-                    id(2),
+                    range(2, 3, false),
+                    List(expressions(&[4])), // 5
+                    id(2),                   // x
+                    id(2),                   // x
                     SmallInt(1),
-                    binary_op(AstBinaryOp::Greater, 6, 7),
+                    binary_op(AstBinaryOp::Greater, 7, 8),
                     Function(koto_parser::Function {
-                        args: expressions(&[5]),
+                        args: expressions(&[6]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 8.into(),
+                        body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
-                    }),
-                    NamedCall {
-                        id: 1.into(), // y
-                        args: expressions(&[4, 9]),
-                    }, // 10
-                    assign(0, 10),
-                    id(0), // z
-                    NamedCall {
-                        id: 1.into(), // y
-                        args: expressions(&[12]),
-                    },
+                    }), // 10
+                    lookup_call(&[5, 10], false, None),
+                    lookup_root(1, Some(11)),
+                    assign(0, 12),
                     MainBlock {
-                        body: expressions(&[11, 13]),
+                        body: expressions(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -3418,16 +3391,15 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
+                    id(0), // f
                     id(1), // x
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[0]),
-                    },
-                    Nested(1.into()),
-                    lookup_id(2, None),
-                    lookup_root(2, Some(3)),
+                    lookup_call(&[1], false, None),
+                    lookup_root(0, Some(2)),
+                    Nested(3.into()),
+                    lookup_id(2, None), // 5
+                    lookup_root(4, Some(5)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3441,17 +3413,16 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
+                    id(0), // f
                     id(1), // x
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[0]),
-                    },
-                    Nested(1.into()),
-                    SmallInt(0),
-                    lookup_index(3, None),
-                    lookup_root(2, Some(4)), // 5
+                    lookup_call(&[1], false, None),
+                    lookup_root(0, Some(2)),
+                    Nested(3.into()),
+                    SmallInt(0), // 5
+                    lookup_index(5, None),
+                    lookup_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -3465,23 +3436,16 @@ x.takes_a_map
             check_ast(
                 source,
                 &[
+                    id(0), // f
                     id(1), // x
-                    NamedCall {
-                        id: 0.into(), // f
-                        args: expressions(&[0]),
-                    },
-                    Nested(1.into()),
-                    id(2), // y
-                    Lookup((
-                        LookupNode::Call {
-                            args: expressions(&[3]),
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    lookup_root(2, Some(4)), // 5
+                    lookup_call(&[1], false, None),
+                    lookup_root(0, Some(2)),
+                    Nested(3.into()),
+                    id(2), // 5 - y
+                    lookup_call(&[5], true, None),
+                    lookup_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 0,
                     },
                 ],

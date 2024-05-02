@@ -1190,29 +1190,40 @@ impl<'source> Parser<'source> {
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
+        let id_node = self.push_node(Node::Id(constant_index))?;
         let id_span = self.current_span();
 
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
-            let id_node = self.push_node(Node::Id(constant_index))?;
+            // The ID is the start of a map block
             self.consume_map_block(id_node, id_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
             let lookup_context = id_context.lookup_start();
             if self.next_token_is_lookup_start(&lookup_context) {
-                let id_index = self.push_node(Node::Id(constant_index))?;
-                self.consume_lookup(id_index, &lookup_context)
+                // The ID is the start of a chain
+                self.consume_lookup(id_node, &lookup_context)
             } else {
+                // Check for paren-free call args following the ID
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
-                    self.push_node(Node::Id(constant_index))
+                    // No args, so this is a plain ID access
+                    Ok(id_node)
                 } else {
+                    // Args were found, so add them to a chained call
+                    let call_node = self.push_node_with_start_span(
+                        Node::Lookup((
+                            LookupNode::Call {
+                                args,
+                                with_parens: false,
+                            },
+                            None,
+                        )),
+                        id_span,
+                    )?;
                     self.push_node_with_span(
-                        Node::NamedCall {
-                            id: constant_index,
-                            args,
-                        },
+                        Node::Lookup((LookupNode::Root(id_node), Some(call_node))),
                         id_span,
                     )
                 }

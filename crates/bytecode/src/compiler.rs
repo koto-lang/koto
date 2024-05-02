@@ -411,7 +411,6 @@ impl Compiler {
             }
             Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
             Node::Function(f) => self.compile_function(f, ctx)?,
-            Node::NamedCall { id, args } => self.compile_named_call(*id, args, None, ctx)?,
             Node::Import { from, items } => self.compile_import(from, items, ctx)?,
             Node::Export(expression) => self.compile_export(*expression, ctx)?,
             Node::Assign { target, expression } => {
@@ -2594,42 +2593,46 @@ impl Compiler {
 
         // Next, compile the LHS to produce the value that should be piped into the call
         let piped_value = self.compile_node(lhs, ctx.with_any_register())?;
-        let piped_value_register = piped_value.unwrap(self)?;
+        let pipe_register = Some(piped_value.unwrap(self)?);
 
         let rhs_node = ctx.node_with_span(rhs);
         let result = match &rhs_node.node {
-            Node::NamedCall { id, args } => self.compile_named_call(
-                *id,
-                args,
-                Some(piped_value_register),
-                ctx.with_register(call_result_register),
-            ),
             Node::Id(id) => {
                 // Compile a call with the piped arg using the id to access the function
-                self.compile_named_call(*id, &[], Some(piped_value_register), ctx)
+                if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
+                    self.compile_call(function_register, &[], pipe_register, None, ctx)
+                } else {
+                    let result = self.assign_result_register(ctx)?;
+                    let call_result_register = if let Some(result_register) = result.register {
+                        ResultRegister::Fixed(result_register)
+                    } else {
+                        ResultRegister::None
+                    };
+
+                    let function_register = self.push_register()?;
+                    self.compile_load_non_local(function_register, *id);
+
+                    let call_context = ctx.with_register(call_result_register);
+                    self.compile_call(function_register, &[], pipe_register, None, call_context)?;
+
+                    self.pop_register()?; // function_register
+                    Ok(result)
+                }
             }
             Node::Lookup(lookup_node) => {
                 // Compile the lookup, passing in the piped call arg, which will either be appended
                 // to call args at the end of a lookup, or the last node will be turned into a call.
-                self.compile_lookup(
-                    lookup_node,
-                    Some(piped_value_register),
-                    None,
-                    None,
-                    ctx.with_register(call_result_register),
-                )
+                let call_context = ctx.with_register(call_result_register);
+                self.compile_lookup(lookup_node, pipe_register, None, None, call_context)
             }
             _ => {
                 // If the RHS is none of the above, then compile it assuming that the result will
                 // be a function.
                 let function = self.compile_node(rhs, ctx.with_any_register())?;
-                let result = self.compile_call(
-                    function.unwrap(self)?,
-                    &[],
-                    Some(piped_value_register),
-                    None,
-                    ctx.with_register(call_result_register),
-                )?;
+                let function_register = function.unwrap(self)?;
+                let call_context = ctx.with_register(call_result_register);
+                let result =
+                    self.compile_call(function_register, &[], pipe_register, None, call_context)?;
                 if function.is_temporary {
                     self.pop_register()?;
                 }
@@ -2642,39 +2645,6 @@ impl Compiler {
         }
 
         result
-    }
-
-    fn compile_named_call(
-        &mut self,
-        function_id: ConstantIndex,
-        args: &[AstIndex],
-        piped_arg: Option<u8>,
-        ctx: CompileNodeContext,
-    ) -> Result<CompileNodeOutput> {
-        if let Some(function_register) = self.frame().get_local_assigned_register(function_id) {
-            self.compile_call(function_register, args, piped_arg, None, ctx)
-        } else {
-            let result = self.assign_result_register(ctx)?;
-            let call_result_register = if let Some(result_register) = result.register {
-                ResultRegister::Fixed(result_register)
-            } else {
-                ResultRegister::None
-            };
-
-            let function_register = self.push_register()?;
-            self.compile_load_non_local(function_register, function_id);
-
-            self.compile_call(
-                function_register,
-                args,
-                piped_arg,
-                None,
-                ctx.with_register(call_result_register),
-            )?;
-
-            self.pop_register()?; // function_register
-            Ok(result)
-        }
     }
 
     fn compile_call(
