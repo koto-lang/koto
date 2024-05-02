@@ -1123,10 +1123,15 @@ impl Compiler {
 
         if from.is_empty() {
             for item in items.iter() {
+                let maybe_as = item.name.and_then(|name| match &ctx.ast.node(name).node {
+                    Node::Id(id) => Some(*id),
+                    _ => None,
+                });
+
                 match &ctx.ast.node(item.item).node {
                     Node::Id(import_id) => {
                         let import_register = if result.register.is_some() {
-                            let import_register = if let Some(name) = item.name {
+                            let import_register = if let Some(name) = maybe_as {
                                 self.assign_local_register(name)?
                             } else {
                                 // The result of the import expression is being assigned,
@@ -1145,7 +1150,8 @@ impl Compiler {
                             // Reserve a local for the imported item.
                             // The register must only be reserved for now otherwise it'll show up in
                             // the import search.
-                            let local_id = item.name.unwrap_or(*import_id);
+                            let local_id = maybe_as.unwrap_or(*import_id);
+
                             let import_register = self.reserve_local_register(local_id)?;
                             self.compile_import_item(import_register, item.item, ctx)?;
 
@@ -1160,9 +1166,10 @@ impl Compiler {
                         }
                     }
                     Node::Str(_) => {
-                        let import_register = if let Some(name) = item.name {
-                            println!("Assigning local register");
-                            self.assign_local_register(name)?
+                        let import_register = if let Some(Node::Id(name)) =
+                            item.name.map(|name| &ctx.ast.node(name).node)
+                        {
+                            self.assign_local_register(*name)?
                         } else {
                             self.push_register()?
                         };
@@ -1186,9 +1193,14 @@ impl Compiler {
             self.compile_from(from_register, from, ctx)?;
 
             for item in items.iter() {
+                let maybe_as = item.name.and_then(|name| match &ctx.ast.node(name).node {
+                    Node::Id(id) => Some(*id),
+                    _ => None,
+                });
+
                 match &ctx.ast.node(item.item).node {
                     Node::Id(import_id) => {
-                        let import_register = if let Some(name) = item.name {
+                        let import_register = if let Some(name) = maybe_as {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
                         } else if result.register.is_some() {
@@ -1213,7 +1225,7 @@ impl Compiler {
                         }
                     }
                     Node::Str(string) => {
-                        let import_register = if let Some(name) = item.name {
+                        let import_register = if let Some(name) = maybe_as {
                             self.assign_local_register(name)?
                         } else {
                             self.push_register()?

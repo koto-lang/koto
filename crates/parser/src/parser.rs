@@ -2540,7 +2540,13 @@ impl<'source> Parser<'source> {
             } else {
                 None
             };
-            if let (Some(id), None) | (_, Some(id)) = (maybe_id, item.name) {
+            let maybe_as =
+                if let Some(Node::Id(id)) = item.name.map(|node| &self.ast.node(node).node) {
+                    Some(*id)
+                } else {
+                    None
+                };
+            if let (Some(id), None) | (_, Some(id)) = (maybe_id, maybe_as) {
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
             }
         }
@@ -2589,7 +2595,7 @@ impl<'source> Parser<'source> {
                 Some(peeked) if peeked.token == Token::As => {
                     self.consume_token_with_context(&context);
                     match self.parse_id(&context)? {
-                        Some((id, _)) => Some(id),
+                        Some((id, _)) => Some(self.push_node(Node::Id(id))?),
                         None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }

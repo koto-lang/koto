@@ -584,5 +584,5 @@ pub struct ImportItem {
     /// The imported item
     pub item: AstIndex,
     /// An optional 'as' name for the imported item
-    pub name: Option<ConstantIndex>,
+    pub name: Option<AstIndex>,
 }

@@ -3958,6 +3958,7 @@ debug x + x
                 source,
                 &[
                     id(0), // foo
+                    id(1), // bar
                     Import {
                         from: vec![],
                         items: vec![ImportItem {
@@ -3966,7 +3967,7 @@ debug x + x
                         }],
                     },
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: expressions(&[2]),
                         local_count: 1,
                     },
                 ],
