@@ -92,7 +92,7 @@ fn main() -> Result<()> {
         .expect("Failed to set script path");
 
     if args.watch {
-        if let Err(e) = compile_and_run(&mut koto, &script_path) {
+        if let Err(e) = compile_and_run(&mut koto, script_path) {
             eprintln!("{e}");
         }
 
@@ -114,7 +114,7 @@ fn main() -> Result<()> {
         hotwatch.run();
         Ok(())
     } else {
-        compile_and_run(&mut koto, &script_path)
+        compile_and_run(&mut koto, script_path)
     }
 }
 
