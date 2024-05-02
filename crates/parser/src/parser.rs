@@ -766,9 +766,7 @@ impl<'source> Parser<'source> {
 
                 let meta_context = self.consume_until_token_with_context(context).unwrap();
                 // Safe to unwrap here, parse_meta_key would error on invalid key
-                let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
-                // todo: should parse_meta_key push the node?
-                let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
+                let meta_key = self.parse_meta_key()?.unwrap();
 
                 if map_block_allowed
                     && matches!(
@@ -1917,30 +1915,25 @@ impl<'source> Parser<'source> {
     //     'string_id': 2
     //     @meta meta_key: 3
     fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
-        let start_span = self.current_span();
-
-        let key_node = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            Node::Id(id)
-        } else if let Some(string_key) = self.parse_string(&ExpressionContext::restricted())? {
-            Node::Str(string_key.string)
-        } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
-            Node::Meta(meta_key_id, meta_name)
+        let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
+            Some(self.push_node(Node::Id(id))?)
+        } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
+            Some(self.push_node_with_span(Node::Str(s.string), s.span)?)
         } else {
-            return Ok(None);
+            self.parse_meta_key()?
         };
 
-        let result = self.push_node_with_start_span(key_node, start_span)?;
-
-        Ok(Some(result))
+        Ok(result)
     }
 
     // Attempts to parse a meta key
-    fn parse_meta_key(&mut self) -> Result<Option<(MetaKeyId, Option<ConstantIndex>)>> {
+    fn parse_meta_key(&mut self) -> Result<Option<AstIndex>> {
         if self.peek_next_token_on_same_line() != Some(Token::At) {
             return Ok(None);
         }
 
         self.consume_next_token_on_same_line();
+        let start_span = self.current_span();
 
         let mut meta_name = None;
 
@@ -2003,7 +1996,10 @@ impl<'source> Parser<'source> {
             _ => return self.error(SyntaxError::UnexpectedMetaKey),
         };
 
-        Ok(Some((meta_key_id, meta_name)))
+        let result =
+            self.push_node_with_start_span(Node::Meta(meta_key_id, meta_name), start_span)?;
+
+        Ok(Some(result))
     }
 
     fn consume_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
