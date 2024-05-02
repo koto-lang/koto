@@ -3921,18 +3921,14 @@ debug x + x
     mod import {
         use super::*;
 
-        fn import_id(id: u32) -> ImportItem {
-            ImportItem {
-                item: id.into(),
-                name: None,
-            }
-        }
-
-        fn import_string(literal_index: u32, quotation_mark: StringQuote) -> ImportItem {
-            ImportItem {
-                item: simple_string(literal_index, quotation_mark).into(),
-                name: None,
-            }
+        fn import_items(items: &[u32]) -> Vec<ImportItem> {
+            items
+                .iter()
+                .map(|item| ImportItem {
+                    item: item.into(),
+                    name: None,
+                })
+                .collect()
         }
 
         #[test]
@@ -3941,12 +3937,13 @@ debug x + x
             check_ast(
                 source,
                 &[
+                    id(0), // foo
                     Import {
                         from: vec![],
-                        items: vec![import_id(0)],
+                        items: import_items(&[0]),
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[1]),
                         local_count: 1,
                     },
                 ],
@@ -3960,6 +3957,7 @@ debug x + x
             check_ast(
                 source,
                 &[
+                    id(0), // foo
                     Import {
                         from: vec![],
                         items: vec![ImportItem {
@@ -3968,7 +3966,7 @@ debug x + x
                         }],
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[1]),
                         local_count: 1,
                     },
                 ],
@@ -3982,12 +3980,14 @@ debug x + x
             check_ast(
                 source,
                 &[
+                    id(0), // foo
+                    id(1), // bar
                     Import {
                         from: vec![0.into()],
-                        items: vec![import_id(1)],
+                        items: import_items(&[1]),
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -4001,14 +4001,16 @@ debug x + x
             check_ast(
                 source,
                 &[
-                    id(0),
+                    id(0), // x
+                    id(1), // foo
+                    id(2), // bar
                     Import {
                         from: vec![1.into()],
-                        items: vec![import_id(2)],
+                        items: import_items(&[2]),
                     },
-                    assign(0, 1),
+                    assign(0, 3),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: expressions(&[4]),
                         local_count: 2, // x and bar both assigned locally
                     },
                 ],
@@ -4021,7 +4023,7 @@ debug x + x
         }
 
         #[test]
-        fn import_items() {
+        fn import_multiple_items() {
             let sources = [
                 "import foo, 'bar', baz",
                 "
@@ -4039,16 +4041,15 @@ import foo,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
+                    id(0),                                  // foo
+                    string_literal(1, StringQuote::Single), // bar
+                    id(2),                                  // baz
                     Import {
                         from: vec![],
-                        items: vec![
-                            import_id(0),
-                            import_string(1, StringQuote::Single),
-                            import_id(2),
-                        ],
+                        items: import_items(&[0, 1, 2]),
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[3]),
                         local_count: 2, // foo and baz, bar needs to be assigned
                     },
                 ],
@@ -4076,12 +4077,15 @@ from foo import bar,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
+                    id(0), // foo
+                    id(1), // bar
+                    id(2), // baz
                     Import {
                         from: vec![0.into()],
-                        items: vec![import_id(1), import_id(2)],
+                        items: import_items(&[1, 2]),
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[3]),
                         local_count: 2,
                     },
                 ],
@@ -4099,12 +4103,16 @@ from foo import bar,
             check_ast(
                 source,
                 &[
+                    string_literal(0, StringQuote::Single), // foo
+                    id(1),                                  // bar
+                    id(2),                                  // abc
+                    id(3),                                  // xyz
                     Import {
-                        from: vec![simple_string(0, StringQuote::Single).into(), 1.into()],
-                        items: vec![import_id(2), import_id(3)],
+                        from: vec![0.into(), 1.into()],
+                        items: import_items(&[2, 3]),
                     },
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: expressions(&[4]),
                         local_count: 2,
                     },
                 ],

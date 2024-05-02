@@ -4,7 +4,7 @@ use crate::{
 };
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
-    Function, IdOrString, ImportItem, LookupNode, MatchArm, MetaKeyId, Node, Span, StringContents,
+    Function, ImportItem, LookupNode, MatchArm, MetaKeyId, Node, Span, StringContents,
     StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
@@ -1110,7 +1110,7 @@ impl Compiler {
 
     fn compile_import(
         &mut self,
-        from: &[IdOrString],
+        from: &[AstIndex],
         items: &[ImportItem],
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
@@ -1123,8 +1123,8 @@ impl Compiler {
 
         if from.is_empty() {
             for item in items.iter() {
-                match &item.item {
-                    IdOrString::Id(import_id) => {
+                match &ctx.ast.node(item.item).node {
+                    Node::Id(import_id) => {
                         let import_register = if result.register.is_some() {
                             let import_register = if let Some(name) = item.name {
                                 self.assign_local_register(name)?
@@ -1134,7 +1134,7 @@ impl Compiler {
                                 self.push_register()?
                             };
 
-                            self.compile_import_item(import_register, &item.item, ctx)?;
+                            self.compile_import_item(import_register, item.item, ctx)?;
 
                             if result.register.is_some() {
                                 imported.push(import_register);
@@ -1147,7 +1147,7 @@ impl Compiler {
                             // the import search.
                             let local_id = item.name.unwrap_or(*import_id);
                             let import_register = self.reserve_local_register(local_id)?;
-                            self.compile_import_item(import_register, &item.item, ctx)?;
+                            self.compile_import_item(import_register, item.item, ctx)?;
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
@@ -1159,18 +1159,24 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    IdOrString::Str(_) => {
+                    Node::Str(_) => {
                         let import_register = if let Some(name) = item.name {
                             println!("Assigning local register");
                             self.assign_local_register(name)?
                         } else {
                             self.push_register()?
                         };
-                        self.compile_import_item(import_register, &item.item, ctx)?;
+                        self.compile_import_item(import_register, item.item, ctx)?;
 
                         if result.register.is_some() {
                             imported.push(import_register);
                         }
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "import ID".into(),
+                            unexpected: unexpected.clone(),
+                        })
                     }
                 };
             }
@@ -1180,8 +1186,8 @@ impl Compiler {
             self.compile_from(from_register, from, ctx)?;
 
             for item in items.iter() {
-                match &item.item {
-                    IdOrString::Id(import_id) => {
+                match &ctx.ast.node(item.item).node {
+                    Node::Id(import_id) => {
                         let import_register = if let Some(name) = item.name {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
@@ -1206,7 +1212,7 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    IdOrString::Str(string) => {
+                    Node::Str(string) => {
                         let import_register = if let Some(name) = item.name {
                             self.assign_local_register(name)?
                         } else {
@@ -1224,6 +1230,12 @@ impl Compiler {
                         if result.register.is_some() {
                             imported.push(import_register);
                         }
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "import ID".into(),
+                            unexpected: unexpected.clone(),
+                        })
                     }
                 };
             }
@@ -1270,28 +1282,34 @@ impl Compiler {
     fn compile_from(
         &mut self,
         result_register: u8,
-        path: &[IdOrString],
+        path: &[AstIndex],
         ctx: CompileNodeContext,
     ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, root, ctx)?;
+                self.compile_import_item(result_register, *root, ctx)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, root, ctx)?;
+                self.compile_import_item(result_register, *root, ctx)?;
 
                 for nested_item in nested.iter() {
-                    match nested_item {
-                        IdOrString::Id(id) => {
+                    match &ctx.ast.node(*nested_item).node {
+                        Node::Id(id) => {
                             self.compile_access_id(result_register, result_register, *id)
                         }
-                        IdOrString::Str(string) => self.compile_access_string(
+                        Node::Str(string) => self.compile_access_string(
                             result_register,
                             result_register,
                             &string.contents,
                             ctx,
                         )?,
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "import ID".into(),
+                                unexpected: unexpected.clone(),
+                            })
+                        }
                     }
                 }
             }
@@ -1303,13 +1321,13 @@ impl Compiler {
     fn compile_import_item(
         &mut self,
         result_register: u8,
-        item: &IdOrString,
+        item: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         use Op::*;
 
-        match item {
-            IdOrString::Id(id) => {
+        match &ctx.ast.node(item).node {
+            Node::Id(id) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
                     // It might be better for this to be reported as an error?
@@ -1324,11 +1342,15 @@ impl Compiler {
                     Ok(())
                 }
             }
-            IdOrString::Str(string) => {
+            Node::Str(string) => {
                 self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
                 self.push_op(Import, &[result_register]);
                 Ok(())
             }
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "import ID".into(),
+                unexpected: unexpected.clone(),
+            }),
         }
     }
 

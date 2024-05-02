@@ -139,7 +139,7 @@ pub enum Node {
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
-        from: Vec<IdOrString>,
+        from: Vec<AstIndex>,
         /// The series of items to import
         items: Vec<ImportItem>,
     },
@@ -582,33 +582,7 @@ impl TryFrom<u8> for MetaKeyId {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportItem {
     /// The imported item
-    pub item: IdOrString,
+    pub item: AstIndex,
     /// An optional 'as' name for the imported item
     pub name: Option<ConstantIndex>,
-}
-
-/// Either an Id or a String
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub enum IdOrString {
-    Id(ConstantIndex),
-    Str(AstString),
-}
-
-impl From<u32> for IdOrString {
-    fn from(id: u32) -> Self {
-        Self::Id(id.into())
-    }
-}
-
-impl From<ConstantIndex> for IdOrString {
-    fn from(id: ConstantIndex) -> Self {
-        Self::Id(id)
-    }
-}
-
-impl From<AstString> for IdOrString {
-    fn from(s: AstString) -> Self {
-        Self::Str(s)
-    }
 }

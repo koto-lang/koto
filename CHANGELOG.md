@@ -24,8 +24,8 @@ The Koto project adheres to
 
 #### API
 
-- `koto_parser::MapKey` has been removed, map keys are now represented as AST
-  nodes.
+- `koto_parser::MapKey` and `IdOrString` have been removed, map keys and import 
+  IDs are now represented as AST nodes.
 
 ## [0.14.0] 2024.04.17
 

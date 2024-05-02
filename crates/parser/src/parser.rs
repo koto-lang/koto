@@ -1176,11 +1176,11 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<IdOrString>> {
+    fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         let result = match self.parse_id(context)? {
-            Some((id, _)) => Some(IdOrString::Id(id)),
+            Some((id, _)) => Some(self.push_node(Node::Id(id))?),
             None => match self.parse_string(context)? {
-                Some(s) => Some(IdOrString::Str(s.string)),
+                Some(s) => Some(self.push_node_with_span(Node::Str(s.string), s.span)?),
                 None => None,
             },
         };
@@ -2539,41 +2539,33 @@ impl<'source> Parser<'source> {
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            if let (IdOrString::Id(id), None) | (_, Some(id)) = (&item.item, &item.name) {
-                self.frame_mut()?.ids_assigned_in_frame.insert(*id);
+            let maybe_id = if let Node::Id(id) = &self.ast.node(item.item).node {
+                Some(*id)
+            } else {
+                None
+            };
+            if let (Some(id), None) | (_, Some(id)) = (maybe_id, item.name) {
+                self.frame_mut()?.ids_assigned_in_frame.insert(id);
             }
         }
 
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
-    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<Vec<IdOrString>> {
+    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<Vec<AstIndex>> {
         let mut path = vec![];
 
-        loop {
-            let item_root = match self.parse_id(context)? {
-                Some((id, _)) => IdOrString::Id(id),
-                None => match self.parse_string(context)? {
-                    Some(s) => IdOrString::Str(s.string),
-                    None => break,
-                },
-            };
-
+        while let Some(item_root) = self.parse_id_or_string(context)? {
             path.push(item_root);
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
-                match self.parse_id(&ExpressionContext::restricted())? {
-                    Some((id, _)) => path.push(IdOrString::Id(id)),
-                    None => match self.parse_string(&ExpressionContext::restricted())? {
-                        Some(s) => path.push(IdOrString::Str(s.string)),
-                        None => {
-                            return self
-                                .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
-                        }
-                    },
-                }
+                let Some(next) = self.parse_id_or_string(&ExpressionContext::restricted())? else {
+                    return self.consume_token_and_error(SyntaxError::ExpectedImportModuleId);
+                };
+
+                path.push(next);
             }
         }
 

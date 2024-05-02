@@ -7,6 +7,7 @@ use crate::{error::*, ConstantPool, Node};
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct AstIndex(u32);
 
+// TODO - remove?
 impl Deref for AstIndex {
     type Target = u32;
 
@@ -30,6 +31,12 @@ impl From<AstIndex> for usize {
 impl From<u32> for AstIndex {
     fn from(value: u32) -> Self {
         Self(value)
+    }
+}
+
+impl From<&u32> for AstIndex {
+    fn from(value: &u32) -> Self {
+        Self(*value)
     }
 }
 
