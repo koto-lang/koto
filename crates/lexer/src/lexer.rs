@@ -1032,17 +1032,17 @@ mod tests {
                             token: Whitespace, ..
                         } => continue,
                         output => {
-                            assert_eq!(output.token, *token, "Token mismatch at position {i}");
+                            assert_eq!(*token, output.token, "Token mismatch at position {i}");
                             if let Some(slice) = maybe_slice {
                                 assert_eq!(
-                                    output.slice(source),
                                     *slice,
+                                    output.slice(source),
                                     "Slice mismatch at position {i}"
                                 );
                             }
                             assert_eq!(
-                                output.line(),
                                 *line_number,
+                                output.line(),
                                 "Line number mismatch at position {i}",
                             );
                             break;

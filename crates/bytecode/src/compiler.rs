@@ -4,8 +4,8 @@ use crate::{
 };
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
-    Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
-    StringContents, StringFormatOptions, StringNode, SwitchArm,
+    Function, IdOrString, ImportItem, LookupNode, MatchArm, MetaKeyId, Node, Span, StringContents,
+    StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -1929,7 +1929,7 @@ impl Compiler {
 
     fn compile_make_map(
         &mut self,
-        entries: &[(MapKey, Option<AstIndex>)],
+        entries: &[(AstIndex, Option<AstIndex>)],
         export_entries: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
@@ -1947,14 +1947,15 @@ impl Compiler {
         // Process the map's entries
         if result.register.is_some() || export_entries {
             for (key, maybe_value_node) in entries.iter() {
-                let value = match (key, maybe_value_node) {
+                let key_node = &ctx.ast.node(*key).node;
+                let value = match (key_node, maybe_value_node) {
                     // A value has been provided for the entry
                     (_, Some(value_node)) => {
                         let value_node = *value_node;
                         self.compile_node(value_node, ctx.with_any_register())?
                     }
                     // ID-only entry, the value should be locally assigned
-                    (MapKey::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
+                    (Node::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
                         Some(register) => CompileNodeOutput::with_assigned(register),
                         None => {
                             let register = self.push_register()?;
@@ -1967,7 +1968,13 @@ impl Compiler {
                 };
                 let value_register = value.unwrap(self)?;
 
-                self.compile_map_insert(value_register, key, result.register, export_entries, ctx)?;
+                self.compile_map_insert(
+                    value_register,
+                    key_node,
+                    result.register,
+                    export_entries,
+                    ctx,
+                )?;
 
                 if value.is_temporary {
                     self.pop_register()?;
@@ -2361,7 +2368,7 @@ impl Compiler {
                 LookupNode::Id(id) => {
                     self.compile_map_insert(
                         value_register,
-                        &MapKey::Id(*id),
+                        &Node::Id(*id),
                         Some(parent_register),
                         false,
                         ctx,
@@ -2420,7 +2427,7 @@ impl Compiler {
     fn compile_map_insert(
         &mut self,
         value_register: u8,
-        key: &MapKey,
+        key: &Node,
         map_register: Option<u8>,
         export_entry: bool,
         ctx: CompileNodeContext,
@@ -2428,7 +2435,7 @@ impl Compiler {
         use Op::*;
 
         match key {
-            MapKey::Id(id) => {
+            Node::Id(id) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
 
@@ -2445,7 +2452,7 @@ impl Compiler {
 
                 self.pop_register()?;
             }
-            MapKey::Str(string) => {
+            Node::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(&string.contents, ctx.with_fixed_register(key_register))?;
 
@@ -2462,7 +2469,7 @@ impl Compiler {
 
                 self.pop_register()?;
             }
-            MapKey::Meta(key, name) => {
+            Node::Meta(key, name) => {
                 let key = *key as u8;
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
@@ -2492,6 +2499,12 @@ impl Compiler {
                         self.push_op(MetaExport, &[key, value_register]);
                     }
                 }
+            }
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "a map key".into(),
+                    unexpected: unexpected.clone(),
+                });
             }
         }
 

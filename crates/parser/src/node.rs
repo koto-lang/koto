@@ -103,8 +103,10 @@ pub enum Node {
 
     /// A map literal, with a series of keys and values
     ///
+    /// Keys will either be Id, String, or Meta nodes.
+    ///
     /// Values are optional for inline maps.
-    Map(Vec<(MapKey, Option<AstIndex>)>),
+    Map(Vec<(AstIndex, Option<AstIndex>)>),
 
     /// The `self` keyword
     Self_,
@@ -629,19 +631,6 @@ impl TryFrom<u8> for MetaKeyId {
             Err(byte)
         }
     }
-}
-
-/// A map key definition
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MapKey {
-    /// An identifier
-    Id(ConstantIndex),
-    /// A string
-    Str(AstString),
-    /// A meta key
-    ///
-    /// Some meta keys require an additional identifier, e.g. @test test_name
-    Meta(MetaKeyId, Option<ConstantIndex>),
 }
 
 /// A node in an import item, see [Node::Import]

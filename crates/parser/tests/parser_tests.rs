@@ -9,11 +9,11 @@ mod parser {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {
-                    assert_eq!(ast_node.node, *expected_node, "Mismatch at position {i}");
+                    assert_eq!(*expected_node, ast_node.node, "Mismatch at position {i}");
                 }
                 assert_eq!(
-                    ast.nodes().len(),
                     expected_ast.len(),
+                    ast.nodes().len(),
                     "Node list length mismatch"
                 );
 
@@ -21,15 +21,15 @@ mod parser {
                     for (constant, expected_constant) in
                         ast.constants().iter().zip(expected_constants.iter())
                     {
-                        assert_eq!(constant, *expected_constant);
+                        assert_eq!(*expected_constant, constant);
                     }
                     assert_eq!(
-                        ast.constants().size(),
                         expected_constants.len(),
+                        ast.constants().size(),
                         "Constant pool size mismatch"
                     );
                 } else {
-                    assert_eq!(ast.constants().size(), 0);
+                    assert_eq!(0, ast.constants().size());
                 }
             }
             Err(error) => panic!("{error} - {:?}", error.span.start),
@@ -95,19 +95,20 @@ mod parser {
         }
     }
 
-    fn string_entry(
-        literal_index: u32,
-        quotation_mark: StringQuote,
-        value: Option<u32>,
-    ) -> (MapKey, Option<AstIndex>) {
-        (
-            MapKey::Str(simple_string(literal_index, quotation_mark)),
-            value.map(AstIndex::from),
-        )
+    fn map_inline(entries: &[(u32, Option<u32>)]) -> Node {
+        let entries = entries
+            .iter()
+            .map(|(key, maybe_value)| (AstIndex::from(*key), maybe_value.map(AstIndex::from)))
+            .collect();
+        Node::Map(entries)
     }
 
-    fn id_entry(key: u32, value: Option<u32>) -> (MapKey, Option<AstIndex>) {
-        (MapKey::Id(key.into()), value.map(AstIndex::from))
+    fn map_block(entries: &[(u32, u32)]) -> Node {
+        let entries = entries
+            .iter()
+            .map(|(key, value)| (AstIndex::from(*key), Some(AstIndex::from(*value))))
+            .collect();
+        Node::Map(entries)
     }
 
     fn range(start: u32, end: u32, inclusive: bool) -> Node {
@@ -573,7 +574,7 @@ x = [
         use super::*;
 
         #[test]
-        fn map_inline() {
+        fn map_inline_syntax() {
             let sources = [
                 "
 {}
@@ -599,20 +600,19 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    Map(vec![]),
-                    id(0),
+                    map_inline(&[]),
+                    id(0),                                  // x
+                    string_literal(1, StringQuote::Single), // 'foo'
                     SmallInt(42),
-                    string_literal(4, StringQuote::Single),
+                    id(2),                                  // bar
+                    id(3),                                  // 5 - baz
+                    string_literal(4, StringQuote::Single), // 'hello'
+                    Meta(MetaKeyId::Add, None),
                     SmallInt(99),
-                    Map(vec![
-                        string_entry(1, StringQuote::Single, Some(2)),
-                        id_entry(2, None),
-                        id_entry(3, Some(3)),
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(4.into())),
-                    ]), // 5
-                    assign(1, 5),
+                    map_inline(&[(2, Some(3)), (4, None), (5, Some(6)), (7, Some(8))]),
+                    assign(1, 9), // 10
                     MainBlock {
-                        body: expressions(&[0, 6]),
+                        body: expressions(&[0, 10]),
                         local_count: 1,
                     },
                 ],
@@ -627,40 +627,7 @@ x =
         }
 
         #[test]
-        fn map_inline_multiline() {
-            let source = r#"
-{
-  'foo': 42,
-  bar,
-  baz:
-    "hello",
-}"#;
-            check_ast(
-                source,
-                &[
-                    SmallInt(42),
-                    string_literal(3, StringQuote::Double),
-                    Map(vec![
-                        string_entry(0, StringQuote::Single, Some(0)),
-                        id_entry(1, None),
-                        id_entry(2, Some(1)),
-                    ]),
-                    MainBlock {
-                        body: expressions(&[2]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Str("baz"),
-                    Constant::Str("hello"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn map_block() {
+        fn map_block_syntax() {
             let source = r#"
 x =
   foo: 42
@@ -672,19 +639,19 @@ x"#;
                 source,
                 &[
                     id(0), // x
+                    id(1), // foo
                     SmallInt(42),
-                    SmallInt(0),
-                    Map(vec![id_entry(1, Some(2))]), // foo, 0
+                    string_literal(2, StringQuote::Double), // baz
+                    id(1),                                  // foo
+                    SmallInt(0),                            // 5
+                    map_block(&[(4, 5)]),
+                    Meta(MetaKeyId::Subtract, None),
                     SmallInt(-1),
-                    Map(vec![
-                        id_entry(1, Some(1)),                                      // foo: 42
-                        string_entry(2, StringQuote::Double, Some(3)), // "baz": nested map
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4.into())), // @-: -1
-                    ]), // 5
-                    assign(0, 5),
+                    map_block(&[(1, 2), (3, 6), (7, 8)]),
+                    assign(0, 9), //10
                     id(0),
                     MainBlock {
-                        body: expressions(&[6, 7]),
+                        body: expressions(&[10, 11]),
                         local_count: 1,
                     },
                 ],
@@ -706,11 +673,12 @@ x =
                 source,
                 &[
                     id(0), // x
+                    string_literal(1, StringQuote::Double),
                     SmallInt(42),
-                    Map(vec![string_entry(1, StringQuote::Double, Some(1))]), // "foo": 42
-                    assign(0, 2),
+                    map_block(&[(1, 2)]),
+                    assign(0, 3),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[4]),
                         local_count: 1,
                     },
                 ],
@@ -729,16 +697,14 @@ x =
                 source,
                 &[
                     id(0), // x
+                    id(1), // foo
+                    id(2), // bar
                     SmallInt(42),
-                    Map(vec![
-                        id_entry(2, Some(1)), // bar: 42
-                    ]),
-                    Map(vec![
-                        id_entry(1, Some(2)), // foo: ...
-                    ]),
-                    assign(0, 3),
+                    map_block(&[(2, 3)]),
+                    map_block(&[(1, 4)]), // 5
+                    assign(0, 5),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: expressions(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -773,14 +739,15 @@ x =
                 &sources,
                 &[
                     id(0), // x
+                    id(1), // foo
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
-                    Tuple(expressions(&[1, 2, 3])),
-                    Map(vec![id_entry(1, Some(4))]), // 5 - foo: 10, 20, 30
-                    assign(0, 5),
+                    Tuple(expressions(&[2, 3, 4])), //5
+                    map_block(&[(1, 5)]),
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -813,19 +780,18 @@ x =
                 &sources,
                 &[
                     id(0), // x
+                    id(1), // foo
                     SmallInt(1),
+                    id(2), // bar
                     SmallInt(42),
                     NamedCall {
-                        id: 3.into(),
-                        args: expressions(&[2]),
-                    },
-                    Map(vec![
-                        id_entry(1, Some(1)), // foo: 1
-                        id_entry(2, Some(3)), // bar: baz 42
-                    ]),
-                    assign(0, 4), // 5
+                        id: 3.into(), // baz
+                        args: expressions(&[4]),
+                    }, // 5
+                    map_block(&[(1, 2), (3, 5)]),
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -850,20 +816,16 @@ x =
                 source,
                 &[
                     id(0), // x
+                    Meta(MetaKeyId::Add, None),
                     SmallInt(0),
+                    Meta(MetaKeyId::Subtract, None),
                     SmallInt(1),
+                    Meta(MetaKeyId::Named, Some(1.into())), // 5
                     SmallInt(0),
-                    Map(vec![
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(1.into())),
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(2.into())),
-                        (
-                            MapKey::Meta(MetaKeyId::Named, Some(1.into())),
-                            Some(3.into()),
-                        ),
-                    ]),
-                    assign(0, 4), // 5
+                    map_block(&[(1, 2), (3, 4), (5, 6)]),
+                    assign(0, 7),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -883,21 +845,17 @@ x =
                 source,
                 &[
                     Meta(MetaKeyId::Tests, None),
+                    Meta(MetaKeyId::PreTest, None),
                     SmallInt(0),
+                    Meta(MetaKeyId::PostTest, None),
                     SmallInt(1),
+                    Meta(MetaKeyId::Test, Some(0.into())), // 5 - foo
                     SmallInt(0),
-                    Map(vec![
-                        (MapKey::Meta(MetaKeyId::PreTest, None), Some(1.into())),
-                        (MapKey::Meta(MetaKeyId::PostTest, None), Some(2.into())),
-                        (
-                            MapKey::Meta(MetaKeyId::Test, Some(0.into())),
-                            Some(3.into()),
-                        ),
-                    ]),
-                    assign(0, 4), // 5
-                    Export(5.into()),
+                    map_block(&[(1, 2), (3, 4), (5, 6)]),
+                    assign(0, 7),
+                    Export(8.into()),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: expressions(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -1403,15 +1361,14 @@ export
             check_ast(
                 source,
                 &[
+                    id(0), // a
                     SmallInt(123),
+                    id(1), // b
                     SmallInt(99),
-                    Map(vec![
-                        id_entry(0, Some(0)), // a: 123
-                        id_entry(1, Some(1)), // b: 99
-                    ]),
-                    Export(2.into()),
+                    map_block(&[(0, 1), (2, 3)]),
+                    Export(4.into()), //  5
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2599,24 +2556,26 @@ foo.bar x
             check_ast(
                 source,
                 &[
+                    id(0), // foo
                     SmallInt(42),
-                    id(2), // x
-                    Self_, // self
-                    lookup_id(0, None),
-                    lookup_root(2, Some(3)),
-                    id(2), // 5
-                    assign(4, 5),
+                    id(1),              // bar
+                    id(2),              // x
+                    Self_,              // self
+                    lookup_id(0, None), // 5
+                    lookup_root(4, Some(5)),
+                    id(2),
+                    assign(6, 7),
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: expressions(&[3]),
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 6.into(),
+                        body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    Map(vec![id_entry(0, Some(0)), id_entry(1, Some(7))]),
+                    map_inline(&[(0, Some(1)), (2, Some(9))]), // 10
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: expressions(&[10]),
                         local_count: 0,
                     },
                 ],
@@ -2638,21 +2597,23 @@ f = ||
             check_ast(
                 source,
                 &[
-                    id(0),
-                    id(2),
+                    id(0), // f
+                    id(1), // foo
+                    id(2), // x
+                    id(3), // bar
                     SmallInt(0),
-                    Map(vec![id_entry(1, Some(1)), id_entry(3, Some(2))]),
+                    map_block(&[(1, 2), (3, 4)]), // 5
                     Function(koto_parser::Function {
                         args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![2.into()],
-                        body: 3.into(),
+                        body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    assign(0, 4),
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2677,26 +2638,24 @@ f = ||
                 source,
                 &[
                     id(0), // f
+                    id(1), // foo
+                    id(2), // bar
                     id(3), // x
-                    Map(vec![
-                        id_entry(2, Some(1)), // bar: x
-                    ]),
+                    map_block(&[(2, 3)]),
+                    id(4), // 5 - baz
                     SmallInt(0),
-                    Map(vec![
-                        id_entry(1, Some(2)), // foo: ...
-                        id_entry(4, Some(3)), // baz: 0
-                    ]),
+                    map_block(&[(1, 4), (5, 6)]),
                     Function(koto_parser::Function {
                         args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![3.into()],
-                        body: 4.into(),
+                        body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
-                    }), // 5
-                    assign(0, 5),
+                    }),
+                    assign(0, 8),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: expressions(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -2720,33 +2679,35 @@ f()";
             check_ast(
                 source,
                 &[
-                    id(0),
+                    id(0), // f
+                    id(1), // foo
                     SmallInt(42),
+                    id(2),              // bar
+                    id(3),              // x
+                    Self_,              // 5
+                    lookup_id(1, None), // foo
+                    lookup_root(5, Some(6)),
                     id(3), // x
-                    Self_,
-                    lookup_id(1, None),
-                    lookup_root(3, Some(4)), // 5
-                    id(3),
-                    assign(5, 6),
+                    assign(7, 8),
                     Function(koto_parser::Function {
-                        args: expressions(&[2]),
+                        args: expressions(&[4]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
-                        body: 7.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                    }), // 10
-                    Map(vec![id_entry(1, Some(1)), id_entry(2, Some(8))]),
-                    Function(koto_parser::Function {
-                        args: expressions(&[]),
-                        local_count: 0,
                         accessed_non_locals: vec![],
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
+                    }), // 10
+                    map_block(&[(1, 2), (3, 10)]),
+                    Function(koto_parser::Function {
+                        args: expressions(&[]),
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 11.into(),
+                        is_variadic: false,
+                        is_generator: false,
                     }),
-                    assign(0, 10),
-                    id(0),
+                    assign(0, 12),
+                    id(0), // f
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -2754,9 +2715,9 @@ f()";
                         },
                         None,
                     )), // 15
-                    lookup_root(12, Some(13)),
+                    lookup_root(14, Some(15)),
                     MainBlock {
-                        body: expressions(&[11, 14]),
+                        body: expressions(&[13, 16]),
                         local_count: 1,
                     },
                 ],
@@ -3042,19 +3003,20 @@ y z";
             check_ast(
                 source,
                 &[
+                    id(0),
                     SmallInt(42),
-                    Map(vec![id_entry(0, Some(0))]),
-                    Yield(1.into()),
+                    map_block(&[(0, 1)]),
+                    Yield(2.into()),
                     Function(koto_parser::Function {
                         args: expressions(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 2.into(),
+                        body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3382,21 +3344,20 @@ x.takes_a_map
                 source,
                 &[
                     id(0), // x
+                    id(2), // foo
                     SmallInt(42),
-                    Map(vec![
-                        id_entry(2, Some(1)), // foo: 42
-                    ]),
+                    map_block(&[(1, 2)]),
                     Lookup((
                         LookupNode::Call {
-                            args: expressions(&[2]),
+                            args: expressions(&[3]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(3)),   // takes_a_map
-                    lookup_root(0, Some(4)), // @5
+                    lookup_id(1, Some(4)), // 5 - takes_a_map
+                    lookup_root(0, Some(5)),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3701,7 +3662,9 @@ x = { y
                 &sources,
                 &[
                     id(0),
-                    Map(vec![id_entry(1, None), id_entry(2, None)]),
+                    id(1),
+                    id(2),
+                    map_inline(&[(1, None), (2, None)]),
                     Lookup((
                         LookupNode::Call {
                             args: expressions(&[]),
@@ -3709,11 +3672,11 @@ x = { y
                         },
                         None,
                     )),
-                    lookup_id(3, Some(2)),
-                    lookup_root(1, Some(3)),
-                    assign(0, 4), // 5
+                    lookup_id(3, Some(4)), // 5 - values
+                    lookup_root(3, Some(5)),
+                    assign(0, 6),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: expressions(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -4349,12 +4312,14 @@ throw
             check_ast(
                 source,
                 &[
-                    id(1),
-                    string_literal(3, StringQuote::Double),
-                    Map(vec![id_entry(0, Some(0)), id_entry(2, Some(1))]),
-                    Throw(2.into()),
+                    id(0),                                  // data
+                    id(1),                                  // x
+                    id(2),                                  // message
+                    string_literal(3, StringQuote::Double), // error!
+                    map_block(&[(0, 1), (2, 3)]),
+                    Throw(4.into()), // 5
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: expressions(&[5]),
                         local_count: 0,
                     },
                 ],

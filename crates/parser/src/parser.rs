@@ -750,11 +750,11 @@ impl<'source> Parser<'source> {
             Token::Number => self.consume_number(false, context),
             Token::StringStart { .. } => {
                 let string = self.parse_string(context)?.unwrap();
+                let string_node = self.push_node_with_span(Str(string.string), string.span)?;
 
                 if self.peek_token() == Some(Token::Colon) && string.context.allow_map_block {
-                    self.consume_map_block(MapKey::Str(string.string), start_span, &string.context)
+                    self.consume_map_block(string_node, start_span, &string.context)
                 } else {
-                    let string_node = self.push_node_with_span(Str(string.string), string.span)?;
                     self.check_for_lookup_after_node(string_node, &string.context)
                 }
             }
@@ -767,6 +767,8 @@ impl<'source> Parser<'source> {
                 let meta_context = self.consume_until_token_with_context(context).unwrap();
                 // Safe to unwrap here, parse_meta_key would error on invalid key
                 let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
+                // todo: should parse_meta_key push the node?
+                let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
 
                 if map_block_allowed
                     && matches!(
@@ -777,13 +779,8 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.consume_map_block(
-                        MapKey::Meta(meta_key_id, meta_name),
-                        start_span,
-                        &meta_context,
-                    )
+                    self.consume_map_block(meta_key, start_span, &meta_context)
                 } else {
-                    let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
                     match self.parse_assign_expression(meta_key, &[], &meta_context)? {
                         Some(result) => self.push_node(Node::Export(result)),
                         None => self
@@ -1198,7 +1195,8 @@ impl<'source> Parser<'source> {
         };
 
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
-            self.consume_map_block(MapKey::Id(constant_index), start_span, &id_context)
+            let id_node = self.push_node(Node::Id(constant_index))?;
+            self.consume_map_block(id_node, start_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1785,7 +1783,7 @@ impl<'source> Parser<'source> {
 
     fn consume_map_block(
         &mut self,
-        first_key: MapKey,
+        first_key: AstIndex,
         start_span: Span,
         context: &ExpressionContext,
     ) -> Result<AstIndex> {
@@ -1857,7 +1855,7 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn parse_comma_separated_map_entries(&mut self) -> Result<Vec<(MapKey, Option<AstIndex>)>> {
+    fn parse_comma_separated_map_entries(&mut self) -> Result<Vec<(AstIndex, Option<AstIndex>)>> {
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
 
@@ -1887,8 +1885,8 @@ impl<'source> Parser<'source> {
                 // e.g.
                 //   bar = -1
                 //   x = {foo: 42, bar, baz: 99}
-                match key {
-                    MapKey::Id(id) => self.frame_mut()?.add_id_access(id),
+                match self.ast.node(key).node {
+                    Node::Id(id) => self.frame_mut()?.add_id_access(id),
                     _ => return self.error(SyntaxError::ExpectedMapValue),
                 }
                 entries.push((key, None));
@@ -1918,18 +1916,22 @@ impl<'source> Parser<'source> {
     //     regular_id: 1
     //     'string_id': 2
     //     @meta meta_key: 3
-    fn parse_map_key(&mut self) -> Result<Option<MapKey>> {
-        let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            Some(MapKey::Id(id))
+    fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
+        let start_span = self.current_span();
+
+        let key_node = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
+            Node::Id(id)
         } else if let Some(string_key) = self.parse_string(&ExpressionContext::restricted())? {
-            Some(MapKey::Str(string_key.string))
+            Node::Str(string_key.string)
         } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
-            Some(MapKey::Meta(meta_key_id, meta_name))
+            Node::Meta(meta_key_id, meta_name)
         } else {
-            None
+            return Ok(None);
         };
 
-        Ok(result)
+        let result = self.push_node_with_start_span(key_node, start_span)?;
+
+        Ok(Some(result))
     }
 
     // Attempts to parse a meta key

@@ -20,6 +20,13 @@ The Koto project adheres to
 - Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
 - `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.
 
+### Removed
+
+#### API
+
+- `koto_parser::MapKey` has been removed, map keys are now represented as AST
+  nodes.
+
 ## [0.14.0] 2024.04.17
 
 ### Added 
