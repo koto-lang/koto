@@ -14,13 +14,15 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
+    #[error("expected {expected}, found {unexpected:?}")]
+    UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
     InvalidLoopKeyword(String),
-    #[error("invalid match pattern (found '{0}')")]
+    #[error("invalid match pattern (found '{0:?}')")]
     InvalidMatchPattern(Node),
     #[error("args with ellipses are only allowed in first or last position")]
     InvalidPositionForArgWithEllipses,
@@ -73,12 +75,8 @@ enum ErrorKind {
     UnexpectedEllipsis,
     #[error("unexpected Wildcard")]
     UnexpectedWildcard,
-    #[error("expected {expected}, found {unexpected}")]
-    UnexpectedNode { expected: String, unexpected: Node },
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
-    #[error("expected lookup node, found {0}")]
-    UnexpectedNodeInLookup(Node),
 
     #[error(transparent)]
     FrameError(#[from] FrameError),
@@ -2254,7 +2252,10 @@ impl Compiler {
                     next_node_index = next;
                 }
                 unexpected => {
-                    return self.error(ErrorKind::UnexpectedNodeInLookup(unexpected));
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "lookup node".into(),
+                        unexpected,
+                    });
                 }
             };
 

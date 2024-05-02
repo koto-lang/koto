@@ -1,5 +1,4 @@
 use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
-use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
@@ -265,60 +264,6 @@ pub enum Node {
         /// The expression that should be debugged
         expression: AstIndex,
     },
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Node::*;
-        match self {
-            Null => write!(f, "Null"),
-            Nested(_) => write!(f, "Nested"),
-            Id(_) => write!(f, "Id"),
-            Meta(_, _) => write!(f, "Meta"),
-            Lookup(_) => write!(f, "Lookup"),
-            BoolTrue => write!(f, "BoolTrue"),
-            BoolFalse => write!(f, "BoolFalse"),
-            Float(_) => write!(f, "Float"),
-            SmallInt(_) => write!(f, "SmallInt"),
-            Int(_) => write!(f, "Int"),
-            Str(_) => write!(f, "Str"),
-            List(_) => write!(f, "List"),
-            Tuple(_) => write!(f, "Tuple"),
-            TempTuple(_) => write!(f, "TempTuple"),
-            Range { .. } => write!(f, "Range"),
-            RangeFrom { .. } => write!(f, "RangeFrom"),
-            RangeTo { .. } => write!(f, "RangeTo"),
-            RangeFull => write!(f, "RangeFull"),
-            Map(_) => write!(f, "Map"),
-            MainBlock { .. } => write!(f, "MainBlock"),
-            Block(_) => write!(f, "Block"),
-            Function(_) => write!(f, "Function"),
-            NamedCall { .. } => write!(f, "NamedCall"),
-            Import { .. } => write!(f, "Import"),
-            Export(_) => write!(f, "Export"),
-            Assign { .. } => write!(f, "Assign"),
-            MultiAssign { .. } => write!(f, "MultiAssign"),
-            UnaryOp { .. } => write!(f, "UnaryOp"),
-            BinaryOp { .. } => write!(f, "BinaryOp"),
-            If(_) => write!(f, "If"),
-            Match { .. } => write!(f, "Match"),
-            Self_ { .. } => write!(f, "Self"),
-            Switch { .. } => write!(f, "Switch"),
-            Wildcard(_) => write!(f, "Wildcard"),
-            Ellipsis(_) => write!(f, "Ellipsis"),
-            For(_) => write!(f, "For"),
-            While { .. } => write!(f, "While"),
-            Until { .. } => write!(f, "Until"),
-            Loop { .. } => write!(f, "Loop"),
-            Break(_) => write!(f, "Break"),
-            Continue => write!(f, "Continue"),
-            Return(_) => write!(f, "Return"),
-            Try { .. } => write!(f, "Try"),
-            Throw(_) => write!(f, "Throw"),
-            Yield { .. } => write!(f, "Yield"),
-            Debug { .. } => write!(f, "Debug"),
-        }
-    }
 }
 
 /// A function definition
