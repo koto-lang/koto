@@ -1,20 +1,11 @@
 use koto_lexer::Span;
-use std::{fmt, num::TryFromIntError, ops::Deref};
+use std::{fmt, num::TryFromIntError};
 
 use crate::{error::*, ConstantPool, Node};
 
 /// The index type used by nodes in the [Ast]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct AstIndex(u32);
-
-// TODO - remove?
-impl Deref for AstIndex {
-    type Target = u32;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl From<AstIndex> for u32 {
     fn from(value: AstIndex) -> Self {
