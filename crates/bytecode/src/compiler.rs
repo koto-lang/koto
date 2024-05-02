@@ -135,6 +135,14 @@ impl<'a> CompileNodeContext<'a> {
             ..self
         }
     }
+
+    fn node(&self, ast_index: AstIndex) -> &Node {
+        &self.ast.node(ast_index).node
+    }
+
+    fn node_with_span(&self, ast_index: AstIndex) -> &AstNode {
+        self.ast.node(ast_index)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -238,7 +246,7 @@ impl Compiler {
     ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let node = ctx.ast.node(node_index);
+        let node = ctx.node_with_span(node_index);
 
         self.push_span(node, ctx.ast);
 
@@ -600,7 +608,7 @@ impl Compiler {
 
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
-            let arg_node = ctx.ast.node(*arg);
+            let arg_node = ctx.node_with_span(*arg);
             if let Node::Tuple(nested_args) = &arg_node.node {
                 self.push_span(arg_node, ctx.ast);
 
@@ -721,7 +729,7 @@ impl Compiler {
                 arg_index as u8
             };
 
-            match &ctx.ast.node(*arg).node {
+            match ctx.node(*arg) {
                 Node::Wildcard(_) => {}
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
@@ -804,7 +812,7 @@ impl Compiler {
         target: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<Option<u8>> {
-        let result = match &ctx.ast.node(target).node {
+        let result = match ctx.node(target) {
             Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
             unexpected => {
@@ -837,7 +845,7 @@ impl Compiler {
             self.compile_node(expression, ctx.with_register(value_result_register))?;
         let value_register = value_result.unwrap(self)?;
 
-        let target_node = ctx.ast.node(target);
+        let target_node = ctx.node_with_span(target);
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
@@ -911,7 +919,7 @@ impl Compiler {
             .map(|target| self.local_register_for_assign_target(*target, ctx))
             .collect::<Result<Vec<_>>>()?;
 
-        let rhs_node = ctx.ast.node(expression);
+        let rhs_node = ctx.node_with_span(expression);
         let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
         let rhs = self.compile_node(expression, ctx.with_any_register())?;
         let rhs_register = rhs.unwrap(self)?;
@@ -937,7 +945,7 @@ impl Compiler {
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
-            match &ctx.ast.node(*target).node {
+            match ctx.node(*target) {
                 Node::Id(id_index) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
@@ -1123,12 +1131,12 @@ impl Compiler {
 
         if from.is_empty() {
             for item in items.iter() {
-                let maybe_as = item.name.and_then(|name| match &ctx.ast.node(name).node {
+                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
                     Node::Id(id) => Some(*id),
                     _ => None,
                 });
 
-                match &ctx.ast.node(item.item).node {
+                match ctx.node(item.item) {
                     Node::Id(import_id) => {
                         let import_register = if result.register.is_some() {
                             let import_register = if let Some(name) = maybe_as {
@@ -1166,13 +1174,12 @@ impl Compiler {
                         }
                     }
                     Node::Str(_) => {
-                        let import_register = if let Some(Node::Id(name)) =
-                            item.name.map(|name| &ctx.ast.node(name).node)
-                        {
-                            self.assign_local_register(*name)?
-                        } else {
-                            self.push_register()?
-                        };
+                        let import_register =
+                            if let Some(Node::Id(name)) = item.name.map(|name| ctx.node(name)) {
+                                self.assign_local_register(*name)?
+                            } else {
+                                self.push_register()?
+                            };
                         self.compile_import_item(import_register, item.item, ctx)?;
 
                         if result.register.is_some() {
@@ -1193,12 +1200,12 @@ impl Compiler {
             self.compile_from(from_register, from, ctx)?;
 
             for item in items.iter() {
-                let maybe_as = item.name.and_then(|name| match &ctx.ast.node(name).node {
+                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
                     Node::Id(id) => Some(*id),
                     _ => None,
                 });
 
-                match &ctx.ast.node(item.item).node {
+                match ctx.node(item.item) {
                     Node::Id(import_id) => {
                         let import_register = if let Some(name) = maybe_as {
                             // 'import as' has been used, so assign a register for the given name
@@ -1277,7 +1284,7 @@ impl Compiler {
         expression: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
-        let expression_node = ctx.ast.node(expression);
+        let expression_node = ctx.node_with_span(expression);
 
         match &expression_node.node {
             Node::Assign { target, expression } => {
@@ -1306,7 +1313,7 @@ impl Compiler {
                 self.compile_import_item(result_register, *root, ctx)?;
 
                 for nested_item in nested.iter() {
-                    match &ctx.ast.node(*nested_item).node {
+                    match ctx.node(*nested_item) {
                         Node::Id(id) => {
                             self.compile_access_id(result_register, result_register, *id)
                         }
@@ -1338,7 +1345,7 @@ impl Compiler {
     ) -> Result<()> {
         use Op::*;
 
-        match &ctx.ast.node(item).node {
+        match ctx.node(item) {
             Node::Id(id) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
@@ -1384,7 +1391,7 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let (catch_register, pop_catch_register) = match &ctx.ast.node(*catch_arg).node {
+        let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
             Node::Id(id) => (self.assign_local_register(*id)?, false),
             Node::Wildcard(_) => {
                 // The catch argument is being ignored, so just use a dummy register
@@ -1420,7 +1427,7 @@ impl Compiler {
         let finally_offset = self.push_offset_placeholder();
         self.update_offset_placeholder(catch_offset)?;
 
-        self.push_span(ctx.ast.node(*catch_block), ctx.ast);
+        self.push_span(ctx.node_with_span(*catch_block), ctx.ast);
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
@@ -1573,7 +1580,7 @@ impl Compiler {
         let rhs = self.compile_node(rhs, ctx.with_any_register())?;
         let rhs_register = rhs.unwrap(self)?;
 
-        let lhs_node = &ctx.ast.node(lhs).node;
+        let lhs_node = ctx.node(lhs);
         let result = if let Node::Lookup(lookup_node) = lhs_node {
             self.compile_lookup(lookup_node, None, Some(rhs_register), Some(op), ctx)?
         } else {
@@ -1653,7 +1660,7 @@ impl Compiler {
             op: rhs_ast_op,
             lhs: rhs_lhs,
             rhs: rhs_rhs,
-        } = ctx.ast.node(rhs).node
+        } = ctx.node(rhs)
         {
             match rhs_ast_op {
                 Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
@@ -1668,7 +1675,7 @@ impl Compiler {
                     //   - chain the two comparisons together with an And
 
                     let rhs_lhs_register = self
-                        .compile_node(rhs_lhs, ctx.with_any_register())?
+                        .compile_node(*rhs_lhs, ctx.with_any_register())?
                         .unwrap(self)?;
 
                     // Place the lhs comparison result in the comparison_register
@@ -1680,8 +1687,8 @@ impl Compiler {
                     jump_offsets.push(self.push_offset_placeholder());
 
                     lhs_register = rhs_lhs_register;
-                    rhs = rhs_rhs;
-                    ast_op = rhs_ast_op;
+                    rhs = *rhs_rhs;
+                    ast_op = *rhs_ast_op;
                 }
                 _ => break,
             }
@@ -1979,7 +1986,7 @@ impl Compiler {
         // Process the map's entries
         if result.register.is_some() || export_entries {
             for (key, maybe_value_node) in entries.iter() {
-                let key_node = &ctx.ast.node(*key).node;
+                let key_node = ctx.node(*key);
                 let value = match (key_node, maybe_value_node) {
                     // A value has been provided for the entry
                     (_, Some(value_node)) => {
@@ -2057,7 +2064,7 @@ impl Compiler {
 
             let arg_is_unpacked_tuple = matches!(
                 function.args.as_slice(),
-                &[single_arg] if matches!(ctx.ast.node(single_arg).node, Node::Tuple(_))
+                &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
             );
 
             let flags_byte = FunctionFlags {
@@ -2085,7 +2092,7 @@ impl Compiler {
 
             let allow_implicit_return = !function.is_generator;
             let body_as_slice = [function.body];
-            let function_body = match &ctx.ast.node(function.body).node {
+            let function_body = match ctx.node(function.body) {
                 Node::Block(expressions) => expressions.as_slice(),
                 _ => &body_as_slice,
             };
@@ -2278,7 +2285,7 @@ impl Compiler {
             // Is the lookup chain complete?
             let Some(next) = next_node_index else { break };
 
-            let next_lookup_node = ctx.ast.node(next);
+            let next_lookup_node = ctx.node_with_span(next);
 
             match next_lookup_node.node.clone() {
                 Node::Lookup((node, next)) => {
@@ -2589,7 +2596,7 @@ impl Compiler {
         let piped_value = self.compile_node(lhs, ctx.with_any_register())?;
         let piped_value_register = piped_value.unwrap(self)?;
 
-        let rhs_node = ctx.ast.node(rhs);
+        let rhs_node = ctx.node_with_span(rhs);
         let result = match &rhs_node.node {
             Node::NamedCall { id, args } => self.compile_named_call(
                 *id,
@@ -2885,7 +2892,7 @@ impl Compiler {
         let match_register = self
             .compile_node(match_expression, ctx.with_any_register())?
             .unwrap(self)?;
-        let match_len = match &ctx.ast.node(match_expression).node {
+        let match_len = match ctx.node(match_expression) {
             Node::TempTuple(expressions) => expressions.len(),
             _ => 1,
         };
@@ -2929,7 +2936,7 @@ impl Compiler {
 
             jumps.alternative_end.clear();
 
-            let arm_node = ctx.ast.node(*arm_pattern);
+            let arm_node = ctx.node_with_span(*arm_pattern);
             self.push_span(arm_node, ctx.ast);
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
@@ -3056,7 +3063,7 @@ impl Compiler {
             } else {
                 pattern_index as i8
             };
-            let pattern_node = ctx.ast.node(*pattern);
+            let pattern_node = ctx.node_with_span(*pattern);
 
             match &pattern_node.node {
                 Node::Null
@@ -3219,12 +3226,12 @@ impl Compiler {
         let temp_register = self.push_register()?;
 
         let first_or_last_pattern_is_ellipsis = {
-            let first_is_ellipsis = nested_patterns.first().map_or(false, |first| {
-                matches!(ctx.ast.node(*first).node, Node::Ellipsis(_))
-            });
-            let last_is_ellipsis = nested_patterns.last().map_or(false, |last| {
-                matches!(ctx.ast.node(*last).node, Node::Ellipsis(_))
-            });
+            let first_is_ellipsis = nested_patterns
+                .first()
+                .map_or(false, |first| matches!(ctx.node(*first), Node::Ellipsis(_)));
+            let last_is_ellipsis = nested_patterns
+                .last()
+                .map_or(false, |last| matches!(ctx.node(*last), Node::Ellipsis(_)));
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
                 return self.error(ErrorKind::MultipleMatchEllipses);
             }
@@ -3321,7 +3328,7 @@ impl Compiler {
             let iterable_register = self.compile_node(*iterable, ctx.with_any_register())?;
 
             // Make the iterator, using the iterator's span in case of errors
-            self.push_span(ctx.ast.node(*iterable), ctx.ast);
+            self.push_span(ctx.node_with_span(*iterable), ctx.ast);
             self.push_op(
                 MakeIterator,
                 &[iterator_register, iterable_register.unwrap(self)?],
@@ -3342,7 +3349,7 @@ impl Compiler {
         match args.as_slice() {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
-                match &ctx.ast.node(*single_arg).node {
+                match ctx.node(*single_arg) {
                     Node::Id(id) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
@@ -3376,7 +3383,7 @@ impl Compiler {
                 self.push_op_without_span(MakeIterator, &[temp_register, temp_register]);
 
                 for arg in args.iter() {
-                    match &ctx.ast.node(*arg).node {
+                    match ctx.node(*arg) {
                         Node::Id(id) => {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
@@ -3411,7 +3418,7 @@ impl Compiler {
 
         if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
-                if let Node::Id(id) = &ctx.ast.node(*arg).node {
+                if let Node::Id(id) = ctx.node(*arg) {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
                         None => return self.error(ErrorKind::MissingArgRegister),
