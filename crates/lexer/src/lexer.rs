@@ -1371,7 +1371,7 @@ r#''bar''#
         }
 
         #[test]
-        fn lookups_on_numbers() {
+        fn accesses_on_numbers() {
             let input = "\
 1.0.sin()
 -1e-3.abs()
@@ -1547,7 +1547,7 @@ else
         }
 
         #[test]
-        fn map_lookup() {
+        fn map_access() {
             let input = "m.检验.foo[1].bär()";
 
             check_lexer_output(
@@ -1570,7 +1570,7 @@ else
         }
 
         #[test]
-        fn map_lookup_with_keyword_as_key() {
+        fn map_access_with_keyword_as_key() {
             let input = "foo.and()";
 
             check_lexer_output(
@@ -1606,7 +1606,7 @@ else
         use super::*;
 
         #[test]
-        fn lookup_in_list() {
+        fn map_access_in_list() {
             let source = "
 [foo.bar]
 ";
@@ -1624,7 +1624,7 @@ else
         }
 
         #[test]
-        fn multiline_lookup() {
+        fn multiline_chain() {
             let source = "
 x.iter()
   .skip 1

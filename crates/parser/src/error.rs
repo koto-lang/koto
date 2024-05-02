@@ -16,8 +16,8 @@ pub enum InternalError {
     ExpectedMapColon,
     #[error("Failed to parse ID")]
     IdParseFailure,
-    #[error("Failed to parse lookup")]
-    LookupParseFailure,
+    #[error("Failed to parse chain")]
+    ChainParseFailure,
     #[error("Missing assignment target")]
     MissingAssignmentTarget,
     #[error("Frame unavailable during parsing")]

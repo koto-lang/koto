@@ -18,8 +18,8 @@ pub enum Node {
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
 
-    /// A lookup node, and optionally the node that follows it in the lookup chain
-    Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
+    /// A chained expression, and optionally the node that follows it in the chain
+    Chain((ChainNode, Option<AstIndex>)), // chain node, next node
 
     /// The `true` keyword
     BoolTrue,
@@ -267,7 +267,7 @@ pub struct Function {
     pub local_count: usize,
     /// Any non-local values that are accessed in the function
     ///
-    /// Any ID (or lookup root) that's accessed in a function and which wasn't previously assigned
+    /// Any ID (or chain root) that's accessed in a function and which wasn't previously assigned
     /// locally, is either an export or the value needs to be captured. The compiler takes care of
     /// determining if an access is a capture or not at the moment the function is created.
     pub accessed_non_locals: Vec<ConstantIndex>,
@@ -393,10 +393,9 @@ pub struct AstTry {
     pub finally_block: Option<AstIndex>,
 }
 
-/// A node in a lookup chain
+/// A node in a chained expression
 ///
-/// Lookups are any expressions that access a values from identifiers, and then as the lookup chain
-/// continues, from any following temporary results.
+/// Chains are any expressions that contain two or more nodes in a sequence.
 ///
 /// In other words, some series of operations involving indexing, `.` accesses, and function calls.
 ///
@@ -408,8 +407,8 @@ pub struct AstTry {
 ///  |  ^ Id (bar)
 ///  ^ Root (foo)
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LookupNode {
-    /// The root of the lookup chain
+pub enum ChainNode {
+    /// The root of the chain
     Root(AstIndex),
     /// A `.` access using an identifier
     Id(ConstantIndex),

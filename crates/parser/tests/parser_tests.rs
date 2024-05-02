@@ -119,9 +119,9 @@ mod parser {
         }
     }
 
-    fn lookup_call(args: &[u32], with_parens: bool, next: Option<u32>) -> Node {
-        Node::Lookup((
-            LookupNode::Call {
+    fn chain_call(args: &[u32], with_parens: bool, next: Option<u32>) -> Node {
+        Node::Chain((
+            ChainNode::Call {
                 args: args.iter().map(AstIndex::from).collect(),
                 with_parens,
             },
@@ -129,16 +129,16 @@ mod parser {
         ))
     }
 
-    fn lookup_id(id: u32, next: Option<u32>) -> Node {
-        Node::Lookup((LookupNode::Id(id.into()), next.map(AstIndex::from)))
+    fn chain_id(id: u32, next: Option<u32>) -> Node {
+        Node::Chain((ChainNode::Id(id.into()), next.map(AstIndex::from)))
     }
 
-    fn lookup_index(index: u32, next: Option<u32>) -> Node {
-        Node::Lookup((LookupNode::Index(index.into()), next.map(AstIndex::from)))
+    fn chain_index(index: u32, next: Option<u32>) -> Node {
+        Node::Chain((ChainNode::Index(index.into()), next.map(AstIndex::from)))
     }
 
-    fn lookup_root(index: u32, next: Option<u32>) -> Node {
-        Node::Lookup((LookupNode::Root(index.into()), next.map(AstIndex::from)))
+    fn chain_root(index: u32, next: Option<u32>) -> Node {
+        Node::Chain((ChainNode::Root(index.into()), next.map(AstIndex::from)))
     }
 
     mod values {
@@ -454,8 +454,8 @@ r##'#$bar'##
                     unary_op(AstUnaryOp::Negate, 1),
                     id(2),
                     SmallInt(0),
-                    lookup_index(4, None), // 5
-                    lookup_root(3, Some(5)),
+                    chain_index(4, None), // 5
+                    chain_root(3, Some(5)),
                     unary_op(AstUnaryOp::Negate, 6),
                     SmallInt(1),
                     SmallInt(1),
@@ -795,8 +795,8 @@ x =
                     id(2),        // bar
                     id(3),        // baz
                     SmallInt(42), // 5
-                    lookup_call(&[5], false, None),
-                    lookup_root(4, Some(6)),
+                    chain_call(&[5], false, None),
+                    chain_root(4, Some(6)),
                     map_block(&[(1, 2), (3, 7)]),
                     assign(0, 8),
                     MainBlock {
@@ -950,17 +950,17 @@ min..max
         }
 
         #[test]
-        fn range_from_lookups() {
+        fn range_from_chains() {
             let source = "foo.bar..foo.baz";
             check_ast(
                 source,
                 &[
                     id(0),
-                    lookup_id(1, None),
-                    lookup_root(0, Some(1)),
+                    chain_id(1, None),
+                    chain_root(0, Some(1)),
                     id(0),
-                    lookup_id(2, None),
-                    lookup_root(3, Some(4)), // 5
+                    chain_id(2, None),
+                    chain_root(3, Some(4)), // 5
                     range(2, 5, false),
                     MainBlock {
                         body: expressions(&[6]),
@@ -1184,8 +1184,8 @@ min..max
                     id(0),
                     id(1),
                     SmallInt(0),
-                    lookup_index(2, None),
-                    lookup_root(1, Some(3)),
+                    chain_index(2, None),
+                    chain_root(1, Some(3)),
                     SmallInt(1), // 5
                     SmallInt(0),
                     TempTuple(expressions(&[5, 6])),
@@ -1241,14 +1241,14 @@ x";
                     Wildcard(None),
                     Wildcard(Some(1.into())),
                     id(2),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_root(3, Some(4)), // 5
+                    chain_root(3, Some(4)), // 5
                     MultiAssign {
                         targets: expressions(&[0, 1, 2]),
                         expression: 5.into(),
@@ -1298,7 +1298,7 @@ x %= 4";
         }
 
         #[test]
-        fn list_with_lookup_as_first_element() {
+        fn list_with_chain_as_first_element() {
             let source = "
 [foo.bar()]
 ";
@@ -1306,15 +1306,15 @@ x %= 4";
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(1)),
-                    lookup_root(0, Some(2)),
+                    chain_id(1, Some(1)),
+                    chain_root(0, Some(2)),
                     List(expressions(&[3])),
                     MainBlock {
                         body: expressions(&[4]),
@@ -1516,8 +1516,8 @@ export
                     SmallInt(1),
                     id(1), // f
                     id(2), // y
-                    lookup_call(&[3], false, None),
-                    lookup_root(2, Some(4)), // 5
+                    chain_call(&[3], false, None),
+                    chain_root(2, Some(4)), // 5
                     binary_op(AstBinaryOp::Add, 1, 5),
                     assign(0, 6),
                     MainBlock {
@@ -1948,7 +1948,7 @@ for x in y
         }
 
         #[test]
-        fn for_with_range_from_lookup_call() {
+        fn for_with_range_from_chain_call() {
             let source = "\
 for a in x.zip y
   a
@@ -1959,16 +1959,16 @@ for a in x.zip y
                     id(0), // a
                     id(1), // x
                     id(3), // y
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[2]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(2, Some(3)),
-                    lookup_root(1, Some(4)), // ast 5
-                    id(0),                   // a
+                    chain_id(2, Some(3)),
+                    chain_root(1, Some(4)), // ast 5
+                    id(0),                  // a
                     For(AstFor {
                         args: expressions(&[0]),
                         iterable: 5.into(),
@@ -2012,14 +2012,14 @@ a()";
                     }),
                     assign(0, 2),
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 5
-                    lookup_root(4, Some(5)),
+                    chain_root(4, Some(5)),
                     MainBlock {
                         body: expressions(&[3, 6]),
                         local_count: 1,
@@ -2077,15 +2077,15 @@ a()";
                     id(1),
                     id(0),
                     id(1),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(2, Some(4)), // 5
-                    lookup_root(3, Some(5)),
+                    chain_id(2, Some(4)), // 5
+                    chain_root(3, Some(5)),
                     binary_op(AstBinaryOp::Add, 2, 6),
                     Function(koto_parser::Function {
                         args: expressions(&[0, 1]),
@@ -2136,8 +2136,8 @@ f 42";
                     assign(0, 7),
                     id(0),        // f
                     SmallInt(42), // 10
-                    lookup_call(&[10], false, None),
-                    lookup_root(9, Some(11)),
+                    chain_call(&[10], false, None),
+                    chain_root(9, Some(11)),
                     MainBlock {
                         body: expressions(&[8, 12]),
                         local_count: 1,
@@ -2174,8 +2174,8 @@ f = |x|
                     assign(2, 5),
                     id(2), // y
                     id(1), // x
-                    lookup_call(&[8], false, None),
-                    lookup_root(7, Some(9)), // 10
+                    chain_call(&[8], false, None),
+                    chain_root(7, Some(9)), // 10
                     Block(expressions(&[6, 10])),
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
@@ -2210,8 +2210,8 @@ f = |x|
                     id(1),
                     id(1),
                     unary_op(AstUnaryOp::Negate, 2),
-                    lookup_call(&[1, 3], false, None),
-                    lookup_root(0, Some(4)), // 5
+                    chain_call(&[1, 3], false, None),
+                    chain_root(0, Some(4)), // 5
                     MainBlock {
                         body: expressions(&[5]),
                         local_count: 0,
@@ -2231,8 +2231,8 @@ f = |x|
                     id(1), // x
                     SmallInt(1),
                     binary_op(AstBinaryOp::Subtract, 1, 2),
-                    lookup_call(&[3], false, None),
-                    lookup_root(0, Some(4)), // 5
+                    chain_call(&[3], false, None),
+                    chain_root(0, Some(4)), // 5
                     MainBlock {
                         body: expressions(&[5]),
                         local_count: 0,
@@ -2269,14 +2269,14 @@ f(x,
                     id(1),
                     id(1),
                     unary_op(AstUnaryOp::Negate, 2),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1, 3]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_root(0, Some(4)),
+                    chain_root(0, Some(4)),
                     MainBlock {
                         body: expressions(&[5]),
                         local_count: 0,
@@ -2312,8 +2312,8 @@ foo x,
                     id(0), //foo
                     id(1), // x
                     id(2), // y
-                    lookup_call(&[1, 2], false, None),
-                    lookup_root(0, Some(3)),
+                    chain_call(&[1, 2], false, None),
+                    chain_root(0, Some(3)),
                     MainBlock {
                         body: expressions(&[4]),
                         local_count: 0,
@@ -2344,8 +2344,8 @@ foo
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    lookup_call(&[1, 4], false, None), // 5
-                    lookup_root(0, Some(5)),
+                    chain_call(&[1, 4], false, None), // 5
+                    chain_root(0, Some(5)),
                     MainBlock {
                         body: expressions(&[6]),
                         local_count: 0,
@@ -2366,12 +2366,12 @@ f x";
                 &[
                     id(0),
                     id(1),
-                    lookup_call(&[1], false, None),
-                    lookup_root(0, Some(2)),
+                    chain_call(&[1], false, None),
+                    chain_root(0, Some(2)),
                     id(0),
                     id(1), // 5
-                    lookup_call(&[5], false, None),
-                    lookup_root(4, Some(6)),
+                    chain_call(&[5], false, None),
+                    chain_root(4, Some(6)),
                     MainBlock {
                         body: expressions(&[3, 7]),
                         local_count: 0,
@@ -2391,8 +2391,8 @@ f x";
                     id(1), // x
                     id(0), // f
                     id(1), // x
-                    lookup_call(&[3], false, None),
-                    lookup_root(2, Some(4)), // 5
+                    chain_call(&[3], false, None),
+                    chain_root(2, Some(4)), // 5
                     Function(koto_parser::Function {
                         args: expressions(&[1]),
                         local_count: 1,
@@ -2417,13 +2417,13 @@ f x";
             check_ast(
                 source,
                 &[
-                    id(0),                          // f
-                    id(1),                          // g
-                    id(2),                          // x
-                    id(0),                          // f
-                    id(2),                          // x
-                    lookup_call(&[4], false, None), // 5
-                    lookup_root(3, Some(5)),
+                    id(0),                         // f
+                    id(1),                         // g
+                    id(2),                         // x
+                    id(0),                         // f
+                    id(2),                         // x
+                    chain_call(&[4], false, None), // 5
+                    chain_root(3, Some(5)),
                     Function(koto_parser::Function {
                         args: expressions(&[2]),
                         local_count: 1,
@@ -2436,8 +2436,8 @@ f x";
                     id(2), // x
                     id(1), // 10 - g
                     id(2), // x
-                    lookup_call(&[11], false, None),
-                    lookup_root(10, Some(12)),
+                    chain_call(&[11], false, None),
+                    chain_root(10, Some(12)),
                     Function(koto_parser::Function {
                         args: expressions(&[9]),
                         local_count: 1,
@@ -2469,8 +2469,8 @@ f x";
                 &[
                     id(0), // f
                     id(1), // x
-                    lookup_call(&[1], false, None),
-                    lookup_root(0, Some(2)),
+                    chain_call(&[1], false, None),
+                    chain_root(0, Some(2)),
                     id(2),                              // g
                     binary_op(AstBinaryOp::Pipe, 3, 4), // 5
                     id(3),                              // h
@@ -2490,7 +2490,7 @@ f x";
         }
 
         #[test]
-        fn indented_piped_calls_after_lookup() {
+        fn indented_piped_calls_after_chain() {
             let source = "
 foo.bar x
   >> y
@@ -2501,15 +2501,15 @@ foo.bar x
                 &[
                     id(0), // foo
                     id(2), // x
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     id(3), // 5 - y
                     binary_op(AstBinaryOp::Pipe, 4, 5),
                     id(4), // z
@@ -2537,11 +2537,11 @@ foo.bar x
                 &[
                     id(0), // foo
                     SmallInt(42),
-                    id(1),              // bar
-                    id(2),              // x
-                    Self_,              // self
-                    lookup_id(0, None), // 5
-                    lookup_root(4, Some(5)),
+                    id(1),             // bar
+                    id(2),             // x
+                    Self_,             // self
+                    chain_id(0, None), // 5
+                    chain_root(4, Some(5)),
                     id(2),
                     assign(6, 7),
                     Function(koto_parser::Function {
@@ -2661,11 +2661,11 @@ f()";
                     id(0), // f
                     id(1), // foo
                     SmallInt(42),
-                    id(2),              // bar
-                    id(3),              // x
-                    Self_,              // 5
-                    lookup_id(1, None), // foo
-                    lookup_root(5, Some(6)),
+                    id(2),             // bar
+                    id(3),             // x
+                    Self_,             // 5
+                    chain_id(1, None), // foo
+                    chain_root(5, Some(6)),
                     id(3), // x
                     assign(7, 8),
                     Function(koto_parser::Function {
@@ -2687,14 +2687,14 @@ f()";
                     }),
                     assign(0, 12),
                     id(0), // f
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 15
-                    lookup_root(14, Some(15)),
+                    chain_root(14, Some(15)),
                     MainBlock {
                         body: expressions(&[13, 16]),
                         local_count: 1,
@@ -2902,8 +2902,8 @@ z = y [0..20], |x| x > 1
                         is_variadic: false,
                         is_generator: false,
                     }), // 10
-                    lookup_call(&[5, 10], false, None),
-                    lookup_root(1, Some(11)),
+                    chain_call(&[5, 10], false, None),
+                    chain_root(1, Some(11)),
                     assign(0, 12),
                     MainBlock {
                         body: expressions(&[13]),
@@ -3050,7 +3050,7 @@ z = y [0..20], |x| x > 1
         }
     }
 
-    mod lookups {
+    mod chains {
         use super::*;
 
         #[test]
@@ -3062,12 +3062,12 @@ z = y [0..20], |x| x > 1
                 &[
                     id(0),
                     SmallInt(0),
-                    lookup_index(1, None),
-                    lookup_root(0, Some(2)),
+                    chain_index(1, None),
+                    chain_root(0, Some(2)),
                     id(0),
                     SmallInt(1), // 5
-                    lookup_index(5, None),
-                    lookup_root(4, Some(6)),
+                    chain_index(5, None),
+                    chain_root(4, Some(6)),
                     assign(3, 7),
                     MainBlock {
                         body: expressions(&[8]),
@@ -3086,8 +3086,8 @@ z = y [0..20], |x| x > 1
                 &[
                     id(0),
                     RangeFull,
-                    lookup_index(1, None),
-                    lookup_root(0, Some(2)),
+                    chain_index(1, None),
+                    chain_root(0, Some(2)),
                     MainBlock {
                         body: expressions(&[3]),
                         local_count: 0,
@@ -3109,8 +3109,8 @@ z = y [0..20], |x| x > 1
                         end: 1.into(),
                         inclusive: false,
                     },
-                    lookup_index(2, None),
-                    lookup_root(0, Some(3)),
+                    chain_index(2, None),
+                    chain_root(0, Some(3)),
                     MainBlock {
                         body: expressions(&[4]),
                         local_count: 0,
@@ -3130,9 +3130,9 @@ z = y [0..20], |x| x > 1
                     SmallInt(10),
                     RangeFrom { start: 1.into() },
                     SmallInt(0),
-                    lookup_index(3, None),
-                    lookup_index(2, Some(4)), // 5
-                    lookup_root(0, Some(5)),
+                    chain_index(3, None),
+                    chain_index(2, Some(4)), // 5
+                    chain_root(0, Some(5)),
                     MainBlock {
                         body: expressions(&[6]),
                         local_count: 0,
@@ -3143,14 +3143,14 @@ z = y [0..20], |x| x > 1
         }
 
         #[test]
-        fn lookup_with_id() {
+        fn access_with_id() {
             let source = "x.foo";
             check_ast(
                 source,
                 &[
                     id(0),
-                    lookup_id(1, None),
-                    lookup_root(0, Some(1)),
+                    chain_id(1, None),
+                    chain_root(0, Some(1)),
                     MainBlock {
                         body: expressions(&[2]),
                         local_count: 0,
@@ -3161,21 +3161,21 @@ z = y [0..20], |x| x > 1
         }
 
         #[test]
-        fn lookup_with_call() {
+        fn access_with_call() {
             let source = "x.bar()";
             check_ast(
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(1)),
-                    lookup_root(0, Some(2)),
+                    chain_id(1, Some(1)),
+                    chain_root(0, Some(2)),
                     MainBlock {
                         body: expressions(&[3]),
                         local_count: 0,
@@ -3186,21 +3186,21 @@ z = y [0..20], |x| x > 1
         }
 
         #[test]
-        fn lookup_call_arithmetic_arg() {
+        fn access_call_arithmetic_arg() {
             let source = "x.bar() - 1";
             check_ast(
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(1)),
-                    lookup_root(0, Some(2)),
+                    chain_id(1, Some(1)),
+                    chain_root(0, Some(2)),
                     SmallInt(1),
                     binary_op(AstBinaryOp::Subtract, 3, 4), // 5
                     MainBlock {
@@ -3213,7 +3213,7 @@ z = y [0..20], |x| x > 1
         }
 
         #[test]
-        fn lookup_assignment() {
+        fn access_assignment() {
             let source = r#"
 x.bar()."baz" = 1
 "#;
@@ -3221,22 +3221,22 @@ x.bar()."baz" = 1
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Str(AstString {
+                    Chain((
+                        ChainNode::Str(AstString {
                             quote: StringQuote::Double,
                             contents: StringContents::Literal(2.into()),
                         }),
                         None,
                     )),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         Some(1.into()),
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     SmallInt(1), // 5
                     assign(4, 5),
                     MainBlock {
@@ -3253,22 +3253,22 @@ x.bar()."baz" = 1
         }
 
         #[test]
-        fn lookup_space_separated_call() {
+        fn access_space_separated_call() {
             let source = "x.foo 42";
             check_ast(
                 source,
                 &[
                     id(0),
                     SmallInt(42),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     MainBlock {
                         body: expressions(&[4]),
                         local_count: 0,
@@ -3279,7 +3279,7 @@ x.bar()."baz" = 1
         }
 
         #[test]
-        fn lookup_indentation_separated_call() {
+        fn access_indentation_separated_call() {
             let source = "
 x.foo
   42
@@ -3289,15 +3289,15 @@ x.foo
                 &[
                     id(0),
                     SmallInt(42),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     MainBlock {
                         body: expressions(&[4]),
                         local_count: 0,
@@ -3308,7 +3308,7 @@ x.foo
         }
 
         #[test]
-        fn lookup_indentation_separated_with_map_arg() {
+        fn chain_indentation_separated_with_map_arg() {
             let source = "
 x.takes_a_map
   foo: 42
@@ -3320,15 +3320,15 @@ x.takes_a_map
                     id(2), // foo
                     SmallInt(42),
                     map_block(&[(1, 2)]),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[3]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(4)), // 5 - takes_a_map
-                    lookup_root(0, Some(5)),
+                    chain_id(1, Some(4)), // 5 - takes_a_map
+                    chain_root(0, Some(5)),
                     MainBlock {
                         body: expressions(&[6]),
                         local_count: 0,
@@ -3343,7 +3343,7 @@ x.takes_a_map
         }
 
         #[test]
-        fn map_lookup_in_list() {
+        fn map_access_in_list() {
             let sources = [
                 "[my_map.foo, my_map.bar]",
                 "
@@ -3366,11 +3366,11 @@ x.takes_a_map
                 &sources,
                 &[
                     id(0),
-                    lookup_id(1, None),
-                    lookup_root(0, Some(1)),
+                    chain_id(1, None),
+                    chain_root(0, Some(1)),
                     id(0),
-                    lookup_id(2, None),
-                    lookup_root(3, Some(4)), // 5
+                    chain_id(2, None),
+                    chain_root(3, Some(4)), // 5
                     List(expressions(&[2, 5])),
                     MainBlock {
                         body: expressions(&[6]),
@@ -3386,18 +3386,18 @@ x.takes_a_map
         }
 
         #[test]
-        fn lookups_on_call_result() {
+        fn chain_on_call_result() {
             let source = "(f x).foo";
             check_ast(
                 source,
                 &[
                     id(0), // f
                     id(1), // x
-                    lookup_call(&[1], false, None),
-                    lookup_root(0, Some(2)),
+                    chain_call(&[1], false, None),
+                    chain_root(0, Some(2)),
                     Nested(3.into()),
-                    lookup_id(2, None), // 5
-                    lookup_root(4, Some(5)),
+                    chain_id(2, None), // 5
+                    chain_root(4, Some(5)),
                     MainBlock {
                         body: expressions(&[6]),
                         local_count: 0,
@@ -3415,12 +3415,12 @@ x.takes_a_map
                 &[
                     id(0), // f
                     id(1), // x
-                    lookup_call(&[1], false, None),
-                    lookup_root(0, Some(2)),
+                    chain_call(&[1], false, None),
+                    chain_root(0, Some(2)),
                     Nested(3.into()),
                     SmallInt(0), // 5
-                    lookup_index(5, None),
-                    lookup_root(4, Some(6)),
+                    chain_index(5, None),
+                    chain_root(4, Some(6)),
                     MainBlock {
                         body: expressions(&[7]),
                         local_count: 0,
@@ -3438,12 +3438,12 @@ x.takes_a_map
                 &[
                     id(0), // f
                     id(1), // x
-                    lookup_call(&[1], false, None),
-                    lookup_root(0, Some(2)),
+                    chain_call(&[1], false, None),
+                    chain_root(0, Some(2)),
                     Nested(3.into()),
                     id(2), // 5 - y
-                    lookup_call(&[5], true, None),
-                    lookup_root(4, Some(6)),
+                    chain_call(&[5], true, None),
+                    chain_root(4, Some(6)),
                     MainBlock {
                         body: expressions(&[7]),
                         local_count: 0,
@@ -3454,21 +3454,21 @@ x.takes_a_map
         }
 
         #[test]
-        fn lookup_on_number() {
+        fn chain_on_number() {
             let source = "1.sin()";
             check_ast(
                 source,
                 &[
                     SmallInt(1),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(0, Some(1)),
-                    lookup_root(0, Some(2)),
+                    chain_id(0, Some(1)),
+                    chain_root(0, Some(2)),
                     MainBlock {
                         body: expressions(&[3]),
                         local_count: 0,
@@ -3479,22 +3479,22 @@ x.takes_a_map
         }
 
         #[test]
-        fn lookup_on_string() {
+        fn chain_on_string() {
             let source = "'fox'.ends_with 'x'";
             check_ast(
                 source,
                 &[
                     string_literal(0, StringQuote::Single),
                     string_literal(2, StringQuote::Single),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     MainBlock {
                         body: expressions(&[4]),
                         local_count: 0,
@@ -3509,7 +3509,7 @@ x.takes_a_map
         }
 
         #[test]
-        fn lookup_on_tuple() {
+        fn chain_on_tuple() {
             let sources = [
                 "
 x = (0, 1).contains y
@@ -3532,15 +3532,15 @@ x = ( 0
                     SmallInt(1),
                     Tuple(expressions(&[1, 2])),
                     id(2),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[4]),
                             with_parens: false,
                         },
                         None,
                     )), // 5
-                    lookup_id(1, Some(5)),
-                    lookup_root(3, Some(6)),
+                    chain_id(1, Some(5)),
+                    chain_root(3, Some(6)),
                     assign(0, 7),
                     MainBlock {
                         body: expressions(&[8]),
@@ -3555,7 +3555,7 @@ x = ( 0
             )
         }
         #[test]
-        fn lookup_on_list() {
+        fn chain_on_list() {
             let sources = [
                 "
 x = [0, 1].contains y
@@ -3578,15 +3578,15 @@ x = [ 0
                     SmallInt(1),
                     List(expressions(&[1, 2])),
                     id(2),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[4]),
                             with_parens: false,
                         },
                         None,
                     )), // 5
-                    lookup_id(1, Some(5)),
-                    lookup_root(3, Some(6)),
+                    chain_id(1, Some(5)),
+                    chain_root(3, Some(6)),
                     assign(0, 7),
                     MainBlock {
                         body: expressions(&[8]),
@@ -3602,7 +3602,7 @@ x = [ 0
         }
 
         #[test]
-        fn lookup_on_map() {
+        fn chain_on_map() {
             let sources = [
                 "
 x = {y, z}.values()
@@ -3629,15 +3629,15 @@ x = { y
                     id(1),
                     id(2),
                     map_inline(&[(1, None), (2, None)]),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(3, Some(4)), // 5 - values
-                    lookup_root(3, Some(5)),
+                    chain_id(3, Some(4)), // 5 - values
+                    chain_root(3, Some(5)),
                     assign(0, 6),
                     MainBlock {
                         body: expressions(&[7]),
@@ -3654,7 +3654,7 @@ x = { y
         }
 
         #[test]
-        fn lookup_on_range_same_line() {
+        fn chain_on_range_same_line() {
             let source = "(0..1).size()";
             check_ast(
                 source,
@@ -3663,15 +3663,15 @@ x = { y
                     SmallInt(1),
                     range(0, 1, false),
                     Nested(2.into()),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(0, Some(4)), // 5
-                    lookup_root(3, Some(5)),
+                    chain_id(0, Some(4)), // 5
+                    chain_root(3, Some(5)),
                     MainBlock {
                         body: expressions(&[6]),
                         local_count: 0,
@@ -3682,7 +3682,7 @@ x = { y
         }
 
         #[test]
-        fn lookup_on_range_next_line() {
+        fn chain_on_range_next_line() {
             let source = "
 0..1
   .size()
@@ -3693,15 +3693,15 @@ x = { y
                     SmallInt(0),
                     SmallInt(1),
                     range(0, 1, false),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(0, Some(3)),
-                    lookup_root(2, Some(4)), // 5
+                    chain_id(0, Some(3)),
+                    chain_root(2, Some(4)), // 5
                     MainBlock {
                         body: expressions(&[5]),
                         local_count: 0,
@@ -3712,7 +3712,7 @@ x = { y
         }
 
         #[test]
-        fn nested_lookup_call() {
+        fn nested_chain_call() {
             let source = "((x).contains y)";
             check_ast(
                 source,
@@ -3720,15 +3720,15 @@ x = { y
                     id(0),
                     Nested(0.into()),
                     id(2),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[2]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(3)),
-                    lookup_root(1, Some(4)), // 5
+                    chain_id(1, Some(3)),
+                    chain_root(1, Some(4)), // 5
                     Nested(5.into()),
                     MainBlock {
                         body: expressions(&[6]),
@@ -3744,7 +3744,7 @@ x = { y
         }
 
         #[test]
-        fn multiline_lookup() {
+        fn multiline_chain() {
             let source = "
 x.iter()
   .skip 1
@@ -3755,31 +3755,31 @@ x.iter()
                 &[
                     id(0),
                     SmallInt(1),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_id(3, Some(2)),
-                    Lookup((
-                        LookupNode::Call {
+                    chain_id(3, Some(2)),
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         Some(3.into()),
                     )),
-                    lookup_id(2, Some(4)), // 5
-                    Lookup((
-                        LookupNode::Call {
+                    chain_id(2, Some(4)), // 5
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         Some(5.into()),
                     )),
-                    lookup_id(1, Some(6)),
-                    lookup_root(0, Some(7)),
+                    chain_id(1, Some(6)),
+                    chain_root(0, Some(7)),
                     MainBlock {
                         body: expressions(&[8]),
                         local_count: 0,
@@ -3795,7 +3795,7 @@ x.iter()
         }
 
         #[test]
-        fn lookup_followed_by_continued_expression_on_next_line() {
+        fn chain_followed_by_continued_expression_on_next_line() {
             let source = "
 foo.bar
   or foo.baz or
@@ -3805,11 +3805,11 @@ foo.bar
                 source,
                 &[
                     id(0),
-                    lookup_id(1, None),
-                    lookup_root(0, Some(1)),
+                    chain_id(1, None),
+                    chain_root(0, Some(1)),
                     id(0),
-                    lookup_id(2, None),
-                    lookup_root(3, Some(4)), // 5
+                    chain_id(2, None),
+                    chain_root(3, Some(4)), // 5
                     binary_op(AstBinaryOp::Or, 2, 5),
                     BoolFalse,
                     binary_op(AstBinaryOp::Or, 6, 7),
@@ -4106,14 +4106,14 @@ catch e
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_root(0, Some(1)),
+                    chain_root(0, Some(1)),
                     id(1), // e
                     id(1),
                     Debug {
@@ -4211,14 +4211,14 @@ finally
                 source,
                 &[
                     id(0),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
-                    lookup_root(0, Some(1)),
+                    chain_root(0, Some(1)),
                     id(1), // e
                     id(1),
                     Debug {
@@ -4663,7 +4663,7 @@ match x, y
         }
 
         #[test]
-        fn match_expression_is_lookup_call() {
+        fn match_expression_is_chain() {
             let source = "
 match x.foo 42
   null then 0
@@ -4674,15 +4674,15 @@ match x.foo 42
                 &[
                     id(0),
                     SmallInt(42),
-                    Lookup((
-                        LookupNode::Call {
+                    Chain((
+                        ChainNode::Call {
                             args: expressions(&[1]),
                             with_parens: false,
                         },
                         None,
                     )),
-                    lookup_id(1, Some(2)),
-                    lookup_root(0, Some(3)),
+                    chain_id(1, Some(2)),
+                    chain_root(0, Some(3)),
                     Null, // 5
                     SmallInt(0),
                     SmallInt(1),
@@ -4711,7 +4711,7 @@ match x.foo 42
         }
 
         #[test]
-        fn match_pattern_is_lookup() {
+        fn match_pattern_is_chain() {
             let source = "
 match x
   y.foo then 0
@@ -4721,8 +4721,8 @@ match x
                 &[
                     id(0),
                     id(1),
-                    lookup_id(2, None),
-                    lookup_root(1, Some(2)),
+                    chain_id(2, None),
+                    chain_root(1, Some(2)),
                     SmallInt(0),
                     Match {
                         expression: 0.into(),

@@ -255,7 +255,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
     Ok(result)
 }
 
-// Support efficient map lookups with &str
+// Support efficient map accesses with &str
 impl Equivalent<MetaKey> for str {
     fn equivalent(&self, other: &MetaKey) -> bool {
         match &other {

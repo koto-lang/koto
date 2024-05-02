@@ -40,12 +40,12 @@ pub trait KotoCopy {
     }
 }
 
-/// A trait that allows objects to support '.' lookups
+/// A trait that allows objects to support '.' accesses
 ///
 /// This is the mechanism for attaching custom methods to objects in the Koto runtime.
 ///
 /// The `#[koto_impl]` macro provides an easy way to declare methods that should be made available
-/// via lookup by using the `#[koto_method]` attribute, and then derives an appropriate
+/// via '.' access by using the `#[koto_method]` attribute, and then derives an appropriate
 /// implementation of [KotoEntries].
 pub trait KotoEntries {
     /// Returns an optional [KMap] containing entries that can be accessed via the '.' operator.

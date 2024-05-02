@@ -3,8 +3,8 @@ use crate::{
     DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
 use koto_parser::{
-    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
-    Function, ImportItem, LookupNode, MatchArm, MetaKeyId, Node, Span, StringContents,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ChainNode,
+    ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
     StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
@@ -40,10 +40,10 @@ enum ErrorKind {
     MissingArgRegister,
     #[error("missing item to import")]
     MissingImportItem,
-    #[error("missing next node while compiling lookup")]
-    MissingNextLookupNode,
-    #[error("missing lookup parent register")]
-    MissingLookupParentRegister,
+    #[error("missing next node while compiling a chain")]
+    MissingNextChainNode,
+    #[error("missing chain parent register")]
+    MissingChainParentRegister,
     #[error("missing result register")]
     MissingResultRegister,
     #[error("missing String nodes")]
@@ -54,12 +54,12 @@ enum ErrorKind {
     MultipleMatchEllipses,
     #[error("the compiled expression has no output")]
     NoResultInExpressionOutput,
-    #[error("child lookup node out of position in lookup")]
-    OutOfPositionChildNodeInLookup,
+    #[error("child chain node out of position")]
+    OutOfPositionChildNodeInChain,
     #[error("matching with ellipses is only allowed in first or last position")]
     OutOfPositionMatchEllipsis,
-    #[error("root lookup node out of position in lookup")]
-    OutOfPositionRootNodeInLookup,
+    #[error("root chain node out of position")]
+    OutOfPositionRootNodeInChain,
     #[error("The compiled bytecode is larger than the maximum size of 4GB (size: {0} bytes)")]
     ResultingBytecodeIsTooLarge(usize),
     #[error("too many targets in assignment ({0})")]
@@ -264,7 +264,7 @@ impl Compiler {
             }
             Node::Nested(nested) => self.compile_node(*nested, ctx)?,
             Node::Id(index) => self.compile_load_id(*index, ctx)?,
-            Node::Lookup(lookup) => self.compile_lookup(lookup, None, None, None, ctx)?,
+            Node::Chain(chain) => self.compile_chain(chain, None, None, None, ctx)?,
             Node::BoolTrue => {
                 let result = self.assign_result_register(ctx)?;
                 if let Some(result) = result.register {
@@ -813,7 +813,7 @@ impl Compiler {
     ) -> Result<Option<u8>> {
         let result = match ctx.node(target) {
             Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
+            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
@@ -860,9 +860,9 @@ impl Compiler {
                     self.compile_value_export(*id_index, value_register)?;
                 }
             }
-            Node::Lookup(lookup) => {
-                self.compile_lookup(
-                    lookup,
+            Node::Chain(chain) => {
+                self.compile_chain(
+                    chain,
                     None,
                     Some(value_register),
                     None,
@@ -875,7 +875,7 @@ impl Compiler {
             Node::Wildcard(_) => {}
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID or Lookup".into(),
+                    expected: "ID or Chain".into(),
                     unexpected: unexpected.clone(),
                 })
             }
@@ -967,7 +967,7 @@ impl Compiler {
                         self.push_op(SequencePush, &[target_register]);
                     }
                 }
-                Node::Lookup(lookup) => {
+                Node::Chain(chain) => {
                     let value_register = self.push_register()?;
 
                     if rhs_is_temp_tuple {
@@ -976,13 +976,8 @@ impl Compiler {
                         self.push_op(IterUnpack, &[value_register, iter_register]);
                     }
 
-                    self.compile_lookup(
-                        lookup,
-                        None,
-                        Some(value_register),
-                        None,
-                        ctx.compile_for_side_effects(),
-                    )?;
+                    let chain_context = ctx.compile_for_side_effects();
+                    self.compile_chain(chain, None, Some(value_register), None, chain_context)?;
 
                     if result.register.is_some() {
                         self.push_op(SequencePush, &[value_register]);
@@ -1010,7 +1005,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or Lookup".into(),
+                        expected: "ID or Chain".into(),
                         unexpected: unexpected.clone(),
                     })
                 }
@@ -1580,8 +1575,8 @@ impl Compiler {
         let rhs_register = rhs.unwrap(self)?;
 
         let lhs_node = ctx.node(lhs);
-        let result = if let Node::Lookup(lookup_node) = lhs_node {
-            self.compile_lookup(lookup_node, None, Some(rhs_register), Some(op), ctx)?
+        let result = if let Node::Chain(chain_node) = lhs_node {
+            self.compile_chain(chain_node, None, Some(rhs_register), Some(op), ctx)?
         } else {
             let lhs = self.compile_node(lhs, ctx.with_any_register())?;
             let lhs_register = lhs.unwrap(self)?;
@@ -2137,21 +2132,21 @@ impl Compiler {
         Ok(result)
     }
 
-    // Compiles a lookup chain
+    // Compiles a chained expression
     //
-    // The lookup chain is a linked list of LookupNodes stored as AST indices.
+    // The expression chain is a linked list of ChainNodes stored as AST indices.
     //
-    // The loop keeps track of the temporary values that are the result of each lookup step.
+    // The loop keeps track of the temporary values that are the result of each chain node.
     //
-    // piped_arg_register - used when a value is being piped into the lookup,
+    // piped_arg_register - used when a value is being piped into the chain,
     //   e.g. `f x >> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
     //
-    // rhs - used when assigning to the result of a lookup,
+    // rhs - used when assigning to the result of a chain,
     //   e.g. `foo.bar += 42`, or `foo[123] = bar`
-    // rhs_op - If present, then the op should be applied to the result of the lookup.
-    fn compile_lookup(
+    // rhs_op - If present, then the op should be applied to the result of the chain.
+    fn compile_chain(
         &mut self,
-        (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
+        (root_node, mut next_node_index): &(ChainNode, Option<AstIndex>),
         piped_arg_register: Option<u8>,
         rhs: Option<u8>,
         rhs_op: Option<Op>,
@@ -2160,47 +2155,47 @@ impl Compiler {
         use Op::*;
 
         if next_node_index.is_none() {
-            return self.error(ErrorKind::MissingNextLookupNode);
+            return self.error(ErrorKind::MissingNextChainNode);
         }
 
         // If the result is going into a temporary register then assign it now as the first step.
         let result = self.assign_result_register(ctx)?;
 
-        // Keep track of a register for each lookup node.
-        // This produces a chain of temporary value registers, allowing lookup operations to access
+        // Keep track of a register for each chain node.
+        // This produces a chain of temporary value registers, allowing chain operations to access
         // parent containers when needed, e.g. calls to instance functions.
         let mut node_registers = SmallVec::<[u8; 4]>::new();
 
-        // At the end of the lookup we'll pop the whole stack,
+        // At the end of the chain we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
 
-        // Where should the final value in the lookup chain be placed?
+        // Where should the final value in the chain be placed?
         let chain_result_register = match (result.register, piped_arg_register, rhs_op) {
             // No result register and no piped call or assignment operation,
-            // so the result of the lookup chain isn't needed.
+            // so the result of the chain isn't needed.
             (None, None, None) => None,
             // If there's a result register and no piped call, then use the result register
             (Some(result_register), None, _) => Some(result_register),
-            // If there's a piped call after the lookup chain, or an assignment operation,
-            // then place the result of the lookup chain in a temporary register.
+            // If there's a piped call after the chain, or an assignment operation,
+            // then place the result of the chain in a temporary register.
             _ => Some(self.push_register()?),
         };
 
-        let mut lookup_node = root_node.clone();
+        let mut chain_node = root_node.clone();
 
         while next_node_index.is_some() {
-            match &lookup_node {
-                LookupNode::Root(root_node) => {
+            match &chain_node {
+                ChainNode::Root(root_node) => {
                     if !node_registers.is_empty() {
-                        return self.error(ErrorKind::OutOfPositionRootNodeInLookup);
+                        return self.error(ErrorKind::OutOfPositionRootNodeInChain);
                     }
 
                     let root = self.compile_node(*root_node, ctx.with_any_register())?;
                     node_registers.push(root.unwrap(self)?);
                 }
-                LookupNode::Id(id) => {
+                ChainNode::Id(id) => {
                     // Access by id
                     // e.g. x.foo()
                     //    - x = Root
@@ -2209,14 +2204,14 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let node_register = self.push_register()?;
                     node_registers.push(node_register);
                     self.compile_access_id(node_register, parent_register, *id);
                 }
-                LookupNode::Str(ref lookup_string) => {
+                ChainNode::Str(ref access_string) => {
                     // Access by string
                     // e.g. x."123"()
                     //    - x = Root
@@ -2225,7 +2220,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let node_register = self.push_register()?;
@@ -2233,11 +2228,11 @@ impl Compiler {
                     self.compile_access_string(
                         node_register,
                         parent_register,
-                        &lookup_string.contents,
+                        &access_string.contents,
                         ctx,
                     )?;
                 }
-                LookupNode::Index(index_node) => {
+                ChainNode::Index(index_node) => {
                     // Indexing into a value
                     // e.g. foo.bar[123]
                     //    - foo = Root
@@ -2246,7 +2241,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let index = self
@@ -2257,8 +2252,8 @@ impl Compiler {
                     node_registers.push(node_register);
                     self.push_op(Index, &[node_register, parent_register, index]);
                 }
-                LookupNode::Call { args, .. } => {
-                    // Function call on a lookup result
+                ChainNode::Call { args, .. } => {
+                    // Function call on a chain result
 
                     let (parent_register, function_register) = match &node_registers.as_slice() {
                         [.., parent, function] => (Some(*parent), *function),
@@ -2266,7 +2261,7 @@ impl Compiler {
                         [] => unreachable!(),
                     };
 
-                    // Not in the last node, so for the lookup chain to continue,
+                    // Not in the last node, so for the chain to continue,
                     // use a temporary register for the call result.
                     let call_result_register = self.push_register()?;
                     node_registers.push(call_result_register);
@@ -2281,35 +2276,35 @@ impl Compiler {
                 }
             }
 
-            // Is the lookup chain complete?
+            // Is the chain complete?
             let Some(next) = next_node_index else { break };
 
-            let next_lookup_node = ctx.node_with_span(next);
+            let next_chain_node = ctx.node_with_span(next);
 
-            match next_lookup_node.node.clone() {
-                Node::Lookup((node, next)) => {
-                    lookup_node = node;
+            match next_chain_node.node.clone() {
+                Node::Chain((node, next)) => {
+                    chain_node = node;
                     next_node_index = next;
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "lookup node".into(),
+                        expected: "a chain node".into(),
                         unexpected,
                     });
                 }
             };
 
-            self.push_span(next_lookup_node, ctx.ast);
+            self.push_span(next_chain_node, ctx.ast);
         }
 
-        // The lookup chain is complete, now we need to handle:
-        //   - accessing and assigning to lookup entries
+        // The chain is complete, now we need to handle:
+        //   - accessing and assigning to map entries
         //   - calling functions
-        let last_node = lookup_node;
+        let last_node = chain_node;
 
         let access_register = chain_result_register.unwrap_or_default();
         let Some(&parent_register) = node_registers.last() else {
-            return self.error(ErrorKind::MissingLookupParentRegister);
+            return self.error(ErrorKind::MissingChainParentRegister);
         };
 
         // If rhs_op is Some, then rhs should also be Some
@@ -2318,17 +2313,17 @@ impl Compiler {
         let simple_assignment = rhs.is_some() && rhs_op.is_none();
         let access_assignment = rhs.is_some() && rhs_op.is_some();
 
-        let string_key = if let LookupNode::Str(lookup_string) = &last_node {
+        let string_key = if let ChainNode::Str(access_string) = &last_node {
             let key_register = self.push_register()?;
             self.compile_string(
-                &lookup_string.contents,
+                &access_string.contents,
                 ctx.with_fixed_register(key_register),
             )?
         } else {
             CompileNodeOutput::none()
         };
 
-        let index = if let LookupNode::Index(index_node) = last_node {
+        let index = if let ChainNode::Index(index_node) = last_node {
             self.compile_node(index_node, ctx.with_any_register())?
         } else {
             CompileNodeOutput::none()
@@ -2339,25 +2334,25 @@ impl Compiler {
         // If rhs_op is None, then Yes if rhs is also None (simple access)
         // If rhs is Some and rhs_op is None, then it's a simple assignment
         match &last_node {
-            LookupNode::Id(id) if !simple_assignment => {
+            ChainNode::Id(id) if !simple_assignment => {
                 self.compile_access_id(access_register, parent_register, *id);
                 node_registers.push(access_register);
             }
-            LookupNode::Str(_) if !simple_assignment => {
+            ChainNode::Str(_) if !simple_assignment => {
                 self.push_op(
                     AccessString,
                     &[access_register, parent_register, string_key.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
-            LookupNode::Index(_) if !simple_assignment => {
+            ChainNode::Index(_) if !simple_assignment => {
                 self.push_op(
                     Index,
                     &[access_register, parent_register, index.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
-            LookupNode::Call { args, with_parens } => {
+            ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
                     return self.error(ErrorKind::AssigningToATemporaryValue);
                 } else if access_assignment || piped_arg_register.is_none() || *with_parens {
@@ -2397,7 +2392,7 @@ impl Compiler {
             node_registers.push(access_register);
         }
 
-        // Do we need to assign a value to the last node in the lookup?
+        // Do we need to assign a value to the last node in the chain?
         if access_assignment || simple_assignment {
             let value_register = if simple_assignment {
                 rhs.unwrap()
@@ -2406,7 +2401,7 @@ impl Compiler {
             };
 
             match &last_node {
-                LookupNode::Id(id) => {
+                ChainNode::Id(id) => {
                     self.compile_map_insert(
                         value_register,
                         &Node::Id(*id),
@@ -2415,13 +2410,13 @@ impl Compiler {
                         ctx,
                     )?;
                 }
-                LookupNode::Str(_) => {
+                ChainNode::Str(_) => {
                     self.push_op(
                         MapInsert,
                         &[parent_register, string_key.unwrap(self)?, value_register],
                     );
                 }
-                LookupNode::Index(_) => {
+                ChainNode::Index(_) => {
                     self.push_op(
                         SetIndex,
                         &[parent_register, index.unwrap(self)?, value_register],
@@ -2431,10 +2426,10 @@ impl Compiler {
             }
         }
 
-        // As a final step, do we need to make a piped call to the result of the lookup?
+        // As a final step, do we need to make a piped call to the result of the chain?
         if piped_arg_register.is_some() {
             let piped_call_args = match last_node {
-                LookupNode::Call { args, with_parens } if !with_parens => args,
+                ChainNode::Call { args, with_parens } if !with_parens => args,
                 _ => Vec::new(),
             };
 
@@ -2619,11 +2614,11 @@ impl Compiler {
                     Ok(result)
                 }
             }
-            Node::Lookup(lookup_node) => {
-                // Compile the lookup, passing in the piped call arg, which will either be appended
-                // to call args at the end of a lookup, or the last node will be turned into a call.
+            Node::Chain(chain_node) => {
+                // Compile the chain, passing in the piped call arg, which will either be appended
+                // to call args at the end of a chain, or the last node will be turned into a call.
                 let call_context = ctx.with_register(call_result_register);
-                self.compile_lookup(lookup_node, pipe_register, None, None, call_context)
+                self.compile_chain(chain_node, pipe_register, None, None, call_context)
             }
             _ => {
                 // If the RHS is none of the above, then compile it assuming that the result will
@@ -3043,7 +3038,7 @@ impl Compiler {
                 | Node::Int(_)
                 | Node::Float(_)
                 | Node::Str(_)
-                | Node::Lookup(_) => {
+                | Node::Chain(_) => {
                     let pattern_register = self.push_register()?;
                     self.compile_node(*pattern, ctx.with_fixed_register(pattern_register))?;
                     let comparison = self.push_register()?;
