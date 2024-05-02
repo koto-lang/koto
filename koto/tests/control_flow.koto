@@ -57,10 +57,10 @@
           ">= 10"
     assert_eq (inspect 7), "odd"
 
-  @test match_against_lookups: ||
+  @test match_against_map_accesses: ||
     m = {foo: 42, bar: 99}
     z = match 99
-      # Lookups (map/list accesses, function calls) match if their results are equal
+      # Temporary values (map/list accesses, function calls) match if their results are equal
       m.foo then "foo"
       m.bar then "bar"
       other then "$other"

@@ -118,7 +118,7 @@ pub fn make_module() -> KMap {
 
     number_fn!(floor);
 
-    result.insert("infinity", Number(std::f64::INFINITY.into()));
+    result.insert("infinity", Number(f64::INFINITY.into()));
 
     result.add_fn("is_nan", |ctx| {
         let expected_error = "a Number";
@@ -163,8 +163,8 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.insert("nan", std::f64::NAN);
-    result.insert("negative_infinity", std::f64::NEG_INFINITY);
+    result.insert("nan", f64::NAN);
+    result.insert("negative_infinity", f64::NEG_INFINITY);
 
     bitwise_fn!(or, |);
 

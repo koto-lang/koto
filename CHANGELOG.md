@@ -19,6 +19,17 @@ The Koto project adheres to
 - The line and column numbers referred to in spans are now zero-based. 
 - Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
 - `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.
+- `Node::Lookup` has been renamed to `Node::Chain`, and `LookupNode` is now 
+  `ChainNode`.
+
+### Removed
+
+#### API
+
+- `koto_parser::MapKey` and `IdOrString` have been removed, map keys and import 
+  IDs are now represented as AST nodes.
+- `Node::NamedCall` has been removed, with all calls represented by expression
+  chains.
 
 ## [0.14.0] 2024.04.17
 

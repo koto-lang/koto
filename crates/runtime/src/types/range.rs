@@ -106,7 +106,6 @@ impl KRange {
     /// No clamping of the range boundaries is performed (as in [KRange::indices]),
     /// so negative indices will be preserved.
     pub fn as_sorted_range(&self) -> Range<i64> {
-        use std::i64::{MAX, MIN};
         use Inner::*;
 
         let sort_bounded = |start, end, inclusive| {
@@ -119,15 +118,15 @@ impl KRange {
 
         let (start, end) = {
             match &self.0 {
-                From { start } => (*start, MAX),
-                To { end, inclusive } => (MIN, if *inclusive { *end + 1 } else { *end }),
+                From { start } => (*start, i64::MAX),
+                To { end, inclusive } => (i64::MIN, if *inclusive { *end + 1 } else { *end }),
                 Bounded {
                     start,
                     end,
                     inclusive,
                 } => sort_bounded(*start as i64, *end as i64, *inclusive),
                 BoundedLarge(r) => sort_bounded(r.start, r.end, r.inclusive),
-                Unbounded => (MIN, MAX),
+                Unbounded => (i64::MIN, i64::MAX),
             }
         };
 
@@ -382,15 +381,13 @@ mod tests {
 
     #[test]
     fn as_sorted_range() {
-        use std::i64::{MAX, MIN};
-
         assert_eq!(10..20, KRange::from(10..20).as_sorted_range());
         assert_eq!(10..21, KRange::from(10..=20).as_sorted_range());
         assert_eq!(11..21, KRange::from(20..10).as_sorted_range());
         assert_eq!(10..21, KRange::from(20..=10).as_sorted_range());
 
-        assert_eq!(10..MAX, KRange::from(10..).as_sorted_range(),);
-        assert_eq!(MIN..10, KRange::from(..10).as_sorted_range(),);
+        assert_eq!(10..i64::MAX, KRange::from(10..).as_sorted_range(),);
+        assert_eq!(i64::MIN..10, KRange::from(..10).as_sorted_range(),);
     }
 
     #[test]

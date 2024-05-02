@@ -131,7 +131,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
-    koto_impl::generate_koto_lookup_entries(attr, item)
+    koto_impl::generate_koto_access_entries(attr, item)
 }
 
 /// See [`koto_impl`](macro@koto_impl)

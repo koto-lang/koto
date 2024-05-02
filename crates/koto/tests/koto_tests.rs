@@ -105,7 +105,6 @@ mod koto_tests {
     koto_test!(eval);
     koto_test!(function_closures);
     koto_test!(functions);
-    koto_test!(functions_in_lookups);
     koto_test!(io);
     koto_test!(iterators);
     koto_test!(line_breaks);

@@ -647,7 +647,7 @@ x.foo
         use super::*;
 
         #[test]
-        fn overridden_unary_op_as_lookup_root() {
+        fn overridden_unary_op_as_chain_root() {
             let script = "
 x = make_object -100
 (-x).as_number()
@@ -656,7 +656,7 @@ x = make_object -100
         }
 
         #[test]
-        fn overridden_binary_op_as_lookup_root() {
+        fn overridden_binary_op_as_chain_root() {
             let script = "
 x = make_object 100
 y = make_object 100

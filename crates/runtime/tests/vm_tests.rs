@@ -55,7 +55,7 @@ mod vm {
             let script = "
 a = 99
 -a";
-            check_script_output(script, -99_i64);
+            check_script_output(script, -99);
         }
 
         #[test]
@@ -389,7 +389,7 @@ l = [1, 2, 3]
 l2 = l
 l[1] = -1
 l2[1]";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -461,7 +461,7 @@ x[0], x[1] = -1, 42";
         }
 
         #[test]
-        fn iterator_into_lookups() {
+        fn iterator_into_chains() {
             let script = "
 x = [1, 2]
 x[0], x[1] = (1, 2).each |x| x * 10";
@@ -533,7 +533,7 @@ else if 1 < 2
 else
   99
 x";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -653,7 +653,7 @@ match x
         }
 
         #[test]
-        fn match_with_condition_after_lookup() {
+        fn match_with_condition_after_chain() {
             let script = r#"
 foo = {bar: 0, baz: 1}
 x = 42
@@ -784,7 +784,7 @@ match 0, 1
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
   else -5
 ";
-            check_script_output(script, -4_i64);
+            check_script_output(script, -4);
         }
 
         #[test]
@@ -797,11 +797,11 @@ match 0, 1
   0, _ or 1, _ then -4
   else -5
 ";
-            check_script_output(script, -3_i64);
+            check_script_output(script, -3);
         }
 
         #[test]
-        fn match_with_lookup_as_pattern() {
+        fn match_with_chain_as_pattern() {
             let script = "
 x = {foo: 42, bar: 99}
 match 99
@@ -813,7 +813,7 @@ match 99
         }
 
         #[test]
-        fn match_with_lookup_as_pattern_in_function() {
+        fn match_with_chain_as_pattern_in_function() {
             let script = "
 x = {foo: 42, bar: 99}
 f = ||
@@ -1369,8 +1369,8 @@ f3 1";
         }
 
         #[test]
-        fn function_blocks_as_args_dont_break_assignment_during_lookup() {
-            // See comment in test above, the same applies to args in the lookup call to f.g
+        fn function_blocks_as_args_dont_break_assignment_during_chain() {
+            // See comment in test above, the same applies to args in the call to f.g
             let script = "
 f = { g: |x| x }
 f2 = ||
@@ -1958,7 +1958,7 @@ result";
             let script = "
 m = {foo: -1}
 m.foo";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -1985,7 +1985,7 @@ m.bar";
 foo, baz = 42, -1
 m = {foo, bar: 99, baz}
 m.baz";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -2062,7 +2062,7 @@ m = {foo: 42}
 m2 = m
 m.foo = -1
 m2.foo";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -2087,7 +2087,7 @@ c.foo + c.bar
         }
     }
 
-    mod lookups {
+    mod chains {
         use super::*;
 
         #[test]
@@ -2114,7 +2114,7 @@ m = {bar: 0}
 l = [m, m, m]
 l[1].bar = -1
 l[1].bar";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -2159,7 +2159,7 @@ m[1]";
             let script = "
 m = {get_map: || { foo: -1 }}
 m.get_map().foo";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -2199,6 +2199,17 @@ m.foo(10, 1, 2, 3).to_tuple()
         }
 
         #[test]
+        fn negation_of_chain_result() {
+            let script = "
+x =
+  nested: {foo: 42}
+  get_nested: || self.nested
+-x.get_nested().foo
+";
+            check_script_output(script, -42);
+        }
+
+        #[test]
         fn deep_copy_list() {
             let script = "
 x = [0, [1, {foo: 2}]]
@@ -2226,7 +2237,7 @@ m = {foo: {bar: -1}}
 m2 = koto.deep_copy m
 m.foo.bar = 99
 m2.foo.bar";
-            check_script_output(script, -1_i64);
+            check_script_output(script, -1);
         }
 
         #[test]
@@ -2351,6 +2362,16 @@ foo =
 foo.x
 ";
             check_script_output(script, 42);
+        }
+
+        #[test]
+        fn chained_call() {
+            let script = "
+f = ||
+  |x| x * x
+f()(8)
+";
+            check_script_output(script, 64);
         }
     }
 
@@ -2648,7 +2669,7 @@ m.key99
         }
 
         #[test]
-        fn interpolated_string_in_lookup() {
+        fn interpolated_string_in_chain() {
             let script = "
 x = 99
 m =
@@ -2659,7 +2680,7 @@ m.'key{x}'
         }
 
         #[test]
-        fn interpolated_string_in_lookup_assignment() {
+        fn interpolated_string_in_chain_assignment() {
             let script = "
 x = 99
 m =
@@ -3339,7 +3360,7 @@ a.x + a.get_x()
         }
 
         #[test]
-        fn lookup_order() {
+        fn access_order() {
             let script = "
 locals = {}
 foo = |x| {x, y: 100}.with_meta locals.foo_meta
@@ -3352,7 +3373,7 @@ a.x + a.y # The meta map's y entry is hidden by the data entry
         }
     }
 
-    mod base_lookup {
+    mod base_access {
         use super::*;
 
         #[test]

@@ -148,7 +148,7 @@ impl From<&str> for ValueKey {
     }
 }
 
-// Support efficient map lookups with &str
+// Support efficient map accesses with &str
 impl Equivalent<ValueKey> for str {
     fn equivalent(&self, other: &ValueKey) -> bool {
         match &other.0 {
