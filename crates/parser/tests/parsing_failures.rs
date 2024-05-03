@@ -137,12 +137,12 @@ f = ||
             }
 
             #[test]
-            fn missing_commas_in_lookup_call() {
+            fn missing_commas_in_chained_call() {
                 check_parsing_fails("f.bar 1 2 3");
             }
         }
 
-        mod lookups {
+        mod chains {
             use super::*;
 
             #[test]

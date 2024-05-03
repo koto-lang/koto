@@ -1033,17 +1033,17 @@ mod tests {
                             token: Whitespace, ..
                         } => continue,
                         output => {
-                            assert_eq!(output.token, *token, "Token mismatch at position {i}");
+                            assert_eq!(*token, output.token, "Token mismatch at position {i}");
                             if let Some(slice) = maybe_slice {
                                 assert_eq!(
-                                    output.slice(source),
                                     *slice,
+                                    output.slice(source),
                                     "Slice mismatch at position {i}"
                                 );
                             }
                             assert_eq!(
-                                output.line(),
                                 *line_number,
+                                output.line(),
                                 "Line number mismatch at position {i}",
                             );
                             break;
@@ -1372,7 +1372,7 @@ r#''bar''#
         }
 
         #[test]
-        fn lookups_on_numbers() {
+        fn accesses_on_numbers() {
             let input = "\
 1.0.sin()
 -1e-3.abs()
@@ -1639,7 +1639,7 @@ else
         }
 
         #[test]
-        fn map_lookup() {
+        fn map_access() {
             let input = "m.检验.foo[1].bär()";
 
             check_lexer_output(
@@ -1662,7 +1662,7 @@ else
         }
 
         #[test]
-        fn map_lookup_with_keyword_as_key() {
+        fn map_access_with_keyword_as_key() {
             let input = "foo.and()";
 
             check_lexer_output(
@@ -1698,7 +1698,7 @@ else
         use super::*;
 
         #[test]
-        fn lookup_in_list() {
+        fn map_access_in_list() {
             let source = "
 [foo.bar]
 ";
@@ -1716,7 +1716,7 @@ else
         }
 
         #[test]
-        fn multiline_lookup() {
+        fn multiline_chain() {
             let source = "
 x.iter()
   .skip 1

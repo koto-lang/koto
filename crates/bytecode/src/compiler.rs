@@ -3,9 +3,9 @@ use crate::{
     DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
 use koto_parser::{
-    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ConstantIndex,
-    Function, IdOrString, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Span,
-    StringContents, StringFormatOptions, StringNode, SwitchArm,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ChainNode,
+    ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
+    StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -14,13 +14,15 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
+    #[error("expected {expected}, found {unexpected:?}")]
+    UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
     InvalidLoopKeyword(String),
-    #[error("invalid match pattern (found '{0}')")]
+    #[error("invalid match pattern (found '{0:?}')")]
     InvalidMatchPattern(Node),
     #[error("args with ellipses are only allowed in first or last position")]
     InvalidPositionForArgWithEllipses,
@@ -38,10 +40,10 @@ enum ErrorKind {
     MissingArgRegister,
     #[error("missing item to import")]
     MissingImportItem,
-    #[error("missing next node while compiling lookup")]
-    MissingNextLookupNode,
-    #[error("missing lookup parent register")]
-    MissingLookupParentRegister,
+    #[error("missing next node while compiling a chain")]
+    MissingNextChainNode,
+    #[error("missing chain parent register")]
+    MissingChainParentRegister,
     #[error("missing result register")]
     MissingResultRegister,
     #[error("missing String nodes")]
@@ -52,12 +54,12 @@ enum ErrorKind {
     MultipleMatchEllipses,
     #[error("the compiled expression has no output")]
     NoResultInExpressionOutput,
-    #[error("child lookup node out of position in lookup")]
-    OutOfPositionChildNodeInLookup,
+    #[error("child chain node out of position")]
+    OutOfPositionChildNodeInChain,
     #[error("matching with ellipses is only allowed in first or last position")]
     OutOfPositionMatchEllipsis,
-    #[error("root lookup node out of position in lookup")]
-    OutOfPositionRootNodeInLookup,
+    #[error("root chain node out of position")]
+    OutOfPositionRootNodeInChain,
     #[error("The compiled bytecode is larger than the maximum size of 4GB (size: {0} bytes)")]
     ResultingBytecodeIsTooLarge(usize),
     #[error("too many targets in assignment ({0})")]
@@ -73,12 +75,8 @@ enum ErrorKind {
     UnexpectedEllipsis,
     #[error("unexpected Wildcard")]
     UnexpectedWildcard,
-    #[error("expected {expected}, found {unexpected}")]
-    UnexpectedNode { expected: String, unexpected: Node },
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
-    #[error("expected lookup node, found {0}")]
-    UnexpectedNodeInLookup(Node),
 
     #[error(transparent)]
     FrameError(#[from] FrameError),
@@ -136,6 +134,14 @@ impl<'a> CompileNodeContext<'a> {
             result_register: ResultRegister::None,
             ..self
         }
+    }
+
+    fn node(&self, ast_index: AstIndex) -> &Node {
+        &self.ast.node(ast_index).node
+    }
+
+    fn node_with_span(&self, ast_index: AstIndex) -> &AstNode {
+        self.ast.node(ast_index)
     }
 }
 
@@ -240,7 +246,7 @@ impl Compiler {
     ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let node = ctx.ast.node(node_index);
+        let node = ctx.node_with_span(node_index);
 
         self.push_span(node, ctx.ast);
 
@@ -258,7 +264,7 @@ impl Compiler {
             }
             Node::Nested(nested) => self.compile_node(*nested, ctx)?,
             Node::Id(index, ..) => self.compile_load_id(*index, ctx)?,
-            Node::Lookup(lookup) => self.compile_lookup(lookup, None, None, None, ctx)?,
+            Node::Chain(chain) => self.compile_chain(chain, None, None, None, ctx)?,
             Node::BoolTrue => {
                 let result = self.assign_result_register(ctx)?;
                 if let Some(result) = result.register {
@@ -405,7 +411,6 @@ impl Compiler {
             }
             Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
             Node::Function(f) => self.compile_function(f, ctx)?,
-            Node::NamedCall { id, args } => self.compile_named_call(*id, args, None, ctx)?,
             Node::Import { from, items } => self.compile_import(from, items, ctx)?,
             Node::Export(expression) => self.compile_export(*expression, ctx)?,
             Node::Assign { target, expression } => {
@@ -602,7 +607,7 @@ impl Compiler {
 
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
-            let arg_node = ctx.ast.node(*arg);
+            let arg_node = ctx.node_with_span(*arg);
             if let Node::Tuple(nested_args) = &arg_node.node {
                 self.push_span(arg_node, ctx.ast);
 
@@ -723,7 +728,7 @@ impl Compiler {
                 arg_index as u8
             };
 
-            match &ctx.ast.node(*arg).node {
+            match ctx.node(*arg) {
                 Node::Wildcard(_) => {}
                 Node::Id(constant_index, ..) => {
                     let local_register = self.assign_local_register(*constant_index)?;
@@ -806,9 +811,9 @@ impl Compiler {
         target: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<Option<u8>> {
-        let result = match &ctx.ast.node(target).node {
+        let result = match ctx.node(target) {
             Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => None,
+            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
@@ -839,7 +844,7 @@ impl Compiler {
             self.compile_node(expression, ctx.with_register(value_result_register))?;
         let value_register = value_result.unwrap(self)?;
 
-        let target_node = ctx.ast.node(target);
+        let target_node = ctx.node_with_span(target);
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
@@ -855,9 +860,9 @@ impl Compiler {
                     self.compile_value_export(*id_index, value_register)?;
                 }
             }
-            Node::Lookup(lookup) => {
-                self.compile_lookup(
-                    lookup,
+            Node::Chain(chain) => {
+                self.compile_chain(
+                    chain,
                     None,
                     Some(value_register),
                     None,
@@ -870,7 +875,7 @@ impl Compiler {
             Node::Wildcard(_) => {}
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID or Lookup".into(),
+                    expected: "ID or Chain".into(),
                     unexpected: unexpected.clone(),
                 })
             }
@@ -913,7 +918,7 @@ impl Compiler {
             .map(|target| self.local_register_for_assign_target(*target, ctx))
             .collect::<Result<Vec<_>>>()?;
 
-        let rhs_node = ctx.ast.node(expression);
+        let rhs_node = ctx.node_with_span(expression);
         let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
         let rhs = self.compile_node(expression, ctx.with_any_register())?;
         let rhs_register = rhs.unwrap(self)?;
@@ -939,8 +944,8 @@ impl Compiler {
         for (i, (target, target_register)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
-            match &ctx.ast.node(*target).node {
-                Node::Id(id_index, _) => {
+            match ctx.node(*target) {
+                Node::Id(id_index, ..) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
                     if rhs_is_temp_tuple {
@@ -962,7 +967,7 @@ impl Compiler {
                         self.push_op(SequencePush, &[target_register]);
                     }
                 }
-                Node::Lookup(lookup) => {
+                Node::Chain(chain) => {
                     let value_register = self.push_register()?;
 
                     if rhs_is_temp_tuple {
@@ -971,13 +976,8 @@ impl Compiler {
                         self.push_op(IterUnpack, &[value_register, iter_register]);
                     }
 
-                    self.compile_lookup(
-                        lookup,
-                        None,
-                        Some(value_register),
-                        None,
-                        ctx.compile_for_side_effects(),
-                    )?;
+                    let chain_context = ctx.compile_for_side_effects();
+                    self.compile_chain(chain, None, Some(value_register), None, chain_context)?;
 
                     if result.register.is_some() {
                         self.push_op(SequencePush, &[value_register]);
@@ -1005,7 +1005,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or Lookup".into(),
+                        expected: "ID or Chain".into(),
                         unexpected: unexpected.clone(),
                     })
                 }
@@ -1112,7 +1112,7 @@ impl Compiler {
 
     fn compile_import(
         &mut self,
-        from: &[IdOrString],
+        from: &[AstIndex],
         items: &[ImportItem],
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
@@ -1125,10 +1125,15 @@ impl Compiler {
 
         if from.is_empty() {
             for item in items.iter() {
-                match &item.item {
-                    IdOrString::Id(import_id) => {
+                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
+                    Node::Id(id, _) => Some(*id),
+                    _ => None,
+                });
+
+                match ctx.node(item.item) {
+                    Node::Id(import_id, _) => {
                         let import_register = if result.register.is_some() {
-                            let import_register = if let Some(name) = item.name {
+                            let import_register = if let Some(name) = maybe_as {
                                 self.assign_local_register(name)?
                             } else {
                                 // The result of the import expression is being assigned,
@@ -1136,7 +1141,7 @@ impl Compiler {
                                 self.push_register()?
                             };
 
-                            self.compile_import_item(import_register, &item.item, ctx)?;
+                            self.compile_import_item(import_register, item.item, ctx)?;
 
                             if result.register.is_some() {
                                 imported.push(import_register);
@@ -1147,9 +1152,10 @@ impl Compiler {
                             // Reserve a local for the imported item.
                             // The register must only be reserved for now otherwise it'll show up in
                             // the import search.
-                            let local_id = item.name.unwrap_or(*import_id);
+                            let local_id = maybe_as.unwrap_or(*import_id);
+
                             let import_register = self.reserve_local_register(local_id)?;
-                            self.compile_import_item(import_register, &item.item, ctx)?;
+                            self.compile_import_item(import_register, item.item, ctx)?;
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
@@ -1161,18 +1167,24 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    IdOrString::Str(_) => {
-                        let import_register = if let Some(name) = item.name {
-                            println!("Assigning local register");
-                            self.assign_local_register(name)?
-                        } else {
-                            self.push_register()?
-                        };
-                        self.compile_import_item(import_register, &item.item, ctx)?;
+                    Node::Str(_) => {
+                        let import_register =
+                            if let Some(Node::Id(name, _)) = item.name.map(|name| ctx.node(name)) {
+                                self.assign_local_register(*name)?
+                            } else {
+                                self.push_register()?
+                            };
+                        self.compile_import_item(import_register, item.item, ctx)?;
 
                         if result.register.is_some() {
                             imported.push(import_register);
                         }
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "import ID".into(),
+                            unexpected: unexpected.clone(),
+                        })
                     }
                 };
             }
@@ -1182,9 +1194,14 @@ impl Compiler {
             self.compile_from(from_register, from, ctx)?;
 
             for item in items.iter() {
-                match &item.item {
-                    IdOrString::Id(import_id) => {
-                        let import_register = if let Some(name) = item.name {
+                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
+                    Node::Id(id, _) => Some(*id),
+                    _ => None,
+                });
+
+                match ctx.node(item.item) {
+                    Node::Id(import_id, _) => {
+                        let import_register = if let Some(name) = maybe_as {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
                         } else if result.register.is_some() {
@@ -1208,8 +1225,8 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    IdOrString::Str(string) => {
-                        let import_register = if let Some(name) = item.name {
+                    Node::Str(string) => {
+                        let import_register = if let Some(name) = maybe_as {
                             self.assign_local_register(name)?
                         } else {
                             self.push_register()?
@@ -1226,6 +1243,12 @@ impl Compiler {
                         if result.register.is_some() {
                             imported.push(import_register);
                         }
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "import ID".into(),
+                            unexpected: unexpected.clone(),
+                        })
                     }
                 };
             }
@@ -1255,7 +1278,7 @@ impl Compiler {
         expression: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
-        let expression_node = ctx.ast.node(expression);
+        let expression_node = ctx.node_with_span(expression);
 
         match &expression_node.node {
             Node::Assign { target, expression } => {
@@ -1272,28 +1295,34 @@ impl Compiler {
     fn compile_from(
         &mut self,
         result_register: u8,
-        path: &[IdOrString],
+        path: &[AstIndex],
         ctx: CompileNodeContext,
     ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, root, ctx)?;
+                self.compile_import_item(result_register, *root, ctx)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, root, ctx)?;
+                self.compile_import_item(result_register, *root, ctx)?;
 
                 for nested_item in nested.iter() {
-                    match nested_item {
-                        IdOrString::Id(id, ..) => {
+                    match ctx.node(*nested_item) {
+                        Node::Id(id, ..) => {
                             self.compile_access_id(result_register, result_register, *id)
                         }
-                        IdOrString::Str(string) => self.compile_access_string(
+                        Node::Str(string) => self.compile_access_string(
                             result_register,
                             result_register,
                             &string.contents,
                             ctx,
                         )?,
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "import ID".into(),
+                                unexpected: unexpected.clone(),
+                            })
+                        }
                     }
                 }
             }
@@ -1305,13 +1334,13 @@ impl Compiler {
     fn compile_import_item(
         &mut self,
         result_register: u8,
-        item: &IdOrString,
+        item: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         use Op::*;
 
-        match item {
-            IdOrString::Id(id, ..) => {
+        match ctx.node(item) {
+            Node::Id(id, ..) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
                     // It might be better for this to be reported as an error?
@@ -1326,11 +1355,15 @@ impl Compiler {
                     Ok(())
                 }
             }
-            IdOrString::Str(string) => {
+            Node::Str(string) => {
                 self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
                 self.push_op(Import, &[result_register]);
                 Ok(())
             }
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "import ID".into(),
+                unexpected: unexpected.clone(),
+            }),
         }
     }
 
@@ -1352,7 +1385,7 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let (catch_register, pop_catch_register) = match &ctx.ast.node(*catch_arg).node {
+        let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
             Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
             Node::Wildcard(_) => {
                 // The catch argument is being ignored, so just use a dummy register
@@ -1388,7 +1421,7 @@ impl Compiler {
         let finally_offset = self.push_offset_placeholder();
         self.update_offset_placeholder(catch_offset)?;
 
-        self.push_span(ctx.ast.node(*catch_block), ctx.ast);
+        self.push_span(ctx.node_with_span(*catch_block), ctx.ast);
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
@@ -1541,9 +1574,9 @@ impl Compiler {
         let rhs = self.compile_node(rhs, ctx.with_any_register())?;
         let rhs_register = rhs.unwrap(self)?;
 
-        let lhs_node = &ctx.ast.node(lhs).node;
-        let result = if let Node::Lookup(lookup_node) = lhs_node {
-            self.compile_lookup(lookup_node, None, Some(rhs_register), Some(op), ctx)?
+        let lhs_node = ctx.node(lhs);
+        let result = if let Node::Chain(chain_node) = lhs_node {
+            self.compile_chain(chain_node, None, Some(rhs_register), Some(op), ctx)?
         } else {
             let lhs = self.compile_node(lhs, ctx.with_any_register())?;
             let lhs_register = lhs.unwrap(self)?;
@@ -1621,7 +1654,7 @@ impl Compiler {
             op: rhs_ast_op,
             lhs: rhs_lhs,
             rhs: rhs_rhs,
-        } = ctx.ast.node(rhs).node
+        } = ctx.node(rhs)
         {
             match rhs_ast_op {
                 Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
@@ -1636,7 +1669,7 @@ impl Compiler {
                     //   - chain the two comparisons together with an And
 
                     let rhs_lhs_register = self
-                        .compile_node(rhs_lhs, ctx.with_any_register())?
+                        .compile_node(*rhs_lhs, ctx.with_any_register())?
                         .unwrap(self)?;
 
                     // Place the lhs comparison result in the comparison_register
@@ -1648,8 +1681,8 @@ impl Compiler {
                     jump_offsets.push(self.push_offset_placeholder());
 
                     lhs_register = rhs_lhs_register;
-                    rhs = rhs_rhs;
-                    ast_op = rhs_ast_op;
+                    rhs = *rhs_rhs;
+                    ast_op = *rhs_ast_op;
                 }
                 _ => break,
             }
@@ -1929,7 +1962,7 @@ impl Compiler {
 
     fn compile_make_map(
         &mut self,
-        entries: &[(MapKey, Option<AstIndex>)],
+        entries: &[(AstIndex, Option<AstIndex>)],
         export_entries: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
@@ -1947,29 +1980,35 @@ impl Compiler {
         // Process the map's entries
         if result.register.is_some() || export_entries {
             for (key, maybe_value_node) in entries.iter() {
-                let value = match (key, maybe_value_node) {
+                let key_node = ctx.node(*key);
+                let value = match (key_node, maybe_value_node) {
                     // A value has been provided for the entry
                     (_, Some(value_node)) => {
                         let value_node = *value_node;
                         self.compile_node(value_node, ctx.with_any_register())?
                     }
                     // ID-only entry, the value should be locally assigned
-                    (MapKey::Id(id, ..), None) => {
-                        match self.frame().get_local_assigned_register(*id) {
-                            Some(register) => CompileNodeOutput::with_assigned(register),
-                            None => {
-                                let register = self.push_register()?;
-                                self.compile_load_non_local(register, *id);
-                                CompileNodeOutput::with_temporary(register)
-                            }
+                    (Node::Id(id, ..), None) => match self.frame().get_local_assigned_register(*id)
+                    {
+                        Some(register) => CompileNodeOutput::with_assigned(register),
+                        None => {
+                            let register = self.push_register()?;
+                            self.compile_load_non_local(register, *id);
+                            CompileNodeOutput::with_temporary(register)
                         }
-                    }
+                    },
                     // No value provided for a string or meta key
                     (_, None) => return self.error(ErrorKind::MissingValueForMapEntry),
                 };
                 let value_register = value.unwrap(self)?;
 
-                self.compile_map_insert(value_register, key, result.register, export_entries, ctx)?;
+                self.compile_map_insert(
+                    value_register,
+                    key_node,
+                    result.register,
+                    export_entries,
+                    ctx,
+                )?;
 
                 if value.is_temporary {
                     self.pop_register()?;
@@ -2020,7 +2059,7 @@ impl Compiler {
 
             let arg_is_unpacked_tuple = matches!(
                 function.args.as_slice(),
-                &[single_arg] if matches!(ctx.ast.node(single_arg).node, Node::Tuple(_))
+                &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
             );
 
             let flags_byte = FunctionFlags {
@@ -2048,7 +2087,7 @@ impl Compiler {
 
             let allow_implicit_return = !function.is_generator;
             let body_as_slice = [function.body];
-            let function_body = match &ctx.ast.node(function.body).node {
+            let function_body = match ctx.node(function.body) {
                 Node::Block(expressions) => expressions.as_slice(),
                 _ => &body_as_slice,
             };
@@ -2094,21 +2133,21 @@ impl Compiler {
         Ok(result)
     }
 
-    // Compiles a lookup chain
+    // Compiles a chained expression
     //
-    // The lookup chain is a linked list of LookupNodes stored as AST indices.
+    // The expression chain is a linked list of ChainNodes stored as AST indices.
     //
-    // The loop keeps track of the temporary values that are the result of each lookup step.
+    // The loop keeps track of the temporary values that are the result of each chain node.
     //
-    // piped_arg_register - used when a value is being piped into the lookup,
+    // piped_arg_register - used when a value is being piped into the chain,
     //   e.g. `f x >> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
     //
-    // rhs - used when assigning to the result of a lookup,
+    // rhs - used when assigning to the result of a chain,
     //   e.g. `foo.bar += 42`, or `foo[123] = bar`
-    // rhs_op - If present, then the op should be applied to the result of the lookup.
-    fn compile_lookup(
+    // rhs_op - If present, then the op should be applied to the result of the chain.
+    fn compile_chain(
         &mut self,
-        (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
+        (root_node, mut next_node_index): &(ChainNode, Option<AstIndex>),
         piped_arg_register: Option<u8>,
         rhs: Option<u8>,
         rhs_op: Option<Op>,
@@ -2117,47 +2156,47 @@ impl Compiler {
         use Op::*;
 
         if next_node_index.is_none() {
-            return self.error(ErrorKind::MissingNextLookupNode);
+            return self.error(ErrorKind::MissingNextChainNode);
         }
 
         // If the result is going into a temporary register then assign it now as the first step.
         let result = self.assign_result_register(ctx)?;
 
-        // Keep track of a register for each lookup node.
-        // This produces a chain of temporary value registers, allowing lookup operations to access
+        // Keep track of a register for each chain node.
+        // This produces a chain of temporary value registers, allowing chain operations to access
         // parent containers when needed, e.g. calls to instance functions.
         let mut node_registers = SmallVec::<[u8; 4]>::new();
 
-        // At the end of the lookup we'll pop the whole stack,
+        // At the end of the chain we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
 
-        // Where should the final value in the lookup chain be placed?
+        // Where should the final value in the chain be placed?
         let chain_result_register = match (result.register, piped_arg_register, rhs_op) {
             // No result register and no piped call or assignment operation,
-            // so the result of the lookup chain isn't needed.
+            // so the result of the chain isn't needed.
             (None, None, None) => None,
             // If there's a result register and no piped call, then use the result register
             (Some(result_register), None, _) => Some(result_register),
-            // If there's a piped call after the lookup chain, or an assignment operation,
-            // then place the result of the lookup chain in a temporary register.
+            // If there's a piped call after the chain, or an assignment operation,
+            // then place the result of the chain in a temporary register.
             _ => Some(self.push_register()?),
         };
 
-        let mut lookup_node = root_node.clone();
+        let mut chain_node = root_node.clone();
 
         while next_node_index.is_some() {
-            match &lookup_node {
-                LookupNode::Root(root_node) => {
+            match &chain_node {
+                ChainNode::Root(root_node) => {
                     if !node_registers.is_empty() {
-                        return self.error(ErrorKind::OutOfPositionRootNodeInLookup);
+                        return self.error(ErrorKind::OutOfPositionRootNodeInChain);
                     }
 
                     let root = self.compile_node(*root_node, ctx.with_any_register())?;
                     node_registers.push(root.unwrap(self)?);
                 }
-                LookupNode::Id(id, ..) => {
+                ChainNode::Id(id, ..) => {
                     // Access by id
                     // e.g. x.foo()
                     //    - x = Root
@@ -2166,14 +2205,14 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let node_register = self.push_register()?;
                     node_registers.push(node_register);
                     self.compile_access_id(node_register, parent_register, *id);
                 }
-                LookupNode::Str(ref lookup_string) => {
+                ChainNode::Str(ref access_string) => {
                     // Access by string
                     // e.g. x."123"()
                     //    - x = Root
@@ -2182,7 +2221,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let node_register = self.push_register()?;
@@ -2190,11 +2229,11 @@ impl Compiler {
                     self.compile_access_string(
                         node_register,
                         parent_register,
-                        &lookup_string.contents,
+                        &access_string.contents,
                         ctx,
                     )?;
                 }
-                LookupNode::Index(index_node) => {
+                ChainNode::Index(index_node) => {
                     // Indexing into a value
                     // e.g. foo.bar[123]
                     //    - foo = Root
@@ -2203,7 +2242,7 @@ impl Compiler {
 
                     let parent_register = match node_registers.last() {
                         Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInLookup),
+                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
                     };
 
                     let index = self
@@ -2214,8 +2253,8 @@ impl Compiler {
                     node_registers.push(node_register);
                     self.push_op(Index, &[node_register, parent_register, index]);
                 }
-                LookupNode::Call { args, .. } => {
-                    // Function call on a lookup result
+                ChainNode::Call { args, .. } => {
+                    // Function call on a chain result
 
                     let (parent_register, function_register) = match &node_registers.as_slice() {
                         [.., parent, function] => (Some(*parent), *function),
@@ -2223,7 +2262,7 @@ impl Compiler {
                         [] => unreachable!(),
                     };
 
-                    // Not in the last node, so for the lookup chain to continue,
+                    // Not in the last node, so for the chain to continue,
                     // use a temporary register for the call result.
                     let call_result_register = self.push_register()?;
                     node_registers.push(call_result_register);
@@ -2238,32 +2277,35 @@ impl Compiler {
                 }
             }
 
-            // Is the lookup chain complete?
+            // Is the chain complete?
             let Some(next) = next_node_index else { break };
 
-            let next_lookup_node = ctx.ast.node(next);
+            let next_chain_node = ctx.node_with_span(next);
 
-            match next_lookup_node.node.clone() {
-                Node::Lookup((node, next)) => {
-                    lookup_node = node;
+            match next_chain_node.node.clone() {
+                Node::Chain((node, next)) => {
+                    chain_node = node;
                     next_node_index = next;
                 }
                 unexpected => {
-                    return self.error(ErrorKind::UnexpectedNodeInLookup(unexpected));
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "a chain node".into(),
+                        unexpected,
+                    });
                 }
             };
 
-            self.push_span(next_lookup_node, ctx.ast);
+            self.push_span(next_chain_node, ctx.ast);
         }
 
-        // The lookup chain is complete, now we need to handle:
-        //   - accessing and assigning to lookup entries
+        // The chain is complete, now we need to handle:
+        //   - accessing and assigning to map entries
         //   - calling functions
-        let last_node = lookup_node;
+        let last_node = chain_node;
 
         let access_register = chain_result_register.unwrap_or_default();
         let Some(&parent_register) = node_registers.last() else {
-            return self.error(ErrorKind::MissingLookupParentRegister);
+            return self.error(ErrorKind::MissingChainParentRegister);
         };
 
         // If rhs_op is Some, then rhs should also be Some
@@ -2272,17 +2314,17 @@ impl Compiler {
         let simple_assignment = rhs.is_some() && rhs_op.is_none();
         let access_assignment = rhs.is_some() && rhs_op.is_some();
 
-        let string_key = if let LookupNode::Str(lookup_string) = &last_node {
+        let string_key = if let ChainNode::Str(access_string) = &last_node {
             let key_register = self.push_register()?;
             self.compile_string(
-                &lookup_string.contents,
+                &access_string.contents,
                 ctx.with_fixed_register(key_register),
             )?
         } else {
             CompileNodeOutput::none()
         };
 
-        let index = if let LookupNode::Index(index_node) = last_node {
+        let index = if let ChainNode::Index(index_node) = last_node {
             self.compile_node(index_node, ctx.with_any_register())?
         } else {
             CompileNodeOutput::none()
@@ -2293,25 +2335,25 @@ impl Compiler {
         // If rhs_op is None, then Yes if rhs is also None (simple access)
         // If rhs is Some and rhs_op is None, then it's a simple assignment
         match &last_node {
-            LookupNode::Id(id, ..) if !simple_assignment => {
+            ChainNode::Id(id, ..) if !simple_assignment => {
                 self.compile_access_id(access_register, parent_register, *id);
                 node_registers.push(access_register);
             }
-            LookupNode::Str(_) if !simple_assignment => {
+            ChainNode::Str(_) if !simple_assignment => {
                 self.push_op(
                     AccessString,
                     &[access_register, parent_register, string_key.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
-            LookupNode::Index(_) if !simple_assignment => {
+            ChainNode::Index(_) if !simple_assignment => {
                 self.push_op(
                     Index,
                     &[access_register, parent_register, index.unwrap(self)?],
                 );
                 node_registers.push(access_register);
             }
-            LookupNode::Call { args, with_parens } => {
+            ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
                     return self.error(ErrorKind::AssigningToATemporaryValue);
                 } else if access_assignment || piped_arg_register.is_none() || *with_parens {
@@ -2351,7 +2393,7 @@ impl Compiler {
             node_registers.push(access_register);
         }
 
-        // Do we need to assign a value to the last node in the lookup?
+        // Do we need to assign a value to the last node in the chain?
         if access_assignment || simple_assignment {
             let value_register = if simple_assignment {
                 rhs.unwrap()
@@ -2360,22 +2402,22 @@ impl Compiler {
             };
 
             match &last_node {
-                LookupNode::Id(id, ..) => {
+                ChainNode::Id(id, ..) => {
                     self.compile_map_insert(
                         value_register,
-                        &MapKey::Id(*id),
+                        &Node::Id(*id, None),
                         Some(parent_register),
                         false,
                         ctx,
                     )?;
                 }
-                LookupNode::Str(_) => {
+                ChainNode::Str(_) => {
                     self.push_op(
                         MapInsert,
                         &[parent_register, string_key.unwrap(self)?, value_register],
                     );
                 }
-                LookupNode::Index(_) => {
+                ChainNode::Index(_) => {
                     self.push_op(
                         SetIndex,
                         &[parent_register, index.unwrap(self)?, value_register],
@@ -2385,10 +2427,10 @@ impl Compiler {
             }
         }
 
-        // As a final step, do we need to make a piped call to the result of the lookup?
+        // As a final step, do we need to make a piped call to the result of the chain?
         if piped_arg_register.is_some() {
             let piped_call_args = match last_node {
-                LookupNode::Call { args, with_parens } if !with_parens => args,
+                ChainNode::Call { args, with_parens } if !with_parens => args,
                 _ => Vec::new(),
             };
 
@@ -2422,7 +2464,7 @@ impl Compiler {
     fn compile_map_insert(
         &mut self,
         value_register: u8,
-        key: &MapKey,
+        key: &Node,
         map_register: Option<u8>,
         export_entry: bool,
         ctx: CompileNodeContext,
@@ -2430,7 +2472,7 @@ impl Compiler {
         use Op::*;
 
         match key {
-            MapKey::Id(id, ..) => {
+            Node::Id(id, ..) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
 
@@ -2447,7 +2489,7 @@ impl Compiler {
 
                 self.pop_register()?;
             }
-            MapKey::Str(string) => {
+            Node::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(&string.contents, ctx.with_fixed_register(key_register))?;
 
@@ -2464,7 +2506,7 @@ impl Compiler {
 
                 self.pop_register()?;
             }
-            MapKey::Meta(key, name) => {
+            Node::Meta(key, name) => {
                 let key = *key as u8;
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
@@ -2494,6 +2536,12 @@ impl Compiler {
                         self.push_op(MetaExport, &[key, value_register]);
                     }
                 }
+            }
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "a map key".into(),
+                    unexpected: unexpected.clone(),
+                });
             }
         }
 
@@ -2541,42 +2589,46 @@ impl Compiler {
 
         // Next, compile the LHS to produce the value that should be piped into the call
         let piped_value = self.compile_node(lhs, ctx.with_any_register())?;
-        let piped_value_register = piped_value.unwrap(self)?;
+        let pipe_register = Some(piped_value.unwrap(self)?);
 
-        let rhs_node = ctx.ast.node(rhs);
+        let rhs_node = ctx.node_with_span(rhs);
         let result = match &rhs_node.node {
-            Node::NamedCall { id, args } => self.compile_named_call(
-                *id,
-                args,
-                Some(piped_value_register),
-                ctx.with_register(call_result_register),
-            ),
             Node::Id(id, ..) => {
                 // Compile a call with the piped arg using the id to access the function
-                self.compile_named_call(*id, &[], Some(piped_value_register), ctx)
+                if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
+                    self.compile_call(function_register, &[], pipe_register, None, ctx)
+                } else {
+                    let result = self.assign_result_register(ctx)?;
+                    let call_result_register = if let Some(result_register) = result.register {
+                        ResultRegister::Fixed(result_register)
+                    } else {
+                        ResultRegister::None
+                    };
+
+                    let function_register = self.push_register()?;
+                    self.compile_load_non_local(function_register, *id);
+
+                    let call_context = ctx.with_register(call_result_register);
+                    self.compile_call(function_register, &[], pipe_register, None, call_context)?;
+
+                    self.pop_register()?; // function_register
+                    Ok(result)
+                }
             }
-            Node::Lookup(lookup_node) => {
-                // Compile the lookup, passing in the piped call arg, which will either be appended
-                // to call args at the end of a lookup, or the last node will be turned into a call.
-                self.compile_lookup(
-                    lookup_node,
-                    Some(piped_value_register),
-                    None,
-                    None,
-                    ctx.with_register(call_result_register),
-                )
+            Node::Chain(chain_node) => {
+                // Compile the chain, passing in the piped call arg, which will either be appended
+                // to call args at the end of a chain, or the last node will be turned into a call.
+                let call_context = ctx.with_register(call_result_register);
+                self.compile_chain(chain_node, pipe_register, None, None, call_context)
             }
             _ => {
                 // If the RHS is none of the above, then compile it assuming that the result will
                 // be a function.
                 let function = self.compile_node(rhs, ctx.with_any_register())?;
-                let result = self.compile_call(
-                    function.unwrap(self)?,
-                    &[],
-                    Some(piped_value_register),
-                    None,
-                    ctx.with_register(call_result_register),
-                )?;
+                let function_register = function.unwrap(self)?;
+                let call_context = ctx.with_register(call_result_register);
+                let result =
+                    self.compile_call(function_register, &[], pipe_register, None, call_context)?;
                 if function.is_temporary {
                     self.pop_register()?;
                 }
@@ -2589,39 +2641,6 @@ impl Compiler {
         }
 
         result
-    }
-
-    fn compile_named_call(
-        &mut self,
-        function_id: ConstantIndex,
-        args: &[AstIndex],
-        piped_arg: Option<u8>,
-        ctx: CompileNodeContext,
-    ) -> Result<CompileNodeOutput> {
-        if let Some(function_register) = self.frame().get_local_assigned_register(function_id) {
-            self.compile_call(function_register, args, piped_arg, None, ctx)
-        } else {
-            let result = self.assign_result_register(ctx)?;
-            let call_result_register = if let Some(result_register) = result.register {
-                ResultRegister::Fixed(result_register)
-            } else {
-                ResultRegister::None
-            };
-
-            let function_register = self.push_register()?;
-            self.compile_load_non_local(function_register, function_id);
-
-            self.compile_call(
-                function_register,
-                args,
-                piped_arg,
-                None,
-                ctx.with_register(call_result_register),
-            )?;
-
-            self.pop_register()?; // function_register
-            Ok(result)
-        }
     }
 
     fn compile_call(
@@ -2839,7 +2858,7 @@ impl Compiler {
         let match_register = self
             .compile_node(match_expression, ctx.with_any_register())?
             .unwrap(self)?;
-        let match_len = match &ctx.ast.node(match_expression).node {
+        let match_len = match ctx.node(match_expression) {
             Node::TempTuple(expressions) => expressions.len(),
             _ => 1,
         };
@@ -2883,7 +2902,7 @@ impl Compiler {
 
             jumps.alternative_end.clear();
 
-            let arm_node = ctx.ast.node(*arm_pattern);
+            let arm_node = ctx.node_with_span(*arm_pattern);
             self.push_span(arm_node, ctx.ast);
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
@@ -3010,7 +3029,7 @@ impl Compiler {
             } else {
                 pattern_index as i8
             };
-            let pattern_node = ctx.ast.node(*pattern);
+            let pattern_node = ctx.node_with_span(*pattern);
 
             match &pattern_node.node {
                 Node::Null
@@ -3020,7 +3039,7 @@ impl Compiler {
                 | Node::Int(_)
                 | Node::Float(_)
                 | Node::Str(_)
-                | Node::Lookup(_) => {
+                | Node::Chain(_) => {
                     let pattern_register = self.push_register()?;
                     self.compile_node(*pattern, ctx.with_fixed_register(pattern_register))?;
                     let comparison = self.push_register()?;
@@ -3173,12 +3192,12 @@ impl Compiler {
         let temp_register = self.push_register()?;
 
         let first_or_last_pattern_is_ellipsis = {
-            let first_is_ellipsis = nested_patterns.first().map_or(false, |first| {
-                matches!(ctx.ast.node(*first).node, Node::Ellipsis(_))
-            });
-            let last_is_ellipsis = nested_patterns.last().map_or(false, |last| {
-                matches!(ctx.ast.node(*last).node, Node::Ellipsis(_))
-            });
+            let first_is_ellipsis = nested_patterns
+                .first()
+                .map_or(false, |first| matches!(ctx.node(*first), Node::Ellipsis(_)));
+            let last_is_ellipsis = nested_patterns
+                .last()
+                .map_or(false, |last| matches!(ctx.node(*last), Node::Ellipsis(_)));
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
                 return self.error(ErrorKind::MultipleMatchEllipses);
             }
@@ -3275,7 +3294,7 @@ impl Compiler {
             let iterable_register = self.compile_node(*iterable, ctx.with_any_register())?;
 
             // Make the iterator, using the iterator's span in case of errors
-            self.push_span(ctx.ast.node(*iterable), ctx.ast);
+            self.push_span(ctx.node_with_span(*iterable), ctx.ast);
             self.push_op(
                 MakeIterator,
                 &[iterator_register, iterable_register.unwrap(self)?],
@@ -3296,7 +3315,7 @@ impl Compiler {
         match args.as_slice() {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
-                match &ctx.ast.node(*single_arg).node {
+                match ctx.node(*single_arg) {
                     Node::Id(id, ..) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
@@ -3330,7 +3349,7 @@ impl Compiler {
                 self.push_op_without_span(MakeIterator, &[temp_register, temp_register]);
 
                 for arg in args.iter() {
-                    match &ctx.ast.node(*arg).node {
+                    match ctx.node(*arg) {
                         Node::Id(id, ..) => {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
@@ -3365,7 +3384,7 @@ impl Compiler {
 
         if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
-                if let Node::Id(id, ..) = &ctx.ast.node(*arg).node {
+                if let Node::Id(id, ..) = ctx.node(*arg) {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
                         None => return self.error(ErrorKind::MissingArgRegister),

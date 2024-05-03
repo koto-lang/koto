@@ -4,7 +4,7 @@ use std::{
     fmt,
     hash::{Hash, Hasher},
     num::TryFromIntError,
-    ops::{Deref, Range},
+    ops::Range,
 };
 
 use crate::{error::InternalError, StringSlice};
@@ -12,14 +12,6 @@ use crate::{error::InternalError, StringSlice};
 /// The type used to refer to constants in the [ConstantPool]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantIndex(u32);
-
-impl Deref for ConstantIndex {
-    type Target = u32;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl From<ConstantIndex> for u32 {
     fn from(value: ConstantIndex) -> Self {

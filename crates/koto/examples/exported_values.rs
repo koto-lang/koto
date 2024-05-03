@@ -3,19 +3,19 @@ use koto::{prelude::*, Result};
 fn main() -> Result<()> {
     let script = "
 export
-  foo: '42'.to_number()
-  bar: 'Hello from Koto'
+  exported_a: '42'.to_number()
+  exported_b: 'Hello from Koto'
 ";
 
     let mut koto = Koto::default();
     koto.compile_and_run(script)?;
 
     let exports = koto.exports();
-    let foo = exports.get("foo").unwrap();
-    let bar = exports.get("bar").unwrap();
+    let exported_a = exports.get("exported_a").unwrap();
+    let exported_b = exports.get("exported_b").unwrap();
 
-    println!("foo: {}", koto.value_to_string(foo)?,);
-    println!("bar: {}", koto.value_to_string(bar)?,);
+    println!("exported_a: {}", koto.value_to_string(exported_a)?,);
+    println!("exported_b: {}", koto.value_to_string(exported_b)?,);
 
     Ok(())
 }

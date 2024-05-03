@@ -29,7 +29,7 @@ impl KotoImplParser {
     }
 }
 
-pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream) -> TokenStream {
+pub(crate) fn generate_koto_access_entries(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut attrs = KotoImplParser::default();
     let parser = syn::meta::parser(|meta| attrs.parse(meta));
     parse_macro_input!(args with parser);
@@ -43,11 +43,11 @@ pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream)
         _ => panic!("Expected a struct"),
     };
     let entries_map_name = format_ident!(
-        "{PREFIX_STATIC}LOOKUP_ENTRIES_{}",
+        "{PREFIX_STATIC}_ENTRIES_{}",
         struct_ident.to_string().to_uppercase()
     );
 
-    let (wrapper_functions, lookup_inserts): (Vec<_>, Vec<_>) = input
+    let (wrapper_functions, insert_ops): (Vec<_>, Vec<_>) = input
         .items
         .iter()
         // find impl funtions tagged with #[koto_method]
@@ -61,8 +61,8 @@ pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream)
         })
         // Generate wrappers and lookup inserts for each koto method
         .map(|(f, attr)| {
-            let (wrapper, wrapper_name) = wrap_method(&f.sig, struct_ident, &runtime);
-            let insert = lookup_insert(&f.sig, attr, wrapper_name, &runtime);
+            let (wrapper, wrapper_name) = wrap_function(&f.sig, struct_ident, &runtime);
+            let insert = insert_wrapped_function(&f.sig, attr, wrapper_name, &runtime);
             (wrapper, insert)
         })
         .unzip();
@@ -77,7 +77,7 @@ pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream)
         thread_local! {
             static #entries_map_name: #runtime::KMap = {
                 let mut result = #runtime::KMap::default();
-                #(#lookup_inserts)*
+                #(#insert_ops)*
                 result
             };
         }
@@ -93,7 +93,7 @@ pub(crate) fn generate_koto_lookup_entries(args: TokenStream, item: TokenStream)
     result.into()
 }
 
-fn wrap_method(
+fn wrap_function(
     sig: &Signature,
     struct_ident: &Ident,
     runtime: &Path,
@@ -188,7 +188,7 @@ fn wrap_method(
     (wrapper, wrapper_name)
 }
 
-fn lookup_insert(
+fn insert_wrapped_function(
     sig: &Signature,
     koto_method_attr: &Attribute,
     wrapper_name: Ident,

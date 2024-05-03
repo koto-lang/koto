@@ -21,7 +21,7 @@ struct Frame {
     contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_frame: HashSet<ConstantIndex>,
-    // IDs and lookup roots which were accessed when not locally assigned at the time of access
+    // IDs and chain roots which were accessed when not locally assigned at the time of access
     accessed_non_locals: HashSet<ConstantIndex>,
     // While expressions are being parsed we keep track of lhs assignments and rhs accesses.
     // At the end of a multi-assignment expression (see `finalize_id_accesses`),
@@ -215,9 +215,9 @@ impl ExpressionContext {
     // [
     //   foo
     //     .bar()
-    // # ^ here we're allowing an indented lookup to be started
+    // # ^ here we're allowing an indented chain to be started
     // ]
-    fn lookup_start(&self) -> Self {
+    fn chain_start(&self) -> Self {
         use Indentation::*;
 
         let expected_indentation = match self.expected_indentation {
@@ -700,7 +700,7 @@ impl<'source> Parser<'source> {
                 Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                Node::Meta { .. } | Node::Lookup(_) | Node::Wildcard(_) => {}
+                Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => {}
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
             }
 
@@ -769,12 +769,12 @@ impl<'source> Parser<'source> {
             Token::Number => self.consume_number(false, context),
             Token::StringStart { .. } => {
                 let string = self.parse_string(context)?.unwrap();
+                let string_node = self.push_node_with_span(Str(string.string), string.span)?;
 
                 if self.peek_token() == Some(Token::Colon) && string.context.allow_map_block {
-                    self.consume_map_block(MapKey::Str(string.string), start_span, &string.context)
+                    self.consume_map_block(string_node, start_span, &string.context)
                 } else {
-                    let string_node = self.push_node_with_span(Str(string.string), string.span)?;
-                    self.check_for_lookup_after_node(string_node, &string.context)
+                    self.check_for_chain_after_node(string_node, &string.context)
                 }
             }
             Token::Id => self.consume_id_expression(context),
@@ -785,7 +785,7 @@ impl<'source> Parser<'source> {
 
                 let meta_context = self.consume_until_token_with_context(context).unwrap();
                 // Safe to unwrap here, parse_meta_key would error on invalid key
-                let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
+                let meta_key = self.parse_meta_key()?.unwrap();
 
                 if map_block_allowed
                     && matches!(
@@ -796,13 +796,8 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.consume_map_block(
-                        MapKey::Meta(meta_key_id, meta_name),
-                        start_span,
-                        &meta_context,
-                    )
+                    self.consume_map_block(meta_key, start_span, &meta_context)
                 } else {
-                    let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
                     match self.parse_assign_expression(meta_key, &[], &meta_context)? {
                         Some(result) => self.push_node(Node::Export(result)),
                         None => self
@@ -1254,11 +1249,11 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<IdOrString>> {
+    fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         let result = match self.parse_id(context)? {
-            Some((id, _)) => Some(IdOrString::Id(id)),
+            Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
             None => match self.parse_string(context)? {
-                Some(s) => Some(IdOrString::Str(s.string)),
+                Some(s) => Some(self.push_node_with_span(Node::Str(s.string), s.span)?),
                 None => None,
             },
         };
@@ -1267,35 +1262,46 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_id_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let start_span = self.current_span();
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
 
+        let type_hint = self.parse_type_hint(context)?;
+        let id_node = self.push_node(Node::Id(constant_index, type_hint))?;
+        let id_span = self.current_span();
+
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
-            self.consume_map_block(MapKey::Id(constant_index), start_span, &id_context)
+            // The ID is the start of a map block
+            self.consume_map_block(id_node, id_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
-            let lookup_context = id_context.lookup_start();
-            if self.next_token_is_lookup_start(&lookup_context) {
-                let id_index = self.push_node(Node::Id(constant_index, None))?;
-                self.consume_lookup(id_index, &lookup_context)
+            let chain_context = id_context.chain_start();
+            if self.next_token_is_chain_start(&chain_context) {
+                // The ID is the start of a chain
+                self.consume_chain(id_node, &chain_context)
             } else {
-                let start_span = self.current_span();
+                // Check for paren-free call args following the ID
                 let args = self.parse_call_args(&id_context)?;
 
                 if args.is_empty() {
-                    let type_hint = self.parse_type_hint(context)?;
-
-                    self.push_node(Node::Id(constant_index, type_hint))
+                    // No args, so this is a plain ID access
+                    Ok(id_node)
                 } else {
-                    self.push_node_with_start_span(
-                        Node::NamedCall {
-                            id: constant_index,
-                            args,
-                        },
-                        start_span,
+                    // Args were found, so add them to a chained call
+                    let call_node = self.push_node_with_start_span(
+                        Node::Chain((
+                            ChainNode::Call {
+                                args,
+                                with_parens: false,
+                            },
+                            None,
+                        )),
+                        id_span,
+                    )?;
+                    self.push_node_with_span(
+                        Node::Chain((ChainNode::Root(id_node), Some(call_node))),
+                        id_span,
                     )
                 }
             }
@@ -1307,37 +1313,37 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedCloseParen);
         };
 
-        let lookup_context = self_context.lookup_start();
+        let chain_context = self_context.chain_start();
         let self_index = self.push_node(Node::Self_)?;
 
-        if self.next_token_is_lookup_start(&lookup_context) {
-            self.consume_lookup(self_index, &lookup_context)
+        if self.next_token_is_chain_start(&chain_context) {
+            self.consume_chain(self_index, &chain_context)
         } else {
             Ok(self_index)
         }
     }
 
-    // Checks to see if a lookup starts after the parsed node,
-    // and either returns the node if there's no lookup,
-    // or uses the node as the start of the lookup.
-    fn check_for_lookup_after_node(
+    // Checks to see if a chain starts after the parsed node,
+    // and either returns the node if there's no chain,
+    // or uses the node as the start of the chain.
+    fn check_for_chain_after_node(
         &mut self,
         node: AstIndex,
         context: &ExpressionContext,
     ) -> Result<AstIndex> {
-        let lookup_context = context.lookup_start();
-        if self.next_token_is_lookup_start(&lookup_context) {
-            self.consume_lookup(node, &lookup_context)
+        let chain_context = context.chain_start();
+        if self.next_token_is_chain_start(&chain_context) {
+            self.consume_chain(node, &chain_context)
         } else {
             Ok(node)
         }
     }
 
-    // Returns true if the following token is the start of a lookup expression
+    // Returns true if the following token is the start of a chain
     //
     // If the following token is on the same line, then it must be the _next_ token,
     // otherwise the context is used to find an indented token on a following line.
-    fn next_token_is_lookup_start(&mut self, context: &ExpressionContext) -> bool {
+    fn next_token_is_chain_start(&mut self, context: &ExpressionContext) -> bool {
         use Token::*;
 
         if matches!(self.peek_token(), Some(Dot | SquareOpen | RoundOpen)) {
@@ -1352,12 +1358,11 @@ impl<'source> Parser<'source> {
         }
     }
 
-    // Parses a lookup expression
+    // Parses an expression chain
     //
-    // Lookup expressions are the name used for a chain of map lookups, index operations,
-    // and function calls.
+    // Expression chains represent a series of map accesses, index operations, and function calls.
     //
-    // The root of the lookup (i.e. the initial expression that is followed by `.`, `[`, or `(`)
+    // The root of the chain (i.e. the initial expression that is followed by `.`, `[`, or `(`)
     // has already been parsed and is passed in as the `root` argument.
     //
     // e.g.
@@ -1367,15 +1372,15 @@ impl<'source> Parser<'source> {
     // e.g.
     //   y = x[0][1].foo()
     //   #    ^ You are here
-    fn consume_lookup(&mut self, root: AstIndex, context: &ExpressionContext) -> Result<AstIndex> {
-        let mut lookup = Vec::new();
-        let mut lookup_line = self.current_line;
+    fn consume_chain(&mut self, root: AstIndex, context: &ExpressionContext) -> Result<AstIndex> {
+        let mut chain = Vec::new();
+        let mut chain_line = self.current_line;
 
         let mut node_context = *context;
         let mut node_start_span = self.current_span();
         let restricted = ExpressionContext::restricted();
 
-        lookup.push((LookupNode::Root(root), node_start_span));
+        chain.push((ChainNode::Root(root), node_start_span));
 
         while let Some(token) = self.peek_token() {
             match token {
@@ -1385,8 +1390,8 @@ impl<'source> Parser<'source> {
 
                     let args = self.parse_parenthesized_args()?;
 
-                    lookup.push((
-                        LookupNode::Call {
+                    chain.push((
+                        ChainNode::Call {
                             args,
                             with_parens: true,
                         },
@@ -1400,7 +1405,7 @@ impl<'source> Parser<'source> {
                     let index_expression = self.consume_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
-                        lookup.push((LookupNode::Index(index_expression), node_start_span));
+                        chain.push((ChainNode::Index(index_expression), node_start_span));
                     } else {
                         return self.error(SyntaxError::ExpectedIndexEnd);
                     }
@@ -1414,13 +1419,13 @@ impl<'source> Parser<'source> {
                         Some(Token::Id | Token::StringStart { .. })
                     ) {
                         // This check prevents detached dot accesses, e.g. `x. foo`
-                        return self.error(SyntaxError::ExpectedMapKey);
+                        return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     } else if let Some((id, _)) = self.parse_id(&restricted)? {
                         node_start_span = self.current_span();
-                        lookup.push((LookupNode::Id(id), node_start_span));
-                    } else if let Some(lookup_string) = self.parse_string(&restricted)? {
-                        node_start_span = lookup_string.span;
-                        lookup.push((LookupNode::Str(lookup_string.string), lookup_string.span));
+                        chain.push((ChainNode::Id(id), node_start_span));
+                    } else if let Some(access_string) = self.parse_string(&restricted)? {
+                        node_start_span = access_string.span;
+                        chain.push((ChainNode::Str(access_string.string), access_string.span));
                     } else {
                         return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     }
@@ -1439,7 +1444,7 @@ impl<'source> Parser<'source> {
                             .unwrap();
 
                         // Check that the next dot is on an indented line
-                        if self.current_line == lookup_line {
+                        if self.current_line == chain_line {
                             return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                         }
 
@@ -1467,7 +1472,7 @@ impl<'source> Parser<'source> {
                         //     ~~~~~~~
 
                         // Allow a map block if we're on an indented line
-                        node_context.allow_map_block = peeked.info.line() > lookup_line;
+                        node_context.allow_map_block = peeked.info.line() > chain_line;
 
                         let args = self.parse_call_args(&node_context)?;
 
@@ -1476,11 +1481,11 @@ impl<'source> Parser<'source> {
                         node_context.allow_space_separated_call = false;
 
                         if args.is_empty() {
-                            // No arguments found, so we're at the end of the lookup
+                            // No arguments found, so we're at the end of the chain
                             break;
                         } else {
-                            lookup.push((
-                                LookupNode::Call {
+                            chain.push((
+                                ChainNode::Call {
                                     args,
                                     with_parens: false,
                                 },
@@ -1489,22 +1494,22 @@ impl<'source> Parser<'source> {
                         }
                     }
 
-                    lookup_line = self.current_line;
+                    chain_line = self.current_line;
                 }
             }
         }
 
-        // Add the lookup nodes to the AST in reverse order:
-        // the final AST index will be the lookup root node.
+        // Add the chain nodes to the AST in reverse order:
+        // the final AST index will be the chain root node.
         let mut next_index = None;
-        for (node, span) in lookup.iter().rev() {
+        for (node, span) in chain.iter().rev() {
             next_index =
-                Some(self.push_node_with_span(Node::Lookup((node.clone(), next_index)), *span)?);
+                Some(self.push_node_with_span(Node::Chain((node.clone(), next_index)), *span)?);
         }
-        next_index.ok_or_else(|| self.make_error(InternalError::LookupParseFailure))
+        next_index.ok_or_else(|| self.make_error(InternalError::ChainParseFailure))
     }
 
-    // Helper for parse_lookup() that parses an index expression
+    // Helper for consume_chain() that parses an index expression
     //
     // e.g.
     //   foo.bar[10..20]
@@ -1577,7 +1582,7 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    // Helper for parse_lookup() that parses the args in a chained function call
+    // Helper for consume_chain() that parses the args in a chained function call
     //
     // e.g.
     // foo[0].bar(1, 2, 3)
@@ -1653,7 +1658,7 @@ impl<'source> Parser<'source> {
         };
 
         let range_node = self.push_node_with_start_span(range_node, start_span)?;
-        self.check_for_lookup_after_node(range_node, context)
+        self.check_for_chain_after_node(range_node, context)
     }
 
     fn consume_export(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
@@ -1756,7 +1761,7 @@ impl<'source> Parser<'source> {
             }
         };
 
-        self.check_for_lookup_after_node(number_node, context)
+        self.check_for_chain_after_node(number_node, context)
     }
 
     // Parses expressions contained in round parentheses
@@ -1785,7 +1790,7 @@ impl<'source> Parser<'source> {
         };
 
         if let Some((Token::RoundClose, _)) = self.consume_token_with_context(context) {
-            self.check_for_lookup_after_node(
+            self.check_for_chain_after_node(
                 expressions_node,
                 &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
             )
@@ -1806,7 +1811,7 @@ impl<'source> Parser<'source> {
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
 
         if let Some((Token::SquareClose, _)) = self.consume_token_with_context(context) {
-            self.check_for_lookup_after_node(
+            self.check_for_chain_after_node(
                 list_node,
                 &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
             )
@@ -1862,7 +1867,7 @@ impl<'source> Parser<'source> {
 
     fn consume_map_block(
         &mut self,
-        first_key: MapKey,
+        first_key: AstIndex,
         start_span: Span,
         context: &ExpressionContext,
     ) -> Result<AstIndex> {
@@ -1928,13 +1933,13 @@ impl<'source> Parser<'source> {
         }
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
-        self.check_for_lookup_after_node(
+        self.check_for_chain_after_node(
             map_node,
             &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
         )
     }
 
-    fn parse_comma_separated_map_entries(&mut self) -> Result<Vec<(MapKey, Option<AstIndex>)>> {
+    fn parse_comma_separated_map_entries(&mut self) -> Result<Vec<(AstIndex, Option<AstIndex>)>> {
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
 
@@ -1964,8 +1969,8 @@ impl<'source> Parser<'source> {
                 // e.g.
                 //   bar = -1
                 //   x = {foo: 42, bar, baz: 99}
-                match key {
-                    MapKey::Id(id) => self.frame_mut()?.add_id_access(id),
+                match self.ast.node(key).node {
+                    Node::Id(id, None) => self.frame_mut()?.add_id_access(id),
                     _ => return self.error(SyntaxError::ExpectedMapValue),
                 }
                 entries.push((key, None));
@@ -1995,27 +2000,26 @@ impl<'source> Parser<'source> {
     //     regular_id: 1
     //     'string_id': 2
     //     @meta meta_key: 3
-    fn parse_map_key(&mut self) -> Result<Option<MapKey>> {
+    fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
         let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            Some(MapKey::Id(id))
-        } else if let Some(string_key) = self.parse_string(&ExpressionContext::restricted())? {
-            Some(MapKey::Str(string_key.string))
-        } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
-            Some(MapKey::Meta(meta_key_id, meta_name))
+            Some(self.push_node(Node::Id(id, None))?)
+        } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
+            Some(self.push_node_with_span(Node::Str(s.string), s.span)?)
         } else {
-            None
+            self.parse_meta_key()?
         };
 
         Ok(result)
     }
 
     // Attempts to parse a meta key
-    fn parse_meta_key(&mut self) -> Result<Option<(MetaKeyId, Option<ConstantIndex>)>> {
+    fn parse_meta_key(&mut self) -> Result<Option<AstIndex>> {
         if self.peek_next_token_on_same_line() != Some(Token::At) {
             return Ok(None);
         }
 
         self.consume_next_token_on_same_line();
+        let start_span = self.current_span();
 
         let mut meta_name = None;
 
@@ -2078,7 +2082,10 @@ impl<'source> Parser<'source> {
             _ => return self.error(SyntaxError::UnexpectedMetaKey),
         };
 
-        Ok(Some((meta_key_id, meta_name)))
+        let result =
+            self.push_node_with_start_span(Node::Meta(meta_key_id, meta_name), start_span)?;
+
+        Ok(Some(result))
     }
 
     fn consume_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
@@ -2522,9 +2529,9 @@ impl<'source> Parser<'source> {
                             }
                         } else {
                             let id_node = self.push_node(Node::Id(id, None))?;
-                            if self.next_token_is_lookup_start(&pattern_context) {
+                            if self.next_token_is_chain_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
-                                self.consume_lookup(id_node, &pattern_context)?
+                                self.consume_chain(id_node, &pattern_context)?
                             } else {
                                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
                                 id_node
@@ -2614,41 +2621,39 @@ impl<'source> Parser<'source> {
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            if let (IdOrString::Id(id), None) | (_, Some(id)) = (&item.item, &item.name) {
-                self.frame_mut()?.ids_assigned_in_frame.insert(*id);
+            let maybe_id = if let Node::Id(id, _) = &self.ast.node(item.item).node {
+                Some(*id)
+            } else {
+                None
+            };
+            let maybe_as =
+                if let Some(Node::Id(id, _)) = item.name.map(|node| &self.ast.node(node).node) {
+                    Some(*id)
+                } else {
+                    None
+                };
+            if let (Some(id), None) | (_, Some(id)) = (maybe_id, maybe_as) {
+                self.frame_mut()?.ids_assigned_in_frame.insert(id);
             }
         }
 
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
-    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<Vec<IdOrString>> {
+    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<Vec<AstIndex>> {
         let mut path = vec![];
 
-        loop {
-            let item_root = match self.parse_id(context)? {
-                Some((id, _)) => IdOrString::Id(id),
-                None => match self.parse_string(context)? {
-                    Some(s) => IdOrString::Str(s.string),
-                    None => break,
-                },
-            };
-
+        while let Some(item_root) = self.parse_id_or_string(context)? {
             path.push(item_root);
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
-                match self.parse_id(&ExpressionContext::restricted())? {
-                    Some((id, _)) => path.push(IdOrString::Id(id)),
-                    None => match self.parse_string(&ExpressionContext::restricted())? {
-                        Some(s) => path.push(IdOrString::Str(s.string)),
-                        None => {
-                            return self
-                                .consume_token_and_error(SyntaxError::ExpectedImportModuleId)
-                        }
-                    },
-                }
+                let Some(next) = self.parse_id_or_string(&ExpressionContext::restricted())? else {
+                    return self.consume_token_and_error(SyntaxError::ExpectedImportModuleId);
+                };
+
+                path.push(next);
             }
         }
 
@@ -2676,7 +2681,7 @@ impl<'source> Parser<'source> {
                 Some(peeked) if peeked.token == Token::As => {
                     self.consume_token_with_context(&context);
                     match self.parse_id(&context)? {
-                        Some((id, _)) => Some(id),
+                        Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
                         None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }

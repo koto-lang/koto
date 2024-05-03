@@ -2450,23 +2450,23 @@ impl KotoVm {
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
             Map(map) => {
-                let mut lookup_map = map.clone();
+                let mut access_map = map.clone();
                 let mut access_result = None;
                 while access_result.is_none() {
-                    let maybe_value = lookup_map.get(&key);
+                    let maybe_value = access_map.get(&key);
                     match maybe_value {
                         Some(value) => access_result = Some(value),
                         // Fallback to the map module when there's no metamap
-                        None if lookup_map.meta_map().is_none() => {
+                        None if access_map.meta_map().is_none() => {
                             core_op!(map, true);
                             return Ok(());
                         }
-                        _ => match lookup_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
+                        _ => match access_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
                             Some(value) => access_result = Some(value),
-                            None => match lookup_map.get_meta_value(&MetaKey::Base) {
+                            None => match access_map.get_meta_value(&MetaKey::Base) {
                                 Some(Map(base)) => {
-                                    // Attempt the lookup again with the base map
-                                    lookup_map = base;
+                                    // Attempt the access again with the base map
+                                    access_map = base;
                                 }
                                 Some(unexpected) => {
                                     return type_error("Map as base value", &unexpected)

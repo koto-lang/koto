@@ -1,7 +1,4 @@
-use crate::{
-    ast::AstIndex, constant_pool::ConstantIndex, parser::TypeHint, StringFormatOptions, StringQuote,
-};
-use std::fmt;
+use crate::{ast::AstIndex, constant_pool::ConstantIndex, parser:: TypeHint, StringFormatOptions, StringQuote};
 
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
@@ -21,18 +18,8 @@ pub enum Node {
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
 
-    /// A lookup node, and optionally the node that follows it in the lookup chain
-    Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
-
-    /// A parentheses-free call on a named id, e.g. `foo 1, 2, 3`
-    ///
-    /// Calls with parentheses or on temporary values are parsed as Lookups
-    NamedCall {
-        /// The id of the function to be called
-        id: ConstantIndex,
-        /// The arguments to pass to the function
-        args: Vec<AstIndex>,
-    },
+    /// A chained expression, and optionally the node that follows it in the chain
+    Chain((ChainNode, Option<AstIndex>)), // chain node, next node
 
     /// The `true` keyword
     BoolTrue,
@@ -105,8 +92,10 @@ pub enum Node {
 
     /// A map literal, with a series of keys and values
     ///
+    /// Keys will either be Id, String, or Meta nodes.
+    ///
     /// Values are optional for inline maps.
-    Map(Vec<(MapKey, Option<AstIndex>)>),
+    Map(Vec<(AstIndex, Option<AstIndex>)>),
 
     /// The `self` keyword
     Self_,
@@ -140,7 +129,7 @@ pub enum Node {
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
-        from: Vec<IdOrString>,
+        from: Vec<AstIndex>,
         /// The series of items to import
         items: Vec<ImportItem>,
     },
@@ -267,60 +256,6 @@ pub enum Node {
     },
 }
 
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Node::*;
-        match self {
-            Null => write!(f, "Null"),
-            Nested(_) => write!(f, "Nested"),
-            Id(..) => write!(f, "Id"),
-            Meta(_, _) => write!(f, "Meta"),
-            Lookup(_) => write!(f, "Lookup"),
-            BoolTrue => write!(f, "BoolTrue"),
-            BoolFalse => write!(f, "BoolFalse"),
-            Float(_) => write!(f, "Float"),
-            SmallInt(_) => write!(f, "SmallInt"),
-            Int(_) => write!(f, "Int"),
-            Str(_) => write!(f, "Str"),
-            List(_) => write!(f, "List"),
-            Tuple(_) => write!(f, "Tuple"),
-            TempTuple(_) => write!(f, "TempTuple"),
-            Range { .. } => write!(f, "Range"),
-            RangeFrom { .. } => write!(f, "RangeFrom"),
-            RangeTo { .. } => write!(f, "RangeTo"),
-            RangeFull => write!(f, "RangeFull"),
-            Map(_) => write!(f, "Map"),
-            MainBlock { .. } => write!(f, "MainBlock"),
-            Block(_) => write!(f, "Block"),
-            Function(_) => write!(f, "Function"),
-            NamedCall { .. } => write!(f, "NamedCall"),
-            Import { .. } => write!(f, "Import"),
-            Export(_) => write!(f, "Export"),
-            Assign { .. } => write!(f, "Assign"),
-            MultiAssign { .. } => write!(f, "MultiAssign"),
-            UnaryOp { .. } => write!(f, "UnaryOp"),
-            BinaryOp { .. } => write!(f, "BinaryOp"),
-            If(_) => write!(f, "If"),
-            Match { .. } => write!(f, "Match"),
-            Self_ { .. } => write!(f, "Self"),
-            Switch { .. } => write!(f, "Switch"),
-            Wildcard(_) => write!(f, "Wildcard"),
-            Ellipsis(_) => write!(f, "Ellipsis"),
-            For(_) => write!(f, "For"),
-            While { .. } => write!(f, "While"),
-            Until { .. } => write!(f, "Until"),
-            Loop { .. } => write!(f, "Loop"),
-            Break(_) => write!(f, "Break"),
-            Continue => write!(f, "Continue"),
-            Return(_) => write!(f, "Return"),
-            Try { .. } => write!(f, "Try"),
-            Throw(_) => write!(f, "Throw"),
-            Yield { .. } => write!(f, "Yield"),
-            Debug { .. } => write!(f, "Debug"),
-        }
-    }
-}
-
 /// A function definition
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
@@ -332,7 +267,7 @@ pub struct Function {
     pub local_count: usize,
     /// Any non-local values that are accessed in the function
     ///
-    /// Any ID (or lookup root) that's accessed in a function and which wasn't previously assigned
+    /// Any ID (or chain root) that's accessed in a function and which wasn't previously assigned
     /// locally, is either an export or the value needs to be captured. The compiler takes care of
     /// determining if an access is a capture or not at the moment the function is created.
     pub accessed_non_locals: Vec<ConstantIndex>,
@@ -458,10 +393,9 @@ pub struct AstTry {
     pub finally_block: Option<AstIndex>,
 }
 
-/// A node in a lookup chain
+/// A node in a chained expression
 ///
-/// Lookups are any expressions that access a values from identifiers, and then as the lookup chain
-/// continues, from any following temporary results.
+/// Chains are any expressions that contain two or more nodes in a sequence.
 ///
 /// In other words, some series of operations involving indexing, `.` accesses, and function calls.
 ///
@@ -473,8 +407,8 @@ pub struct AstTry {
 ///  |  ^ Id (bar)
 ///  ^ Root (foo)
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LookupNode {
-    /// The root of the lookup chain
+pub enum ChainNode {
+    /// The root of the chain
     Root(AstIndex),
     /// A `.` access using an identifier
     Id(ConstantIndex),
@@ -633,50 +567,11 @@ impl TryFrom<u8> for MetaKeyId {
     }
 }
 
-/// A map key definition
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MapKey {
-    /// An identifier
-    Id(ConstantIndex),
-    /// A string
-    Str(AstString),
-    /// A meta key
-    ///
-    /// Some meta keys require an additional identifier, e.g. @test test_name
-    Meta(MetaKeyId, Option<ConstantIndex>),
-}
-
 /// A node in an import item, see [Node::Import]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportItem {
     /// The imported item
-    pub item: IdOrString,
+    pub item: AstIndex,
     /// An optional 'as' name for the imported item
-    pub name: Option<ConstantIndex>,
-}
-
-/// Either an Id or a String
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub enum IdOrString {
-    Id(ConstantIndex),
-    Str(AstString),
-}
-
-impl From<u32> for IdOrString {
-    fn from(id: u32) -> Self {
-        Self::Id(id.into())
-    }
-}
-
-impl From<ConstantIndex> for IdOrString {
-    fn from(id: ConstantIndex) -> Self {
-        Self::Id(id)
-    }
-}
-
-impl From<AstString> for IdOrString {
-    fn from(s: AstString) -> Self {
-        Self::Str(s)
-    }
+    pub name: Option<AstIndex>,
 }

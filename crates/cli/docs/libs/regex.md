@@ -109,11 +109,11 @@ captures = r.captures '!!! <Hello, World!> ???'
 print! captures.get(0).text()
 check! <Hello, World!>
 
-# Named captured groups use the name as the lookup key
+# Named captured groups use the name as the map key
 print! captures.group_a.text()
 check! Hello,
 
-# Groups without names use their group index as the lookup key
+# Groups without names use their group index as the map key
 print! captures.get(2).text()
 check! World!
 

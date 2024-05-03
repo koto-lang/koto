@@ -2,35 +2,36 @@ use koto::{derive::*, prelude::*, Result};
 
 fn main() {
     let script = "
-foo = make_foo 41
-print foo.get()
-print foo.set 99
+my_type = make_my_type 41
+print my_type.get()
+print my_type.set 99
 ";
     let mut koto = Koto::default();
 
-    koto.prelude().add_fn("make_foo", |ctx| match ctx.args() {
-        [KValue::Number(n)] => Ok(Foo::make_koto_object(*n).into()),
-        unexpected => type_error_with_slice("a number", unexpected),
-    });
+    koto.prelude()
+        .add_fn("make_my_type", |ctx| match ctx.args() {
+            [KValue::Number(n)] => Ok(MyType::make_koto_object(*n).into()),
+            unexpected => type_error_with_slice("a number", unexpected),
+        });
 
     koto.compile_and_run(script).unwrap();
 }
 
-// Foo is a type that we want to use in Koto
+// MyType is a type that we want to use in Koto
 //
 // The KotoCopy and KotoType traits are automatically derived.
 #[derive(Clone, Copy, KotoCopy, KotoType)]
-struct Foo(i64);
+struct MyType(i64);
 
 // The KotoEntries trait is implemented by the koto_impl macro,
 // generating Koto functions for any impl function tagged with #[koto_method],
 // and inserting them into a cached KMap.
 #[koto_impl]
-impl Foo {
+impl MyType {
     fn make_koto_object(n: KNumber) -> KObject {
         // From is available for any type that implements KotoObject
-        let foo = Self(n.into());
-        KObject::from(foo)
+        let my_type = Self(n.into());
+        KObject::from(my_type)
     }
 
     // A simple getter function
@@ -52,10 +53,10 @@ impl Foo {
     }
 }
 
-impl KotoObject for Foo {
-    // KotoObject::Display allows Foo to be used with Koto's print function
+impl KotoObject for MyType {
+    // KotoObject::Display allows mytype to be used with Koto's print function
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(format!("Foo({})", self.0));
+        ctx.append(format!("MyType({})", self.0));
         Ok(())
     }
 }
