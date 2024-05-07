@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -564,6 +566,53 @@ impl TryFrom<u8> for MetaKeyId {
         } else {
             Err(byte)
         }
+    }
+}
+
+// Display impl used by koto-ls
+impl fmt::Display for MetaKeyId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use MetaKeyId::*;
+
+        write!(
+            f,
+            "@{}",
+            match self {
+                Add => "+",
+                Subtract => "-",
+                Multiply => "*",
+                Divide => "/",
+                Remainder => "%",
+                AddAssign => "+=",
+                SubtractAssign => "-=",
+                MultiplyAssign => "*=",
+                DivideAssign => "/=",
+                RemainderAssign => "%=",
+                Less => "<",
+                LessOrEqual => "<=",
+                Greater => ">",
+                GreaterOrEqual => ">=",
+                Equal => "==",
+                NotEqual => "!=",
+                Index => "[]",
+                Display => "display",
+                Iterator => "iterator",
+                Next => "next",
+                NextBack => "next_back",
+                Negate => "negate",
+                Size => "size",
+                Type => "type",
+                Base => "base",
+                Call => "||",
+                Tests => "tests",
+                Test => "test",
+                PreTest => "pre_test",
+                PostTest => "post_test",
+                Main => "main",
+                Named => "meta",
+                Invalid => unreachable!(),
+            }
+        )
     }
 }
 
