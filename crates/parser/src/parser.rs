@@ -116,11 +116,6 @@ struct ExpressionContext {
     allow_map_block: bool,
     // The indentation rules for the current context
     expected_indentation: Indentation,
-    // This allows the type hints.
-    // e.g.
-    // let x: Number = 42
-    //      ^~~ This is the beginning of our type hint
-    allow_type_hint: bool,
 }
 
 // The indentation that should be expected on following lines for an expression to continue
@@ -147,7 +142,6 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
-            allow_type_hint: false,
         }
     }
 
@@ -157,7 +151,6 @@ impl ExpressionContext {
             allow_linebreaks: false,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
-            allow_type_hint: false,
         }
     }
 
@@ -167,7 +160,6 @@ impl ExpressionContext {
             allow_linebreaks: false,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
-            allow_type_hint: false,
         }
     }
 
@@ -179,7 +171,6 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
-            allow_type_hint: false,
         }
     }
 
@@ -192,7 +183,6 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Flexible,
-            allow_type_hint: false,
         }
     }
 
@@ -207,7 +197,6 @@ impl ExpressionContext {
             allow_linebreaks: true,
             allow_map_block: false,
             expected_indentation: Indentation::Flexible,
-            allow_type_hint: false,
         }
     }
 
@@ -230,20 +219,12 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation,
-            allow_type_hint: self.allow_type_hint,
         }
     }
 
     fn with_expected_indentation(&self, expected_indentation: Indentation) -> Self {
         Self {
             expected_indentation,
-            ..*self
-        }
-    }
-
-    fn with_type_hint(&self) -> Self {
-        Self {
-            allow_type_hint: true,
             ..*self
         }
     }
@@ -697,7 +678,7 @@ impl<'source> Parser<'source> {
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index, ..) => {
+                Node::Id(id_index) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => {}
@@ -919,7 +900,7 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    arg_nodes.push(self.push_node(Node::Id(constant_index, None))?);
+                    arg_nodes.push(self.push_node(Node::Id(constant_index))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
@@ -1017,12 +998,11 @@ impl<'source> Parser<'source> {
     }
 
     // Parses the types and returns information about the type if next is a colon
-    fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<TypeHint>> {
-        if let (Some(Token::Colon), true) = (
-            self.peek_token_with_context(context)
-                .map(|token| token.token),
-            context.allow_type_hint,
-        ) {
+    fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<Node>> {
+        if let Some(Token::Colon) = self
+            .peek_token_with_context(context)
+            .map(|token| token.token)
+        {
             self.consume_token_with_context(context);
             self.consume_type_hint(context).map(Some)
         } else {
@@ -1031,22 +1011,20 @@ impl<'source> Parser<'source> {
     }
 
     // Parses the types and returns information about the type
-    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<TypeHint> {
+    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<Node> {
         let Some((type_name, _)) = self.parse_id(context)? else {
             return self.consume_token_and_error(SyntaxError::ExpectedTypeHint);
         };
 
-        let mut type_hint = TypeHint {
-            type_name,
-            inner: vec![],
-        };
+        let mut inner = vec![];
 
         if let Some(PeekInfo {
             token: Token::Less, ..
         }) = self.peek_token_with_context(context)
         {
             self.consume_token_with_context(context);
-            type_hint.inner.push(self.consume_type_hint(context)?);
+            let inner_type = self.consume_type_hint(context)?;
+            inner.push(self.push_node(inner_type)?);
 
             match self.peek_token_with_context(context) {
                 Some(PeekInfo {
@@ -1054,7 +1032,8 @@ impl<'source> Parser<'source> {
                     ..
                 }) => {
                     self.consume_token();
-                    type_hint.inner.push(self.consume_type_hint(context)?);
+                    let next_inner_type = self.consume_type_hint(context)?;
+                    inner.push(self.push_node(next_inner_type)?);
                 }
                 Some(PeekInfo {
                     token: Token::Greater,
@@ -1067,6 +1046,8 @@ impl<'source> Parser<'source> {
             // Consume the Less token
             self.consume_token();
         }
+
+        let type_hint = Node::Type(type_name, inner);
 
         Ok(type_hint)
     }
@@ -1095,7 +1076,7 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
                     } else {
-                        Node::Id(constant_index, None)
+                        Node::Id(constant_index)
                     };
 
                     nested_args.push(self.push_node(arg_node)?);
@@ -1251,7 +1232,7 @@ impl<'source> Parser<'source> {
 
     fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         let result = match self.parse_id(context)? {
-            Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
+            Some((id, _)) => Some(self.push_node(Node::Id(id))?),
             None => match self.parse_string(context)? {
                 Some(s) => Some(self.push_node_with_span(Node::Str(s.string), s.span)?),
                 None => None,
@@ -1266,8 +1247,9 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
 
-        let type_hint = self.parse_type_hint(context)?;
-        let id_node = self.push_node(Node::Id(constant_index, type_hint))?;
+        // let type_hint = self.parse_type_hint(context)?;
+        // let id_node = self.push_node(Node::Id(constant_index, type_hint))?;
+        let id_node = self.push_node(Node::Id(constant_index))?;
         let id_span = self.current_span();
 
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
@@ -1970,7 +1952,7 @@ impl<'source> Parser<'source> {
                 //   bar = -1
                 //   x = {foo: 42, bar, baz: 99}
                 match self.ast.node(key).node {
-                    Node::Id(id, None) => self.frame_mut()?.add_id_access(id),
+                    Node::Id(id) => self.frame_mut()?.add_id_access(id),
                     _ => return self.error(SyntaxError::ExpectedMapValue),
                 }
                 entries.push((key, None));
@@ -2002,7 +1984,7 @@ impl<'source> Parser<'source> {
     //     @meta meta_key: 3
     fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
         let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            Some(self.push_node(Node::Id(id, None))?)
+            Some(self.push_node(Node::Id(id))?)
         } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
             Some(self.push_node_with_span(Node::Str(s.string), s.span)?)
         } else {
@@ -2098,7 +2080,7 @@ impl<'source> Parser<'source> {
             match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                    args.push(self.push_node(Node::Id(id, None))?);
+                    args.push(self.push_node(Node::Id(id))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
                     args.push(self.push_node(Node::Wildcard(maybe_id))?);
@@ -2528,7 +2510,7 @@ impl<'source> Parser<'source> {
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
                             }
                         } else {
-                            let id_node = self.push_node(Node::Id(id, None))?;
+                            let id_node = self.push_node(Node::Id(id))?;
                             if self.next_token_is_chain_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.consume_chain(id_node, &pattern_context)?
@@ -2621,13 +2603,13 @@ impl<'source> Parser<'source> {
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            let maybe_id = if let Node::Id(id, _) = &self.ast.node(item.item).node {
+            let maybe_id = if let Node::Id(id) = &self.ast.node(item.item).node {
                 Some(*id)
             } else {
                 None
             };
             let maybe_as =
-                if let Some(Node::Id(id, _)) = item.name.map(|node| &self.ast.node(node).node) {
+                if let Some(Node::Id(id)) = item.name.map(|node| &self.ast.node(node).node) {
                     Some(*id)
                 } else {
                     None
@@ -2681,7 +2663,7 @@ impl<'source> Parser<'source> {
                 Some(peeked) if peeked.token == Token::As => {
                     self.consume_token_with_context(&context);
                     match self.parse_id(&context)? {
-                        Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
+                        Some((id, _)) => Some(self.push_node(Node::Id(id))?),
                         None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }
@@ -2736,7 +2718,7 @@ impl<'source> Parser<'source> {
         let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
             Some(IdOrWildcard::Id(id)) => {
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                self.push_node(Node::Id(id, None))?
+                self.push_node(Node::Id(id))?
             }
             Some(IdOrWildcard::Wildcard(maybe_id)) => self.push_node(Node::Wildcard(maybe_id))?,
             None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
@@ -2772,28 +2754,35 @@ impl<'source> Parser<'source> {
 
     fn consume_variable_declaration(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Let
+
         let mut targets = vec![];
 
-        match self.parse_term(&context.with_type_hint())? {
-            Some(term) => targets.push(term),
-            None => return self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
-        };
-
-        while let Some(Token::Comma) = self
-            .peek_token_with_context(context)
-            .map(|token| token.token)
+        while let Some(id_or_wildcard) =
+            self.parse_id_or_wildcard(&ExpressionContext::permissive())?
         {
-            self.consume_token_with_context(context);
-            // Should we avoid this repetation?
-            match self.parse_term(&context.with_type_hint())? {
-                Some(term) => targets.push(term),
-                None => break,
-            };
+            match id_or_wildcard {
+                IdOrWildcard::Id(constant_index) => {
+                    targets.push(self.push_node(Node::Id(constant_index))?);
+                    if let Some(type_hint) = self.parse_type_hint(context)? {
+                        self.push_node(type_hint)?;
+                    }
+                }
+                IdOrWildcard::Wildcard(maybe_id) => {
+                    targets.push(self.push_node(Node::Wildcard(maybe_id))?);
+                }
+            }
+
+            if let Some(Token::Comma) = self
+                .peek_token_with_context(context)
+                .map(|token| token.token)
+            {
+                self.consume_token_with_context(context);
+            }
         }
 
         let last_target = targets.pop().unwrap();
 
-        match self.parse_assign_expression(last_target, &targets, &context.with_type_hint())? {
+        match self.parse_assign_expression(last_target, &targets, context)? {
             Some(val) => Ok(val),
             None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
         }
@@ -3352,6 +3341,7 @@ struct PeekInfo {
 }
 
 // Returned by Parser::parse_id_or_wildcard()
+#[derive(Debug)]
 enum IdOrWildcard {
     Id(ConstantIndex),
     Wildcard(Option<ConstantIndex>),
@@ -3362,13 +3352,4 @@ struct ParseStringOutput {
     string: AstString,
     span: Span,
     context: ExpressionContext,
-}
-
-/// The type hint returned by Parser::consume_type_hint()
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypeHint {
-    /// The constant index of the types name
-    pub type_name: ConstantIndex,
-    /// The inner types of generic declaration
-    pub inner: Vec<TypeHint>,
 }

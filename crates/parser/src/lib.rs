@@ -16,7 +16,6 @@ pub use crate::{
     error::{format_source_excerpt, Error, Result},
     node::*,
     parser::Parser,
-    parser::TypeHint,
     string_format_options::{StringAlignment, StringFormatOptions},
     string_slice::StringSlice,
 };

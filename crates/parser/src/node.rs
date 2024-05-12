@@ -1,6 +1,4 @@
-use crate::{
-    ast::AstIndex, constant_pool::ConstantIndex, parser::TypeHint, StringFormatOptions, StringQuote,
-};
+use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
 use std::fmt;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
@@ -16,7 +14,7 @@ pub enum Node {
     Nested(AstIndex),
 
     /// An identifer
-    Id(ConstantIndex, Option<TypeHint>),
+    Id(ConstantIndex),
 
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
@@ -257,6 +255,12 @@ pub enum Node {
         /// The expression that should be debugged
         expression: AstIndex,
     },
+
+    /// A type hint
+    ///
+    /// e.g. `let x: Number = 0`
+    ///            ^~~ This is the beginning of the type hint
+    Type(ConstantIndex, Vec<AstIndex>),
 }
 
 /// A function definition
