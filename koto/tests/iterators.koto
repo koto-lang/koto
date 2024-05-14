@@ -347,3 +347,11 @@ make_foo = |x|
     assert_eq
       (10..15).each(|x| '{x}').every_other().to_tuple(),
       ('10', '12', '14')
+
+  @test exhausted_generator: ||
+    gen = || yield 42
+    foo = gen()
+
+    assert_eq foo.next().get(), 42
+    assert_eq foo.next(), null
+    assert_eq foo.next(), null
