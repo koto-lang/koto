@@ -272,6 +272,10 @@ impl KotoVm {
     /// This is currently used to support generators, which yield incremental results and then
     /// leave the VM in a suspended state.
     pub fn continue_running(&mut self) -> Result<ReturnOrYield> {
+        if self.call_stack.is_empty() {
+            return Ok(ReturnOrYield::Return(KValue::Null));
+        }
+
         let result = self.execute_instructions()?;
 
         match self.execution_state {
