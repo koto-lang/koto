@@ -658,11 +658,15 @@ impl KotoVm {
             .map(ExecutionTimeout::new);
 
         self.instruction_ip = self.ip();
+
+        // Every code path in this function must set the execution state to something other
+        // than Active before exiting.
         self.execution_state = ExecutionState::Active;
 
         while let Some(instruction) = self.reader.next() {
             if let Some(timeout) = timeout.as_mut() {
                 if timeout.check_for_timeout() {
+                    self.execution_state = ExecutionState::Inactive;
                     return self
                         .pop_call_stack_on_error(
                             ErrorKind::Timeout(timeout.execution_limit).into(),
@@ -702,6 +706,7 @@ impl KotoVm {
             self.instruction_ip = self.ip();
         }
 
+        self.execution_state = ExecutionState::Inactive;
         Ok(KValue::Null)
     }
 
