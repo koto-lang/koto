@@ -564,25 +564,21 @@ multiply = |x, y| x * y
 square = |x| x * x
 
 # Chained function calls can be a bit hard to follow for the reader.
-x = multiply 2, square add 1, 3
-print! x
+print! x = multiply 2, square add 1, 3
 check! 32
 
 # Parentheses don't help all that much...
-x = multiply(2, square(add(1, 3)))
-print! x
+print! x = multiply(2, square(add(1, 3)))
 check! 32
 
 # Piping allows for a left-to-right flow of results.
-x = add(1, 3) >> square >> multiply 2
-print! x
+print! x = add(1, 3) >> square >> multiply 2
 check! 32
 
 # Call chains can also be broken across lines.
-x = add 1, 3
+print! x = add 1, 3
   >> square 
   >> multiply 2
-print! x
 check! 32
 ```
 
@@ -640,10 +636,9 @@ that matches the key's name, and if one is found then it will be used as that
 entry's value.
 
 ```koto
-bar = 'hi!'
-m = {foo: 42, bar}
-print! m.bar
-check! hi!
+hi, bye = 'hi!', 'bye!'
+print! m = {hi, x: 42, bye}
+check! {hi: 'hi!', x: 42, bye: 'bye!'}
 ```
 
 ### Maps and Self
@@ -665,7 +660,7 @@ check! Bye, Friend!
 `self` is a special identifier that refers to the instance of the container in
 which the function is contained. 
 
-`self` allows functions to access and modify data from the map, 
+In maps, `self` allows functions to access and modify data from the map, 
 enabling object-like behaviour.
 
 ```koto

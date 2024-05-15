@@ -63,9 +63,8 @@ cluster from the string via indexing.
 
 ```koto
 s = 'Hi 👋'
-indices = s.char_indices().to_tuple()
 
-print! indices
+print! indices = s.char_indices().to_tuple()
 check! (0..1, 1..2, 2..3, 3..7)
 
 print! s[indices[3]]
@@ -354,8 +353,8 @@ Returns the string with whitespace at the start and end of the string trimmed.
 print! '   x    '.trim()
 check! x
 
-print! '     >'.trim()
-check! >
+print! '     !'.trim()
+check! !
 ```
 
 [grapheme-cluster]: https://www.unicode.org/glossary/#grapheme_cluster
