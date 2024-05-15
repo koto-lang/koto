@@ -669,7 +669,7 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(Arg::Local(*id_index)),
+                Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(_) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
@@ -851,7 +851,7 @@ impl Compiler {
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
-            Node::Id(id_index) => {
+            Node::Id(id_index, ..) => {
                 if !value_result.is_temporary {
                     // To ensure that exported rhs ids with the same name as a local that's
                     // currently being assigned can be loaded correctly, only commit the
@@ -1129,12 +1129,12 @@ impl Compiler {
         if from.is_empty() {
             for item in items.iter() {
                 let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id) => Some(*id),
+                    Node::Id(id, ..) => Some(*id),
                     _ => None,
                 });
 
                 match ctx.node(item.item) {
-                    Node::Id(import_id) => {
+                    Node::Id(import_id, ..) => {
                         let import_register = if result.register.is_some() {
                             let import_register = if let Some(name) = maybe_as {
                                 self.assign_local_register(name)?
@@ -1171,12 +1171,13 @@ impl Compiler {
                         }
                     }
                     Node::Str(_) => {
-                        let import_register =
-                            if let Some(Node::Id(name)) = item.name.map(|name| ctx.node(name)) {
-                                self.assign_local_register(*name)?
-                            } else {
-                                self.push_register()?
-                            };
+                        let import_register = if let Some(Node::Id(name, ..)) =
+                            item.name.map(|name| ctx.node(name))
+                        {
+                            self.assign_local_register(*name)?
+                        } else {
+                            self.push_register()?
+                        };
                         self.compile_import_item(import_register, item.item, ctx)?;
 
                         if result.register.is_some() {
@@ -1198,12 +1199,12 @@ impl Compiler {
 
             for item in items.iter() {
                 let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id) => Some(*id),
+                    Node::Id(id, ..) => Some(*id),
                     _ => None,
                 });
 
                 match ctx.node(item.item) {
-                    Node::Id(import_id) => {
+                    Node::Id(import_id, ..) => {
                         let import_register = if let Some(name) = maybe_as {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
@@ -2408,7 +2409,7 @@ impl Compiler {
                 ChainNode::Id(id, ..) => {
                     self.compile_map_insert(
                         value_register,
-                        &Node::Id(*id),
+                        &Node::Id(*id, None),
                         Some(parent_register),
                         false,
                         ctx,

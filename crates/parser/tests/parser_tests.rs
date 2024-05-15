@@ -54,7 +54,11 @@ mod parser {
     }
 
     fn id(constant: u32) -> Node {
-        Node::Id(constant.into())
+        Node::Id(constant.into(), None)
+    }
+
+    fn id_with_type_hint(constant: u32, type_hint: u32) -> Node {
+        Node::Id(constant.into(), Some(type_hint.into()))
     }
 
     fn type_hint(constant: u32, inner: &[u32]) -> Node {
@@ -1362,8 +1366,8 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    id(0),
-                    type_hint(1, &[]),
+                    type_hint(0, &[]),
+                    id_with_type_hint(1, 0),
                     SmallInt(1),
                     Assign {
                         target: 0.into(),

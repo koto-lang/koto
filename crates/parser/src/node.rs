@@ -13,8 +13,8 @@ pub enum Node {
     /// A single expression wrapped in parentheses
     Nested(AstIndex),
 
-    /// An identifer
-    Id(ConstantIndex),
+    /// An identifer, and optionally the type hint node
+    Id(ConstantIndex, Option<AstIndex>),
 
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
