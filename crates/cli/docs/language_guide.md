@@ -818,8 +818,8 @@ executed.
 
 ```koto
 x = if 1 + 1 == 2 then 3 else -1
-print! x, x
-check! (3, 3)
+print! x
+check! 3
 
 # Assign the result of the if expression to foo
 foo = if x > 0
@@ -829,8 +829,8 @@ else
   y = x * 100
   y * y
 
-print! foo, foo 
-check! (33, 33)
+print! foo
+check! 33
 ```
 
 ### switch

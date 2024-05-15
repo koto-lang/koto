@@ -62,8 +62,14 @@ cluster from the string via indexing.
 ### Example
 
 ```koto
-print! 'Hi 👋'.char_indices().to_tuple()
+s = 'Hi 👋'
+indices = s.char_indices().to_tuple()
+
+print! indices
 check! (0..1, 1..2, 2..3, 3..7)
+
+print! s[indices[3]]
+check! 👋
 ```
 
 ### See Also
