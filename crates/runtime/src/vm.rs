@@ -2332,7 +2332,7 @@ impl KotoVm {
         let key = ValueKey::try_from(self.clone_register(key_register))?;
         let value = self.clone_register(value_register);
 
-        match self.get_register_mut(map_register) {
+        match self.get_register(map_register) {
             KValue::Map(map) => {
                 map.data_mut().insert(key, value);
                 Ok(())
