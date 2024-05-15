@@ -2779,8 +2779,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        let last_target = dbg!(targets.pop().unwrap());
-        dbg!(self.ast.nodes());
+        let last_target = targets.pop().unwrap();
 
         match self.parse_assign_expression(last_target, &targets, context)? {
             Some(val) => Ok(val),
