@@ -2516,6 +2516,21 @@ gen().to_tuple()
 ";
             check_script_output(script, tuple(&[1.into(), KValue::Null, 3.into()]));
         }
+
+        #[test]
+        fn exhausted_generator_returns_null() {
+            let script = "
+gen = || yield 1
+x = gen()
+
+x.next() # -> IteratorOutput(1)
+x.next() # -> null
+
+# The generator is now exhausted, calling .next() again should return null
+x.next()
+";
+            check_script_output(script, KValue::Null);
+        }
     }
 
     mod strings {
