@@ -958,8 +958,8 @@ Consumes all values coming from the iterator and places them in a tuple.
 ### Example
 
 ```koto
-print! ('a', 42, (-1, -2)).to_list()
-check! ['a', 42, (-1, -2)]
+print! ('a', 42, (-1, -2)).to_tuple()
+check! ('a', 42, (-1, -2))
 ```
 
 ### See also
