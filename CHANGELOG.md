@@ -31,6 +31,13 @@ The Koto project adheres to
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
 
+### Fixed
+
+#### Language
+
+- Calling `.next()` on an exhausted generator no longer causes a panic.
+  - Thanks to [@edenbynever](https://github.com/edenbynever) for the fix.
+
 ## [0.14.0] 2024.04.17
 
 ### Added 
