@@ -678,7 +678,7 @@ impl<'source> Parser<'source> {
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index, None) => {
+                Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => {}

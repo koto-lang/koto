@@ -1366,11 +1366,11 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(0, &[]),
-                    id_with_type_hint(1, 0),
+                    type_hint(1, &[]),
+                    id_with_type_hint(0, 0),
                     SmallInt(1),
                     Assign {
-                        target: 0.into(),
+                        target: 1.into(),
                         expression: 2.into(),
                     },
                     MainBlock {
