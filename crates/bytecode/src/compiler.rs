@@ -969,7 +969,7 @@ impl Compiler {
             targets.iter().zip(target_registers.iter()).enumerate()
         {
             match ctx.node(*target) {
-                Node::Id(id_index, ..) => {
+                Node::Id(id_index, type_hint) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
                     if rhs_is_temp_tuple {
@@ -980,6 +980,10 @@ impl Compiler {
                     // The register was reserved before the RHS was compiled, and now it
                     // needs to be committed.
                     self.commit_local_register(target_register)?;
+
+                    if let Some(type_hint) = type_hint {
+                        self.compile_check_type(target_register, *type_hint, ctx)?;
+                    }
 
                     // Multi-assignments typically aren't exported, but exporting
                     // assignments might be forced, e.g. in REPL mode.

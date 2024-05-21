@@ -518,6 +518,15 @@ x
 ";
             check_script_output(script, "foo");
         }
+
+        #[test]
+        fn multi_assignment() {
+            let script = "
+let x: String, y: Bool, z: Int = 'foo', true, 123
+x, y, z
+";
+            check_script_output(script, tuple(&["foo".into(), true.into(), 123.into()]));
+        }
     }
 
     mod if_expressions {

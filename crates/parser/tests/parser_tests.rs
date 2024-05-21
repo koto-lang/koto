@@ -1443,6 +1443,37 @@ x %= 4";
                 ]),
             )
         }
+
+        #[test]
+        fn multiple_targets() {
+            let source = "let foo: String, bar: Number = baz";
+
+            check_ast(
+                source,
+                &[
+                    type_hint(1, &[]),       // String
+                    id_with_type_hint(0, 0), // foo
+                    type_hint(3, &[]),       // Number
+                    id_with_type_hint(2, 2), // bar
+                    id(4),                   // baz
+                    MultiAssign {
+                        targets: expressions(&[1, 3]),
+                        expression: 4.into(),
+                    }, // 5
+                    MainBlock {
+                        body: vec![5.into()],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("String"),
+                    Constant::Str("bar"),
+                    Constant::Str("Number"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
     }
 
     mod export {
