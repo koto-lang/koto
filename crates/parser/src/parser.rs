@@ -863,7 +863,7 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
-            Token::Let => self.consume_variable_declaration(context),
+            Token::Let => self.consume_let_expression(context),
             // Reserved keywords
             Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
@@ -2750,7 +2750,7 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn consume_variable_declaration(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+    fn consume_let_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Let
 
         let mut targets = vec![];

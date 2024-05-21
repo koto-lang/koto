@@ -33,6 +33,7 @@ pub struct Koto {
     runtime: KotoVm,
     run_tests: bool,
     export_top_level_ids: bool,
+    enable_type_checks: bool,
     script_path: Option<PathBuf>,
     chunk: Option<Ptr<Chunk>>,
 }
@@ -55,6 +56,7 @@ impl Koto {
             runtime: KotoVm::with_settings(settings.vm_settings),
             run_tests: settings.run_tests,
             export_top_level_ids: settings.export_top_level_ids,
+            enable_type_checks: settings.enable_type_checks,
             chunk: None,
             script_path: None,
         }
@@ -84,6 +86,7 @@ impl Koto {
             self.script_path.as_deref(),
             CompilerSettings {
                 export_top_level_ids: self.export_top_level_ids,
+                enable_type_checks: self.enable_type_checks,
             },
         )?;
 
@@ -243,6 +246,11 @@ pub struct KotoSettings {
     /// This is used by the REPL, allowing for incremental compilation and execution of expressions
     /// that need to share declared values.
     pub export_top_level_ids: bool,
+    /// When enabled, the compiler will emit type check instructions when type hints are encountered
+    /// that will be performed at runtime.
+    ///
+    /// Enabled by default.
+    pub enable_type_checks: bool,
     /// Settings that apply to the runtime
     pub vm_settings: KotoVmSettings,
 }
@@ -317,6 +325,7 @@ impl Default for KotoSettings {
         Self {
             run_tests: true,
             export_top_level_ids: false,
+            enable_type_checks: true,
             vm_settings: KotoVmSettings::default(),
         }
     }

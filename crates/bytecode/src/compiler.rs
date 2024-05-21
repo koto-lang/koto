@@ -52,6 +52,8 @@ enum ErrorKind {
     MissingValueForMapEntry,
     #[error("only one ellipsis is allowed in a match arm")]
     MultipleMatchEllipses,
+    #[error("nested type declarations are currently unsupported")]
+    NestedTypeDeclaration,
     #[error("the compiled expression has no output")]
     NoResultInExpressionOutput,
     #[error("child chain node out of position")]
@@ -196,13 +198,27 @@ impl CompileNodeOutput {
 }
 
 /// The settings used by the [Compiler]
-#[derive(Default)]
 pub struct CompilerSettings {
     /// Causes all top level identifiers to be exported
+    ///
+    /// Disabled by default.
     ///
     /// This is used by the REPL to automatically export values so that they're available between
     /// chunks.
     pub export_top_level_ids: bool,
+    /// Causes the compiler to emit CheckType instructions when type hints are encountered.
+    ///
+    /// Enabled by default.
+    pub enable_type_checks: bool,
+}
+
+impl Default for CompilerSettings {
+    fn default() -> Self {
+        Self {
+            export_top_level_ids: false,
+            enable_type_checks: true,
+        }
+    }
 }
 
 /// The compiler used by the Koto language
@@ -574,7 +590,8 @@ impl Compiler {
                 unreachable!();
             }
             Node::Type(..) => {
-                unimplemented!()
+                // Type hints are only compiled in the context of typed identifiers.
+                unreachable!();
             }
         };
 
@@ -851,12 +868,16 @@ impl Compiler {
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
-            Node::Id(id_index, ..) => {
+            Node::Id(id_index, type_hint) => {
                 if !value_result.is_temporary {
                     // To ensure that exported rhs ids with the same name as a local that's
                     // currently being assigned can be loaded correctly, only commit the
                     // reserved local as assigned after the rhs has been compiled.
                     self.commit_local_register(value_register)?;
+                }
+
+                if let Some(type_hint) = type_hint {
+                    self.compile_check_type(value_register, *type_hint, ctx)?;
                 }
 
                 if export_assignment || self.force_export_assignment() {
@@ -948,7 +969,7 @@ impl Compiler {
             targets.iter().zip(target_registers.iter()).enumerate()
         {
             match ctx.node(*target) {
-                Node::Id(id_index, ..) => {
+                Node::Id(id_index, type_hint) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
                     if rhs_is_temp_tuple {
@@ -959,6 +980,10 @@ impl Compiler {
                     // The register was reserved before the RHS was compiled, and now it
                     // needs to be committed.
                     self.commit_local_register(target_register)?;
+
+                    if let Some(type_hint) = type_hint {
+                        self.compile_check_type(target_register, *type_hint, ctx)?;
+                    }
 
                     // Multi-assignments typically aren't exported, but exporting
                     // assignments might be forced, e.g. in REPL mode.
@@ -1051,6 +1076,38 @@ impl Compiler {
         };
 
         Ok(result)
+    }
+
+    fn compile_check_type(
+        &mut self,
+        value_register: u8,
+        type_hint: AstIndex,
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
+        let type_node = ctx.node_with_span(type_hint);
+        self.push_span(type_node, ctx.ast);
+
+        match &type_node.node {
+            Node::Type(type_index, nested) => {
+                if !nested.is_empty() {
+                    return self.error(ErrorKind::NestedTypeDeclaration);
+                }
+
+                if self.settings.enable_type_checks {
+                    self.push_op(Op::CheckType, &[value_register]);
+                    self.push_var_u32((*type_index).into());
+                }
+            }
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "Type".into(),
+                    unexpected: unexpected.clone(),
+                })
+            }
+        }
+
+        self.pop_span();
+        Ok(())
     }
 
     fn compile_value_export(&mut self, id: ConstantIndex, value_register: u8) -> Result<()> {

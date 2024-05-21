@@ -485,8 +485,12 @@ pub enum Op {
     /// `[*value, size]`
     CheckSizeMin,
 
+    /// Throws an error if the value doesn't match the provided type
+    ///
+    /// `[*value, @type constant]`
+    CheckType,
+
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused82,
     Unused83,
     Unused84,
     Unused85,

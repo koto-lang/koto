@@ -23,7 +23,7 @@ pub enum ErrorKind {
     },
     #[error("Execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
-    #[error("Expected {expected}, but found '{}'", get_value_types(unexpected))]
+    #[error("Expected '{expected}', but found '{}'", get_value_types(unexpected))]
     UnexpectedType {
         expected: String,
         unexpected: Vec<KValue>,

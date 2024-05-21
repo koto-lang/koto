@@ -320,6 +320,10 @@ pub enum Instruction {
         register: u8,
         size: usize,
     },
+    CheckType {
+        value: u8,
+        type_string: ConstantIndex,
+    },
     StringStart {
         size_hint: u32,
     },
@@ -736,6 +740,9 @@ impl fmt::Debug for Instruction {
             }
             CheckSizeMin { register, size } => {
                 write!(f, "CheckSizeMin\tvalue: {register}\tsize: {size}")
+            }
+            CheckType { value, type_string } => {
+                write!(f, "CheckType\tvalue: {value}\ttype: {type_string}")
             }
             StringStart { size_hint } => {
                 write!(f, "StringStart\tsize hint: {size_hint}")
