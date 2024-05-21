@@ -678,7 +678,7 @@ impl<'source> Parser<'source> {
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index) => {
+                Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => {}
@@ -863,10 +863,10 @@ impl<'source> Parser<'source> {
             Token::From | Token::Import => self.consume_import(context),
             Token::Export => self.consume_export(context),
             Token::Try => self.consume_try_expression(context),
+            Token::Let => self.consume_variable_declaration(context),
             // Reserved keywords
             Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
-            Token::Let => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             // An error occurred in the lexer
             Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
             _ => return Ok(None),
@@ -900,7 +900,7 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    arg_nodes.push(self.push_node(Node::Id(constant_index))?);
+                    arg_nodes.push(self.push_node(Node::Id(constant_index, None))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
@@ -997,6 +997,61 @@ impl<'source> Parser<'source> {
         )
     }
 
+    // Parses the types and returns information about the type if next is a colon
+    fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
+        if let Some(Token::Colon) = self
+            .peek_token_with_context(context)
+            .map(|token| token.token)
+        {
+            self.consume_token_with_context(context);
+            self.consume_type_hint(context).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    // Parses the types and returns information about the type
+    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+        let Some((type_name, _)) = self.parse_id(context)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedTypeHint);
+        };
+
+        let mut inner = vec![];
+
+        if let Some(PeekInfo {
+            token: Token::Less, ..
+        }) = self.peek_token_with_context(context)
+        {
+            self.consume_token_with_context(context);
+            let inner_type = self.consume_type_hint(context)?;
+            inner.push(inner_type);
+
+            match self.peek_token_with_context(context) {
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                }) => {
+                    self.consume_token();
+                    let next_inner_type = self.consume_type_hint(context)?;
+                    inner.push(next_inner_type);
+                }
+                Some(PeekInfo {
+                    token: Token::Greater,
+                    ..
+                }) => {}
+                Some(_) | None => {
+                    self.consume_token_and_error(SyntaxError::UnexpectedToken)?;
+                }
+            }
+            // Consume the Less token
+            self.consume_token();
+        }
+
+        let type_hint = self.push_node(Node::Type(type_name, inner))?;
+
+        Ok(type_hint)
+    }
+
     // Helper for parse_function() that recursively parses nested function arguments
     // e.g.
     //   f = |(foo, bar, (x, y))|
@@ -1021,7 +1076,7 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
                     } else {
-                        Node::Id(constant_index)
+                        Node::Id(constant_index, None)
                     };
 
                     nested_args.push(self.push_node(arg_node)?);
@@ -1131,6 +1186,7 @@ impl<'source> Parser<'source> {
     }
 
     // Parses a single `_` wildcard, along with its optional following id
+
     fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context);
         let slice = self.current_token.slice(self.source);
@@ -1176,7 +1232,7 @@ impl<'source> Parser<'source> {
 
     fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         let result = match self.parse_id(context)? {
-            Some((id, _)) => Some(self.push_node(Node::Id(id))?),
+            Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
             None => match self.parse_string(context)? {
                 Some(s) => Some(self.push_node_with_span(Node::Str(s.string), s.span)?),
                 None => None,
@@ -1190,7 +1246,8 @@ impl<'source> Parser<'source> {
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
-        let id_node = self.push_node(Node::Id(constant_index))?;
+
+        let id_node = self.push_node(Node::Id(constant_index, None))?;
         let id_span = self.current_span();
 
         if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
@@ -1893,7 +1950,7 @@ impl<'source> Parser<'source> {
                 //   bar = -1
                 //   x = {foo: 42, bar, baz: 99}
                 match self.ast.node(key).node {
-                    Node::Id(id) => self.frame_mut()?.add_id_access(id),
+                    Node::Id(id, ..) => self.frame_mut()?.add_id_access(id),
                     _ => return self.error(SyntaxError::ExpectedMapValue),
                 }
                 entries.push((key, None));
@@ -1925,7 +1982,7 @@ impl<'source> Parser<'source> {
     //     @meta meta_key: 3
     fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
         let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            Some(self.push_node(Node::Id(id))?)
+            Some(self.push_node(Node::Id(id, None))?)
         } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
             Some(self.push_node_with_span(Node::Str(s.string), s.span)?)
         } else {
@@ -2021,7 +2078,7 @@ impl<'source> Parser<'source> {
             match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                    args.push(self.push_node(Node::Id(id))?);
+                    args.push(self.push_node(Node::Id(id, None))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
                     args.push(self.push_node(Node::Wildcard(maybe_id))?);
@@ -2451,7 +2508,7 @@ impl<'source> Parser<'source> {
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
                             }
                         } else {
-                            let id_node = self.push_node(Node::Id(id))?;
+                            let id_node = self.push_node(Node::Id(id, None))?;
                             if self.next_token_is_chain_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.consume_chain(id_node, &pattern_context)?
@@ -2544,13 +2601,13 @@ impl<'source> Parser<'source> {
 
         // Mark any imported ids as locally assigned
         for item in items.iter() {
-            let maybe_id = if let Node::Id(id) = &self.ast.node(item.item).node {
+            let maybe_id = if let Node::Id(id, ..) = &self.ast.node(item.item).node {
                 Some(*id)
             } else {
                 None
             };
             let maybe_as =
-                if let Some(Node::Id(id)) = item.name.map(|node| &self.ast.node(node).node) {
+                if let Some(Node::Id(id, ..)) = item.name.map(|node| &self.ast.node(node).node) {
                     Some(*id)
                 } else {
                     None
@@ -2604,7 +2661,7 @@ impl<'source> Parser<'source> {
                 Some(peeked) if peeked.token == Token::As => {
                     self.consume_token_with_context(&context);
                     match self.parse_id(&context)? {
-                        Some((id, _)) => Some(self.push_node(Node::Id(id))?),
+                        Some((id, _)) => Some(self.push_node(Node::Id(id, None))?),
                         None => return self.error(SyntaxError::ExpectedIdAfterAs),
                     }
                 }
@@ -2659,7 +2716,7 @@ impl<'source> Parser<'source> {
         let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
             Some(IdOrWildcard::Id(id)) => {
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                self.push_node(Node::Id(id))?
+                self.push_node(Node::Id(id, None))?
             }
             Some(IdOrWildcard::Wildcard(maybe_id)) => self.push_node(Node::Wildcard(maybe_id))?,
             None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
@@ -2691,6 +2748,43 @@ impl<'source> Parser<'source> {
             }),
             start_span,
         )
+    }
+
+    fn consume_variable_declaration(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+        self.consume_token_with_context(context); // Token::Let
+
+        let mut targets = vec![];
+
+        while let Some(id_or_wildcard) =
+            self.parse_id_or_wildcard(&ExpressionContext::permissive())?
+        {
+            match id_or_wildcard {
+                IdOrWildcard::Id(constant_index) => {
+                    let mut type_hint_index = None;
+                    if let Some(type_hint) = self.parse_type_hint(context)? {
+                        type_hint_index = Some(type_hint);
+                    }
+                    targets.push(self.push_node(Node::Id(constant_index, type_hint_index))?);
+                }
+                IdOrWildcard::Wildcard(maybe_id) => {
+                    targets.push(self.push_node(Node::Wildcard(maybe_id))?);
+                }
+            }
+
+            if let Some(Token::Comma) = self
+                .peek_token_with_context(context)
+                .map(|token| token.token)
+            {
+                self.consume_token_with_context(context);
+            }
+        }
+
+        let last_target = targets.pop().unwrap();
+
+        match self.parse_assign_expression(last_target, &targets, context)? {
+            Some(val) => Ok(val),
+            None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
+        }
     }
 
     fn parse_string(&mut self, context: &ExpressionContext) -> Result<Option<ParseStringOutput>> {
@@ -3246,6 +3340,7 @@ struct PeekInfo {
 }
 
 // Returned by Parser::parse_id_or_wildcard()
+#[derive(Debug)]
 enum IdOrWildcard {
     Id(ConstantIndex),
     Wildcard(Option<ConstantIndex>),

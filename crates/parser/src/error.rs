@@ -159,6 +159,8 @@ pub enum SyntaxError {
     ExpectedUntilCondition,
     #[error("Expected condition in while loop")]
     ExpectedWhileCondition,
+    #[error("Expected type hint")]
+    ExpectedTypeHint,
     #[error(transparent)]
     FormatStringError(StringFormatError),
     #[error("Non-inline if expression isn't allowed in this context")]

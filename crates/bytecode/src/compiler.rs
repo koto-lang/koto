@@ -263,7 +263,7 @@ impl Compiler {
                 result
             }
             Node::Nested(nested) => self.compile_node(*nested, ctx)?,
-            Node::Id(index) => self.compile_load_id(*index, ctx)?,
+            Node::Id(index, ..) => self.compile_load_id(*index, ctx)?,
             Node::Chain(chain) => self.compile_chain(chain, None, None, None, ctx)?,
             Node::BoolTrue => {
                 let result = self.assign_result_register(ctx)?;
@@ -573,6 +573,9 @@ impl Compiler {
                 // see compile_assign().
                 unreachable!();
             }
+            Node::Type(..) => {
+                unimplemented!()
+            }
         };
 
         self.pop_span();
@@ -666,7 +669,7 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(Arg::Local(*id_index)),
+                Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(_) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
@@ -690,7 +693,7 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id) => result.push(Arg::Unpacked(*id)),
+                Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(_) => {}
                 Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
@@ -730,7 +733,7 @@ impl Compiler {
 
             match ctx.node(*arg) {
                 Node::Wildcard(_) => {}
-                Node::Id(constant_index) => {
+                Node::Id(constant_index, ..) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                 }
@@ -812,7 +815,7 @@ impl Compiler {
         ctx: CompileNodeContext,
     ) -> Result<Option<u8>> {
         let result = match ctx.node(target) {
-            Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
+            Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
             Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
@@ -848,7 +851,7 @@ impl Compiler {
         self.push_span(target_node, ctx.ast);
 
         match &target_node.node {
-            Node::Id(id_index) => {
+            Node::Id(id_index, ..) => {
                 if !value_result.is_temporary {
                     // To ensure that exported rhs ids with the same name as a local that's
                     // currently being assigned can be loaded correctly, only commit the
@@ -945,7 +948,7 @@ impl Compiler {
             targets.iter().zip(target_registers.iter()).enumerate()
         {
             match ctx.node(*target) {
-                Node::Id(id_index) => {
+                Node::Id(id_index, ..) => {
                     let target_register =
                         target_register.expect("Missing target register for assignment");
                     if rhs_is_temp_tuple {
@@ -1126,12 +1129,12 @@ impl Compiler {
         if from.is_empty() {
             for item in items.iter() {
                 let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id) => Some(*id),
+                    Node::Id(id, ..) => Some(*id),
                     _ => None,
                 });
 
                 match ctx.node(item.item) {
-                    Node::Id(import_id) => {
+                    Node::Id(import_id, ..) => {
                         let import_register = if result.register.is_some() {
                             let import_register = if let Some(name) = maybe_as {
                                 self.assign_local_register(name)?
@@ -1168,12 +1171,13 @@ impl Compiler {
                         }
                     }
                     Node::Str(_) => {
-                        let import_register =
-                            if let Some(Node::Id(name)) = item.name.map(|name| ctx.node(name)) {
-                                self.assign_local_register(*name)?
-                            } else {
-                                self.push_register()?
-                            };
+                        let import_register = if let Some(Node::Id(name, ..)) =
+                            item.name.map(|name| ctx.node(name))
+                        {
+                            self.assign_local_register(*name)?
+                        } else {
+                            self.push_register()?
+                        };
                         self.compile_import_item(import_register, item.item, ctx)?;
 
                         if result.register.is_some() {
@@ -1195,12 +1199,12 @@ impl Compiler {
 
             for item in items.iter() {
                 let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id) => Some(*id),
+                    Node::Id(id, ..) => Some(*id),
                     _ => None,
                 });
 
                 match ctx.node(item.item) {
-                    Node::Id(import_id) => {
+                    Node::Id(import_id, ..) => {
                         let import_register = if let Some(name) = maybe_as {
                             // 'import as' has been used, so assign a register for the given name
                             self.assign_local_register(name)?
@@ -1308,7 +1312,7 @@ impl Compiler {
 
                 for nested_item in nested.iter() {
                     match ctx.node(*nested_item) {
-                        Node::Id(id) => {
+                        Node::Id(id, ..) => {
                             self.compile_access_id(result_register, result_register, *id)
                         }
                         Node::Str(string) => self.compile_access_string(
@@ -1340,7 +1344,7 @@ impl Compiler {
         use Op::*;
 
         match ctx.node(item) {
-            Node::Id(id) => {
+            Node::Id(id, ..) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
                     // It might be better for this to be reported as an error?
@@ -1386,7 +1390,7 @@ impl Compiler {
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
         let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
-            Node::Id(id) => (self.assign_local_register(*id)?, false),
+            Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
             Node::Wildcard(_) => {
                 // The catch argument is being ignored, so just use a dummy register
                 (self.push_register()?, true)
@@ -1584,7 +1588,7 @@ impl Compiler {
             self.push_op(op, &[lhs_register, rhs_register]);
 
             // If the LHS is a top-level ID and the export flag is enabled, then export the result
-            if let Node::Id(id) = lhs_node {
+            if let Node::Id(id, ..) = lhs_node {
                 if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
                     self.compile_value_export(*id, lhs_register)?;
                 }
@@ -1988,7 +1992,8 @@ impl Compiler {
                         self.compile_node(value_node, ctx.with_any_register())?
                     }
                     // ID-only entry, the value should be locally assigned
-                    (Node::Id(id), None) => match self.frame().get_local_assigned_register(*id) {
+                    (Node::Id(id, ..), None) => match self.frame().get_local_assigned_register(*id)
+                    {
                         Some(register) => CompileNodeOutput::with_assigned(register),
                         None => {
                             let register = self.push_register()?;
@@ -2195,7 +2200,7 @@ impl Compiler {
                     let root = self.compile_node(*root_node, ctx.with_any_register())?;
                     node_registers.push(root.unwrap(self)?);
                 }
-                ChainNode::Id(id) => {
+                ChainNode::Id(id, ..) => {
                     // Access by id
                     // e.g. x.foo()
                     //    - x = Root
@@ -2334,7 +2339,7 @@ impl Compiler {
         // If rhs_op is None, then Yes if rhs is also None (simple access)
         // If rhs is Some and rhs_op is None, then it's a simple assignment
         match &last_node {
-            ChainNode::Id(id) if !simple_assignment => {
+            ChainNode::Id(id, ..) if !simple_assignment => {
                 self.compile_access_id(access_register, parent_register, *id);
                 node_registers.push(access_register);
             }
@@ -2401,10 +2406,10 @@ impl Compiler {
             };
 
             match &last_node {
-                ChainNode::Id(id) => {
+                ChainNode::Id(id, ..) => {
                     self.compile_map_insert(
                         value_register,
-                        &Node::Id(*id),
+                        &Node::Id(*id, None),
                         Some(parent_register),
                         false,
                         ctx,
@@ -2471,7 +2476,7 @@ impl Compiler {
         use Op::*;
 
         match key {
-            Node::Id(id) => {
+            Node::Id(id, ..) => {
                 let key_register = self.push_register()?;
                 self.compile_load_string_constant(key_register, *id);
 
@@ -2592,7 +2597,7 @@ impl Compiler {
 
         let rhs_node = ctx.node_with_span(rhs);
         let result = match &rhs_node.node {
-            Node::Id(id) => {
+            Node::Id(id, ..) => {
                 // Compile a call with the piped arg using the id to access the function
                 if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
                     self.compile_call(function_register, &[], pipe_register, None, ctx)
@@ -3081,7 +3086,7 @@ impl Compiler {
                     self.pop_register()?; // comparison_register
                     self.pop_register()?; // pattern_register
                 }
-                Node::Id(id) => {
+                Node::Id(id, ..) => {
                     let id_register = self.assign_local_register(*id)?;
                     if match_is_container {
                         self.push_op(
@@ -3315,7 +3320,7 @@ impl Compiler {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
                 match ctx.node(*single_arg) {
-                    Node::Id(id) => {
+                    Node::Id(id, ..) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
@@ -3349,7 +3354,7 @@ impl Compiler {
 
                 for arg in args.iter() {
                     match ctx.node(*arg) {
-                        Node::Id(id) => {
+                        Node::Id(id, ..) => {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
                         }
@@ -3383,7 +3388,7 @@ impl Compiler {
 
         if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
             for arg in args {
-                if let Node::Id(id) = ctx.node(*arg) {
+                if let Node::Id(id, ..) = ctx.node(*arg) {
                     let arg_register = match self.frame().get_local_assigned_register(*id) {
                         Some(register) => register,
                         None => return self.error(ErrorKind::MissingArgRegister),

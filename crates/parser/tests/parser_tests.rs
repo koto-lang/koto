@@ -54,7 +54,15 @@ mod parser {
     }
 
     fn id(constant: u32) -> Node {
-        Node::Id(constant.into())
+        Node::Id(constant.into(), None)
+    }
+
+    fn id_with_type_hint(constant: u32, type_hint: u32) -> Node {
+        Node::Id(constant.into(), Some(type_hint.into()))
+    }
+
+    fn type_hint(constant: u32, inner: &[u32]) -> Node {
+        Node::Type(constant.into(), inner.iter().map(|i| i.into()).collect())
     }
 
     fn int(constant: u32) -> Node {
@@ -1322,6 +1330,55 @@ x %= 4";
                     },
                 ],
                 Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
+    }
+
+    mod variable_declaration {
+        use super::*;
+
+        #[test]
+        fn single() {
+            let source = "let a = 1";
+
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    Assign {
+                        target: 0.into(),
+                        expression: 1.into(),
+                    },
+                    MainBlock {
+                        body: vec![2.into()],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn single_with_type_hint() {
+            let source = "let a: Number = 1";
+
+            check_ast(
+                source,
+                &[
+                    type_hint(1, &[]),
+                    id_with_type_hint(0, 0),
+                    SmallInt(1),
+                    Assign {
+                        target: 1.into(),
+                        expression: 2.into(),
+                    },
+                    MainBlock {
+                        body: vec![3.into()],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("Number")]),
             )
         }
     }

@@ -393,11 +393,6 @@ switch
             fn r#const() {
                 check_parsing_fails("const = 99");
             }
-
-            #[test]
-            fn r#let() {
-                check_parsing_fails("let = 99");
-            }
         }
     }
 }
