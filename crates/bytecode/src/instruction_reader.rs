@@ -481,6 +481,10 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 size: get_u8!() as usize,
             }),
+            Op::CheckType => Some(CheckType {
+                value: get_u8!(),
+                type_string: get_var_u32!().into(),
+            }),
             Op::StringStart => Some(StringStart {
                 size_hint: get_var_u32!(),
             }),

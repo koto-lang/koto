@@ -507,6 +507,19 @@ c
         }
     }
 
+    mod type_checks {
+        use super::*;
+
+        #[test]
+        fn assigning_a_string() {
+            let script = "
+let x: String = 'foo'
+x
+";
+            check_script_output(script, "foo");
+        }
+    }
+
     mod if_expressions {
         use super::*;
 

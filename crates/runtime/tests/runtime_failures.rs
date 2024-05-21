@@ -51,6 +51,18 @@ mod runtime {
             }
         }
 
+        mod type_checks {
+            use super::*;
+
+            #[test]
+            fn expected_string() {
+                let script = "
+let x: String = 123
+";
+                check_script_fails(script);
+            }
+        }
+
         mod missing_values {
             use super::*;
 
@@ -58,7 +70,7 @@ mod runtime {
             fn missing_identifier_before_last_expression() {
                 let script = "
 x = 123
-y
+y # y hasn't been declared, so should throw an error on access
 x
 ";
                 check_script_fails(script);
