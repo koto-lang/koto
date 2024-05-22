@@ -198,7 +198,7 @@ pub enum Node {
     /// in match expressions.
     ///
     /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
-    Wildcard(Option<ConstantIndex>),
+    Wildcard(Option<ConstantIndex>, Option<AstIndex>),
 
     /// The `...` operator
     ///

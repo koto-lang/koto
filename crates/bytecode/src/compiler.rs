@@ -442,7 +442,7 @@ impl Compiler {
             Node::Match { expression, arms } => self.compile_match(*expression, arms, ctx)?,
             Node::Switch(arms) => self.compile_switch(arms, ctx)?,
             Node::Ellipsis(_) => return self.error(ErrorKind::UnexpectedEllipsis),
-            Node::Wildcard(_) => return self.error(ErrorKind::UnexpectedWildcard),
+            Node::Wildcard(..) => return self.error(ErrorKind::UnexpectedWildcard),
             Node::For(ast_for) => self.compile_for(ast_for, ctx)?,
             Node::While { condition, body } => {
                 self.compile_loop(Some((*condition, false)), *body, ctx)?
@@ -687,7 +687,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
-                Node::Wildcard(_) => result.push(Arg::Placeholder),
+                Node::Wildcard(..) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
@@ -711,7 +711,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
-                Node::Wildcard(_) => {}
+                Node::Wildcard(..) => {}
                 Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
@@ -749,7 +749,7 @@ impl Compiler {
             };
 
             match ctx.node(*arg) {
-                Node::Wildcard(_) => {}
+                Node::Wildcard(..) => {}
                 Node::Id(constant_index, ..) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
@@ -833,7 +833,7 @@ impl Compiler {
     ) -> Result<Option<u8>> {
         let result = match ctx.node(target) {
             Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => None,
+            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(..) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
@@ -896,7 +896,7 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register)?;
             }
-            Node::Wildcard(_) => {}
+            Node::Wildcard(..) => {}
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID or Chain".into(),
@@ -1013,7 +1013,7 @@ impl Compiler {
 
                     self.pop_register()?; // value_register
                 }
-                Node::Wildcard(_) => {
+                Node::Wildcard(..) => {
                     if result.register.is_some() {
                         let value_register = self.push_register()?;
 
@@ -1448,7 +1448,7 @@ impl Compiler {
         // so that it can be included in the TryStart op.
         let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
             Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
-            Node::Wildcard(_) => {
+            Node::Wildcard(..) => {
                 // The catch argument is being ignored, so just use a dummy register
                 (self.push_register()?, true)
             }
@@ -2998,7 +2998,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard(_) => Some(vec![*arm_pattern]),
+                Node::Wildcard(..) => Some(vec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
@@ -3161,7 +3161,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard(_) => {
+                Node::Wildcard(..) => {
                     if is_last_pattern && !params.is_last_alternative {
                         // Wildcards match unconditionally, so if we're at the end of a
                         // multi-expression pattern, skip over the remaining alternatives
@@ -3383,7 +3383,7 @@ impl Compiler {
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
                         self.push_loop_jump_placeholder()?;
                     }
-                    Node::Wildcard(_) => {
+                    Node::Wildcard(..) => {
                         // e.g. for _ in 0..10
                         self.push_op_without_span(IterNextQuiet, &[iterator_register]);
                         self.push_loop_jump_placeholder()?;
@@ -3415,7 +3415,7 @@ impl Compiler {
                             let arg_register = self.assign_local_register(*id)?;
                             self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
                         }
-                        Node::Wildcard(_) => {
+                        Node::Wildcard(..) => {
                             self.push_op_without_span(IterNextQuiet, &[temp_register, 0, 0]);
                         }
                         unexpected => {
