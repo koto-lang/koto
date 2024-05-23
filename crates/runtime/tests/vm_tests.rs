@@ -179,6 +179,43 @@ a, b, c
         }
     }
 
+    mod let_expression {
+        use super::*;
+
+        #[test]
+        fn variable_declaration() {
+            let script = "
+let a = 1 * 3
+a + 1
+";
+
+            check_script_output(script, 4);
+        }
+
+        #[test]
+        fn variable_declaration_with_type_hint() {
+            let script = "
+let a: Int = 1 * 3
+a + 1
+";
+
+            check_script_output(script, 4);
+        }
+
+        #[test]
+        fn type_hints_doesnt_affect_the_result() {
+            let script = "
+let a: Int = 1 * 3
+let b: Int = 1 * 3
+a + 1
+b + 1
+a == b
+";
+
+            check_script_output(script, true);
+        }
+    }
+
     #[allow(clippy::reversed_empty_ranges)]
     mod ranges {
         use super::*;

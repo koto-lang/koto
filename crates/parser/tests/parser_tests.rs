@@ -1361,12 +1361,12 @@ x %= 4";
 
         #[test]
         fn number_with_type_hint() {
-            let source = "let a: Number = 1";
+            let source = "let a: Int = 1";
 
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // Number
+                    type_hint(1, &[]),       // Int
                     id_with_type_hint(0, 0), // a
                     SmallInt(1),
                     Assign {
@@ -1378,7 +1378,7 @@ x %= 4";
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::Str("Number")]),
+                Some(&[Constant::Str("a"), Constant::Str("Int")]),
             )
         }
 
@@ -1413,13 +1413,13 @@ x %= 4";
 
         #[test]
         fn map_with_type_hint() {
-            let source = "let foo: Map<String, List<Number>> = bar";
+            let source = "let foo: Map<String, List<Int>> = bar";
 
             check_ast(
                 source,
                 &[
                     type_hint(2, &[]),       // String
-                    type_hint(4, &[]),       // Number
+                    type_hint(4, &[]),       // Int
                     type_hint(3, &[1]),      // List
                     type_hint(1, &[0, 2]),   // Map
                     id_with_type_hint(0, 3), // foo
@@ -1438,7 +1438,7 @@ x %= 4";
                     Constant::Str("Map"),
                     Constant::Str("String"),
                     Constant::Str("List"),
-                    Constant::Str("Number"),
+                    Constant::Str("Int"),
                     Constant::Str("bar"),
                 ]),
             )
@@ -1446,14 +1446,14 @@ x %= 4";
 
         #[test]
         fn multiple_targets() {
-            let source = "let foo: String, bar: Number = baz";
+            let source = "let foo: String, bar: Int = baz";
 
             check_ast(
                 source,
                 &[
                     type_hint(1, &[]),       // String
                     id_with_type_hint(0, 0), // foo
-                    type_hint(3, &[]),       // Number
+                    type_hint(3, &[]),       // Int
                     id_with_type_hint(2, 2), // bar
                     id(4),                   // baz
                     MultiAssign {
@@ -1469,7 +1469,7 @@ x %= 4";
                     Constant::Str("foo"),
                     Constant::Str("String"),
                     Constant::Str("bar"),
-                    Constant::Str("Number"),
+                    Constant::Str("Int"),
                     Constant::Str("baz"),
                 ]),
             )
@@ -1477,7 +1477,7 @@ x %= 4";
 
         #[test]
         fn number_with_typehint_and_wildcard() {
-            let source = "let _: Number = 1";
+            let source = "let _: Int = 1";
 
             check_ast(
                 source,
@@ -1494,13 +1494,13 @@ x %= 4";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("Number")]),
+                Some(&[Constant::Str("Int")]),
             )
         }
 
         #[test]
         fn number_with_tagged_wildcard_and_type_hint() {
-            let source = "let _a: Number = 1";
+            let source = "let _a: Int = 1";
 
             check_ast(
                 source,
@@ -1517,13 +1517,13 @@ x %= 4";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::Str("Number")]),
+                Some(&[Constant::Str("a"), Constant::Str("Int")]),
             )
         }
 
         #[test]
         fn multi_1_to_3_with_wildcards_and_type_hint() {
-            let source = "let x: Number, _: Number, _y: Number = f()";
+            let source = "let x: Int, _: Int, _y: Int = f()";
             check_ast(
                 source,
                 &[
@@ -1553,7 +1553,7 @@ x %= 4";
                 ],
                 Some(&[
                     Constant::Str("x"),
-                    Constant::Str("Number"),
+                    Constant::Str("Int"),
                     Constant::Str("y"),
                     Constant::Str("f"),
                 ]),
