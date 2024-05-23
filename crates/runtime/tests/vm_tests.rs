@@ -206,7 +206,7 @@ a + 1
         fn type_hints_doesnt_affect_the_result() {
             let script = "
 let a: Int = 1 * 3
-let b: Int = 1 * 3
+let b = 1 * 3
 a + 1
 b + 1
 a == b
