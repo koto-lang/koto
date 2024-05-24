@@ -4,7 +4,7 @@ use std::ops::Range;
 /// String data with bounds
 ///
 /// The bounds are guaranteed to be indices to a valid UTF-8 sub-string of the original data.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct StringSlice {
     data: Ptr<str>,
     bounds: Range<usize>,
@@ -104,6 +104,18 @@ impl AsRef<str> for StringSlice {
     }
 }
 
+impl PartialEq<StringSlice> for StringSlice {
+    fn eq(&self, other: &StringSlice) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<&str> for StringSlice {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -134,9 +146,11 @@ mod test {
     fn equality() {
         let s1 = StringSlice::from(Ptr::from("abc".to_string()));
         let s2 = StringSlice::from(Ptr::from("xyz".to_string()));
-        let s3 = StringSlice::from(Ptr::from("xyz".to_string()));
+        let s3 = StringSlice::new(Ptr::from("___xyz___".to_string()), 3..6).unwrap();
         assert_ne!(s1, s2);
         assert_ne!(s1, s3);
         assert_eq!(s2, s3);
+        assert_eq!(s2, "xyz");
+        assert_eq!(s3, "xyz");
     }
 }
