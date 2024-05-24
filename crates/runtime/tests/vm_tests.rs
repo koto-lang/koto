@@ -529,7 +529,7 @@ x, y, z
         }
 
         #[test]
-        fn multi_assigment_with_wildcard() {
+        fn multi_assignment_with_wildcard() {
             let script = "
 let x: String, _: String = 'foo', 'bar'
 x
@@ -538,7 +538,7 @@ x
         }
 
         #[test]
-        fn multi_assigment_with_tagged_wildcard() {
+        fn multi_assignment_with_tagged_wildcard() {
             let script = "
 let x: String, _y: String = 'foo', 'bar'
 x

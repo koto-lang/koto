@@ -61,6 +61,30 @@ let x: String = 123
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn expected_bool_in_multi_assignment() {
+                let script = "
+let x: String, y: Bool = 'abc', 123
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_expected_bool() {
+                let script = "
+let _x: Bool = 'abc'
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_expected_string_in_multi_assignment() {
+                let script = "
+let _x: String, y: Bool = 99, true
+";
+                check_script_fails(script);
+            }
         }
 
         mod missing_values {
