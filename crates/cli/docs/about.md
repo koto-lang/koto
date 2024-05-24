@@ -73,6 +73,9 @@ the [CLI](./cli.md), and see how well it works in your
 - **Built-in testing:** Automated testing has
   [first-class support in Koto][testing], making it natural to write tests along
   with your code.
+- **Tooling:** Plugins offering [editor support](#tooling) for Koto.
+  [Tree-sitter][#tree-sitter] and [LSP][#lsp] implementations are also available 
+  or linting are still topics for the future.
 
 ### Missing/Incomplete Features
 
@@ -83,9 +86,6 @@ the [CLI](./cli.md), and see how well it works in your
   support [could be added][async] in the future.
 - **Integration with other languages:** There's currently no C API for Koto,
   which would allow it to be integrated with other languages.
-- **Tooling:** Some basic [editor support](#tooling) is available for Koto,
-  but modern tooling like an LSP implementation, auto-formatting,
-  or linting are still topics for the future.
 
 ## Influences
 
@@ -102,12 +102,24 @@ Koto was influenced by and is indebted to many other languages.
 
 ## Tooling
 
-Basic editor support is available for Koto:
+### Editors
+
+Plugins that provide Koto support is available for the following editors:
 - [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
-- [Tree-sitter](https://github.com/koto-lang/tree-sitter-koto)
 
+### Tree-sitter
+
+A [Tree-sitter][tree-sitter] implementation is 
+[available here](https://github.com/koto-lang/tree-sitter-koto). 
+If you're using Neovim then it's easy to set up with
+[nvim-treesitter][nvim-treesitter].
+
+### LSP 
+
+An implementation of the [Language Server Protocol][lsp] for Koto is 
+[available here][koto-ls].
 
 [async]: https://github.com/koto-lang/koto/issues/277
 [coffeescript]: https://coffeescript.org
@@ -116,11 +128,15 @@ Basic editor support is available for Koto:
 [issues]: https://github.com/koto-lang/koto/issues
 [iterator]: ./core_lib/iterator.md
 [koto]: https://koto.dev
+[koto-ls]: https://github.com/koto-lang/koto-ls
 [koto-object]: https://github.com/koto-lang/koto/blob/main/crates/runtime/src/types/object.rs
+[lsp]: https://microsoft.github.io/language-server-protocol/
 [lua]: https://www.lua.org
 [moonscript]: https://moonscript.org
+[nvim-treesitter]: https://github.com/nvim-treesitter/nvim-treesitter
 [playground]: https://koto.dev/play
 [rust]: https://rust-lang.org
 [rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html
 [testing]: ./language_guide.md#testing
+[tree-sitter]: https://tree-sitter.github.io/tree-sitter/
 [type-hints]: https://github.com/koto-lang/koto/issues/298
