@@ -896,7 +896,11 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register)?;
             }
-            Node::Wildcard(..) => {}
+            Node::Wildcard(_id, type_hint) => {
+                if let Some(type_hint) = type_hint {
+                    self.compile_check_type(value_register, *type_hint, ctx)?;
+                }
+            }
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID or Chain".into(),
@@ -1013,8 +1017,8 @@ impl Compiler {
 
                     self.pop_register()?; // value_register
                 }
-                Node::Wildcard(..) => {
-                    if result.register.is_some() {
+                Node::Wildcard(_id, type_hint) => {
+                    if result.register.is_some() || type_hint.is_some() {
                         let value_register = self.push_register()?;
 
                         if rhs_is_temp_tuple {
@@ -1023,7 +1027,13 @@ impl Compiler {
                             self.push_op(IterUnpack, &[value_register, iter_register]);
                         }
 
-                        self.push_op(SequencePush, &[value_register]);
+                        if let Some(type_hint) = type_hint {
+                            self.compile_check_type(value_register, *type_hint, ctx)?;
+                        }
+
+                        if result.register.is_some() {
+                            self.push_op(SequencePush, &[value_register]);
+                        }
 
                         self.pop_register()?; // value_register
                     } else if !rhs_is_temp_tuple {

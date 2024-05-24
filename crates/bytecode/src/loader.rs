@@ -157,21 +157,9 @@ impl Loader {
     /// Finds a module from its name, and then compiles it
     pub fn compile_module(
         &mut self,
-        name: &str,
-        load_from_path: Option<&Path>,
+        module_name: &str,
+        current_script_path: Option<&Path>,
     ) -> Result<CompileModuleResult, LoaderError> {
-        // Get either the directory of the provided path, or the current working directory
-        let search_folder = match &load_from_path {
-            Some(path) => match canonicalize(path)? {
-                canonicalized if canonicalized.is_file() => match canonicalized.parent() {
-                    Some(parent_dir) => parent_dir.to_path_buf(),
-                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.into()).into()),
-                },
-                canonicalized => canonicalized,
-            },
-            None => std::env::current_dir()?,
-        };
-
         let mut load_module_from_path = |module_path: PathBuf| {
             let module_path = module_path.canonicalize()?;
 
@@ -201,23 +189,8 @@ impl Loader {
             }
         };
 
-        let extension = "koto";
-        let named_path = search_folder.join(name);
-
-        // First, check for a neighbouring file with a matching name.
-        let module_path = named_path.with_extension(extension);
-        if module_path.exists() {
-            load_module_from_path(module_path)
-        } else {
-            // Alternatively, check for a neighbouring directory with a matching name,
-            // that also contains a main file.
-            let module_path = named_path.join("main").with_extension(extension);
-            if module_path.exists() {
-                load_module_from_path(module_path)
-            } else {
-                Err(LoaderErrorKind::UnableToFindModule(name.into()).into())
-            }
-        }
+        let module_path = find_module(module_name, current_script_path)?;
+        load_module_from_path(module_path)
     }
 
     /// Clears the compiled module cache
@@ -230,4 +203,48 @@ pub struct CompileModuleResult {
     pub chunk: Ptr<Chunk>,
     pub path: PathBuf,
     pub loaded_from_cache: bool,
+}
+
+/// Finds a module that matches the given name
+///
+/// The current_script_path gives the function a location to start searching from, if None is
+/// provided then std::env::current_dir will be used.
+pub fn find_module(
+    module_name: &str,
+    current_script_path: Option<&Path>,
+) -> Result<PathBuf, LoaderError> {
+    // Get the directory of the provided script path, or the current working directory
+    let search_folder = match &current_script_path {
+        Some(path) => {
+            let canonicalized = canonicalize(path)?;
+            if canonicalized.is_file() {
+                match canonicalized.parent() {
+                    Some(parent_dir) => parent_dir.to_path_buf(),
+                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.into()).into()),
+                }
+            } else {
+                canonicalized
+            }
+        }
+        None => std::env::current_dir()?,
+    };
+
+    // First, check for a neighbouring file with a matching name.
+    let extension = "koto";
+    let result = search_folder.join(module_name).with_extension(extension);
+    if result.exists() {
+        Ok(result)
+    } else {
+        // Alternatively, check for a neighbouring directory with a matching name,
+        // that also contains a main file.
+        let result = search_folder
+            .join(module_name)
+            .join("main")
+            .with_extension(extension);
+        if result.exists() {
+            Ok(result)
+        } else {
+            Err(LoaderErrorKind::UnableToFindModule(module_name.into()).into())
+        }
+    }
 }
