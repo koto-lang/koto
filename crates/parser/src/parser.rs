@@ -681,7 +681,7 @@ impl<'source> Parser<'source> {
                 Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(_) => {}
+                Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(..) => {}
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
             }
 
@@ -909,7 +909,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id))?)
+                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, None))?)
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -1083,7 +1083,7 @@ impl<'source> Parser<'source> {
                     arg_ids.push(constant_index);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    nested_args.push(self.push_node(Node::Wildcard(maybe_id))?)
+                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, None))?)
                 }
                 None => match self.peek_token() {
                     Some(Token::RoundOpen) => {
@@ -1195,7 +1195,7 @@ impl<'source> Parser<'source> {
         } else {
             None
         };
-        self.push_node(Node::Wildcard(maybe_id))
+        self.push_node(Node::Wildcard(maybe_id, None))
     }
 
     // Parses either an id or a wildcard
@@ -2081,7 +2081,7 @@ impl<'source> Parser<'source> {
                     args.push(self.push_node(Node::Id(id, None))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
-                    args.push(self.push_node(Node::Wildcard(maybe_id))?);
+                    args.push(self.push_node(Node::Wildcard(maybe_id, None))?);
                 }
             }
 
@@ -2718,7 +2718,9 @@ impl<'source> Parser<'source> {
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
                 self.push_node(Node::Id(id, None))?
             }
-            Some(IdOrWildcard::Wildcard(maybe_id)) => self.push_node(Node::Wildcard(maybe_id))?,
+            Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                self.push_node(Node::Wildcard(maybe_id, None))?
+            }
             None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
         };
 
@@ -2760,14 +2762,12 @@ impl<'source> Parser<'source> {
         {
             match id_or_wildcard {
                 IdOrWildcard::Id(constant_index) => {
-                    let mut type_hint_index = None;
-                    if let Some(type_hint) = self.parse_type_hint(context)? {
-                        type_hint_index = Some(type_hint);
-                    }
+                    let type_hint_index = self.parse_type_hint(context)?;
                     targets.push(self.push_node(Node::Id(constant_index, type_hint_index))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
-                    targets.push(self.push_node(Node::Wildcard(maybe_id))?);
+                    let type_hint_index = self.parse_type_hint(context)?;
+                    targets.push(self.push_node(Node::Wildcard(maybe_id, type_hint_index))?);
                 }
             }
 

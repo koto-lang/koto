@@ -1246,8 +1246,8 @@ x";
                 source,
                 &[
                     id(0),
-                    Wildcard(None),
-                    Wildcard(Some(1.into())),
+                    Wildcard(None, None),
+                    Wildcard(Some(1.into()), None),
                     id(2),
                     Chain((
                         ChainNode::Call {
@@ -1361,12 +1361,12 @@ x %= 4";
 
         #[test]
         fn number_with_type_hint() {
-            let source = "let a: Number = 1";
+            let source = "let a: Int = 1";
 
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // Number
+                    type_hint(1, &[]),       // Int
                     id_with_type_hint(0, 0), // a
                     SmallInt(1),
                     Assign {
@@ -1378,7 +1378,7 @@ x %= 4";
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::Str("Number")]),
+                Some(&[Constant::Str("a"), Constant::Str("Int")]),
             )
         }
 
@@ -1413,13 +1413,13 @@ x %= 4";
 
         #[test]
         fn map_with_type_hint() {
-            let source = "let foo: Map<String, List<Number>> = bar";
+            let source = "let foo: Map<String, List<Int>> = bar";
 
             check_ast(
                 source,
                 &[
                     type_hint(2, &[]),       // String
-                    type_hint(4, &[]),       // Number
+                    type_hint(4, &[]),       // Int
                     type_hint(3, &[1]),      // List
                     type_hint(1, &[0, 2]),   // Map
                     id_with_type_hint(0, 3), // foo
@@ -1438,7 +1438,7 @@ x %= 4";
                     Constant::Str("Map"),
                     Constant::Str("String"),
                     Constant::Str("List"),
-                    Constant::Str("Number"),
+                    Constant::Str("Int"),
                     Constant::Str("bar"),
                 ]),
             )
@@ -1446,14 +1446,14 @@ x %= 4";
 
         #[test]
         fn multiple_targets() {
-            let source = "let foo: String, bar: Number = baz";
+            let source = "let foo: String, bar: Int = baz";
 
             check_ast(
                 source,
                 &[
                     type_hint(1, &[]),       // String
                     id_with_type_hint(0, 0), // foo
-                    type_hint(3, &[]),       // Number
+                    type_hint(3, &[]),       // Int
                     id_with_type_hint(2, 2), // bar
                     id(4),                   // baz
                     MultiAssign {
@@ -1469,8 +1469,93 @@ x %= 4";
                     Constant::Str("foo"),
                     Constant::Str("String"),
                     Constant::Str("bar"),
-                    Constant::Str("Number"),
+                    Constant::Str("Int"),
                     Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn number_with_typehint_and_wildcard() {
+            let source = "let _: Int = 1";
+
+            check_ast(
+                source,
+                &[
+                    type_hint(0, &[]),
+                    Wildcard(None, Some(0.into())),
+                    SmallInt(1),
+                    Assign {
+                        target: 1.into(),
+                        expression: 2.into(),
+                    },
+                    MainBlock {
+                        body: vec![3.into()],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("Int")]),
+            )
+        }
+
+        #[test]
+        fn number_with_tagged_wildcard_and_type_hint() {
+            let source = "let _a: Int = 1";
+
+            check_ast(
+                source,
+                &[
+                    type_hint(1, &[]),
+                    Wildcard(Some(0.into()), Some(0.into())),
+                    SmallInt(1),
+                    Assign {
+                        target: 1.into(),
+                        expression: 2.into(),
+                    },
+                    MainBlock {
+                        body: vec![3.into()],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("Int")]),
+            )
+        }
+
+        #[test]
+        fn multi_1_to_3_with_wildcards_and_type_hint() {
+            let source = "let x: Int, _: Int, _y: Int = f()";
+            check_ast(
+                source,
+                &[
+                    type_hint(1, &[]),
+                    id_with_type_hint(0, 0),
+                    type_hint(1, &[]),
+                    Wildcard(None, Some(2.into())),
+                    type_hint(1, &[]),
+                    Wildcard(Some(2.into()), Some(4.into())),
+                    id(3),
+                    Chain((
+                        ChainNode::Call {
+                            args: expressions(&[]),
+                            with_parens: true,
+                        },
+                        None,
+                    )),
+                    chain_root(6, Some(7)), // 5
+                    MultiAssign {
+                        targets: expressions(&[1, 3, 5]),
+                        expression: 8.into(),
+                    },
+                    MainBlock {
+                        body: expressions(&[9]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("Int"),
+                    Constant::Str("y"),
+                    Constant::Str("f"),
                 ]),
             )
         }
@@ -1994,11 +2079,11 @@ for x, _, _y, z in foo
                 source,
                 &[
                     id(0), // x
-                    Wildcard(None),
-                    Wildcard(Some(1.into())), // _y
-                    id(2),                    // z
-                    id(3),                    // foo
-                    id(0),                    // x - 5
+                    Wildcard(None, None),
+                    Wildcard(Some(1.into()), None), // _y
+                    id(2),                          // z
+                    id(3),                          // foo
+                    id(0),                          // x - 5
                     For(AstFor {
                         args: expressions(&[0, 1, 2, 3]),
                         iterable: 4.into(),
@@ -3168,13 +3253,13 @@ z = y [0..20], |x| x > 1
                 &sources,
                 &[
                     id(0), // a
-                    Wildcard(None),
+                    Wildcard(None, None),
                     Ellipsis(Some(1.into())),       // others
                     id(2),                          // c
-                    Wildcard(Some(3.into())),       // d
+                    Wildcard(Some(3.into()), None), // d
                     Tuple(expressions(&[2, 3, 4])), // ast index 5
                     Tuple(expressions(&[1, 5])),
-                    Wildcard(Some(4.into())), // e
+                    Wildcard(Some(4.into()), None), // e
                     id(0),
                     Function(koto_parser::Function {
                         args: expressions(&[0, 6, 7]),
@@ -4297,7 +4382,7 @@ catch _
                 source,
                 &[
                     id(0),
-                    Wildcard(None),
+                    Wildcard(None, None),
                     id(1),
                     Try(AstTry {
                         try_block: 0.into(),
@@ -4325,9 +4410,9 @@ catch _error
             check_ast(
                 source,
                 &[
-                    id(0),                    // x
-                    Wildcard(Some(1.into())), // error
-                    id(2),                    // y
+                    id(0),                          // x
+                    Wildcard(Some(1.into()), None), // error
+                    id(2),                          // y
                     Try(AstTry {
                         try_block: 0.into(),
                         catch_arg: 1.into(),
@@ -4562,14 +4647,14 @@ match (x, y, z)
                     Tuple(expressions(&[0, 1, 2])),
                     SmallInt(0),
                     id(3), // 5
-                    Wildcard(None),
+                    Wildcard(None, None),
                     Tuple(expressions(&[4, 5, 6])),
                     id(3),
-                    Wildcard(None),
+                    Wildcard(None, None),
                     SmallInt(0), // 10
                     id(4),
                     Tuple(expressions(&[10, 11])),
-                    Wildcard(Some(5.into())),
+                    Wildcard(Some(5.into()), None),
                     Tuple(expressions(&[9, 12, 13])),
                     SmallInt(0), // 15
                     Match {

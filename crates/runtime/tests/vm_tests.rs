@@ -527,6 +527,24 @@ x, y, z
 ";
             check_script_output(script, tuple(&["foo".into(), true.into(), 123.into()]));
         }
+
+        #[test]
+        fn multi_assigment_with_wildcard() {
+            let script = "
+let x: String, _: String = 'foo', 'bar'
+x
+";
+            check_script_output(script, "foo");
+        }
+
+        #[test]
+        fn multi_assigment_with_tagged_wildcard() {
+            let script = "
+let x: String, _y: String = 'foo', 'bar'
+x
+";
+            check_script_output(script, "foo");
+        }
     }
 
     mod if_expressions {
