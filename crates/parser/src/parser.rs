@@ -543,24 +543,9 @@ impl<'source> Parser<'source> {
         {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(context) {
-            let maybe_pipe = match next.token {
-                Token::Greater => {
-                    if matches!(self.peek_token_n(next.peek_count + 1), Some(Token::Greater)) {
-                        Some(Token::Pipe)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-            if let Some((left_priority, right_priority)) =
-                operator_precedence(maybe_pipe.unwrap_or(next.token))
-            {
+            if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
                 if left_priority >= min_precedence {
                     let (op, _) = self.consume_token_with_context(context).unwrap();
-                    if maybe_pipe.is_some() {
-                        self.consume_token();
-                    }
                     let op_span = self.current_span();
 
                     // Move on to the token after the operator
@@ -617,7 +602,7 @@ impl<'source> Parser<'source> {
                         Equal => AstBinaryOp::Equal,
                         NotEqual => AstBinaryOp::NotEqual,
 
-                        Greater if maybe_pipe.is_none() => AstBinaryOp::Greater,
+                        Greater => AstBinaryOp::Greater,
                         GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
                         Less => AstBinaryOp::Less,
                         LessOrEqual => AstBinaryOp::LessOrEqual,
@@ -625,7 +610,7 @@ impl<'source> Parser<'source> {
                         And => AstBinaryOp::And,
                         Or => AstBinaryOp::Or,
 
-                        Greater if maybe_pipe.is_some() => AstBinaryOp::Pipe,
+                        Arrow => AstBinaryOp::Pipe,
 
                         _ => unreachable!(), // The list of tokens here matches the operators in
                                              // operator_precedence()
@@ -900,16 +885,21 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    arg_nodes.push(self.push_node(Node::Id(constant_index, None))?);
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    arg_nodes.push(self.push_node(Node::Id(constant_index, type_hint))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
+                        if type_hint.is_some() {
+                            return self.consume_token_and_error(SyntaxError::UnexpectedToken);
+                        }
                         self.consume_token();
                         is_variadic = true;
                         break;
                     }
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, None))?)
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -953,6 +943,17 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedFunctionArgsEnd);
         }
 
+        // Check for output type hint
+        let output_type = if self.peek_next_token_on_same_line() == Some(Token::Arrow) {
+            self.consume_token_with_context(context); // ->
+            let Some((output_type, _)) = self.parse_id(context)? else {
+                return self.consume_token_and_error(SyntaxError::ExpectedType);
+            };
+            Some(self.push_node(Node::Type(output_type))?)
+        } else {
+            None
+        };
+
         // body
         let mut function_frame = Frame::default();
         function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
@@ -989,6 +990,7 @@ impl<'source> Parser<'source> {
                 body,
                 is_variadic,
                 is_generator: function_frame.contains_yield,
+                output_type,
             }),
             Span {
                 start: span_start,
@@ -997,59 +999,31 @@ impl<'source> Parser<'source> {
         )
     }
 
-    // Parses the types and returns information about the type if next is a colon
+    // Parses a type hint following an identifier
+    // e.g.:
+    // let x: String = 'hello'
+    //      ^ You are here
     fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
-        if let Some(Token::Colon) = self
-            .peek_token_with_context(context)
-            .map(|token| token.token)
-        {
-            self.consume_token_with_context(context);
-            self.consume_type_hint(context).map(Some)
-        } else {
-            Ok(None)
-        }
-    }
-
-    // Parses the types and returns information about the type
-    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let Some((type_name, _)) = self.parse_id(context)? else {
-            return self.consume_token_and_error(SyntaxError::ExpectedTypeHint);
+        let Some(PeekInfo {
+            token: Token::Colon,
+            ..
+        }) = self.peek_token_with_context(context)
+        else {
+            return Ok(None);
         };
 
-        let mut inner = vec![];
+        self.consume_token_with_context(context); // :
+        let Some((type_hint, _)) = self.parse_id(context)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedType);
+        };
 
-        if let Some(PeekInfo {
-            token: Token::Less, ..
-        }) = self.peek_token_with_context(context)
-        {
-            self.consume_token_with_context(context);
-            let inner_type = self.consume_type_hint(context)?;
-            inner.push(inner_type);
+        // Check for the start of a nested type
+        if self.peek_next_token_on_same_line() == Some(Token::Less) {
+            return self.consume_token_and_error(SyntaxError::NestedTypesArentSupported);
+        };
 
-            match self.peek_token_with_context(context) {
-                Some(PeekInfo {
-                    token: Token::Comma,
-                    ..
-                }) => {
-                    self.consume_token();
-                    let next_inner_type = self.consume_type_hint(context)?;
-                    inner.push(next_inner_type);
-                }
-                Some(PeekInfo {
-                    token: Token::Greater,
-                    ..
-                }) => {}
-                Some(_) | None => {
-                    self.consume_token_and_error(SyntaxError::UnexpectedToken)?;
-                }
-            }
-            // Consume the Less token
-            self.consume_token();
-        }
-
-        let type_hint = self.push_node(Node::Type(type_name, inner))?;
-
-        Ok(type_hint)
+        let result = self.push_node(Node::Type(type_hint))?;
+        Ok(Some(result))
     }
 
     // Helper for parse_function() that recursively parses nested function arguments
@@ -1076,14 +1050,15 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
                     } else {
-                        Node::Id(constant_index, None)
+                        Node::Id(constant_index, self.parse_type_hint(&args_context)?)
                     };
 
                     nested_args.push(self.push_node(arg_node)?);
                     arg_ids.push(constant_index);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, None))?)
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
                 }
                 None => match self.peek_token() {
                     Some(Token::RoundOpen) => {
@@ -1761,6 +1736,13 @@ impl<'source> Parser<'source> {
         let (entries, last_token_was_a_comma) =
             self.parse_comma_separated_entries(Token::RoundClose)?;
 
+        if !matches!(
+            self.consume_token_with_context(context),
+            Some((Token::RoundClose, _)),
+        ) {
+            return self.error(SyntaxError::ExpectedCloseParen);
+        }
+
         let expressions_node = match entries.as_slice() {
             [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
             [single_expression] if !last_token_was_a_comma => {
@@ -1769,14 +1751,10 @@ impl<'source> Parser<'source> {
             _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
         };
 
-        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(context) {
-            self.check_for_chain_after_node(
-                expressions_node,
-                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
-            )
-        } else {
-            self.error(SyntaxError::ExpectedCloseParen)
-        }
+        self.check_for_chain_after_node(
+            expressions_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     // Parses a list, e.g. `[1, 2, 3]`
@@ -3315,7 +3293,7 @@ const MIN_PRECEDENCE_AFTER_PIPE: u8 = 3;
 fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
-        Pipe => (1, 2),
+        Arrow => (1, 2),
         AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
             (4, MIN_PRECEDENCE_AFTER_PIPE)
         }

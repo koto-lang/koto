@@ -85,7 +85,6 @@ from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau
   @test floor: ||
     assert_eq 1.5.floor(), 1
     assert_eq -1.2.floor(), -2
-    assert_eq type(1.1.floor()), "Int"
 
   @test is_nan: ||
     assert not 0.is_nan()
@@ -137,7 +136,6 @@ from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau
     assert_eq 1.5.round(), 2
     assert_eq -1.2.round(), -1
     assert_eq -2.5.round(), -3
-    assert_eq type(1.1.round()), "Int"
 
   @test shift_left: ||
     assert_eq 0b10101.shift_left(1), 0b101010
@@ -168,18 +166,13 @@ from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau
     assert_eq 0.tanh(), 0
     assert_eq 1.tanh(), (1.sinh() / 1.cosh())
 
-  @test to_float: ||
-    x = 1
-    assert_eq type(x), "Int"
-    assert_eq type(x.to_float()), "Float"
-    assert_eq x.to_float(), x
-
   @test to_int: ||
     x = 1.0
-    assert_eq type(x), "Float"
-    assert_eq type(x.to_int()), "Int"
     assert_eq x.to_int(), x
+    assert_eq 1.1.to_int(), 1
+    assert_eq 1.9.to_int(), 1
 
   @test xor: ||
     assert_eq (0b10101.xor 0b01011), 0b11110
     assert_eq (-1.xor 1), -2
+    assert_eq (-1.5.xor 1.1), -2

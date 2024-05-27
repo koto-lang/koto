@@ -260,7 +260,7 @@ pub enum Node {
     ///
     /// e.g. `let x: Number = 0`
     ///            ^~~ This is the beginning of the type hint
-    Type(ConstantIndex, Vec<AstIndex>),
+    Type(ConstantIndex),
 }
 
 /// A function definition
@@ -286,6 +286,8 @@ pub struct Function {
     ///
     /// The presence of a `yield` expression in the function body will set this to true.
     pub is_generator: bool,
+    /// The optional output type of the function
+    pub output_type: Option<AstIndex>,
 }
 
 /// A string definition
@@ -432,9 +434,9 @@ pub enum ChainNode {
         /// This is not cosmetic, as parentheses represent a 'closed call', which has an impact on
         /// function piping:
         /// e.g.
-        ///   `99 >> foo.bar 42` is equivalent to `foo.bar(42, 99)`
+        ///   `99 -> foo.bar 42` is equivalent to `foo.bar(42, 99)`
         /// but:
-        ///   `99 >> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
+        ///   `99 -> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
         with_parens: bool,
     },
 }

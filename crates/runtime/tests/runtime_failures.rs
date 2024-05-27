@@ -85,6 +85,51 @@ let _x: String, y: Bool = 99, true
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn function_arg_with_type() {
+                let script = "
+f = |x: Number| x
+f 'hello'
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn nested_arg_with_type() {
+                let script = "
+f = |(x: Number)| x
+f ('hello',)
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_arg_with_type() {
+                let script = "
+f = |_x: List| true
+f 'hello'
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn nested_wildcard_arg_with_type() {
+                let script = "
+f = |(_x: Bool)| true
+f ('hello',)
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn function_with_return_type() {
+                let script = "
+f = |x: Number| -> String x
+f 42
+";
+                check_script_fails(script);
+            }
         }
 
         mod missing_values {

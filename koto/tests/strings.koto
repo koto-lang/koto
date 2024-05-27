@@ -117,7 +117,7 @@ zzz
     check_int = |s, n|
       x = s.to_number()
       assert_eq x, n
-      assert_eq type(x), 'Int'
+      assert_eq type(x), 'Number'
 
     check_int '42', 42
     check_int '0xdeadbeef', 3735928559
@@ -126,7 +126,6 @@ zzz
 
     x = '-1.5'.to_number()
     assert_eq x, -1.5
-    assert_eq type(x), "Float"
 
   @test to_uppercase: ||
     assert_eq (string.to_uppercase "xyz 890"), "XYZ 890"

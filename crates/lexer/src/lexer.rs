@@ -58,8 +58,7 @@ pub enum Token {
     Less,
     LessOrEqual,
 
-    // Pipe is detected by the parser instead of the lexer
-    Pipe,
+    Arrow,
 
     // Keywords
     As,
@@ -711,6 +710,8 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("..=", RangeInclusive);
         check_symbol!("..", Range);
 
+        check_symbol!("->", Arrow);
+
         check_symbol!("==", Equal);
         check_symbol!("!=", NotEqual);
         check_symbol!(">=", GreaterOrEqual);
@@ -1320,13 +1321,14 @@ r#''bar''#
 
         #[test]
         fn operators() {
-            let input = "> >= < <=";
+            let input = "> >= -> < <=";
 
             check_lexer_output(
                 input,
                 &[
                     (Greater, None, 0),
                     (GreaterOrEqual, None, 0),
+                    (Arrow, None, 0),
                     (Less, None, 0),
                     (LessOrEqual, None, 0),
                 ],
@@ -1433,22 +1435,7 @@ c *= 3";
         }
 
         #[test]
-        fn varible_declaration() {
-            let input = "let my_var = 42";
-
-            check_lexer_output(
-                input,
-                &[
-                    (Let, None, 0),
-                    (Id, Some("my_var"), 0),
-                    (Assign, None, 0),
-                    (Number, Some("42"), 0),
-                ],
-            )
-        }
-
-        #[test]
-        fn variable_declaration_with_type_hint() {
+        fn let_expression() {
             let input = "let my_var: Number = 42";
 
             check_lexer_output(
@@ -1460,65 +1447,6 @@ c *= 3";
                     (Id, Some("Number"), 0),
                     (Assign, None, 0),
                     (Number, Some("42"), 0),
-                ],
-            )
-        }
-
-        #[test]
-        fn variable_declaration_with_generic_type_hint() {
-            let input = "let my_var: List<Number> = [42, 43]";
-
-            check_lexer_output(
-                input,
-                &[
-                    (Let, None, 0),
-                    (Id, Some("my_var"), 0),
-                    (Colon, None, 0),
-                    (Id, Some("List"), 0),
-                    (Less, None, 0),
-                    (Id, Some("Number"), 0),
-                    (Greater, None, 0),
-                    (Assign, None, 0),
-                    (SquareOpen, None, 0),
-                    (Number, Some("42"), 0),
-                    (Comma, None, 0),
-                    (Number, Some("43"), 0),
-                    (SquareClose, None, 0),
-                ],
-            )
-        }
-
-        #[test]
-        fn variable_declaration_with_nested_generic_type_hint() {
-            let input = "let my_var: List<List<Number>> = [[42, 43], [97, 13]]";
-
-            check_lexer_output(
-                input,
-                &[
-                    (Let, None, 0),
-                    (Id, Some("my_var"), 0),
-                    (Colon, None, 0),
-                    (Id, Some("List"), 0),
-                    (Less, None, 0),
-                    (Id, Some("List"), 0),
-                    (Less, None, 0),
-                    (Id, Some("Number"), 0),
-                    (Greater, None, 0),
-                    (Greater, None, 0),
-                    (Assign, None, 0),
-                    (SquareOpen, None, 0),
-                    (SquareOpen, None, 0),
-                    (Number, Some("42"), 0),
-                    (Comma, None, 0),
-                    (Number, Some("43"), 0),
-                    (SquareClose, None, 0),
-                    (Comma, None, 0),
-                    (SquareOpen, None, 0),
-                    (Number, Some("97"), 0),
-                    (Comma, None, 0),
-                    (Number, Some("13"), 0),
-                    (SquareClose, None, 0),
-                    (SquareClose, None, 0),
                 ],
             )
         }

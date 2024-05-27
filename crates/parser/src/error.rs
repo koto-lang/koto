@@ -159,8 +159,8 @@ pub enum SyntaxError {
     ExpectedUntilCondition,
     #[error("Expected condition in while loop")]
     ExpectedWhileCondition,
-    #[error("Expected type hint")]
-    ExpectedTypeHint,
+    #[error("Expected a type after ':'")]
+    ExpectedType,
     #[error(transparent)]
     FormatStringError(StringFormatError),
     #[error("Non-inline if expression isn't allowed in this context")]
@@ -171,6 +171,8 @@ pub enum SyntaxError {
     MatchEllipsisOutsideOfNestedPatterns,
     #[error("'else' can only be used in the last arm in a match expression")]
     MatchElseNotInLastArm,
+    #[error("Nested types aren't currently supported")]
+    NestedTypesArentSupported,
     #[error("Keyword reserved for future use")]
     ReservedKeyword,
     #[error("'self' doesn't need to be declared as an argument")]

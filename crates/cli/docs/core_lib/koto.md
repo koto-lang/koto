@@ -281,7 +281,7 @@ check! Bool
 
 x = 42
 print! koto.type x
-check! Int
+check! Number
 
 foo =
   @type: "Foo"

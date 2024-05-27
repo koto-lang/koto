@@ -61,8 +61,8 @@ mod parser {
         Node::Id(constant.into(), Some(type_hint.into()))
     }
 
-    fn type_hint(constant: u32, inner: &[u32]) -> Node {
-        Node::Type(constant.into(), inner.iter().map(|i| i.into()).collect())
+    fn type_hint(constant: u32) -> Node {
+        Node::Type(constant.into())
     }
 
     fn int(constant: u32) -> Node {
@@ -77,7 +77,7 @@ mod parser {
         Node::Str(simple_string(literal_index, quotation_mark))
     }
 
-    fn expressions(ast_indices: &[u32]) -> Vec<AstIndex> {
+    fn nodes(ast_indices: &[u32]) -> Vec<AstIndex> {
         ast_indices.iter().map(|i| AstIndex::from(*i)).collect()
     }
 
@@ -175,7 +175,7 @@ null"#;
                     id(3),
                     Null,
                     MainBlock {
-                        body: expressions(&[0, 1, 2, 3, 4, 5, 6, 7]),
+                        body: nodes(&[0, 1, 2, 3, 4, 5, 6, 7]),
                         local_count: 0,
                     },
                 ],
@@ -212,7 +212,7 @@ null"#;
                     SmallInt(1),
                     SmallInt(4),
                     MainBlock {
-                        body: expressions(&[0, 1, 2, 3, 4, 5, 6, 7]),
+                        body: nodes(&[0, 1, 2, 3, 4, 5, 6, 7]),
                         local_count: 0,
                     },
                 ],
@@ -236,7 +236,7 @@ null"#;
                     string_literal(0, StringQuote::Double),
                     string_literal(1, StringQuote::Double),
                     MainBlock {
-                        body: expressions(&[0, 1]),
+                        body: nodes(&[0, 1]),
                         local_count: 0,
                     },
                 ],
@@ -259,7 +259,7 @@ null"#;
                     string_literal(0, StringQuote::Double),
                     string_literal(1, StringQuote::Single),
                     MainBlock {
-                        body: expressions(&[0, 1]),
+                        body: nodes(&[0, 1]),
                         local_count: 0,
                     },
                 ],
@@ -314,7 +314,7 @@ null"#;
                         ]),
                     }),
                     MainBlock {
-                        body: expressions(&[1, 3, 6]),
+                        body: nodes(&[1, 3, 6]),
                         local_count: 0,
                     },
                 ],
@@ -352,7 +352,7 @@ null"#;
                         ]),
                     }),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -386,7 +386,7 @@ null"#;
                         ]),
                     }),
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: nodes(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -434,7 +434,7 @@ r##'#$bar'##
                         },
                     }),
                     MainBlock {
-                        body: expressions(&[0, 1, 2, 3]),
+                        body: nodes(&[0, 1, 2, 3]),
                         local_count: 0,
                     },
                 ],
@@ -471,7 +471,7 @@ r##'#$bar'##
                     Nested(10.into()),
                     unary_op(AstUnaryOp::Negate, 11),
                     MainBlock {
-                        body: expressions(&[0, 2, 7, 12]),
+                        body: nodes(&[0, 2, 7, 12]),
                         local_count: 0,
                     },
                 ],
@@ -497,10 +497,10 @@ r##'#$bar'##
                     string_literal(1, StringQuote::Double),
                     id(0),
                     SmallInt(-1),
-                    List(expressions(&[0, 1, 2, 3, 4])),
-                    List(expressions(&[])),
+                    List(nodes(&[0, 1, 2, 3, 4])),
+                    List(nodes(&[])),
                     MainBlock {
-                        body: expressions(&[5, 6]),
+                        body: nodes(&[5, 6]),
                         local_count: 0,
                     },
                 ],
@@ -519,11 +519,11 @@ r##'#$bar'##
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(-1),
-                    List(expressions(&[1, 2])),
+                    List(nodes(&[1, 2])),
                     SmallInt(2),
-                    List(expressions(&[0, 3, 4])), // 5
+                    List(nodes(&[0, 3, 4])), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -576,10 +576,10 @@ x = [
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0), // 5
-                    List(expressions(&[1, 2, 3, 4, 5])),
+                    List(nodes(&[1, 2, 3, 4, 5])),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -630,7 +630,7 @@ x =
                     map_inline(&[(2, Some(3)), (4, None), (5, Some(6)), (7, Some(8))]),
                     assign(1, 9), // 10
                     MainBlock {
-                        body: expressions(&[0, 10]),
+                        body: nodes(&[0, 10]),
                         local_count: 1,
                     },
                 ],
@@ -669,7 +669,7 @@ x"#;
                     assign(0, 9), //10
                     id(0),
                     MainBlock {
-                        body: expressions(&[10, 11]),
+                        body: nodes(&[10, 11]),
                         local_count: 1,
                     },
                 ],
@@ -696,7 +696,7 @@ x =
                     map_block(&[(1, 2)]),
                     assign(0, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 1,
                     },
                 ],
@@ -722,7 +722,7 @@ x =
                     map_block(&[(1, 4)]), // 5
                     assign(0, 5),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -761,11 +761,11 @@ x =
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
-                    Tuple(expressions(&[2, 3, 4])), //5
+                    Tuple(nodes(&[2, 3, 4])), //5
                     map_block(&[(1, 5)]),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -808,7 +808,7 @@ x =
                     map_block(&[(1, 2), (3, 7)]),
                     assign(0, 8),
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -842,7 +842,7 @@ x =
                     map_block(&[(1, 2), (3, 4), (5, 6)]),
                     assign(0, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -872,7 +872,7 @@ x =
                     assign(0, 7),
                     Export(8.into()),
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -899,7 +899,7 @@ x =
                     SmallInt(1),
                     range(3, 4, true), // 5
                     MainBlock {
-                        body: expressions(&[2, 5]),
+                        body: nodes(&[2, 5]),
                         local_count: 0,
                     },
                 ],
@@ -921,7 +921,7 @@ x =
                     binary_op(AstBinaryOp::Add, 3, 4), // 5
                     range(2, 5, false),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -949,7 +949,7 @@ min..max
                     id(1),
                     range(6, 7, false),
                     MainBlock {
-                        body: expressions(&[2, 5, 8]),
+                        body: nodes(&[2, 5, 8]),
                         local_count: 2,
                     },
                 ],
@@ -971,7 +971,7 @@ min..max
                     chain_root(3, Some(4)), // 5
                     range(2, 5, false),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -994,16 +994,16 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     range(0, 1, false),
-                    List(expressions(&[2])),
+                    List(nodes(&[2])),
                     SmallInt(0),
                     SmallInt(10), // 5
                     range(4, 5, false),
                     SmallInt(10),
                     SmallInt(0),
                     range(7, 8, true),
-                    List(expressions(&[6, 9])),
+                    List(nodes(&[6, 9])),
                     MainBlock {
-                        body: expressions(&[3, 10]),
+                        body: nodes(&[3, 10]),
                         local_count: 0,
                     },
                 ],
@@ -1024,9 +1024,9 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(expressions(&[0, 1, 2])),
+                    Tuple(nodes(&[0, 1, 2])),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1040,9 +1040,9 @@ min..max
             check_ast(
                 source,
                 &[
-                    Tuple(expressions(&[])),
+                    Tuple(nodes(&[])),
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: nodes(&[0]),
                         local_count: 0,
                     },
                 ],
@@ -1058,7 +1058,7 @@ min..max
                 &[
                     Null,
                     MainBlock {
-                        body: expressions(&[0]),
+                        body: nodes(&[0]),
                         local_count: 0,
                     },
                 ],
@@ -1090,9 +1090,9 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(expressions(&[0, 1, 2])),
+                    Tuple(nodes(&[0, 1, 2])),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1107,9 +1107,9 @@ min..max
                 source,
                 &[
                     SmallInt(1),
-                    Tuple(expressions(&[0])),
+                    Tuple(nodes(&[0])),
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: nodes(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -1131,7 +1131,7 @@ min..max
                     SmallInt(1),
                     assign(0, 1),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -1148,10 +1148,10 @@ min..max
                     id(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(expressions(&[1, 2])),
+                    Tuple(nodes(&[1, 2])),
                     assign(0, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 1,
                     },
                 ],
@@ -1168,14 +1168,14 @@ min..max
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(expressions(&[1, 2])),
+                    Tuple(nodes(&[1, 2])),
                     SmallInt(2),
                     SmallInt(3), // 5
-                    Tuple(expressions(&[4, 5])),
-                    Tuple(expressions(&[3, 6])),
+                    Tuple(nodes(&[4, 5])),
+                    Tuple(nodes(&[3, 6])),
                     assign(0, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -1196,13 +1196,13 @@ min..max
                     chain_root(1, Some(3)),
                     SmallInt(1), // 5
                     SmallInt(0),
-                    TempTuple(expressions(&[5, 6])),
+                    TempTuple(nodes(&[5, 6])),
                     MultiAssign {
-                        targets: expressions(&[0, 4]),
+                        targets: nodes(&[0, 4]),
                         expression: 7.into(),
                     },
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 1, // y is assumed to be non-local
                     },
                 ],
@@ -1224,14 +1224,14 @@ x";
                     id(1),
                     SmallInt(1),
                     SmallInt(0),
-                    TempTuple(expressions(&[2, 3])),
+                    TempTuple(nodes(&[2, 3])),
                     MultiAssign {
-                        targets: expressions(&[0, 1]),
+                        targets: nodes(&[0, 1]),
                         expression: 4.into(),
                     }, // 5
                     id(0),
                     MainBlock {
-                        body: expressions(&[5, 6]),
+                        body: nodes(&[5, 6]),
                         local_count: 2,
                     },
                 ],
@@ -1251,18 +1251,18 @@ x";
                     id(2),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
                     chain_root(3, Some(4)), // 5
                     MultiAssign {
-                        targets: expressions(&[0, 1, 2]),
+                        targets: nodes(&[0, 1, 2]),
                         expression: 5.into(),
                     },
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -1297,7 +1297,7 @@ x %= 4";
                     SmallInt(4),
                     binary_op(AstBinaryOp::RemainderAssign, 12, 13),
                     MainBlock {
-                        body: expressions(&[2, 5, 8, 11, 14]),
+                        body: nodes(&[2, 5, 8, 11, 14]),
                         local_count: 0,
                     }, // 15
                 ],
@@ -1316,16 +1316,16 @@ x %= 4";
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
                     chain_id(1, Some(1)),
                     chain_root(0, Some(2)),
-                    List(expressions(&[3])),
+                    List(nodes(&[3])),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1366,7 +1366,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // Int
+                    type_hint(1),            // Int
                     id_with_type_hint(0, 0), // a
                     SmallInt(1),
                     Assign {
@@ -1383,81 +1383,19 @@ x %= 4";
         }
 
         #[test]
-        fn list_with_type_hint() {
-            let source = "let foo: List<String> = bar";
-
-            check_ast(
-                source,
-                &[
-                    type_hint(2, &[]),       // String
-                    type_hint(1, &[0]),      // List
-                    id_with_type_hint(0, 1), // foo
-                    id(3),                   // bar
-                    Assign {
-                        target: 2.into(),
-                        expression: 3.into(),
-                    },
-                    MainBlock {
-                        body: vec![4.into()],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("List"),
-                    Constant::Str("String"),
-                    Constant::Str("bar"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn map_with_type_hint() {
-            let source = "let foo: Map<String, List<Int>> = bar";
-
-            check_ast(
-                source,
-                &[
-                    type_hint(2, &[]),       // String
-                    type_hint(4, &[]),       // Int
-                    type_hint(3, &[1]),      // List
-                    type_hint(1, &[0, 2]),   // Map
-                    id_with_type_hint(0, 3), // foo
-                    id(5),                   // bar - 5
-                    Assign {
-                        target: 4.into(),
-                        expression: 5.into(),
-                    },
-                    MainBlock {
-                        body: vec![6.into()],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("Map"),
-                    Constant::Str("String"),
-                    Constant::Str("List"),
-                    Constant::Str("Int"),
-                    Constant::Str("bar"),
-                ]),
-            )
-        }
-
-        #[test]
         fn multiple_targets() {
             let source = "let foo: String, bar: Int = baz";
 
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // String
+                    type_hint(1),            // String
                     id_with_type_hint(0, 0), // foo
-                    type_hint(3, &[]),       // Int
+                    type_hint(3),            // Int
                     id_with_type_hint(2, 2), // bar
                     id(4),                   // baz
                     MultiAssign {
-                        targets: expressions(&[1, 3]),
+                        targets: nodes(&[1, 3]),
                         expression: 4.into(),
                     }, // 5
                     MainBlock {
@@ -1482,7 +1420,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(0, &[]),
+                    type_hint(0),
                     Wildcard(None, Some(0.into())),
                     SmallInt(1),
                     Assign {
@@ -1505,7 +1443,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(Some(0.into()), Some(0.into())),
                     SmallInt(1),
                     Assign {
@@ -1527,27 +1465,27 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),
+                    type_hint(1),
                     id_with_type_hint(0, 0),
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(None, Some(2.into())),
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(Some(2.into()), Some(4.into())),
                     id(3),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
                     )),
                     chain_root(6, Some(7)), // 5
                     MultiAssign {
-                        targets: expressions(&[1, 3, 5]),
+                        targets: nodes(&[1, 3, 5]),
                         expression: 8.into(),
                     },
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -1586,7 +1524,7 @@ export a =
                     assign(0, 3),
                     Export(4.into()), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -1612,7 +1550,7 @@ export
                     map_block(&[(0, 1), (2, 3)]),
                     Export(4.into()), //  5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -1649,7 +1587,7 @@ export
                     SmallInt(1),
                     binary_op(AstBinaryOp::Add, 2, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1671,7 +1609,7 @@ export
                     SmallInt(0), // 5
                     binary_op(AstBinaryOp::Add, 4, 5),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -1695,7 +1633,7 @@ export
                     Nested(6.into()),
                     binary_op(AstBinaryOp::Multiply, 3, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -1715,7 +1653,7 @@ export
                     SmallInt(4),
                     binary_op(AstBinaryOp::Remainder, 2, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1733,7 +1671,7 @@ export
                     id(1),
                     binary_op(AstBinaryOp::Add, 0, 1),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -1756,7 +1694,7 @@ export
                     binary_op(AstBinaryOp::Add, 1, 5),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -1801,7 +1739,7 @@ a =
                     binary_op(AstBinaryOp::Add, 1, 4), // 5
                     assign(0, 5),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -1844,7 +1782,7 @@ a = (1
                     binary_op(AstBinaryOp::Multiply, 4, 5),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -1872,7 +1810,7 @@ a = (1
                     BoolTrue,
                     binary_op(AstBinaryOp::Or, 6, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -1892,7 +1830,7 @@ a = (1
                     binary_op(AstBinaryOp::LessOrEqual, 1, 2),
                     binary_op(AstBinaryOp::Less, 0, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -1922,7 +1860,7 @@ a = (1
                     }),
                     binary_op(AstBinaryOp::Add, 0, 4),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -1985,7 +1923,7 @@ a",
                     assign(0, 8),
                     id(0),
                     MainBlock {
-                        body: expressions(&[9, 10]),
+                        body: nodes(&[9, 10]),
                         local_count: 1,
                     }, // 10
                 ],
@@ -2004,10 +1942,10 @@ a",
                     BoolTrue,
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(expressions(&[3, 4])), // 5
+                    Tuple(nodes(&[3, 4])), // 5
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(expressions(&[6, 7])),
+                    Tuple(nodes(&[6, 7])),
                     If(AstIf {
                         condition: 2.into(),
                         then_node: 5.into(),
@@ -2015,11 +1953,11 @@ a",
                         else_node: Some(8.into()),
                     }),
                     MultiAssign {
-                        targets: expressions(&[0, 1]),
+                        targets: nodes(&[0, 1]),
                         expression: 9.into(),
                     }, // 10
                     MainBlock {
-                        body: expressions(&[10]),
+                        body: nodes(&[10]),
                         local_count: 2,
                     },
                 ],
@@ -2048,17 +1986,18 @@ a",
                         else_node: None,
                     }),
                     id(0),
-                    Block(expressions(&[2, 3])),
+                    Block(nodes(&[2, 3])),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![0.into()],
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2085,12 +2024,12 @@ for x, _, _y, z in foo
                     id(3),                          // foo
                     id(0),                          // x - 5
                     For(AstFor {
-                        args: expressions(&[0, 1, 2, 3]),
+                        args: nodes(&[0, 1, 2, 3]),
                         iterable: 4.into(),
                         body: 5.into(),
                     }),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 2, // x, z
                     },
                 ],
@@ -2120,7 +2059,7 @@ while x > y
                         body: 3.into(),
                     },
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -2145,7 +2084,7 @@ until x < y
                         body: 3.into(),
                     },
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -2164,17 +2103,17 @@ for x in y
             check_ast(
                 source,
                 &[
-                    List(expressions(&[])),
+                    List(nodes(&[])),
                     id(0), // x
                     id(1), // y
                     id(0), // x
                     For(AstFor {
-                        args: expressions(&[1]),
+                        args: nodes(&[1]),
                         iterable: 2.into(),
                         body: 3.into(),
                     }),
                     MainBlock {
-                        body: expressions(&[0, 4]),
+                        body: nodes(&[0, 4]),
                         local_count: 1,
                     },
                 ],
@@ -2196,7 +2135,7 @@ for a in x.zip y
                     id(3), // y
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[2]),
+                            args: nodes(&[2]),
                             with_parens: false,
                         },
                         None,
@@ -2205,12 +2144,12 @@ for a in x.zip y
                     chain_root(1, Some(4)), // ast 5
                     id(0),                  // a
                     For(AstFor {
-                        args: expressions(&[0]),
+                        args: nodes(&[0]),
                         iterable: 5.into(),
                         body: 6.into(),
                     }),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2238,25 +2177,26 @@ a()";
                     id(0),
                     SmallInt(42),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 2),
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 5
                     chain_root(4, Some(5)),
                     MainBlock {
-                        body: expressions(&[3, 6]),
+                        body: nodes(&[3, 6]),
                         local_count: 1,
                     },
                 ],
@@ -2286,19 +2226,107 @@ a()";
                     id(1),
                     binary_op(AstBinaryOp::Add, 2, 3),
                     Function(koto_parser::Function {
-                        args: expressions(&[0, 1]),
+                        args: nodes(&[0, 1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn two_args_with_type_hints() {
+            let sources = [
+                "
+|x: String, y: Number| x + y
+",
+                "
+| x: String,
+  y: Number,
+|
+  x + y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    type_hint(1),            // String
+                    id_with_type_hint(0, 0), // x
+                    type_hint(3),            // Number
+                    id_with_type_hint(2, 2), // y
+                    id(0),                   // x
+                    id(2),                   // y - 5
+                    binary_op(AstBinaryOp::Add, 4, 5),
+                    Function(koto_parser::Function {
+                        args: nodes(&[1, 3]),
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 6.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: None,
+                    }),
+                    MainBlock {
+                        body: nodes(&[7]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("String"),
+                    Constant::Str("y"),
+                    Constant::Str("Number"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn output_type_hint() {
+            let sources = [
+                "
+|x: String| -> String x
+",
+                "
+|x: String| -> String
+  x
+",
+                "
+|x: String
+| -> String
+  x
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    type_hint(1),            // String
+                    id_with_type_hint(0, 0), // x
+                    type_hint(1),            // String
+                    id(0),                   // x
+                    Function(koto_parser::Function {
+                        args: nodes(&[1]),
+                        local_count: 1,
+                        accessed_non_locals: vec![],
+                        body: 3.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: Some(2.into()),
+                    }),
+                    MainBlock {
+                        body: nodes(&[4]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("String")]),
             )
         }
 
@@ -2314,7 +2342,7 @@ a()";
                     id(1),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -2323,15 +2351,16 @@ a()";
                     chain_root(3, Some(5)),
                     binary_op(AstBinaryOp::Add, 2, 6),
                     Function(koto_parser::Function {
-                        args: expressions(&[0, 1]),
+                        args: nodes(&[0, 1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 7.into(),
                         is_variadic: true,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -2359,14 +2388,15 @@ f 42";
                     id(1), // x
                     assign(2, 3),
                     id(2), // 5
-                    Block(expressions(&[4, 5])),
+                    Block(nodes(&[4, 5])),
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: nodes(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 7),
                     id(0),        // f
@@ -2374,7 +2404,7 @@ f 42";
                     chain_call(&[10], false, None),
                     chain_root(9, Some(11)),
                     MainBlock {
-                        body: expressions(&[8, 12]),
+                        body: nodes(&[8, 12]),
                         local_count: 1,
                     },
                 ],
@@ -2399,30 +2429,32 @@ f = |x|
                     id(3), // z
                     id(3), // z
                     Function(koto_parser::Function {
-                        args: expressions(&[3]),
+                        args: nodes(&[3]),
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(2, 5),
                     id(2), // y
                     id(1), // x
                     chain_call(&[8], false, None),
                     chain_root(7, Some(9)), // 10
-                    Block(expressions(&[6, 10])),
+                    Block(nodes(&[6, 10])),
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: nodes(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     assign(0, 12),
                     MainBlock {
-                        body: expressions(&[13]),
+                        body: nodes(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -2448,7 +2480,7 @@ f = |x|
                     chain_call(&[1, 3], false, None),
                     chain_root(0, Some(4)), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2469,7 +2501,7 @@ f = |x|
                     chain_call(&[3], false, None),
                     chain_root(0, Some(4)), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2506,14 +2538,14 @@ f(x,
                     unary_op(AstUnaryOp::Negate, 2),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1, 3]),
+                            args: nodes(&[1, 3]),
                             with_parens: true,
                         },
                         None,
                     )),
                     chain_root(0, Some(4)),
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2550,7 +2582,7 @@ foo x,
                     chain_call(&[1, 2], false, None),
                     chain_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -2572,17 +2604,18 @@ foo
                     id(2), // y
                     id(2), // y
                     Function(koto_parser::Function {
-                        args: expressions(&[2]),
+                        args: nodes(&[2]),
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     chain_call(&[1, 4], false, None), // 5
                     chain_root(0, Some(5)),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -2608,7 +2641,7 @@ f x";
                     chain_call(&[5], false, None),
                     chain_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[3, 7]),
+                        body: nodes(&[3, 7]),
                         local_count: 0,
                     },
                 ],
@@ -2629,16 +2662,17 @@ f x";
                     chain_call(&[3], false, None),
                     chain_root(2, Some(4)), // 5
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: nodes(&[1]),
                         local_count: 1,
                         accessed_non_locals: vec![0.into()],
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2660,12 +2694,13 @@ f x";
                     chain_call(&[4], false, None), // 5
                     chain_root(3, Some(5)),
                     Function(koto_parser::Function {
-                        args: expressions(&[2]),
+                        args: nodes(&[2]),
                         local_count: 1,
                         accessed_non_locals: vec![0.into()],
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     Nested(7.into()),
                     id(2), // x
@@ -2674,21 +2709,22 @@ f x";
                     chain_call(&[11], false, None),
                     chain_root(10, Some(12)),
                     Function(koto_parser::Function {
-                        args: expressions(&[9]),
+                        args: nodes(&[9]),
                         local_count: 1,
                         accessed_non_locals: vec![1.into()],
                         body: 13.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     Nested(14.into()), // 15
-                    TempTuple(expressions(&[8, 15])),
+                    TempTuple(nodes(&[8, 15])),
                     MultiAssign {
-                        targets: expressions(&[0, 1]),
+                        targets: nodes(&[0, 1]),
                         expression: 16.into(),
                     },
                     MainBlock {
-                        body: expressions(&[17]),
+                        body: nodes(&[17]),
                         local_count: 2,
                     },
                 ],
@@ -2697,8 +2733,8 @@ f x";
         }
 
         #[test]
-        fn call_with_pipe() {
-            let source = "f x >> g >> h";
+        fn piped_call_chain() {
+            let source = "f x -> g -> h";
             check_ast(
                 source,
                 &[
@@ -2711,7 +2747,7 @@ f x";
                     id(3),                              // h
                     binary_op(AstBinaryOp::Pipe, 5, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -2728,8 +2764,8 @@ f x";
         fn indented_piped_calls_after_chain() {
             let source = "
 foo.bar x
-  >> y
-  >> z
+  -> y
+  -> z
 ";
             check_ast(
                 source,
@@ -2738,7 +2774,7 @@ foo.bar x
                     id(2), // x
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         None,
@@ -2750,7 +2786,7 @@ foo.bar x
                     id(4), // z
                     binary_op(AstBinaryOp::Pipe, 6, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -2780,16 +2816,17 @@ foo.bar x
                     id(2),
                     assign(6, 7),
                     Function(koto_parser::Function {
-                        args: expressions(&[3]),
+                        args: nodes(&[3]),
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     map_inline(&[(0, Some(1)), (2, Some(9))]), // 10
                     MainBlock {
-                        body: expressions(&[10]),
+                        body: nodes(&[10]),
                         local_count: 0,
                     },
                 ],
@@ -2818,16 +2855,17 @@ f = ||
                     SmallInt(0),
                     map_block(&[(1, 2), (3, 4)]), // 5
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![2.into()],
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -2860,16 +2898,17 @@ f = ||
                     SmallInt(0),
                     map_block(&[(1, 4), (5, 6)]),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![3.into()],
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 8),
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -2904,34 +2943,36 @@ f()";
                     id(3), // x
                     assign(7, 8),
                     Function(koto_parser::Function {
-                        args: expressions(&[4]),
+                        args: nodes(&[4]),
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     map_block(&[(1, 2), (3, 10)]),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 12),
                     id(0), // f
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
                     )), // 15
                     chain_root(14, Some(15)),
                     MainBlock {
-                        body: expressions(&[13, 16]),
+                        body: nodes(&[13, 16]),
                         local_count: 1,
                     },
                 ],
@@ -2977,32 +3018,34 @@ f = |n|
                         else_node: None,
                     }),
                     For(AstFor {
-                        args: expressions(&[4]),
+                        args: nodes(&[4]),
                         iterable: 7.into(),
                         body: 13.into(),
                     }),
                     Function(koto_parser::Function {
-                        args: expressions(&[3]),
+                        args: nodes(&[3]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 14.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // ast 15
                     assign(2, 15),
                     id(2),
-                    Block(expressions(&[16, 17])),
+                    Block(nodes(&[16, 17])),
                     Function(koto_parser::Function {
-                        args: expressions(&[1]),
+                        args: nodes(&[1]),
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 18.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 19), // ast 20
                     MainBlock {
-                        body: expressions(&[20]),
+                        body: nodes(&[20]),
                         local_count: 1,
                     },
                 ],
@@ -3031,17 +3074,18 @@ f = |n|
                     binary_op(AstBinaryOp::Add, 1, 2),
                     assign(0, 3),
                     id(0), // 5
-                    Block(expressions(&[4, 5])),
+                    Block(nodes(&[4, 5])),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 1,
                         accessed_non_locals: vec![0.into()], // initial read of x via capture
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -3064,18 +3108,19 @@ f = |n|
                     assign(1, 2),
                     Nested(3.into()),
                     id(1), // 5
-                    Tuple(expressions(&[4, 5])),
+                    Tuple(nodes(&[4, 5])),
                     assign(0, 6),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 2,
                         accessed_non_locals: vec![], // b is locally assigned when accessed
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -3095,15 +3140,16 @@ f = |n|
                     SmallInt(1),
                     binary_op(AstBinaryOp::AddAssign, 0, 1),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![0.into()], // initial read of x via capture
                         body: 2.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3124,24 +3170,25 @@ z = y [0..20], |x| x > 1
                     SmallInt(0),
                     SmallInt(20),
                     range(2, 3, false),
-                    List(expressions(&[4])), // 5
-                    id(2),                   // x
-                    id(2),                   // x
+                    List(nodes(&[4])), // 5
+                    id(2),             // x
+                    id(2),             // x
                     SmallInt(1),
                     binary_op(AstBinaryOp::Greater, 7, 8),
                     Function(koto_parser::Function {
-                        args: expressions(&[6]),
+                        args: nodes(&[6]),
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     chain_call(&[5, 10], false, None),
                     chain_root(1, Some(11)),
                     assign(0, 12),
                     MainBlock {
-                        body: expressions(&[13]),
+                        body: nodes(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -3158,15 +3205,16 @@ z = y [0..20], |x| x > 1
                     SmallInt(1),
                     Yield(0.into()),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -3182,18 +3230,19 @@ z = y [0..20], |x| x > 1
                 &[
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(expressions(&[0, 1])),
+                    Tuple(nodes(&[0, 1])),
                     Yield(2.into()),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3216,15 +3265,16 @@ z = y [0..20], |x| x > 1
                     map_block(&[(0, 1)]),
                     Yield(2.into()),
                     Function(koto_parser::Function {
-                        args: expressions(&[]),
+                        args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3257,20 +3307,21 @@ z = y [0..20], |x| x > 1
                     Ellipsis(Some(1.into())),       // others
                     id(2),                          // c
                     Wildcard(Some(3.into()), None), // d
-                    Tuple(expressions(&[2, 3, 4])), // ast index 5
-                    Tuple(expressions(&[1, 5])),
+                    Tuple(nodes(&[2, 3, 4])),       // ast index 5
+                    Tuple(nodes(&[1, 5])),
                     Wildcard(Some(4.into()), None), // e
                     id(0),
                     Function(koto_parser::Function {
-                        args: expressions(&[0, 6, 7]),
+                        args: nodes(&[0, 6, 7]),
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -3305,7 +3356,7 @@ z = y [0..20], |x| x > 1
                     chain_root(4, Some(6)),
                     assign(3, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -3324,7 +3375,7 @@ z = y [0..20], |x| x > 1
                     chain_index(1, None),
                     chain_root(0, Some(2)),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3347,7 +3398,7 @@ z = y [0..20], |x| x > 1
                     chain_index(2, None),
                     chain_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3369,7 +3420,7 @@ z = y [0..20], |x| x > 1
                     chain_index(2, Some(4)), // 5
                     chain_root(0, Some(5)),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3387,7 +3438,7 @@ z = y [0..20], |x| x > 1
                     chain_id(1, None),
                     chain_root(0, Some(1)),
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 0,
                     },
                 ],
@@ -3404,7 +3455,7 @@ z = y [0..20], |x| x > 1
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3412,7 +3463,7 @@ z = y [0..20], |x| x > 1
                     chain_id(1, Some(1)),
                     chain_root(0, Some(2)),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3429,7 +3480,7 @@ z = y [0..20], |x| x > 1
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3439,7 +3490,7 @@ z = y [0..20], |x| x > 1
                     SmallInt(1),
                     binary_op(AstBinaryOp::Subtract, 3, 4), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3465,7 +3516,7 @@ x.bar()."baz" = 1
                     )),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         Some(1.into()),
@@ -3475,7 +3526,7 @@ x.bar()."baz" = 1
                     SmallInt(1), // 5
                     assign(4, 5),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3497,7 +3548,7 @@ x.bar()."baz" = 1
                     SmallInt(42),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         None,
@@ -3505,7 +3556,7 @@ x.bar()."baz" = 1
                     chain_id(1, Some(2)),
                     chain_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3526,7 +3577,7 @@ x.foo
                     SmallInt(42),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         None,
@@ -3534,7 +3585,7 @@ x.foo
                     chain_id(1, Some(2)),
                     chain_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3557,7 +3608,7 @@ x.takes_a_map
                     map_block(&[(1, 2)]),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[3]),
+                            args: nodes(&[3]),
                             with_parens: false,
                         },
                         None,
@@ -3565,7 +3616,7 @@ x.takes_a_map
                     chain_id(1, Some(4)), // 5 - takes_a_map
                     chain_root(0, Some(5)),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3606,9 +3657,9 @@ x.takes_a_map
                     id(0),
                     chain_id(2, None),
                     chain_root(3, Some(4)), // 5
-                    List(expressions(&[2, 5])),
+                    List(nodes(&[2, 5])),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3634,7 +3685,7 @@ x.takes_a_map
                     chain_id(2, None), // 5
                     chain_root(4, Some(5)),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3657,7 +3708,7 @@ x.takes_a_map
                     chain_index(5, None),
                     chain_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -3680,7 +3731,7 @@ x.takes_a_map
                     chain_call(&[5], true, None),
                     chain_root(4, Some(6)),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -3697,7 +3748,7 @@ x.takes_a_map
                     SmallInt(1),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3705,7 +3756,7 @@ x.takes_a_map
                     chain_id(0, Some(1)),
                     chain_root(0, Some(2)),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -3723,7 +3774,7 @@ x.takes_a_map
                     string_literal(2, StringQuote::Single),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         None,
@@ -3731,7 +3782,7 @@ x.takes_a_map
                     chain_id(1, Some(2)),
                     chain_root(0, Some(3)),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
@@ -3765,11 +3816,11 @@ x = ( 0
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(expressions(&[1, 2])),
+                    Tuple(nodes(&[1, 2])),
                     id(2),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[4]),
+                            args: nodes(&[4]),
                             with_parens: false,
                         },
                         None,
@@ -3778,7 +3829,7 @@ x = ( 0
                     chain_root(3, Some(6)),
                     assign(0, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -3811,11 +3862,11 @@ x = [ 0
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    List(expressions(&[1, 2])),
+                    List(nodes(&[1, 2])),
                     id(2),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[4]),
+                            args: nodes(&[4]),
                             with_parens: false,
                         },
                         None,
@@ -3824,7 +3875,7 @@ x = [ 0
                     chain_root(3, Some(6)),
                     assign(0, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -3866,7 +3917,7 @@ x = { y
                     map_inline(&[(1, None), (2, None)]),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3875,7 +3926,7 @@ x = { y
                     chain_root(3, Some(5)),
                     assign(0, 6),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -3900,7 +3951,7 @@ x = { y
                     Nested(2.into()),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3908,7 +3959,7 @@ x = { y
                     chain_id(0, Some(4)), // 5
                     chain_root(3, Some(5)),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3930,7 +3981,7 @@ x = { y
                     range(0, 1, false),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -3938,7 +3989,7 @@ x = { y
                     chain_id(0, Some(3)),
                     chain_root(2, Some(4)), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3957,7 +4008,7 @@ x = { y
                     id(2),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[2]),
+                            args: nodes(&[2]),
                             with_parens: false,
                         },
                         None,
@@ -3966,7 +4017,7 @@ x = { y
                     chain_root(1, Some(4)), // 5
                     Nested(5.into()),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -3992,7 +4043,7 @@ x.iter()
                     SmallInt(1),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -4000,7 +4051,7 @@ x.iter()
                     chain_id(3, Some(2)),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         Some(3.into()),
@@ -4008,7 +4059,7 @@ x.iter()
                     chain_id(2, Some(4)), // 5
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         Some(5.into()),
@@ -4016,7 +4067,7 @@ x.iter()
                     chain_id(1, Some(6)),
                     chain_root(0, Some(7)),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4049,7 +4100,7 @@ foo.bar
                     BoolFalse,
                     binary_op(AstBinaryOp::Or, 6, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4081,7 +4132,7 @@ return 1";
                     SmallInt(1),
                     Return(Some(3.into())),
                     MainBlock {
-                        body: expressions(&[0, 1, 2, 4]),
+                        body: nodes(&[0, 1, 2, 4]),
                         local_count: 0,
                     },
                 ],
@@ -4108,7 +4159,7 @@ debug x + x
                         expression: 4.into(),
                     }, // 5
                     MainBlock {
-                        body: expressions(&[1, 5]),
+                        body: nodes(&[1, 5]),
                         local_count: 0,
                     },
                 ],
@@ -4142,7 +4193,7 @@ debug x + x
                         items: import_items(&[0]),
                     },
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: nodes(&[1]),
                         local_count: 1,
                     },
                 ],
@@ -4166,7 +4217,7 @@ debug x + x
                         }],
                     },
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -4187,7 +4238,7 @@ debug x + x
                         items: import_items(&[1]),
                     },
                     MainBlock {
-                        body: expressions(&[2]),
+                        body: nodes(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -4210,7 +4261,7 @@ debug x + x
                     },
                     assign(0, 3),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 2, // x and bar both assigned locally
                     },
                 ],
@@ -4249,7 +4300,7 @@ import foo,
                         items: import_items(&[0, 1, 2]),
                     },
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 2, // foo and baz, bar needs to be assigned
                     },
                 ],
@@ -4285,7 +4336,7 @@ from foo import bar,
                         items: import_items(&[1, 2]),
                     },
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 2,
                     },
                 ],
@@ -4312,7 +4363,7 @@ from foo import bar,
                         items: import_items(&[2, 3]),
                     },
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 2,
                     },
                 ],
@@ -4343,7 +4394,7 @@ catch e
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -4362,7 +4413,7 @@ catch e
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 1,
                     },
                 ],
@@ -4391,7 +4442,7 @@ catch _
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -4420,7 +4471,7 @@ catch _error
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: expressions(&[3]),
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -4448,7 +4499,7 @@ finally
                     id(0),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[]),
+                            args: nodes(&[]),
                             with_parens: true,
                         },
                         None,
@@ -4468,7 +4519,7 @@ finally
                         finally_block: Some(6.into()),
                     }),
                     MainBlock {
-                        body: expressions(&[7]),
+                        body: nodes(&[7]),
                         local_count: 1,
                     },
                 ],
@@ -4485,7 +4536,7 @@ finally
                     id(0),
                     Throw(0.into()),
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: nodes(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -4502,7 +4553,7 @@ finally
                     string_literal(0, StringQuote::Single),
                     Throw(0.into()),
                     MainBlock {
-                        body: expressions(&[1]),
+                        body: nodes(&[1]),
                         local_count: 0,
                     },
                 ],
@@ -4527,7 +4578,7 @@ throw
                     map_block(&[(0, 1), (2, 3)]),
                     Throw(4.into()), // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -4565,12 +4616,12 @@ x = match y
                         expression: 1.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[2, 3]),
+                                patterns: nodes(&[2, 3]),
                                 condition: None,
                                 expression: 4.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[5]),
+                                patterns: nodes(&[5]),
                                 condition: None,
                                 expression: 6.into(),
                             },
@@ -4578,7 +4629,7 @@ x = match y
                     },
                     assign(0, 7),
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 2,
                     },
                 ],
@@ -4606,19 +4657,19 @@ match x
                         expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[1]),
+                                patterns: nodes(&[1]),
                                 condition: None,
                                 expression: 2.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[3, 4]),
+                                patterns: nodes(&[3, 4]),
                                 condition: None,
                                 expression: 5.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[6]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
@@ -4644,36 +4695,36 @@ match (x, y, z)
                     id(0),
                     id(1),
                     id(2),
-                    Tuple(expressions(&[0, 1, 2])),
+                    Tuple(nodes(&[0, 1, 2])),
                     SmallInt(0),
                     id(3), // 5
                     Wildcard(None, None),
-                    Tuple(expressions(&[4, 5, 6])),
+                    Tuple(nodes(&[4, 5, 6])),
                     id(3),
                     Wildcard(None, None),
                     SmallInt(0), // 10
                     id(4),
-                    Tuple(expressions(&[10, 11])),
+                    Tuple(nodes(&[10, 11])),
                     Wildcard(Some(5.into()), None),
-                    Tuple(expressions(&[9, 12, 13])),
+                    Tuple(nodes(&[9, 12, 13])),
                     SmallInt(0), // 15
                     Match {
                         expression: 3.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[7]),
+                                patterns: nodes(&[7]),
                                 condition: None,
                                 expression: 8.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[14]),
+                                patterns: nodes(&[14]),
                                 condition: None,
                                 expression: 15.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[16]),
+                        body: nodes(&[16]),
                         local_count: 2,
                     },
                 ],
@@ -4701,29 +4752,29 @@ match x
                     id(0),
                     Ellipsis(None),
                     SmallInt(0),
-                    Tuple(expressions(&[1, 2])),
+                    Tuple(nodes(&[1, 2])),
                     SmallInt(0),
                     SmallInt(1), // 5
                     Ellipsis(None),
-                    Tuple(expressions(&[5, 6])),
+                    Tuple(nodes(&[5, 6])),
                     SmallInt(1),
                     Match {
                         expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[3]),
+                                patterns: nodes(&[3]),
                                 condition: None,
                                 expression: 4.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[7]),
+                                patterns: nodes(&[7]),
                                 condition: None,
                                 expression: 8.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -4745,30 +4796,30 @@ match y
                     Ellipsis(Some(1.into())),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(expressions(&[1, 2, 3])),
+                    Tuple(nodes(&[1, 2, 3])),
                     SmallInt(0), // 5
                     SmallInt(1),
                     SmallInt(0),
                     Ellipsis(Some(2.into())),
-                    Tuple(expressions(&[6, 7, 8])),
+                    Tuple(nodes(&[6, 7, 8])),
                     SmallInt(1), // 10
                     Match {
                         expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[4]),
+                                patterns: nodes(&[4]),
                                 condition: None,
                                 expression: 5.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[9]),
+                                patterns: nodes(&[9]),
                                 condition: None,
                                 expression: 10.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[11]),
+                        body: nodes(&[11]),
                         local_count: 2,
                     },
                 ],
@@ -4810,24 +4861,24 @@ match x
                         expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[1]),
+                                patterns: nodes(&[1]),
                                 condition: Some(4.into()),
                                 expression: 5.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[6]),
+                                patterns: nodes(&[6]),
                                 condition: Some(9.into()),
                                 expression: 10.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[11]),
+                                patterns: nodes(&[11]),
                                 condition: None,
                                 expression: 12.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[13]),
+                        body: nodes(&[13]),
                         local_count: 1,
                     },
                 ],
@@ -4849,42 +4900,42 @@ match x, y
                 &[
                     id(0),
                     id(1),
-                    TempTuple(expressions(&[0, 1])),
+                    TempTuple(nodes(&[0, 1])),
                     SmallInt(0),
                     SmallInt(1),
-                    TempTuple(expressions(&[3, 4])), // 5
+                    TempTuple(nodes(&[3, 4])), // 5
                     SmallInt(2),
                     SmallInt(3),
-                    TempTuple(expressions(&[6, 7])),
+                    TempTuple(nodes(&[6, 7])),
                     id(2),
                     SmallInt(0), // 10
                     id(3),
                     Null,
-                    TempTuple(expressions(&[11, 12])),
+                    TempTuple(nodes(&[11, 12])),
                     id(3),
                     SmallInt(0), // 15
                     Match {
                         expression: 2.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[5, 8]),
+                                patterns: nodes(&[5, 8]),
                                 condition: Some(9.into()),
                                 expression: 10.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[13]),
+                                patterns: nodes(&[13]),
                                 condition: None,
                                 expression: 14.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[]),
+                                patterns: nodes(&[]),
                                 condition: None,
                                 expression: 15.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[16]),
+                        body: nodes(&[16]),
                         local_count: 1,
                     },
                 ],
@@ -4911,7 +4962,7 @@ match x.foo 42
                     SmallInt(42),
                     Chain((
                         ChainNode::Call {
-                            args: expressions(&[1]),
+                            args: nodes(&[1]),
                             with_parens: false,
                         },
                         None,
@@ -4925,19 +4976,19 @@ match x.foo 42
                         expression: 4.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[5]),
+                                patterns: nodes(&[5]),
                                 condition: None,
                                 expression: 6.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[]),
+                                patterns: nodes(&[]),
                                 condition: None,
                                 expression: 7.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: expressions(&[8]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4962,13 +5013,13 @@ match x
                     Match {
                         expression: 0.into(),
                         arms: vec![MatchArm {
-                            patterns: expressions(&[3]),
+                            patterns: nodes(&[3]),
                             condition: None,
                             expression: 4.into(),
                         }],
                     },
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -4995,19 +5046,19 @@ match x
                         expression: 0.into(),
                         arms: vec![
                             MatchArm {
-                                patterns: expressions(&[1]),
+                                patterns: nodes(&[1]),
                                 condition: None,
                                 expression: 2.into(),
                             },
                             MatchArm {
-                                patterns: expressions(&[]),
+                                patterns: nodes(&[]),
                                 condition: None,
                                 expression: 4.into(),
                             },
                         ],
                     }, // 5
                     MainBlock {
-                        body: expressions(&[5]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -5050,7 +5101,7 @@ switch
                         },
                     ]),
                     MainBlock {
-                        body: expressions(&[9]),
+                        body: nodes(&[9]),
                         local_count: 0,
                     },
                 ],
@@ -5086,7 +5137,7 @@ switch
                         },
                     ]),
                     MainBlock {
-                        body: expressions(&[4]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],

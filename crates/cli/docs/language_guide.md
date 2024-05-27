@@ -554,7 +554,7 @@ check! null
 
 ### Function Piping
 
-The pipe operator (`>>`) can be used to pass the result of one function to 
+The arrow operator (`->`) can be used to pass the result of one function to 
 another, working from left to right. This is known as _function piping_, 
 and can aid readability when working with a long chain of function calls.
 
@@ -572,13 +572,13 @@ print! x = multiply(2, square(add(1, 3)))
 check! 32
 
 # Piping allows for a left-to-right flow of results.
-print! x = add(1, 3) >> square >> multiply 2
+print! x = add(1, 3) -> square -> multiply 2
 check! 32
 
 # Call chains can also be broken across lines.
 print! x = add 1, 3
-  >> square 
-  >> multiply 2
+  -> square 
+  -> multiply 2
 check! 32
 ```
 
