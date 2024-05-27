@@ -1555,8 +1555,8 @@ add = |a, b| a + b
 multiply = |a, b| a * b
 square = |x| x * x
 add 1, 2
-  >> square
-  >> multiply 10
+  -> square
+  -> multiply 10
 ";
                 check_script_output(script, 90);
             }
@@ -1570,9 +1570,9 @@ ops =
   square: |x| x * x
 
 2
-  >> ops.add 1
-  >> ops.square
-  >> ops.multiply 2
+  -> ops.add 1
+  -> ops.square
+  -> ops.multiply 2
 ";
                 check_script_output(script, 18);
             }
@@ -1587,10 +1587,10 @@ ops = [inc, dec]
 get_op = |i| ops[i]
 
 0
-  >> ops[0]     # 1
-  >> get_op(0)  # 2
-  >> (get_op 0) # 3
-  >> get_op(1)  # 2
+  -> ops[0]     # 1
+  -> get_op(0)  # 2
+  -> (get_op 0) # 3
+  -> get_op(1)  # 2
 ";
                 check_script_output(script, 2);
             }
@@ -1607,7 +1607,7 @@ g = |x|
   calls.push x
   f
 
-g(1)(100) >> g(2) >> g(3) >> g(4)
+g(1)(100) -> g(2) -> g(3) -> g(4)
 
 calls
 ";

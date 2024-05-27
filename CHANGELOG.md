@@ -15,6 +15,9 @@ The Koto project adheres to
 - `await`, `const`, and `let` have been reserved as keywords for future use.
 - The type of a number is now always `Number`, rather than distinguishing
   between `Int` and `Float`.
+- The `>>` pipe operator has been replaced with `->`.
+  - This aligns it with the `->` function output type syntax, which avoids 
+    having two different special-case operators related to function output.
 
 #### API
 

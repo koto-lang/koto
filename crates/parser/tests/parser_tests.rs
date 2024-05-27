@@ -2680,8 +2680,8 @@ f x";
         }
 
         #[test]
-        fn call_with_pipe() {
-            let source = "f x >> g >> h";
+        fn piped_call_chain() {
+            let source = "f x -> g -> h";
             check_ast(
                 source,
                 &[
@@ -2711,8 +2711,8 @@ f x";
         fn indented_piped_calls_after_chain() {
             let source = "
 foo.bar x
-  >> y
-  >> z
+  -> y
+  -> z
 ";
             check_ast(
                 source,

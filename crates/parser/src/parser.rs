@@ -610,7 +610,7 @@ impl<'source> Parser<'source> {
                         And => AstBinaryOp::And,
                         Or => AstBinaryOp::Or,
 
-                        Pipe => AstBinaryOp::Pipe,
+                        Arrow => AstBinaryOp::Pipe,
 
                         _ => unreachable!(), // The list of tokens here matches the operators in
                                              // operator_precedence()
@@ -3278,7 +3278,7 @@ const MIN_PRECEDENCE_AFTER_PIPE: u8 = 3;
 fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
-        Pipe => (1, 2),
+        Arrow => (1, 2),
         AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
             (4, MIN_PRECEDENCE_AFTER_PIPE)
         }

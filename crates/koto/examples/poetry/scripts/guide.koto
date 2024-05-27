@@ -1,7 +1,7 @@
 @main = ||
   input_file =
     io.extend_path koto.script_dir, '..', 'README.md'
-    >> io.read_to_string
+    -> io.read_to_string
   generator = poetry.new input_file
 
   separator = '==================================================='

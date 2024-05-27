@@ -432,9 +432,9 @@ pub enum ChainNode {
         /// This is not cosmetic, as parentheses represent a 'closed call', which has an impact on
         /// function piping:
         /// e.g.
-        ///   `99 >> foo.bar 42` is equivalent to `foo.bar(42, 99)`
+        ///   `99 -> foo.bar 42` is equivalent to `foo.bar(42, 99)`
         /// but:
-        ///   `99 >> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
+        ///   `99 -> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
         with_parens: bool,
     },
 }
