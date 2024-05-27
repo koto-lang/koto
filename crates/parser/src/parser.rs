@@ -1736,6 +1736,13 @@ impl<'source> Parser<'source> {
         let (entries, last_token_was_a_comma) =
             self.parse_comma_separated_entries(Token::RoundClose)?;
 
+        if !matches!(
+            self.consume_token_with_context(context),
+            Some((Token::RoundClose, _)),
+        ) {
+            return self.error(SyntaxError::ExpectedCloseParen);
+        }
+
         let expressions_node = match entries.as_slice() {
             [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
             [single_expression] if !last_token_was_a_comma => {
@@ -1744,14 +1751,10 @@ impl<'source> Parser<'source> {
             _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
         };
 
-        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(context) {
-            self.check_for_chain_after_node(
-                expressions_node,
-                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
-            )
-        } else {
-            self.error(SyntaxError::ExpectedCloseParen)
-        }
+        self.check_for_chain_after_node(
+            expressions_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     // Parses a list, e.g. `[1, 2, 3]`
