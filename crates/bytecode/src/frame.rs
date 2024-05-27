@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use koto_parser::{ConstantIndex, Span};
+use koto_parser::{AstIndex, ConstantIndex, Span};
 use thiserror::Error;
 
 /// The different error types that can be thrown while compiling a [Frame]
@@ -80,10 +80,17 @@ pub(crate) struct Frame {
     // This is a coarse check, e.g. we currently don't check if the last expression
     // returns in all branches, but it'll do for now as an optimization for simple cases.
     pub last_node_was_return: bool,
+    // An optional output type hint that should cause type checks to be emitted on each exit path.
+    pub output_type: Option<AstIndex>,
 }
 
 impl Frame {
-    pub fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
+    pub fn new(
+        local_count: u8,
+        args: &[Arg],
+        captures: &[ConstantIndex],
+        output_type: Option<AstIndex>,
+    ) -> Self {
         let temporary_base =
             // register 0 is always self
             1
@@ -121,6 +128,7 @@ impl Frame {
             register_stack: Vec::with_capacity(temporary_base as usize),
             local_registers,
             temporary_base,
+            output_type,
             ..Default::default()
         }
     }

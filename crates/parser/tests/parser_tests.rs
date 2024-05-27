@@ -1994,6 +1994,7 @@ a",
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 5
                     MainBlock {
                         body: expressions(&[5]),
@@ -2182,6 +2183,7 @@ a()";
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 2),
                     id(0),
@@ -2230,6 +2232,7 @@ a()";
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 5
                     MainBlock {
                         body: expressions(&[5]),
@@ -2270,6 +2273,7 @@ a()";
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[7]),
@@ -2282,6 +2286,47 @@ a()";
                     Constant::Str("y"),
                     Constant::Str("Number"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn output_type_hint() {
+            let sources = [
+                "
+|x: String| -> String x
+",
+                "
+|x: String| -> String
+  x
+",
+                "
+|x: String
+| -> String
+  x
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    type_hint(1),            // String
+                    id_with_type_hint(0, 0), // x
+                    type_hint(1),            // String
+                    id(0),                   // x
+                    Function(koto_parser::Function {
+                        args: expressions(&[1]),
+                        local_count: 1,
+                        accessed_non_locals: vec![],
+                        body: 3.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: Some(2.into()),
+                    }),
+                    MainBlock {
+                        body: expressions(&[4]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("String")]),
             )
         }
 
@@ -2312,6 +2357,7 @@ a()";
                         body: 7.into(),
                         is_variadic: true,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[8]),
@@ -2350,6 +2396,7 @@ f 42";
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 7),
                     id(0),        // f
@@ -2388,6 +2435,7 @@ f = |x|
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(2, 5),
                     id(2), // y
@@ -2402,6 +2450,7 @@ f = |x|
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     assign(0, 12),
                     MainBlock {
@@ -2561,6 +2610,7 @@ foo
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     chain_call(&[1, 4], false, None), // 5
                     chain_root(0, Some(5)),
@@ -2618,6 +2668,7 @@ f x";
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 6),
                     MainBlock {
@@ -2649,6 +2700,7 @@ f x";
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     Nested(7.into()),
                     id(2), // x
@@ -2663,6 +2715,7 @@ f x";
                         body: 13.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     Nested(14.into()), // 15
                     TempTuple(expressions(&[8, 15])),
@@ -2769,6 +2822,7 @@ foo.bar x
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     map_inline(&[(0, Some(1)), (2, Some(9))]), // 10
                     MainBlock {
@@ -2807,6 +2861,7 @@ f = ||
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 6),
                     MainBlock {
@@ -2849,6 +2904,7 @@ f = ||
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 8),
                     MainBlock {
@@ -2893,6 +2949,7 @@ f()";
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     map_block(&[(1, 2), (3, 10)]),
                     Function(koto_parser::Function {
@@ -2902,6 +2959,7 @@ f()";
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 12),
                     id(0), // f
@@ -2971,6 +3029,7 @@ f = |n|
                         body: 14.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // ast 15
                     assign(2, 15),
                     id(2),
@@ -2982,6 +3041,7 @@ f = |n|
                         body: 18.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     assign(0, 19), // ast 20
                     MainBlock {
@@ -3022,6 +3082,7 @@ f = |n|
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[7]),
@@ -3056,6 +3117,7 @@ f = |n|
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[8]),
@@ -3084,6 +3146,7 @@ f = |n|
                         body: 2.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[3]),
@@ -3119,6 +3182,7 @@ z = y [0..20], |x| x > 1
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }), // 10
                     chain_call(&[5, 10], false, None),
                     chain_root(1, Some(11)),
@@ -3147,6 +3211,7 @@ z = y [0..20], |x| x > 1
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[2]),
@@ -3174,6 +3239,7 @@ z = y [0..20], |x| x > 1
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[4]),
@@ -3205,6 +3271,7 @@ z = y [0..20], |x| x > 1
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[4]),
@@ -3251,6 +3318,7 @@ z = y [0..20], |x| x > 1
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
+                        output_type: None,
                     }),
                     MainBlock {
                         body: expressions(&[9]),

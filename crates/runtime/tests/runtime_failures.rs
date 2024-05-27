@@ -121,6 +121,15 @@ f ('hello',)
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn function_with_return_type() {
+                let script = "
+f = |x: Number| -> String x
+f 42
+";
+                check_script_fails(script);
+            }
         }
 
         mod missing_values {

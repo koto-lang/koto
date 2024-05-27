@@ -286,6 +286,8 @@ pub struct Function {
     ///
     /// The presence of a `yield` expression in the function body will set this to true.
     pub is_generator: bool,
+    /// The optional output type of the function
+    pub output_type: Option<AstIndex>,
 }
 
 /// A string definition

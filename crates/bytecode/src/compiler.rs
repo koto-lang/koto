@@ -416,7 +416,17 @@ impl Compiler {
                 result
             }
             Node::MainBlock { body, local_count } => {
-                self.compile_frame(*local_count as u8, body, &[], &[], true, ctx)?;
+                self.compile_frame(
+                    FrameParameters {
+                        local_count: *local_count as u8,
+                        expressions: body,
+                        args: &[],
+                        captures: &[],
+                        allow_implicit_return: true,
+                        output_type: None,
+                    },
+                    ctx,
+                )?;
                 CompileNodeOutput::none()
             }
             Node::Block(expressions) => self.compile_block(expressions, ctx)?,
@@ -488,48 +498,7 @@ impl Compiler {
                 }
                 None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
-            Node::Return(None) => {
-                let result = self.assign_result_register(ctx)?;
-                match result.register {
-                    Some(result_register) => {
-                        self.push_op(SetNull, &[result_register]);
-                        self.push_op(Return, &[result_register]);
-                    }
-                    None => {
-                        let register = self.push_register()?;
-                        self.push_op(SetNull, &[register]);
-                        self.push_op(Return, &[register]);
-                        self.pop_register()?;
-                    }
-                }
-                result
-            }
-            Node::Return(Some(expression)) => {
-                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
-                let expression_register = expression_result.unwrap(self)?;
-
-                match ctx.result_register {
-                    ResultRegister::Any => {
-                        self.push_op(Return, &[expression_register]);
-                        expression_result
-                    }
-                    ResultRegister::Fixed(result) => {
-                        self.push_op(Copy, &[result, expression_register]);
-                        self.push_op(Return, &[result]);
-                        if expression_result.is_temporary {
-                            self.pop_register()?;
-                        }
-                        CompileNodeOutput::with_assigned(result)
-                    }
-                    ResultRegister::None => {
-                        self.push_op(Return, &[expression_register]);
-                        if expression_result.is_temporary {
-                            self.pop_register()?;
-                        }
-                        CompileNodeOutput::none()
-                    }
-                }
-            }
+            Node::Return(expression) => self.compile_return(*expression, ctx)?,
             Node::Yield(expression) => {
                 let result = self.assign_result_register(ctx)?;
 
@@ -608,19 +577,21 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_frame(
-        &mut self,
-        local_count: u8,
-        expressions: &[AstIndex],
-        args: &[AstIndex],
-        captures: &[ConstantIndex],
-        allow_implicit_return: bool,
-        ctx: CompileNodeContext,
-    ) -> Result<()> {
+    fn compile_frame(&mut self, params: FrameParameters, ctx: CompileNodeContext) -> Result<()> {
+        let FrameParameters {
+            local_count,
+            expressions,
+            args,
+            captures,
+            allow_implicit_return,
+            output_type,
+        } = params;
+
         self.frame_stack.push(Frame::new(
             local_count,
             &self.collect_args(args, ctx.ast)?,
             captures,
+            output_type,
         ));
 
         // Unpack nested args and check types
@@ -661,6 +632,7 @@ impl Compiler {
 
         if let Some(block_register) = block_result.register {
             if !self.frame().last_node_was_return {
+                self.compile_check_output_type(block_register, ctx)?;
                 self.push_op_without_span(Op::Return, &[block_register]);
             }
             if block_result.is_temporary {
@@ -669,12 +641,75 @@ impl Compiler {
         } else {
             let register = self.push_register()?;
             self.push_op(Op::SetNull, &[register]);
+            self.compile_check_output_type(register, ctx)?;
             self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
         }
 
         self.frame_stack.pop();
 
+        Ok(())
+    }
+
+    fn compile_return(
+        &mut self,
+        expression: Option<AstIndex>,
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        use Op::*;
+
+        let result = if let Some(expression) = expression {
+            let expression_result = self.compile_node(expression, ctx.with_any_register())?;
+            let expression_register = expression_result.unwrap(self)?;
+            self.compile_check_output_type(expression_register, ctx)?;
+
+            match ctx.result_register {
+                ResultRegister::Any => {
+                    self.push_op(Return, &[expression_register]);
+                    expression_result
+                }
+                ResultRegister::Fixed(result) => {
+                    self.push_op(Copy, &[result, expression_register]);
+                    self.push_op(Return, &[result]);
+                    if expression_result.is_temporary {
+                        self.pop_register()?;
+                    }
+                    CompileNodeOutput::with_assigned(result)
+                }
+                ResultRegister::None => {
+                    self.push_op(Return, &[expression_register]);
+                    if expression_result.is_temporary {
+                        self.pop_register()?;
+                    }
+                    CompileNodeOutput::none()
+                }
+            }
+        } else {
+            let result = self.assign_result_register(ctx)?;
+            match result.register {
+                Some(result_register) => {
+                    self.push_op(SetNull, &[result_register]);
+                    self.compile_check_output_type(result_register, ctx)?;
+                    self.push_op(Return, &[result_register]);
+                }
+                None => {
+                    let register = self.push_register()?;
+                    self.push_op(SetNull, &[register]);
+                    self.compile_check_output_type(register, ctx)?;
+                    self.push_op(Return, &[register]);
+                    self.pop_register()?;
+                }
+            }
+            result
+        };
+
+        Ok(result)
+    }
+
+    fn compile_check_output_type(&mut self, register: u8, ctx: CompileNodeContext) -> Result<()> {
+        if let Some(output_type) = self.frame().output_type {
+            self.compile_check_type(register, output_type, ctx)?;
+        }
         Ok(())
     }
 
@@ -2178,11 +2213,14 @@ impl Compiler {
                 _ => &body_as_slice,
             };
             self.compile_frame(
-                local_count,
-                function_body,
-                &function.args,
-                &captures,
-                allow_implicit_return,
+                FrameParameters {
+                    local_count,
+                    expressions: function_body,
+                    args: &function.args,
+                    captures: &captures,
+                    allow_implicit_return,
+                    output_type: function.output_type,
+                },
                 ctx,
             )?;
 
@@ -3730,4 +3768,13 @@ struct MatchArmParameters<'a> {
     is_last_alternative: bool,
     has_last_pattern: bool,
     jumps: &'a mut MatchJumpPlaceholders,
+}
+
+struct FrameParameters<'a> {
+    local_count: u8,
+    expressions: &'a [AstIndex],
+    args: &'a [AstIndex],
+    captures: &'a [ConstantIndex],
+    allow_implicit_return: bool,
+    output_type: Option<AstIndex>,
 }

@@ -943,6 +943,17 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedFunctionArgsEnd);
         }
 
+        // Check for output type hint
+        let output_type = if self.peek_next_token_on_same_line() == Some(Token::Arrow) {
+            self.consume_token_with_context(context); // ->
+            let Some((output_type, _)) = self.parse_id(context)? else {
+                return self.consume_token_and_error(SyntaxError::ExpectedType);
+            };
+            Some(self.push_node(Node::Type(output_type))?)
+        } else {
+            None
+        };
+
         // body
         let mut function_frame = Frame::default();
         function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
@@ -979,6 +990,7 @@ impl<'source> Parser<'source> {
                 body,
                 is_variadic,
                 is_generator: function_frame.contains_yield,
+                output_type,
             }),
             Span {
                 start: span_start,
