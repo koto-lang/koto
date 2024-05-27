@@ -13,6 +13,8 @@ The Koto project adheres to
 #### Language
 
 - `await`, `const`, and `let` have been reserved as keywords for future use.
+- The type of a number is now always `Number`, rather than distinguishing
+  between `Int` and `Float`.
 
 #### API
 

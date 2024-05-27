@@ -43,11 +43,10 @@ pub fn make_module() -> KMap {
     macro_rules! bitwise_fn {
         ($name:ident, $op:tt) => {
             result.add_fn(stringify!($name), |ctx| {
-                use KNumber::I64;
-                let expected_error = "two Integers";
+                let expected_error = "two Numbers";
 
-                match ctx.instance_and_args(is_integer, expected_error)? {
-                    (Number(I64(a)), [Number(I64(b))]) => Ok((a $op b).into()),
+                match ctx.instance_and_args(is_number, expected_error)? {
+                    (Number(a), [Number(b)]) => Ok((i64::from(a) $op i64::from(b)).into()),
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             })
@@ -57,12 +56,12 @@ pub fn make_module() -> KMap {
     macro_rules! bitwise_fn_positive_arg {
         ($name:ident, $op:tt) => {
             result.add_fn(stringify!($name), |ctx| {
-                use KNumber::I64;
+                let expected_error = "two Numbers (with non-negative second argument)";
 
-                let expected_error = "two Integers (with non-negative second Integer)";
-
-                match ctx.instance_and_args(is_integer, expected_error)? {
-                    (Number(I64(a)), [Number(I64(b))]) if *b >= 0 => Ok((a $op b).into()),
+                match ctx.instance_and_args(is_number, expected_error)? {
+                    (Number(a), [Number(b)]) if *b >= 0 => {
+                        Ok((i64::from(a) $op i64::from(b)).into())
+                    }
                     (_, unexpected) => type_error_with_slice(expected_error, unexpected),
                 }
             })
@@ -108,10 +107,10 @@ pub fn make_module() -> KMap {
     number_f64_fn!(exp2);
 
     result.add_fn("flip_bits", |ctx| {
-        let expected_error = "an Integer";
+        let expected_error = "a Number";
 
-        match ctx.instance_and_args(is_integer, expected_error)? {
-            (Number(KNumber::I64(n)), []) => Ok((!n).into()),
+        match ctx.instance_and_args(is_number, expected_error)? {
+            (Number(n), []) => Ok((!n.as_i64()).into()),
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),
         }
     });
@@ -196,15 +195,6 @@ pub fn make_module() -> KMap {
 
     result.insert("tau", std::f64::consts::TAU);
 
-    result.add_fn("to_float", |ctx| {
-        let expected_error = "a Number";
-
-        match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(n), []) => Ok(f64::from(n).into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
-        }
-    });
-
     result.add_fn("to_int", |ctx| {
         let expected_error = "a Number";
 
@@ -221,8 +211,4 @@ pub fn make_module() -> KMap {
 
 fn is_number(value: &KValue) -> bool {
     matches!(value, KValue::Number(_))
-}
-
-fn is_integer(value: &KValue) -> bool {
-    matches!(value, KValue::Number(KNumber::I64(_)))
 }

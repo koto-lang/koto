@@ -21,7 +21,7 @@ check! 1
 ## acos
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
@@ -38,7 +38,7 @@ assert_eq 1.acos(), 0
 ## acosh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the inverse hyperbolic cosine of the number.
@@ -54,11 +54,17 @@ assert_near 2.acosh(), 1.3169578969248166
 ## and
 
 ```kototype
-|Integer, Integer| -> Integer
+|Number, Number| -> Number
 ```
 
-Returns the bitwise combination of two integers, where a `1` in both input
-positions produces a `1` in corresponding output positions.
+Returns the bitwise combination of the binary representations of two numbers, 
+where a `1` in both of the inputs produces a `1` in the corresponding output 
+position.
+
+### Note
+
+If either input is a float then its integer part will be used.
+
 
 ### Example
 
@@ -71,7 +77,7 @@ check! 8
 ## asin
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the arc sine of the number. `asin` is the inverse function of `sin`.
@@ -88,7 +94,7 @@ assert_near 1.asin(), pi / 2
 ## asinh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the inverse hyperbolic sine of the number.
@@ -103,7 +109,7 @@ assert_near 1.asinh(), 0.8813735870195429
 ## atan
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
@@ -120,7 +126,7 @@ assert_near 1.atan(), pi / 4
 ## atanh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the inverse hyperbolic tangent of the number.
@@ -141,7 +147,7 @@ check! inf
 ## atan2
 
 ```kototype
-|Number, Number| -> Float
+|Number, Number| -> Number
 ```
 
 Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
@@ -161,7 +167,7 @@ assert_near y.atan2(-x), pi - pi / 4
 ## ceil
 
 ```kototype
-|Number| -> Integer
+|Number| -> Number
 ```
 
 Returns the integer that's greater than or equal to the input.
@@ -210,7 +216,7 @@ check! 2
 ## cos
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the cosine of the number.
@@ -228,7 +234,7 @@ check! -1.0
 ## cosh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the hyperbolic cosine of the number.
@@ -243,7 +249,7 @@ assert_near 1.cosh(), 1.5430806348152437
 ## degrees
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Converts radians into degrees.
@@ -263,7 +269,7 @@ check! 360.0
 ## e
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `e` constant.
@@ -271,7 +277,7 @@ Provides the `e` constant.
 ## exp
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the result of applying the exponential function,
@@ -287,7 +293,7 @@ assert_eq 1.exp(), number.e
 ## exp2
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the result of applying the base-2 exponential function,
@@ -306,7 +312,7 @@ check! 8.0
 ## flip_bits
 
 ```kototype
-|Integer| -> Integer
+|Number| -> Number
 ```
 
 Returns the input with its bits 'flipped', i.e. `1` => `0`, and `0` => `1`.
@@ -321,7 +327,7 @@ check! -2
 ## floor
 
 ```kototype
-|Number| -> Integer
+|Number| -> Number
 ```
 
 Returns the integer that's less than or equal to the input.
@@ -348,7 +354,7 @@ check! -1
 ## infinity
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `∞` constant.
@@ -374,7 +380,7 @@ check! true
 ## lerp
 
 ```kototype
-|a: Number, b: Number, t: Number| -> Float
+|a: Number, b: Number, t: Number| -> Number
 ```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
@@ -409,7 +415,7 @@ check! 2.5
 ## ln
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the natural logarithm of the number.
@@ -427,7 +433,7 @@ check! 1.0
 ## log2
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the base-2 logarithm of the number.
@@ -445,7 +451,7 @@ check! 2.0
 ## log10
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the base-10 logarithm of the number.
@@ -499,7 +505,7 @@ check! 3
 ## nan
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `NaN` (Not a Number) constant.
@@ -507,7 +513,7 @@ Provides the `NaN` (Not a Number) constant.
 ## negative_infinity
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `-∞` constant.
@@ -515,11 +521,16 @@ Provides the `-∞` constant.
 ## or
 
 ```kototype
-|Integer, Integer| -> Integer
+|Number, Number| -> Number
 ```
 
-Returns the bitwise combination of two integers, where a `1` in either input
-positions produces a `1` in corresponding output positions.
+Returns the bitwise combination of the binary representations of two numbers, 
+where a `1` in either of the inputs produces a `1` in the corresponding output 
+position.
+
+### Note
+
+If either input is a float then its integer part will be used.
 
 ### Example
 
@@ -532,7 +543,7 @@ check! 14
 ## pi
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `π` constant.
@@ -540,7 +551,7 @@ Provides the `π` constant.
 ## pi_2
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `π` constant divided by `2`.
@@ -548,7 +559,7 @@ Provides the `π` constant divided by `2`.
 ## pi_4
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `π` constant divided by `4`.
@@ -571,7 +582,7 @@ check! 8
 ## radians
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Converts degrees into radians.
@@ -588,7 +599,7 @@ assert_near 360.radians(), pi * 2
 ## recip
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the reciprocal of the number, i.e. `1 / x`.
@@ -603,7 +614,7 @@ check! 0.5
 ## round
 
 ```kototype
-|Number| -> Integer
+|Number| -> Number
 ```
 
 Returns the nearest integer to the input number.
@@ -631,11 +642,15 @@ check! -1
 ## shift_left
 
 ```kototype
-|Integer, Integer| -> Integer
+|Number, Number| -> Number
 ```
 
 Returns the result of shifting the bits of the first number to the left by the
 amount specified by the second number.
+
+### Note
+
+If either input is a float then its integer part will be used.
 
 ### Note
 
@@ -652,11 +667,15 @@ check! 40
 ## shift_right
 
 ```kototype
-|Integer, Integer| -> Integer
+|Number, Number| -> Number
 ```
 
 Returns the result of shifting the bits of the first number to the right by the
 amount specified by the second number.
+
+### Note
+
+If either input is a float then its integer part will be used.
 
 ### Note
 
@@ -673,7 +692,7 @@ check! 2
 ## sin
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the sine of the number.
@@ -693,7 +712,7 @@ check! -1.0
 ## sinh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the hyperbolic sine of the number.
@@ -708,7 +727,7 @@ assert_near 1.sinh(), 1.1752011936438014
 ## sqrt
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the square root of the number.
@@ -723,7 +742,7 @@ check! 8.0
 ## tan
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the tangent of the number.
@@ -738,7 +757,7 @@ assert_near 1.tan(), 1.557407724654902
 ## tanh
 
 ```kototype
-|Number| -> Float
+|Number| -> Number
 ```
 
 Returns the hyperbolic tangent of the number.
@@ -752,33 +771,18 @@ assert_near 1.tanh(), 1.sinh() / 1.cosh()
 ## tau
 
 ```kototype
-Float
+Number
 ```
 
 Provides the `τ` constant, equivalent to `2π`.
 
-## to_float
-
-```kototype
-|Number| -> Float
-```
-
-Returns the number as a `Float`.
-
-### Example
-
-```koto
-print! 1.to_float()
-check! 1.0
-```
-
 ## to_int
 
 ```kototype
-|Number| -> Integer
+|Number| -> Number
 ```
 
-Converts a Number into an integer by removing its fractional part.
+Returns the integer part of the input number.
 
 This is often called `trunc` in other languages.
 
@@ -807,12 +811,16 @@ check! -1
 ## xor
 
 ```kototype
-|Integer, Integer| -> Integer
+|Number, Number| -> Number
 ```
 
-Returns the bitwise combination of two integers,
+Returns the bitwise combination of the binary representations of two numbers,
 where a `1` in one (and only one) of the input positions
-produces a `1` in corresponding output positions.
+produces a `1` in the corresponding output position.
+
+### Note
+
+If either input is a float then its integer part will be used.
 
 ### Example
 

@@ -145,8 +145,7 @@ impl KValue {
         match &self {
             Null => TYPE_NULL.with(|x| x.clone()),
             Bool(_) => TYPE_BOOL.with(|x| x.clone()),
-            Number(KNumber::F64(_)) => TYPE_FLOAT.with(|x| x.clone()),
-            Number(KNumber::I64(_)) => TYPE_INT.with(|x| x.clone()),
+            Number(_) => TYPE_NUMBER.with(|x| x.clone()),
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
@@ -202,8 +201,7 @@ impl KValue {
 thread_local! {
     static TYPE_NULL: KString = "Null".into();
     static TYPE_BOOL: KString = "Bool".into();
-    static TYPE_FLOAT: KString = "Float".into();
-    static TYPE_INT: KString = "Int".into();
+    static TYPE_NUMBER: KString = "Number".into();
     static TYPE_LIST: KString = "List".into();
     static TYPE_RANGE: KString = "Range".into();
     static TYPE_MAP: KString = "Map".into();
