@@ -997,59 +997,31 @@ impl<'source> Parser<'source> {
         )
     }
 
-    // Parses the types and returns information about the type if next is a colon
+    // Parses a type hint following an identifier
+    // e.g.:
+    // let x: String = 'hello'
+    //      ^ You are here
     fn parse_type_hint(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
-        if let Some(Token::Colon) = self
-            .peek_token_with_context(context)
-            .map(|token| token.token)
-        {
-            self.consume_token_with_context(context);
-            self.consume_type_hint(context).map(Some)
-        } else {
-            Ok(None)
-        }
-    }
-
-    // Parses the types and returns information about the type
-    fn consume_type_hint(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let Some((type_name, _)) = self.parse_id(context)? else {
-            return self.consume_token_and_error(SyntaxError::ExpectedTypeHint);
+        let Some(PeekInfo {
+            token: Token::Colon,
+            ..
+        }) = self.peek_token_with_context(context)
+        else {
+            return Ok(None);
         };
 
-        let mut inner = vec![];
+        self.consume_token_with_context(context); // :
+        let Some((type_hint, _)) = self.parse_id(context)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedType);
+        };
 
-        if let Some(PeekInfo {
-            token: Token::Less, ..
-        }) = self.peek_token_with_context(context)
-        {
-            self.consume_token_with_context(context);
-            let inner_type = self.consume_type_hint(context)?;
-            inner.push(inner_type);
+        // Check for the start of a nested type
+        if self.peek_next_token_on_same_line() == Some(Token::Less) {
+            return self.consume_token_and_error(SyntaxError::NestedTypesArentSupported);
+        };
 
-            match self.peek_token_with_context(context) {
-                Some(PeekInfo {
-                    token: Token::Comma,
-                    ..
-                }) => {
-                    self.consume_token();
-                    let next_inner_type = self.consume_type_hint(context)?;
-                    inner.push(next_inner_type);
-                }
-                Some(PeekInfo {
-                    token: Token::Greater,
-                    ..
-                }) => {}
-                Some(_) | None => {
-                    self.consume_token_and_error(SyntaxError::UnexpectedToken)?;
-                }
-            }
-            // Consume the Less token
-            self.consume_token();
-        }
-
-        let type_hint = self.push_node(Node::Type(type_name, inner))?;
-
-        Ok(type_hint)
+        let result = self.push_node(Node::Type(type_hint))?;
+        Ok(Some(result))
     }
 
     // Helper for parse_function() that recursively parses nested function arguments

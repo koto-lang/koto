@@ -61,8 +61,8 @@ mod parser {
         Node::Id(constant.into(), Some(type_hint.into()))
     }
 
-    fn type_hint(constant: u32, inner: &[u32]) -> Node {
-        Node::Type(constant.into(), inner.iter().map(|i| i.into()).collect())
+    fn type_hint(constant: u32) -> Node {
+        Node::Type(constant.into())
     }
 
     fn int(constant: u32) -> Node {
@@ -1366,7 +1366,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // Int
+                    type_hint(1),            // Int
                     id_with_type_hint(0, 0), // a
                     SmallInt(1),
                     Assign {
@@ -1383,77 +1383,15 @@ x %= 4";
         }
 
         #[test]
-        fn list_with_type_hint() {
-            let source = "let foo: List<String> = bar";
-
-            check_ast(
-                source,
-                &[
-                    type_hint(2, &[]),       // String
-                    type_hint(1, &[0]),      // List
-                    id_with_type_hint(0, 1), // foo
-                    id(3),                   // bar
-                    Assign {
-                        target: 2.into(),
-                        expression: 3.into(),
-                    },
-                    MainBlock {
-                        body: vec![4.into()],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("List"),
-                    Constant::Str("String"),
-                    Constant::Str("bar"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn map_with_type_hint() {
-            let source = "let foo: Map<String, List<Int>> = bar";
-
-            check_ast(
-                source,
-                &[
-                    type_hint(2, &[]),       // String
-                    type_hint(4, &[]),       // Int
-                    type_hint(3, &[1]),      // List
-                    type_hint(1, &[0, 2]),   // Map
-                    id_with_type_hint(0, 3), // foo
-                    id(5),                   // bar - 5
-                    Assign {
-                        target: 4.into(),
-                        expression: 5.into(),
-                    },
-                    MainBlock {
-                        body: vec![6.into()],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("Map"),
-                    Constant::Str("String"),
-                    Constant::Str("List"),
-                    Constant::Str("Int"),
-                    Constant::Str("bar"),
-                ]),
-            )
-        }
-
-        #[test]
         fn multiple_targets() {
             let source = "let foo: String, bar: Int = baz";
 
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),       // String
+                    type_hint(1),            // String
                     id_with_type_hint(0, 0), // foo
-                    type_hint(3, &[]),       // Int
+                    type_hint(3),            // Int
                     id_with_type_hint(2, 2), // bar
                     id(4),                   // baz
                     MultiAssign {
@@ -1482,7 +1420,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(0, &[]),
+                    type_hint(0),
                     Wildcard(None, Some(0.into())),
                     SmallInt(1),
                     Assign {
@@ -1505,7 +1443,7 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(Some(0.into()), Some(0.into())),
                     SmallInt(1),
                     Assign {
@@ -1527,11 +1465,11 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    type_hint(1, &[]),
+                    type_hint(1),
                     id_with_type_hint(0, 0),
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(None, Some(2.into())),
-                    type_hint(1, &[]),
+                    type_hint(1),
                     Wildcard(Some(2.into()), Some(4.into())),
                     id(3),
                     Chain((

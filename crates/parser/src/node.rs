@@ -260,7 +260,7 @@ pub enum Node {
     ///
     /// e.g. `let x: Number = 0`
     ///            ^~~ This is the beginning of the type hint
-    Type(ConstantIndex, Vec<AstIndex>),
+    Type(ConstantIndex),
 }
 
 /// A function definition

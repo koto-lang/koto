@@ -52,8 +52,6 @@ enum ErrorKind {
     MissingValueForMapEntry,
     #[error("only one ellipsis is allowed in a match arm")]
     MultipleMatchEllipses,
-    #[error("nested type declarations are currently unsupported")]
-    NestedTypeDeclaration,
     #[error("the compiled expression has no output")]
     NoResultInExpressionOutput,
     #[error("child chain node out of position")]
@@ -1098,11 +1096,7 @@ impl Compiler {
         self.push_span(type_node, ctx.ast);
 
         match &type_node.node {
-            Node::Type(type_index, nested) => {
-                if !nested.is_empty() {
-                    return self.error(ErrorKind::NestedTypeDeclaration);
-                }
-
+            Node::Type(type_index) => {
                 if self.settings.enable_type_checks {
                     self.push_op(Op::CheckType, &[value_register]);
                     self.push_var_u32((*type_index).into());
