@@ -623,18 +623,31 @@ impl Compiler {
             captures,
         ));
 
-        // unpack nested args
+        // Unpack nested args and check types
         for (arg_index, arg) in args.iter().enumerate() {
             let arg_node = ctx.node_with_span(*arg);
-            if let Node::Tuple(nested_args) = &arg_node.node {
-                self.push_span(arg_node, ctx.ast);
+            let arg_register = arg_index as u8 + 1; // self is in register 0, args start from 1
+            match &arg_node.node {
+                Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        self.compile_check_type(arg_register, *type_hint, ctx)?;
+                    }
+                }
+                Node::Tuple(nested_args) => {
+                    self.push_span(arg_node, ctx.ast);
 
-                let tuple_register = arg_index as u8 + 1;
-                let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
-                self.push_op(size_op, &[tuple_register, size_to_check as u8]);
-                self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
+                    let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                    self.push_op(size_op, &[arg_register, size_to_check as u8]);
+                    self.compile_unpack_nested_args(arg_register, nested_args, ctx)?;
 
-                self.pop_span();
+                    self.pop_span();
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID or Tuple as function arg".into(),
+                        unexpected: unexpected.clone(),
+                    })
+                }
             }
         }
 
@@ -747,10 +760,18 @@ impl Compiler {
             };
 
             match ctx.node(*arg) {
-                Node::Wildcard(..) => {}
-                Node::Id(constant_index, ..) => {
+                Node::Wildcard(_, Some(type_hint)) => {
+                    let temp_register = self.push_register()?;
+                    self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
+                    self.compile_check_type(temp_register, *type_hint, ctx)?;
+                    self.pop_register()?; // temp_register
+                }
+                Node::Id(constant_index, maybe_type) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
+                    if let Some(type_hint) = maybe_type {
+                        self.compile_check_type(local_register, *type_hint, ctx)?;
+                    }
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;

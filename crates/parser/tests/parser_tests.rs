@@ -2241,6 +2241,51 @@ a()";
         }
 
         #[test]
+        fn two_args_with_type_hints() {
+            let sources = [
+                "
+|x: String, y: Number| x + y
+",
+                "
+| x: String,
+  y: Number,
+|
+  x + y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    type_hint(1),            // String
+                    id_with_type_hint(0, 0), // x
+                    type_hint(3),            // Number
+                    id_with_type_hint(2, 2), // y
+                    id(0),                   // x
+                    id(2),                   // y - 5
+                    binary_op(AstBinaryOp::Add, 4, 5),
+                    Function(koto_parser::Function {
+                        args: expressions(&[1, 3]),
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 6.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: expressions(&[7]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("String"),
+                    Constant::Str("y"),
+                    Constant::Str("Number"),
+                ]),
+            )
+        }
+
+        #[test]
         fn inline_var_args() {
             let source = "|x, y...| x + y.size()";
             check_ast(

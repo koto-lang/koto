@@ -885,16 +885,21 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    arg_nodes.push(self.push_node(Node::Id(constant_index, None))?);
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    arg_nodes.push(self.push_node(Node::Id(constant_index, type_hint))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
+                        if type_hint.is_some() {
+                            return self.consume_token_and_error(SyntaxError::UnexpectedToken);
+                        }
                         self.consume_token();
                         is_variadic = true;
                         break;
                     }
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, None))?)
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -1033,14 +1038,15 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
                     } else {
-                        Node::Id(constant_index, None)
+                        Node::Id(constant_index, self.parse_type_hint(&args_context)?)
                     };
 
                     nested_args.push(self.push_node(arg_node)?);
                     arg_ids.push(constant_index);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, None))?)
+                    let type_hint = self.parse_type_hint(&args_context)?;
+                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
                 }
                 None => match self.peek_token() {
                     Some(Token::RoundOpen) => {
