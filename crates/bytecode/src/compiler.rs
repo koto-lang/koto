@@ -1175,6 +1175,7 @@ impl Compiler {
         value_register: u8,
         type_hint: AstIndex,
         ctx: CompileNodeContext,
+        respect_enable_type_checks_flag: bool,
     ) -> Result<Option<usize>> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
