@@ -778,7 +778,10 @@ impl<'source> Parser<'source> {
                     }
                 }
             }
-            Token::Wildcard => self.consume_wildcard(context),
+            Token::Wildcard => {
+                let maybe_id = self.consume_wildcard(context)?;
+                self.push_node(Node::Wildcard(maybe_id, None))
+            }
             Token::SquareOpen => self.consume_list(context),
             Token::CurlyOpen => self.consume_map_with_braces(context),
             Token::If => self.consume_if_expression(context),
@@ -1167,17 +1170,23 @@ impl<'source> Parser<'source> {
         }
     }
 
-    // Parses a single `_` wildcard, along with its optional following id
+    // Consumes a single `_` wildcard, along with its optional following id
+    fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<Option<ConstantIndex>> {
+        if !matches!(
+            self.consume_token_with_context(context),
+            Some((Token::Wildcard, _))
+        ) {
+            return self.error(InternalError::UnexpectedToken);
+        }
 
-    fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        self.consume_token_with_context(context);
         let slice = self.current_token.slice(self.source);
         let maybe_id = if slice.len() > 1 {
             Some(self.add_string_constant(&slice[1..])?)
         } else {
             None
         };
-        self.push_node(Node::Wildcard(maybe_id, None))
+
+        Ok(maybe_id)
     }
 
     // Parses either an id or a wildcard
@@ -1199,13 +1208,7 @@ impl<'source> Parser<'source> {
                 token: Token::Wildcard,
                 ..
             }) => {
-                self.consume_token_with_context(context);
-                let slice = self.current_token.slice(self.source);
-                let maybe_id = if slice.len() > 1 {
-                    Some(self.add_string_constant(&slice[1..])?)
-                } else {
-                    None
-                };
+                let maybe_id = self.consume_wildcard(context)?;
                 Ok(Some(IdOrWildcard::Wildcard(maybe_id)))
             }
             _ => Ok(None),
@@ -2493,7 +2496,8 @@ impl<'source> Parser<'source> {
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
                             }
                         } else {
-                            let id_node = self.push_node(Node::Id(id, None))?;
+                            let type_hint = self.parse_type_hint(&pattern_context)?;
+                            let id_node = self.push_node(Node::Id(id, type_hint))?;
                             if self.next_token_is_chain_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.consume_chain(id_node, &pattern_context)?
@@ -2506,7 +2510,11 @@ impl<'source> Parser<'source> {
                     }
                     None => return self.error(InternalError::IdParseFailure),
                 },
-                Wildcard => self.consume_wildcard(&pattern_context).map(Some)?,
+                Wildcard => {
+                    let maybe_id = self.consume_wildcard(&pattern_context)?;
+                    let maybe_type = self.parse_type_hint(&pattern_context)?;
+                    Some(self.push_node(Node::Wildcard(maybe_id, maybe_type))?)
+                }
                 RoundOpen => {
                     self.consume_token_with_context(&pattern_context);
 

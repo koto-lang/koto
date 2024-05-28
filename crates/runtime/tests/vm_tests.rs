@@ -867,6 +867,17 @@ f()
         }
 
         #[test]
+        fn match_with_type_hints() {
+            let script = r#"
+match 42
+  x: String or x: List then -1
+  x: Number or x: Bool then x
+  else -2
+"#;
+            check_script_output(script, 42);
+        }
+
+        #[test]
         fn match_map_result() {
             let script = r#"
 m = match "hello"

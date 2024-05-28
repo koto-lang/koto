@@ -488,10 +488,17 @@ pub enum Op {
     /// Throws an error if the value doesn't match the provided type
     ///
     /// `[*value, @type constant]`
+    AssertType,
+
+    /// Checks if the value matches the provided type
+    ///
+    /// If the value doesn't match the type then the instruction pointer will be jumped forward to
+    /// the location referred to by the jump offset.
+    ///
+    /// `[*value, jump_offset[2], @type constant]`
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused83,
     Unused84,
     Unused85,
     Unused86,

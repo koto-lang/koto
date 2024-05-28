@@ -937,7 +937,12 @@ impl KotoVm {
             Debug { register, constant } => self.run_debug(register, constant)?,
             CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
             CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
-            CheckType { value, type_string } => self.run_check_type(value, type_string)?,
+            AssertType { value, type_string } => self.run_assert_type(value, type_string)?,
+            CheckType {
+                value,
+                jump_offset,
+                type_string,
+            } => self.run_check_type(value, jump_offset as u32, type_string)?,
         }
 
         Ok(control_flow)
@@ -2802,7 +2807,7 @@ impl KotoVm {
         }
     }
 
-    fn run_check_type(&mut self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
+    fn run_assert_type(&mut self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
         let value = self.get_register(value_register);
         let expected_type = self.get_constant_str(type_index);
         if value.type_as_string() == expected_type {
@@ -2810,6 +2815,20 @@ impl KotoVm {
         } else {
             type_error(expected_type, self.get_register(value_register))
         }
+    }
+
+    fn run_check_type(
+        &mut self,
+        value_register: u8,
+        jump_offset: u32,
+        type_index: ConstantIndex,
+    ) -> Result<()> {
+        let value = self.get_register(value_register);
+        let expected_type = self.get_constant_str(type_index);
+        if value.type_as_string() != expected_type {
+            self.jump_ip(jump_offset);
+        }
+        Ok(())
     }
 
     fn get_value_size(&mut self, value_register: u8) -> Result<usize> {

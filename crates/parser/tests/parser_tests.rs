@@ -4707,6 +4707,40 @@ match x
         }
 
         #[test]
+        fn match_with_type_pattern() {
+            let source = r#"
+match x
+  y: String then y
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),                   // x
+                    type_hint(2),            // String
+                    id_with_type_hint(1, 1), // y
+                    id(1),                   // y
+                    Match {
+                        expression: 0.into(),
+                        arms: vec![MatchArm {
+                            patterns: nodes(&[2]),
+                            condition: None,
+                            expression: 3.into(),
+                        }],
+                    },
+                    MainBlock {
+                        body: nodes(&[4]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("String"),
+                ]),
+            )
+        }
+
+        #[test]
         fn match_tuple() {
             let source = r#"
 match (x, y, z)

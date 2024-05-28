@@ -320,8 +320,13 @@ pub enum Instruction {
         register: u8,
         size: usize,
     },
+    AssertType {
+        value: u8,
+        type_string: ConstantIndex,
+    },
     CheckType {
         value: u8,
+        jump_offset: u16,
         type_string: ConstantIndex,
     },
     StringStart {
@@ -741,8 +746,18 @@ impl fmt::Debug for Instruction {
             CheckSizeMin { register, size } => {
                 write!(f, "CheckSizeMin\tvalue: {register}\tsize: {size}")
             }
-            CheckType { value, type_string } => {
-                write!(f, "CheckType\tvalue: {value}\ttype: {type_string}")
+            AssertType { value, type_string } => {
+                write!(f, "AssertType\tvalue: {value}\ttype: {type_string}")
+            }
+            CheckType {
+                value,
+                jump_offset,
+                type_string,
+            } => {
+                write!(
+                    f,
+                    "CheckType\tvalue: {value}\toffset: {jump_offset}\ttype: {type_string}"
+                )
             }
             StringStart { size_hint } => {
                 write!(f, "StringStart\tsize hint: {size_hint}")
