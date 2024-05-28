@@ -1362,11 +1362,13 @@ If a value is assigned that doesn't match the declared type then an error will
 be thrown.
 
 ```koto
-print! let x: String = 'hello'
+let x: String = 'hello'
+print! x
 check! hello
 
-print! let a: Number, _, c: Bool = 123, x, true
-check! (123, 'hello', true)
+let a: Number, _, c: Bool = 123, x, true
+print! a, c
+check! (123, true)
 ```
 
 ### `for` arguments
