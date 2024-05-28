@@ -2757,7 +2757,9 @@ impl<'source> Parser<'source> {
             }
         }
 
-        let last_target = targets.pop().unwrap();
+        let Some(last_target) = targets.pop() else {
+            return self.error(SyntaxError::ExpectedAssignmentTarget);
+        };
 
         match self.parse_assign_expression(last_target, &targets, context)? {
             Some(val) => Ok(val),
