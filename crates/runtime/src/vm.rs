@@ -2807,13 +2807,14 @@ impl KotoVm {
         }
     }
 
-    fn run_assert_type(&mut self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
-        let value = self.get_register(value_register);
-        let expected_type = self.get_constant_str(type_index);
-        if value.type_as_string() == expected_type {
+    fn run_assert_type(&self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
+        if self.compare_value_type(value_register, type_index) {
             Ok(())
         } else {
-            type_error(expected_type, self.get_register(value_register))
+            type_error(
+                self.get_constant_str(type_index),
+                self.get_register(value_register),
+            )
         }
     }
 
@@ -2823,12 +2824,19 @@ impl KotoVm {
         jump_offset: u32,
         type_index: ConstantIndex,
     ) -> Result<()> {
-        let value = self.get_register(value_register);
-        let expected_type = self.get_constant_str(type_index);
-        if value.type_as_string() != expected_type {
+        if !self.compare_value_type(value_register, type_index) {
             self.jump_ip(jump_offset);
         }
         Ok(())
+    }
+
+    fn compare_value_type(&self, value_register: u8, type_index: ConstantIndex) -> bool {
+        let value = self.get_register(value_register);
+        match self.get_constant_str(type_index) {
+            "Any" => true,
+            "Iterable" => value.is_iterable(),
+            expected_type => value.type_as_string() == expected_type,
+        }
     }
 
     fn get_value_size(&mut self, value_register: u8) -> Result<usize> {

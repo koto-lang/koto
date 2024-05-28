@@ -545,6 +545,24 @@ x
 ";
             check_script_output(script, "foo");
         }
+
+        #[test]
+        fn any_matches_all_values() {
+            let script = "
+let x: Any, y: Any, z: Any = true, 42, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn iterable_matches_iterable_values() {
+            let script = "
+let x: Iterable, y: Iterable = 1..10, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
     }
 
     mod if_expressions {
