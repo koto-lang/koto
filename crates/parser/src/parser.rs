@@ -2063,13 +2063,15 @@ impl<'source> Parser<'source> {
 
         let mut args = Vec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
+            let type_hint = self.parse_type_hint(context)?;
+
             match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                    args.push(self.push_node(Node::Id(id, None))?);
+                    args.push(self.push_node(Node::Id(id, type_hint))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
-                    args.push(self.push_node(Node::Wildcard(maybe_id, None))?);
+                    args.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
                 }
             }
 

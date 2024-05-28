@@ -3506,16 +3506,31 @@ impl Compiler {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
                 match ctx.node(*single_arg) {
-                    Node::Id(id, ..) => {
+                    Node::Id(id, maybe_type) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
                         self.push_loop_jump_placeholder()?;
+                        if let Some(type_hint) = maybe_type {
+                            self.compile_assert_type(arg_register, *type_hint, ctx)?;
+                        }
                     }
-                    Node::Wildcard(..) => {
-                        // e.g. for _ in 0..10
-                        self.push_op_without_span(IterNextQuiet, &[iterator_register]);
-                        self.push_loop_jump_placeholder()?;
+                    Node::Wildcard(_, maybe_type) => {
+                        if let Some(type_hint) = maybe_type {
+                            // e.g. for _: Number in 0..10
+                            let temp_register = self.push_register()?;
+                            self.push_op_without_span(
+                                IterNext,
+                                &[temp_register, iterator_register],
+                            );
+                            self.push_loop_jump_placeholder()?;
+                            self.compile_assert_type(temp_register, *type_hint, ctx)?;
+                            self.pop_register()?; // temp_register
+                        } else {
+                            // e.g. for _ in 0..10
+                            self.push_op_without_span(IterNextQuiet, &[iterator_register]);
+                            self.push_loop_jump_placeholder()?;
+                        }
                     }
                     unexpected => {
                         return self.error(ErrorKind::UnexpectedNode {
