@@ -446,15 +446,19 @@ fn consume_help_section(
                     result.push('`');
                 }
             },
-            Code(code) => {
-                if matches!(parsing_mode, ParsingMode::Section) {
+            Code(code) => match parsing_mode {
+                ParsingMode::Section => {
                     section_name.push_str(code);
-                } else {
+                }
+                ParsingMode::SubSection => {
+                    sub_section_name.push_str(code);
+                }
+                _ => {
                     result.push('`');
                     result.push_str(code);
                     result.push('`');
                 }
-            }
+            },
             SoftBreak => result.push(' '),
             HardBreak => result.push('\n'),
             _other => {}
