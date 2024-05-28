@@ -130,6 +130,15 @@ f 42
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn for_loop_with_typed_arg() {
+                let script = "
+for x: Number in (1, true, 2)
+  x
+";
+                check_script_fails(script);
+            }
         }
 
         mod missing_values {

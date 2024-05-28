@@ -601,7 +601,7 @@ impl Compiler {
             match &arg_node.node {
                 Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
-                        self.compile_check_type(arg_register, *type_hint, ctx)?;
+                        self.compile_assert_type(arg_register, *type_hint, ctx)?;
                     }
                 }
                 Node::Tuple(nested_args) => {
@@ -708,7 +708,7 @@ impl Compiler {
 
     fn compile_check_output_type(&mut self, register: u8, ctx: CompileNodeContext) -> Result<()> {
         if let Some(output_type) = self.frame().output_type {
-            self.compile_check_type(register, output_type, ctx)?;
+            self.compile_assert_type(register, output_type, ctx)?;
         }
         Ok(())
     }
@@ -798,14 +798,14 @@ impl Compiler {
                 Node::Wildcard(_, Some(type_hint)) => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
-                    self.compile_check_type(temp_register, *type_hint, ctx)?;
+                    self.compile_assert_type(temp_register, *type_hint, ctx)?;
                     self.pop_register()?; // temp_register
                 }
                 Node::Id(constant_index, maybe_type) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                     if let Some(type_hint) = maybe_type {
-                        self.compile_check_type(local_register, *type_hint, ctx)?;
+                        self.compile_assert_type(local_register, *type_hint, ctx)?;
                     }
                 }
                 Node::Tuple(nested_args) => {
@@ -931,7 +931,7 @@ impl Compiler {
                 }
 
                 if let Some(type_hint) = type_hint {
-                    self.compile_check_type(value_register, *type_hint, ctx)?;
+                    self.compile_assert_type(value_register, *type_hint, ctx)?;
                 }
 
                 if export_assignment || self.force_export_assignment() {
@@ -952,7 +952,7 @@ impl Compiler {
             }
             Node::Wildcard(_id, type_hint) => {
                 if let Some(type_hint) = type_hint {
-                    self.compile_check_type(value_register, *type_hint, ctx)?;
+                    self.compile_assert_type(value_register, *type_hint, ctx)?;
                 }
             }
             unexpected => {
@@ -1040,7 +1040,7 @@ impl Compiler {
                     self.commit_local_register(target_register)?;
 
                     if let Some(type_hint) = type_hint {
-                        self.compile_check_type(target_register, *type_hint, ctx)?;
+                        self.compile_assert_type(target_register, *type_hint, ctx)?;
                     }
 
                     // Multi-assignments typically aren't exported, but exporting
@@ -1082,7 +1082,7 @@ impl Compiler {
                         }
 
                         if let Some(type_hint) = type_hint {
-                            self.compile_check_type(value_register, *type_hint, ctx)?;
+                            self.compile_assert_type(value_register, *type_hint, ctx)?;
                         }
 
                         if result.register.is_some() {
@@ -1142,32 +1142,60 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_check_type(
+    fn compile_assert_type(
         &mut self,
         value_register: u8,
         type_hint: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         let type_node = ctx.node_with_span(type_hint);
-        self.push_span(type_node, ctx.ast);
-
         match &type_node.node {
             Node::Type(type_index) => {
                 if self.settings.enable_type_checks {
-                    self.push_op(Op::CheckType, &[value_register]);
+                    self.push_span(type_node, ctx.ast);
+                    self.push_op(Op::AssertType, &[value_register]);
                     self.push_var_u32((*type_index).into());
+                    self.pop_span();
+                }
+                Ok(())
+            }
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "Type".into(),
+                unexpected: unexpected.clone(),
+            }),
+        }
+    }
+
+    // Compiles a type check using the CheckType instruction
+    //
+    // Returns the jump placeholder for a failed type check, the caller needs to update the
+    // placeholder with the offset to the jump target.
+    fn compile_check_type(
+        &mut self,
+        value_register: u8,
+        type_hint: AstIndex,
+        ctx: CompileNodeContext,
+        respect_enable_type_checks_flag: bool,
+    ) -> Result<Option<usize>> {
+        let type_node = ctx.node_with_span(type_hint);
+        match &type_node.node {
+            Node::Type(type_index) => {
+                if respect_enable_type_checks_flag && self.settings.enable_type_checks {
+                    Ok(None)
+                } else {
+                    self.push_span(type_node, ctx.ast);
+                    self.push_op(Op::CheckType, &[value_register]);
+                    let jump_placeholder = self.push_offset_placeholder();
+                    self.push_var_u32((*type_index).into());
+                    self.pop_span();
+                    Ok(Some(jump_placeholder))
                 }
             }
-            unexpected => {
-                return self.error(ErrorKind::UnexpectedNode {
-                    expected: "Type".into(),
-                    unexpected: unexpected.clone(),
-                })
-            }
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "Type".into(),
+                unexpected: unexpected.clone(),
+            }),
         }
-
-        self.pop_span();
-        Ok(())
     }
 
     fn compile_value_export(&mut self, id: ConstantIndex, value_register: u8) -> Result<()> {
@@ -3206,7 +3234,7 @@ impl Compiler {
                     self.pop_register()?; // comparison_register
                     self.pop_register()?; // pattern_register
                 }
-                Node::Id(id, ..) => {
+                Node::Id(id, maybe_type) => {
                     let id_register = self.assign_local_register(*id)?;
                     if match_is_container {
                         self.push_op(
@@ -3217,17 +3245,56 @@ impl Compiler {
                         self.push_op(Copy, &[id_register, params.match_register]);
                     }
 
+                    if let Some(type_hint) = maybe_type {
+                        if let Some(jump_placeholder) =
+                            self.compile_check_type(id_register, *type_hint, ctx, false)?
+                        {
+                            // Where should failed type checks jump to?
+                            if params.is_last_alternative {
+                                // No more `or` alternatives, so jump to the end of the arm
+                                params.jumps.arm_end.push(jump_placeholder);
+                            } else {
+                                // Jump to the next `or` alternative pattern
+                                params.jumps.alternative_end.push(jump_placeholder);
+                            }
+                        }
+                    }
+
+                    // The variable has received its value, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
-                        // Ids match unconditionally, so if we're at the end of a
-                        // multi-expression pattern, skip over the remaining alternatives
+                        // e.g. x, 0, y or x, 1, y if x == y then
+                        //            ^ ~~~~~~ We're here, jump to the if condition
                         self.push_op(Jump, &[]);
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard(..) => {
+                Node::Wildcard(_, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        let temp_register = self.push_register()?;
+                        if match_is_container {
+                            self.push_op(
+                                TempIndex,
+                                &[temp_register, params.match_register, pattern_index as u8],
+                            );
+                        } else {
+                            self.push_op(Copy, &[temp_register, params.match_register]);
+                        }
+                        if let Some(jump_placeholder) =
+                            self.compile_check_type(temp_register, *type_hint, ctx, false)?
+                        {
+                            // Where should failed type checks jump to?
+                            if params.is_last_alternative {
+                                // No more `or` alternatives, so jump to the end of the arm
+                                params.jumps.arm_end.push(jump_placeholder);
+                            } else {
+                                // Jump to the next `or` alternative pattern
+                                params.jumps.alternative_end.push(jump_placeholder);
+                            }
+                        }
+                    }
+
+                    // The wildcard has been validated, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
-                        // Wildcards match unconditionally, so if we're at the end of a
-                        // multi-expression pattern, skip over the remaining alternatives
                         // e.g. x, 0, _ or x, 1, y if foo x then
                         //            ^~~~~~~ We're here, jump to the if condition
                         self.push_op(Jump, &[]);
@@ -3440,16 +3507,31 @@ impl Compiler {
             [] => return self.error(ErrorKind::MissingArgumentInForLoop),
             [single_arg] => {
                 match ctx.node(*single_arg) {
-                    Node::Id(id, ..) => {
+                    Node::Id(id, maybe_type) => {
                         // e.g. for i in 0..10
                         let arg_register = self.assign_local_register(*id)?;
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
                         self.push_loop_jump_placeholder()?;
+                        if let Some(type_hint) = maybe_type {
+                            self.compile_assert_type(arg_register, *type_hint, ctx)?;
+                        }
                     }
-                    Node::Wildcard(..) => {
-                        // e.g. for _ in 0..10
-                        self.push_op_without_span(IterNextQuiet, &[iterator_register]);
-                        self.push_loop_jump_placeholder()?;
+                    Node::Wildcard(_, maybe_type) => {
+                        if let Some(type_hint) = maybe_type {
+                            // e.g. for _: Number in 0..10
+                            let temp_register = self.push_register()?;
+                            self.push_op_without_span(
+                                IterNext,
+                                &[temp_register, iterator_register],
+                            );
+                            self.push_loop_jump_placeholder()?;
+                            self.compile_assert_type(temp_register, *type_hint, ctx)?;
+                            self.pop_register()?; // temp_register
+                        } else {
+                            // e.g. for _ in 0..10
+                            self.push_op_without_span(IterNextQuiet, &[iterator_register]);
+                            self.push_loop_jump_placeholder()?;
+                        }
                     }
                     unexpected => {
                         return self.error(ErrorKind::UnexpectedNode {

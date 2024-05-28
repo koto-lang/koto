@@ -720,6 +720,7 @@ used as a map key.
 
 The immutable value types in Koto are [strings](#strings), [numbers](#numbers), 
 [booleans](#booleans), [ranges](#ranges), and [`null`](#null).
+
 A [tuple](#tuples) is also considered to be immutable when its contained
 elements are also immutable.
 
@@ -898,6 +899,19 @@ check! Starts with 'a', followed by 'b', then 4 others
 
 Koto includes several ways of evaluating expressions repeatedly in a loop.
 
+### for
+
+`for` loops are repeated for each element in a sequence, 
+such as a list or tuple.
+
+```koto
+for n in [10, 20, 30]
+  print n
+check! 10
+check! 20
+check! 30
+```
+
 ### while
 
 `while` loops continue to repeat _while_ a condition is true.
@@ -922,6 +936,20 @@ until z.is_empty()
 check! 3
 check! 2
 check! 1
+```
+
+### continue 
+
+`continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
+
+```koto
+for n in (-2, -1, 1, 2)
+  # Skip over any values less than 0
+  if n < 0
+    continue
+  print n
+check! 1
+check! 2
 ```
 
 ### break
@@ -965,33 +993,6 @@ y = loop
     break x * x
 print! y
 check! 25
-```
-
-### for
-
-`for` loops are repeated for each element in a sequence, 
-such as a list or tuple.
-
-```koto
-for n in [10, 20, 30]
-  print n
-check! 10
-check! 20
-check! 30
-```
-
-### continue 
-
-`continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
-
-```koto
-for n in (-2, -1, 1, 2)
-  # Skip over any values less than 0
-  if n < 0
-    continue
-  print n
-check! 1
-check! 2
 ```
 
 ## Iterators
@@ -1332,6 +1333,99 @@ print! z[..2]
 check! ('H', 'ë')
 print! z[2..]
 check! ('l', 'l', 'ø')
+```
+
+## Type Checks
+
+Koto is a primarily a dynamically typed language, however in more complex programs 
+you might find it beneficial to add type checks.
+
+These checks can help in catching errors earlier, and can also act as
+documentation for the reader.
+
+One way to add type checks to your program is to use the 
+[`type`][koto-type] function, which returns a value's type as a string.
+
+```koto
+x = 123
+assert_eq (type x), 'Number'
+```
+
+Checking types this way is rather verbose, so Koto offers _type hints_ as a more
+ergonomic alternative.
+
+### `let`
+
+You can declare variables with type hints using a `let` expression.
+
+If a value is assigned that doesn't match the declared type then an error will
+be thrown.
+
+```koto
+print! let x: String = 'hello'
+check! hello
+
+print! let a: Number, _, c: Bool = 123, x, true
+check! (123, 'hello', true)
+```
+
+### `for` arguments
+
+Type hints can also be added to `for` loop arguments. 
+The type will be checked on each iteration of the loop.
+
+```koto
+for x: Number in (1, 2, 3)
+  print x
+check! 1
+check! 2
+check! 3
+```
+
+### Function arguments
+
+Function arguments can also be given type hints, and the type of the 
+return value can be checked with the `->` operator.
+
+```koto
+f = |s: String| -> Tuple 
+  s.to_tuple()
+print! f 'abc'
+check! ('a', 'b', 'c')
+```
+
+### `match` patterns
+
+Type hints can be used in `match` patterns to check the type of the a value.
+Rather than throwing an error, if a type check fails then the next 
+match pattern will be attempted.
+
+```koto
+print! match 'abc'
+  x: Tuple then x
+  x: String then x.to_tuple()
+check! ('a', 'b', 'c')
+```
+
+### Special Types
+
+#### `Any`
+
+The `Any` type will result in a successful check with any value.
+
+```koto
+print! let x: Any = 'hello'
+check! hello
+```
+
+#### `Iterable` 
+
+The `Iterable` type is useful when any iterable value can be accepted. 
+
+```koto
+let a: Iterable, b: Iterable = [1, 2], 3..=5
+print! a.chain(b).to_tuple()
+check! (1, 2, 3, 4, 5)
 ```
 
 ## String Formatting
@@ -2188,6 +2282,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
 [iterator]: ./core_lib/iterator.md
+[koto-type]: ./core_lib/koto.md#type
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation

@@ -937,7 +937,12 @@ impl KotoVm {
             Debug { register, constant } => self.run_debug(register, constant)?,
             CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
             CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
-            CheckType { value, type_string } => self.run_check_type(value, type_string)?,
+            AssertType { value, type_string } => self.run_assert_type(value, type_string)?,
+            CheckType {
+                value,
+                jump_offset,
+                type_string,
+            } => self.run_check_type(value, jump_offset as u32, type_string)?,
         }
 
         Ok(control_flow)
@@ -2802,13 +2807,35 @@ impl KotoVm {
         }
     }
 
-    fn run_check_type(&mut self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
-        let value = self.get_register(value_register);
-        let expected_type = self.get_constant_str(type_index);
-        if value.type_as_string() == expected_type {
+    fn run_assert_type(&self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
+        if self.compare_value_type(value_register, type_index) {
             Ok(())
         } else {
-            type_error(expected_type, self.get_register(value_register))
+            type_error(
+                self.get_constant_str(type_index),
+                self.get_register(value_register),
+            )
+        }
+    }
+
+    fn run_check_type(
+        &mut self,
+        value_register: u8,
+        jump_offset: u32,
+        type_index: ConstantIndex,
+    ) -> Result<()> {
+        if !self.compare_value_type(value_register, type_index) {
+            self.jump_ip(jump_offset);
+        }
+        Ok(())
+    }
+
+    fn compare_value_type(&self, value_register: u8, type_index: ConstantIndex) -> bool {
+        let value = self.get_register(value_register);
+        match self.get_constant_str(type_index) {
+            "Any" => true,
+            "Iterable" => value.is_iterable(),
+            expected_type => value.type_as_string() == expected_type,
         }
     }
 

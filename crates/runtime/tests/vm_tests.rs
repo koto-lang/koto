@@ -545,6 +545,24 @@ x
 ";
             check_script_output(script, "foo");
         }
+
+        #[test]
+        fn any_matches_all_values() {
+            let script = "
+let x: Any, y: Any, z: Any = true, 42, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn iterable_matches_iterable_values() {
+            let script = "
+let x: Iterable, y: Iterable = 1..10, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
     }
 
     mod if_expressions {
@@ -864,6 +882,17 @@ f = ||
 f()
 ";
             check_script_output(script, 1);
+        }
+
+        #[test]
+        fn match_with_type_hints() {
+            let script = r#"
+match 42
+  x: String or x: List then -1
+  x: Number or x: Bool then x
+  else -2
+"#;
+            check_script_output(script, 42);
         }
 
         #[test]

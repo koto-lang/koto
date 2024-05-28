@@ -1010,6 +1010,30 @@ min..max
                 None,
             )
         }
+
+        #[test]
+        fn ranges_in_tuple() {
+            let source = "\
+1..2, 3..4
+";
+            check_ast(
+                source,
+                &[
+                    SmallInt(1),
+                    SmallInt(2),
+                    range(0, 1, false),
+                    SmallInt(3),
+                    SmallInt(4),
+                    range(3, 4, false), // 5
+                    Tuple(nodes(&[2, 5])),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
     }
 
     mod tuples {
@@ -2010,31 +2034,35 @@ a",
         use super::*;
 
         #[test]
-        fn for_block() {
+        fn for_loop() {
             let source = "\
-for x, _, _y, z in foo
+for x: String, _: Number, _y, z in foo
   x";
             check_ast(
                 source,
                 &[
-                    id(0), // x
-                    Wildcard(None, None),
-                    Wildcard(Some(1.into()), None), // _y
-                    id(2),                          // z
-                    id(3),                          // foo
-                    id(0),                          // x - 5
+                    type_hint(1),                   // String
+                    id_with_type_hint(0, 0),        // x
+                    type_hint(2),                   // Number
+                    Wildcard(None, Some(2.into())), // _
+                    Wildcard(Some(3.into()), None), // _y
+                    id(4),                          // z - 5
+                    id(5),                          // foo
+                    id(0),                          // x
                     For(AstFor {
-                        args: nodes(&[0, 1, 2, 3]),
-                        iterable: 4.into(),
-                        body: 5.into(),
+                        args: nodes(&[1, 3, 4, 5]),
+                        iterable: 6.into(),
+                        body: 7.into(),
                     }),
                     MainBlock {
-                        body: nodes(&[6]),
+                        body: nodes(&[8]),
                         local_count: 2, // x, z
                     },
                 ],
                 Some(&[
                     Constant::Str("x"),
+                    Constant::Str("String"),
+                    Constant::Str("Number"),
                     Constant::Str("y"),
                     Constant::Str("z"),
                     Constant::Str("foo"),
@@ -2043,7 +2071,7 @@ for x, _, _y, z in foo
         }
 
         #[test]
-        fn while_block() {
+        fn while_loop() {
             let source = "\
 while x > y
   x";
@@ -2068,7 +2096,7 @@ while x > y
         }
 
         #[test]
-        fn until_block() {
+        fn until_loop() {
             let source = "\
 until x < y
   x";
@@ -2093,7 +2121,7 @@ until x < y
         }
 
         #[test]
-        fn for_block_after_array() {
+        fn for_loop_after_array() {
             // A case that failed parsing at the start of the for block,
             // expecting an expression in the main block.
             let source = "\
@@ -4678,6 +4706,40 @@ match x
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_with_type_pattern() {
+            let source = r#"
+match x
+  y: String then y
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),                   // x
+                    type_hint(2),            // String
+                    id_with_type_hint(1, 1), // y
+                    id(1),                   // y
+                    Match {
+                        expression: 0.into(),
+                        arms: vec![MatchArm {
+                            patterns: nodes(&[2]),
+                            condition: None,
+                            expression: 3.into(),
+                        }],
+                    },
+                    MainBlock {
+                        body: nodes(&[4]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("String"),
                 ]),
             )
         }
