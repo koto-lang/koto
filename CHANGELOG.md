@@ -8,6 +8,13 @@ The Koto project adheres to
 
 ## [0.15.0] Unreleased
 
+### Added 
+
+#### Language
+
+- Type hints with runtime type checks have been added ([#298](https://github.com/koto-lang/koto/issues/298)).
+  - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
+
 ### Changed
 
 #### Language
