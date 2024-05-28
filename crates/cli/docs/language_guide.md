@@ -720,6 +720,7 @@ used as a map key.
 
 The immutable value types in Koto are [strings](#strings), [numbers](#numbers), 
 [booleans](#booleans), [ranges](#ranges), and [`null`](#null).
+
 A [tuple](#tuples) is also considered to be immutable when its contained
 elements are also immutable.
 
@@ -898,6 +899,19 @@ check! Starts with 'a', followed by 'b', then 4 others
 
 Koto includes several ways of evaluating expressions repeatedly in a loop.
 
+### for
+
+`for` loops are repeated for each element in a sequence, 
+such as a list or tuple.
+
+```koto
+for n in [10, 20, 30]
+  print n
+check! 10
+check! 20
+check! 30
+```
+
 ### while
 
 `while` loops continue to repeat _while_ a condition is true.
@@ -922,6 +936,20 @@ until z.is_empty()
 check! 3
 check! 2
 check! 1
+```
+
+### continue 
+
+`continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
+
+```koto
+for n in (-2, -1, 1, 2)
+  # Skip over any values less than 0
+  if n < 0
+    continue
+  print n
+check! 1
+check! 2
 ```
 
 ### break
@@ -965,33 +993,6 @@ y = loop
     break x * x
 print! y
 check! 25
-```
-
-### for
-
-`for` loops are repeated for each element in a sequence, 
-such as a list or tuple.
-
-```koto
-for n in [10, 20, 30]
-  print n
-check! 10
-check! 20
-check! 30
-```
-
-### continue 
-
-`continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
-
-```koto
-for n in (-2, -1, 1, 2)
-  # Skip over any values less than 0
-  if n < 0
-    continue
-  print n
-check! 1
-check! 2
 ```
 
 ## Iterators
