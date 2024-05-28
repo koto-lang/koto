@@ -1010,6 +1010,30 @@ min..max
                 None,
             )
         }
+
+        #[test]
+        fn ranges_in_tuple() {
+            let source = "\
+1..2, 3..4
+";
+            check_ast(
+                source,
+                &[
+                    SmallInt(1),
+                    SmallInt(2),
+                    range(0, 1, false),
+                    SmallInt(3),
+                    SmallInt(4),
+                    range(3, 4, false), // 5
+                    Tuple(nodes(&[2, 5])),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
     }
 
     mod tuples {

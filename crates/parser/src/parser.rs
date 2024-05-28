@@ -429,6 +429,13 @@ impl<'source> Parser<'source> {
                     _ => {}
                 }
 
+                let next_expression = match self.peek_next_token_on_same_line() {
+                    Some(Token::Range | Token::RangeInclusive) => {
+                        self.consume_range(Some(next_expression), context)?
+                    }
+                    _ => next_expression,
+                };
+
                 expressions.push(next_expression);
             }
         }
