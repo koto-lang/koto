@@ -2835,7 +2835,32 @@ impl KotoVm {
         match self.get_constant_str(type_index) {
             "Any" => true,
             "Iterable" => value.is_iterable(),
-            expected_type => value.type_as_string() == expected_type,
+            expected_type => {
+                if value.type_as_string() == expected_type {
+                    true
+                } else {
+                    // The type didn't match, so look for a base value to check
+                    let mut value = value.clone();
+
+                    loop {
+                        match value {
+                            KValue::Map(m) if m.contains_meta_key(&MetaKey::Base) => {
+                                let base = m.get_meta_value(&MetaKey::Base).unwrap();
+                                if base.type_as_string() == expected_type {
+                                    return true;
+                                } else {
+                                    // The base didn't match the expected type,
+                                    // but continue looping to check the base's base.
+                                    value = base;
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+
+                    false
+                }
+            }
         }
     }
 

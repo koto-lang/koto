@@ -3475,6 +3475,43 @@ dog('Fido').speak()
 ";
             check_script_output(script, "Woof! My name is Fido");
         }
+
+        #[test]
+        fn type_check_looks_at_base_when_no_type_found() {
+            let script = "
+animal = |name|
+  @type: 'Animal'
+  name: name
+
+dog = |name|
+  @base: animal name
+
+let x: Animal = dog 'Fido'
+type x
+";
+            check_script_output(script, "Animal");
+        }
+
+        #[test]
+        fn type_check_looks_at_base_when_type_doesnt_match() {
+            let script = "
+animal = |name|
+  @type: 'Animal'
+  name: name
+
+dog = |name|
+  @base: animal name
+  @type: 'Dog'
+
+corgi = |name|
+  @base: dog name
+  @type: 'Corgi'
+
+let x: Animal = corgi 'Fido'
+type x
+";
+            check_script_output(script, "Corgi");
+        }
     }
 
     mod import {
