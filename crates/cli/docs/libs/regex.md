@@ -22,10 +22,11 @@ including a guide to the [supported syntax][syntax-docs].
 ## Regex.is_match
 
 ```kototype
-|Regex, String| -> Bool
+|Regex, input: String| -> Bool
 ```
 
-Returns `true` if the given string matches against the regular expression.
+Returns `true` if the given `input` string matches against the regular
+expression.
 
 ### Example
 
@@ -40,10 +41,10 @@ check! false
 ## Regex.find
 
 ```kototype
-|Regex, String| -> Match
+|Regex, input: String| -> Match or Null
 ```
 
-If the given string matches the regular expression, then an instance of
+If the given `input` string matches the regular expression, then an instance of
 [`Match`](#match) is returned that allows the first matched region in the string
 to be inspected. If no matches are found then `null` is returned.
 
@@ -63,10 +64,10 @@ check! null
 ## Regex.find_all
 
 ```kototype
-|Regex, String| -> Matches 
+|Regex, input: String| -> Matches or Null
 ```
 
-If the given string matches the regular expression, then an instance of
+If the given `input` string matches the regular expression, then an instance of
 [`Matches`](#matches) is returned that allows all matches in the input to be
 inspected. If no matches are found then `null` is returned.
 
@@ -86,7 +87,7 @@ check! ('gh', 9..11)
 ## Regex.captures
 
 ```kototype
-|Regex, String| -> Map
+|Regex, input: String| -> Map or Null
 ```
 
 If the given string matches the regular expression, then a map is returned

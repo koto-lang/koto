@@ -22,5 +22,6 @@ koto_lexer = { path = "../lexer", version = "^0.15.0" }
 koto_memory = { path = "../memory", version = "^0.15.0", default-features = false }
 
 derive-name = { workspace = true }
+smallvec = { workspace = true }
 thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }

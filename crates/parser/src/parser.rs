@@ -270,7 +270,7 @@ impl<'source> Parser<'source> {
         let mut context = ExpressionContext::permissive();
         context.expected_indentation = Indentation::Equal(0);
 
-        let mut body = Vec::new();
+        let mut body = AstVec::new();
         while self.peek_token_with_context(&context).is_some() {
             self.consume_until_token_with_context(&context);
 
@@ -325,7 +325,7 @@ impl<'source> Parser<'source> {
             .unwrap(); // Safe to unwrap here given that we've just peeked
         let start_span = self.current_span();
 
-        let mut block = Vec::new();
+        let mut block = AstVec::new();
         loop {
             let line_context = ExpressionContext {
                 allow_map_block: block.is_empty(),
@@ -389,7 +389,7 @@ impl<'source> Parser<'source> {
             return Ok(None);
         };
 
-        let mut expressions = vec![first];
+        let mut expressions = astvec![first];
         let mut encountered_linebreak = false;
         let mut encountered_comma = false;
 
@@ -658,7 +658,7 @@ impl<'source> Parser<'source> {
             _ => return Ok(None),
         }
 
-        let mut targets = Vec::with_capacity(previous_lhs.len() + 1);
+        let mut targets = AstVec::with_capacity(previous_lhs.len() + 1);
 
         for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
@@ -876,8 +876,8 @@ impl<'source> Parser<'source> {
         let span_start = self.current_span().start;
 
         // Parse function's args
-        let mut arg_nodes = Vec::new();
-        let mut arg_ids = Vec::new();
+        let mut arg_nodes = AstVec::new();
+        let mut arg_ids = AstVec::new();
         let mut is_variadic = false;
 
         let mut args_context = ExpressionContext::permissive();
@@ -989,7 +989,7 @@ impl<'source> Parser<'source> {
             Node::Function(Function {
                 args: arg_nodes,
                 local_count,
-                accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
+                accessed_non_locals: AstVec::from_iter(function_frame.accessed_non_locals),
                 body,
                 is_variadic,
                 is_generator: function_frame.contains_yield,
@@ -1036,9 +1036,9 @@ impl<'source> Parser<'source> {
     //   #                ^ ...or here
     fn parse_nested_function_args(
         &mut self,
-        arg_ids: &mut Vec<ConstantIndex>,
-    ) -> Result<Vec<AstIndex>> {
-        let mut nested_args = Vec::new();
+        arg_ids: &mut AstVec<ConstantIndex>,
+    ) -> Result<AstVec<AstIndex>> {
+        let mut nested_args = AstVec::new();
 
         let args_context = ExpressionContext::permissive();
         while self.peek_token_with_context(&args_context).is_some() {
@@ -1104,8 +1104,8 @@ impl<'source> Parser<'source> {
     // The resulting Vec will be empty if no arguments were encountered.
     //
     // See also parse_parenthesized_args.
-    fn parse_call_args(&mut self, context: &ExpressionContext) -> Result<Vec<AstIndex>> {
-        let mut args = Vec::new();
+    fn parse_call_args(&mut self, context: &ExpressionContext) -> Result<AstVec<AstIndex>> {
+        let mut args = AstVec::new();
 
         if context.allow_space_separated_call {
             let mut arg_context = ExpressionContext {
@@ -1331,7 +1331,7 @@ impl<'source> Parser<'source> {
     //   y = x[0][1].foo()
     //   #    ^ You are here
     fn consume_chain(&mut self, root: AstIndex, context: &ExpressionContext) -> Result<AstIndex> {
-        let mut chain = Vec::new();
+        let mut chain = AstVec::new();
         let mut chain_line = self.current_line;
 
         let mut node_context = *context;
@@ -1545,9 +1545,9 @@ impl<'source> Parser<'source> {
     // e.g.
     // foo[0].bar(1, 2, 3)
     // #          ^ You are here
-    fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>> {
+    fn parse_parenthesized_args(&mut self) -> Result<AstVec<AstIndex>> {
         let start_indent = self.current_indent();
-        let mut args = Vec::new();
+        let mut args = AstVec::new();
         let mut args_context = ExpressionContext::permissive();
 
         while self.peek_token_with_context(&args_context).is_some() {
@@ -1786,8 +1786,11 @@ impl<'source> Parser<'source> {
     // Returns a Vec of entries along with a bool that's true if the last token before the end
     // was a comma, which is used by parse_tuple to determine how the entries should be
     // parsed.
-    fn parse_comma_separated_entries(&mut self, end_token: Token) -> Result<(Vec<AstIndex>, bool)> {
-        let mut entries = Vec::new();
+    fn parse_comma_separated_entries(
+        &mut self,
+        end_token: Token,
+    ) -> Result<(AstVec<AstIndex>, bool)> {
+        let mut entries = AstVec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
         let mut last_token_was_a_comma = false;
 
@@ -2054,7 +2057,7 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
 
-        let mut args = Vec::new();
+        let mut args = AstVec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
             let type_hint = self.parse_type_hint(context)?;
 
@@ -2179,7 +2182,7 @@ impl<'source> Parser<'source> {
                 Node::If(AstIf {
                     condition,
                     then_node,
-                    else_if_blocks: vec![],
+                    else_if_blocks: astvec![],
                     else_node,
                 }),
                 if_span,
@@ -2190,7 +2193,7 @@ impl<'source> Parser<'source> {
             }
 
             if let Some(then_node) = self.parse_indented_block()? {
-                let mut else_if_blocks = Vec::new();
+                let mut else_if_blocks = AstVec::new();
 
                 while let Some(peeked) = self.peek_token_with_context(&outer_context) {
                     if peeked.token != Token::ElseIf {
@@ -2265,7 +2268,7 @@ impl<'source> Parser<'source> {
             _ => return self.consume_token_on_same_line_and_error(ExpectedIndentation::SwitchArm),
         };
 
-        let mut arms = Vec::new();
+        let mut arms = AstVec::new();
 
         while self.peek_token().is_some() {
             let condition = self.parse_expression(&ExpressionContext::inline())?;
@@ -2357,13 +2360,13 @@ impl<'source> Parser<'source> {
             //   0, 1 then ...
             //   2, 3 or 4, 5 then ...
             //   other then ...
-            let mut arm_patterns = Vec::new();
+            let mut arm_patterns = AstVec::new();
             let mut expected_arm_count = 1;
 
             let condition = {
                 while let Some(pattern) = self.parse_match_pattern(false)? {
                     // Match patterns, separated by commas in the case of matching multi-expressions
-                    let mut patterns = vec![pattern];
+                    let mut patterns = astvec![pattern];
 
                     while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                         self.consume_next_token_on_same_line();
@@ -2545,8 +2548,8 @@ impl<'source> Parser<'source> {
     //     (1, 2, (3, 4)) then ...
     //   #  ^ You are here
     //   #         ^...or here
-    fn parse_nested_match_patterns(&mut self) -> Result<Vec<AstIndex>> {
-        let mut result = vec![];
+    fn parse_nested_match_patterns(&mut self) -> Result<AstVec<AstIndex>> {
+        let mut result = AstVec::new();
 
         while let Some(pattern) = self.parse_match_pattern(true)? {
             result.push(pattern);
@@ -2581,7 +2584,7 @@ impl<'source> Parser<'source> {
 
             from
         } else {
-            vec![]
+            astvec![]
         };
 
         // Nested items aren't allowed, flatten the returned items into a single vec
@@ -2608,8 +2611,8 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
-    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<Vec<AstIndex>> {
-        let mut path = vec![];
+    fn consume_from_path(&mut self, context: &ExpressionContext) -> Result<AstVec<AstIndex>> {
+        let mut path = AstVec::new();
 
         while let Some(item_root) = self.parse_id_or_string(context)? {
             path.push(item_root);
@@ -2638,7 +2641,7 @@ impl<'source> Parser<'source> {
     //   #    ^ You are here, with nested items allowed
     //   #                   ^ Or here, with nested items disallowed
     fn consume_import_items(&mut self, context: &ExpressionContext) -> Result<Vec<ImportItem>> {
-        let mut items = vec![];
+        let mut items = Vec::new();
         let mut context = *context;
 
         loop {

@@ -19,10 +19,10 @@ check! []
 ## contains
 
 ```kototype
-|List, Value| -> Bool
+|List, value: Any| -> Bool
 ```
 
-Returns `true` if the list contains a value that matches the input value.
+Returns `true` if the list contains an element that matches the input `value`.
 
 Matching is performed with the `==` equality operator.
 
@@ -36,7 +36,7 @@ check! true
 ## extend
 
 ```kototype
-|List, Iterable| -> List
+|List, new_elements: Iterable| -> List
 ```
 
 Extends the list with the output of the iterator, and returns the list.
@@ -62,7 +62,7 @@ check! 30
 ## fill
 
 ```kototype
-|List, Value| -> List
+|List, value: Any| -> List
 ```
 
 Fills the list with copies of the provided value, and returns the list.
@@ -80,7 +80,7 @@ check! [99, 99, 99]
 ## first
 
 ```kototype
-|List| -> Value
+|List| -> Any
 ```
 
 Returns the first value in the list, or Null if the list is empty.
@@ -103,15 +103,16 @@ check! null
 ## get
 
 ```kototype
-|List, Number| -> Value
+|List, index: Number| -> Any
 ```
 ```kototype
-|List, Number, Value| -> Value
+|List, index: Number, default: Any| -> Any
 ```
 
-Gets the Nth value in the list.
-If the list doesn't contain a value at that position then the provided default
-value is returned. If no default value is provided then Null is returned.
+Gets the element at the given `index` in the list.
+
+If the list doesn't contain a value at that position then the provided `default`
+value is returned. If no default value is provided then `null` is returned.
 
 ### Example
 
@@ -136,12 +137,16 @@ check! 123
 ## insert
 
 ```kototype
-|List, Number, Value| -> List
+|List, position: Number, value: Any| -> List
 ```
 
-Inserts the value into the Nth position in the list, and returns the list.
+Inserts the value into the list at the given index position, 
+and returns the list.
 
-An error is thrown if the position is negative or greater than the size of the
+Elements in the list at or after the given position will be shifted to make
+space for the new value.
+
+An error is thrown if `position` is negative or greater than the size of the
 list.
 
 ### Example
@@ -179,7 +184,7 @@ check! false
 ## last
 
 ```kototype
-|List| -> Value
+|List| -> Any
 ```
 
 Returns the last value in the list, or Null if the list is empty.
@@ -202,7 +207,7 @@ check! null
 ## pop
 
 ```kototype
-|List| -> Value
+|List| -> Any
 ```
 
 Removes the last value from the list and returns it.
@@ -230,10 +235,10 @@ check! null
 ## push
 
 ```kototype
-|List, Value| -> Value
+|List, value: Any| -> Any
 ```
 
-Adds the value to the end of the list, and returns the list.
+Adds the `value` to the end of the list, and returns the list.
 
 ### Example
 
@@ -252,7 +257,7 @@ check! [99, -1, 'hello']
 ## remove
 
 ```kototype
-|List, Number| -> Value
+|List, position: Number| -> Any
 ```
 
 Removes the value at the given position from the list and returns it.
@@ -273,14 +278,14 @@ Throws an error if the position isn't a valid index in the list.
 ## resize
 
 ```kototype
-|List, Number| -> List
+|List, new_size: Number| -> List
 ```
 ```kototype
-|List, Number, Value| -> List
+|List, new_size: Number, default: Any| -> List
 ```
 
 Grows or shrinks the list to the specified size, and returns the list.
-If the new size is larger, then copies of the provided value (or Null if no
+If the new size is larger, then copies of the `default` value (or `null` if no
 value is provided) are used to fill the new space.
 
 ### Example
@@ -300,7 +305,7 @@ check! [1, 2, 'x', null]
 ## resize_with
 
 ```kototype
-|List, Number, || -> Value| -> List
+|List, new_size: Number, generator: || -> Any| -> List
 ```
 
 Grows or shrinks the list to the specified size, and returns the list.
@@ -323,13 +328,13 @@ check! [1, 2]
 ## retain
 
 ```kototype
-|List, Value| -> List
+|List, test: Any| -> List
 ```
 
 Retains matching values in the list (discarding values that don't match), and
 returns the list.
 
-If the test value is a function, then the function will be called with each of
+If `test` is a function, then the function will be called with each of
 the list's values, and if the function returns `true` then the value will be
 retained, otherwise if the function returns `false` then the value will be
 discarded.
@@ -380,7 +385,7 @@ check! ['world', 99, -1, 'hello']
 Sorts the list in place, and returns the list.
 
 ```kototype
-|List, |Value| -> Value| -> List
+|List, key: |Any| -> Any| -> List
 ```
 
 Sorts the list in place, based on the output of calling a 'key' function for
@@ -412,7 +417,7 @@ check! [3, 2, 1]
 ## swap
 
 ```kototype
-|List, List| -> Null
+|first: List, second: List| -> Null
 ```
 
 Swaps the contents of the two input lists.
@@ -449,11 +454,11 @@ check! (1, 2, 3)
 ## transform
 
 ```kototype
-|List, |Value| -> Value| -> List
+|List, transformer: |Any| -> Any| -> List
 ```
 
-Transforms the list data by replacing each value with the result of calling the
-provided function, and then returns the list.
+Transforms the list data in place by replacing each value with the result of 
+calling the provided `transformer` function, and then returns the list.
 
 ### Example
 

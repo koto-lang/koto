@@ -1,5 +1,16 @@
 use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
+use smallvec::SmallVec;
 use std::fmt;
+
+/// The vec type used in the AST
+//
+//  Q. Why 4 elements in the small vec?
+//  A. It's the maximum number of elements that can be used in [Node] without increasing its overall
+//     size.
+pub type AstVec<T> = SmallVec<[T; 4]>;
+
+/// A convenience macro for initializing [AstVec]s
+pub use smallvec::smallvec as astvec;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
@@ -43,21 +54,21 @@ pub enum Node {
     /// A list literal
     ///
     /// e.g. `[foo, bar, 42]`
-    List(Vec<AstIndex>),
+    List(AstVec<AstIndex>),
 
     /// A tuple literal
     ///
     /// e.g. `(foo, bar, 42)`
     ///
     /// Note that this is also used for implicit tuples, e.g. in `x = 1, 2, 3`
-    Tuple(Vec<AstIndex>),
+    Tuple(AstVec<AstIndex>),
 
     /// A temporary tuple
     ///
     /// Used in contexts where the result won't be exposed directly to the use, e.g.
     /// `x, y = 1, 2` - here `x` and `y` are indexed from the temporary tuple.
     /// `match foo, bar...` - foo and bar will be stored in a temporary tuple for comparison.
-    TempTuple(Vec<AstIndex>),
+    TempTuple(AstVec<AstIndex>),
 
     /// A range with a defined start and end
     Range {
@@ -106,7 +117,7 @@ pub enum Node {
     /// Typically all ASTs will have this node at the root.
     MainBlock {
         /// The main block's body as a series of expressions
-        body: Vec<AstIndex>,
+        body: AstVec<AstIndex>,
         /// The number of locally assigned values in the main block
         ///
         /// This tells the compiler how many registers need to be reserved for locally
@@ -118,7 +129,7 @@ pub enum Node {
     ///
     /// Used for indented blocks that share the context of the frame they're in,
     /// e.g. if expressions, arms in match or switch experssions, loop bodies
-    Block(Vec<AstIndex>),
+    Block(AstVec<AstIndex>),
 
     /// A function node
     Function(Function),
@@ -130,7 +141,7 @@ pub enum Node {
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
-        from: Vec<AstIndex>,
+        from: AstVec<AstIndex>,
         /// The series of items to import
         items: Vec<ImportItem>,
     },
@@ -155,7 +166,7 @@ pub enum Node {
     /// e.g. `x, y = foo()`, or `foo, bar, baz = 1, 2, 3`
     MultiAssign {
         /// The targets of the assignment
-        targets: Vec<AstIndex>,
+        targets: AstVec<AstIndex>,
         /// The expression to be assigned
         expression: AstIndex,
     },
@@ -190,7 +201,7 @@ pub enum Node {
     },
 
     /// A switch expression
-    Switch(Vec<SwitchArm>),
+    Switch(AstVec<SwitchArm>),
 
     /// A `_` identifier
     ///
@@ -267,7 +278,7 @@ pub enum Node {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
     /// The function's arguments
-    pub args: Vec<AstIndex>,
+    pub args: AstVec<AstIndex>,
     /// The number of locally assigned values
     ///
     /// Used by the compiler when reserving registers for local values at the start of the frame.
@@ -277,7 +288,7 @@ pub struct Function {
     /// Any ID (or chain root) that's accessed in a function and which wasn't previously assigned
     /// locally, is either an export or the value needs to be captured. The compiler takes care of
     /// determining if an access is a capture or not at the moment the function is created.
-    pub accessed_non_locals: Vec<ConstantIndex>,
+    pub accessed_non_locals: AstVec<ConstantIndex>,
     /// The function's body
     pub body: AstIndex,
     /// A flag that indicates if the function arguments end with a variadic `...` argument
@@ -336,7 +347,7 @@ pub enum StringNode {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstFor {
     /// The ids that capture each iteration's output values, or wildcards that ignore them
-    pub args: Vec<AstIndex>,
+    pub args: AstVec<AstIndex>,
     /// The expression that produces an iterable value
     pub iterable: AstIndex,
     /// The body of the for loop
@@ -351,7 +362,7 @@ pub struct AstIf {
     /// The if expression's `then` branch
     pub then_node: AstIndex,
     /// An optional series of `else if` conditions and branches
-    pub else_if_blocks: Vec<(AstIndex, AstIndex)>,
+    pub else_if_blocks: AstVec<(AstIndex, AstIndex)>,
     /// An optional `else` branch
     pub else_node: Option<AstIndex>,
 }
@@ -428,7 +439,7 @@ pub enum ChainNode {
     /// A function call
     Call {
         /// The arguments used in the function call
-        args: Vec<AstIndex>,
+        args: AstVec<AstIndex>,
         /// Whether or not parentheses are present in the function call
         ///
         /// This is not cosmetic, as parentheses represent a 'closed call', which has an impact on
@@ -447,7 +458,7 @@ pub struct MatchArm {
     /// A series of match patterns
     ///
     /// If `patterns` is empty then `else` is implied, and should always appear as the last arm.
-    pub patterns: Vec<AstIndex>,
+    pub patterns: AstVec<AstIndex>,
     /// An optional condition for the match arm
     ///
     /// e.g.
@@ -630,4 +641,20 @@ pub struct ImportItem {
     pub item: AstIndex,
     /// An optional 'as' name for the imported item
     pub name: Option<AstIndex>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_size() {
+        // Think carefully before allowing Node to increase in size
+        let size = std::mem::size_of::<Node>();
+        let maximum_size = 72;
+        assert!(
+            size <= maximum_size,
+            "Node has a size of {size} bytes, the allowed maximum is {maximum_size} bytes"
+        );
+    }
 }

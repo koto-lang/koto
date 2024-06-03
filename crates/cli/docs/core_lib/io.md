@@ -5,7 +5,7 @@ A collection of utilities for working with the local filesystem.
 ## create
 
 ```kototype
-|String| -> File
+|path: String| -> File
 ```
 
 Returns an empty `File` at the provided path.
@@ -36,7 +36,7 @@ directory can't be retrieved.
 ## exists
 
 ```kototype
-|String| -> Bool
+|path: String| -> Bool
 ```
 
 Returns true if a file exists at the provided path.
@@ -56,7 +56,7 @@ io.exists path
 ## extend_path
 
 ```kototype
-|String, Value...| -> String
+|path: String, nodes: Any...| -> String
 ```
 
 Takes an initial path as a string, and extends it with the provided nodes,
@@ -77,7 +77,7 @@ io.extend_path ".", "foo", "bar", "baz.txt"
 ## open
 
 ```kototype
-|String| -> File
+|path: String| -> File
 ```
 
 Opens the file at the given path, and returns a corresponding `File`.
@@ -98,13 +98,13 @@ f.exists()
 
 ```kototype
 ```kototype
-|Value| -> Null
+|Any| -> Null
 ```
 
 Prints a single value to the active output. 
 
 ```kototype
-|Value, Value...| -> Null
+|Any, Any...| -> Null
 ```
 
 Prints a series of values to the active output as a tuple.
@@ -118,7 +118,7 @@ Prints a series of values to the active output as a tuple.
 ## read_to_string
 
 ```kototype
-|String| -> String
+|path: String| -> String
 ```
 
 Returns a string containing the contents of the file at the given path.
@@ -142,7 +142,7 @@ io.read_to_string "foo.temp"
 ## remove_file
 
 ```kototype
-|String| -> Null
+|path: String| -> Null
 ```
 
 Removes the file at the given path.
@@ -289,7 +289,7 @@ An error is thrown if the file doesn't contain valid UTF-8 data.
 ## File.seek
 
 ```kototype
-|File, Number| -> Null
+|File, position: Number| -> Null
 ```
 
 Seeks within the file to the specified position in bytes.
@@ -297,7 +297,7 @@ Seeks within the file to the specified position in bytes.
 ## File.write
 
 ```kototype
-|File, Value| -> Null
+|File, Any| -> Null
 ```
 
 Writes the formatted value as a string to the file.
@@ -305,7 +305,7 @@ Writes the formatted value as a string to the file.
 ## File.write_line
 
 ```kototype
-|File, Value| -> Null
+|File, Any| -> Null
 ```
 
 Writes the formatted value as a string, with a newline, to the file.

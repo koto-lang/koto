@@ -41,18 +41,18 @@ print "Seconds between then and now: ${t2 - t}"
 Returns a DateTime set to the current time, using the local timezone.
 
 ```kototype
-|Number| -> DateTime
+|timestamp: Number| -> DateTime
 ```
 
-Returns a DateTime set to the provided timestamp in seconds,
+Returns a DateTime set to the provided `timestamp` in seconds,
 using the local timezone.
 
 ```kototype
-|Number, Number| -> DateTime
+|timestamp: Number, offset: Number| -> DateTime
 ```
 
-Returns a DateTime set to the provided timestamp in seconds,
-using a time offset in seconds.
+Returns a DateTime set to the provided `timestamp` in seconds,
+using an `offset` in seconds.
 
 ### Example
 
@@ -77,7 +77,7 @@ See [`os.time`](#time).
 ## DateTime.year
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the year component of the provided DateTime.
@@ -85,7 +85,7 @@ Returns the year component of the provided DateTime.
 ## DateTime.month
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the month component of the provided DateTime.
@@ -93,7 +93,7 @@ Returns the month component of the provided DateTime.
 ## DateTime.day
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the day component of the provided DateTime.
@@ -101,7 +101,7 @@ Returns the day component of the provided DateTime.
 ## DateTime.hour
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the hour component of the provided DateTime.
@@ -109,7 +109,7 @@ Returns the hour component of the provided DateTime.
 ## DateTime.minute
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the minute component of the provided DateTime.
@@ -117,7 +117,7 @@ Returns the minute component of the provided DateTime.
 ## DateTime.nanosecond
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the nanosecond component of the provided DateTime.
@@ -125,7 +125,7 @@ Returns the nanosecond component of the provided DateTime.
 ## DateTime.timestamp
 
 ```kototype
-|DateTime| -> Float
+|DateTime| -> Number
 ```
 
 Returns the number of seconds since 00:00:00 UTC on January 1st 1970.
@@ -133,7 +133,7 @@ Returns the number of seconds since 00:00:00 UTC on January 1st 1970.
 ## DateTime.timezone_offset
 
 ```kototype
-|DateTime| -> Integer
+|DateTime| -> Number
 ```
 
 Returns the DateTime's timezone offset in seconds.
@@ -153,7 +153,7 @@ See [`os.start_timer`](#start_timer).
 ## Timer.@- (subtract)
 
 ```kototype
-|Timer, Timer| -> Float
+|Timer, Timer| -> Number
 ```
 
 Returns the time difference in seconds between two timers.
@@ -172,7 +172,7 @@ assert (t1 - t2) < 0
 ## Timer.elapsed
 
 ```kototype
-|Timer| -> Float
+|Timer| -> Number
 ```
 
 Returns the number of seconds that have elapsed since the timer was started.

@@ -3,16 +3,18 @@
 ## all
 
 ```kototype
-|Iterable, |Value| -> Bool| -> Bool
+|Iterable, test: |Any| -> Bool| -> Bool
 ```
 
-Checks the Iterable's values against a test Function.
+Checks the Iterable's values against a test function.
 
-The provided function should return `true` or `false`, 
-and then `all` will return `true` if all values pass the test.
+The test function should return `true` if the value passes the test, otherwise
+it should return `false`. 
 
-`all` stops running as soon as it finds a failing test, and then `false` is
-returned.
+`all` will return `true` if _all_ values pass the test, otherwise it will return
+`false`.
+
+`all` stops running as soon as it finds a value that fails the test.
 
 ### Example
 
@@ -29,16 +31,23 @@ print! [10, 20, 30]
 check! true
 ```
 
+### See Also
+
+- [`iterator.any`](#any)
+
 ## any
 
 ```kototype
-|Iterable, |Value| -> Bool| -> Bool
+|Iterable, test: |Any| -> Bool| -> Bool
 ```
 
-Checks the Iterable's values against a test Function.
+Checks the Iterable's values against a test function.
 
-The provided function should return `true` or `false`, 
-and then `any` will return `true` if any of the values pass the test.
+The test function should return `true` if the value passes the test, otherwise
+it should return `false`. 
+
+`any` will return `true` if _any_ of the values pass the test, 
+otherwise it will return `false`.
 
 `any` stops running as soon as it finds a passing test.
 
@@ -57,10 +66,14 @@ print! [10, 20, 30]
 check! true
 ```
 
+### See Also
+
+- [`iterator.all`](#all)
+
 ## chain
 
 ```kototype
-|Iterable, Iterable| -> Iterator
+|first: Iterable, second: Iterable| -> Iterator
 ```
 
 `chain` returns an iterator that iterates over the output of the first iterator,
@@ -78,7 +91,7 @@ check! (1, 2, 'a', 'b', 'c')
 ## chunks
 
 ```kototype
-|Iterable, Number| -> Iterator
+|Iterable, size: Number| -> Iterator
 ```
 
 Returns an iterator that splits up the input data into chunks of size `N`,
@@ -103,7 +116,7 @@ check! [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10)]
 Consumes the output of the iterator.
 
 ```kototype
-|Iterable, Function| -> Null
+|Iterable, |Any| -> Any| -> Null
 ```
 
 Consumes the output of the iterator, calling the provided function with each
@@ -175,11 +188,11 @@ check! [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
 ## each
 
 ```kototype
-|Iterable, |Value| -> Value| -> Iterator
+|Iterable, function: |Any| -> Any| -> Iterator
 ```
 
-Takes an Iterable and a Function, and returns a new iterator that provides the
-result of calling the function with each value in the iterable.
+Takes an `Iterable` and a `Function`, and returns a new iterator that provides
+the result of calling the function with each value in the iterable.
 
 ### Example
 
@@ -208,17 +221,17 @@ check! [(0, 'a'), (1, 'b'), (2, 'c')]
 ## find
 
 ```kototype
-|Iterable, |Value| -> Bool| -> Value
+|Iterable, test: |Any| -> Bool| -> Any
 ```
 
 Returns the first value in the iterable that passes the test function.
 
-The function is called for each value in the iterator, and returns either `true`
-if the value is a match, or `false` if it's not.
+The function is called for each value in the iterator, and should return either
+`true` if the value is a match, or `false` if it's not.
 
 The first matching value will cause iteration to stop.
 
-If no match is found then Null is returned.
+If no match is found then `null` is returned.
 
 ### Example
 
@@ -233,7 +246,7 @@ check! null
 ## flatten
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Iterator
 ```
 
 Returns the output of the input iterator, with any nested iterable values
@@ -258,7 +271,11 @@ check! [2, 4, 6, 8, (10, 12)]
 ## fold
 
 ```kototype
-|Iterable, Value, |Value, Value| -> Value| -> Value
+|
+  input: Iterable, 
+  initial_value: Any, 
+  accumulator: |accumulated: Any, next: Any| -> Any
+| -> Any
 ```
 
 Returns the result of 'folding' the iterator's values into an accumulator
@@ -301,7 +318,7 @@ function. Note that this version of `generate` won't terminate and will iterate
 endlessly.
 
 ```kototype
-|Number, Function| -> Value
+|n: Number, Function| -> Any
 ```
 
 Provides an iterator that yields the result of repeatedly calling the provided
@@ -331,14 +348,14 @@ check! (6, 7, 8)
 ## intersperse
 
 ```kototype
-|Iterable, Value| -> Iterator
+|Iterable, value: Any| -> Iterator
 ```
 
 Returns an iterator that yields a copy of the provided value between each
 adjacent pair of output values.
 
 ```kototype
-|Iterable, || -> Value| -> Iterator
+|Iterable, generator: || -> Any| -> Iterator
 ```
 
 Returns an iterator that yields the result of calling the provided function
@@ -390,14 +407,14 @@ check! 6
 ## keep
 
 ```kototype
-|Iterable, |Value| -> Bool| -> Iterator
+|Iterable, test: |Any| -> Bool| -> Iterator
 ```
 
 Returns an iterator that keeps only the values that pass a test function.
 
-The function is called for each value in the iterator, and returns either `true`
-if the value should be kept in the iterator output, or `false` if it should be
-discarded.
+The function is called for each value in the iterator, and should return either
+`true` if the value should be kept in the iterator output, or `false` if it
+should be discarded.
 
 ### Example
 
@@ -411,7 +428,7 @@ check! (0, 2, 4, 6, 8)
 ## last
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Any
 ```
 
 Consumes the iterator, returning the last yielded value.
@@ -429,13 +446,13 @@ check! null
 ## max
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Any
 ```
 
 Returns the maximum value found in the iterable.
 
 ```kototype
-|Iterable, |Value| -> Value| -> Value
+|Iterable, key: |Any| -> Any| -> Any
 ```
 
 Returns the maximum value found in the iterable, based on first calling a 'key'
@@ -459,13 +476,13 @@ check! 99
 ## min
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Any
 ```
 
 Returns the minimum value found in the iterable.
 
 ```kototype
-|Iterable, |Value| -> Value| -> Value
+|Iterable, key: |Any| -> Any| -> Any
 ```
 
 Returns the minimum value found in the iterable, based on first calling a 'key'
@@ -489,13 +506,13 @@ check! -3
 ## min_max
 
 ```kototype
-|Iterable| -> (Value, Value)
+|Iterable| -> (Any, Any)
 ```
 
 Returns the minimum and maximum values found in the iterable.
 
 ```kototype
-|Iterable, |Value| -> Value| -> Value
+|Iterable, key: |Any| -> Any| -> Any
 ```
 
 Returns the minimum and maximum values found in the iterable, based on first
@@ -594,7 +611,7 @@ check! null
 ## once
 
 ```kototype
-|Value| -> Iterator
+|Any| -> Iterator
 ```
 
 Returns an iterator that yields the given value a single time.
@@ -678,19 +695,19 @@ check! null
 ## position
 
 ```kototype
-|Iterable, |Value| -> Bool| -> Value
+|Iterable, test: |Any| -> Bool| -> Any
 ```
 
 Returns the position of the first value in the iterable that passes the test
 function.
 
-The function is called for each value in the iterator, and returns either `true`
-if the value is a match, or `false` if it's not.
+The function is called for each value in the iterator, and should return either
+`true` if the value is a match, or `false` if it's not.
 
 The first matching value will cause iteration to stop, and the number of
 steps taken to reach the matched value is returned as the result.
 
-If no match is found then Null is returned.
+If no match is found then `null` is returned.
 
 ### Example
 
@@ -709,7 +726,7 @@ check! null
 ## product
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Any
 ```
 
 Returns the result of multiplying each value in the iterable together.
@@ -729,10 +746,10 @@ check! 24
 ## repeat
 
 ```kototype
-|Value| -> Iterator
+|Any| -> Iterator
 ```
 ```kototype
-|Value, Number| -> Iterator
+|Any, repeats: Number| -> Iterator
 ```
 
 Provides an iterator that repeats the provided value. 
@@ -779,7 +796,7 @@ check! (5, 4, 3, 2, 1)
 ## skip
 
 ```kototype
-|Iterable, Number| -> Iterator
+|Iterable, steps: Number| -> Iterator
 ```
 
 Skips over a number of steps in the iterator.
@@ -799,7 +816,7 @@ check! 150
 ## step
 
 ```kototype
-|Iterable, Number| -> Iterator
+|Iterable, step_size: Number| -> Iterator
 ```
 
 Steps over the iterable's output by the provided step size.
@@ -821,7 +838,7 @@ check! Hlö
 ## sum
 
 ```kototype
-|Iterable| -> Value
+|Iterable| -> Any
 ```
 
 Returns the result of adding each value in the iterable together.
@@ -841,18 +858,21 @@ check! 9
 ## take
 
 ```kototype
-|Iterable, Number| -> Iterator
+|Iterable, count: Number| -> Iterator
 ```
 
 Provides an iterator that yields a number of values from the input before
 finishing.
 
 ```kototype
-|Iterable, Callable| -> Iterator
+|Iterable, test: Callable| -> Iterator
 ```
 
 Provides an iterator that yields values from the input while they pass a
-predicate function.
+test function.
+
+The test function should return `true` if the iterator should continue to yield
+values, and `false` if the iterator should stop yielding values.
 
 
 ### Example
@@ -902,7 +922,7 @@ If a value is a tuple, then the first element in the tuple will be inserted as
 the key for the map entry, and the second element will be inserted as the value.
 
 If the value is anything other than a tuple, then it will be inserted as the map
-key, with Null as the entry's value.
+key, with `null` as the entry's value.
 
 ### Example
 
@@ -971,13 +991,14 @@ check! ('a', 42, (-1, -2))
 ## windows
 
 ```kototype
-|Iterable, Number| -> Iterator
+|Iterable, size: Number| -> Iterator
 ```
 
 Returns an iterator that splits up the input data into overlapping windows of
-size `N`, where each window is provided as a Tuple.
+the specified `size`, where each window is provided as a Tuple.
 
-If the input has fewer than `N` elements then no windows will be produced.
+If the input has fewer elements than the window size, then no windows will be
+produced.
 
 ### Example
 
@@ -991,7 +1012,7 @@ check! [(1, 2, 3), (2, 3, 4), (3, 4, 5)]
 ## zip
 
 ```kototype
-|Iterable, Iterable| -> Iterator
+|first: Iterable, second: Iterable| -> Iterator
 ```
 
 Combines the values in two iterables into an iterator that provides
@@ -1018,7 +1039,7 @@ while also allowing `null` to appear in the iterator's output.
 ## IteratorOutput.get
 
 ```kototype
-|IteratorOutput| -> Value
+|IteratorOutput| -> Any
 ```
 
 Returns the wrapped iterator output value.

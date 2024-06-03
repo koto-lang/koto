@@ -21,7 +21,7 @@ check! {}
 ## contains_key
 
 ```kototype
-|Map, Key| -> Bool
+|Map, key: Any| -> Bool
 ```
 
 Returns `true` if the map contains a value with the given key,
@@ -30,7 +30,7 @@ and `false` otherwise.
 ## extend
 
 ```kototype
-|Map, Iterable| -> Map
+|Map, new_entries: Iterable| -> Map
 ```
 
 Extends the map with the output of the iterator, and returns the map.
@@ -58,10 +58,10 @@ check! c!
 ## get
 
 ```kototype
-|Map, Key| -> Value
+|Map, key: Any| -> Any
 ```
 ```kototype
-|Map, Key, Value| -> Value
+|Map, key: Any, default: Any| -> Any
 ```
 
 Returns the value corresponding to the given key, or the provided default value
@@ -94,10 +94,10 @@ check! xyz
 ## get_index
 
 ```kototype
-|Map, Number| -> Tuple
+|Map, index: Number| -> Tuple
 ```
 ```kototype
-|Map, Number, Value| -> Tuple
+|Map, index: Number, default: Any| -> Tuple
 ```
 
 Returns the entry at the given index as a key/value tuple, or the provided
@@ -157,16 +157,16 @@ check! My Map
 ## insert
 
 ```kototype
-|Map, Key, Value| -> Value
+|Map, key: Any, value: Any| -> Any
 ```
 
 Inserts an entry into the map with the given key and value. 
 
 ```kototype
-|Map, Key| -> Value
+|Map, key: Any| -> Any
 ```
 
-Inserts an entry into the map with the given key, and Null as its value.
+Inserts an entry into the map with the given key, and `null` as its value.
 
 If the key already existed in the map, then the old value is returned.
 If the key didn't already exist, then Null is returned.
@@ -262,7 +262,7 @@ check! null
 ## remove
 
 ```kototype
-|Map, Key| -> Value
+|Map, key: Any| -> Any
 ```
 
 Removes the entry that matches the given key.
@@ -299,17 +299,22 @@ check! true
 |Map| -> Map
 ```
 
-Sorts the map's entries by key, and returns the map.
+Sorts the map's entries in place by key, and then returns the map.
 
 ```kototype
-|Map, |Value, Value| -> Value| -> Null
+|
+  Map, 
+  sort_key: |key: Any, value: Any| -> Any
+| -> Null
 ```
 
-Sorts the map's entries based on the output of calling a 'key' function for each
-entry, and returns the map. The entry's key and value are passed into the
-function as separate arguments.
+Sorts the map's entries in place based on the output of calling a 'sort' 
+function for each entry, and then returns the map. 
 
-The function result is cached, so it's only called once per entry.
+The entry's key and value are passed into the `sort_key` function as separate 
+arguments. 
+
+The function's result is cached, so it only gets called once per entry.
 
 ### Example
 
@@ -318,44 +323,44 @@ x =
   hello: 123
   bye: -1
   tschüss: 99
-print! x.sort() # Sorts the map by key
-check! {bye: -1, hello: 123, tschüss: 99}
-print! x
+
+# Sort the map by key
+print! x.sort() 
 check! {bye: -1, hello: 123, tschüss: 99}
 
 # Sort the map by value
 print! x.sort |_, value| value 
 check! {bye: -1, tschüss: 99, hello: 123}
-print! x
-check! {bye: -1, tschüss: 99, hello: 123}
 
 # Sort the map by reversed key length
-x.sort |key, _| -(size key)
-print! x
+print! x.sort |key, _| -(size key)
 check! {tschüss: 99, hello: 123, bye: -1}
 ```
 
 ## update
 
 ```kototype
-|Map, Key, |Value| -> Value| -> Value
+|Map, key: Any, updater: |Any| -> Any| -> Any
 ```
 
-Updates the value associated with a given key by calling a function with either
-the existing value, or Null if there isn't a matching entry.
+Updates the value associated with a given `key` by calling the `updater`
+function.
 
-The result of the function will either replace an existing value, or if no value
-existed then an entry will be inserted into the map with the given key and the
-function's result.
+If an entry exists with the given `key`, then `updater` will be called with the
+existing entry's value, and the result of the function will replace the existing
+value.
 
-The function result is then returned from `update`.
+If no entry exists with the given `key`, then `updater` will be called with
+`null`, and the result will be inserted into the map as a new entry. 
+
+The return value is the result of calling the `updater` function.
 
 ```kototype
-|Map, Key, Value, |Value| -> Value| -> Value
+|Map, key: Any, default: Any, updater: |Any| -> Any| -> Any
 ```
 
-This variant of `update` takes a default value that is provided to the
-function if a matching entry doesn't exist.
+This variant of `update` takes a `default` value that is provided to the
+`updater` function if no entry exists with the given `key`.
 
 ### Example
 
@@ -413,7 +418,7 @@ check! null
 ## with_meta
 
 ```kototype
-|Map, Map| -> Map
+|data: Map, meta: Map| -> Map
 ```
 
 Returns a new Map that contains the data from the first argument, 

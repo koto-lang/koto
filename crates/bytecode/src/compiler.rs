@@ -4,11 +4,11 @@ use crate::{
 };
 use derive_name::VariantName;
 use koto_parser::{
-    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ChainNode,
+    Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
     ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
     StringFormatOptions, StringNode, SwitchArm,
 };
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
@@ -2589,7 +2589,7 @@ impl Compiler {
         if piped_arg_register.is_some() {
             let piped_call_args = match last_node {
                 ChainNode::Call { args, with_parens } if !with_parens => args,
-                _ => Vec::new(),
+                _ => AstVec::new(),
             };
 
             let (parent_register, function_register) = match &node_registers.as_slice() {
@@ -3095,7 +3095,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard(..) => Some(vec![*arm_pattern]),
+                Node::Wildcard(..) => Some(smallvec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
@@ -3103,7 +3103,7 @@ impl Compiler {
                             unexpected: 1,
                         });
                     }
-                    Some(vec![*arm_pattern])
+                    Some(smallvec![*arm_pattern])
                 }
             };
 

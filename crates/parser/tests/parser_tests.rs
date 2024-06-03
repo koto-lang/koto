@@ -77,8 +77,12 @@ mod parser {
         Node::Str(simple_string(literal_index, quotation_mark))
     }
 
-    fn nodes(ast_indices: &[u32]) -> Vec<AstIndex> {
-        ast_indices.iter().map(|i| AstIndex::from(*i)).collect()
+    fn nodes(indices: &[u32]) -> AstVec<AstIndex> {
+        indices.iter().map(|i| AstIndex::from(*i)).collect()
+    }
+
+    fn constants(indices: &[u32]) -> AstVec<ConstantIndex> {
+        indices.iter().map(|i| ConstantIndex::from(*i)).collect()
     }
 
     fn unary_op(op: AstUnaryOp, value: u32) -> Node {
@@ -1375,7 +1379,7 @@ x %= 4";
                         expression: 1.into(),
                     },
                     MainBlock {
-                        body: vec![2.into()],
+                        body: nodes(&[2]),
                         local_count: 1,
                     },
                 ],
@@ -1398,7 +1402,7 @@ x %= 4";
                         expression: 2.into(),
                     },
                     MainBlock {
-                        body: vec![3.into()],
+                        body: nodes(&[3]),
                         local_count: 1,
                     },
                 ],
@@ -1423,7 +1427,7 @@ x %= 4";
                         expression: 4.into(),
                     }, // 5
                     MainBlock {
-                        body: vec![5.into()],
+                        body: nodes(&[5]),
                         local_count: 2,
                     },
                 ],
@@ -1452,7 +1456,7 @@ x %= 4";
                         expression: 2.into(),
                     },
                     MainBlock {
-                        body: vec![3.into()],
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1475,7 +1479,7 @@ x %= 4";
                         expression: 2.into(),
                     },
                     MainBlock {
-                        body: vec![3.into()],
+                        body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
@@ -1928,7 +1932,7 @@ a = (1
                     If(AstIf {
                         condition: 1.into(),
                         then_node: 2.into(),
-                        else_if_blocks: vec![],
+                        else_if_blocks: astvec![],
                         else_node: Some(3.into()),
                     }),
                     binary_op(AstBinaryOp::Add, 0, 4),
@@ -1990,7 +1994,7 @@ a",
                     If(AstIf {
                         condition: 1.into(),
                         then_node: 2.into(),
-                        else_if_blocks: vec![(3.into(), 4.into()), (5.into(), 6.into())],
+                        else_if_blocks: astvec![(3.into(), 4.into()), (5.into(), 6.into())],
                         else_node: Some(7.into()),
                     }),
                     assign(0, 8),
@@ -2022,7 +2026,7 @@ a",
                     If(AstIf {
                         condition: 2.into(),
                         then_node: 5.into(),
-                        else_if_blocks: vec![],
+                        else_if_blocks: astvec![],
                         else_node: Some(8.into()),
                     }),
                     MultiAssign {
@@ -2055,7 +2059,7 @@ a",
                     If(AstIf {
                         condition: 0.into(),
                         then_node: 1.into(),
-                        else_if_blocks: vec![],
+                        else_if_blocks: astvec![],
                         else_node: None,
                     }),
                     id(0),
@@ -2063,7 +2067,7 @@ a",
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![0.into()],
+                        accessed_non_locals: constants(&[0]),
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2256,7 +2260,7 @@ a()";
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2305,7 +2309,7 @@ a()";
                     Function(koto_parser::Function {
                         args: nodes(&[0, 1]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2346,7 +2350,7 @@ a()";
                     Function(koto_parser::Function {
                         args: nodes(&[1, 3]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2392,7 +2396,7 @@ a()";
                     Function(koto_parser::Function {
                         args: nodes(&[1]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2430,7 +2434,7 @@ a()";
                     Function(koto_parser::Function {
                         args: nodes(&[0, 1]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 7.into(),
                         is_variadic: true,
                         is_generator: false,
@@ -2469,7 +2473,7 @@ f 42";
                     Function(koto_parser::Function {
                         args: nodes(&[1]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2508,7 +2512,7 @@ f = |x|
                     Function(koto_parser::Function {
                         args: nodes(&[3]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 4.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2523,7 +2527,7 @@ f = |x|
                     Function(koto_parser::Function {
                         args: nodes(&[1]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2683,7 +2687,7 @@ foo
                     Function(koto_parser::Function {
                         args: nodes(&[2]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2741,7 +2745,7 @@ f x";
                     Function(koto_parser::Function {
                         args: nodes(&[1]),
                         local_count: 1,
-                        accessed_non_locals: vec![0.into()],
+                        accessed_non_locals: constants(&[0]),
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2773,7 +2777,7 @@ f x";
                     Function(koto_parser::Function {
                         args: nodes(&[2]),
                         local_count: 1,
-                        accessed_non_locals: vec![0.into()],
+                        accessed_non_locals: constants(&[0]),
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2788,7 +2792,7 @@ f x";
                     Function(koto_parser::Function {
                         args: nodes(&[9]),
                         local_count: 1,
-                        accessed_non_locals: vec![1.into()],
+                        accessed_non_locals: constants(&[1]),
                         body: 13.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2895,7 +2899,7 @@ foo.bar x
                     Function(koto_parser::Function {
                         args: nodes(&[3]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2934,7 +2938,7 @@ f = ||
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![2.into()],
+                        accessed_non_locals: constants(&[2]),
                         body: 5.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -2977,7 +2981,7 @@ f = ||
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![3.into()],
+                        accessed_non_locals: constants(&[3]),
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3022,7 +3026,7 @@ f()";
                     Function(koto_parser::Function {
                         args: nodes(&[4]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3032,7 +3036,7 @@ f()";
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 11.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3091,7 +3095,7 @@ f = |n|
                     If(AstIf {
                         condition: 10.into(),
                         then_node: 12.into(),
-                        else_if_blocks: vec![],
+                        else_if_blocks: astvec![],
                         else_node: None,
                     }),
                     For(AstFor {
@@ -3102,7 +3106,7 @@ f = |n|
                     Function(koto_parser::Function {
                         args: nodes(&[3]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 14.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3114,7 +3118,7 @@ f = |n|
                     Function(koto_parser::Function {
                         args: nodes(&[1]),
                         local_count: 2,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 18.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3155,7 +3159,7 @@ f = |n|
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 1,
-                        accessed_non_locals: vec![0.into()], // initial read of x via capture
+                        accessed_non_locals: constants(&[0]), // initial read of x via capture
                         body: 6.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3190,7 +3194,7 @@ f = |n|
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 2,
-                        accessed_non_locals: vec![], // b is locally assigned when accessed
+                        accessed_non_locals: constants(&[]), // b is locally assigned when accessed
                         body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3219,7 +3223,7 @@ f = |n|
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![0.into()], // initial read of x via capture
+                        accessed_non_locals: constants(&[0]), // initial read of x via capture
                         body: 2.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3255,7 +3259,7 @@ z = y [0..20], |x| x > 1
                     Function(koto_parser::Function {
                         args: nodes(&[6]),
                         local_count: 1,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 9.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -3284,7 +3288,7 @@ z = y [0..20], |x| x > 1
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 1.into(),
                         is_variadic: false,
                         is_generator: true,
@@ -3312,7 +3316,7 @@ z = y [0..20], |x| x > 1
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
@@ -3344,7 +3348,7 @@ z = y [0..20], |x| x > 1
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 3.into(),
                         is_variadic: false,
                         is_generator: true,
@@ -3391,7 +3395,7 @@ z = y [0..20], |x| x > 1
                     Function(koto_parser::Function {
                         args: nodes(&[0, 6, 7]),
                         local_count: 3,
-                        accessed_non_locals: vec![],
+                        accessed_non_locals: constants(&[]),
                         body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
@@ -4266,7 +4270,7 @@ debug x + x
                 &[
                     id(0), // foo
                     Import {
-                        from: vec![],
+                        from: nodes(&[]),
                         items: import_items(&[0]),
                     },
                     MainBlock {
@@ -4287,7 +4291,7 @@ debug x + x
                     id(0), // foo
                     id(1), // bar
                     Import {
-                        from: vec![],
+                        from: nodes(&[]),
                         items: vec![ImportItem {
                             item: 0.into(),
                             name: Some(1.into()),
@@ -4311,7 +4315,7 @@ debug x + x
                     id(0), // foo
                     id(1), // bar
                     Import {
-                        from: vec![0.into()],
+                        from: nodes(&[0]),
                         items: import_items(&[1]),
                     },
                     MainBlock {
@@ -4333,7 +4337,7 @@ debug x + x
                     id(1), // foo
                     id(2), // bar
                     Import {
-                        from: vec![1.into()],
+                        from: nodes(&[1]),
                         items: import_items(&[2]),
                     },
                     assign(0, 3),
@@ -4373,7 +4377,7 @@ import foo,
                     string_literal(1, StringQuote::Single), // bar
                     id(2),                                  // baz
                     Import {
-                        from: vec![],
+                        from: nodes(&[]),
                         items: import_items(&[0, 1, 2]),
                     },
                     MainBlock {
@@ -4409,7 +4413,7 @@ from foo import bar,
                     id(1), // bar
                     id(2), // baz
                     Import {
-                        from: vec![0.into()],
+                        from: nodes(&[0]),
                         items: import_items(&[1, 2]),
                     },
                     MainBlock {
@@ -4436,7 +4440,7 @@ from foo import bar,
                     id(2),                                  // abc
                     id(3),                                  // xyz
                     Import {
-                        from: vec![0.into(), 1.into()],
+                        from: nodes(&[0, 1]),
                         items: import_items(&[2, 3]),
                     },
                     MainBlock {
@@ -5197,7 +5201,7 @@ switch
                     binary_op(AstBinaryOp::Greater, 4, 5),
                     SmallInt(1),
                     id(0),
-                    Switch(vec![
+                    Switch(astvec![
                         SwitchArm {
                             condition: Some(2.into()),
                             expression: 3.into(),
@@ -5237,7 +5241,7 @@ switch
                         expression_string: 0.into(),
                         expression: 2.into(),
                     },
-                    Switch(vec![
+                    Switch(astvec![
                         SwitchArm {
                             condition: Some(0.into()),
                             expression: 1.into(),

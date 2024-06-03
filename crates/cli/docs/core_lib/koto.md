@@ -28,10 +28,10 @@ koto.args.last()
 ## copy
 
 ```kototype
-|Value| -> Value
+|value: Any| -> Any
 ```
 
-Makes a copy of the value. 
+Makes a copy of the provided value. 
 
 ### Shared mutable data
 
@@ -98,7 +98,7 @@ check! 1
 ## deep_copy
 
 ```kototype
-|Value| -> Value
+|value: Any| -> Any
 ```
 
 Makes a unique _deep_ copy of the value's data.
@@ -141,7 +141,7 @@ it can be useful to export items programatically.
 ## hash
 
 ```kototype
-|Value| -> Value
+|value: Any| -> Number or Null
 ```
 
 Returns the value's hash as an integer, or Null if the value is not hashable.
@@ -166,11 +166,12 @@ check! false
 ## load
 
 ```kototype
-|String| -> Chunk
+|script: String| -> Chunk
 ```
 
-Compiles the string as Koto code and returns a compiled `Chunk` on success, 
-or throws if a compilation error occurs.
+Compiles the provided Koto `script` and returns a compiled `Chunk`.
+
+Any compilation errors get thrown.
 
 ### Example
 
@@ -187,18 +188,20 @@ check! 3
 ## run
 
 ```kototype
-|String| -> Value
+|script: String| -> Any
 ```
 
-Compiles and runs the provided Koto code, and returns the resulting value.
-Errors thrown while executing the code get rethrown.
+Compiles and runs the provided Koto `script`, and returns the resulting value.
+
+Any compilation or runtime errors get thrown.
 
 ```kototype
-|Chunk| -> Value
+|Chunk| -> Any
 ```
 
 Runs the compiled `Chunk`, and returns the resulting value.
-Errors thrown while executing the chunk's bytecode get rethrown.
+
+Any runtime errors encountered during execution get thrown.
 
 ### Example
 
@@ -232,7 +235,7 @@ current script as a String, otherwise `script_path` is Null.
 ## size
 
 ```kototype
-|Value| -> Integer
+|value: Any| -> Number
 ```
 
 Returns the _size_ of a value.
@@ -268,7 +271,7 @@ check! (10, 11, 20)
 ## type
 
 ```kototype
-|Value| -> String
+|value: Any| -> String
 ```
 
 Returns the type of the input value as a String.
