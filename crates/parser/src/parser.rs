@@ -401,8 +401,7 @@ impl<'source> Parser<'source> {
             if !encountered_linebreak && self.current_line > start_line {
                 // e.g.
                 //   x, y =
-                //     1, # <- We're here, and want following values to have matching
-                //        #    indentation
+                //     1, # <- We're here, and want following values to have matching indentation
                 //     0
                 expression_context = expression_context
                     .with_expected_indentation(Indentation::Equal(self.current_indent()));
@@ -413,17 +412,9 @@ impl<'source> Parser<'source> {
                 self.parse_expression_start(&expressions, 0, &expression_context)?
             {
                 match self.ast.node(next_expression).node {
-                    Node::Assign { .. }
-                    | Node::MultiAssign { .. }
-                    | Node::For(_)
-                    | Node::While { .. }
-                    | Node::Until { .. } => {
-                        // These nodes will have consumed the parsed expressions,
-                        // so there's no further work to do.
-                        // e.g.
-                        //   x, y for x, y in a, b
-                        //   a, b = c, d
-                        //   a, b, c = x
+                    Node::Assign { .. } | Node::MultiAssign { .. } => {
+                        // Assignments will have consumed all of the comma-separated expressions
+                        // encountered so far as the LHS of the assignment, so we can exit here.
                         return Ok(Some(next_expression));
                     }
                     _ => {}
@@ -568,14 +559,15 @@ impl<'source> Parser<'source> {
                             Indentation::Equal(indent)
                             | Indentation::GreaterThan(indent)
                             | Indentation::GreaterOrEqual(indent) => {
-                                // If the context has a fixed indentation requirement, then allow the
-                                // indentation for the continued expression to grow or stay the same
+                                // If the context has a fixed indentation requirement, then allow
+                                // the indentation for the continued expression to grow or stay the
+                                // same.
                                 context
                                     .with_expected_indentation(Indentation::GreaterOrEqual(indent))
                             }
                             Indentation::Greater | Indentation::Flexible => {
-                                // Indentation within an arithmetic expression shouldn't be able to continue
-                                // with decreased indentation
+                                // Indentation within an arithmetic expression shouldn't be able to
+                                // continue with decreased indentation.
                                 context.with_expected_indentation(Indentation::GreaterOrEqual(
                                     start_indent,
                                 ))
@@ -1630,24 +1622,22 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(context); // Token::Export
 
         let start_span = self.current_span();
-
-        let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? else {
-            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-        };
-
-        self.push_node_with_start_span(Node::Export(expression), start_span)
+        if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
+            self.push_node_with_start_span(Node::Export(expression), start_span)
+        } else {
+            self.consume_token_and_error(SyntaxError::ExpectedExpression)
+        }
     }
 
     fn consume_throw_expression(&mut self) -> Result<AstIndex> {
         self.consume_next_token_on_same_line(); // Token::Throw
-
         let start_span = self.current_span();
 
-        let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? else {
-            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-        };
-
-        self.push_node_with_start_span(Node::Throw(expression), start_span)
+        if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
+            self.push_node_with_start_span(Node::Throw(expression), start_span)
+        } else {
+            self.consume_token_and_error(SyntaxError::ExpectedExpression)
+        }
     }
 
     fn consume_debug_expression(&mut self) -> Result<AstIndex> {
