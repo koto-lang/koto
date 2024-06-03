@@ -2,6 +2,7 @@ use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
     DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
+use derive_name::VariantName;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ChainNode,
     ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
@@ -14,7 +15,7 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
-    #[error("expected {expected}, found {unexpected:?}")]
+    #[error("expected {expected}, found '{}'", unexpected.variant_name())]
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
@@ -443,7 +444,7 @@ impl Compiler {
             Node::MultiAssign {
                 targets,
                 expression,
-            } => self.compile_multi_assign(targets, *expression, ctx)?,
+            } => self.compile_multi_assign(targets, *expression, false, ctx)?,
             Node::UnaryOp { op, value } => self.compile_unary_op(*op, *value, ctx)?,
             Node::BinaryOp { op, lhs, rhs } => self.compile_binary_op(*op, *lhs, *rhs, ctx)?,
             Node::If(ast_if) => self.compile_if(ast_if, ctx)?,
@@ -983,6 +984,7 @@ impl Compiler {
         &mut self,
         targets: &[AstIndex],
         expression: AstIndex,
+        export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         use Op::*;
@@ -1045,7 +1047,7 @@ impl Compiler {
 
                     // Multi-assignments typically aren't exported, but exporting
                     // assignments might be forced, e.g. in REPL mode.
-                    if self.force_export_assignment() {
+                    if export_assignment || self.force_export_assignment() {
                         self.compile_value_export(*id_index, target_register)?;
                     }
 
@@ -1433,9 +1435,13 @@ impl Compiler {
             Node::Assign { target, expression } => {
                 self.compile_assign(*target, *expression, true, ctx)
             }
+            Node::MultiAssign {
+                targets,
+                expression,
+            } => self.compile_multi_assign(targets, *expression, true, ctx),
             Node::Map(entries) => self.compile_make_map(entries, true, ctx),
             unexpected => self.error(ErrorKind::UnexpectedNode {
-                expected: "ID for export".into(),
+                expected: "an assignment or a Map to export".into(),
                 unexpected: unexpected.clone(),
             }),
         }

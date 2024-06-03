@@ -14,6 +14,8 @@ The Koto project adheres to
 
 - Type hints with runtime type checks have been added ([#298](https://github.com/koto-lang/koto/issues/298)).
   - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
+- `export` can be used with multi-assignment expressions.
+  - e.g. expressions like `export a, b, c = foo()` are now allowed.
 
 ### Changed
 
