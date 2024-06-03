@@ -4,7 +4,7 @@ use std::fmt;
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
 /// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, derive_name::VariantName)]
 pub enum Node {
     /// The `null` keyword
     #[default]

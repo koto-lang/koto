@@ -2,6 +2,7 @@ use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
     DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
+use derive_name::VariantName;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, ChainNode,
     ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
@@ -14,7 +15,7 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
-    #[error("expected {expected}, found {unexpected:?}")]
+    #[error("expected {expected}, found '{}'", unexpected.variant_name())]
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
@@ -1435,7 +1436,7 @@ impl Compiler {
             }
             Node::Map(entries) => self.compile_make_map(entries, true, ctx),
             unexpected => self.error(ErrorKind::UnexpectedNode {
-                expected: "ID for export".into(),
+                expected: "an assignment or a Map to export".into(),
                 unexpected: unexpected.clone(),
             }),
         }

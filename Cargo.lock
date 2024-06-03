@@ -294,6 +294,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "derive-name"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19af109a7f1118ab96e1fd2a0c87310787f791680fa71b4bbfa5dffbc358b08"
+dependencies = [
+ "derive-name-macros",
+]
+
+[[package]]
+name = "derive-name-macros"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa60999fb9292247d7c7eec5dada22b4ba337394612b0d935616bf49964c8bfd"
+dependencies = [
+ "quote",
+ "syn 2.0.60",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -636,6 +655,7 @@ dependencies = [
 name = "koto_bytecode"
 version = "0.15.0"
 dependencies = [
+ "derive-name",
  "dunce",
  "koto_memory",
  "koto_parser",
@@ -726,6 +746,7 @@ dependencies = [
 name = "koto_parser"
 version = "0.15.0"
 dependencies = [
+ "derive-name",
  "koto_lexer",
  "koto_memory",
  "thiserror",

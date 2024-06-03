@@ -11,6 +11,8 @@ chrono = "0.4.31"
 criterion = "0.5.1"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = "0.27.0"
+# Derive macro to get the name of a struct, enum or enum variant
+derive-name = "1.1.0"
 # Trait object downcasting support using only safe Rust.
 downcast-rs = "1.1.1"
 # Normalize Windows paths to the most compatible format
