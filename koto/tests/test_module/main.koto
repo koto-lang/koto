@@ -5,9 +5,13 @@ local_value = 123
 # Export with multi-assignment
 export foo, bar = 42, -1
 
+# Export with let
+export let square: Function = |x| x * x
+
 # Export with a map block
 export
-  square: |x| x * x
+  @type: 'test_module'
+
   baz: import baz # Re-export the neighbouring baz module
 
   tests_were_run: false
@@ -18,5 +22,3 @@ export
 
     @test local_value_unmodified_by_import: ||
       assert_eq local_value, 123
-
-  @type: 'test_module'

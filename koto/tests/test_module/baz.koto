@@ -1,5 +1,6 @@
 # This file is imported by ./main.koto
 
+# Testing that import works within a submodule
 from number import pi
 assert_eq pi, pi
 
@@ -7,7 +8,7 @@ local_value = 999
 qux = null
 
 # Export using inline map syntax
-export { qux }
+export { qux, @type: 'Baz' }
 
 @main = ||
   # Redefine qux to check that main has been called

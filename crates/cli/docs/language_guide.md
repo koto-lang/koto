@@ -2212,6 +2212,12 @@ print! goodbye
 check! Goodbye
 ```
 
+To add a [type check](#type_checks) to an exported value, use a `let` expression:
+
+```koto,skip_run
+export let foo: Number = -1
+```
+
 When exporting a lot of values, it can be convenient to use map syntax:
 
 ```koto,skip_run
