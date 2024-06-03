@@ -401,10 +401,11 @@ impl<'source> Parser<'source> {
             if !encountered_linebreak && self.current_line > start_line {
                 // e.g.
                 //   x, y =
-                //     1, # <- We're here, and want following values to have matching indentation
-                //     0
+                //     1, # <- We're here,
+                //        #    following values should have at least this level of indentation.
+                //     0,
                 expression_context = expression_context
-                    .with_expected_indentation(Indentation::Equal(self.current_indent()));
+                    .with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()));
                 encountered_linebreak = true;
             }
 

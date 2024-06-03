@@ -1536,6 +1536,10 @@ export a
                 "
 export a =
   1 + 1",
+                "
+export 
+  a =
+    1 + 1",
             ];
 
             check_ast_for_equivalent_sources(
@@ -1566,6 +1570,13 @@ export a, b, c
                 "
 export a, b, c =
   foo",
+                "
+export 
+  a, b, c = foo",
+                "
+export 
+  a, b, c 
+    = foo",
             ];
 
             check_ast_for_equivalent_sources(
