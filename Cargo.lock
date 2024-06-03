@@ -749,6 +749,7 @@ dependencies = [
  "derive-name",
  "koto_lexer",
  "koto_memory",
+ "smallvec",
  "thiserror",
  "unicode-segmentation",
 ]
