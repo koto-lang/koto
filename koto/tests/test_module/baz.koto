@@ -6,6 +6,7 @@ assert_eq pi, pi
 local_value = 999
 qux = null
 
+# Export using inline map syntax
 export { qux }
 
 @main = ||

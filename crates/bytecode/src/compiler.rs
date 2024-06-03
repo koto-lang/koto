@@ -444,7 +444,7 @@ impl Compiler {
             Node::MultiAssign {
                 targets,
                 expression,
-            } => self.compile_multi_assign(targets, *expression, ctx)?,
+            } => self.compile_multi_assign(targets, *expression, false, ctx)?,
             Node::UnaryOp { op, value } => self.compile_unary_op(*op, *value, ctx)?,
             Node::BinaryOp { op, lhs, rhs } => self.compile_binary_op(*op, *lhs, *rhs, ctx)?,
             Node::If(ast_if) => self.compile_if(ast_if, ctx)?,
@@ -984,6 +984,7 @@ impl Compiler {
         &mut self,
         targets: &[AstIndex],
         expression: AstIndex,
+        export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         use Op::*;
@@ -1046,7 +1047,7 @@ impl Compiler {
 
                     // Multi-assignments typically aren't exported, but exporting
                     // assignments might be forced, e.g. in REPL mode.
-                    if self.force_export_assignment() {
+                    if export_assignment || self.force_export_assignment() {
                         self.compile_value_export(*id_index, target_register)?;
                     }
 
@@ -1434,6 +1435,10 @@ impl Compiler {
             Node::Assign { target, expression } => {
                 self.compile_assign(*target, *expression, true, ctx)
             }
+            Node::MultiAssign {
+                targets,
+                expression,
+            } => self.compile_multi_assign(targets, *expression, true, ctx),
             Node::Map(entries) => self.compile_make_map(entries, true, ctx),
             unexpected => self.error(ErrorKind::UnexpectedNode {
                 expected: "an assignment or a Map to export".into(),

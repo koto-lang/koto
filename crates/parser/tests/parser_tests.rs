@@ -1557,6 +1557,44 @@ export a =
         }
 
         #[test]
+        fn export_multi_assignment() {
+            let sources = [
+                "export a, b, c = foo",
+                "
+export a, b, c
+  = foo",
+                "
+export a, b, c =
+  foo",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0),
+                    id(1),
+                    id(2),
+                    id(3),
+                    MultiAssign {
+                        targets: nodes(&[0, 1, 2]),
+                        expression: 3.into(),
+                    },
+                    Export(4.into()), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("b"),
+                    Constant::Str("c"),
+                    Constant::Str("foo"),
+                ]),
+            )
+        }
+
+        #[test]
         fn export_map_block() {
             let source = "
 export 

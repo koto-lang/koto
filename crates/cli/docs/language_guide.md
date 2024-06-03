@@ -2190,25 +2190,29 @@ check! 3
 
 `export` is used to add values to the current module's _exports map_.
 
-Single values can be assigned to and exported at the same time:
+Values can be assigned to and exported at the same time:
 
 ```koto,skip_run
 ##################
 # my_module.koto #
 ##################
 
-export say_hello = |name| 'Hello, {name}!'
+export hello, goodbye = 'Hello', 'Goodbye'
+export say_hello = |name| '{hello}, {name}!'
 
 ##################
+#   other.koto   #
 ##################
 
-from my_module import say_hello
+from my_module import say_hello, goodbye
 
 say_hello 'Koto'
 check! 'Hello, Koto!' 
+print! goodbye
+check! Goodbye
 ```
 
-When exporting multiple values, it can be convenient to use map syntax:
+When exporting a lot of values, it can be convenient to use map syntax:
 
 ```koto,skip_run
 ##################
@@ -2255,6 +2259,7 @@ export say_hello = |name| 'Hello, {name}!'
     assert_eq (say_hello 'World'), 'Hello, World!'
 
 ##################
+#   other.koto   #
 ##################
 
 from my_module import say_hello

@@ -1620,9 +1620,11 @@ impl<'source> Parser<'source> {
 
     fn consume_export(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Export
-
         let start_span = self.current_span();
-        if let Some(expression) = self.parse_expression(&ExpressionContext::permissive())? {
+
+        if let Some(expression) =
+            self.parse_expressions(&ExpressionContext::permissive(), TempResult::No)?
+        {
             self.push_node_with_start_span(Node::Export(expression), start_span)
         } else {
             self.consume_token_and_error(SyntaxError::ExpectedExpression)

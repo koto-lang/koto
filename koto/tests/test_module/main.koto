@@ -2,9 +2,11 @@
 
 local_value = 123
 
+# Export with multi-assignment
+export foo, bar = 42, -1
+
+# Export with a map block
 export
-  foo: 42
-  bar: -1
   square: |x| x * x
   baz: import baz # Re-export the neighbouring baz module
 
