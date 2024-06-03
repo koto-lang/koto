@@ -52,7 +52,7 @@ Initializes a `Vec2` with `x` specified, and `y` set to `0`.
 
 ```kototype
 |x: Number, y: Number| -> Vec2
-|Vec2| -> Vec2
+|xy: Vec2| -> Vec2
 ```
 
 Initializes a `Vec2` with corresponding `x` and `y` components.
@@ -287,7 +287,7 @@ check! 42.0
 ## Rect.contains
 
 ```kototype
-|Rect, Vec2| -> Vec2
+|Rect, xy: Vec2| -> Vec2
 ```
 
 Returns true if the given `Vec2` is located within the rectangle's

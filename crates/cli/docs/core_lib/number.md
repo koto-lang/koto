@@ -194,11 +194,10 @@ check! 0
 ## clamp
 
 ```kototype
-|Number, Number, Number| -> Number
+|input: Number, min: Number, max: Number| -> Number
 ```
 
-Returns the first number restricted to the range defined by the second and third
-numbers.
+Returns the `input` number restricted to the range defined by `min` and `max`.
 
 ### Example
 
@@ -642,7 +641,7 @@ check! -1
 ## shift_left
 
 ```kototype
-|Number, Number| -> Number
+|Number, shift_amount: Number| -> Number
 ```
 
 Returns the result of shifting the bits of the first number to the left by the
@@ -667,7 +666,7 @@ check! 40
 ## shift_right
 
 ```kototype
-|Number, Number| -> Number
+|Number, shift_amount: Number| -> Number
 ```
 
 Returns the result of shifting the bits of the first number to the right by the

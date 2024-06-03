@@ -26,7 +26,7 @@ catch error
 ## assert_eq
 
 ```kototype
-|Value, Value| -> Null
+|a: Any, b: Any| -> Null
 ```
 
 Checks the two input values for equality and throws an error if they're not
@@ -48,7 +48,7 @@ catch error
 ## assert_ne
 
 ```kototype
-|Value, Value| -> Null
+|a: Any, b: Any| -> Null
 ```
 
 Checks the two input values for inequality and throws an error if they're equal.
@@ -69,11 +69,11 @@ catch error
 ## assert_near
 
 ```kototype
-|Number, Number| -> Null
+|a: Number, b: Number| -> Null
 ```
 
 ```kototype
-|Number, Number, Number| -> Null
+|a: Number, b: Number, error_margin: Number| -> Null
 ```
 
 Checks that the two input numbers are equal, within an allowed margin of error.
@@ -104,7 +104,7 @@ assert_near 1 % 0.2, 0.2
 ## run_tests
 
 ```kototype
-|Map| -> Null
+|tests: Map| -> Null
 ```
 
 Runs the tests contained in the map.

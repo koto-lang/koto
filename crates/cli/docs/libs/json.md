@@ -5,7 +5,7 @@
 ## from_string
 
 ```kototype
-|String| -> Value
+|String| -> Any
 ```
 
 Deserializes a string containing JSON data, returning a structured Koto value.
@@ -43,7 +43,7 @@ check! baz
 ## to_string
 
 ```kototype
-|Value| -> String
+|Any| -> String
 ```
 
 Returns a string containing the input value serialized as JSON data.

@@ -38,7 +38,7 @@ check! false
 ## end
 
 ```kototype
-|Range| -> Int
+|Range| -> Number
 ```
 
 Returns the `end` value of the range.
@@ -60,12 +60,14 @@ check! 0
 ## expanded
 
 ```kototype
-|Range, Number| -> Range
+|Range, amount: Number| -> Range
 ```
 
 Returns a copy of the input range which has been 'expanded' in both directions
-by the provided amount. For an ascending range this will mean that `start` will
-decrease by the provided amount, while `end` will increase.
+by the provided `amount`. 
+
+For an ascending range this will mean that `start` will decrease by the provided
+amount, while `end` will increase.
 
 Negative amounts will cause the range to shrink rather than grow.
 
@@ -94,7 +96,7 @@ check! -5..5
 |Range, Range| -> Range
 ```
 
-Returns a range representing the intersectin region of the two input ranges.
+Returns a range representing the intersection region of the two input ranges.
 
 If there is no intersecting region then `null` is returned.
 
@@ -135,7 +137,7 @@ check! false
 ## start
 
 ```kototype
-|Range| -> Int
+|Range| -> Number
 ```
 
 Returns the `start` value of the range.

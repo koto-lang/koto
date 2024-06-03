@@ -198,11 +198,11 @@ check! ('', '', '')
 ## replace
 
 ```kototype
-|String, String, String| -> String
+|String, match: String, replacement: String| -> String
 ```
 
-Returns a copy of the input string with all occurrences of the match string
-replaced with an alternative string.
+Returns a copy of the input string with all occurrences of the `match` string
+replaced with a `replacement` string.
 
 ### Example
 
@@ -214,20 +214,21 @@ check! 1x1x1
 ## split
 
 ```kototype
-|String, String| -> Iterator
+|String, match: String| -> Iterator
 ```
 
 Returns an iterator that yields strings resulting from splitting the first
-string wherever the second string is encountered.
+string wherever the `match` string is encountered.
 
 ```kototype
-|String, |String| -> Bool| -> Iterator
+|String, match: |String| -> Bool| -> Iterator
 ```
 
 Returns an iterator that yields strings resulting from splitting the input
-string based on the result of calling a function. The function will be called
-for each grapheme in the input string, and splits will occur when the function
-returns true.
+string based on the result of calling a `match` function. 
+
+The `match` function will be called for each grapheme in the input string, and
+splits will occur when the function returns true.
 
 ### Example
 
@@ -245,10 +246,10 @@ check! ('x', 'y', 'z')
 ## starts_with
 
 ```kototype
-|String, String| -> Bool
+|String, match: String| -> Bool
 ```
 
-Returns `true` if the first string starts with the second string.
+Returns `true` if the first string starts with the `match` string.
 
 ### Example
 
@@ -293,14 +294,15 @@ Returns the string converted into a number.
 If a number can't be produced then `Null` is returned.
 
 ```kototype
-|String, Integer| -> Integer
+|String, base: Number| -> Number
 ```
 
-Returns the string converted into an integer given the specified base.
+Returns the string converted into a number given the specified `base`.
 
-The base must be in the range `2..=36`, otherwise an error will be thrown.
+The base must be an integer in the range `2..=36`, 
+otherwise an error will be thrown.
 
-If the string contains non-numerical digits then `Null` is returned.
+If the string contains non-numerical digits then `null` is returned.
 
 ### Example
 

@@ -8,19 +8,19 @@ available.
 For convenience, the color module itself is callable:
 
 ```kototype
-|String| -> Color
+|name: String| -> Color
 ```
 
 Equivalent to calling [color.named](#named).
 
 ```kototype
-|Number, Number, Number| -> Color
+|r: Number, g: Number, b: Number| -> Color
 ```
 
 Equivalent to calling [color.rgb](#rgb).
 
 ```kototype
-|Number, Number, Number, Number| -> Color
+|r: Number, g: Number, b: Number, a: Number| -> Color
 ```
 
 Equivalent to calling [color.rgba](#rgba).
@@ -34,7 +34,7 @@ check! Color {r: 1, g: 0, b: 0, a: 1}
 ## hsl
 
 ```kototype
-|Number, Number, Number| -> Color
+|h: Number, s: Number, l: Number| -> Color
 ```
 
 Returns a color produced from [hue, saturation, and lightness][hsl-hsv]
@@ -55,7 +55,7 @@ check! Color {r: 0, g: 0.5, b: 0.5, a: 1}
 ## hsv
 
 ```kototype
-|Number, Number, Number| -> Color
+|h: Number, s: Number, v: Number| -> Color
 ```
 
 Returns a color produced from [hue, saturation, and value][hsl-hsv]
@@ -75,7 +75,7 @@ check! Color {r: 0.75, g: 1, b: 0.5, a: 1}
 ## named
 
 ```kototype
-|String| -> Color
+|name: String| -> Color
 ```
 
 Returns a color corresponding to one of the named colors listed in the
@@ -91,7 +91,7 @@ check! Color {r: 1, g: 1, b: 0, a: 1}
 ## rgb
 
 ```kototype
-|Number, Number, Number| -> Color
+|r: Number, g: Number, b: Number| -> Color
 ```
 
 Returns a color produced from [red, green, and blue][rgb] components.
@@ -108,7 +108,7 @@ check! Color {r: 0.5, g: 0.1, b: 0.9, a: 1}
 ## rgba
 
 ```kototype
-|Number, Number, Number, Number| -> Color
+|r: Number, g: Number, b: Number, a: Number| -> Color
 ```
 
 Returns a color produced from [red, green, blue, and alpha][rgba] components.
@@ -235,7 +235,7 @@ check! 0.5
 ## Color.set_r | Color.set_red
 
 ```kototype
-|Color, Number| -> Color
+|Color, r: Number| -> Color
 ```
 
 Sets the color's red component, and returns the color.
@@ -254,7 +254,7 @@ check! Color {r: 0, g: 0, b: 0, a: 1}
 ## Color.set_g | Color.set_green
 
 ```kototype
-|Color, Number| -> Color
+|Color, g: Number| -> Color
 ```
 
 Sets the color's green component, and returns the color.
@@ -273,7 +273,7 @@ check! Color {r: 1, g: 1, b: 0, a: 1}
 ## Color.set_b | Color.set_blue
 
 ```kototype
-|Color, Number| -> Color
+|Color, b: Number| -> Color
 ```
 
 Sets the color's blue component, and returns the color.
@@ -311,18 +311,18 @@ check! Color {r: 1, g: 0, b: 0, a: 0.2}
 ## Color.mix
 
 ```kototype
-|Color, Color| -> Color
+|a: Color, b: Color| -> Color
 ```
 
 Returns a new color representing an even mix of the two input colors.
 
 ```kototype
-|Color, Color, Number| -> Color
+|a: Color, b: Color, weight: Number| -> Color
 ```
 
 Returns a new color representing a weighted mix of the two input colors. 
 
-The weight is specified by a number between `0` and `1`, with values closer to
+The `weight` argument is a number between `0` and `1`, with values closer to
 `0` producing results closer to the first color, and values closer to `1`
 producing results closer to the second color.
 
