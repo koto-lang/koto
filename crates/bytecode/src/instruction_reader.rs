@@ -487,8 +487,8 @@ impl Iterator for InstructionReader {
             }),
             Op::CheckType => Some(CheckType {
                 value: get_u8!(),
-                jump_offset: get_u16!(),
                 type_string: get_var_u32!().into(),
+                jump_offset: get_u16!(),
             }),
             Op::StringStart => Some(StringStart {
                 size_hint: get_var_u32!(),

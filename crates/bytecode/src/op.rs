@@ -495,7 +495,7 @@ pub enum Op {
     /// If the value doesn't match the type then the instruction pointer will be jumped forward to
     /// the location referred to by the jump offset.
     ///
-    /// `[*value, jump_offset[2], @type constant]`
+    /// `[*value, @type constant, jump_offset[2]]`
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
