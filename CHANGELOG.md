@@ -17,6 +17,10 @@ The Koto project adheres to
 - `export` can be used with multi-assignment expressions.
   - e.g. expressions like `export a, b, c = foo()` are now allowed.
 
+#### Core Library
+
+- `tuple.sort_copy` now supports sorting with a key function, like `list.sort`.
+
 ### Changed
 
 #### Language

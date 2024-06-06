@@ -885,7 +885,7 @@ f()
         }
 
         #[test]
-        fn match_with_type_hints() {
+        fn match_with_first_type_hint_in_arm() {
             let script = r#"
 match 42
   x: String or x: List then -1
@@ -893,6 +893,28 @@ match 42
   else -2
 "#;
             check_script_output(script, 42);
+        }
+
+        #[test]
+        fn match_with_second_type_hint_in_arm() {
+            let script = r#"
+match true
+  x: String or x: List then -1
+  x: Number or x: Bool then x
+  else -2
+"#;
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn match_with_no_matching_type_hints() {
+            let script = r#"
+match 42
+  x: String or x: List then -1
+  x: Tuple or x: Bool then -2
+  else 99
+"#;
+            check_script_output(script, 99);
         }
 
         #[test]

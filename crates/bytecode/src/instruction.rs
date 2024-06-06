@@ -326,8 +326,8 @@ pub enum Instruction {
     },
     CheckType {
         value: u8,
-        jump_offset: u16,
         type_string: ConstantIndex,
+        jump_offset: u16,
     },
     StringStart {
         size_hint: u32,
@@ -756,7 +756,7 @@ impl fmt::Debug for Instruction {
             } => {
                 write!(
                     f,
-                    "CheckType\tvalue: {value}\toffset: {jump_offset}\ttype: {type_string}"
+                    "CheckType\tvalue: {value}\ttype: {type_string}\toffset: {jump_offset}"
                 )
             }
             StringStart { size_hint } => {

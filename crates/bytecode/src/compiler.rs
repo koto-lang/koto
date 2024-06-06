@@ -1187,8 +1187,8 @@ impl Compiler {
                 } else {
                     self.push_span(type_node, ctx.ast);
                     self.push_op(Op::CheckType, &[value_register]);
-                    let jump_placeholder = self.push_offset_placeholder();
                     self.push_var_u32((*type_index).into());
+                    let jump_placeholder = self.push_offset_placeholder();
                     self.pop_span();
                     Ok(Some(jump_placeholder))
                 }
@@ -3683,6 +3683,8 @@ impl Compiler {
         self.push_bytes(&(offset as u16).to_le_bytes());
     }
 
+    // For offset placeholders to work correctly,
+    // ensure that they're the last value in the instruction.
     fn push_offset_placeholder(&mut self) -> usize {
         let offset_ip = self.bytes.len();
         self.push_bytes(&[0, 0]);

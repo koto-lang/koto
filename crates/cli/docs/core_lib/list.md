@@ -388,9 +388,10 @@ Sorts the list in place, and returns the list.
 |List, key: |Any| -> Any| -> List
 ```
 
-Sorts the list in place, based on the output of calling a 'key' function for
-each value, and returns the list. The function result is cached, so it's only
-called once per value.
+Sorts the list in place, based on the output of calling a `key` function for
+each of the list's elements, and returns the list. 
+
+The key function's result is cached, so it's only called once per element.
 
 ### Example
 
@@ -408,6 +409,7 @@ print! x
 check! ['a', 'bb', 'ccc']
 
 x = [2, 1, 3]
+# Sort in reverse order by using a key function
 print! x.sort |n| -n
 check! [3, 2, 1]
 print! x
