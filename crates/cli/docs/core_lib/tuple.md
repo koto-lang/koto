@@ -94,6 +94,15 @@ check! null
 
 Returns a sorted copy of the tuple.
 
+```kototype
+|List, key: |Any| -> Any| -> List
+```
+
+Returns a sorted copy of the tuple, based on the output of calling a `key` 
+function for each of the tuple's elements. 
+
+The key function's result is cached, so it's only called once per value.
+
 ### Example
 
 ```koto
@@ -104,6 +113,10 @@ check! (-1, 1, 42, 99)
 
 print! x # x remains untouched
 check! (1, -1, 99, 42)
+
+# Sort in reverse order by using a key function
+print! x.sort_copy |n| -n
+check! (99, 42, 1, -1)
 ```
 
 ## to_list

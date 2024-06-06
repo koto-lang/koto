@@ -2,7 +2,7 @@
 
 use super::{
     iterator::collect_pair,
-    value_sort::{compare_values, sort_values},
+    value_sort::{sort_by_key, sort_values},
 };
 use crate::prelude::*;
 use std::{cmp::Ordering, ops::DerefMut};
@@ -353,46 +353,14 @@ pub fn make_module() -> KMap {
             }
             (KValue::List(l), [f]) if f.is_callable() => {
                 let l = l.clone();
-                let f = f.clone();
 
-                // apply function and construct a vec of (key, value)
-                let mut pairs = l
-                    .data()
-                    .iter()
-                    .map(
-                        |value| match ctx.vm.call_function(f.clone(), value.clone()) {
-                            Ok(key) => Ok((key, value.clone())),
-                            Err(e) => Err(e),
-                        },
-                    )
-                    .collect::<Result<Vec<_>, _>>()?;
+                let sorted = sort_by_key(ctx.vm, l.data().as_ref(), f.clone())?;
 
-                let mut error = None;
-
-                // sort array by key (i.e. from [key, value])
-                pairs.sort_by(|a, b| {
-                    if error.is_some() {
-                        return Ordering::Equal;
-                    }
-
-                    match compare_values(ctx.vm, &a.0, &b.0) {
-                        Ok(ordering) => ordering,
-                        Err(e) => {
-                            error.get_or_insert(e);
-                            Ordering::Equal
-                        }
-                    }
-                });
-
-                if let Some(error) = error {
-                    return Err(error);
+                for (target_value, (_key, source_value)) in
+                    l.data_mut().iter_mut().zip(sorted.into_iter())
+                {
+                    *target_value = source_value;
                 }
-
-                // collect values
-                *l.data_mut() = pairs
-                    .iter()
-                    .map(|(_key, value)| value.clone())
-                    .collect::<_>();
 
                 Ok(KValue::List(l))
             }

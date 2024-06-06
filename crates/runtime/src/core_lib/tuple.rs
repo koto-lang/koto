@@ -1,6 +1,6 @@
 //! The `tuple` core library module
 
-use super::value_sort::sort_values;
+use super::value_sort::{sort_by_key, sort_values};
 use crate::prelude::*;
 
 /// Initializes the `tuple` core library module
@@ -78,7 +78,7 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("sort_copy", |ctx| {
-        let expected_error = "a Tuple";
+        let expected_error = "a Tuple, and an optional key function";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => {
@@ -86,6 +86,12 @@ pub fn make_module() -> KMap {
 
                 sort_values(ctx.vm, &mut result)?;
 
+                Ok(KValue::Tuple(result.into()))
+            }
+            (KValue::Tuple(t), [f]) if f.is_callable() => {
+                let t = t.clone();
+                let sorted = sort_by_key(ctx.vm, &t, f.clone())?;
+                let result: Vec<_> = sorted.into_iter().map(|(_key, value)| value).collect();
                 Ok(KValue::Tuple(result.into()))
             }
             (_, unexpected) => type_error_with_slice(expected_error, unexpected),

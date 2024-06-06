@@ -31,6 +31,49 @@ pub fn sort_values(vm: &mut KotoVm, arr: &mut [KValue]) -> Result<(), Error> {
     Ok(())
 }
 
+/// Returns a sorted copy of a slice of values, compared using a key function
+///
+/// The returned data is a sorted vec of key/value pairs, sorted by key.
+///
+/// Used by list.sort and tuple.sort_copy
+pub fn sort_by_key(
+    vm: &mut KotoVm,
+    input: &[KValue],
+    key_fn: KValue,
+) -> Result<Vec<(KValue, KValue)>, Error> {
+    // Build up a vec of key/value pairs by calling key_fn for each value
+    let mut keys_and_values: Vec<(KValue, KValue)> = input
+        .iter()
+        .map(|value| {
+            vm.call_function(key_fn.clone(), value.clone())
+                .map(|key| (key, value.clone()))
+        })
+        .collect::<Result<_, _>>()?;
+
+    // Sort the data by key
+    let mut error = None;
+    keys_and_values.sort_by(|a, b| {
+        // If an error has occurred then short-circuit the sorting to exit as quickly as possible
+        if error.is_some() {
+            return Ordering::Equal;
+        }
+
+        match compare_values(vm, &a.0, &b.0) {
+            Ok(ordering) => ordering,
+            Err(e) => {
+                error = Some(e);
+                Ordering::Equal
+            }
+        }
+    });
+
+    if let Some(error) = error {
+        Err(error)
+    } else {
+        Ok(keys_and_values)
+    }
+}
+
 /// Compares values using Koto operators.
 pub fn compare_values(vm: &mut KotoVm, a: &KValue, b: &KValue) -> Result<Ordering, Error> {
     use KValue::Bool;
