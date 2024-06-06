@@ -12,7 +12,7 @@ Returns true if the provided number is within the range, and false otherwise.
 |Range, Range| -> Bool
 ```
 
-Returns true if the provided range is entirely containd within the range, 
+Returns true if the provided range is entirely contained within the range,
 and false otherwise.
 
 ### Example
@@ -96,7 +96,7 @@ check! -5..5
 |Range, Range| -> Range
 ```
 
-Returns a range representing the intersection region of the two input ranges.
+Returns a range representing the intersecting region of the two input ranges.
 
 If there is no intersecting region then `null` is returned.
 
