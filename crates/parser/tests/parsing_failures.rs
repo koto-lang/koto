@@ -162,6 +162,20 @@ x .foo
             }
         }
 
+        mod piped_calls {
+            use super::*;
+
+            #[test]
+            fn pipe_without_indentation_in_function() {
+                let source = "
+x = ||
+  foo 42
+  -> bar
+";
+                check_parsing_fails(source);
+            }
+        }
+
         mod maps {
             use super::*;
 

@@ -333,7 +333,9 @@ impl<'source> Parser<'source> {
             };
 
             let Some(expression) = self.parse_line(&line_context)? else {
-                break;
+                // At this point we've peeked to check that the line is either the start of the
+                // block, or a continuation with the same indentation as the block.
+                return self.consume_token_and_error(SyntaxError::UnexpectedToken);
             };
 
             block.push(expression);
