@@ -890,8 +890,11 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
+                    let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    arg_nodes.push(self.push_node(Node::Id(constant_index, type_hint))?);
+                    arg_nodes.push(
+                        self.push_node_with_span(Node::Id(constant_index, type_hint), arg_span)?,
+                    );
 
                     if self.peek_token() == Some(Token::Ellipsis) {
                         if type_hint.is_some() {
@@ -903,8 +906,11 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                    let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
+                    arg_nodes.push(
+                        self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?,
+                    );
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -1051,6 +1057,7 @@ impl<'source> Parser<'source> {
                         return self.error(SyntaxError::SelfArg);
                     }
 
+                    let arg_span = self.current_span();
                     let arg_node = if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
                         Node::Ellipsis(Some(constant_index))
@@ -1058,12 +1065,15 @@ impl<'source> Parser<'source> {
                         Node::Id(constant_index, self.parse_type_hint(&args_context)?)
                     };
 
-                    nested_args.push(self.push_node(arg_node)?);
+                    nested_args.push(self.push_node_with_span(arg_node, arg_span)?);
                     arg_ids.push(constant_index);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                    let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    nested_args.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
+                    nested_args.push(
+                        self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?,
+                    );
                 }
                 None => match self.peek_token() {
                     Some(Token::RoundOpen) => {
@@ -2061,17 +2071,17 @@ impl<'source> Parser<'source> {
 
         let mut args = AstVec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
+            let arg_span = self.current_span();
             let type_hint = self.parse_type_hint(context)?;
 
-            match id_or_wildcard {
+            let arg_node = match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                    args.push(self.push_node(Node::Id(id, type_hint))?);
+                    Node::Id(id, type_hint)
                 }
-                IdOrWildcard::Wildcard(maybe_id) => {
-                    args.push(self.push_node(Node::Wildcard(maybe_id, type_hint))?);
-                }
-            }
+                IdOrWildcard::Wildcard(maybe_id) => Node::Wildcard(maybe_id, type_hint),
+            };
+            args.push(self.push_node_with_span(arg_node, arg_span)?);
 
             match self.peek_next_token_on_same_line() {
                 Some(Token::Comma) => {
@@ -2496,8 +2506,10 @@ impl<'source> Parser<'source> {
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
                             }
                         } else {
+                            let id_span = self.current_span();
                             let type_hint = self.parse_type_hint(&pattern_context)?;
-                            let id_node = self.push_node(Node::Id(id, type_hint))?;
+                            let id_node =
+                                self.push_node_with_span(Node::Id(id, type_hint), id_span)?;
                             if self.next_token_is_chain_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.consume_chain(id_node, &pattern_context)?
@@ -2511,9 +2523,12 @@ impl<'source> Parser<'source> {
                     None => return self.error(InternalError::IdParseFailure),
                 },
                 Wildcard => {
-                    let maybe_id = self.consume_wildcard(&pattern_context)?;
+                    let wildcard = self.consume_wildcard(&pattern_context)?;
+                    let wildcard_span = self.current_span();
                     let maybe_type = self.parse_type_hint(&pattern_context)?;
-                    Some(self.push_node(Node::Wildcard(maybe_id, maybe_type))?)
+                    let result = self
+                        .push_node_with_span(Node::Wildcard(wildcard, maybe_type), wildcard_span)?;
+                    Some(result)
                 }
                 RoundOpen => {
                     self.consume_token_with_context(&pattern_context);
@@ -2753,16 +2768,18 @@ impl<'source> Parser<'source> {
         while let Some(id_or_wildcard) =
             self.parse_id_or_wildcard(&ExpressionContext::permissive())?
         {
-            match id_or_wildcard {
+            let target_span = self.current_span();
+            let target_node = match id_or_wildcard {
                 IdOrWildcard::Id(constant_index) => {
                     let type_hint_index = self.parse_type_hint(context)?;
-                    targets.push(self.push_node(Node::Id(constant_index, type_hint_index))?);
+                    Node::Id(constant_index, type_hint_index)
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
                     let type_hint_index = self.parse_type_hint(context)?;
-                    targets.push(self.push_node(Node::Wildcard(maybe_id, type_hint_index))?);
+                    Node::Wildcard(maybe_id, type_hint_index)
                 }
-            }
+            };
+            targets.push(self.push_node_with_span(target_node, target_span)?);
 
             if let Some(Token::Comma) = self
                 .peek_token_with_context(context)
