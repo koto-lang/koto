@@ -839,12 +839,7 @@ impl Compiler {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                     if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(
-                            local_register,
-                            *type_hint,
-                            Some(*arg),
-                            ctx,
-                        )?;
+                        self.compile_assert_type(local_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
                 Node::Tuple(nested_args) => {
@@ -1080,12 +1075,7 @@ impl Compiler {
                     self.commit_local_register(target_register)?;
 
                     if let Some(type_hint) = type_hint {
-                        self.compile_assert_type(
-                            target_register,
-                            *type_hint,
-                            Some(*target),
-                            ctx,
-                        )?;
+                        self.compile_assert_type(target_register, *type_hint, Some(*target), ctx)?;
                     }
 
                     // Multi-assignments typically aren't exported, but exporting
@@ -3620,21 +3610,44 @@ impl Compiler {
 
                 // A temporary register for the iterator's output.
                 // Args are unpacked via iteration from the temp register
-                let temp_register = self.push_register()?;
+                let output_register = self.push_register()?;
 
-                self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
+                self.push_op_without_span(IterNextTemp, &[output_register, iterator_register]);
                 self.push_loop_jump_placeholder()?;
 
-                self.push_op_without_span(MakeIterator, &[temp_register, temp_register]);
+                self.push_op_without_span(MakeIterator, &[output_register, output_register]);
 
                 for arg in args.iter() {
                     match ctx.node(*arg) {
-                        Node::Id(id, ..) => {
+                        Node::Id(id, maybe_type) => {
                             let arg_register = self.assign_local_register(*id)?;
-                            self.push_op_without_span(IterUnpack, &[arg_register, temp_register]);
+                            self.push_op_without_span(IterUnpack, &[arg_register, output_register]);
+                            if let Some(type_hint) = maybe_type {
+                                self.compile_assert_type(
+                                    arg_register,
+                                    *type_hint,
+                                    Some(*arg),
+                                    ctx,
+                                )?;
+                            }
                         }
-                        Node::Wildcard(..) => {
-                            self.push_op_without_span(IterNextQuiet, &[temp_register, 0, 0]);
+                        Node::Wildcard(_, maybe_type) => {
+                            if let Some(type_hint) = maybe_type {
+                                let arg_register = self.push_register()?;
+                                self.push_op_without_span(
+                                    IterUnpack,
+                                    &[arg_register, output_register],
+                                );
+                                self.compile_assert_type(
+                                    arg_register,
+                                    *type_hint,
+                                    Some(*arg),
+                                    ctx,
+                                )?;
+                                self.pop_register()?; // arg_register
+                            } else {
+                                self.push_op_without_span(IterNextQuiet, &[output_register, 0, 0]);
+                            }
                         }
                         unexpected => {
                             return self.error(ErrorKind::UnexpectedNode {
@@ -3645,7 +3658,7 @@ impl Compiler {
                     }
                 }
 
-                self.pop_register()?; // temp_register
+                self.pop_register()?; // output_register
             }
         }
 

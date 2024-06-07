@@ -277,6 +277,50 @@ for _foo: Number in (1, true, 2)
             }
 
             #[test]
+            fn for_loop_with_typed_unpacked_arg() {
+                let script = "\
+for i: Number, x: Bool in 'abc'.enumerate()
+#              ^
+  null
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 16,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn for_loop_with_typed_unpacked_wildcard_arg() {
+                let script = "\
+for i: Number, _x: Bool in 'abc'.enumerate()
+#              ^^
+  null
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 17,
+                        },
+                    },
+                );
+            }
+
+            #[test]
             fn generator_with_type_hint() {
                 let script = "\
 g = || -> Number

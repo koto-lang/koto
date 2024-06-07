@@ -1377,11 +1377,11 @@ Type hints can also be added to `for` loop arguments.
 The type will be checked on each iteration of the loop.
 
 ```koto
-for x: Number in (1, 2, 3)
-  print x
-check! 1
-check! 2
-check! 3
+for i: Number, s: String in 'abc'.enumerate()
+  print i, s
+check! (0, 'a')
+check! (1, 'b')
+check! (2, 'c')
 ```
 
 ### Functions
