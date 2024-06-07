@@ -491,10 +491,10 @@ impl<'source> Parser<'source> {
             return Ok(None);
         };
 
-        let expression_start = match self.parse_term(context)? {
-            Some(term) => term,
-            None => return Ok(None),
+        let Some(expression_start) = self.parse_term(context)? else {
+            return Ok(None);
         };
+        let start_span = *self.ast.span(self.ast.node(expression_start).span);
 
         let continuation_context = if self.current_line > entry_line {
             match context.expected_indentation {
@@ -519,6 +519,7 @@ impl<'source> Parser<'source> {
 
         self.parse_expression_continued(
             expression_start,
+            start_span,
             previous_expressions,
             min_precedence,
             &continuation_context,
@@ -532,6 +533,7 @@ impl<'source> Parser<'source> {
     fn parse_expression_continued(
         &mut self,
         expression_start: AstIndex,
+        start_span: Span,
         previous_expressions: &[AstIndex],
         min_precedence: u8,
         context: &ExpressionContext,
@@ -547,7 +549,6 @@ impl<'source> Parser<'source> {
             if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
                 if left_priority >= min_precedence {
                     let (op, _) = self.consume_token_with_context(context).unwrap();
-                    let op_span = self.current_span();
 
                     // Move on to the token after the operator
                     if self.peek_token_with_context(context).is_none() {
@@ -618,17 +619,18 @@ impl<'source> Parser<'source> {
                                              // operator_precedence()
                     };
 
-                    let op_node = self.push_node_with_span(
+                    let op_node = self.push_node_with_start_span(
                         Node::BinaryOp {
                             op: ast_op,
                             lhs: expression_start,
                             rhs,
                         },
-                        op_span,
+                        start_span,
                     )?;
 
                     return self.parse_expression_continued(
                         op_node,
+                        start_span,
                         &[],
                         min_precedence,
                         &rhs_context,
@@ -819,11 +821,12 @@ impl<'source> Parser<'source> {
             }
             Token::Yield => {
                 self.consume_token_with_context(context);
+                let start_span = self.current_span();
                 if let Some(expression) =
                     self.parse_expressions(&context.start_new_expression(), TempResult::No)?
                 {
                     self.frame_mut()?.contains_yield = true;
-                    self.push_node(Node::Yield(expression))
+                    self.push_node_with_start_span(Node::Yield(expression), start_span)
                 } else {
                     self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
@@ -844,9 +847,10 @@ impl<'source> Parser<'source> {
             }
             Token::Return => {
                 self.consume_token_with_context(context);
+                let start_span = self.current_span();
                 let return_value =
                     self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
-                self.push_node(Node::Return(return_value))
+                self.push_node_with_start_span(Node::Return(return_value), start_span)
             }
             Token::Throw => self.consume_throw_expression(),
             Token::Debug => self.consume_debug_expression(),

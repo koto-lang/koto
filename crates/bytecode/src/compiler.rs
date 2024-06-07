@@ -500,8 +500,8 @@ impl Compiler {
                 }
                 None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
-            Node::Return(expression) => self.compile_return(*expression, ctx)?,
-            Node::Yield(expression) => self.compile_yield(*expression, ctx)?,
+            Node::Return(expression) => self.compile_return(*expression, node_index, ctx)?,
+            Node::Yield(expression) => self.compile_yield(*expression, node_index, ctx)?,
             Node::Throw(expression) => {
                 // A throw will prevent the result from being used, but the caller should be
                 // provided with a result register regardless.
@@ -581,14 +581,14 @@ impl Compiler {
             is_generator,
         ));
 
-        // Unpack nested args and check types
+        // Check argument types and unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
             let arg_node = ctx.node_with_span(*arg);
             let arg_register = arg_index as u8 + 1; // self is in register 0, args start from 1
             match &arg_node.node {
                 Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(arg_register, *type_hint, ctx)?;
+                        self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
                 Node::Tuple(nested_args) => {
@@ -620,7 +620,11 @@ impl Compiler {
         if let Some(block_register) = block_result.register {
             if !self.frame().last_node_was_return {
                 if !is_generator {
-                    self.compile_check_output_type(block_register, ctx)?;
+                    self.compile_check_output_type(
+                        block_register,
+                        expressions.last().copied(),
+                        ctx,
+                    )?;
                 }
                 self.push_op_without_span(Op::Return, &[block_register]);
             }
@@ -631,7 +635,7 @@ impl Compiler {
             let register = self.push_register()?;
             self.push_op(Op::SetNull, &[register]);
             if !is_generator {
-                self.compile_check_output_type(register, ctx)?;
+                self.compile_check_output_type(register, expressions.last().copied(), ctx)?;
             }
             self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
@@ -645,6 +649,7 @@ impl Compiler {
     fn compile_return(
         &mut self,
         expression: Option<AstIndex>,
+        return_node: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         use Op::*;
@@ -655,7 +660,7 @@ impl Compiler {
             let expression_result = self.compile_node(expression, ctx.with_any_register())?;
             let expression_register = expression_result.unwrap(self)?;
             if check_return_type {
-                self.compile_check_output_type(expression_register, ctx)?;
+                self.compile_check_output_type(expression_register, Some(return_node), ctx)?;
             }
 
             match ctx.result_register {
@@ -685,7 +690,7 @@ impl Compiler {
                 Some(result_register) => {
                     self.push_op(SetNull, &[result_register]);
                     if check_return_type {
-                        self.compile_check_output_type(result_register, ctx)?;
+                        self.compile_check_output_type(result_register, None, ctx)?;
                     }
                     self.push_op(Return, &[result_register]);
                 }
@@ -693,7 +698,7 @@ impl Compiler {
                     let register = self.push_register()?;
                     self.push_op(SetNull, &[register]);
                     if check_return_type {
-                        self.compile_check_output_type(register, ctx)?;
+                        self.compile_check_output_type(register, None, ctx)?;
                     }
                     self.push_op(Return, &[register]);
                     self.pop_register()?;
@@ -708,6 +713,7 @@ impl Compiler {
     fn compile_yield(
         &mut self,
         expression: AstIndex,
+        yield_node: AstIndex,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         let result = self.assign_result_register(ctx)?;
@@ -715,7 +721,7 @@ impl Compiler {
         let expression_result = self.compile_node(expression, ctx.with_any_register())?;
         let expression_register = expression_result.unwrap(self)?;
 
-        self.compile_check_output_type(expression_register, ctx)?;
+        self.compile_check_output_type(expression_register, Some(yield_node), ctx)?;
         self.push_op(Op::Yield, &[expression_register]);
 
         if let Some(result_register) = result.register {
@@ -729,9 +735,14 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_check_output_type(&mut self, register: u8, ctx: CompileNodeContext) -> Result<()> {
+    fn compile_check_output_type(
+        &mut self,
+        register: u8,
+        span: Option<AstIndex>,
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
         if let Some(output_type) = self.frame().output_type {
-            self.compile_assert_type(register, output_type, ctx)?;
+            self.compile_assert_type(register, output_type, span, ctx)?;
         }
         Ok(())
     }
@@ -821,14 +832,19 @@ impl Compiler {
                 Node::Wildcard(_, Some(type_hint)) => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
-                    self.compile_assert_type(temp_register, *type_hint, ctx)?;
+                    self.compile_assert_type(temp_register, *type_hint, Some(*arg), ctx)?;
                     self.pop_register()?; // temp_register
                 }
                 Node::Id(constant_index, maybe_type) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                     if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(local_register, *type_hint, ctx)?;
+                        self.compile_assert_type(
+                            local_register,
+                            *type_hint,
+                            Some(*arg),
+                            ctx,
+                        )?;
                     }
                 }
                 Node::Tuple(nested_args) => {
@@ -954,7 +970,7 @@ impl Compiler {
                 }
 
                 if let Some(type_hint) = type_hint {
-                    self.compile_assert_type(value_register, *type_hint, ctx)?;
+                    self.compile_assert_type(value_register, *type_hint, Some(target), ctx)?;
                 }
 
                 if export_assignment || self.force_export_assignment() {
@@ -975,7 +991,7 @@ impl Compiler {
             }
             Node::Wildcard(_id, type_hint) => {
                 if let Some(type_hint) = type_hint {
-                    self.compile_assert_type(value_register, *type_hint, ctx)?;
+                    self.compile_assert_type(value_register, *type_hint, Some(target), ctx)?;
                 }
             }
             unexpected => {
@@ -1064,7 +1080,12 @@ impl Compiler {
                     self.commit_local_register(target_register)?;
 
                     if let Some(type_hint) = type_hint {
-                        self.compile_assert_type(target_register, *type_hint, ctx)?;
+                        self.compile_assert_type(
+                            target_register,
+                            *type_hint,
+                            Some(*target),
+                            ctx,
+                        )?;
                     }
 
                     // Multi-assignments typically aren't exported, but exporting
@@ -1106,7 +1127,12 @@ impl Compiler {
                         }
 
                         if let Some(type_hint) = type_hint {
-                            self.compile_assert_type(value_register, *type_hint, ctx)?;
+                            self.compile_assert_type(
+                                value_register,
+                                *type_hint,
+                                Some(*target),
+                                ctx,
+                            )?;
                         }
 
                         if result.register.is_some() {
@@ -1170,16 +1196,24 @@ impl Compiler {
         &mut self,
         value_register: u8,
         type_hint: AstIndex,
+        span: Option<AstIndex>, // The assertion should be made using this node's span
         ctx: CompileNodeContext,
     ) -> Result<()> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
             Node::Type(type_index) => {
                 if self.settings.enable_type_checks {
-                    self.push_span(type_node, ctx.ast);
+                    if let Some(span_node_index) = span {
+                        let span_node = ctx.node_with_span(span_node_index);
+                        self.push_span(span_node, ctx.ast);
+                    }
+
                     self.push_op(Op::AssertType, &[value_register]);
                     self.push_var_u32((*type_index).into());
-                    self.pop_span();
+
+                    if span.is_some() {
+                        self.pop_span();
+                    }
                 }
                 Ok(())
             }
@@ -3542,7 +3576,12 @@ impl Compiler {
                         self.push_op_without_span(IterNext, &[arg_register, iterator_register]);
                         self.push_loop_jump_placeholder()?;
                         if let Some(type_hint) = maybe_type {
-                            self.compile_assert_type(arg_register, *type_hint, ctx)?;
+                            self.compile_assert_type(
+                                arg_register,
+                                *type_hint,
+                                Some(*single_arg),
+                                ctx,
+                            )?;
                         }
                     }
                     Node::Wildcard(_, maybe_type) => {
@@ -3554,7 +3593,12 @@ impl Compiler {
                                 &[temp_register, iterator_register],
                             );
                             self.push_loop_jump_placeholder()?;
-                            self.compile_assert_type(temp_register, *type_hint, ctx)?;
+                            self.compile_assert_type(
+                                temp_register,
+                                *type_hint,
+                                Some(*single_arg),
+                                ctx,
+                            )?;
                             self.pop_register()?; // temp_register
                         } else {
                             // e.g. for _ in 0..10
