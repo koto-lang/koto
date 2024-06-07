@@ -1,9 +1,18 @@
 mod runtime {
     use koto_bytecode::{CompilerSettings, Loader};
-    use koto_runtime::KotoVm;
+    use koto_lexer::Span;
+    use koto_runtime::{ErrorFrame, KotoVm};
     use koto_test_utils::script_instructions;
 
     fn check_script_fails(script: &str) {
+        check_that_script_fails(script, None);
+    }
+
+    fn check_script_fails_with_span(script: &str, span: Span) {
+        check_that_script_fails(script, Some(span))
+    }
+
+    fn check_that_script_fails(script: &str, span: Option<Span>) {
         let mut vm = KotoVm::default();
 
         let mut loader = Loader::default();
@@ -15,12 +24,24 @@ mod runtime {
             }
         };
 
-        if let Ok(result) = vm.run(chunk) {
-            println!("{}", script_instructions(script, vm.chunk()));
-            panic!(
-                "Script didn't fail as expected, result: {}",
-                vm.value_to_string(&result).unwrap()
-            )
+        match vm.run(chunk) {
+            Ok(result) => {
+                println!("{}", script_instructions(script, vm.chunk()));
+                panic!(
+                    "Script didn't fail as expected, result: {}",
+                    vm.value_to_string(&result).unwrap()
+                )
+            }
+            Err(e) => {
+                if let Some(expected_span) = span {
+                    let ErrorFrame { chunk, instruction } = e.trace.first().unwrap();
+                    let error_span = chunk.debug_info.get_source_span(*instruction).unwrap();
+                    if error_span != expected_span {
+                        println!("{}", script_instructions(script, vm.chunk()));
+                        assert_eq!(expected_span, error_span);
+                    }
+                }
+            }
         }
     }
 
@@ -52,92 +73,273 @@ mod runtime {
         }
 
         mod type_checks {
+            use koto_lexer::Position;
+
             use super::*;
 
             #[test]
             fn expected_string() {
-                let script = "
-let x: String = 123
+                let script = "\
+let foo: String = 123
+#   ^^^
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
             }
 
             #[test]
             fn expected_bool_in_multi_assignment() {
-                let script = "
+                let script = "\
 let x: String, y: Bool = 'abc', 123
+#              ^
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 16,
+                        },
+                    },
+                );
             }
 
             #[test]
             fn wildcard_expected_bool() {
-                let script = "
-let _x: Bool = 'abc'
+                let script = "\
+let _foo: Bool = 'abc'
+#   ^^^^
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                );
             }
 
             #[test]
             fn wildcard_expected_string_in_multi_assignment() {
-                let script = "
+                let script = "\
 let _x: String, y: Bool = 99, true
+#   ^^
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 6 },
+                    },
+                );
             }
 
             #[test]
             fn function_arg_with_type() {
-                let script = "
+                let script = "\
 f = |x: Number| x
+#    ^
 f 'hello'
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 5 },
+                        end: Position { line: 0, column: 6 },
+                    },
+                );
             }
 
             #[test]
             fn nested_arg_with_type() {
-                let script = "
-f = |(x: Number)| x
+                let script = "\
+f = |(foo: Number)| foo
+#     ^^^
 f ('hello',)
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 6 },
+                        end: Position { line: 0, column: 9 },
+                    },
+                );
             }
 
             #[test]
             fn wildcard_arg_with_type() {
-                let script = "
+                let script = "\
 f = |_x: List| true
+#    ^^
 f 'hello'
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 5 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
             }
 
             #[test]
             fn nested_wildcard_arg_with_type() {
-                let script = "
+                let script = "\
 f = |(_x: Bool)| true
+#     ^^
 f ('hello',)
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 6 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                );
             }
 
             #[test]
-            fn function_with_return_type() {
-                let script = "
-f = |x: Number| -> String x
+            fn function_with_output_type_and_implicit_return() {
+                let script = "\
+f = |x: Number| -> String
+  x + x
+# ^^^^^
 f 42
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 1, column: 2 },
+                        end: Position { line: 1, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
+            fn function_with_output_type_and_explicit_return() {
+                let script = "\
+f = |x: Number| -> String
+  return x + x
+# ^^^^^^^^^^^^
+f 42
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 1, column: 2 },
+                        end: Position {
+                            line: 1,
+                            column: 14,
+                        },
+                    },
+                );
             }
 
             #[test]
             fn for_loop_with_typed_arg() {
-                let script = "
-for x: Number in (1, true, 2)
-  x
+                let script = "\
+for foo: Number in (1, true, 2)
+#   ^^^
+  foo
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
+            fn for_loop_with_typed_wildcard_arg() {
+                let script = "\
+for _foo: Number in (1, true, 2)
+#   ^^^^
+  null
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                );
+            }
+
+            #[test]
+            fn for_loop_with_typed_unpacked_arg() {
+                let script = "\
+for i: Number, x: Bool in 'abc'.enumerate()
+#              ^
+  null
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 16,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn for_loop_with_typed_unpacked_wildcard_arg() {
+                let script = "\
+for i: Number, _x: Bool in 'abc'.enumerate()
+#              ^^
+  null
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 17,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn generator_with_type_hint() {
+                let script = "\
+g = || -> Number
+  yield 1
+  yield 'abc'
+# ^^^^^^^^^^^
+  42
+g().consume()
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 2, column: 2 },
+                        end: Position {
+                            line: 2,
+                            column: 13,
+                        },
+                    },
+                );
             }
         }
 

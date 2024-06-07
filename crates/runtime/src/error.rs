@@ -155,12 +155,11 @@ where
 }
 
 /// A chunk and ip in a call stack where an error was thrown
-///
-/// See [RuntimeErrorTrace]
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct ErrorFrame {
-    chunk: Ptr<Chunk>,
-    instruction: u32,
+    pub chunk: Ptr<Chunk>,
+    pub instruction: u32,
 }
 
 /// The Result type used by the Koto Runtime

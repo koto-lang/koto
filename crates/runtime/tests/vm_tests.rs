@@ -2507,7 +2507,7 @@ gen().to_tuple()";
         #[test]
         fn generator_loop() {
             let script = "
-gen = ||
+gen = || -> Number
   x = 1
   while x <= 5
     yield x
@@ -2550,7 +2550,7 @@ gen(10, 1, 2, 3).to_tuple()";
         #[test]
         fn generator_returning_multiple_values() {
             let script = "
-gen = |xs|
+gen = |xs| -> Tuple
   for i, x in xs.enumerate()
     yield i, x
 z = gen(1..=5).to_tuple()

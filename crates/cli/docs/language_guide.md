@@ -1377,14 +1377,14 @@ Type hints can also be added to `for` loop arguments.
 The type will be checked on each iteration of the loop.
 
 ```koto
-for x: Number in (1, 2, 3)
-  print x
-check! 1
-check! 2
-check! 3
+for i: Number, s: String in 'abc'.enumerate()
+  print i, s
+check! (0, 'a')
+check! (1, 'b')
+check! (2, 'c')
 ```
 
-### Function arguments
+### Functions
 
 Function arguments can also be given type hints, and the type of the 
 return value can be checked with the `->` operator.
@@ -1394,6 +1394,18 @@ f = |s: String| -> Tuple
   s.to_tuple()
 print! f 'abc'
 check! ('a', 'b', 'c')
+```
+
+For [generator functions](#generators), the `->` type hint is used to check
+the generator's `yield` expressions.
+
+```koto
+g = || -> Number 
+  yield 1
+  yield 2
+  yield 3
+print! g().to_tuple()
+check! (1, 2, 3)
 ```
 
 ### `match` patterns
