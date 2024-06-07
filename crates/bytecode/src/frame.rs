@@ -80,8 +80,14 @@ pub(crate) struct Frame {
     // This is a coarse check, e.g. we currently don't check if the last expression
     // returns in all branches, but it'll do for now as an optimization for simple cases.
     pub last_node_was_return: bool,
-    // An optional output type hint that should cause type checks to be emitted on each exit path.
+    // An optional output type hint that should cause type checks to be emitted when the frame is
+    // exited.
+    // If the frame is representing a generator, then yield expressions will be checked, otherwise
+    // the type check will be applied to any return paths.
     pub output_type: Option<AstIndex>,
+    // Used to decide if return types should be checked (output type hints only apply to yield
+    // expressions in genertors).
+    pub is_generator: bool,
 }
 
 impl Frame {
@@ -90,6 +96,7 @@ impl Frame {
         args: &[Arg],
         captures: &[ConstantIndex],
         output_type: Option<AstIndex>,
+        is_generator: bool,
     ) -> Self {
         let temporary_base =
             // register 0 is always self
@@ -129,6 +136,7 @@ impl Frame {
             local_registers,
             temporary_base,
             output_type,
+            is_generator,
             ..Default::default()
         }
     }

@@ -1384,7 +1384,7 @@ check! 2
 check! 3
 ```
 
-### Function arguments
+### Functions
 
 Function arguments can also be given type hints, and the type of the 
 return value can be checked with the `->` operator.
@@ -1394,6 +1394,18 @@ f = |s: String| -> Tuple
   s.to_tuple()
 print! f 'abc'
 check! ('a', 'b', 'c')
+```
+
+For [generator functions](#generators), the `->` type hint is used to check
+the generator's `yield` expressions.
+
+```koto
+g = || -> Number 
+  yield 1
+  yield 2
+  yield 3
+print! g().to_tuple()
+check! (1, 2, 3)
 ```
 
 ### `match` patterns

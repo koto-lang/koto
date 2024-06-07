@@ -139,6 +139,18 @@ for x: Number in (1, true, 2)
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn generator_with_type_hint() {
+                let script = "
+g = || -> Number
+  yield 1
+  yield 'abc'
+  42
+g().consume()
+";
+                check_script_fails(script);
+            }
         }
 
         mod missing_values {

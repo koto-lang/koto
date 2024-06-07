@@ -425,6 +425,7 @@ impl Compiler {
                         captures: &[],
                         allow_implicit_return: true,
                         output_type: None,
+                        is_generator: false,
                     },
                     ctx,
                 )?;
@@ -500,24 +501,7 @@ impl Compiler {
                 None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
             Node::Return(expression) => self.compile_return(*expression, ctx)?,
-            Node::Yield(expression) => {
-                let result = self.assign_result_register(ctx)?;
-
-                let expression_result = self.compile_node(*expression, ctx.with_any_register())?;
-                let expression_register = expression_result.unwrap(self)?;
-
-                self.push_op(Yield, &[expression_register]);
-
-                if let Some(result_register) = result.register {
-                    self.push_op(Copy, &[result_register, expression_register]);
-                }
-
-                if expression_result.is_temporary {
-                    self.pop_register()?;
-                }
-
-                result
-            }
+            Node::Yield(expression) => self.compile_yield(*expression, ctx)?,
             Node::Throw(expression) => {
                 // A throw will prevent the result from being used, but the caller should be
                 // provided with a result register regardless.
@@ -586,6 +570,7 @@ impl Compiler {
             captures,
             allow_implicit_return,
             output_type,
+            is_generator,
         } = params;
 
         self.frame_stack.push(Frame::new(
@@ -593,6 +578,7 @@ impl Compiler {
             &self.collect_args(args, ctx.ast)?,
             captures,
             output_type,
+            is_generator,
         ));
 
         // Unpack nested args and check types
@@ -633,7 +619,9 @@ impl Compiler {
 
         if let Some(block_register) = block_result.register {
             if !self.frame().last_node_was_return {
-                self.compile_check_output_type(block_register, ctx)?;
+                if !is_generator {
+                    self.compile_check_output_type(block_register, ctx)?;
+                }
                 self.push_op_without_span(Op::Return, &[block_register]);
             }
             if block_result.is_temporary {
@@ -642,7 +630,9 @@ impl Compiler {
         } else {
             let register = self.push_register()?;
             self.push_op(Op::SetNull, &[register]);
-            self.compile_check_output_type(register, ctx)?;
+            if !is_generator {
+                self.compile_check_output_type(register, ctx)?;
+            }
             self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
         }
@@ -659,10 +649,14 @@ impl Compiler {
     ) -> Result<CompileNodeOutput> {
         use Op::*;
 
+        let check_return_type = !self.frame().is_generator;
+
         let result = if let Some(expression) = expression {
             let expression_result = self.compile_node(expression, ctx.with_any_register())?;
             let expression_register = expression_result.unwrap(self)?;
-            self.compile_check_output_type(expression_register, ctx)?;
+            if check_return_type {
+                self.compile_check_output_type(expression_register, ctx)?;
+            }
 
             match ctx.result_register {
                 ResultRegister::Any => {
@@ -690,19 +684,47 @@ impl Compiler {
             match result.register {
                 Some(result_register) => {
                     self.push_op(SetNull, &[result_register]);
-                    self.compile_check_output_type(result_register, ctx)?;
+                    if check_return_type {
+                        self.compile_check_output_type(result_register, ctx)?;
+                    }
                     self.push_op(Return, &[result_register]);
                 }
                 None => {
                     let register = self.push_register()?;
                     self.push_op(SetNull, &[register]);
-                    self.compile_check_output_type(register, ctx)?;
+                    if check_return_type {
+                        self.compile_check_output_type(register, ctx)?;
+                    }
                     self.push_op(Return, &[register]);
                     self.pop_register()?;
                 }
             }
             result
         };
+
+        Ok(result)
+    }
+
+    fn compile_yield(
+        &mut self,
+        expression: AstIndex,
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
+
+        let expression_result = self.compile_node(expression, ctx.with_any_register())?;
+        let expression_register = expression_result.unwrap(self)?;
+
+        self.compile_check_output_type(expression_register, ctx)?;
+        self.push_op(Op::Yield, &[expression_register]);
+
+        if let Some(result_register) = result.register {
+            self.push_op(Op::Copy, &[result_register, expression_register]);
+        }
+
+        if expression_result.is_temporary {
+            self.pop_register()?;
+        }
 
         Ok(result)
     }
@@ -2254,6 +2276,7 @@ impl Compiler {
                     captures: &captures,
                     allow_implicit_return,
                     output_type: function.output_type,
+                    is_generator: function.is_generator,
                 },
                 ctx,
             )?;
@@ -3867,4 +3890,5 @@ struct FrameParameters<'a> {
     captures: &'a [ConstantIndex],
     allow_implicit_return: bool,
     output_type: Option<AstIndex>,
+    is_generator: bool,
 }
