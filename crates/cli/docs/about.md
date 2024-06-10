@@ -97,7 +97,7 @@ Koto was influenced by and is indebted to many other languages.
   while also managing to avoid inexpressive terseness.
 - **Language Design:** Although the syntax and core purpose is very different,
   [Rust][rust] had a huge impact on Koto's design, in particular Rust's 
-  [rich iterator support][rust-iterators] was a majoa influence on emphasizing 
+  [rich iterator support][rust-iterators] was a major influence on emphasizing 
   the role of iterators in Koto.
 
 ## Tooling
