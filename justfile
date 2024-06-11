@@ -57,7 +57,6 @@ test_parser:
 
 test_release *args:
   just test --release {{args}}
-  just test_rc --release {{args}}
 
 test_runtime:
   cargo test --package koto_runtime
