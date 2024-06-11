@@ -1,6 +1,6 @@
 [package]
 name = "koto_tempfile"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -19,7 +19,7 @@ tempfile = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.14.0"
+version = "^0.14.1"
 default-features = false
 
 [dev-dependencies]

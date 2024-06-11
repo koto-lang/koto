@@ -1,6 +1,6 @@
 [package]
 name = "koto_wasm"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 publish = false

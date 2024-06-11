@@ -1,6 +1,6 @@
 [package]
 name = "koto_cli"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -14,15 +14,15 @@ name = "koto"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../koto", version = "^0.14.0" }
-koto_color = { path = "../../libs/color", version = "^0.14.0" }
-koto_geometry = { path = "../../libs/geometry", version = "^0.14.0" }
-koto_json = { path = "../../libs/json", version = "^0.14.0" }
-koto_random = { path = "../../libs/random", version = "^0.14.0" }
-koto_regex = { path = "../../libs/regex", version = "^0.14.0" }
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.14.0" }
-koto_toml = { path = "../../libs/toml", version = "^0.14.0" }
-koto_yaml = { path = "../../libs/yaml", version = "^0.14.0" }
+koto = { path = "../koto", version = "^0.14.1" }
+koto_color = { path = "../../libs/color", version = "^0.14.1" }
+koto_geometry = { path = "../../libs/geometry", version = "^0.14.1" }
+koto_json = { path = "../../libs/json", version = "^0.14.1" }
+koto_random = { path = "../../libs/random", version = "^0.14.1" }
+koto_regex = { path = "../../libs/regex", version = "^0.14.1" }
+koto_tempfile = { path = "../../libs/tempfile", version = "^0.14.1" }
+koto_toml = { path = "../../libs/toml", version = "^0.14.1" }
+koto_yaml = { path = "../../libs/yaml", version = "^0.14.1" }
 
 anyhow = { workspace = true }
 crossterm = { workspace = true }
