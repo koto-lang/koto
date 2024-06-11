@@ -6,7 +6,19 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0] Unreleased
+## [0.14.1] 2024.06.11
+
+### Fixed
+
+#### API
+
+- The `rc` flag now works correctly when depending on `koto_json`, `koto_toml`,
+  and `koto_yaml`.
+  - Note: The `arc` and `rc` features will be removed from all non-'leaf' crates
+    in `0.15.0`. e.g. If you depend on the `koto` crate, you'll only need to
+    define the `rc` feature there.
+
+## [0.14.0] 2024.04.17
 
 ### Added 
 
