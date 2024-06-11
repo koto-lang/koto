@@ -626,7 +626,7 @@ impl TryFrom<u8> for MetaKeyId {
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
         if byte < Self::Invalid as u8 {
             // Safety: Any value less than Invalid is safe to transmute.
-            Ok(unsafe { std::mem::transmute(byte) })
+            Ok(unsafe { std::mem::transmute::<u8, Self>(byte) })
         } else {
             Err(byte)
         }

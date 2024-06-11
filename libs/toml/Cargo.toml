@@ -15,7 +15,6 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
-koto_serialize = { path = "../../crates/serialize", version = "^0.14.0" }
 toml = { workspace = true }
 
 [dependencies.koto_runtime]
@@ -23,5 +22,10 @@ path = "../../crates/runtime"
 version = "^0.14.0"
 default-features = false
 
+[dependencies.koto_serialize]
+path = "../../crates/serialize"
+version = "^0.14.0"
+default-features = false
+
 [dev-dependencies]
-koto_test_utils = { path = "../../crates/test_utils" }
+koto_test_utils = { path = "../../crates/test_utils", default-features = false }
