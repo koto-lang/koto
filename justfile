@@ -26,7 +26,10 @@ test *args:
   cargo test {{args}}
 
 test_rc *args:
-  cargo test -p koto_runtime --no-default-features --features rc {{args}}
+  cargo test  --no-default-features --features rc \
+    -p koto_runtime \
+    -p lib_tests \
+    {{args}}
 
 test_benches:
   cargo test --benches
