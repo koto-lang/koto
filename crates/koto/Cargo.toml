@@ -29,7 +29,6 @@ koto_test_utils = { path = "../test_utils" }
 anyhow = { workspace = true }
 criterion = { workspace = true }
 mimalloc = { workspace = true }
-test_bin = { workspace = true }
 
 [[bench]]
 name = "koto_benchmark"

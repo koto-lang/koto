@@ -647,7 +647,6 @@ dependencies = [
  "koto_runtime",
  "koto_test_utils",
  "mimalloc",
- "test_bin",
  "thiserror",
 ]
 
@@ -685,6 +684,7 @@ dependencies = [
  "pico-args",
  "pulldown-cmark",
  "rustyline",
+ "test_bin",
  "textwrap",
  "unicode-width",
 ]
