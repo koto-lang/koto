@@ -16,11 +16,11 @@ rc = ["koto/rc"]
 
 [dev-dependencies]
 koto = { path = "../../crates/koto", version = "^0.15.0", default-features = false }
-koto_color = { path = "../color", version = "^0.15.0", default-features = false }
-koto_geometry = { path = "../geometry", version = "^0.15.0", default-features = false }
-koto_json = { path = "../json", version = "^0.15.0", default-features = false }
-koto_random = { path = "../random", version = "^0.15.0", default-features = false }
-koto_regex = { path = "../regex", version = "^0.15.0", default-features = false }
-koto_tempfile = { path = "../tempfile", version = "^0.15.0", default-features = false }
-koto_toml = { path = "../toml", version = "^0.15.0", default-features = false }
-koto_yaml = { path = "../yaml", version = "^0.15.0", default-features = false }
+koto_color = { path = "../color", version = "^0.15.0" }
+koto_geometry = { path = "../geometry", version = "^0.15.0" }
+koto_json = { path = "../json", version = "^0.15.0" }
+koto_random = { path = "../random", version = "^0.15.0" }
+koto_regex = { path = "../regex", version = "^0.15.0" }
+koto_tempfile = { path = "../tempfile", version = "^0.15.0" }
+koto_toml = { path = "../toml", version = "^0.15.0" }
+koto_yaml = { path = "../yaml", version = "^0.15.0" }
