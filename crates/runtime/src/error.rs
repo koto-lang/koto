@@ -195,16 +195,6 @@ pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Re
     })
 }
 
-/// Creates an error that describes there are arguments while no arguments needed
-pub fn unexpected_argument_error<T>(unexpected: &[KValue]) -> Result<T> {
-    runtime_error!({
-        format!(
-            "Unexpected {} while no arguments needed",
-            get_value_types(unexpected),
-        )
-    })
-}
-
 /// Creates an error that describes there are redundant arguments
 /// First argument, arity means how many argument can be used in calling
 pub fn redundant_argument_error<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
