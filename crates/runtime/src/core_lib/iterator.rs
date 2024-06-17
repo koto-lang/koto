@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{derive::*, prelude::*, KIteratorOutput as Output, Result};
+use crate::{derive::*, error::argument_error, prelude::*, KIteratorOutput as Output, Result};
 
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {
@@ -45,7 +45,7 @@ pub fn make_module() -> KMap {
 
                 Ok(true.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -84,7 +84,7 @@ pub fn make_module() -> KMap {
 
                 Ok(false.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -101,7 +101,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Iterator(result))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -117,7 +117,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.chunks: {}", e),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -151,7 +151,7 @@ pub fn make_module() -> KMap {
                 }
                 Ok(KValue::Null)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -170,7 +170,7 @@ pub fn make_module() -> KMap {
                 }
                 Ok(KValue::Number(result.into()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -189,7 +189,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -203,7 +203,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -216,7 +216,7 @@ pub fn make_module() -> KMap {
                 let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -253,7 +253,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Null)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -270,7 +270,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -310,7 +310,7 @@ pub fn make_module() -> KMap {
                     _ => unreachable!(),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -323,7 +323,7 @@ pub fn make_module() -> KMap {
             let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
             Ok(KIterator::new(result).into())
         }
-        unexpected => type_error_with_slice("(Function), or (Number, Function)", unexpected),
+        unexpected => argument_error("(Function), or (Number, Function)", unexpected, false),
     });
 
     result.add_fn("intersperse", |ctx| {
@@ -348,7 +348,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -360,7 +360,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 Ok(KValue::Iterator(ctx.vm.make_iterator(iterable)?))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -378,7 +378,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -401,7 +401,7 @@ pub fn make_module() -> KMap {
 
                 Ok(result)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -418,7 +418,7 @@ pub fn make_module() -> KMap {
                 let key_fn = key_fn.clone();
                 run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::Yes)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -435,7 +435,7 @@ pub fn make_module() -> KMap {
                 let key_fn = key_fn.clone();
                 run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::No)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -505,7 +505,7 @@ pub fn make_module() -> KMap {
                     KValue::Tuple(vec![min, max].into())
                 }))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -515,7 +515,7 @@ pub fn make_module() -> KMap {
         let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
-            (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => return argument_error(expected_error, unexpected, true),
         };
 
         let output = match iter_output_to_result(iter.next())? {
@@ -532,7 +532,7 @@ pub fn make_module() -> KMap {
         let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
-            (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => return argument_error(expected_error, unexpected, true),
         };
 
         let output = match iter_output_to_result(iter.next_back())? {
@@ -558,7 +558,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.make_iterator(iterable)?,
                 ))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -597,7 +597,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Null)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -608,7 +608,7 @@ pub fn make_module() -> KMap {
             match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
                 (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (_, unexpected) => return argument_error(expected_error, unexpected, true),
             }
         };
 
@@ -624,7 +624,7 @@ pub fn make_module() -> KMap {
             let result = generators::RepeatN::new(value.clone(), n.into());
             Ok(KIterator::new(result).into())
         }
-        unexpected => type_error_with_slice("(Value), or (Number, Value)", unexpected),
+        unexpected => argument_error("(Value), or (Number, Value)", unexpected, false),
     });
 
     result.add_fn("reversed", |ctx| {
@@ -638,7 +638,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.reversed: {}", e),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -659,7 +659,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Iterator(iter))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -675,7 +675,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.step: {}", e),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -686,7 +686,7 @@ pub fn make_module() -> KMap {
             match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
                 (iterable, []) => (iterable.clone(), KValue::Number(0.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (_, unexpected) => return argument_error(expected_error, unexpected, true),
             }
         };
 
@@ -713,7 +713,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -737,7 +737,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(KList::with_data(result)))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -768,7 +768,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Map(KMap::with_data(result)))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -792,7 +792,7 @@ pub fn make_module() -> KMap {
 
                 Ok(display_context.result().into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -816,7 +816,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Tuple(result.into()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -832,7 +832,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.windows: {}", e),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 
@@ -849,7 +849,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (_, unexpected) => argument_error(expected_error, unexpected, true),
         }
     });
 

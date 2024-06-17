@@ -1,6 +1,11 @@
 //! The `io` core library module
 
-use crate::{derive::*, prelude::*, BufferedFile, Error, Ptr, Result};
+use crate::{
+    derive::*,
+    error::{argument_error, no_argument_error},
+    prelude::*,
+    BufferedFile, Error, Ptr, Result,
+};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
@@ -22,7 +27,7 @@ pub fn make_module() -> KMap {
                     Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
                 }
             }
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => argument_error("a path String as argument", unexpected, false),
         }
     });
 
@@ -36,7 +41,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("exists", |ctx| match ctx.args() {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        unexpected => type_error_with_slice("a path String as argument", unexpected),
+        unexpected => argument_error("a path String as argument", unexpected, false),
     });
 
     result.add_fn("extend_path", |ctx| match ctx.args() {
@@ -55,10 +60,9 @@ pub fn make_module() -> KMap {
             }
             Ok(path.to_string_lossy().to_string().into())
         }
-        unexpected => type_error_with_slice(
-            "a path String as argument, followed by some additional path nodes",
-            unexpected,
-        ),
+        _unexpected => {
+            no_argument_error("a path String as argument, followed by some additional path nodes")
+        }
     });
 
     result.add_fn("open", {
@@ -70,7 +74,7 @@ pub fn make_module() -> KMap {
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => argument_error("a path String as argument", unexpected, false),
         }
     });
 
@@ -94,10 +98,9 @@ pub fn make_module() -> KMap {
                     unexpected => return type_error("string from @display", &unexpected),
                 }
             }
-            unexpected => {
-                return type_error_with_slice(
+            _unexpected => {
+                return no_argument_error(
                     "a String as argument, followed by optional additional Values",
-                    unexpected,
                 )
             }
         };
@@ -112,7 +115,7 @@ pub fn make_module() -> KMap {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
         },
-        unexpected => type_error_with_slice("a path String as argument", unexpected),
+        unexpected => argument_error("a path String as argument", unexpected, false),
     });
 
     result.add_fn("remove_file", {
@@ -127,7 +130,7 @@ pub fn make_module() -> KMap {
                     ),
                 }
             }
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => argument_error("a path String as argument", unexpected, false),
         }
     });
 
@@ -207,9 +210,11 @@ impl File {
                 }
                 self.0.seek(n.into()).map(|_| KValue::Null)
             }
-            unexpected => {
-                type_error_with_slice("a non-negative Number as the seek position", unexpected)
-            }
+            unexpected => argument_error(
+                "a non-negative Number as the seek position",
+                unexpected,
+                true,
+            ),
         }
     }
 
@@ -224,7 +229,7 @@ impl File {
                     .write(display_context.result().as_bytes())
                     .map(|_| KValue::Null)
             }
-            unexpected => type_error_with_slice("a single argument", unexpected),
+            unexpected => argument_error("a single argument", unexpected, true),
         }
     }
 
@@ -234,7 +239,7 @@ impl File {
         match ctx.args {
             [] => {}
             [value] => value.display(&mut display_context)?,
-            unexpected => return type_error_with_slice("a single argument", unexpected),
+            unexpected => return argument_error("a single argument", unexpected, true),
         };
         display_context.append('\n');
         ctx.instance_mut()?
