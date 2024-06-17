@@ -239,9 +239,9 @@ fn humanize_value_types(values: &[KValue]) -> String {
         return values.remove(0);
     }
 
-    // [XType, YType] -> XType and YType
+    // [XType, YType] -> XType, and YType
     if values_len == 2 {
-        return values.join(" and ");
+        return values.join(", and ");
     }
 
     // [XType, YType, ZType] -> XType, YType and ZType
