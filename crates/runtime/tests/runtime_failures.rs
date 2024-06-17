@@ -114,6 +114,36 @@ let x: String, y: Bool = 'abc', 123
             }
 
             #[test]
+            fn expected_indexable() {
+                let script = "\
+let foo: Indexable = null
+#   ^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
+            fn expected_iterable() {
+                let script = "\
+let foo: Iterable = true
+#   ^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
             fn wildcard_expected_bool() {
                 let script = "\
 let _foo: Bool = 'abc'

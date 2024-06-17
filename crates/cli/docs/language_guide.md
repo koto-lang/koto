@@ -262,7 +262,7 @@ print! (1, 2, 3), (4, 5, 6)
 check! ((1, 2, 3), (4, 5, 6))
 ```
 
-Access tuple elements by index using square brackets, starting from `0`.
+You can access tuple elements by index using square brackets, starting from `0`.
 
 ```koto
 print! x = false, 10
@@ -628,6 +628,21 @@ print! a.foo
 check! Hi!
 ```
 
+### Entry Order 
+
+A map's entries are maintained in a consistent order, 
+representing the sequence in which its entries were added. 
+
+You can access map entries by index using square brackets, starting from `0`.
+
+The entry is returned as a tuple containing the key and its associated value.
+
+```koto
+m = {apples: 42, oranges: 99, lemons: 63}
+print! m[1]
+check! ('oranges', 99)
+```
+
 ### Shorthand Values
 
 Koto supports a shorthand notation when creating maps with inline syntax. 
@@ -707,16 +722,13 @@ print! m.'true'
 check! 42
 print! m.key99
 check! 99
-
 ```
 
 ### Map Key Types
 
-Although map keys are typically strings, other value types can be used
-as keys by using the [map.insert][map-insert] and [map.get][map-get] functions.
-
 Map keys are typically strings, but any [_immutable_][immutable] value can be
-used as a map key.
+used as a map key by using the [map.insert][map-insert] and [map.get][map-get] 
+functions.
 
 The immutable value types in Koto are [strings](#strings), [numbers](#numbers), 
 [booleans](#booleans), [ranges](#ranges), and [`null`](#null).
@@ -1430,6 +1442,16 @@ The `Any` type will result in a successful check with any value.
 ```koto
 print! let x: Any = 'hello'
 check! hello
+```
+
+#### `Indexable` 
+
+The `Indexable` type hint will accept any value that supports `[]` indexing.
+
+```koto
+add_first_two = |x: Indexable| x[0] + x[1]
+print! add_first_two (100, 99, -1)
+check! 199
 ```
 
 #### `Iterable` 

@@ -132,10 +132,12 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
 
     /// Called when checking for the number of elements contained in the object
     ///
-    /// The runtime defers to this function when the 'size' of an object is needed
+    /// The size should represent the maximum valid index that can be passed to [KotoObject::index].
+    ///
+    /// The runtime defers to this function when the 'size' of an object is needed,
     /// e.g. when `koto.size` is called, or when unpacking function arguments.
     ///
-    /// The size should represent the maximum valid index that can be passed to [KotoObject::index].
+    /// The `Indexable` type hint will pass for objects with a defined size.
     ///
     /// See also: [KotoObject::index]
     fn size(&self) -> Option<usize> {
@@ -233,6 +235,9 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     }
 
     /// Declares to the runtime whether or not the object is iterable
+    ///
+    /// The `Iterable` type hint defers to this function,
+    /// accepting anything other than `IsIterable::NotIterable`.
     fn is_iterable(&self) -> IsIterable {
         IsIterable::NotIterable
     }

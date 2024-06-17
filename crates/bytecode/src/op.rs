@@ -6,14 +6,14 @@
 ///
 /// In the comments for each operation, the additional bytes are specified inside square brackets.
 /// Byte prefixes:
-/// * - Shows that the byte is referring to a register.
-/// @ - Indicates a variable-sized integer.
-///     - The 7 least significant bits are included in the integer.
-///     - The 8th bit in a byte is a continuation flag.
-///     - Continuation bits are shifted by N*7 and included in the resulting integer.
-///     - Currently only (up to) 32 bits are used, and integers are unsigned.
-/// ? - used for optional values, the presence of which will be indicated by previous flags in the
-///     instruction.
+///     * - Shows that the byte is referring to a register.
+///     @ - Indicates a variable-sized integer.
+///         - The 7 least significant bits are included in the integer.
+///         - The 8th bit in a byte is a continuation flag.
+///         - Continuation bits are shifted by N*7 and included in the resulting integer.
+///         - Currently only (up to) 32 bits are used, and integers are unsigned.
+///     ? - Used for optional values, the presence of which will be indicated by previous flags
+///         in the instruction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 #[allow(missing_docs)] // Allowed for the UnusedX ops
@@ -343,9 +343,11 @@ pub enum Op {
 
     /// Gets the next value from an Iterator, used when the output is treated as temporary
     ///
-    /// The output from the iterator is placed in the output register.
-    /// The output is treated as temporary, with assigned values being unpacked from the output.
-    ///   - e.g. `for key, value in map`
+    /// The output from the iterator is placed in the output register, and is treated as temporary,
+    /// with assigned values being unpacked from the output.
+    ///
+    /// e.g. `for key, value in map`
+    ///
     /// If the iterator is finished then the instruction jumps forward by the given offset.
     ///
     /// `[*output, *iterator, offset[2]]`
