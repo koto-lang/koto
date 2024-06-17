@@ -1432,6 +1432,16 @@ print! let x: Any = 'hello'
 check! hello
 ```
 
+#### `Indexable` 
+
+The `Indexable` type hint will accept any value that supports `[]` indexing.
+
+```koto
+add_first_two = |x: Indexable| x[0] + x[1]
+print! add_first_two (100, 99, -1)
+check! 199
+```
+
 #### `Iterable` 
 
 The `Iterable` type is useful when any iterable value can be accepted. 

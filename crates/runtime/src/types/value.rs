@@ -127,6 +127,16 @@ impl KValue {
         }
     }
 
+    /// Returns true if the value supports `[]` indexing operations
+    pub fn is_indexable(&self) -> bool {
+        use KValue::*;
+        match self {
+            List(_) | Tuple(_) | Str(_) => true,
+            Object(o) => o.try_borrow().map_or(false, |o| o.size().is_some()),
+            _ => false,
+        }
+    }
+
     /// Returns true if a [KIterator] can be made from the value
     pub fn is_iterable(&self) -> bool {
         use KValue::*;

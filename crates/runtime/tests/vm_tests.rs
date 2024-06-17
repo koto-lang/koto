@@ -556,6 +556,15 @@ true
         }
 
         #[test]
+        fn indexable_matches_indexable_values() {
+            let script = "
+let x: Indexable, y: Indexable, z: Indexable = (1, 2, 3), [], 'foo'
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
         fn iterable_matches_iterable_values() {
             let script = "
 let x: Iterable, y: Iterable = 1..10, 'foo'

@@ -580,6 +580,37 @@ x.as_number()
         }
     }
 
+    mod type_hints {
+        use super::*;
+
+        #[test]
+        fn let_expression() {
+            let script = "
+let x: TestObject = make_object 256
+x.as_number()
+";
+            test_object_script(script, 256);
+        }
+
+        #[test]
+        fn iterable() {
+            let script = "
+let x: Iterable = make_object 256
+x.as_number()
+";
+            test_object_script(script, 256);
+        }
+
+        #[test]
+        fn indexable() {
+            let script = "
+let x: Indexable = make_object 256
+x.as_number()
+";
+            test_object_script(script, 256);
+        }
+    }
+
     mod index_and_size {
         use super::*;
 
