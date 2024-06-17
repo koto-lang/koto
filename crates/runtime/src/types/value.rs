@@ -131,7 +131,7 @@ impl KValue {
     pub fn is_indexable(&self) -> bool {
         use KValue::*;
         match self {
-            List(_) | Tuple(_) | Str(_) => true,
+            List(_) | Map(_) | Str(_) | Tuple(_) => true,
             Object(o) => o.try_borrow().map_or(false, |o| o.size().is_some()),
             _ => false,
         }

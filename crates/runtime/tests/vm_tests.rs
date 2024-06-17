@@ -558,7 +558,7 @@ true
         #[test]
         fn indexable_matches_indexable_values() {
             let script = "
-let x: Indexable, y: Indexable, z: Indexable = (1, 2, 3), [], 'foo'
+let w: Indexable, x: Indexable, y: Indexable, z: Indexable = {}, (1, 2, 3), [], 'foo'
 true
 ";
             check_script_output(script, true);
@@ -2184,6 +2184,15 @@ c = a + b
 c.foo + c.bar
 ";
             check_script_output(script, 141);
+        }
+
+        #[test]
+        fn indexing() {
+            let script = "
+m = {foo: 42, bar: 'xyz'}
+m[0]
+";
+            check_script_output(script, tuple(&["foo".into(), 42.into()]));
         }
     }
 

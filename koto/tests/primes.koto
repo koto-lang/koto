@@ -1,4 +1,4 @@
-get_primes = |n|
+get_primes = |n: Number| -> Iterator
   if n <= 1
     return
 

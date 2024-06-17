@@ -18,24 +18,6 @@ use std::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-macro_rules! call_binary_op_or_else {
-    ($vm:expr,
-     $result_register:expr,
-     $lhs_register:expr,
-     $rhs_value: expr,
-     $overridden_value:expr,
-     $op:tt,
-     $else:tt) => {{
-        let maybe_op = $overridden_value.get_meta_value(&MetaKey::BinaryOp($op));
-        if let Some(op) = maybe_op {
-            let rhs_value = $rhs_value.clone();
-            return $vm.call_overridden_binary_op($result_register, $lhs_register, rhs_value, op);
-        } else {
-            $else
-        }
-    }};
-}
-
 #[derive(Clone)]
 pub enum ControlFlow {
     Continue,
@@ -2272,29 +2254,32 @@ impl KotoVm {
         value_register: u8,
         index_register: u8,
     ) -> Result<()> {
-        use BinaryOp::Index;
         use KValue::*;
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
+        let index_op = BinaryOp::Index.into();
 
-        match (&value, index) {
+        let result = match (&value, index) {
             (List(l), Number(n)) => {
                 let index = self.validate_index(n, Some(l.len()))?;
-                self.set_register(result_register, l.data()[index].clone());
+                l.data()[index].clone()
             }
-            (List(l), Range(range)) => self.set_register(
-                result_register,
-                List(KList::from_slice(&l.data()[range.indices(l.len())])),
-            ),
+            (List(l), Range(range)) => {
+                let indices = range.indices(l.len());
+                List(KList::from_slice(&l.data()[indices]))
+            }
             (Tuple(t), Number(n)) => {
                 let index = self.validate_index(n, Some(t.len()))?;
-                self.set_register(result_register, t[index].clone());
+                t[index].clone()
             }
             (Tuple(t), Range(range)) => {
-                // Safety: The tuple's length is passed into range.indices, so the range is valid
-                let result = t.make_sub_tuple(range.indices(t.len())).unwrap();
-                self.set_register(result_register, Tuple(result))
+                let indices = range.indices(t.len());
+                let Some(result) = t.make_sub_tuple(indices) else {
+                    // range.indices is guaranteed to return valid indices for the tuple
+                    unreachable!();
+                };
+                Tuple(result)
             }
             (Str(s), Number(n)) => {
                 let index = self.validate_index(n, Some(s.len()))?;
@@ -2303,25 +2288,32 @@ impl KotoVm {
                         "indexing with ({index}) would result in invalid UTF-8 data"
                     );
                 };
-                self.set_register(result_register, Str(result));
+                Str(result)
             }
             (Str(s), Range(range)) => {
-                let Some(result) = s.with_bounds(range.indices(s.len())) else {
+                let indices = range.indices(s.len());
+                let Some(result) = s.with_bounds(indices) else {
                     return runtime_error!(
                         "indexing with ({range}) would result in invalid UTF-8 data"
                     );
                 };
-                self.set_register(result_register, Str(result));
+                Str(result)
             }
-            (Map(m), index) => {
-                call_binary_op_or_else!(self, result_register, value_register, index, m, Index, {
-                    return runtime_error!("Unable to index {}", value.type_as_string());
-                });
+            (Map(m), index) if m.contains_meta_key(&index_op) => {
+                let op = m.get_meta_value(&index_op).unwrap();
+                return self.call_overridden_binary_op(result_register, value_register, index, op);
             }
-            (Object(o), index) => {
-                let result = o.try_borrow()?.index(&index)?;
-                self.set_register(result_register, result);
+            (Map(m), Number(n)) => {
+                let entries = m.data();
+                let index = self.validate_index(n, Some(entries.len()))?;
+                let Some((key, value)) = entries.get_index(index) else {
+                    // The index has just been validated
+                    unreachable!();
+                };
+                let result = KTuple::from(vec![key.value().clone(), value.clone()]);
+                Tuple(result)
             }
+            (Object(o), index) => o.try_borrow()?.index(&index)?,
             (unexpected_value, unexpected_index) => {
                 return runtime_error!(
                     "Unable to index '{}' with '{}'",
@@ -2330,6 +2322,8 @@ impl KotoVm {
                 )
             }
         };
+
+        self.set_register(result_register, result);
 
         Ok(())
     }

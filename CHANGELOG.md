@@ -16,6 +16,7 @@ The Koto project adheres to
   - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
 - `export` can be used with multi-assignment expressions.
   - e.g. expressions like `export a, b, c = foo()` are now allowed.
+- Maps now support `[]` indexing, returning the Nth entry as a tuple.
 
 #### Core Library
 
