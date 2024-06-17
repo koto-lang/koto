@@ -49,7 +49,7 @@ pub fn make_module() -> KMap {
                     other => {
                         let mut display_context = DisplayContext::with_vm(ctx.vm);
                         other.display(&mut display_context)?;
-                        path.push(&display_context.result());
+                        path.push(display_context.result());
                     }
                 }
             }
