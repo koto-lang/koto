@@ -215,7 +215,11 @@ pub fn self_argument_error<T>(expected_str: &str, unexpected: &[KValue]) -> Resu
 Couldn't detect self from first argument.
 Detected self: {}
 Expected: {}"#,
-            humanize_value_types(&unexpected[..1]),
+            if unexpected.is_empty() {
+                String::from("no args")
+            } else {
+                humanize_value_types(&unexpected[..1])
+            },
             expected_str
         )
     })
@@ -223,7 +227,10 @@ Expected: {}"#,
 
 /// Creates an error that describes that there is no args while expected
 pub fn no_argument_error<T>(expected_str: &str) -> Result<T> {
-    runtime_error!(format!("No argument given while {} needed", expected_str))
+    runtime_error!(format!(
+        "Argument Error\nNo argument given while {} needed",
+        expected_str
+    ))
 }
 
 // An alternative to get_value_types
@@ -233,6 +240,10 @@ fn humanize_value_types(values: &[KValue]) -> String {
         .map(|value| value.type_as_string().to_string())
         .collect();
     let values_len = values.len();
+
+    if values_len == 0 {
+        return String::from("no args");
+    }
 
     // [XType] -> XType
     if values_len == 1 {
@@ -250,7 +261,7 @@ fn humanize_value_types(values: &[KValue]) -> String {
         result.push_str(value);
         result.push_str(", ");
     }
-    result.push_str(" and ");
+    result.push_str("and ");
     result.push_str(&values[values_len - 1]);
     result
 }
