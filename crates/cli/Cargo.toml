@@ -34,3 +34,6 @@ pulldown-cmark = { workspace = true }
 rustyline = { workspace = true }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
+
+[dev-dependencies]
+test_bin = { workspace = true }

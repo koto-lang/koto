@@ -9,11 +9,6 @@ homepage = "https://koto.dev"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
-[features]
-default = ["arc"]
-arc = ["koto_runtime/arc"]
-rc = ["koto_runtime/rc"]
-
 [dependencies]
 koto_derive = { path = "../../crates/derive", version = "^0.15.0" }
 
@@ -30,4 +25,4 @@ default-features = false
 getrandom = { workspace = true }
 
 [dev-dependencies]
-koto_test_utils = { path = "../../crates/test_utils", default-features = false }
+koto_test_utils = { path = "../../crates/test_utils" }

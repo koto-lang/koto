@@ -11,8 +11,8 @@ keywords = ["scripting", "language", "koto"]
 
 [features]
 default = ["arc"]
-arc = ["koto_bytecode/arc", "koto_runtime/arc", "koto_parser/arc"]
-rc = ["koto_bytecode/rc", "koto_runtime/rc", "koto_parser/rc"]
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
 
 [dependencies]
 koto_bytecode = { path = "../bytecode", version = "^0.15.0", default-features = false }
@@ -29,7 +29,6 @@ koto_test_utils = { path = "../test_utils" }
 anyhow = { workspace = true }
 criterion = { workspace = true }
 mimalloc = { workspace = true }
-test_bin = { workspace = true }
 
 [[bench]]
 name = "koto_benchmark"

@@ -26,8 +26,11 @@ test *args:
   cargo test {{args}}
 
 test_rc *args:
-  cargo test  --no-default-features --features rc \
+  cargo test --tests --no-default-features --features rc \
+    -p koto_parser \
+    -p koto_bytecode \
     -p koto_runtime \
+    -p koto \
     -p lib_tests \
     {{args}}
 
@@ -52,14 +55,14 @@ test_koto:
 test_libs:
   cargo test --test lib_tests
 
-test_parser:
-  cargo test --package koto_lexer --package koto_parser
+test_parser *args:
+  cargo test -p koto_lexer -p koto_parser {{args}}
 
 test_release *args:
   just test --release {{args}}
 
-test_runtime:
-  cargo test --package koto_runtime
+test_runtime *args:
+  cargo test -p koto_runtime -p koto_bytecode {{args}}
 
 wasm:
   cd crates/koto/examples/wasm && wasm-pack test --node
