@@ -20,7 +20,7 @@ pub fn make_module() -> KMap {
                 let result = iterators::Bytes::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -29,7 +29,7 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(KValue::Iterator(KIterator::with_string(s.clone()))),
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -41,7 +41,7 @@ pub fn make_module() -> KMap {
                 let result = iterators::CharIndices::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -50,7 +50,7 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s1), [KValue::Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -61,7 +61,7 @@ pub fn make_module() -> KMap {
             (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().ends_with(pattern.as_str()).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -70,7 +70,7 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(s.escape_default().to_string().into()),
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -107,7 +107,7 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(s.is_empty().into()),
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -119,7 +119,7 @@ pub fn make_module() -> KMap {
                 let result = iterators::Lines::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -130,7 +130,7 @@ pub fn make_module() -> KMap {
             (KValue::Str(input), [KValue::Str(pattern), KValue::Str(replace)]) => {
                 Ok(input.replace(pattern.as_str(), replace).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -151,7 +151,9 @@ pub fn make_module() -> KMap {
                     );
                     KIterator::new(result)
                 }
-                (_, unexpected) => return argument_error(expected_error, unexpected, true),
+                (_, unexpected) => {
+                    return argument_error(expected_error, unexpected, Some("String"))
+                }
             }
         };
 
@@ -165,7 +167,7 @@ pub fn make_module() -> KMap {
             (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().starts_with(pattern.as_str()).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -177,7 +179,7 @@ pub fn make_module() -> KMap {
                 let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
                 Ok(result.into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -216,7 +218,7 @@ pub fn make_module() -> KMap {
                     Ok(KValue::Null)
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -228,7 +230,7 @@ pub fn make_module() -> KMap {
                 let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
                 Ok(result.into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 
@@ -247,7 +249,7 @@ pub fn make_module() -> KMap {
 
                 Ok(result.into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("String")),
         }
     });
 

@@ -27,7 +27,7 @@ pub fn make_module() -> KMap {
                     Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
                 }
             }
-            unexpected => argument_error("a path String as argument", unexpected, false),
+            unexpected => argument_error("a path String as argument", unexpected, None),
         }
     });
 
@@ -41,7 +41,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("exists", |ctx| match ctx.args() {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        unexpected => argument_error("a path String as argument", unexpected, false),
+        unexpected => argument_error("a path String as argument", unexpected, None),
     });
 
     result.add_fn("extend_path", |ctx| match ctx.args() {
@@ -74,7 +74,7 @@ pub fn make_module() -> KMap {
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
-            unexpected => argument_error("a path String as argument", unexpected, false),
+            unexpected => argument_error("a path String as argument", unexpected, None),
         }
     });
 
@@ -115,7 +115,7 @@ pub fn make_module() -> KMap {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
         },
-        unexpected => argument_error("a path String as argument", unexpected, false),
+        unexpected => argument_error("a path String as argument", unexpected, None),
     });
 
     result.add_fn("remove_file", {
@@ -130,7 +130,7 @@ pub fn make_module() -> KMap {
                     ),
                 }
             }
-            unexpected => argument_error("a path String as argument", unexpected, false),
+            unexpected => argument_error("a path String as argument", unexpected, None),
         }
     });
 
@@ -213,7 +213,7 @@ impl File {
             unexpected => argument_error(
                 "a non-negative Number as the seek position",
                 unexpected,
-                true,
+                Some("File"),
             ),
         }
     }
@@ -229,7 +229,7 @@ impl File {
                     .write(display_context.result().as_bytes())
                     .map(|_| KValue::Null)
             }
-            unexpected => argument_error("a single argument", unexpected, true),
+            unexpected => argument_error("a single argument", unexpected, Some("File")),
         }
     }
 
@@ -239,7 +239,7 @@ impl File {
         match ctx.args {
             [] => {}
             [value] => value.display(&mut display_context)?,
-            unexpected => return argument_error("a single argument", unexpected, true),
+            unexpected => return argument_error("a single argument", unexpected, Some("File")),
         };
         display_context.append('\n');
         ctx.instance_mut()?

@@ -1,4 +1,4 @@
-use crate::{error::self_argument_error, prelude::*, Ptr, Result};
+use crate::{error::argument_error, prelude::*, Ptr, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -112,7 +112,7 @@ impl<'a> CallContext<'a> {
         match (self.instance(), self.args()) {
             (instance, args) if instance_check(instance) => Ok((instance, args)),
             (_, [first, rest @ ..]) if instance_check(first) => Ok((first, rest)),
-            (_, unexpected_args) => self_argument_error(expected_args_message, unexpected_args),
+            (_, unexpected_args) => argument_error(expected_args_message, unexpected_args, None),
         }
     }
 }

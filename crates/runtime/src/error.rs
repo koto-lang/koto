@@ -196,33 +196,21 @@ pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Re
 }
 
 /// Creates an error that describes there are redundant arguments
-pub fn argument_error<T>(expected_str: &str, unexpected: &[KValue], has_self: bool) -> Result<T> {
-    runtime_error!({
-        format!(
-            "Argument Error.\nGiven: {}{}\nExpected: {}",
-            humanize_value_types(unexpected),
-            if has_self { " (with self)" } else { "" },
-            expected_str
-        )
-    })
-}
-
-/// Creates an error that describes self couldn't found
-pub fn self_argument_error<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
-    runtime_error!({
-        format!(
-            r#"
-Couldn't detect self from first argument.
-Detected self: {}
-Expected: {}"#,
-            if unexpected.is_empty() {
-                String::from("no args")
-            } else {
-                humanize_value_types(&unexpected[..1])
-            },
-            expected_str
-        )
-    })
+pub fn argument_error<T>(
+    expected_str: &str,
+    unexpected: &[KValue],
+    self_type: Option<&str>,
+) -> Result<T> {
+    let mut result = String::new();
+    result.push_str("Argument Error.\nExpected: ");
+    result.push_str(expected_str);
+    result.push('\n');
+    result.push_str("Given: ");
+    if let Some(self_type) = self_type {
+        result.push_str(&format!("({}), ", self_type))
+    }
+    result.push_str(&humanize_value_types(unexpected));
+    runtime_error!(result)
 }
 
 /// Creates an error that describes that there is no args while expected

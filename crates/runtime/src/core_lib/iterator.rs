@@ -45,7 +45,7 @@ pub fn make_module() -> KMap {
 
                 Ok(true.into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -84,7 +84,7 @@ pub fn make_module() -> KMap {
 
                 Ok(false.into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -101,7 +101,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Iterator(result))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -117,7 +117,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.chunks: {}", e),
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -151,7 +151,7 @@ pub fn make_module() -> KMap {
                 }
                 Ok(KValue::Null)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -170,7 +170,7 @@ pub fn make_module() -> KMap {
                 }
                 Ok(KValue::Number(result.into()))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -189,7 +189,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -203,7 +203,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -216,7 +216,7 @@ pub fn make_module() -> KMap {
                 let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -253,7 +253,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Null)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -270,7 +270,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -310,7 +310,7 @@ pub fn make_module() -> KMap {
                     _ => unreachable!(),
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -323,7 +323,7 @@ pub fn make_module() -> KMap {
             let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
             Ok(KIterator::new(result).into())
         }
-        unexpected => argument_error("(Function), or (Number, Function)", unexpected, false),
+        unexpected => argument_error("(Function), or (Number, Function)", unexpected, None),
     });
 
     result.add_fn("intersperse", |ctx| {
@@ -348,7 +348,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -360,7 +360,7 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 Ok(KValue::Iterator(ctx.vm.make_iterator(iterable)?))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -378,7 +378,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -401,7 +401,7 @@ pub fn make_module() -> KMap {
 
                 Ok(result)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -418,7 +418,7 @@ pub fn make_module() -> KMap {
                 let key_fn = key_fn.clone();
                 run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::Yes)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -435,7 +435,7 @@ pub fn make_module() -> KMap {
                 let key_fn = key_fn.clone();
                 run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::No)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -505,7 +505,7 @@ pub fn make_module() -> KMap {
                     KValue::Tuple(vec![min, max].into())
                 }))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -515,7 +515,7 @@ pub fn make_module() -> KMap {
         let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
-            (_, unexpected) => return argument_error(expected_error, unexpected, true),
+            (_, unexpected) => return argument_error(expected_error, unexpected, Some("Iterable")),
         };
 
         let output = match iter_output_to_result(iter.next())? {
@@ -532,7 +532,7 @@ pub fn make_module() -> KMap {
         let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
-            (_, unexpected) => return argument_error(expected_error, unexpected, true),
+            (_, unexpected) => return argument_error(expected_error, unexpected, Some("Iterable")),
         };
 
         let output = match iter_output_to_result(iter.next_back())? {
@@ -558,7 +558,7 @@ pub fn make_module() -> KMap {
                     ctx.vm.make_iterator(iterable)?,
                 ))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -597,7 +597,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Null)
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -608,7 +608,9 @@ pub fn make_module() -> KMap {
             match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
                 (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
-                (_, unexpected) => return argument_error(expected_error, unexpected, true),
+                (_, unexpected) => {
+                    return argument_error(expected_error, unexpected, Some("Iterable"))
+                }
             }
         };
 
@@ -624,7 +626,7 @@ pub fn make_module() -> KMap {
             let result = generators::RepeatN::new(value.clone(), n.into());
             Ok(KIterator::new(result).into())
         }
-        unexpected => argument_error("(Value), or (Number, Value)", unexpected, false),
+        unexpected => argument_error("(Value), or (Number, Value)", unexpected, None),
     });
 
     result.add_fn("reversed", |ctx| {
@@ -638,7 +640,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.reversed: {}", e),
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -659,7 +661,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Iterator(iter))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -675,7 +677,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.step: {}", e),
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -686,7 +688,9 @@ pub fn make_module() -> KMap {
             match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
                 (iterable, []) => (iterable.clone(), KValue::Number(0.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
-                (_, unexpected) => return argument_error(expected_error, unexpected, true),
+                (_, unexpected) => {
+                    return argument_error(expected_error, unexpected, Some("Iterable"))
+                }
             }
         };
 
@@ -713,7 +717,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -737,7 +741,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(KList::with_data(result)))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -768,7 +772,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Map(KMap::with_data(result)))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -792,7 +796,7 @@ pub fn make_module() -> KMap {
 
                 Ok(display_context.result().into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -816,7 +820,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Tuple(result.into()))
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -832,7 +836,7 @@ pub fn make_module() -> KMap {
                     Err(e) => runtime_error!("iterator.windows: {}", e),
                 }
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
@@ -849,7 +853,7 @@ pub fn make_module() -> KMap {
                 );
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => argument_error(expected_error, unexpected, true),
+            (_, unexpected) => argument_error(expected_error, unexpected, Some("Iterable")),
         }
     });
 
