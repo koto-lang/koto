@@ -196,15 +196,62 @@ pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Re
 }
 
 /// Creates an error that describes there are redundant arguments
-/// First argument, arity means how many argument can be used in calling
-pub fn redundant_argument_error<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
-    runtime_error!({
-        format!(
-            "Unexpected {} while no arguments needed other than {}",
-            get_value_types(unexpected),
-            expected_str
-        )
-    })
+pub fn argument_error<T>(
+    expected_str: &str,
+    unexpected: &[KValue],
+    self_type: Option<&str>,
+) -> Result<T> {
+    let mut result = String::new();
+    result.push_str("Argument Error.\nExpected: ");
+    result.push_str(expected_str);
+    result.push('\n');
+    result.push_str("Given: ");
+    if let Some(self_type) = self_type {
+        result.push_str(&format!("({}), ", self_type))
+    }
+    result.push_str(&humanize_value_types(unexpected));
+    runtime_error!(result)
+}
+
+/// Creates an error that describes that there is no args while expected
+pub fn no_argument_error<T>(expected_str: &str) -> Result<T> {
+    runtime_error!(format!(
+        "Argument Error\nNo argument given while {} needed",
+        expected_str
+    ))
+}
+
+// An alternative to get_value_types
+fn humanize_value_types(values: &[KValue]) -> String {
+    let mut values: Vec<String> = values
+        .iter()
+        .map(|value| value.type_as_string().to_string())
+        .collect();
+    let values_len = values.len();
+
+    if values_len == 0 {
+        return String::from("no args");
+    }
+
+    // [XType] -> XType
+    if values_len == 1 {
+        return values.remove(0);
+    }
+
+    // [XType, YType] -> XType, and YType
+    if values_len == 2 {
+        return values.join(", and ");
+    }
+
+    // [XType, YType, ZType] -> XType, YType and ZType
+    let mut result = String::new();
+    for value in values[..values_len - 1].iter() {
+        result.push_str(value);
+        result.push_str(", ");
+    }
+    result.push_str("and ");
+    result.push_str(&values[values_len - 1]);
+    result
 }
 
 fn get_value_types(values: &[KValue]) -> String {
