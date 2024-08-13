@@ -310,18 +310,18 @@ check! ['a', '-', 'b', '-', 'c', '-']
 ## generate
 
 ```kototype
-|Function| -> Iterator
+|generator: || -> Any| -> Iterator
 ```
 
-Provides an iterator that yields the result of repeatedly calling the provided
+Provides an iterator that yields the result of repeatedly calling the `generator`
 function. Note that this version of `generate` won't terminate and will iterate
 endlessly.
 
 ```kototype
-|n: Number, Function| -> Any
+|n: Number, generator: || -> Any| -> Any
 ```
 
-Provides an iterator that yields the result of repeatedly calling the provided
+Provides an iterator that yields the result of calling the `generator`
 function `n` times.
 
 ### Example
@@ -865,7 +865,7 @@ Provides an iterator that yields a number of values from the input before
 finishing.
 
 ```kototype
-|Iterable, test: Callable| -> Iterator
+|Iterable, test: |Any| -> Bool| -> Iterator
 ```
 
 Provides an iterator that yields values from the input while they pass a

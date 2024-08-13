@@ -12,19 +12,19 @@ pub fn make_module() -> KMap {
     let result = KMap::with_type("core.list");
 
     result.add_fn("clear", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => {
                 l.data_mut().clear();
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("contains", |ctx| {
-        let expected_error = "a List and a Value";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [value]) => {
@@ -48,12 +48,12 @@ pub fn make_module() -> KMap {
                 }
                 Ok(false.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("extend", |ctx| {
-        let expected_error = "a List and iterable";
+        let expected_error = "|List, Iterable|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [KValue::List(other)]) => {
@@ -85,12 +85,12 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(l))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("fill", |ctx| {
-        let expected_error = "a List and a Value";
+        let expected_error = "|List, Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [value]) => {
@@ -99,30 +99,32 @@ pub fn make_module() -> KMap {
                 }
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("first", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => match l.data().first() {
                 Some(value) => Ok(value.clone()),
                 None => Ok(KValue::Null),
             },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("get", |ctx| {
         let (list, index, default) = {
-            let expected_error = "a List and a Number (with optional default value)";
+            let expected_error = "|List, Number|, or |List, Number, Any|";
 
             match ctx.instance_and_args(is_list, expected_error)? {
                 (KValue::List(list), [KValue::Number(n)]) => (list, n, &KValue::Null),
                 (KValue::List(list), [KValue::Number(n), default]) => (list, n, default),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -133,108 +135,111 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("insert", |ctx| {
-        let expected_error = "a List, a non-negative Number, and a Value";
+        let expected_error = "|List, Number, Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (KValue::List(l), [KValue::Number(n), value]) if *n >= 0.0 => {
+            (KValue::List(l), [KValue::Number(n), value]) => {
                 let index: usize = n.into();
-                if index > l.data().len() {
-                    return runtime_error!("list.insert: Index out of bounds");
+                if *n < 0.0 || index > l.data().len() {
+                    return runtime_error!("Index out of bounds");
                 }
 
                 l.data_mut().insert(index, value.clone());
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("is_empty", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => Ok(l.data().is_empty().into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("last", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => match l.data().last() {
                 Some(value) => Ok(value.clone()),
                 None => Ok(KValue::Null),
             },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("pop", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => match l.data_mut().pop() {
                 Some(value) => Ok(value),
                 None => Ok(KValue::Null),
             },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("push", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [value]) => {
                 l.data_mut().push(value.clone());
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("remove", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (KValue::List(l), [KValue::Number(n)]) if *n >= 0.0 => {
+            (KValue::List(l), [KValue::Number(n)]) => {
                 let index: usize = n.into();
-                if index >= l.data().len() {
-                    return runtime_error!(
-                        "list.remove: Index out of bounds - \
-                         the index is {index} but the List only has {} elements",
-                        l.data().len(),
-                    );
+                if *n < 0.0 || index >= l.data().len() {
+                    return runtime_error!("Index out of bounds");
                 }
 
                 Ok(l.data_mut().remove(index))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("resize", |ctx| {
-        let expected_error = "a List, a non-negative Number, and an optional Value";
+        let expected_error = "|List, Number|, or |List, Number, Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (KValue::List(l), [KValue::Number(n)]) if *n >= 0.0 => {
+            (_, [KValue::Number(n), ..]) if *n < 0.0 => {
+                runtime_error!("Expected a non-negative size")
+            }
+            (KValue::List(l), [KValue::Number(n)]) => {
                 l.data_mut().resize(n.into(), KValue::Null);
                 Ok(KValue::List(l.clone()))
             }
-            (KValue::List(l), [KValue::Number(n), value]) if *n >= 0.0 => {
+            (KValue::List(l), [KValue::Number(n), value]) => {
                 l.data_mut().resize(n.into(), value.clone());
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("resize_with", |ctx| {
-        let expected_error = "a List, a non-negative Number, and a function";
+        let expected_error = "|List, Number, || -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
-            (KValue::List(l), [KValue::Number(n), f]) if *n >= 0.0 && f.is_callable() => {
+            (KValue::List(l), [KValue::Number(n), f]) if f.is_callable() => {
+                if *n < 0.0 {
+                    return runtime_error!("Expected a non-negative size");
+                }
+
                 let new_size = usize::from(n);
                 let len = l.len();
                 let l = l.clone();
@@ -254,13 +259,13 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(l))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("retain", |ctx| {
         let result = {
-            let expected_error = "a List, and either a predicate function or matching Value";
+            let expected_error = "|List, Any|";
 
             match ctx.instance_and_args(is_list, expected_error)? {
                 (KValue::List(l), [f]) if f.is_callable() => {
@@ -305,9 +310,9 @@ pub fn make_module() -> KMap {
                             Ok(KValue::Bool(true)) => true,
                             Ok(KValue::Bool(false)) => false,
                             Ok(unexpected) => {
-                                error = Some(type_error_with_slice(
+                                error = Some(type_error(
                                     "a Bool from the equality comparison",
-                                    &[unexpected],
+                                    &unexpected,
                                 ));
                                 true
                             }
@@ -322,7 +327,9 @@ pub fn make_module() -> KMap {
                     }
                     l
                 }
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -330,19 +337,19 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("reverse", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => {
                 l.data_mut().reverse();
                 Ok(KValue::List(l.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("sort", |ctx| {
-        let expected_error = "a List, and an optional key function";
+        let expected_error = "|List|, or |List, |Any| -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => {
@@ -364,33 +371,33 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(l))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("swap", |ctx| {
-        let expected_error = "two Lists";
+        let expected_error = "|List, List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(a), [KValue::List(b)]) => {
                 std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
                 Ok(KValue::Null)
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("to_tuple", |ctx| {
-        let expected_error = "a List";
+        let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => Ok(KValue::Tuple(l.data().as_slice().into())),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("transform", |ctx| {
-        let expected_error = "a List and a function";
+        let expected_error = "|List, |Any| -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [f]) if f.is_callable() => {
@@ -406,7 +413,7 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::List(l))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 

@@ -8,7 +8,7 @@ pub fn make_module() -> KMap {
     let result = KMap::with_type("core.tuple");
 
     result.add_fn("contains", |ctx| {
-        let expected_error = "a Tuple and a Value";
+        let expected_error = "|Tuple, Any|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), [value]) => {
@@ -22,40 +22,39 @@ pub fn make_module() -> KMap {
                         Ok(KValue::Bool(false)) => {}
                         Ok(KValue::Bool(true)) => return Ok(true.into()),
                         Ok(unexpected) => {
-                            return type_error_with_slice(
-                                "a Bool from the equality comparison",
-                                &[unexpected],
-                            )
+                            return type_error("a Bool from the equality comparison", &unexpected)
                         }
                         Err(e) => return Err(e),
                     }
                 }
                 Ok(false.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("first", |ctx| {
-        let expected_error = "a Tuple";
+        let expected_error = "|Tuple|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => match t.first() {
                 Some(value) => Ok(value.clone()),
                 None => Ok(KValue::Null),
             },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("get", |ctx| {
         let (tuple, index, default) = {
-            let expected_error = "a Tuple and Number (with optional default Value)";
+            let expected_error = "|Tuple, Number|, or |Tuple, Number, Any|";
 
             match ctx.instance_and_args(is_tuple, expected_error)? {
                 (KValue::Tuple(tuple), [KValue::Number(n)]) => (tuple, n, &KValue::Null),
                 (KValue::Tuple(tuple), [KValue::Number(n), default]) => (tuple, n, default),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -66,19 +65,19 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("last", |ctx| {
-        let expected_error = "a Tuple";
+        let expected_error = "|Tuple|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => match t.last() {
                 Some(value) => Ok(value.clone()),
                 None => Ok(KValue::Null),
             },
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("sort_copy", |ctx| {
-        let expected_error = "a Tuple, and an optional key function";
+        let expected_error = "|Tuple|, or |Tuple, |Any| -> Any|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => {
@@ -94,16 +93,16 @@ pub fn make_module() -> KMap {
                 let result: Vec<_> = sorted.into_iter().map(|(_key, value)| value).collect();
                 Ok(KValue::Tuple(result.into()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("to_list", |ctx| {
-        let expected_error = "a Tuple";
+        let expected_error = "|Tuple|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => Ok(KValue::List(KList::from_slice(t))),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 

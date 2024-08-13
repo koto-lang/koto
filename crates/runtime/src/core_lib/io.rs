@@ -19,24 +19,27 @@ pub fn make_module() -> KMap {
                 let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => runtime_error!("io.create: Error while creating file: {error}"),
+                    Err(error) => runtime_error!("Error while creating file: {error}"),
                 }
             }
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     });
 
-    result.add_fn("current_dir", |_| {
-        let result = match std::env::current_dir() {
-            Ok(path) => Str(path.to_string_lossy().to_string().into()),
-            Err(_) => Null,
-        };
-        Ok(result)
+    result.add_fn("current_dir", |ctx| match ctx.args() {
+        [] => {
+            let result = match std::env::current_dir() {
+                Ok(path) => Str(path.to_string_lossy().to_string().into()),
+                Err(_) => Null,
+            };
+            Ok(result)
+        }
+        unexpected => unexpected_args("||", unexpected),
     });
 
     result.add_fn("exists", |ctx| match ctx.args() {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        unexpected => type_error_with_slice("a path String as argument", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result.add_fn("extend_path", |ctx| match ctx.args() {
@@ -55,10 +58,7 @@ pub fn make_module() -> KMap {
             }
             Ok(path.to_string_lossy().to_string().into())
         }
-        unexpected => type_error_with_slice(
-            "a path String as argument, followed by some additional path nodes",
-            unexpected,
-        ),
+        unexpected => unexpected_args("|String, Any...|", unexpected),
     });
 
     result.add_fn("open", {
@@ -66,11 +66,11 @@ pub fn make_module() -> KMap {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => runtime_error!("io.open: Error while opening path: {error}"),
+                    Err(error) => runtime_error!("Error while opening path: {error}"),
                 },
-                Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
+                Err(_) => runtime_error!("Failed to canonicalize path"),
             },
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     });
 
@@ -81,7 +81,7 @@ pub fn make_module() -> KMap {
                 let value = value.clone();
                 match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return type_error("string from @display", &unexpected),
+                    unexpected => return type_error("String from @display", &unexpected),
                 }
             }
             values @ [_, ..] => {
@@ -91,15 +91,10 @@ pub fn make_module() -> KMap {
                     .run_unary_op(crate::UnaryOp::Display, KValue::Tuple(tuple_data.into()))?
                 {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return type_error("string from @display", &unexpected),
+                    unexpected => return type_error("String from @display", &unexpected),
                 }
             }
-            unexpected => {
-                return type_error_with_slice(
-                    "a String as argument, followed by optional additional Values",
-                    unexpected,
-                )
-            }
+            unexpected => return unexpected_args("|Any|, or |Any, Any...|", unexpected),
         };
 
         result.map(|_| Null)
@@ -112,7 +107,7 @@ pub fn make_module() -> KMap {
                 runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
             }
         },
-        unexpected => type_error_with_slice("a path String as argument", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result.add_fn("remove_file", {
@@ -127,16 +122,26 @@ pub fn make_module() -> KMap {
                     ),
                 }
             }
-            unexpected => type_error_with_slice("a path String as argument", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     });
 
-    result.add_fn("stderr", |ctx| Ok(File::stderr(ctx.vm)));
-    result.add_fn("stdin", |ctx| Ok(File::stdin(ctx.vm)));
-    result.add_fn("stdout", |ctx| Ok(File::stdout(ctx.vm)));
+    result.add_fn("stderr", |ctx| match ctx.args() {
+        [] => Ok(File::stderr(ctx.vm)),
+        unexpected => unexpected_args("||", unexpected),
+    });
+    result.add_fn("stdin", |ctx| match ctx.args() {
+        [] => Ok(File::stdin(ctx.vm)),
+        unexpected => unexpected_args("||", unexpected),
+    });
+    result.add_fn("stdout", |ctx| match ctx.args() {
+        [] => Ok(File::stdout(ctx.vm)),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
-    result.add_fn("temp_dir", {
-        |_| Ok(std::env::temp_dir().to_string_lossy().as_ref().into())
+    result.add_fn("temp_dir", |ctx| match ctx.args() {
+        [] => Ok(std::env::temp_dir().to_string_lossy().as_ref().into()),
+        unexpected => unexpected_args("||", unexpected),
     });
 
     result
@@ -207,9 +212,7 @@ impl File {
                 }
                 self.0.seek(n.into()).map(|_| KValue::Null)
             }
-            unexpected => {
-                type_error_with_slice("a non-negative Number as the seek position", unexpected)
-            }
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -224,7 +227,7 @@ impl File {
                     .write(display_context.result().as_bytes())
                     .map(|_| KValue::Null)
             }
-            unexpected => type_error_with_slice("a single argument", unexpected),
+            unexpected => unexpected_args("|Any|", unexpected),
         }
     }
 
@@ -234,7 +237,7 @@ impl File {
         match ctx.args {
             [] => {}
             [value] => value.display(&mut display_context)?,
-            unexpected => return type_error_with_slice("a single argument", unexpected),
+            unexpected => return unexpected_args("||, or |Any|", unexpected),
         };
         display_context.append('\n');
         ctx.instance_mut()?

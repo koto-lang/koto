@@ -10,9 +10,15 @@ pub fn make_module() -> KMap {
 
     let result = KMap::with_type("core.os");
 
-    result.add_fn("name", |_| Ok(std::env::consts::OS.into()));
+    result.add_fn("name", |ctx| match ctx.args() {
+        [] => Ok(std::env::consts::OS.into()),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
-    result.add_fn("start_timer", |_| Ok(Timer::now()));
+    result.add_fn("start_timer", |ctx| match ctx.args() {
+        [] => Ok(Timer::now()),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
     result.add_fn("time", |ctx| match ctx.args() {
         [] => Ok(DateTime::now()),
@@ -20,10 +26,7 @@ pub fn make_module() -> KMap {
         [Number(seconds), Number(offset)] => {
             DateTime::from_seconds(seconds.into(), Some(offset.into()))
         }
-        unexpected => type_error_with_slice(
-            "no args, or a timestamp in seconds, with optional timezone offset in seconds",
-            unexpected,
-        ),
+        unexpected => unexpected_args("||, or |Number|, or |Number, Number|", unexpected),
     });
 
     result

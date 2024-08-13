@@ -14,11 +14,13 @@ pub fn make_module() -> KMap {
         };
         ($name:expr, $fn:ident) => {
             result.add_fn($name, |ctx| {
-                let expected_error = "a Number";
+                let expected_error = "|Number|";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
                     (Number(n), []) => Ok(Number(n.$fn())),
-                    (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+                    (instance, args) => {
+                        unexpected_args_after_instance(expected_error, instance, args)
+                    }
                 }
             });
         };
@@ -30,11 +32,13 @@ pub fn make_module() -> KMap {
         };
         ($name:expr, $fn:ident) => {
             result.add_fn($name, |ctx| {
-                let expected_error = "a Number";
+                let expected_error = "|Number|";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
                     (Number(n), []) => Ok(Number(f64::from(n).$fn().into())),
-                    (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+                    (instance, args) => {
+                        unexpected_args_after_instance(expected_error, instance, args)
+                    }
                 }
             });
         };
@@ -43,11 +47,13 @@ pub fn make_module() -> KMap {
     macro_rules! bitwise_fn {
         ($name:ident, $op:tt) => {
             result.add_fn(stringify!($name), |ctx| {
-                let expected_error = "two Numbers";
+                let expected_error = "|Number, Number|";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
                     (Number(a), [Number(b)]) => Ok((i64::from(a) $op i64::from(b)).into()),
-                    (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+                    (instance, args) => {
+                        unexpected_args_after_instance(expected_error, instance, args)
+                    }
                 }
             })
         };
@@ -56,13 +62,15 @@ pub fn make_module() -> KMap {
     macro_rules! bitwise_fn_positive_arg {
         ($name:ident, $op:tt) => {
             result.add_fn(stringify!($name), |ctx| {
-                let expected_error = "two Numbers (with non-negative second argument)";
+                let expected_error = "|Number, Number|";
 
                 match ctx.instance_and_args(is_number, expected_error)? {
                     (Number(a), [Number(b)]) if *b >= 0 => {
                         Ok((i64::from(a) $op i64::from(b)).into())
                     }
-                    (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+                    (instance, args) => {
+                        unexpected_args_after_instance(expected_error, instance, args)
+                    }
                 }
             })
         };
@@ -78,22 +86,22 @@ pub fn make_module() -> KMap {
     number_f64_fn!(atanh);
 
     result.add_fn("atan2", |ctx| {
-        let expected_error = "two Numbers";
+        let expected_error = "|Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(y), [Number(x)]) => Ok(f64::from(y).atan2(f64::from(x)).into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     number_fn!(ceil);
 
     result.add_fn("clamp", |ctx| {
-        let expected_error = "three Numbers";
+        let expected_error = "|Number, Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(x), [Number(a), Number(b)]) => Ok(Number(*a.max(b.min(x)))),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -107,11 +115,11 @@ pub fn make_module() -> KMap {
     number_f64_fn!(exp2);
 
     result.add_fn("flip_bits", |ctx| {
-        let expected_error = "a Number";
+        let expected_error = "|Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(n), []) => Ok((!n.as_i64()).into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -120,23 +128,23 @@ pub fn make_module() -> KMap {
     result.insert("infinity", Number(f64::INFINITY.into()));
 
     result.add_fn("is_nan", |ctx| {
-        let expected_error = "a Number";
+        let expected_error = "|Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(n), []) => Ok(n.is_nan().into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("lerp", |ctx| {
-        let expected_error = "three Numbers";
+        let expected_error = "|Number, Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(a), [Number(b), Number(t)]) => {
                 let result = *a + (b - a) * *t;
                 Ok(result.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -145,20 +153,20 @@ pub fn make_module() -> KMap {
     number_f64_fn!(log10);
 
     result.add_fn("max", |ctx| {
-        let expected_error = "two Numbers";
+        let expected_error = "|Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(a), [Number(b)]) => Ok(Number(*a.max(b))),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("min", |ctx| {
-        let expected_error = "two Numbers";
+        let expected_error = "|Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(a), [Number(b)]) => Ok(Number(*a.min(b))),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -172,11 +180,11 @@ pub fn make_module() -> KMap {
     result.insert("pi_4", std::f64::consts::FRAC_PI_4);
 
     result.add_fn("pow", |ctx| {
-        let expected_error = "two Numbers";
+        let expected_error = "|Number, Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(a), [Number(b)]) => Ok(Number(a.pow(*b))),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -196,11 +204,11 @@ pub fn make_module() -> KMap {
     result.insert("tau", std::f64::consts::TAU);
 
     result.add_fn("to_int", |ctx| {
-        let expected_error = "a Number";
+        let expected_error = "|Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
             (Number(n), []) => Ok(i64::from(n).into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
