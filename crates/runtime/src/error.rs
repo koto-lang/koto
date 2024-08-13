@@ -23,10 +23,18 @@ pub enum ErrorKind {
     },
     #[error("Execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
-    #[error("Expected '{expected}', but found '{}'", get_value_types(unexpected))]
-    UnexpectedType {
+    #[error(
+        "Unexpected arguments.\n  Expected: {expected}\n  Provided: |{}|",
+        value_types_as_string(unexpected)
+    )]
+    UnexpectedArguments {
         expected: String,
         unexpected: Vec<KValue>,
+    },
+    #[error("Unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
+    UnexpectedType {
+        expected: String,
+        unexpected: KValue,
     },
     #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
@@ -184,45 +192,58 @@ macro_rules! runtime_error {
 
 /// Creates an error that describes a type mismatch
 pub fn type_error<T>(expected_str: &str, unexpected: &KValue) -> Result<T> {
-    type_error_with_slice(expected_str, &[unexpected.clone()])
+    runtime_error!(ErrorKind::UnexpectedType {
+        expected: expected_str.into(),
+        unexpected: unexpected.clone(),
+    })
 }
 
 /// Creates an error that describes a type mismatch with a slice of [KValue]s
 pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
-    runtime_error!(ErrorKind::UnexpectedType {
+    runtime_error!(ErrorKind::UnexpectedArguments {
         expected: expected_str.into(),
         unexpected: unexpected.into(),
     })
 }
 
-/// Creates an error that describes there are redundant arguments
-/// First argument, arity means how many argument can be used in calling
-pub fn redundant_argument_error<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
-    runtime_error!({
-        format!(
-            "Unexpected {} while no arguments needed other than {}",
-            get_value_types(unexpected),
-            expected_str
-        )
+/// Creates an unexpected arguments error containg the provided arguments
+pub fn unexpected_args<T>(expected_str: &str, arguments: &[KValue]) -> Result<T> {
+    runtime_error!(ErrorKind::UnexpectedArguments {
+        expected: expected_str.into(),
+        unexpected: arguments.into(),
     })
 }
 
-fn get_value_types(values: &[KValue]) -> String {
+/// Creates an unexpected arguments error containing the provided instance and arguments
+pub fn unexpected_args_after_instance<T>(
+    expected_str: &str,
+    instance: &KValue,
+    arguments: &[KValue],
+) -> Result<T> {
+    let unexpected = std::iter::once(instance.clone())
+        .chain(arguments.iter().cloned())
+        .collect();
+    runtime_error!(ErrorKind::UnexpectedArguments {
+        expected: expected_str.into(),
+        unexpected,
+    })
+}
+
+fn value_types_as_string(values: &[KValue]) -> String {
     match values {
-        [] => "no args".to_string(),
+        [] => "".to_string(),
         [single_value] => single_value.type_as_string().to_string(),
         _ => {
-            let mut types = String::from('(');
+            let mut result = String::new();
             let mut first = true;
             for value in values {
                 if !first {
-                    types.push_str(", ");
+                    result.push_str(", ");
                 }
                 first = false;
-                types.push_str(&value.type_as_string());
+                result.push_str(&value.type_as_string());
             }
-            types.push(')');
-            types
+            result
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{prelude::*, Ptr, Result};
+use crate::{error::unexpected_args_after_instance, prelude::*, Ptr, Result};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -111,8 +111,14 @@ impl<'a> CallContext<'a> {
     ) -> Result<(&KValue, &[KValue])> {
         match (self.instance(), self.args()) {
             (instance, args) if instance_check(instance) => Ok((instance, args)),
-            (_, [first, rest @ ..]) if instance_check(first) => Ok((first, rest)),
-            (_, unexpected_args) => type_error_with_slice(expected_args_message, unexpected_args),
+            (_, [first, rest @ ..]) => {
+                if instance_check(first) {
+                    Ok((first, rest))
+                } else {
+                    unexpected_args_after_instance(expected_args_message, first, rest)
+                }
+            }
+            (_, []) => unexpected_args(expected_args_message, &[]),
         }
     }
 }
