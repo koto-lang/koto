@@ -14,7 +14,7 @@ pub fn make_module() -> KMap {
                         return runtime_error!("Assertion failed");
                     }
                 }
-                unexpected => return type_error("Bool as argument", unexpected),
+                unexpected => return unexpected_type("Bool", unexpected),
             }
         }
         Ok(KValue::Null)
@@ -34,11 +34,11 @@ pub fn make_module() -> KMap {
                         ctx.vm.value_to_string(&b)?,
                     )
                 }
-                Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
+                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),
             }
         }
-        unexpected => type_error_with_slice("two Values", unexpected),
+        unexpected => unexpected_args("|Any, Any|", unexpected),
     });
 
     result.add_fn("assert_ne", |ctx| match ctx.args() {
@@ -57,11 +57,11 @@ pub fn make_module() -> KMap {
                         ctx.vm.value_to_string(&b)?
                     )
                 }
-                Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
+                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),
             }
         }
-        unexpected => type_error_with_slice("two Values", unexpected),
+        unexpected => unexpected_args("|Any, Any|", unexpected),
     });
 
     result.add_fn("assert_near", |ctx| match ctx.args() {
@@ -69,11 +69,7 @@ pub fn make_module() -> KMap {
         [KValue::Number(a), KValue::Number(b), KValue::Number(allowed_diff)] => {
             number_near(*a, *b, allowed_diff.into())
         }
-        unexpected => type_error_with_slice(
-            "two Numbers as arguments, \
-             followed by an optional Number that specifies the allowed difference",
-            unexpected,
-        ),
+        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 
     result.add_fn("run_tests", |ctx| match ctx.args() {
@@ -81,7 +77,7 @@ pub fn make_module() -> KMap {
             let tests = tests.clone();
             ctx.vm.run_tests(tests)
         }
-        unexpected => type_error_with_slice("a Map as argument", unexpected),
+        unexpected => unexpected_args("|Map|", unexpected),
     });
 
     result

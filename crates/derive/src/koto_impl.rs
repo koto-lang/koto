@@ -117,15 +117,25 @@ fn wrap_function(
                 (quote! {cast}, quote! {instance})
             };
 
-            let (args_match, call_args) = match args.next() {
-                None => (quote! {[]}, quote! {}),
+            let (args_match, call_args, error_arm) = match args.next() {
+                None => (
+                    quote! {[]}, // no args expected
+                    quote! {},   // no args to call with
+                    quote! { (_, unexpected) =>  #runtime::unexpected_args("||", unexpected)},
+                ),
                 Some(FnArg::Typed(pattern))
                     if arg_count == 2 && matches!(*pattern.ty, Type::Reference(_)) =>
                 {
-                    (quote! {args}, quote! {, args})
+                    (
+                        // match against any number of args
+                        quote! {args},
+                        // append the args to the call
+                        quote! {, args},
+                        // any number of args will be captured
+                        quote! { _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError) },
+                    )
                 }
-
-                _ => panic!("Expected &[Value] as the extra argument for a Koto method"),
+                _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
             };
 
             let call = quote! { #fn_ident(&#instance #call_args) };
@@ -151,7 +161,7 @@ fn wrap_function(
                             Err(e) => Err(e),
                         }
                     },
-                    (_, other) => #runtime::type_error_with_slice(#type_name, other),
+                    #error_arm,
                 }
             }
         }
@@ -172,7 +182,7 @@ fn wrap_function(
                     |i| matches!(i, #runtime::KValue::Object(_)), #type_name)?
                 {
                     (#runtime::KValue::Object(o), extra_args) => { #wrapped_call }
-                    (_, other) => #runtime::type_error_with_slice(#type_name, other),
+                    _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError),
                 }
             }
         }

@@ -25,15 +25,18 @@ pub fn make_module() -> KMap {
         }
         [KValue::Object(o)] => o.try_borrow().map(|o| o.copy().into()),
         [other] => Ok(other.clone()),
-        unexpected => type_error_with_slice("a single argument", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
     result.add_fn("deep_copy", |ctx| match ctx.args() {
         [value] => value.deep_copy(),
-        unexpected => type_error_with_slice("a single argument", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
-    result.add_fn("exports", |ctx| Ok(KValue::Map(ctx.vm.exports().clone())));
+    result.add_fn("exports", |ctx| match ctx.args() {
+        [] => Ok(KValue::Map(ctx.vm.exports().clone())),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
     result.add_fn("hash", |ctx| match ctx.args() {
         [value] => match ValueKey::try_from(value.clone()) {
@@ -44,7 +47,7 @@ pub fn make_module() -> KMap {
             }
             Err(_) => Ok(KValue::Null),
         },
-        unexpected => type_error_with_slice("a single argument", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
     result.insert("script_dir", KValue::Null);
@@ -52,17 +55,17 @@ pub fn make_module() -> KMap {
 
     result.add_fn("size", |ctx| match ctx.args() {
         [value] => ctx.vm.run_unary_op(UnaryOp::Size, value.clone()),
-        unexpected => type_error_with_slice("a single value", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
     result.add_fn("type", |ctx| match ctx.args() {
         [value] => Ok(value.type_as_string().into()),
-        unexpected => type_error_with_slice("a single argument", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
     result.add_fn("load", |ctx| match ctx.args() {
         [KValue::Str(s)] => Ok(try_load_koto_script(ctx, s)?.into()),
-        unexpected => type_error_with_slice("a single String", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result.add_fn("run", |ctx| match ctx.args() {
@@ -74,7 +77,7 @@ pub fn make_module() -> KMap {
             let chunk = o.cast::<Chunk>().unwrap().inner();
             ctx.vm.run(chunk)
         }
-        unexpected => type_error_with_slice("a single String or Chunk", unexpected),
+        unexpected => unexpected_args("|String|, or |Chunk|", unexpected),
     });
 
     result

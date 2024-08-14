@@ -5,7 +5,7 @@ pub fn make_module() -> KMap {
 
     result.add_fn("new", |ctx| match ctx.args() {
         [KValue::Str(pattern)] => Ok(Regex::new(pattern)?.into()),
-        unexpected => type_error_with_slice("a regex pattern as string", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result
@@ -27,7 +27,7 @@ impl Regex {
     fn is_match(&self, args: &[KValue]) -> Result<KValue> {
         match args {
             [KValue::Str(text)] => Ok(self.0.is_match(text).into()),
-            unexpected => type_error_with_slice("a string", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     }
 
@@ -41,7 +41,7 @@ impl Regex {
                     None => Ok(KValue::Null),
                 }
             }
-            unexpected => type_error_with_slice("a string", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     }
 
@@ -68,7 +68,7 @@ impl Regex {
 
                 Ok(result)
             }
-            unexpected => type_error_with_slice("a string", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     }
 
@@ -104,7 +104,7 @@ impl Regex {
                     None => Ok(KValue::Null),
                 }
             }
-            unexpected => type_error_with_slice("a string", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     }
 
@@ -115,7 +115,7 @@ impl Regex {
                 let result = self.0.replace_all(text, replacement.as_str());
                 Ok(result.to_string().into())
             }
-            unexpected => type_error_with_slice("two strings", unexpected),
+            unexpected => unexpected_args("|String, String|", unexpected),
         }
     }
 }

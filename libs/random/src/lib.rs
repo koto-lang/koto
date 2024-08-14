@@ -8,7 +8,10 @@ use std::cell::RefCell;
 pub fn make_module() -> KMap {
     let result = KMap::with_type("random");
 
-    result.add_fn("bool", |_| THREAD_RNG.with_borrow_mut(|rng| rng.bool()));
+    result.add_fn("bool", |ctx| match ctx.args() {
+        [] => THREAD_RNG.with_borrow_mut(|rng| rng.bool()),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
     result.add_fn("generator", |ctx| {
         let rng = match ctx.args() {
@@ -16,20 +19,21 @@ pub fn make_module() -> KMap {
             [] => ChaCha8Rng::from_entropy(),
             // RNG from seed
             [KValue::Number(n)] => ChaCha8Rng::seed_from_u64(n.to_bits()),
-            unexpected => {
-                return type_error_with_slice("an optional seed Number as argument", unexpected)
-            }
+            unexpected => return unexpected_args("||, or |Number|", unexpected),
         };
 
         Ok(ChaChaRng::make_value(rng))
     });
 
-    result.add_fn("number", |_| THREAD_RNG.with_borrow_mut(|rng| rng.number()));
+    result.add_fn("number", |ctx| match ctx.args() {
+        [] => THREAD_RNG.with_borrow_mut(|rng| rng.number()),
+        unexpected => unexpected_args("||", unexpected),
+    });
 
     result.add_fn("pick", |ctx| {
         THREAD_RNG.with_borrow_mut(|rng| match ctx.args() {
             [arg] => rng.pick_inner(arg.clone(), ctx.vm),
-            unexpected => type_error_with_slice("a single argument", unexpected),
+            unexpected => unexpected_args("|Indexable|", unexpected),
         })
     });
 
@@ -66,7 +70,7 @@ impl ChaChaRng {
             [arg] => ctx
                 .instance_mut()?
                 .pick_inner(arg.clone(), &mut ctx.vm.spawn_shared_vm()),
-            unexpected => type_error_with_slice("a single argument", unexpected),
+            unexpected => unexpected_args("|Indexable|", unexpected),
         }
     }
 
@@ -102,7 +106,7 @@ impl ChaChaRng {
                     let index = self.0.gen_range(0..(size.as_i64() as usize));
                     vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
                 }
-                unexpected => type_error("a number from @size", &unexpected),
+                unexpected => unexpected_type("a Number from @size", &unexpected),
             },
         }
     }
@@ -115,7 +119,7 @@ impl ChaChaRng {
                 self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());
                 Ok(Null)
             }
-            unexpected => type_error_with_slice("a Number as argument", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 }

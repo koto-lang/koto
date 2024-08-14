@@ -67,7 +67,7 @@ impl Rect {
                 let result = self.0.contains(p.inner());
                 Ok(result.into())
             }
-            unexpected => type_error_with_slice("Vec2", unexpected),
+            unexpected => unexpected_args("|Vec2|", unexpected),
         }
     }
 
@@ -81,7 +81,7 @@ impl Rect {
                 let p = p.cast::<Vec2>().unwrap();
                 (p.inner().x, p.inner().y)
             }
-            unexpected => return type_error_with_slice("two Numbers or a Vec2", unexpected),
+            unexpected => return unexpected_args("|Vec2|, or |Number, Number|", unexpected),
         };
         let mut this = ctx.instance_mut()?;
         this.0 = Inner::from_x_y_w_h(x, y, this.0.w(), this.0.h());

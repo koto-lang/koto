@@ -9,31 +9,31 @@ pub fn make_module() -> KMap {
     let result = KMap::with_type("core.map");
 
     result.add_fn("clear", |ctx| {
-        let expected_error = "a Map";
+        let expected_error = "|Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => {
                 m.data_mut().clear();
                 Ok(KValue::Map(m.clone()))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("contains_key", |ctx| {
-        let expected_error = "a Map and key";
+        let expected_error = "|Map, Any|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [key]) => {
                 let result = m.data().contains_key(&ValueKey::try_from(key.clone())?);
                 Ok(result.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("extend", |ctx| {
-        let expected_error = "a Map and an iterable";
+        let expected_error = "|Map, Iterable|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [KValue::Map(other)]) => {
@@ -74,18 +74,20 @@ pub fn make_module() -> KMap {
 
                 Ok(KValue::Map(m))
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("get", |ctx| {
         let (map, key, default) = {
-            let expected_error = "a Map and a key, with an optional default value";
+            let expected_error = "|Map, Any|, or |Map, Any, Any|";
 
             match map_instance_and_args(ctx, expected_error)? {
                 (KValue::Map(map), [key]) => (map, key, &KValue::Null),
                 (KValue::Map(map), [key, default]) => (map, key, default),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -98,12 +100,14 @@ pub fn make_module() -> KMap {
 
     result.add_fn("get_index", |ctx| {
         let (map, index, default) = {
-            let expected_error = "a Map and a non-negative number";
+            let expected_error = "|Map, Number|";
 
             match map_instance_and_args(ctx, expected_error)? {
                 (KValue::Map(map), [KValue::Number(n)]) => (map, n, &KValue::Null),
                 (KValue::Map(map), [KValue::Number(n), default]) => (map, n, default),
-                (_, unexpected) => return type_error_with_slice(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -116,7 +120,7 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("get_meta", |ctx| {
-        let expected_error = "a Map";
+        let expected_error = "|Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(map), []) => {
@@ -129,12 +133,12 @@ pub fn make_module() -> KMap {
                     Ok(KValue::Null)
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("insert", |ctx| {
-        let expected_error = "a Map and key (with optional Value to insert)";
+        let expected_error = "|Map, Any|, or |Map, Any, Any|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [key]) => match m
@@ -153,33 +157,33 @@ pub fn make_module() -> KMap {
                     None => Ok(KValue::Null),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("is_empty", |ctx| {
-        let expected_error = "a Map";
+        let expected_error = "|Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => Ok(m.is_empty().into()),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("keys", |ctx| {
-        let expected_error = "a Map";
+        let expected_error = "|Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => {
                 let result = adaptors::PairFirst::new(KIterator::with_map(m.clone()));
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("remove", |ctx| {
-        let expected_error = "a Map and key";
+        let expected_error = "|Map, Any|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [key]) => {
@@ -188,12 +192,12 @@ pub fn make_module() -> KMap {
                     None => Ok(KValue::Null),
                 }
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("sort", |ctx| {
-        let expected_error = "a Map and optional sort key function";
+        let expected_error = "|Map|, or |Map, |Any, Any| -> Any|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => {
@@ -277,12 +281,12 @@ pub fn make_module() -> KMap {
                     Ok(KValue::Map(m))
                 }
             }
-            (_, unexpected) => type_error_with_slice("a Map ", unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("update", |ctx| {
-        let expected_error = "a Map, key, optional default Value, and update function";
+        let expected_error = "|Map, Any, |Any| -> Any||, or |Map, Any, Any, |Any| -> Any|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [key, f]) if f.is_callable() => do_map_update(
@@ -299,24 +303,24 @@ pub fn make_module() -> KMap {
                 f.clone(),
                 ctx.vm,
             ),
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("values", |ctx| {
-        let expected_error = "a Map";
+        let expected_error = "|Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => {
                 let result = adaptors::PairSecond::new(KIterator::with_map(m.clone()));
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("with_meta", |ctx| {
-        let expected_error = "two Maps";
+        let expected_error = "|Map, Map|";
 
         match map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(data), [KValue::Map(meta)]) => {
@@ -324,7 +328,7 @@ pub fn make_module() -> KMap {
                 data.set_meta_map(meta.meta_map().cloned());
                 Ok(data.into())
             }
-            (_, unexpected) => type_error_with_slice(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -362,6 +366,6 @@ fn map_instance_and_args<'a>(
     match (ctx.instance(), ctx.args()) {
         (instance @ Map(m), args) if m.meta_map().is_none() => Ok((instance, args)),
         (_, [first @ Map(_), rest @ ..]) => Ok((first, rest)),
-        (_, unexpected_args) => type_error_with_slice(expected_error, unexpected_args),
+        (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
     }
 }

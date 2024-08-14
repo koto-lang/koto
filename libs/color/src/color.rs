@@ -67,7 +67,7 @@ macro_rules! color_arithmetic_op {
                     Ok((*$self $op f32::from(n)).into())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -89,7 +89,7 @@ macro_rules! color_compound_assign_op {
                     Ok(())
                 }
                 unexpected => {
-                    type_error(&format!("a {} or Number", Self::type_static()), unexpected)
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
                 }
             }
         }
@@ -106,7 +106,7 @@ macro_rules! color_comparison_op {
                     Ok(*$self $op *rhs)
                 }
                 unexpected => {
-                    type_error(&format!("a {}", Self::type_static()), unexpected)
+                    unexpected_type(&format!("a {}", Self::type_static()), unexpected)
                 }
             }
         }
@@ -117,7 +117,7 @@ macro_rules! color_comparison_op {
 #[koto(use_copy)]
 pub struct Color(Inner);
 
-#[koto_impl(runtime = crate)]
+#[koto_impl(runtime = koto_runtime)]
 impl Color {
     pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self(Inner::new(r, g, b, 1.0))
@@ -170,7 +170,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.red = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -181,7 +181,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.green = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -192,7 +192,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.blue = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -203,7 +203,7 @@ impl Color {
                 ctx.instance_mut()?.0.alpha = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -223,7 +223,7 @@ impl Color {
 
                 Ok(Color::from(a.0.mix(b.0, n)).into())
             }
-            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
+            unexpected => unexpected_args("|Color|, or |Color, Number|", unexpected),
         }
     }
 }
@@ -283,7 +283,7 @@ impl KotoObject for Color {
                 3 => Ok(self.alpha()),
                 other => runtime_error!("index out of range (got {other}, should be <= 3)"),
             },
-            unexpected => type_error("Number", unexpected),
+            unexpected => unexpected_type("Number", unexpected),
         }
     }
 

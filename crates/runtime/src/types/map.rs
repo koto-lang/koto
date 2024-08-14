@@ -204,7 +204,7 @@ impl KMap {
                 KValue::Str(display_result) => {
                     ctx.append(display_result);
                 }
-                unexpected => return type_error("String as @display result", &unexpected),
+                unexpected => return unexpected_type("String as @display result", &unexpected),
             }
         } else {
             ctx.append('{');

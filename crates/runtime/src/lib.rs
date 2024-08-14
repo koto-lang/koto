@@ -14,7 +14,10 @@ mod send_sync;
 
 pub use crate::{
     display_context::DisplayContext,
-    error::{type_error, type_error_with_slice, Error, ErrorFrame, ErrorKind, Result},
+    error::{
+        unexpected_args, unexpected_args_after_instance, unexpected_type, Error, ErrorFrame,
+        ErrorKind, Result,
+    },
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     send_sync::{KotoSend, KotoSync},
     types::{

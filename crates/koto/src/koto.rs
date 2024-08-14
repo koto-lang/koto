@@ -219,7 +219,7 @@ impl Koto {
                     self.runtime.run_tests(tests)?;
                 }
                 Some(other) => {
-                    return type_error("test map", &other);
+                    return unexpected_type("test map", &other);
                 }
                 None => {}
             }

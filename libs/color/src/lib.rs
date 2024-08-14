@@ -16,7 +16,7 @@ pub fn make_module() -> KMap {
             let hsv = Hsl::new(f32::from(h), f32::from(s), f32::from(l));
             Ok(Color::from(hsv).into())
         }
-        unexpected => type_error_with_slice("3 Numbers, with hue specified in degrees", unexpected),
+        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 
     result.add_fn("hsv", |ctx| match ctx.args() {
@@ -24,22 +24,22 @@ pub fn make_module() -> KMap {
             let hsv = Hsv::new(f32::from(h), f32::from(s), f32::from(v));
             Ok(Color::from(hsv).into())
         }
-        unexpected => type_error_with_slice("3 Numbers, with hue specified in degrees", unexpected),
+        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 
     result.add_fn("named", |ctx| match ctx.args() {
         [Str(s)] => named(s),
-        unexpected => type_error_with_slice("a String", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result.add_fn("rgb", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
-        unexpected => type_error_with_slice("3 Numbers", unexpected),
+        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 
     result.add_fn("rgba", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),
-        unexpected => type_error_with_slice("4 Numbers", unexpected),
+        unexpected => unexpected_args("|Number, Number, Number, Number|", unexpected),
     });
 
     let mut meta = MetaMap::default();
@@ -49,7 +49,10 @@ pub fn make_module() -> KMap {
         [Str(s)] => named(s),
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
         [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),
-        unexpected => type_error_with_slice("a color name, rgb, or rgba values", unexpected),
+        unexpected => unexpected_args(
+            "|String|, or |Number, Number, Number|, or |Number, Number, Number, Number|",
+            unexpected,
+        ),
     });
 
     result.set_meta_map(Some(meta.into()));

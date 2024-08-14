@@ -11,7 +11,7 @@ pub fn make_module() -> KMap {
                 poetry.add_source_material(text);
                 Ok(KObject::from(KotoPoetry(poetry)).into())
             }
-            unexpected => type_error_with_slice("a String", unexpected),
+            unexpected => unexpected_args("|String|", unexpected),
         }
     });
 

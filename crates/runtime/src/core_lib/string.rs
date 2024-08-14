@@ -3,71 +3,74 @@
 pub mod iterators;
 
 use super::iterator::collect_pair;
-use crate::{error::redundant_argument_error, prelude::*};
+use crate::{
+    error::{unexpected_args, unexpected_args_after_instance},
+    prelude::*,
+};
 
 /// Initializes the `string` core library module
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.string");
 
     result.add_fn("bytes", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
                 let result = iterators::Bytes::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("chars", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(KValue::Iterator(KIterator::with_string(s.clone()))),
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("char_indices", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
                 let result = iterators::CharIndices::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("contains", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s1), [KValue::Str(s2)]) => Ok(s1.contains(s2.as_str()).into()),
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("ends_with", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().ends_with(pattern.as_str()).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("escape", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(s.escape_default().to_string().into()),
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
@@ -85,7 +88,7 @@ pub fn make_module() -> KMap {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },
-                    Output::Value(unexpected) => return type_error("a number", &unexpected),
+                    Output::Value(unexpected) => return unexpected_type("Number", &unexpected),
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
                 }
@@ -96,44 +99,44 @@ pub fn make_module() -> KMap {
                 Err(_) => runtime_error!("Input failed UTF-8 validation"),
             }
         }
-        unexpected => type_error_with_slice("an iterable", unexpected),
+        unexpected => unexpected_args("|Iterable|", unexpected),
     });
 
     result.add_fn("is_empty", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => Ok(s.is_empty().into()),
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("lines", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
                 let result = iterators::Lines::new(s.clone());
                 Ok(KIterator::new(result).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("replace", |ctx| {
-        let expected_error = "a String, followed by pattern and replacement Strings";
+        let expected_error = "|String, String, String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(input), [KValue::Str(pattern), KValue::Str(replace)]) => {
                 Ok(input.replace(pattern.as_str(), replace).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("split", |ctx| {
         let iterator = {
-            let expected_error = "a String, and either a String or a predicate function";
+            let expected_error = "|String, String|, or |String, |String| -> Bool|";
 
             match ctx.instance_and_args(is_string, expected_error)? {
                 (KValue::Str(input), [KValue::Str(pattern)]) => {
@@ -148,7 +151,9 @@ pub fn make_module() -> KMap {
                     );
                     KIterator::new(result)
                 }
-                (_, unexpected) => return redundant_argument_error(expected_error, unexpected),
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args)
+                }
             }
         };
 
@@ -156,30 +161,30 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("starts_with", |ctx| {
-        let expected_error = "two Strings";
+        let expected_error = "|String, String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), [KValue::Str(pattern)]) => {
                 Ok(s.as_str().starts_with(pattern.as_str()).into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("to_lowercase", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
                 Ok(result.into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("to_number", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
@@ -213,24 +218,24 @@ pub fn make_module() -> KMap {
                     Ok(KValue::Null)
                 }
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("to_uppercase", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
                 let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
                 Ok(result.into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 
     result.add_fn("trim", |ctx| {
-        let expected_error = "a String";
+        let expected_error = "|String|";
 
         match ctx.instance_and_args(is_string, expected_error)? {
             (KValue::Str(s), []) => {
@@ -244,7 +249,7 @@ pub fn make_module() -> KMap {
 
                 Ok(result.into())
             }
-            (_, unexpected) => redundant_argument_error(expected_error, unexpected),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });
 

@@ -30,7 +30,7 @@ mod objects {
             for arg in args.iter() {
                 match arg {
                     KValue::Number(n) => self.x += i64::from(n),
-                    other => return type_error("Number", other),
+                    other => return unexpected_type("Number", other),
                 }
             }
             Ok(KValue::Null)
@@ -44,7 +44,7 @@ mod objects {
                     ctx.instance_mut()?.x = b_x;
                     Ok(KValue::Null)
                 }
-                unexpected => type_error_with_slice("TestExternal", unexpected),
+                unexpected => unexpected_args("|TestExternal|", unexpected),
             }
         }
     }
@@ -62,7 +62,7 @@ mod objects {
                         Ok(Self::make_value($self.x $op i64::from(n)))
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
+                        unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -84,7 +84,7 @@ mod objects {
                         Ok(())
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
+                        unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -106,7 +106,7 @@ mod objects {
                         Ok($self.x $op i64::from(n))
                     }
                     unexpected => {
-                        type_error(&format!("a {} or Number", Self::type_static()), unexpected)
+                        unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
                     }
                 }
             }
@@ -136,7 +136,7 @@ mod objects {
                     }
                     _ => unimplemented!(),
                 },
-                unexpected => type_error("Number as index", unexpected),
+                unexpected => unexpected_type("Number as index", unexpected),
             }
         }
 

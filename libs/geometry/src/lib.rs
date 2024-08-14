@@ -28,7 +28,12 @@ pub fn make_module() -> KMap {
                 let size = size.cast::<Vec2>().unwrap().inner();
                 (xy.x, xy.y, size.x, size.y)
             }
-            unexpected => return type_error_with_slice("4 Numbers", unexpected),
+            unexpected => {
+                return unexpected_args(
+                    "||, or |Vec2, Vec2|, or |Number, Number, Number, Number|",
+                    unexpected,
+                )
+            }
         };
 
         Ok(Rect::from_x_y_w_h(x, y, width, height).into())
@@ -42,7 +47,12 @@ pub fn make_module() -> KMap {
             [Object(vec2)] if vec2.is_a::<Vec2>() => {
                 return Ok((*vec2.cast::<Vec2>().unwrap()).into())
             }
-            unexpected => return type_error_with_slice("up to 2 Numbers", unexpected),
+            unexpected => {
+                return unexpected_args(
+                    "||, or |Number|, or |Number, Number|, or |Vec2|",
+                    unexpected,
+                )
+            }
         };
 
         Ok(Vec2::new(x, y).into())
@@ -64,7 +74,11 @@ pub fn make_module() -> KMap {
             }
             [Object(v)] if v.is_a::<Vec3>() => return Ok((*v.cast::<Vec3>().unwrap()).into()),
             unexpected => {
-                return type_error_with_slice("up to 3 Numbers, a Vec2, or a Vec3", unexpected)
+                return unexpected_args(
+                    "||, or |Number|, or |Number, Number|, or |Number, Number, Number|,\
+                     or |Vec2|, or |Vec2, Number|, or |Vec3|",
+                    unexpected,
+                )
             }
         };
 

@@ -94,7 +94,7 @@ pub trait KotoEntries {
 ///     fn set_data(ctx: MethodContext<Self>) -> Result<KValue> {
 ///         match ctx.args {
 ///             [KValue::Number(n)] => ctx.instance_mut()?.data = n.into(),
-///             unexpected => return type_error_with_slice("a Number", unexpected),
+///             unexpected => return unexpected_args("|Number|", unexpected),
 ///         }
 ///
 ///         // Return the object instance as the result of the setter operation
