@@ -414,12 +414,15 @@ impl KotoVm {
                 KValue::Map(m) if m.contains_meta_key(&NextBack.into()) => {
                     let op = m.get_meta_value(&NextBack.into()).unwrap();
                     if !op.is_callable() {
-                        return type_error("Callable function from @next_back", &op);
+                        return unexpected_type("Callable function from @next_back", &op);
                     }
                     self.call_overridden_unary_op(result_register, value_register, op)?
                 }
                 unexpected => {
-                    return type_error("Value with an implementation of @next_back", &unexpected)
+                    return unexpected_type(
+                        "Value with an implementation of @next_back",
+                        &unexpected,
+                    )
                 }
             },
             Size => self.run_size(result_register, value_register, true)?,
@@ -831,7 +834,10 @@ impl KotoVm {
                     KValue::Str(_) | KValue::Object(_) => {}
                     KValue::Map(m) if m.contains_meta_key(&UnaryOp::Display.into()) => {}
                     other => {
-                        return type_error("a String or a value that implements @display", other);
+                        return unexpected_type(
+                            "a String or a value that implements @display",
+                            other,
+                        );
                     }
                 };
 
@@ -902,7 +908,7 @@ impl KotoVm {
             } => {
                 let key_string = match self.clone_register(key) {
                     KValue::Str(s) => s,
-                    other => return type_error("a String", &other),
+                    other => return unexpected_type("a String", &other),
                 };
                 self.run_access(register, value, key_string)?;
             }
@@ -985,10 +991,10 @@ impl KotoVm {
             (None, Some(Number(end))) => (None, Some((end.into(), inclusive))),
             (None, None) => (None, None),
             (None | Some(Number(_)), Some(unexpected)) => {
-                return type_error("a Number for the range's end", unexpected)
+                return unexpected_type("a Number for the range's end", unexpected)
             }
             (Some(unexpected), _) => {
-                return type_error("a Number for the range's start", unexpected)
+                return unexpected_type("a Number for the range's start", unexpected)
             }
         };
 
@@ -1023,7 +1029,7 @@ impl KotoVm {
                 if op.is_callable() || op.is_generator() {
                     return self.call_overridden_unary_op(result_register, iterable_register, op);
                 } else {
-                    return type_error("callable function from @iterator", &op);
+                    return unexpected_type("callable function from @iterator", &op);
                 }
             }
             Iterator(_) => value,
@@ -1101,7 +1107,7 @@ impl KotoVm {
             Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
                 let op = m.get_meta_value(&UnaryOp::Next.into()).unwrap();
                 if !op.is_callable() {
-                    return type_error("Callable function from @next", &op);
+                    return unexpected_type("Callable function from @next", &op);
                 }
                 let old_frame_count = self.call_stack.len();
                 let call_result_register = self.next_register();
@@ -1151,7 +1157,7 @@ impl KotoVm {
                             (None, TemporaryTuple(RegisterSlice { start, count }))
                         }
                     }
-                    unexpected => return type_error("Iterator", &unexpected),
+                    unexpected => return unexpected_type("Iterator", &unexpected),
                 };
 
                 self.set_register(iterable_register, new_iterable);
@@ -1224,10 +1230,10 @@ impl KotoVm {
                     let index = signed_index_to_unsigned(index, size);
                     o.index(&index.into())?
                 } else {
-                    return type_error("a value with a defined size", value);
+                    return unexpected_type("a value with a defined size", value);
                 }
             }
-            unexpected => return type_error("an indexable value", unexpected),
+            unexpected => return unexpected_type("an indexable value", unexpected),
         };
 
         self.set_register(result, result_value);
@@ -1304,7 +1310,7 @@ impl KotoVm {
                     KValue::Null
                 }
             }
-            unexpected => return type_error("a sliceable value", &unexpected),
+            unexpected => return unexpected_type("a sliceable value", &unexpected),
         };
 
         self.set_register(register, result);
@@ -1370,7 +1376,7 @@ impl KotoVm {
                 f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
                 Ok(())
             }
-            unexpected => type_error("Function while capturing value", unexpected),
+            unexpected => unexpected_type("Function while capturing value", unexpected),
         }
     }
 
@@ -1385,7 +1391,7 @@ impl KotoVm {
                 return self.call_overridden_unary_op(result, value, op);
             }
             Object(o) => o.try_borrow()?.negate(self)?,
-            unexpected => return type_error("negatable value", &unexpected),
+            unexpected => return unexpected_type("negatable value", &unexpected),
         };
         self.set_register(result, result_value);
 
@@ -2054,7 +2060,7 @@ impl KotoVm {
             self.set_register(result_register, size.into());
             Ok(())
         } else if throw_if_value_has_no_size {
-            type_error("a value with a defined size", value)
+            unexpected_type("a value with a defined size", value)
         } else {
             self.set_register(result_register, Null);
             Ok(())
@@ -2068,7 +2074,7 @@ impl KotoVm {
                 self.set_register(import_register, value);
                 return Ok(());
             }
-            other => return type_error("import id or string, or accessible value", &other),
+            other => return unexpected_type("import id or string, or accessible value", &other),
         };
 
         // Is the import in the exports?
@@ -2161,7 +2167,7 @@ impl KotoVm {
                     Some(main) if main.is_callable() => {
                         self.call_function(main, &[])?;
                     }
-                    Some(unexpected) => return type_error("callable function", &unexpected),
+                    Some(unexpected) => return unexpected_type("callable function", &unexpected),
                     None => {}
                 }
 
@@ -2225,10 +2231,10 @@ impl KotoVm {
                             list_data[i] = value.clone();
                         }
                     }
-                    unexpected => return type_error("index", &unexpected),
+                    unexpected => return unexpected_type("index", &unexpected),
                 }
             }
-            unexpected => return type_error("a mutable indexable value", &unexpected),
+            unexpected => return unexpected_type("a mutable indexable value", &unexpected),
         };
 
         Ok(())
@@ -2351,7 +2357,7 @@ impl KotoVm {
                     runtime_error!("Insertion not supported for '{}'", o.type_string())
                 }
             }
-            unexpected => type_error("a value that supports insertion", unexpected),
+            unexpected => unexpected_type("a value that supports insertion", unexpected),
         }
     }
 
@@ -2367,7 +2373,7 @@ impl KotoVm {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
-            unexpected => type_error("Map", unexpected),
+            unexpected => unexpected_type("Map", unexpected),
         }
     }
 
@@ -2385,7 +2391,7 @@ impl KotoVm {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
-            other => return type_error("String", &other),
+            other => return unexpected_type("String", &other),
         };
 
         match self.get_register_mut(map_register) {
@@ -2393,7 +2399,7 @@ impl KotoVm {
                 map.insert_meta(meta_key, value);
                 Ok(())
             }
-            unexpected => type_error("Map", unexpected),
+            unexpected => unexpected_type("Map", unexpected),
         }
     }
 
@@ -2421,7 +2427,7 @@ impl KotoVm {
                 Ok(key) => key,
                 Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
-            other => return type_error("String", &other),
+            other => return unexpected_type("String", &other),
         };
 
         self.exports.insert_meta(meta_key, value);
@@ -2478,7 +2484,7 @@ impl KotoVm {
                                     access_map = base;
                                 }
                                 Some(unexpected) => {
-                                    return type_error("Map as base value", &unexpected)
+                                    return unexpected_type("Map as base value", &unexpected)
                                 }
                                 None => break,
                             },
@@ -2532,7 +2538,7 @@ impl KotoVm {
                     return runtime_error!("'{key}' not found in '{}'", o.type_string());
                 }
             }
-            unexpected => return type_error("Value that supports '.' access", unexpected),
+            unexpected => return unexpected_type("Value that supports '.' access", unexpected),
         }
 
         Ok(())
@@ -2751,7 +2757,7 @@ impl KotoVm {
                 self.set_register(info.frame_base, callable);
                 self.call_callable(info, f, temp_tuple_values)
             }
-            unexpected => type_error("callable function", &unexpected),
+            unexpected => unexpected_type("callable function", &unexpected),
         }
     }
 
@@ -2759,7 +2765,7 @@ impl KotoVm {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
             KValue::Str(s) => s,
-            unexpected => return type_error("a displayable value", &unexpected),
+            unexpected => return unexpected_type("a displayable value", &unexpected),
         };
 
         let prefix = match (
@@ -2805,7 +2811,7 @@ impl KotoVm {
         if self.compare_value_type(value_register, type_index) {
             Ok(())
         } else {
-            type_error(
+            unexpected_type(
                 self.get_constant_str(type_index),
                 self.get_register(value_register),
             )
@@ -2862,7 +2868,7 @@ impl KotoVm {
     fn get_value_size(&mut self, value_register: u8) -> Result<usize> {
         match self.run_unary_op(UnaryOp::Size, self.clone_register(value_register))? {
             KValue::Number(n) => Ok(n.into()),
-            unexpected => type_error("number for value size", &unexpected),
+            unexpected => unexpected_type("number for value size", &unexpected),
         }
     }
 
@@ -2925,7 +2931,7 @@ impl KotoVm {
                     }
                     None => rendered.to_string(),
                 },
-                other => return type_error("String", &other),
+                other => return unexpected_type("String", &other),
             },
         };
 

@@ -106,7 +106,7 @@ impl ChaChaRng {
                     let index = self.0.gen_range(0..(size.as_i64() as usize));
                     vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
                 }
-                unexpected => type_error("a Number from @size", &unexpected),
+                unexpected => unexpected_type("a Number from @size", &unexpected),
             },
         }
     }

@@ -34,7 +34,7 @@ pub fn make_module() -> KMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return type_error(
+                            return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
                             )
@@ -73,7 +73,7 @@ pub fn make_module() -> KMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return type_error(
+                            return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
                             )
@@ -239,7 +239,7 @@ pub fn make_module() -> KMap {
                                     }
                                 }
                                 Ok(unexpected) => {
-                                    return type_error(
+                                    return unexpected_type(
                                         "a Bool to be returned from the predicate",
                                         &unexpected,
                                     )
@@ -594,7 +594,7 @@ pub fn make_module() -> KMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return type_error(
+                            return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
                             )

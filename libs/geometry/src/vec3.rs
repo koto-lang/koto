@@ -86,7 +86,7 @@ impl KotoObject for Vec3 {
                 2 => Ok(self.z()),
                 other => runtime_error!("index out of range (got {other}, should be <= 2)"),
             },
-            unexpected => type_error("Number", unexpected),
+            unexpected => unexpected_type("Number", unexpected),
         }
     }
 

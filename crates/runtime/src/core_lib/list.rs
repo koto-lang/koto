@@ -283,7 +283,7 @@ pub fn make_module() -> KMap {
                                 }
                             }
                             Ok(unexpected) => {
-                                return type_error(
+                                return unexpected_type(
                                     "a Bool to returned from the predicate",
                                     &unexpected,
                                 );
@@ -310,7 +310,7 @@ pub fn make_module() -> KMap {
                             Ok(KValue::Bool(true)) => true,
                             Ok(KValue::Bool(false)) => false,
                             Ok(unexpected) => {
-                                error = Some(type_error(
+                                error = Some(unexpected_type(
                                     "a Bool from the equality comparison",
                                     &unexpected,
                                 ));

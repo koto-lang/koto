@@ -165,7 +165,7 @@ impl KotoObject for Timer {
 
                 Ok(result.into())
             }
-            unexpected => type_error(Self::type_static(), unexpected),
+            unexpected => unexpected_type(Self::type_static(), unexpected),
         }
     }
 }

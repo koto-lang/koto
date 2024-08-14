@@ -88,7 +88,7 @@ pub fn make_module() -> KMap {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },
-                    Output::Value(unexpected) => return type_error("Number", &unexpected),
+                    Output::Value(unexpected) => return unexpected_type("Number", &unexpected),
                     Output::Error(error) => return Err(error),
                     _ => unreachable!(),
                 }

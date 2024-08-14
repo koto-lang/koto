@@ -22,7 +22,10 @@ pub fn make_module() -> KMap {
                         Ok(KValue::Bool(false)) => {}
                         Ok(KValue::Bool(true)) => return Ok(true.into()),
                         Ok(unexpected) => {
-                            return type_error("a Bool from the equality comparison", &unexpected)
+                            return unexpected_type(
+                                "a Bool from the equality comparison",
+                                &unexpected,
+                            )
                         }
                         Err(e) => return Err(e),
                     }

@@ -14,7 +14,7 @@ pub fn make_module() -> KMap {
                         return runtime_error!("Assertion failed");
                     }
                 }
-                unexpected => return type_error("Bool", unexpected),
+                unexpected => return unexpected_type("Bool", unexpected),
             }
         }
         Ok(KValue::Null)
@@ -34,7 +34,7 @@ pub fn make_module() -> KMap {
                         ctx.vm.value_to_string(&b)?,
                     )
                 }
-                Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
+                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),
             }
         }
@@ -57,7 +57,7 @@ pub fn make_module() -> KMap {
                         ctx.vm.value_to_string(&b)?
                     )
                 }
-                Ok(unexpected) => type_error("Bool from equality comparison", &unexpected),
+                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
                 Err(e) => Err(e),
             }
         }

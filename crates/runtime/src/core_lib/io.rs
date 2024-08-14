@@ -81,7 +81,7 @@ pub fn make_module() -> KMap {
                 let value = value.clone();
                 match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return type_error("String from @display", &unexpected),
+                    unexpected => return unexpected_type("String from @display", &unexpected),
                 }
             }
             values @ [_, ..] => {
@@ -91,7 +91,7 @@ pub fn make_module() -> KMap {
                     .run_unary_op(crate::UnaryOp::Display, KValue::Tuple(tuple_data.into()))?
                 {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return type_error("String from @display", &unexpected),
+                    unexpected => return unexpected_type("String from @display", &unexpected),
                 }
             }
             unexpected => return unexpected_args("|Any|, or |Any, Any...|", unexpected),

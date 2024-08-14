@@ -95,7 +95,7 @@ impl KotoObject for Vec2 {
                 1 => Ok(self.y()),
                 other => runtime_error!("index out of range (got {other}, should be <= 1)"),
             },
-            unexpected => type_error("Number", unexpected),
+            unexpected => unexpected_type("Number", unexpected),
         }
     }
 

@@ -193,7 +193,7 @@ macro_rules! runtime_error {
 }
 
 /// Creates an error that describes a type mismatch
-pub fn type_error<T>(expected_str: &str, unexpected: &KValue) -> Result<T> {
+pub fn unexpected_type<T>(expected_str: &str, unexpected: &KValue) -> Result<T> {
     runtime_error!(ErrorKind::UnexpectedType {
         expected: expected_str.into(),
         unexpected: unexpected.clone(),
