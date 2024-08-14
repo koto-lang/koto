@@ -50,6 +50,8 @@ pub enum ErrorKind {
     MissingSequenceBuilder,
     #[error("Missing string builder")]
     MissingStringBuilder,
+    #[error("An unexpected error occurred, please report this as a bug at https://github.com/koto-lang/koto/issues")]
+    UnexpectedError,
 }
 
 fn display_thrown_value(value: &KValue, vm: &KotoVm) -> String {

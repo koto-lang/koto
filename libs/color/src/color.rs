@@ -117,7 +117,7 @@ macro_rules! color_comparison_op {
 #[koto(use_copy)]
 pub struct Color(Inner);
 
-#[koto_impl(runtime = crate)]
+#[koto_impl(runtime = koto_runtime)]
 impl Color {
     pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self(Inner::new(r, g, b, 1.0))

@@ -106,9 +106,9 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///     #[koto_method]
 ///     fn reset(&mut self, args: &[KValue]) -> Result<KValue> {
 ///         let reset_value = match args {
-///             [KValue::Number(reset_value)] => reset_value.into(),
 ///             [] => 0.0,
-///             unexpected => return type_error_with_slice("an optional Number", unexpected),
+///             [KValue::Number(reset_value)] => reset_value.into(),
+///             unexpected => return unexpected_args("||, or |Number|", unexpected),
 ///         };
 ///         self.x = reset_value;
 ///         Ok(())
@@ -122,7 +122,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///                 // Return a clone of the instance that's being modified
 ///                 ctx.instance_result()
 ///             }
-///             unexpected => type_error_with_slice("a Number", unexpected),
+///             unexpected => unexpected_args("|Number|", unexpected),
 ///         }
 ///     }
 /// }
