@@ -44,7 +44,7 @@ mod objects {
                     ctx.instance_mut()?.x = b_x;
                     Ok(KValue::Null)
                 }
-                unexpected => type_error_with_slice("TestExternal", unexpected),
+                unexpected => unexpected_args("|TestExternal|", unexpected),
             }
         }
     }

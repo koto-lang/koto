@@ -11,7 +11,7 @@ print my_type.set 99
     koto.prelude()
         .add_fn("make_my_type", |ctx| match ctx.args() {
             [KValue::Number(n)] => Ok(MyType::make_koto_object(*n).into()),
-            unexpected => type_error_with_slice("a number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         });
 
     koto.compile_and_run(script).unwrap();
@@ -48,7 +48,7 @@ impl MyType {
                 ctx.instance_mut()?.0 = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 }
