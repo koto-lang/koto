@@ -78,33 +78,53 @@ impl ChaChaRng {
         use KValue::*;
 
         match arg {
-            // Handle basic containers directly
             List(l) => {
-                let index = self.0.gen_range(0..l.len());
-                Ok(l.data()[index].clone())
-            }
-            Range(r) => {
-                let result = self.0.gen_range(r.as_sorted_range());
-                Ok(result.into())
+                if !l.is_empty() {
+                    let index = self.0.gen_range(0..l.len());
+                    Ok(l.data()[index].clone())
+                } else {
+                    Ok(Null)
+                }
             }
             Tuple(t) => {
-                let index = self.0.gen_range(0..t.len());
-                Ok(t[index].clone())
+                if !t.is_empty() {
+                    let index = self.0.gen_range(0..t.len());
+                    Ok(t[index].clone())
+                } else {
+                    Ok(Null)
+                }
+            }
+            Range(r) => {
+                let full_range = r.as_sorted_range();
+                if !full_range.is_empty() {
+                    let result = self.0.gen_range(full_range);
+                    Ok(result.into())
+                } else {
+                    Ok(Null)
+                }
             }
             Map(m) if !m.contains_meta_key(&BinaryOp::Index.into()) => {
-                let index = self.0.gen_range(0..m.len());
-                match m.data().get_index(index) {
-                    Some((key, value)) => {
-                        Ok(Tuple(KTuple::from(&[key.value().clone(), value.clone()])))
+                if !m.is_empty() {
+                    let index = self.0.gen_range(0..m.len());
+                    match m.data().get_index(index) {
+                        Some((key, value)) => {
+                            Ok(Tuple(KTuple::from(&[key.value().clone(), value.clone()])))
+                        }
+                        None => unreachable!(), // The index is guaranteed to be within range
                     }
-                    None => unreachable!(), // The index is guaranteed to be within range
+                } else {
+                    Ok(Null)
                 }
             }
             // Cover other cases like objects and maps with @[] ops via the vm
             input => match vm.run_unary_op(UnaryOp::Size, input.clone())? {
                 Number(size) => {
-                    let index = self.0.gen_range(0..(size.as_i64() as usize));
-                    vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
+                    if size > 0 {
+                        let index = self.0.gen_range(0..(size.as_i64() as usize));
+                        vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
+                    } else {
+                        Ok(Null)
+                    }
                 }
                 unexpected => unexpected_type("a Number from @size", &unexpected),
             },
