@@ -53,7 +53,7 @@ pub fn make_module() -> KMap {
             },
             Err(e) => runtime_error!("Error while parsing input: {}", e.to_string()),
         },
-        unexpected => type_error_with_slice("a String as argument", unexpected),
+        unexpected => unexpected_args("|String|", unexpected),
     });
 
     result.add_fn("to_string", |ctx| match ctx.args() {
@@ -61,7 +61,7 @@ pub fn make_module() -> KMap {
             Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("yaml.to_string: {}", e),
         },
-        unexpected => type_error_with_slice("a Value as argument", unexpected),
+        unexpected => unexpected_args("|Any|", unexpected),
     });
 
     result

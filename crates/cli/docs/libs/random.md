@@ -80,7 +80,7 @@ check! 0.168
 ## pick
 
 ```kototype
-|Any| -> Any
+|Indexable| -> Any
 ```
 
 Selects a random value from the input using the current thread's generator.

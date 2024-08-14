@@ -170,7 +170,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.red = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -181,7 +181,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.green = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -192,7 +192,7 @@ impl Color {
                 ctx.instance_mut()?.0.color.blue = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -203,7 +203,7 @@ impl Color {
                 ctx.instance_mut()?.0.alpha = n.into();
                 ctx.instance_result()
             }
-            unexpected => type_error_with_slice("a Number", unexpected),
+            unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
@@ -223,7 +223,7 @@ impl Color {
 
                 Ok(Color::from(a.0.mix(b.0, n)).into())
             }
-            unexpected => type_error_with_slice("2 Colors and an optional mix amount", unexpected),
+            unexpected => unexpected_args("|Color|, or |Color, Number|", unexpected),
         }
     }
 }
