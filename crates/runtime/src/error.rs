@@ -200,14 +200,6 @@ pub fn type_error<T>(expected_str: &str, unexpected: &KValue) -> Result<T> {
     })
 }
 
-/// Creates an error that describes a type mismatch with a slice of [KValue]s
-pub fn type_error_with_slice<T>(expected_str: &str, unexpected: &[KValue]) -> Result<T> {
-    runtime_error!(ErrorKind::UnexpectedArguments {
-        expected: expected_str.into(),
-        unexpected: unexpected.into(),
-    })
-}
-
 /// Creates an unexpected arguments error containg the provided arguments
 pub fn unexpected_args<T>(expected_str: &str, arguments: &[KValue]) -> Result<T> {
     runtime_error!(ErrorKind::UnexpectedArguments {
