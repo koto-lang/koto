@@ -32,6 +32,8 @@ The Koto project adheres to
 - The `>>` pipe operator has been replaced with `->`.
   - This aligns it with the `->` function output type syntax, which avoids 
     having two different special-case operators related to function output.
+- Error messages have been improved when calling core library functions with
+  incorrect arguments.
 
 #### API
 
@@ -40,6 +42,9 @@ The Koto project adheres to
 - `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.
 - `Node::Lookup` has been renamed to `Node::Chain`, and `LookupNode` is now 
   `ChainNode`.
+- `type_error` has been renamed to `unexpected_type`.  
+  - `type_error_with_slice` has been replaced by `unexpected_args` and
+    `unexpected_args_after_instance`. 
 
 ### Removed
 
