@@ -85,12 +85,13 @@ check! 0.168
 
 Selects a random value from the input using the current thread's generator.
 
-- If the input is a list or a tuple, a randomly selected element will be
-returned. 
+- If the input is empty, then `null` will be returned.
 - If the input is a map, then a tuple containing the key and value of a
   randomly selected entry will be returned.
 - If the input is a range, then the result will be an integer within the given
   range.
+- If the input is some other indexable type (like a list or tuple), 
+  then a randomly selected element from the input will be returned. 
 
 
 ### Example
@@ -105,6 +106,8 @@ print! random.pick 10..20
 check! 14
 print! random.pick {foo: 42, bar: 99, baz: 123}
 check! ('bar', 99)
+print! random.pick []
+check! null
 ```
 
 ## seed
