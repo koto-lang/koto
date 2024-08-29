@@ -1182,6 +1182,13 @@ impl Compiler {
         Ok(result)
     }
 
+    // Compiles a type check using the AssertType instruction
+    //
+    // If the type check fails then an exception will be thrown.
+    //
+    // If the `enable_type_checks` flag is disabled then no instructions are emitted.
+    //
+    // See also: compile_check_type
     fn compile_assert_type(
         &mut self,
         value_register: u8,
@@ -1216,28 +1223,28 @@ impl Compiler {
 
     // Compiles a type check using the CheckType instruction
     //
-    // Returns the jump placeholder for a failed type check, the caller needs to update the
+    // Returns the jump placeholder for a failed type check; the caller needs to update the
     // placeholder with the offset to the jump target.
+    //
+    // This is used for type checks that conditionally affect logic flow, so are emitted
+    // irregardless of the `enable_type_checks` flag.
+    //
+    // See also: compile_assert_type
     fn compile_check_type(
         &mut self,
         value_register: u8,
         type_hint: AstIndex,
         ctx: CompileNodeContext,
-        respect_enable_type_checks_flag: bool,
-    ) -> Result<Option<usize>> {
+    ) -> Result<usize> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
             Node::Type(type_index) => {
-                if respect_enable_type_checks_flag && self.settings.enable_type_checks {
-                    Ok(None)
-                } else {
-                    self.push_span(type_node, ctx.ast);
-                    self.push_op(Op::CheckType, &[value_register]);
-                    self.push_var_u32((*type_index).into());
-                    let jump_placeholder = self.push_offset_placeholder();
-                    self.pop_span();
-                    Ok(Some(jump_placeholder))
-                }
+                self.push_span(type_node, ctx.ast);
+                self.push_op(Op::CheckType, &[value_register]);
+                self.push_var_u32((*type_index).into());
+                let jump_placeholder = self.push_offset_placeholder();
+                self.pop_span();
+                Ok(jump_placeholder)
             }
             unexpected => self.error(ErrorKind::UnexpectedNode {
                 expected: "Type".into(),
@@ -3299,17 +3306,15 @@ impl Compiler {
                     }
 
                     if let Some(type_hint) = maybe_type {
-                        if let Some(jump_placeholder) =
-                            self.compile_check_type(id_register, *type_hint, ctx, false)?
-                        {
-                            // Where should failed type checks jump to?
-                            if params.is_last_alternative {
-                                // No more `or` alternatives, so jump to the end of the arm
-                                params.jumps.arm_end.push(jump_placeholder);
-                            } else {
-                                // Jump to the next `or` alternative pattern
-                                params.jumps.alternative_end.push(jump_placeholder);
-                            }
+                        let jump_placeholder =
+                            self.compile_check_type(id_register, *type_hint, ctx)?;
+                        // Where should failed type checks jump to?
+                        if params.is_last_alternative {
+                            // No more `or` alternatives, so jump to the end of the arm
+                            params.jumps.arm_end.push(jump_placeholder);
+                        } else {
+                            // Jump to the next `or` alternative pattern
+                            params.jumps.alternative_end.push(jump_placeholder);
                         }
                     }
 
@@ -3332,17 +3337,16 @@ impl Compiler {
                         } else {
                             self.push_op(Copy, &[temp_register, params.match_register]);
                         }
-                        if let Some(jump_placeholder) =
-                            self.compile_check_type(temp_register, *type_hint, ctx, false)?
-                        {
-                            // Where should failed type checks jump to?
-                            if params.is_last_alternative {
-                                // No more `or` alternatives, so jump to the end of the arm
-                                params.jumps.arm_end.push(jump_placeholder);
-                            } else {
-                                // Jump to the next `or` alternative pattern
-                                params.jumps.alternative_end.push(jump_placeholder);
-                            }
+
+                        let jump_placeholder =
+                            self.compile_check_type(temp_register, *type_hint, ctx)?;
+                        // Where should failed type checks jump to?
+                        if params.is_last_alternative {
+                            // No more `or` alternatives, so jump to the end of the arm
+                            params.jumps.arm_end.push(jump_placeholder);
+                        } else {
+                            // Jump to the next `or` alternative pattern
+                            params.jumps.alternative_end.push(jump_placeholder);
                         }
                     }
 
