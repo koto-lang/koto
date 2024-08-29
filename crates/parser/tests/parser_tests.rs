@@ -4489,8 +4489,10 @@ catch e
                     }, // ast 5
                     Try(AstTry {
                         try_block: 2.into(),
-                        catch_arg: 3.into(),
-                        catch_block: 5.into(),
+                        catch_blocks: astvec![AstCatch {
+                            arg: 3.into(),
+                            block: 5.into()
+                        }],
                         finally_block: None,
                     }),
                     MainBlock {
@@ -4518,8 +4520,10 @@ catch _
                     id(1),
                     Try(AstTry {
                         try_block: 0.into(),
-                        catch_arg: 1.into(),
-                        catch_block: 2.into(),
+                        catch_blocks: astvec![AstCatch {
+                            arg: 1.into(),
+                            block: 2.into()
+                        }],
                         finally_block: None,
                     }),
                     MainBlock {
@@ -4547,8 +4551,10 @@ catch _error
                     id(2),                          // y
                     Try(AstTry {
                         try_block: 0.into(),
-                        catch_arg: 1.into(),
-                        catch_block: 2.into(),
+                        catch_blocks: astvec![AstCatch {
+                            arg: 1.into(),
+                            block: 2.into()
+                        }],
                         finally_block: None,
                     }),
                     MainBlock {
@@ -4595,8 +4601,10 @@ finally
                     SmallInt(0),
                     Try(AstTry {
                         try_block: 2.into(),
-                        catch_arg: 3.into(),
-                        catch_block: 5.into(),
+                        catch_blocks: astvec![AstCatch {
+                            arg: 3.into(),
+                            block: 5.into()
+                        }],
                         finally_block: Some(6.into()),
                     }),
                     MainBlock {

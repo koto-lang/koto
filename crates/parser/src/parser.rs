@@ -2756,8 +2756,10 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(
             Node::Try(AstTry {
                 try_block,
-                catch_arg,
-                catch_block,
+                catch_blocks: astvec![AstCatch {
+                    arg: catch_arg,
+                    block: catch_block,
+                }],
                 finally_block,
             }),
             start_span,

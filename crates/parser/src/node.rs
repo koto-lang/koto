@@ -405,12 +405,19 @@ pub enum AstBinaryOp {
 pub struct AstTry {
     /// The block that's wrapped by the try
     pub try_block: AstIndex,
-    /// The identifier that will receive a caught error, or a wildcard
-    pub catch_arg: AstIndex,
-    /// The try expression's catch block
-    pub catch_block: AstIndex,
+    /// The catch blocks associated with the try expression
+    pub catch_blocks: AstVec<AstCatch>,
     /// An optional `finally` block
     pub finally_block: Option<AstIndex>,
+}
+
+/// A catch block definition
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AstCatch {
+    /// The identifier that will receive a caught error, or a wildcard
+    pub arg: AstIndex,
+    /// The catch block
+    pub block: AstIndex,
 }
 
 /// A node in a chained expression

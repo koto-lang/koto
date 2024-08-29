@@ -1584,28 +1584,13 @@ impl Compiler {
 
         let AstTry {
             try_block,
-            catch_arg,
-            catch_block,
+            catch_blocks,
             finally_block,
         } = &try_expression;
 
         let result = self.assign_result_register(ctx)?;
 
-        // The argument register for the catch block needs to be assigned now
-        // so that it can be included in the TryStart op.
-        let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
-            Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
-            Node::Wildcard(..) => {
-                // The catch argument is being ignored, so just use a dummy register
-                (self.push_register()?, true)
-            }
-            unexpected => {
-                return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID or wildcard as catch arg".into(),
-                    unexpected: unexpected.clone(),
-                })
-            }
-        };
+        let catch_register = self.push_register()?;
 
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
@@ -1623,25 +1608,40 @@ impl Compiler {
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
         self.push_op_without_span(TryEnd, &[]);
-        // jump to the finally block
-        self.push_op_without_span(Jump, &[]);
 
+        // The try block hasn't thrown, so jump to the finally block
+        self.push_op_without_span(Jump, &[]);
         let finally_offset = self.push_offset_placeholder();
+
+        // Compile the catch block
         self.update_offset_placeholder(catch_offset)?;
 
-        self.push_span(ctx.node_with_span(*catch_block), ctx.ast);
+        let catch_block = catch_blocks.first().unwrap(); // TODO
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
 
-        self.compile_node(*catch_block, ctx.with_register(try_result_register))?;
-        self.pop_span();
+        match ctx.node(catch_block.arg) {
+            Node::Id(id, ..) => {
+                let assigned_catch_register = self.assign_local_register(*id)?;
+                self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
+            }
+            Node::Wildcard(..) => {}
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "ID or wildcard as catch arg".into(),
+                    unexpected: unexpected.clone(),
+                })
+            }
+        };
 
-        if pop_catch_register {
-            self.pop_register()?;
-        }
+        self.push_span(ctx.node_with_span(catch_block.block), ctx.ast);
+        self.compile_node(catch_block.block, ctx.with_register(try_result_register))?;
+        self.pop_span(); // catch_block
+
+        self.pop_register()?; // catch_register
 
         self.update_offset_placeholder(finally_offset)?;
         if let Some(finally_block) = finally_block {
