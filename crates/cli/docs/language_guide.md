@@ -1444,6 +1444,17 @@ print! let x: Any = 'hello'
 check! hello
 ```
 
+#### `Callable`
+
+The `Callable` type hint will accept functions, or any value that can behave
+like a function.
+
+```koto
+let say_hello: Callable = || 'hello'
+print! say_hello()
+check! hello
+```
+
 #### `Indexable` 
 
 The `Indexable` type hint will accept any value that supports `[]` indexing.

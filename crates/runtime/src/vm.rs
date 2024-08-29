@@ -2834,6 +2834,7 @@ impl KotoVm {
         let value = self.get_register(value_register);
         match self.get_constant_str(type_index) {
             "Any" => true,
+            "Callable" => value.is_callable(),
             "Indexable" => value.is_indexable(),
             "Iterable" => value.is_iterable(),
             expected_type => {
