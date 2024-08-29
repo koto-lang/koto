@@ -101,6 +101,7 @@ impl KValue {
             CaptureFunction(f) if f.info.generator => false,
             Function(_) | CaptureFunction(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
+            Object(o) => o.try_borrow().map_or(false, |o| o.is_callable()),
             _ => false,
         }
     }

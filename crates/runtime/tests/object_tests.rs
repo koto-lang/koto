@@ -144,6 +144,10 @@ mod objects {
             Some(self.x.unsigned_abs() as usize)
         }
 
+        fn is_callable(&self) -> bool {
+            true
+        }
+
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
             Ok(self.x.into())
         }
@@ -588,6 +592,15 @@ x.as_number()
             let script = "
 let x: TestObject = make_object 256
 x.as_number()
+";
+            test_object_script(script, 256);
+        }
+
+        #[test]
+        fn callable() {
+            let script = "
+let x: Callable = make_object 256
+x()
 ";
             test_object_script(script, 256);
         }
