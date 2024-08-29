@@ -556,6 +556,15 @@ true
         }
 
         #[test]
+        fn callable_matches_functions() {
+            let script = "
+let x: Callable = || true
+x()
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
         fn indexable_matches_indexable_values() {
             let script = "
 let w: Indexable, x: Indexable, y: Indexable, z: Indexable = {}, (1, 2, 3), [], 'foo'

@@ -114,6 +114,21 @@ let x: String, y: Bool = 'abc', 123
             }
 
             #[test]
+            fn expected_callable() {
+                let script = "\
+let foo: Callable = 99
+#   ^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
             fn expected_indexable() {
                 let script = "\
 let foo: Indexable = null

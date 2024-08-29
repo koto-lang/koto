@@ -144,7 +144,17 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         None
     }
 
+    /// Declares to the runtime whether or not the object is callable
+    ///
+    /// The `Callable` type hint defers to the function, expecting `true` to be returned for objects
+    /// that implement [KotoObject::call].
+    fn is_callable(&self) -> bool {
+        false
+    }
+
     /// Allows the object to behave as a function
+    ///
+    /// Objects that implement `call` should return `true` from [KotoObject::call].
     fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
         unimplemented_error("@||", self.type_string())
     }
