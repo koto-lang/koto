@@ -4472,7 +4472,7 @@ catch e
             check_ast(
                 source,
                 &[
-                    id(0),
+                    id(0), // f
                     Chain((
                         ChainNode::Call {
                             args: nodes(&[]),
@@ -4515,9 +4515,9 @@ catch _
             check_ast(
                 source,
                 &[
-                    id(0),
+                    id(0), // x
                     Wildcard(None, None),
-                    id(1),
+                    id(1), // y
                     Try(AstTry {
                         try_block: 0.into(),
                         catch_blocks: astvec![AstCatch {
@@ -4613,6 +4613,61 @@ finally
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("e")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_with_type_hints() {
+            let source = "\
+try
+  f()
+catch e: String
+  e
+catch x
+  x
+";
+            check_ast(
+                source,
+                &[
+                    id(0), // f
+                    Chain((
+                        ChainNode::Call {
+                            args: nodes(&[]),
+                            with_parens: true,
+                        },
+                        None,
+                    )),
+                    chain_root(0, Some(1)),  // f
+                    type_hint(2),            // String
+                    id_with_type_hint(1, 3), // e: String
+                    id(1),                   // e - 5
+                    id(3),                   // x
+                    id(3),                   // x
+                    Try(AstTry {
+                        try_block: 2.into(),
+                        catch_blocks: astvec![
+                            AstCatch {
+                                arg: 4.into(),
+                                block: 5.into()
+                            },
+                            AstCatch {
+                                arg: 6.into(),
+                                block: 7.into()
+                            }
+                        ],
+                        finally_block: None,
+                    }),
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("e"),
+                    Constant::Str("String"),
+                    Constant::Str("x"),
+                ]),
             )
         }
 

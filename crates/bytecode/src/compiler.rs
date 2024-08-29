@@ -49,6 +49,8 @@ enum ErrorKind {
     MissingResultRegister,
     #[error("missing String nodes")]
     MissingStringNodes,
+    #[error("a type check is needed when the catch block isn't the last in the try expression")]
+    MissingTypeCheckOnCatchBlock,
     #[error("missing value for Map entry")]
     MissingValueForMapEntry,
     #[error("only one ellipsis is allowed in a match arm")]
@@ -70,7 +72,9 @@ enum ErrorKind {
         u32::MAX
     )]
     TooManyContainerEntries(usize),
-    #[error("The result of this `break` expression will be ignored")]
+    #[error("a type check can't be used on the last catch block in a try expression")]
+    TypeCheckOnLastCatchBlock,
+    #[error("the result of this `break` expression will be ignored")]
     UnassignedBreakValue,
     #[error("unexpected Ellipsis")]
     UnexpectedEllipsis,
@@ -1610,40 +1614,85 @@ impl Compiler {
         self.push_op_without_span(TryEnd, &[]);
 
         // The try block hasn't thrown, so jump to the finally block
+        let mut finally_jump_placeholders = SmallVec::<[usize; 4]>::new();
         self.push_op_without_span(Jump, &[]);
-        let finally_offset = self.push_offset_placeholder();
+        finally_jump_placeholders.push(self.push_offset_placeholder());
 
         // Compile the catch block
         self.update_offset_placeholder(catch_offset)?;
-
-        let catch_block = catch_blocks.first().unwrap(); // TODO
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
 
-        match ctx.node(catch_block.arg) {
-            Node::Id(id, ..) => {
-                let assigned_catch_register = self.assign_local_register(*id)?;
-                self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
-            }
-            Node::Wildcard(..) => {}
-            unexpected => {
-                return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID or wildcard as catch arg".into(),
-                    unexpected: unexpected.clone(),
-                })
-            }
-        };
+        for (i, catch_block) in catch_blocks.iter().enumerate() {
+            let is_last_catch = i == catch_blocks.len() - 1;
 
-        self.push_span(ctx.node_with_span(catch_block.block), ctx.ast);
-        self.compile_node(catch_block.block, ctx.with_register(try_result_register))?;
-        self.pop_span(); // catch_block
+            let mut type_check_jump_placeholder = None;
+
+            self.push_span(ctx.node_with_span(catch_block.arg), ctx.ast);
+            match ctx.node(catch_block.arg) {
+                Node::Id(id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        if !is_last_catch {
+                            type_check_jump_placeholder =
+                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                        } else {
+                            return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
+                        }
+                    } else if !is_last_catch {
+                        return self.error(ErrorKind::MissingTypeCheckOnCatchBlock);
+                    }
+
+                    let assigned_catch_register = self.assign_local_register(*id)?;
+                    self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
+                }
+                Node::Wildcard(_id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        if !is_last_catch {
+                            type_check_jump_placeholder =
+                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                        } else {
+                            return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
+                        }
+                    } else if !is_last_catch {
+                        return self.error(ErrorKind::MissingTypeCheckOnCatchBlock);
+                    }
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID or wildcard as catch arg".into(),
+                        unexpected: unexpected.clone(),
+                    })
+                }
+            };
+
+            self.pop_span(); // catch arg
+            self.push_span(ctx.node_with_span(catch_block.block), ctx.ast);
+
+            self.compile_node(catch_block.block, ctx.with_register(try_result_register))?;
+
+            if !is_last_catch {
+                // Jump to the finally block at the end of the catch block
+                self.push_op_without_span(Jump, &[]);
+                finally_jump_placeholders.push(self.push_offset_placeholder());
+            }
+
+            if let Some(placeholder) = type_check_jump_placeholder {
+                self.update_offset_placeholder(placeholder)?;
+            }
+
+            self.pop_span(); // catch block
+        }
 
         self.pop_register()?; // catch_register
 
-        self.update_offset_placeholder(finally_offset)?;
+        // Compile the finally block
+        for placeholder in finally_jump_placeholders {
+            self.update_offset_placeholder(placeholder)?;
+        }
+
         if let Some(finally_block) = finally_block {
             // If there's a finally block then the result of the expression is derived from there
             let finally_result_register = match result.register {

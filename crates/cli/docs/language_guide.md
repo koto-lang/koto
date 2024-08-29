@@ -2101,6 +2101,30 @@ catch error
 check! Caught an error: '!Error!'
 ```
 
+### Type checks on `catch` blocks
+
+Type hints can also be used in `try` expressions to implement different
+error handling logic depending on the type of error that has been thrown.
+A series of `catch` blocks can be added to the `try` expression, each catching
+an error that has a particular type.
+
+The final `catch` block needs to _not_ have a type check so that it can catch
+any errors that were missed by the other blocks.
+
+```koto
+f = || throw 'Throwing a String'
+
+try
+  f()
+catch n: Number
+  print 'An error occurred: {n}'
+catch error: String
+  print error
+catch other
+  print 'Some other error occurred: {other}'
+check! Throwing a String
+```
+
 ## Testing
 
 Koto includes a simple testing framework that help you to check that your code 
