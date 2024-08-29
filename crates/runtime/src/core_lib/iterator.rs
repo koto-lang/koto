@@ -615,7 +615,7 @@ pub fn make_module() -> KMap {
 
             match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
                 (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
-                (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()), // TODO - remove?
+                (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (instance, args) => {
                     return unexpected_args_after_instance(expected_error, instance, args)
                 }

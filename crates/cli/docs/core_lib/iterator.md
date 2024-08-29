@@ -729,13 +729,24 @@ check! null
 |Iterable| -> Any
 ```
 
-Returns the result of multiplying each value in the iterable together.
+Returns the result of multiplying each value in the iterable together, using `1`
+as the initial value.
 
 ### Example
 
 ```koto
+# Find the product of a sequence of numbers
 print! (2, 3, 4).product()
 check! 24
+
+my_type = |n|
+  n: n
+  @*: |other| my_type self.n * other.n
+  @display: || 'my_type({self.n})'
+
+# Find the sum of a sequence of my_type values
+print! (my_type(2), my_type(3)).product my_type(10)
+check! my_type(60)
 ```
 
 ### See also
@@ -841,13 +852,31 @@ check! Hlö
 |Iterable| -> Any
 ```
 
-Returns the result of adding each value in the iterable together.
+Returns the result of adding each value in the iterable together, using `0` as
+the initial value.
+
+```kototype
+|Iterable, initial_value: Any| -> Any
+```
+
+Returns the result of adding each value in the iterable together, using the
+provided initial value as the start of the operation.
 
 ### Example
 
 ```koto
+# Find the sum of a sequence of numbers
 print! (2, 3, 4).sum()
 check! 9
+
+my_type = |n|
+  n: n
+  @+: |other| my_type self.n + other.n
+  @display: || 'my_type({self.n})'
+
+# Find the sum of a sequence of my_type values
+print! (my_type(1), my_type(2)).sum my_type(100)
+check! my_type(103)
 ```
 
 ### See also
