@@ -35,33 +35,6 @@ x = 1 + _
         }
 
         #[test]
-        fn match_insufficient_patterns() {
-            let source = "
-match 0, 1
-  x then x
-";
-            check_compilation_fails(source);
-        }
-
-        #[test]
-        fn match_too_many_patterns() {
-            let source = "
-match 0
-  x, y then x + y
-";
-            check_compilation_fails(source);
-        }
-
-        #[test]
-        fn match_ellipsis_out_of_position() {
-            let source = "
-match [1, 2, 3]
-  (x, ..., y) then 0
-";
-            check_compilation_fails(source);
-        }
-
-        #[test]
         fn break_outside_of_loop() {
             let source = "
 break
@@ -75,6 +48,93 @@ break
 continue
 ";
             check_compilation_fails(source);
+        }
+
+        mod try_catch {
+            use super::*;
+
+            #[test]
+            fn missing_type_hint_on_first_catch_block() {
+                let source = "
+try
+  f()
+catch x
+  x
+catch y
+  y
+                    ";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn missing_type_hint_on_first_catch_block_with_wildcard_arg() {
+                let source = "
+try
+  f()
+catch _x
+  0
+catch y
+  y
+                    ";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn type_hint_on_last_catch_block() {
+                let source = "
+try
+  f()
+catch x: String
+  x
+catch x: Bool
+  x
+                    ";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn type_hint_on_last_catch_block_with_wildcard_arg() {
+                let source = "
+try
+  f()
+catch x: String
+  x
+catch _x: Bool
+  0
+                    ";
+                check_compilation_fails(source);
+            }
+        }
+
+        mod match_failures {
+            use super::*;
+
+            #[test]
+            fn match_insufficient_patterns() {
+                let source = "
+match 0, 1
+  x then x
+";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn match_too_many_patterns() {
+                let source = "
+match 0
+  x, y then x + y
+";
+                check_compilation_fails(source);
+            }
+
+            #[test]
+            fn match_ellipsis_out_of_position() {
+                let source = "
+match [1, 2, 3]
+  (x, ..., y) then 0
+";
+                check_compilation_fails(source);
+            }
         }
 
         mod export {

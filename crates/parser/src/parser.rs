@@ -2718,27 +2718,15 @@ impl<'source> Parser<'source> {
             return self.consume_token_on_same_line_and_error(ExpectedIndentation::TryBody);
         };
 
-        if !matches!(
-            self.consume_token_with_context(&outer_context),
-            Some((Token::Catch, _))
-        ) {
-            return self.error(SyntaxError::ExpectedCatch);
+        let mut catch_blocks = AstVec::new();
+
+        while let Some(catch_block) = self.parse_catch_block(&outer_context)? {
+            catch_blocks.push(catch_block);
         }
 
-        let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
-            Some(IdOrWildcard::Id(id)) => {
-                self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                self.push_node(Node::Id(id, None))?
-            }
-            Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                self.push_node(Node::Wildcard(maybe_id, None))?
-            }
-            None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
-        };
-
-        let Some(catch_block) = self.parse_indented_block()? else {
-            return self.consume_token_on_same_line_and_error(ExpectedIndentation::CatchBody);
-        };
+        if catch_blocks.is_empty() {
+            return self.error(SyntaxError::ExpectedCatch);
+        }
 
         let finally_block = match self.peek_token_with_context(&outer_context) {
             Some(peeked) if peeked.token == Token::Finally => {
@@ -2756,12 +2744,49 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(
             Node::Try(AstTry {
                 try_block,
-                catch_arg,
-                catch_block,
+                catch_blocks,
                 finally_block,
             }),
             start_span,
         )
+    }
+
+    fn parse_catch_block(&mut self, context: &ExpressionContext) -> Result<Option<AstCatch>> {
+        if !matches!(
+            self.peek_token_with_context(context),
+            Some(PeekInfo {
+                token: Token::Catch,
+                ..
+            })
+        ) {
+            return Ok(None);
+        }
+
+        self.consume_token_with_context(context);
+
+        let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
+            Some(IdOrWildcard::Id(id)) => {
+                let type_hint_index = self.parse_type_hint(context)?;
+                self.frame_mut()?.ids_assigned_in_frame.insert(id);
+                self.push_node(Node::Id(id, type_hint_index))?
+            }
+            Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                let type_hint_index = self.parse_type_hint(context)?;
+                self.push_node(Node::Wildcard(maybe_id, type_hint_index))?
+            }
+            None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
+        };
+
+        let Some(catch_block) = self.parse_indented_block()? else {
+            return self.consume_token_on_same_line_and_error(ExpectedIndentation::CatchBody);
+        };
+
+        let result = AstCatch {
+            arg: catch_arg,
+            block: catch_block,
+        };
+
+        Ok(Some(result))
     }
 
     fn consume_let_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {

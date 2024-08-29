@@ -49,6 +49,8 @@ enum ErrorKind {
     MissingResultRegister,
     #[error("missing String nodes")]
     MissingStringNodes,
+    #[error("a type check is needed when the catch block isn't the last in the try expression")]
+    MissingTypeCheckOnCatchBlock,
     #[error("missing value for Map entry")]
     MissingValueForMapEntry,
     #[error("only one ellipsis is allowed in a match arm")]
@@ -70,7 +72,9 @@ enum ErrorKind {
         u32::MAX
     )]
     TooManyContainerEntries(usize),
-    #[error("The result of this `break` expression will be ignored")]
+    #[error("a type check can't be used on the last catch block in a try expression")]
+    TypeCheckOnLastCatchBlock,
+    #[error("the result of this `break` expression will be ignored")]
     UnassignedBreakValue,
     #[error("unexpected Ellipsis")]
     UnexpectedEllipsis,
@@ -1182,6 +1186,13 @@ impl Compiler {
         Ok(result)
     }
 
+    // Compiles a type check using the AssertType instruction
+    //
+    // If the type check fails then an exception will be thrown.
+    //
+    // If the `enable_type_checks` flag is disabled then no instructions are emitted.
+    //
+    // See also: compile_check_type
     fn compile_assert_type(
         &mut self,
         value_register: u8,
@@ -1216,28 +1227,28 @@ impl Compiler {
 
     // Compiles a type check using the CheckType instruction
     //
-    // Returns the jump placeholder for a failed type check, the caller needs to update the
+    // Returns the jump placeholder for a failed type check; the caller needs to update the
     // placeholder with the offset to the jump target.
+    //
+    // This is used for type checks that conditionally affect logic flow, so are emitted
+    // irregardless of the `enable_type_checks` flag.
+    //
+    // See also: compile_assert_type
     fn compile_check_type(
         &mut self,
         value_register: u8,
         type_hint: AstIndex,
         ctx: CompileNodeContext,
-        respect_enable_type_checks_flag: bool,
-    ) -> Result<Option<usize>> {
+    ) -> Result<usize> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
             Node::Type(type_index) => {
-                if respect_enable_type_checks_flag && self.settings.enable_type_checks {
-                    Ok(None)
-                } else {
-                    self.push_span(type_node, ctx.ast);
-                    self.push_op(Op::CheckType, &[value_register]);
-                    self.push_var_u32((*type_index).into());
-                    let jump_placeholder = self.push_offset_placeholder();
-                    self.pop_span();
-                    Ok(Some(jump_placeholder))
-                }
+                self.push_span(type_node, ctx.ast);
+                self.push_op(Op::CheckType, &[value_register]);
+                self.push_var_u32((*type_index).into());
+                let jump_placeholder = self.push_offset_placeholder();
+                self.pop_span();
+                Ok(jump_placeholder)
             }
             unexpected => self.error(ErrorKind::UnexpectedNode {
                 expected: "Type".into(),
@@ -1577,28 +1588,13 @@ impl Compiler {
 
         let AstTry {
             try_block,
-            catch_arg,
-            catch_block,
+            catch_blocks,
             finally_block,
         } = &try_expression;
 
         let result = self.assign_result_register(ctx)?;
 
-        // The argument register for the catch block needs to be assigned now
-        // so that it can be included in the TryStart op.
-        let (catch_register, pop_catch_register) = match ctx.node(*catch_arg) {
-            Node::Id(id, ..) => (self.assign_local_register(*id)?, false),
-            Node::Wildcard(..) => {
-                // The catch argument is being ignored, so just use a dummy register
-                (self.push_register()?, true)
-            }
-            unexpected => {
-                return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID or wildcard as catch arg".into(),
-                    unexpected: unexpected.clone(),
-                })
-            }
-        };
+        let catch_register = self.push_register()?;
 
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
@@ -1616,27 +1612,87 @@ impl Compiler {
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
         self.push_op_without_span(TryEnd, &[]);
-        // jump to the finally block
+
+        // The try block hasn't thrown, so jump to the finally block
+        let mut finally_jump_placeholders = SmallVec::<[usize; 4]>::new();
         self.push_op_without_span(Jump, &[]);
+        finally_jump_placeholders.push(self.push_offset_placeholder());
 
-        let finally_offset = self.push_offset_placeholder();
+        // Compile the catch block
         self.update_offset_placeholder(catch_offset)?;
-
-        self.push_span(ctx.node_with_span(*catch_block), ctx.ast);
 
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
 
-        self.compile_node(*catch_block, ctx.with_register(try_result_register))?;
-        self.pop_span();
+        for (i, catch_block) in catch_blocks.iter().enumerate() {
+            let is_last_catch = i == catch_blocks.len() - 1;
 
-        if pop_catch_register {
-            self.pop_register()?;
+            let mut type_check_jump_placeholder = None;
+
+            self.push_span(ctx.node_with_span(catch_block.arg), ctx.ast);
+            match ctx.node(catch_block.arg) {
+                Node::Id(id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        if !is_last_catch {
+                            type_check_jump_placeholder =
+                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                        } else {
+                            return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
+                        }
+                    } else if !is_last_catch {
+                        return self.error(ErrorKind::MissingTypeCheckOnCatchBlock);
+                    }
+
+                    let assigned_catch_register = self.assign_local_register(*id)?;
+                    self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
+                }
+                Node::Wildcard(_id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        if !is_last_catch {
+                            type_check_jump_placeholder =
+                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                        } else {
+                            return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
+                        }
+                    } else if !is_last_catch {
+                        return self.error(ErrorKind::MissingTypeCheckOnCatchBlock);
+                    }
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID or wildcard as catch arg".into(),
+                        unexpected: unexpected.clone(),
+                    })
+                }
+            };
+
+            self.pop_span(); // catch arg
+            self.push_span(ctx.node_with_span(catch_block.block), ctx.ast);
+
+            self.compile_node(catch_block.block, ctx.with_register(try_result_register))?;
+
+            if !is_last_catch {
+                // Jump to the finally block at the end of the catch block
+                self.push_op_without_span(Jump, &[]);
+                finally_jump_placeholders.push(self.push_offset_placeholder());
+            }
+
+            if let Some(placeholder) = type_check_jump_placeholder {
+                self.update_offset_placeholder(placeholder)?;
+            }
+
+            self.pop_span(); // catch block
         }
 
-        self.update_offset_placeholder(finally_offset)?;
+        self.pop_register()?; // catch_register
+
+        // Compile the finally block
+        for placeholder in finally_jump_placeholders {
+            self.update_offset_placeholder(placeholder)?;
+        }
+
         if let Some(finally_block) = finally_block {
             // If there's a finally block then the result of the expression is derived from there
             let finally_result_register = match result.register {
@@ -3299,17 +3355,15 @@ impl Compiler {
                     }
 
                     if let Some(type_hint) = maybe_type {
-                        if let Some(jump_placeholder) =
-                            self.compile_check_type(id_register, *type_hint, ctx, false)?
-                        {
-                            // Where should failed type checks jump to?
-                            if params.is_last_alternative {
-                                // No more `or` alternatives, so jump to the end of the arm
-                                params.jumps.arm_end.push(jump_placeholder);
-                            } else {
-                                // Jump to the next `or` alternative pattern
-                                params.jumps.alternative_end.push(jump_placeholder);
-                            }
+                        let jump_placeholder =
+                            self.compile_check_type(id_register, *type_hint, ctx)?;
+                        // Where should failed type checks jump to?
+                        if params.is_last_alternative {
+                            // No more `or` alternatives, so jump to the end of the arm
+                            params.jumps.arm_end.push(jump_placeholder);
+                        } else {
+                            // Jump to the next `or` alternative pattern
+                            params.jumps.alternative_end.push(jump_placeholder);
                         }
                     }
 
@@ -3332,17 +3386,16 @@ impl Compiler {
                         } else {
                             self.push_op(Copy, &[temp_register, params.match_register]);
                         }
-                        if let Some(jump_placeholder) =
-                            self.compile_check_type(temp_register, *type_hint, ctx, false)?
-                        {
-                            // Where should failed type checks jump to?
-                            if params.is_last_alternative {
-                                // No more `or` alternatives, so jump to the end of the arm
-                                params.jumps.arm_end.push(jump_placeholder);
-                            } else {
-                                // Jump to the next `or` alternative pattern
-                                params.jumps.alternative_end.push(jump_placeholder);
-                            }
+
+                        let jump_placeholder =
+                            self.compile_check_type(temp_register, *type_hint, ctx)?;
+                        // Where should failed type checks jump to?
+                        if params.is_last_alternative {
+                            // No more `or` alternatives, so jump to the end of the arm
+                            params.jumps.arm_end.push(jump_placeholder);
+                        } else {
+                            // Jump to the next `or` alternative pattern
+                            params.jumps.alternative_end.push(jump_placeholder);
                         }
                     }
 

@@ -489,6 +489,9 @@ pub enum Op {
 
     /// Throws an error if the value doesn't match the provided type
     ///
+    /// This is used for type hints on variable declarations, and can be disabled via the
+    /// compiler's `enable_type_checks` flag.
+    ///
     /// `[*value, @type constant]`
     AssertType,
 
@@ -496,6 +499,8 @@ pub enum Op {
     ///
     /// If the value doesn't match the type then the instruction pointer will be jumped forward to
     /// the location referred to by the jump offset.
+    ///
+    /// This is used for type hints that can affect conditional logic, like match patterns.
     ///
     /// `[*value, @type constant, jump_offset[2]]`
     CheckType,

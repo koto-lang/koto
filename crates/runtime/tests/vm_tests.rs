@@ -3038,6 +3038,25 @@ finally
         }
 
         #[test]
+        fn try_catch_with_type_checks() {
+            let script = "
+x = 1
+try
+  x += 1
+  throw '{x}'
+catch error: Bool
+  throw 'Caught bool'
+catch _error: Number
+  throw 'Caught number'
+catch error: String
+  error
+catch error
+  throw 'Fallback'
+";
+            check_script_output(script, "2");
+        }
+
+        #[test]
         fn try_catch_nested() {
             let script = "
 x = 0
