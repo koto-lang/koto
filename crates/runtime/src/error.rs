@@ -36,6 +36,11 @@ pub enum ErrorKind {
         expected: String,
         unexpected: KValue,
     },
+    #[error("Unexpected object type - expected: '{expected}', found: '{unexpected}'")]
+    UnexpectedObjectType {
+        expected: &'static str,
+        unexpected: KString,
+    },
     #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
         lhs: KValue,

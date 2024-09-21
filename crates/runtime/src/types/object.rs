@@ -1,4 +1,4 @@
-use crate::{prelude::*, Borrow, BorrowMut, PtrMut, Result};
+use crate::{prelude::*, Borrow, BorrowMut, ErrorKind, PtrMut, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{fmt, marker::PhantomData};
 
@@ -316,14 +316,32 @@ impl KObject {
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
     pub fn cast<T: KotoObject>(&self) -> Result<Borrow<T>> {
-        Borrow::filter_map(self.try_borrow()?, |object| object.downcast_ref::<T>())
-            .map_err(|_| "Incorrect object type".into())
+        Borrow::filter_map(self.try_borrow()?, |object| object.downcast_ref::<T>()).map_err(|_| {
+            ErrorKind::UnexpectedObjectType {
+                expected: T::type_static(),
+                unexpected: self.try_borrow().map_or_else(
+                    |_| "Unable to borrow an object that is already mutably borrowed()".into(),
+                    |object| object.type_string(),
+                ),
+            }
+            .into()
+        })
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
     pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<T>> {
-        BorrowMut::filter_map(self.try_borrow_mut()?, |object| object.downcast_mut::<T>())
-            .map_err(|_| "Incorrect object type".into())
+        BorrowMut::filter_map(self.try_borrow_mut()?, |object| object.downcast_mut::<T>()).map_err(
+            |_| {
+                ErrorKind::UnexpectedObjectType {
+                    expected: T::type_static(),
+                    unexpected: self.try_borrow().map_or_else(
+                        |_| "Unable to borrow an object that is already mutably borrowed()".into(),
+                        |object| object.type_string(),
+                    ),
+                }
+                .into()
+            },
+        )
     }
 
     /// Returns true if the provided object occupies the same memory address
@@ -350,6 +368,13 @@ impl fmt::Debug for KObject {
         write!(f, "KObject ({:?})", PtrMut::address(&self.object))
     }
 }
+
+/// A trait that represents the basic requirements of fields in a type that implements [KotoObject]
+///
+/// This is useful for reducing repetitive duplication in bounds when implementing a generic
+/// [KotoObject] type .
+pub trait KotoField: Clone + KotoSend + KotoSync + 'static {}
+impl<T> KotoField for T where T: Clone + KotoSend + KotoSync + 'static {}
 
 /// Context provided to a function that implements an object method
 ///

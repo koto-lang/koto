@@ -258,13 +258,52 @@ mod objects {
         }
     }
 
+    #[derive(Clone, KotoCopy, KotoType)]
+    struct GenericObject<T>
+    where
+        T: KotoField,
+        KValue: From<T>,
+    {
+        value: T,
+    }
+
+    #[koto_impl(runtime = koto_runtime)]
+    impl<T> GenericObject<T>
+    where
+        T: KotoField,
+        KValue: From<T>,
+    {
+        fn make_value(value: T) -> KValue {
+            KObject::from(Self { value }).into()
+        }
+
+        #[koto_method]
+        fn get(&self) -> KValue {
+            self.value.clone().into()
+        }
+    }
+
+    impl<T> KotoObject for GenericObject<T>
+    where
+        T: KotoField,
+        KValue: From<T>,
+    {
+    }
+
     fn test_object_script(script: &str, expected_output: impl Into<KValue>) {
         let vm = KotoVm::default();
         let prelude = vm.prelude();
 
         prelude.add_fn("make_object", |ctx| match ctx.args() {
             [KValue::Number(x)] => Ok(TestObject::make_value(x.into())),
-            _ => runtime_error!("make_object: Expected a Number"),
+            unexpected => unexpected_args("|Number|", unexpected),
+        });
+
+        prelude.add_fn("make_generic", |ctx| match ctx.args() {
+            [KValue::Bool(x)] => Ok(GenericObject::<bool>::make_value(*x)),
+            [KValue::Number(x)] => Ok(GenericObject::<KNumber>::make_value(*x)),
+            [KValue::Str(x)] => Ok(GenericObject::<KString>::make_value(x.clone())),
+            unexpected => unexpected_args("|Number| or |String|", unexpected),
         });
 
         if let Err(e) = check_script_output_with_vm(vm, script, expected_output.into()) {
@@ -333,6 +372,51 @@ x.absorb2 20, 30
 x.as_number()
 ";
             test_object_script(script, 60);
+        }
+    }
+
+    mod generic_object {
+        use super::*;
+
+        #[test]
+        fn bool() {
+            let script = "
+x = make_generic true
+x.get()
+";
+            test_object_script(script, true);
+        }
+
+        #[test]
+        fn number() {
+            let script = "
+x = make_generic 99
+x.get()
+";
+            test_object_script(script, 99);
+        }
+
+        #[test]
+        fn string() {
+            let script = "
+x = make_generic 'hello'
+x.get()
+";
+            test_object_script(script, "hello");
+        }
+
+        #[test]
+        fn combined() {
+            let script = "
+b = make_generic true
+s = make_generic '@'
+n = make_generic 3
+if b.get()
+  iterator.repeat(s.get(), n.get()).to_string()
+else
+  'error'
+";
+            test_object_script(script, "@@@");
         }
     }
 

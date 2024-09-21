@@ -12,6 +12,12 @@ keywords = ["scripting", "language", "koto"]
 [lib]
 proc-macro = true
 
+[features]
+default = ["arc"]
+# One memory management scheme can be enabled at a time
+arc = []
+rc = []
+
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }

@@ -26,6 +26,13 @@ The Koto project adheres to
 
 - `tuple.sort_copy` now supports sorting with a key function, like `list.sort`.
 
+#### API
+
+- Improved support for generic `KotoObject` types
+  - The macros in `koto_derive` have been updated to support generics.
+    - `KotoField` has been added to reduce boilerplate when using the derive
+      macros.
+
 ### Changed
 
 #### Language
