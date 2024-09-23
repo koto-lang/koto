@@ -123,6 +123,22 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("repeat", |ctx| {
+        let expected_error = "|String, Number|";
+
+        match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(input), [KValue::Number(n)]) => {
+                if *n >= 0.0 {
+                    let result = input.as_str().repeat(usize::from(n));
+                    Ok(result.into())
+                } else {
+                    runtime_error!("expected a non-negative number")
+                }
+            }
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
     result.add_fn("replace", |ctx| {
         let expected_error = "|String, String, String|";
 

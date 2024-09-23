@@ -24,6 +24,7 @@ The Koto project adheres to
 
 #### Core Library
 
+- `string.repeat` has been added.
 - `tuple.sort_copy` now supports sorting with a key function, like `list.sort`.
 
 #### API
