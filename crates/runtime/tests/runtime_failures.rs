@@ -450,6 +450,22 @@ x
             }
 
             #[test]
+            fn iterator_generate_used_as_instance_function() {
+                let script = "
+[].generate(|| true).take(3).to_list()
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn iterator_repeat_used_as_instance_function() {
+                let script = "
+[1, 2, 3].repeat(3).to_list()
+";
+                check_script_fails(script);
+            }
+
+            #[test]
             fn unbounded_range_used_as_iterator() {
                 let script = "
 (1..).count()

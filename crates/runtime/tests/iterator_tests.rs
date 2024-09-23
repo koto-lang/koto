@@ -325,6 +325,26 @@ result
         }
     }
 
+    mod repeat {
+        use super::*;
+
+        #[test]
+        fn repeat_used_as_imported_function() {
+            //  Call iterator.repeat several times.
+            //  iterator.repeat checks the instance register (aka 'frame base') to ensure that it's
+            //  being used as a standalone function. The runtime now clears the frame base for
+            //  non-instance functions, but previously this test would fail due to a temporary value
+            //  being left around in the frame base.
+            let script = "
+from iterator import repeat
+repeat(1, 4).to_tuple()
+repeat(2, 3).to_tuple()
+repeat(3, 2).to_tuple()
+";
+            check_script_output(script, number_tuple(&[3, 3]));
+        }
+    }
+
     mod skip {
         use super::*;
 
