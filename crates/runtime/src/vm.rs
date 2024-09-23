@@ -362,6 +362,8 @@ impl KotoVm {
             &CallInfo {
                 result_register,
                 frame_base,
+                // The instance (or Null) has already been copied into the frame base
+                instance: Some(frame_base),
                 arg_count,
             },
             function,
@@ -815,6 +817,23 @@ impl KotoVm {
                 &CallInfo {
                     result_register: result,
                     frame_base,
+                    instance: None,
+                    arg_count,
+                },
+                self.clone_register(function),
+                None,
+            )?,
+            CallInstance {
+                result,
+                function,
+                instance,
+                frame_base,
+                arg_count,
+            } => self.call_callable(
+                &CallInfo {
+                    result_register: result,
+                    frame_base,
+                    instance: Some(instance),
                     arg_count,
                 },
                 self.clone_register(function),
@@ -1972,11 +1991,11 @@ impl KotoVm {
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(self.clone_register(value_register)); // frame_base
         self.call_callable(
             &CallInfo {
                 result_register,
                 frame_base,
+                instance: Some(value_register),
                 arg_count: 0,
             },
             op,
@@ -2005,6 +2024,7 @@ impl KotoVm {
             &CallInfo {
                 result_register,
                 frame_base,
+                instance: Some(frame_base),
                 arg_count: 1, // 1 arg, the rhs value
             },
             op,
@@ -2563,7 +2583,11 @@ impl KotoVm {
         }
     }
 
-    fn call_external(&mut self, call_info: &CallInfo, callable: ExternalCallable) -> Result<()> {
+    fn call_native_function(
+        &mut self,
+        call_info: &CallInfo,
+        callable: ExternalCallable,
+    ) -> Result<()> {
         let mut call_context = CallContext::new(self, call_info.frame_base, call_info.arg_count);
 
         let result = match callable {
@@ -2743,19 +2767,34 @@ impl KotoVm {
     ) -> Result<()> {
         use KValue::*;
 
+        if let Some(instance) = info.instance {
+            if instance != info.frame_base {
+                self.set_register(info.frame_base, self.clone_register(instance));
+            }
+        } else {
+            self.set_register(info.frame_base, KValue::Null);
+        }
+
         match callable {
             Function(f) => self.call_koto_function(info, &f, None, temp_tuple_values),
             CaptureFunction(f) => {
                 self.call_koto_function(info, &f.info, Some(&f.captures), temp_tuple_values)
             }
-            NativeFunction(f) => self.call_external(info, ExternalCallable::Function(f)),
-            Object(o) => self.call_external(info, ExternalCallable::Object(o)),
+            NativeFunction(f) => self.call_native_function(info, ExternalCallable::Function(f)),
+            Object(o) => self.call_native_function(info, ExternalCallable::Object(o)),
             Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {
                 let f = m.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the callable value as the instance by placing it in the frame base,
                 // and then passing the @|| function into call_callable
                 self.set_register(info.frame_base, callable);
-                self.call_callable(info, f, temp_tuple_values)
+                self.call_callable(
+                    &CallInfo {
+                        instance: Some(info.frame_base),
+                        ..*info
+                    },
+                    f,
+                    temp_tuple_values,
+                )
             }
             unexpected => unexpected_type("callable function", &unexpected),
         }
@@ -3329,6 +3368,7 @@ enum ExternalCallable {
 struct CallInfo {
     result_register: u8,
     frame_base: u8,
+    instance: Option<u8>,
     arg_count: u8,
 }
 

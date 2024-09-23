@@ -7,6 +7,8 @@ resolver = "2"
 anyhow = "1.0.75"
 # Date and time library for Rust
 chrono = "0.4.31"
+# Efficient, fixed-size, overwriting circular buffer
+circular-buffer = "0.1.8"
 # Statistics-driven micro-benchmarking library
 criterion = "0.5.1"
 # A crossplatform terminal library for manipulating terminals.

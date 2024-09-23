@@ -313,10 +313,26 @@ pub enum Op {
     /// `[*condition, offset[2]]`
     JumpIfFalse,
 
-    /// Calls a function
+    /// Calls a standalone function
+    ///
+    /// The frame base register (which contains the instance during a method call) will be set to
+    /// Null by the runtime before the function is called.
+    ///
+    /// If the result can be ignored then it will be placed in the frame base at the end of the
+    /// call, which will result in it being discarded.
     ///
     /// `[*result, *function, *frame base, arg count]`
     Call,
+
+    /// Calls an instance function
+    ///
+    /// The instance will be copied into the frame base register by the runtime if necessary.
+    ///
+    /// If the result can be ignored then it will be placed in the frame base at the end of the
+    /// call, which will result in it being discarded.
+    ///
+    /// `[*result, *function, *instance, *frame base, arg count]`
+    CallInstance,
 
     /// Returns from the current frame with the given result
     ///
@@ -506,7 +522,6 @@ pub enum Op {
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused84,
     Unused85,
     Unused86,
     Unused87,

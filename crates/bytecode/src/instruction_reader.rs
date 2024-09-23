@@ -322,6 +322,13 @@ impl Iterator for InstructionReader {
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
             }),
+            Op::CallInstance => Some(CallInstance {
+                result: get_u8!(),
+                function: get_u8!(),
+                instance: get_u8!(),
+                frame_base: get_u8!(),
+                arg_count: get_u8!(),
+            }),
             Op::Return => Some(Return {
                 register: get_u8!(),
             }),
