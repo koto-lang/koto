@@ -60,9 +60,9 @@ impl<T: ?Sized> KCell<T> {
 
     /// Mutably borrows the wrapped value.
     ///
-    /// If the value is currently borrowed then this function will block until the value can be
-    /// locked.
-    /// See `try_borrow_mut` for a non-blocking version.
+    /// If the value is currently borrowed then this function will panic.
+    ///
+    /// See `try_borrow_mut` for a non-panicking version.
     pub fn borrow_mut(&self) -> BorrowMut<T> {
         BorrowMut::new(self.0.borrow_mut())
     }

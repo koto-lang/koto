@@ -2,6 +2,9 @@
 
 #![warn(missing_docs)]
 
+#[cfg(all(feature = "arc", feature = "rc"))]
+compile_error!("A single memory management feature can be enabled at a time");
+
 mod attributes;
 mod koto_copy;
 mod koto_impl;
@@ -131,7 +134,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
-    koto_impl::generate_koto_access_entries(attr, item)
+    koto_impl::koto_impl(attr, item)
 }
 
 /// See [`koto_impl`](macro@koto_impl)
