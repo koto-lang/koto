@@ -134,7 +134,7 @@ impl Chunk {
                     .start
                     .line
                     .clamp(0, source_lines.len() as u32 - 1) as usize;
-                writeln!(result, "|{line}| {}", source_lines[line]).ok();
+                writeln!(result, "|{}| {}", line + 1, source_lines[line]).ok();
                 span = Some(instruction_span);
             }
 
