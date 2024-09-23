@@ -304,42 +304,40 @@ impl KObject {
     pub fn try_borrow(&self) -> Result<Borrow<dyn KotoObject>> {
         self.object
             .try_borrow()
-            .ok_or_else(|| "Attempting to borrow an object that is already mutably borrowed".into())
+            .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to borrow the underlying object mutably
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<dyn KotoObject>> {
         self.object
             .try_borrow_mut()
-            .ok_or_else(|| "Attempting to borrow an object that is already mutably borrowed".into())
+            .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
     pub fn cast<T: KotoObject>(&self) -> Result<Borrow<T>> {
         Borrow::filter_map(self.try_borrow()?, |object| object.downcast_ref::<T>()).map_err(|_| {
-            ErrorKind::UnexpectedObjectType {
-                expected: T::type_static(),
-                unexpected: self.try_borrow().map_or_else(
-                    |_| "Unable to borrow an object that is already mutably borrowed()".into(),
-                    |object| object.type_string(),
-                ),
+            match self.try_borrow() {
+                Ok(object) => ErrorKind::UnexpectedObjectType {
+                    expected: T::type_static(),
+                    unexpected: object.type_string(),
+                }
+                .into(),
+                Err(e) => e,
             }
-            .into()
         })
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
     pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<T>> {
         BorrowMut::filter_map(self.try_borrow_mut()?, |object| object.downcast_mut::<T>()).map_err(
-            |_| {
-                ErrorKind::UnexpectedObjectType {
+            |_| match self.try_borrow() {
+                Ok(object) => ErrorKind::UnexpectedObjectType {
                     expected: T::type_static(),
-                    unexpected: self.try_borrow().map_or_else(
-                        |_| "Unable to borrow an object that is already mutably borrowed()".into(),
-                        |object| object.type_string(),
-                    ),
+                    unexpected: object.type_string(),
                 }
-                .into()
+                .into(),
+                Err(e) => e,
             },
         )
     }
@@ -426,8 +424,11 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
 }
 
 /// Creates an error that describes an unimplemented method
-fn unimplemented_error<T>(method: &str, object_type: KString) -> Result<T> {
-    runtime_error!("{method} is unimplemented for {object_type}")
+fn unimplemented_error<T>(fn_name: &'static str, object_type: KString) -> Result<T> {
+    runtime_error!(ErrorKind::Unimplemented {
+        fn_name,
+        object_type
+    })
 }
 
 /// An enum that indicates to the runtime if a [KotoObject] is iterable

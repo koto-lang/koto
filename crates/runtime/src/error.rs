@@ -23,6 +23,8 @@ pub enum ErrorKind {
     },
     #[error("Execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
+    #[error("Unable to borrow an object that is already mutably borrowed")]
+    UnableToBorrowObject,
     #[error(
         "Unexpected arguments.\n  Expected: {expected}\n  Provided: |{}|",
         value_types_as_string(unexpected)
@@ -40,6 +42,11 @@ pub enum ErrorKind {
     UnexpectedObjectType {
         expected: &'static str,
         unexpected: KString,
+    },
+    #[error("{fn_name} is unimplemented for {object_type}")]
+    Unimplemented {
+        fn_name: &'static str,
+        object_type: KString,
     },
     #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
