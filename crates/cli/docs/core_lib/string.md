@@ -195,6 +195,22 @@ print! '\n\n\n'.lines().to_tuple()
 check! ('', '', '')
 ```
 
+## repeat
+
+```kototype
+|String, n: Number| -> String
+```
+
+Creates a new string by repeating the input `n` times.
+
+
+### Example
+
+```koto
+print! 'abc'.repeat 3
+check! abcabcabc
+```
+
 ## replace
 
 ```kototype

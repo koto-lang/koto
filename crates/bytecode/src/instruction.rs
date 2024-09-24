@@ -224,6 +224,13 @@ pub enum Instruction {
         frame_base: u8,
         arg_count: u8,
     },
+    CallInstance {
+        result: u8,
+        function: u8,
+        instance: u8,
+        frame_base: u8,
+        arg_count: u8,
+    },
     Return {
         register: u8,
     },
@@ -627,6 +634,17 @@ impl fmt::Debug for Instruction {
                 f,
                 "Call\t\tresult: {result}\tfunction: {function}\t\
                  frame base: {frame_base}\targs: {arg_count}",
+            ),
+            CallInstance {
+                result,
+                function,
+                instance,
+                frame_base,
+                arg_count,
+            } => write!(
+                f,
+                "CallInstance\tresult: {result}\tfunction: {function}\t\
+                 instance: {instance}\tframe base: {frame_base}\targs: {arg_count}",
             ),
             Return { register } => write!(f, "Return\t\tresult: {register}"),
             Yield { register } => write!(f, "Yield\t\tresult: {register}"),

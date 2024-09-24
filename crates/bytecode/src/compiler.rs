@@ -2,6 +2,7 @@ use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
     DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
+use circular_buffer::CircularBuffer;
 use derive_name::VariantName;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
@@ -2401,7 +2402,7 @@ impl Compiler {
     // The loop keeps track of the temporary values that are the result of each chain node.
     //
     // piped_arg_register - used when a value is being piped into the chain,
-    //   e.g. `f x >> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
+    //   e.g. `f x -> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
     //
     // rhs - used when assigning to the result of a chain,
     //   e.g. `foo.bar += 42`, or `foo[123] = bar`
@@ -2423,39 +2424,29 @@ impl Compiler {
         // If the result is going into a temporary register then assign it now as the first step.
         let result = self.assign_result_register(ctx)?;
 
-        // Keep track of a register for each chain node.
-        // This produces a chain of temporary value registers, allowing chain operations to access
-        // parent containers when needed, e.g. calls to instance functions.
-        let mut node_registers = SmallVec::<[u8; 4]>::new();
+        // Keep track of the registers containing the two previous nodes in the chain.
+        // This keeps track of parent containers for producing the next chain node, and for function
+        // calls, the two previous nodes are needed (parent container and function).
+        let mut chain_nodes = ChainRegisters::default();
 
         // At the end of the chain we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
-
-        // Where should the final value in the chain be placed?
-        let chain_result_register = match (result.register, piped_arg_register, rhs_op) {
-            // No result register and no piped call or assignment operation,
-            // so the result of the chain isn't needed.
-            (None, None, None) => None,
-            // If there's a result register and no piped call, then use the result register
-            (Some(result_register), None, _) => Some(result_register),
-            // If there's a piped call after the chain, or an assignment operation,
-            // then place the result of the chain in a temporary register.
-            _ => Some(self.push_register()?),
-        };
+        // let chain_temp_registers_start = self.frame().next_temporary_register();
 
         let mut chain_node = root_node.clone();
 
+        // Work through the chain, up until the last node, which will be handled separately
         while next_node_index.is_some() {
             match &chain_node {
                 ChainNode::Root(root_node) => {
-                    if !node_registers.is_empty() {
+                    if !chain_nodes.is_empty() {
                         return self.error(ErrorKind::OutOfPositionRootNodeInChain);
                     }
 
                     let root = self.compile_node(*root_node, ctx.with_any_register())?;
-                    node_registers.push(root.unwrap(self)?);
+                    chain_nodes.push(root.unwrap(self)?, root.is_temporary);
                 }
                 ChainNode::Id(id, ..) => {
                     // Access by id
@@ -2464,14 +2455,17 @@ impl Compiler {
                     //    - foo = Id
                     //    - () = Call
 
-                    let parent_register = match node_registers.last() {
-                        Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
+                    let Some(instance_register) = chain_nodes.previous() else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
 
-                    let node_register = self.push_register()?;
-                    node_registers.push(node_register);
-                    self.compile_access_id(node_register, parent_register, *id);
+                    let node_register = match chain_nodes.reuse_oldest() {
+                        Some(register) => register,
+                        None => self.push_register()?,
+                    };
+                    chain_nodes.push(node_register, true);
+
+                    self.compile_access_id(node_register, instance_register, *id);
                 }
                 ChainNode::Str(ref access_string) => {
                     // Access by string
@@ -2480,16 +2474,19 @@ impl Compiler {
                     //    - "123" = Str
                     //    - () = Call
 
-                    let parent_register = match node_registers.last() {
-                        Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
+                    let Some(instance_register) = chain_nodes.previous() else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
 
-                    let node_register = self.push_register()?;
-                    node_registers.push(node_register);
+                    let node_register = match chain_nodes.reuse_oldest() {
+                        Some(register) => register,
+                        None => self.push_register()?,
+                    };
+                    chain_nodes.push(node_register, true);
+
                     self.compile_access_string(
                         node_register,
-                        parent_register,
+                        instance_register,
                         &access_string.contents,
                         ctx,
                     )?;
@@ -2501,39 +2498,41 @@ impl Compiler {
                     //    - bar = Id
                     //    - [123] = Index, with 123 as index node
 
-                    let parent_register = match node_registers.last() {
-                        Some(register) => *register,
-                        None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
+                    let Some(instance_register) = chain_nodes.previous() else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
 
-                    let index = self
-                        .compile_node(*index_node, ctx.with_any_register())?
-                        .unwrap(self)?;
+                    let node_register = match chain_nodes.reuse_oldest() {
+                        Some(register) => register,
+                        None => self.push_register()?,
+                    };
+                    chain_nodes.push(node_register, true);
 
-                    let node_register = self.push_register()?;
-                    node_registers.push(node_register);
-                    self.push_op(Index, &[node_register, parent_register, index]);
+                    // Compile the index, into the current node register
+                    self.compile_node(*index_node, ctx.with_fixed_register(node_register))?;
+
+                    // Run the index operation, place the result in the node register
+                    self.push_op(Index, &[node_register, instance_register, node_register]);
                 }
                 ChainNode::Call { args, .. } => {
-                    // Function call on a chain result
-
-                    let (parent_register, function_register) = match &node_registers.as_slice() {
-                        [.., parent, function] => (Some(*parent), *function),
-                        [function] => (None, *function),
-                        [] => unreachable!(),
+                    // Function call on a chain node
+                    let (function_register, instance_register) = chain_nodes.previous_two();
+                    let Some(function_register) = function_register else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
 
-                    // Not in the last node, so for the chain to continue,
-                    // use a temporary register for the call result.
-                    let call_result_register = self.push_register()?;
-                    node_registers.push(call_result_register);
+                    let node_register = match chain_nodes.reuse_oldest() {
+                        Some(register) => register,
+                        None => self.push_register()?,
+                    };
+                    chain_nodes.push(node_register, true);
 
                     self.compile_call(
                         function_register,
                         args,
                         None,
-                        parent_register,
-                        ctx.with_fixed_register(call_result_register),
+                        instance_register,
+                        ctx.with_fixed_register(node_register),
                     )?;
                 }
             }
@@ -2559,130 +2558,129 @@ impl Compiler {
             self.push_span(next_chain_node, ctx.ast);
         }
 
-        // The chain is complete, now we need to handle:
+        // The chain is complete up until the last node, and now we need to handle:
         //   - accessing and assigning to map entries
+        //   - accessing and assigning to list entries
         //   - calling functions
-        let last_node = chain_node;
+        let end_node = chain_node;
 
-        let access_register = chain_result_register.unwrap_or_default();
-        let Some(&parent_register) = node_registers.last() else {
+        let Some(container_register) = chain_nodes.previous() else {
             return self.error(ErrorKind::MissingChainParentRegister);
         };
 
-        // If rhs_op is Some, then rhs should also be Some
-        debug_assert!(rhs_op.is_none() || rhs_op.is_some() && rhs.is_some());
+        // Where should the final value in the chain be placed?
+        let result_register = match (result.register, piped_arg_register, rhs_op) {
+            // If there's a result register and no piped call, then use the result register
+            (Some(register), None, _) => register,
+            // If there's a piped call after the chain, or an assignment operation,
+            // then place the result of the chain in a temporary register.
+            _ => match chain_nodes.reuse_oldest() {
+                Some(register) => register,
+                None => self.push_register()?,
+            },
+        };
 
-        let simple_assignment = rhs.is_some() && rhs_op.is_none();
-        let access_assignment = rhs.is_some() && rhs_op.is_some();
-
-        let string_key = if let ChainNode::Str(access_string) = &last_node {
-            let key_register = self.push_register()?;
-            self.compile_string(
-                &access_string.contents,
-                ctx.with_fixed_register(key_register),
-            )?
+        let string_key = if let ChainNode::Str(access_string) = &end_node {
+            self.compile_string(&access_string.contents, ctx.with_any_register())?
         } else {
             CompileNodeOutput::none()
         };
 
-        let index = if let ChainNode::Index(index_node) = last_node {
+        let index = if let ChainNode::Index(index_node) = end_node {
             self.compile_node(index_node, ctx.with_any_register())?
         } else {
             CompileNodeOutput::none()
         };
 
-        // Do we need to access the value?
-        // Yes if the rhs_op is Some
-        // If rhs_op is None, then Yes if rhs is also None (simple access)
-        // If rhs is Some and rhs_op is None, then it's a simple assignment
-        match &last_node {
+        // If rhs_op is Some, then rhs should also be Some
+        debug_assert!(rhs_op.is_none() || rhs_op.is_some() && rhs.is_some());
+        let simple_assignment = rhs.is_some() && rhs_op.is_none();
+        let compound_assignment = rhs.is_some() && rhs_op.is_some();
+
+        // Do we need to read the last value in the lookup chain?
+        // - No if it's a simple assignment and the last value is going to be overwritten.
+        // - Yes otherwise, either there's a compound assignment or the last value is being accessed.
+        match &end_node {
             ChainNode::Id(id, ..) if !simple_assignment => {
-                self.compile_access_id(access_register, parent_register, *id);
-                node_registers.push(access_register);
+                self.compile_access_id(result_register, container_register, *id);
+                chain_nodes.push(result_register, false);
             }
             ChainNode::Str(_) if !simple_assignment => {
                 self.push_op(
                     AccessString,
-                    &[access_register, parent_register, string_key.unwrap(self)?],
+                    &[
+                        result_register,
+                        container_register,
+                        string_key.unwrap(self)?,
+                    ],
                 );
-                node_registers.push(access_register);
+                chain_nodes.push(result_register, false);
             }
             ChainNode::Index(_) if !simple_assignment => {
                 self.push_op(
                     Index,
-                    &[access_register, parent_register, index.unwrap(self)?],
+                    &[result_register, container_register, index.unwrap(self)?],
                 );
-                node_registers.push(access_register);
+                chain_nodes.push(result_register, false);
             }
             ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
                     return self.error(ErrorKind::AssigningToATemporaryValue);
-                } else if access_assignment || piped_arg_register.is_none() || *with_parens {
-                    let (parent_register, function_register) = match &node_registers.as_slice() {
-                        [.., parent, function] => (Some(*parent), *function),
-                        [function] => (None, *function),
-                        [] => unreachable!(),
-                    };
+                } else if compound_assignment || piped_arg_register.is_none() || *with_parens {
+                    let (function_register, instance_register) = chain_nodes.previous_two();
 
-                    let call_result_register = match chain_result_register {
-                        Some(result_register) => {
-                            node_registers.push(result_register);
-                            ResultRegister::Fixed(result_register)
-                        }
-                        None => ResultRegister::None,
+                    let Some(function_register) = function_register else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
 
                     self.compile_call(
                         function_register,
                         args,
                         None,
-                        parent_register,
-                        ctx.with_register(call_result_register),
+                        instance_register,
+                        ctx.with_fixed_register(result_register),
                     )?;
+                    chain_nodes.push(result_register, false);
                 }
             }
             _ => {}
         }
 
         // Do we need to modify the accessed value?
-        if access_assignment {
-            // access_assignment can only be true when both rhs and rhs_op have values
+        if compound_assignment {
+            // compound_assignment can only be true when both rhs and rhs_op have values
             let rhs = rhs.unwrap();
             let rhs_op = rhs_op.unwrap();
 
-            self.push_op(rhs_op, &[access_register, rhs]);
-            node_registers.push(access_register);
+            self.push_op(rhs_op, &[result_register, rhs]);
+            chain_nodes.push(result_register, false);
         }
 
         // Do we need to assign a value to the last node in the chain?
-        if access_assignment || simple_assignment {
+        if compound_assignment || simple_assignment {
             let value_register = if simple_assignment {
                 rhs.unwrap()
             } else {
-                access_register
+                result_register
             };
 
-            match &last_node {
+            match &end_node {
                 ChainNode::Id(id, ..) => {
                     self.compile_map_insert(
                         value_register,
                         &Node::Id(*id, None),
-                        Some(parent_register),
+                        Some(container_register),
                         false,
                         ctx,
                     )?;
                 }
                 ChainNode::Str(_) => {
-                    self.push_op(
-                        MapInsert,
-                        &[parent_register, string_key.unwrap(self)?, value_register],
-                    );
+                    let string_key = string_key.unwrap(self)?;
+                    self.push_op(MapInsert, &[container_register, string_key, value_register]);
                 }
                 ChainNode::Index(_) => {
-                    self.push_op(
-                        SetIndex,
-                        &[parent_register, index.unwrap(self)?, value_register],
-                    );
+                    let index = index.unwrap(self)?;
+                    self.push_op(SetIndex, &[container_register, index, value_register]);
                 }
                 _ => {}
             }
@@ -2690,15 +2688,15 @@ impl Compiler {
 
         // As a final step, do we need to make a piped call to the result of the chain?
         if piped_arg_register.is_some() {
-            let piped_call_args = match last_node {
+            let piped_call_args = match end_node {
                 ChainNode::Call { args, with_parens } if !with_parens => args,
                 _ => AstVec::new(),
             };
 
-            let (parent_register, function_register) = match &node_registers.as_slice() {
-                [.., parent, function] => (Some(*parent), *function),
-                [function] => (None, *function),
-                [] => unreachable!(),
+            let (function_register, parent_register) = chain_nodes.previous_two();
+            let function_register = match function_register {
+                Some(register) => register,
+                None => return self.error(ErrorKind::OutOfPositionChildNodeInChain),
             };
 
             let call_result = if let Some(result_register) = result.register {
@@ -2716,6 +2714,7 @@ impl Compiler {
             )?;
         }
 
+        // Clean up the span and register stacks
         self.span_stack.truncate(span_stack_count);
         self.truncate_register_stack(stack_count)?;
 
@@ -2831,7 +2830,7 @@ impl Compiler {
         Ok(())
     }
 
-    // Compiles a node like `f x >> g`, compiling the lhs as the last arg for a call on the rhs
+    // Compiles a node like `f x -> g`, compiling the lhs as the last arg for a call on the rhs
     fn compile_piped_call(
         &mut self,
         lhs: AstIndex,
@@ -2919,11 +2918,19 @@ impl Compiler {
 
         let mut arg_count = args.len();
 
-        // The frame base is used for the instance register
-        let frame_base = self.push_register()?;
-        if let Some(instance) = instance {
-            self.push_op(Copy, &[frame_base, instance]);
-        }
+        let frame_base = if let Some(instance) = instance {
+            if instance == self.frame().next_temporary_register() - 1 {
+                // If the instance is already at the top of the register stack then it can be used
+                // directly as the frame base.
+                instance
+            } else {
+                self.push_register()?
+            }
+        } else {
+            // No instance is provided, but the frame base still needs to be present as an empty
+            // register.
+            self.push_register()?
+        };
 
         for arg in args.iter() {
             let arg_register = self.push_register()?;
@@ -2940,20 +2947,32 @@ impl Compiler {
             result_register
         } else {
             // The result isn't needed, so it can be placed in the frame's base register
-            // (which isn't needed post-call).
-            // An alternative here could be to have CallNoResult ops, but this will do for now.
+            // (which isn't needed post-call and will be discarded).
             frame_base
         };
 
-        self.push_op(
-            Call,
-            &[
-                call_result_register,
-                function_register,
-                frame_base,
-                arg_count as u8,
-            ],
-        );
+        if let Some(instance_register) = instance {
+            self.push_op(
+                CallInstance,
+                &[
+                    call_result_register,
+                    function_register,
+                    instance_register,
+                    frame_base,
+                    arg_count as u8,
+                ],
+            );
+        } else {
+            self.push_op(
+                Call,
+                &[
+                    call_result_register,
+                    function_register,
+                    frame_base,
+                    arg_count as u8,
+                ],
+            );
+        }
 
         self.truncate_register_stack(stack_count)?;
 
@@ -4001,4 +4020,56 @@ struct FrameParameters<'a> {
     allow_implicit_return: bool,
     output_type: Option<AstIndex>,
     is_generator: bool,
+}
+
+// Used by Compiler::compile_chain to keep track of incremental chain registers
+#[derive(Default)]
+struct ChainRegisters {
+    // The previous 2 registers need to be kept around for instance calls
+    //
+    // 3 registers are kept in the buffer, the oldest can be reused for temporaries.
+    registers: CircularBuffer<3, ChainRegister>,
+}
+
+impl ChainRegisters {
+    fn push(&mut self, register: u8, is_temporary: bool) {
+        self.registers.push_back(ChainRegister {
+            register,
+            is_temporary,
+        });
+    }
+
+    fn is_empty(&self) -> bool {
+        self.registers.is_empty()
+    }
+
+    fn reuse_oldest(&mut self) -> Option<u8> {
+        if self.registers.is_full() {
+            self.registers
+                .pop_front()
+                .filter(|register| register.is_temporary)
+                .map(|register| register.register)
+        } else {
+            None
+        }
+    }
+
+    fn previous(&self) -> Option<u8> {
+        self.registers.back().map(|register| register.register)
+    }
+
+    fn previous_two(&self) -> (Option<u8>, Option<u8>) {
+        let mut previous_iter = self
+            .registers
+            .iter()
+            .map(|register| register.register)
+            .rev();
+        (previous_iter.next(), previous_iter.next())
+    }
+}
+
+#[derive(Clone)]
+struct ChainRegister {
+    register: u8,
+    is_temporary: bool,
 }

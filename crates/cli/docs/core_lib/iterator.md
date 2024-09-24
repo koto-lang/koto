@@ -191,8 +191,8 @@ check! [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
 |Iterable, function: |Any| -> Any| -> Iterator
 ```
 
-Takes an `Iterable` and a `Function`, and returns a new iterator that provides
-the result of calling the function with each value in the iterable.
+Creates a new iterator that yields the result of calling the provided `function` 
+with each value from the input iterator.
 
 ### Example
 
@@ -209,7 +209,7 @@ check! [4, 6, 8]
 |Iterable| -> Iterator
 ```
 
-Returns an iterator that provides each value along with an associated index.
+Creates an iterator that yields each value along with an associated index.
 
 ### Example
 
@@ -313,15 +313,17 @@ check! ['a', '-', 'b', '-', 'c', '-']
 |generator: || -> Any| -> Iterator
 ```
 
-Provides an iterator that yields the result of repeatedly calling the `generator`
-function. Note that this version of `generate` won't terminate and will iterate
-endlessly.
+Creates an iterator that yields the result of repeatedly calling the `generator`
+function. 
+
+_Warning_: This version of `generate` will iterate endlessly, so consider using 
+an adaptor like [`iterator.take`](#take) to produce an iterator that has an end.
 
 ```kototype
 |n: Number, generator: || -> Any| -> Any
 ```
 
-Provides an iterator that yields the result of calling the `generator`
+Creates an iterator that yields the result of calling the `generator`
 function `n` times.
 
 ### Example
@@ -757,24 +759,30 @@ check! my_type(60)
 ## repeat
 
 ```kototype
-|Any| -> Iterator
-```
-```kototype
-|Any, repeats: Number| -> Iterator
+|value: Any| -> Iterator
 ```
 
-Provides an iterator that repeats the provided value. 
-A number of repeats can be optionally provided as the second argument.
+Creates an iterator that endlessly yields the provided `value`.
+
+_Warning_: This version of `repeat` will iterate endlessly, so consider using 
+an adaptor like [`iterator.take`](#take) to produce an iterator with an end.
+
+```kototype
+|value: Any, n: Number| -> Iterator
+```
+
+Creates an iterator that yields `n` repeats of the provided `value`.
+
 
 ### Example
 
 ```koto
-print! iterator.repeat(42)
-  .take(5)
-  .to_list()
+from iterator import repeat
+
+print! repeat(42).take(5).to_list()
 check! [42, 42, 42, 42, 42]
 
-print! iterator.repeat('x', 3).to_tuple()
+print! repeat('x', 3).to_tuple()
 check! ('x', 'x', 'x')
 ```
 
@@ -890,14 +898,14 @@ check! my_type(103)
 |Iterable, count: Number| -> Iterator
 ```
 
-Provides an iterator that yields a number of values from the input before
+Creates an iterator that yields a number of values from the input before
 finishing.
 
 ```kototype
 |Iterable, test: |Any| -> Bool| -> Iterator
 ```
 
-Provides an iterator that yields values from the input while they pass a
+Creates an iterator that yields values from the input while they pass a
 test function.
 
 The test function should return `true` if the iterator should continue to yield
@@ -1044,7 +1052,7 @@ check! [(1, 2, 3), (2, 3, 4), (3, 4, 5)]
 |first: Iterable, second: Iterable| -> Iterator
 ```
 
-Combines the values in two iterables into an iterator that provides
+Combines the values in two iterables into an iterator that yields
 corresponding pairs of values, one at a time from each input iterable.
 
 ### Example

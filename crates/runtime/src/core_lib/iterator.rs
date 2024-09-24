@@ -6,9 +6,11 @@ pub mod peekable;
 
 use crate::{derive::*, prelude::*, KIteratorOutput as Output, Result};
 
+static MODULE_NAME: &str = "core.iterator";
+
 /// Initializes the `iterator` core library module
 pub fn make_module() -> KMap {
-    let result = KMap::with_type("core.iterator");
+    let result = KMap::with_type(MODULE_NAME);
 
     result.add_fn("all", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
@@ -315,19 +317,27 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("generate", |ctx| match ctx.args() {
-        [f] if f.is_callable() => {
-            let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
-            Ok(KIterator::new(result).into())
+    result.add_fn("generate", |ctx| {
+        let instance = ctx.instance();
+        if !(matches!(instance, &KValue::Null) || instance.type_as_string() == MODULE_NAME) {
+            return runtime_error!("iterator.generate must be used as a standalone function");
         }
-        [KValue::Number(n), f] if f.is_callable() => {
-            let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
-            Ok(KIterator::new(result).into())
+
+        match ctx.args() {
+            [f] if f.is_callable() => {
+                let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
+                Ok(KIterator::new(result).into())
+            }
+            [KValue::Number(n), f] if f.is_callable() => {
+                let result =
+                    generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
+                Ok(KIterator::new(result).into())
+            }
+            unexpected => unexpected_args(
+                "|generator: || -> Any|, or |n: Number, generator: || -> Any|",
+                unexpected,
+            ),
         }
-        unexpected => unexpected_args(
-            "|generator: || -> Any|, or |n: Number, generator: || -> Any|",
-            unexpected,
-        ),
     });
 
     result.add_fn("intersperse", |ctx| {
@@ -551,9 +561,16 @@ pub fn make_module() -> KMap {
         Ok(output)
     });
 
-    result.add_fn("once", |ctx| match ctx.args() {
-        [value] => Ok(KIterator::new(generators::Once::new(value.clone())).into()),
-        unexpected => unexpected_args("|Any|", unexpected),
+    result.add_fn("once", |ctx| {
+        let instance = ctx.instance();
+        if !(matches!(instance, &KValue::Null) || instance.type_as_string() == MODULE_NAME) {
+            return runtime_error!("iterator.once must be used as a standalone function");
+        }
+
+        match ctx.args() {
+            [value] => Ok(KIterator::new(generators::Once::new(value.clone())).into()),
+            unexpected => unexpected_args("|Any|", unexpected),
+        }
     });
 
     result.add_fn("peekable", |ctx| {
@@ -625,16 +642,27 @@ pub fn make_module() -> KMap {
         fold_with_operator(ctx.vm, iterable, initial_value, BinaryOp::Multiply)
     });
 
-    result.add_fn("repeat", |ctx| match ctx.args() {
-        [value] => {
-            let result = generators::Repeat::new(value.clone());
-            Ok(KIterator::new(result).into())
+    result.add_fn("repeat", |ctx| {
+        let instance = ctx.instance();
+        if !matches!(instance, &KValue::Null) && instance.type_as_string() != MODULE_NAME {
+            return runtime_error!("iterator.repeat must be used as a standalone function");
         }
-        [value, KValue::Number(n)] => {
-            let result = generators::RepeatN::new(value.clone(), n.into());
-            Ok(KIterator::new(result).into())
+
+        match ctx.args() {
+            [value] => {
+                let result = generators::Repeat::new(value.clone());
+                Ok(KIterator::new(result).into())
+            }
+            [value, KValue::Number(n)] => {
+                if *n >= 0.0 {
+                    let result = generators::RepeatN::new(value.clone(), n.into());
+                    Ok(KIterator::new(result).into())
+                } else {
+                    runtime_error!("expected a non-negative number")
+                }
+            }
+            unexpected => unexpected_args("|Any|, or |Number, Any|", unexpected),
         }
-        unexpected => unexpected_args("|Any|, or |Number, Any|", unexpected),
     });
 
     result.add_fn("reversed", |ctx| {

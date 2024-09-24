@@ -18,6 +18,7 @@ rc = ["koto_memory/rc"]
 koto_memory = { path = "../memory", version = "^0.15.0", default-features = false }
 koto_parser = { path = "../parser", version = "^0.15.0", default-features = false }
 
+circular-buffer = { workspace = true }
 derive-name = { workspace = true }
 dunce = { workspace = true }
 rustc-hash = { workspace = true }
