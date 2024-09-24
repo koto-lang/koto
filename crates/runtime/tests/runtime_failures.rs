@@ -1,6 +1,6 @@
 mod runtime {
     use koto_bytecode::{CompilerSettings, Loader};
-    use koto_lexer::Span;
+    use koto_lexer::{Position, Span};
     use koto_runtime::{ErrorFrame, KotoVm};
     use koto_test_utils::script_instructions;
 
@@ -73,8 +73,6 @@ mod runtime {
         }
 
         mod type_checks {
-            use koto_lexer::Position;
-
             use super::*;
 
             #[test]
@@ -407,22 +405,48 @@ x
 
             #[test]
             fn iterator_consume_should_propagate_error() {
-                let script = "
+                let script = "\
 (1..5)
   .each |_| assert false
+#           ^^^^^^^^^^^^
   .consume()
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 1,
+                            column: 12,
+                        },
+                        end: Position {
+                            line: 1,
+                            column: 24,
+                        },
+                    },
+                );
             }
 
             #[test]
             fn iterator_count_should_propagate_error() {
-                let script = "
+                let script = "\
 (1..5)
   .each |_| assert false
+#           ^^^^^^^^^^^^
   .count()
 ";
-                check_script_fails(script);
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position {
+                            line: 1,
+                            column: 12,
+                        },
+                        end: Position {
+                            line: 1,
+                            column: 24,
+                        },
+                    },
+                );
             }
 
             #[test]
