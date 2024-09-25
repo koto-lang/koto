@@ -49,21 +49,24 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("get", |ctx| {
-        let (tuple, index, default) = {
-            let expected_error = "|Tuple, Number|, or |Tuple, Number, Any|";
+        use KValue::{Null, Number, Tuple};
+        let expected_error = "|Tuple, Number|, or |Tuple, Number, Any|";
 
-            match ctx.instance_and_args(is_tuple, expected_error)? {
-                (KValue::Tuple(tuple), [KValue::Number(n)]) => (tuple, n, &KValue::Null),
-                (KValue::Tuple(tuple), [KValue::Number(n), default]) => (tuple, n, default),
-                (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
-                }
+        let (tuple, index, default) = match ctx.instance_and_args(is_tuple, expected_error)? {
+            (Tuple(tuple), [Number(n)]) => (tuple, n, Null),
+            (Tuple(tuple), [Number(n), default]) => (tuple, n, default.clone()),
+            (instance, args) => {
+                return unexpected_args_after_instance(expected_error, instance, args)
             }
         };
 
-        match tuple.get::<usize>(index.into()) {
-            Some(value) => Ok(value.clone()),
-            None => Ok(default.clone()),
+        if *index >= 0 {
+            match tuple.get(usize::from(index)) {
+                Some(value) => Ok(value.clone()),
+                None => Ok(default),
+            }
+        } else {
+            Ok(default)
         }
     });
 

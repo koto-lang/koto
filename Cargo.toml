@@ -61,6 +61,8 @@ regex = "1.10.2"
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
 rustyline = "13.0.0"
+# Library for saturating casts between integer primitives.
+saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework
 serde = "1.0.0"
 # JSON support for serde
