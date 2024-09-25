@@ -385,8 +385,33 @@ macro_rules! impl_try_from_value_string_ref {
     };
 }
 
+macro_rules! impl_try_from_value_number {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            ///
+            /// Note that number conversions are lossy. Out of range values will be saturated to the
+            /// bounds of the output type. Conversions follow the rules of the `as` operator.
+            impl TryFrom<KValue> for $type {
+                type Error = KValue;
+
+                fn try_from(value: KValue) -> StdResult<Self, KValue> {
+                    if let KValue::Number(n) = value {
+                        Ok(n.into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
 impl_try_from_value_string!(String, Box<str>, std::rc::Rc<str>, std::sync::Arc<str>);
 impl_try_from_value_string_ref!(&'a str, std::borrow::Cow<'a, str>);
+impl_try_from_value_number!(
+    f32, f64, i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize
+);
 
 #[cfg(test)]
 mod tests {
@@ -400,11 +425,14 @@ mod tests {
     }
 
     #[test]
-    fn try_from_value_for_string() {
-        let s = KValue::from("testing");
-        let result = String::try_from(s.clone()).unwrap();
-        assert_eq!(&result, "testing");
+    fn try_from_kvalue() {
+        assert_eq!(
+            &String::try_from(KValue::from("testing")).unwrap(),
+            "testing"
+        );
 
-        assert!(bool::try_from(s).is_err());
+        assert_eq!(i32::try_from(KValue::from(-123.45)).unwrap(), -123);
+
+        assert!(matches!(bool::try_from(KValue::Null), Err(KValue::Null)));
     }
 }
