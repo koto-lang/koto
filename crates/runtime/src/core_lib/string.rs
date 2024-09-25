@@ -84,7 +84,7 @@ pub fn make_module() -> KMap {
             for output in iterator.map(collect_pair) {
                 use KIteratorOutput as Output;
                 match output {
-                    Output::Value(KValue::Number(n)) => match u8::try_from(n.as_i64()) {
+                    Output::Value(KValue::Number(n)) => match u8::try_from(i64::from(n)) {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
                     },

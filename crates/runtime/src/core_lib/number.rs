@@ -118,7 +118,7 @@ pub fn make_module() -> KMap {
         let expected_error = "|Number|";
 
         match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(n), []) => Ok((!n.as_i64()).into()),
+            (Number(n), []) => Ok((!n.to_bits()).into()),
             (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });

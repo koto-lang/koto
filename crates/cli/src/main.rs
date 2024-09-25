@@ -295,7 +295,7 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
                             None => {}
                         }
                         match repl_config.get("max_history") {
-                            Some(KValue::Number(value)) => match value.as_i64() {
+                            Some(KValue::Number(value)) => match i64::from(value) {
                                 value if value > 0 => config.max_history = value as usize,
                                 _ => bail!("expected positive number for max_history setting"),
                             },

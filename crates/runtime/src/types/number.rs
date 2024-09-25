@@ -38,7 +38,10 @@ impl KNumber {
     /// Returns the largest integer less than or equal to the number
     #[must_use]
     pub fn floor(self) -> Self {
-        Self::I64(self.as_i64())
+        match self {
+            Self::F64(n) => Self::I64(n.floor() as i64),
+            Self::I64(n) => Self::I64(n),
+        }
     }
 
     /// Returns the integer closest to the number
@@ -108,14 +111,6 @@ impl KNumber {
         match self {
             Self::F64(n) => n.to_bits(),
             Self::I64(n) => n as u64,
-        }
-    }
-
-    /// Returns the number as an `i64`, calling `floor` if the number is an `f64`
-    pub fn as_i64(self) -> i64 {
-        match self {
-            Self::F64(n) => n.floor() as i64,
-            Self::I64(n) => n,
         }
     }
 }

@@ -66,6 +66,7 @@ The Koto project adheres to
   IDs are now represented as AST nodes.
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
+- `KNumber::as_i64` has been removed in favour of `i64::from`.
 
 ### Fixed
 

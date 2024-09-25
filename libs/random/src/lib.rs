@@ -120,7 +120,7 @@ impl ChaChaRng {
             input => match vm.run_unary_op(UnaryOp::Size, input.clone())? {
                 Number(size) => {
                     if size > 0 {
-                        let index = self.0.gen_range(0..(size.as_i64() as usize));
+                        let index = self.0.gen_range(0..usize::from(size));
                         vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
                     } else {
                         Ok(Null)
