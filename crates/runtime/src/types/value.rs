@@ -1,7 +1,10 @@
 //! The core value type used in the Koto runtime
 
 use crate::{prelude::*, KCaptureFunction, KFunction, Ptr, Result};
-use std::fmt::{self, Write};
+use std::{
+    fmt::{self, Write},
+    result::Result as StdResult,
+};
 
 /// The core Value type for Koto
 #[derive(Clone, Default)]
@@ -331,6 +334,60 @@ pub struct RegisterSlice {
     pub count: u8,
 }
 
+/// If conversion fails then the input value will be returned.
+impl TryFrom<KValue> for bool {
+    type Error = KValue;
+
+    fn try_from(value: KValue) -> StdResult<Self, KValue> {
+        if let KValue::Bool(b) = value {
+            Ok(b)
+        } else {
+            Err(value)
+        }
+    }
+}
+
+macro_rules! impl_try_from_value_string {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            impl TryFrom<KValue> for $type {
+                type Error = KValue;
+
+                fn try_from(value: KValue) -> StdResult<Self, KValue> {
+                    if let KValue::Str(s) = value {
+                        Ok(s.as_str().into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_try_from_value_string_ref {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            impl<'a> TryFrom<&'a KValue> for $type {
+                type Error = &'a KValue;
+
+                fn try_from(value: &'a KValue) -> StdResult<Self, &'a KValue> {
+                    if let KValue::Str(s) = value {
+                        Ok(s.as_str().into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_try_from_value_string!(String, Box<str>, std::rc::Rc<str>, std::sync::Arc<str>);
+impl_try_from_value_string_ref!(&'a str, std::borrow::Cow<'a, str>);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +397,14 @@ mod tests {
         // All Value variants should have a size of <= 16 bytes, and with the variant flag the
         // total size of Value will be <= 24 bytes.
         assert!(std::mem::size_of::<KValue>() <= 24);
+    }
+
+    #[test]
+    fn try_from_value_for_string() {
+        let s = KValue::from("testing");
+        let result = String::try_from(s.clone()).unwrap();
+        assert_eq!(&result, "testing");
+
+        assert!(bool::try_from(s).is_err());
     }
 }
