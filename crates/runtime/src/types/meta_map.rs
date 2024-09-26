@@ -12,7 +12,7 @@ type MetaMapType = IndexMap<MetaKey, KValue, BuildHasherDefault<KotoHasher>>;
 /// The meta map used by [KMap](crate::KMap)
 ///
 /// Each KMap contains a metamap, which allows for customized value behaviour by implementing
-/// [MetaKeys](crate::MetaKey).
+/// [`MetaKeys`](crate::MetaKey).
 #[derive(Clone, Default)]
 pub struct MetaMap(MetaMapType);
 
@@ -43,7 +43,7 @@ impl DerefMut for MetaMap {
     }
 }
 
-/// The key type used by [MetaMaps](crate::MetaMap)
+/// The key type used by [`MetaMaps`](crate::MetaMap)
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub enum MetaKey {
     /// A binary operation
@@ -62,7 +62,7 @@ pub enum MetaKey {
     ///
     /// e.g. `@meta my_named_key`
     ///
-    /// Named entries are used in [KMaps][crate::KMap], so that shared named items can be
+    /// Named entries are used in [`KMaps`][crate::KMap], so that shared named items can be
     /// made available without them being inserted into the map's contents.
     Named(KString),
     /// A test function
@@ -255,7 +255,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
     Ok(result)
 }
 
-// Support efficient map accesses with &str
+/// Support efficient map accesses with `&str`
 impl Equivalent<MetaKey> for str {
     fn equivalent(&self, other: &MetaKey) -> bool {
         match &other {

@@ -24,6 +24,7 @@ koto_parser = { path = "../parser", version = "^0.15.0", default-features = fals
 downcast-rs = { workspace = true }
 indexmap = { workspace = true }
 rustc-hash = { workspace = true }
+saturating_cast = { workspace = true }
 smallvec = { workspace = true }
 thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }

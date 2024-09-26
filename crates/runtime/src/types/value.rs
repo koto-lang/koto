@@ -1,7 +1,10 @@
 //! The core value type used in the Koto runtime
 
 use crate::{prelude::*, KCaptureFunction, KFunction, Ptr, Result};
-use std::fmt::{self, Write};
+use std::{
+    fmt::{self, Write},
+    result::Result as StdResult,
+};
 
 /// The core Value type for Koto
 #[derive(Clone, Default)]
@@ -43,7 +46,7 @@ pub enum KValue {
     /// The iterator type used in Koto
     Iterator(KIterator),
 
-    /// An object with behaviour defined via the [KotoObject] trait
+    /// An object with behaviour defined via the [`KotoObject`] trait
     Object(KObject),
 
     /// A tuple of values that are packed into a contiguous series of registers
@@ -58,7 +61,7 @@ pub enum KValue {
 impl KValue {
     /// Returns a recursive 'deep copy' of a Value
     ///
-    /// This is used by koto.deep_copy.
+    /// This is used by `koto.deep_copy`.
     pub fn deep_copy(&self) -> Result<KValue> {
         let result = match &self {
             KValue::List(l) => {
@@ -321,7 +324,7 @@ where
     }
 }
 
-/// A slice of a VM's registers
+/// A slice of a VM's register stack
 ///
 /// See [Value::TemporaryTuple]
 #[allow(missing_docs)]
@@ -330,6 +333,85 @@ pub struct RegisterSlice {
     pub start: u8,
     pub count: u8,
 }
+
+/// If conversion fails then the input value will be returned.
+impl TryFrom<KValue> for bool {
+    type Error = KValue;
+
+    fn try_from(value: KValue) -> StdResult<Self, KValue> {
+        if let KValue::Bool(b) = value {
+            Ok(b)
+        } else {
+            Err(value)
+        }
+    }
+}
+
+macro_rules! impl_try_from_value_string {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            impl TryFrom<KValue> for $type {
+                type Error = KValue;
+
+                fn try_from(value: KValue) -> StdResult<Self, KValue> {
+                    if let KValue::Str(s) = value {
+                        Ok(s.as_str().into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_try_from_value_string_ref {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            impl<'a> TryFrom<&'a KValue> for $type {
+                type Error = &'a KValue;
+
+                fn try_from(value: &'a KValue) -> StdResult<Self, &'a KValue> {
+                    if let KValue::Str(s) = value {
+                        Ok(s.as_str().into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_try_from_value_number {
+    ($($type:ty),+) => {
+        $(
+            /// If conversion fails then the input value will be returned.
+            ///
+            /// Note that number conversions are lossy. Out of range values will be saturated to the
+            /// bounds of the output type. Conversions follow the rules of the `as` operator.
+            impl TryFrom<KValue> for $type {
+                type Error = KValue;
+
+                fn try_from(value: KValue) -> StdResult<Self, KValue> {
+                    if let KValue::Number(n) = value {
+                        Ok(n.into())
+                    } else {
+                        Err(value)
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_try_from_value_string!(String, Box<str>, std::rc::Rc<str>, std::sync::Arc<str>);
+impl_try_from_value_string_ref!(&'a str, std::borrow::Cow<'a, str>);
+impl_try_from_value_number!(
+    f32, f64, i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize
+);
 
 #[cfg(test)]
 mod tests {
@@ -340,5 +422,17 @@ mod tests {
         // All Value variants should have a size of <= 16 bytes, and with the variant flag the
         // total size of Value will be <= 24 bytes.
         assert!(std::mem::size_of::<KValue>() <= 24);
+    }
+
+    #[test]
+    fn try_from_kvalue() {
+        assert_eq!(
+            &String::try_from(KValue::from("testing")).unwrap(),
+            "testing"
+        );
+
+        assert_eq!(i32::try_from(KValue::from(-123.45)).unwrap(), -123);
+
+        assert!(matches!(bool::try_from(KValue::Null), Err(KValue::Null)));
     }
 }

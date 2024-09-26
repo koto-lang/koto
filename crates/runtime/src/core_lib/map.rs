@@ -99,23 +99,26 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("get_index", |ctx| {
-        let (map, index, default) = {
-            let expected_error = "|Map, Number|";
+        use KValue::{Map, Null, Number};
+        let expected_error = "|Map, Number|";
 
-            match map_instance_and_args(ctx, expected_error)? {
-                (KValue::Map(map), [KValue::Number(n)]) => (map, n, &KValue::Null),
-                (KValue::Map(map), [KValue::Number(n), default]) => (map, n, default),
-                (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
-                }
+        let (map, index, default) = match map_instance_and_args(ctx, expected_error)? {
+            (Map(map), [Number(n)]) => (map, n, Null),
+            (Map(map), [Number(n), default]) => (map, n, default.clone()),
+            (instance, args) => {
+                return unexpected_args_after_instance(expected_error, instance, args)
             }
         };
 
-        match map.data().get_index(index.into()) {
-            Some((key, value)) => Ok(KValue::Tuple(
-                vec![key.value().clone(), value.clone()].into(),
-            )),
-            None => Ok(default.clone()),
+        if *index >= 0 {
+            match map.data().get_index(usize::from(index)) {
+                Some((key, value)) => Ok(KValue::Tuple(
+                    vec![key.value().clone(), value.clone()].into(),
+                )),
+                None => Ok(default),
+            }
+        } else {
+            Ok(default)
         }
     });
 

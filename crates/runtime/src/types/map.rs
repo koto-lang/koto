@@ -11,14 +11,14 @@ pub type KotoHasher = FxHasher;
 
 type ValueMapType = IndexMap<ValueKey, KValue, BuildHasherDefault<KotoHasher>>;
 
-/// The (ValueKey -> Value) 'data' hashmap used by the Koto runtime
+/// The (ValueKey -> Value) 'data' hash map used by the Koto runtime
 ///
 /// See also: [KMap]
 #[derive(Clone, Default)]
 pub struct ValueMap(ValueMapType);
 
 impl ValueMap {
-    /// Creates a new DataMap with the given capacity
+    /// Creates a new map with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self(ValueMapType::with_capacity_and_hasher(
             capacity,
@@ -26,7 +26,7 @@ impl ValueMap {
         ))
     }
 
-    /// Makes a new ValueMap containing a slice of the map's elements
+    /// Creates a new map containing a slice of the map's elements
     pub fn make_data_slice(&self, range: impl RangeBounds<usize>) -> Option<Self> {
         self.get_range(range).map(|entries| {
             Self::from_iter(
@@ -58,7 +58,7 @@ impl FromIterator<(ValueKey, KValue)> for ValueMap {
     }
 }
 
-/// The core hashmap value type used in Koto, containing a [ValueMap] and a [MetaMap]
+/// The core hash map value type used in Koto, containing a [ValueMap] and a [MetaMap]
 #[derive(Clone, Default)]
 pub struct KMap {
     data: PtrMut<ValueMap>,

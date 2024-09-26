@@ -33,6 +33,8 @@ The Koto project adheres to
   - The macros in `koto_derive` have been updated to support generics.
     - `KotoField` has been added to reduce boilerplate when using the derive
       macros.
+- `TryFrom<KValue>` has been implemented for some `core` and `std` types,
+  including `bool`, string, and number types.
 
 ### Changed
 
@@ -57,6 +59,8 @@ The Koto project adheres to
 - `type_error` has been renamed to `unexpected_type`.  
   - `type_error_with_slice` has been replaced by `unexpected_args` and
     `unexpected_args_after_instance`. 
+- `From` impls for `KNumber` now saturate integer values that are out of the
+  target type's bounds, instead of wrapping.
 
 ### Removed
 
@@ -66,6 +70,7 @@ The Koto project adheres to
   IDs are now represented as AST nodes.
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
+- `KNumber::as_i64` has been removed in favour of `i64::from`.
 
 ### Fixed
 

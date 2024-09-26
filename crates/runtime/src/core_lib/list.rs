@@ -117,20 +117,25 @@ pub fn make_module() -> KMap {
 
     result.add_fn("get", |ctx| {
         let (list, index, default) = {
+            use KValue::{List, Null, Number};
             let expected_error = "|List, Number|, or |List, Number, Any|";
 
             match ctx.instance_and_args(is_list, expected_error)? {
-                (KValue::List(list), [KValue::Number(n)]) => (list, n, &KValue::Null),
-                (KValue::List(list), [KValue::Number(n), default]) => (list, n, default),
+                (List(list), [Number(n)]) => (list, n, Null),
+                (List(list), [Number(n), default]) => (list, n, default.clone()),
                 (instance, args) => {
                     return unexpected_args_after_instance(expected_error, instance, args)
                 }
             }
         };
 
-        match list.data().get::<usize>(index.into()) {
-            Some(value) => Ok(value.clone()),
-            None => Ok(default.clone()),
+        if *index >= 0 {
+            match list.data().get(usize::from(index)) {
+                Some(value) => Ok(value.clone()),
+                None => Ok(default),
+            }
+        } else {
+            Ok(default)
         }
     });
 

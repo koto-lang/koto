@@ -12,7 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// The underlying string data is shared between instances, with internal bounds allowing for shared
 /// subslices.
 ///
-/// [`AsRef`](std::convert::AsRef) is implemented for &str, which automatically resolves to the
+/// [`AsRef`](std::convert::AsRef) is implemented for `&str`, which automatically resolves to the
 /// correct slice of the string data.
 #[derive(Clone)]
 pub struct KString(Inner);
@@ -56,7 +56,7 @@ impl KString {
 
     /// Returns a new KString with shared data and bounds defined by the grapheme indices
     ///
-    /// This allows for subslicing by index, with the index referring to unicode graphemes.
+    /// This allows for subslicing by index, with the index referring to Unicode graphemes.
     ///
     /// If the provided indices are out of bounds then an empty string will be returned.
     pub fn with_grapheme_indices(&self, indices: Range<usize>) -> Self {

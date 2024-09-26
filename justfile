@@ -10,8 +10,8 @@ clippy:
 clippy_rc:
   cargo clippy -p koto_memory --no-default-features --features rc -- -D warnings
 
-doc:
-  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli
+doc *args:
+  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli {{args}}
 
 fmt:
   cargo fmt --all -- --check
