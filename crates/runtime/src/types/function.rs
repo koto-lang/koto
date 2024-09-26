@@ -5,9 +5,9 @@ use koto_memory::Ptr;
 /// A Koto function
 ///
 /// See also:
-/// * [KCaptureFunction]
-/// * [KNativeFunction](crate::KNativeFunction)
-/// * [KValue::Function](crate::KValue::Function)
+/// * [`KCaptureFunction`]
+/// * [`KNativeFunction`](crate::KNativeFunction)
+/// * [`KValue::Function`](crate::KValue::Function)
 #[derive(Clone, Debug, PartialEq)]
 pub struct KFunction {
     /// The [Chunk] in which the function can be found.
@@ -26,16 +26,20 @@ pub struct KFunction {
     pub arg_is_unpacked_tuple: bool,
     /// If the function is a generator, then calling the function will yield an iterator that
     /// executes the function's body for each iteration step, pausing when a yield instruction is
-    /// encountered. See Vm::call_generator and Iterable::Generator.
+    /// encountered.
+    ///
+    // See also:
+    // - `Vm::call_generator`
+    // - `Iterable::Generator`
     pub generator: bool,
 }
 
 /// A Koto function with captured values
 ///
 /// See also:
-/// * [KFunction]
-/// * [KNativeFunction](crate::KNativeFunction)
-/// * [KValue::CaptureFunction](crate::KValue::CaptureFunction)
+/// * [`KFunction`]
+/// * [`KNativeFunction`](crate::KNativeFunction)
+/// * [`KValue::CaptureFunction`](crate::KValue::CaptureFunction)
 #[derive(Clone)]
 pub struct KCaptureFunction {
     /// The function's properties

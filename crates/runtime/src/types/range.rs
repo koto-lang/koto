@@ -8,7 +8,7 @@ use std::{
 
 /// The integer range type used by the Koto runtime
 ///
-/// See [KValue::Range]
+/// See [`KValue::Range`]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct KRange(Inner);
 

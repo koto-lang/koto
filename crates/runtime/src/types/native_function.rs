@@ -17,7 +17,7 @@ impl<T> KotoFunction for T where
 
 /// An function that's defined outside of the Koto runtime
 ///
-/// See [KValue::NativeFunction]
+/// See [`KValue::NativeFunction`]
 pub struct KNativeFunction {
     /// The function implementation that should be called when calling the external function
     //

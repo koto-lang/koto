@@ -58,8 +58,8 @@ pub trait KotoEntries {
 
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
-/// [KotoObject]s are added to the Koto runtime by the [KObject] type, and stored as
-/// [KValue::Object]s.
+/// [`KotoObject`]s are added to the Koto runtime by the [KObject] type, and stored as
+/// [`KValue::Object`]s.
 ///
 /// ## Example
 ///
@@ -116,7 +116,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     ///
     /// By default, the object's type is used as the display string.
     ///
-    /// The [DisplayContext] is used to append strings to the result, and also provides context
+    /// The [`DisplayContext`] is used to append strings to the result, and also provides context
     /// about any parent containers.
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.type_string());
@@ -132,14 +132,15 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
 
     /// Called when checking for the number of elements contained in the object
     ///
-    /// The size should represent the maximum valid index that can be passed to [KotoObject::index].
+    /// The size should represent the maximum valid index that can be passed to
+    /// [`KotoObject::index`].
     ///
     /// The runtime defers to this function when the 'size' of an object is needed,
     /// e.g. when `koto.size` is called, or when unpacking function arguments.
     ///
     /// The `Indexable` type hint will pass for objects with a defined size.
     ///
-    /// See also: [KotoObject::index]
+    /// See also: [`KotoObject::index`]
     fn size(&self) -> Option<usize> {
         None
     }
@@ -147,14 +148,14 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// Declares to the runtime whether or not the object is callable
     ///
     /// The `Callable` type hint defers to the function, expecting `true` to be returned for objects
-    /// that implement [KotoObject::call].
+    /// that implement [`KotoObject::call`].
     fn is_callable(&self) -> bool {
         false
     }
 
     /// Allows the object to behave as a function
     ///
-    /// Objects that implement `call` should return `true` from [KotoObject::call].
+    /// Objects that implement `call` should return `true` from [`KotoObject::call`].
     fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
         unimplemented_error("@||", self.type_string())
     }
@@ -254,30 +255,30 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
 
     /// Returns an iterator that iterates over the objects contents
     ///
-    /// If [IsIterable::Iterable] is returned from [is_iterable](Self::is_iterable),
+    /// If [`IsIterable::Iterable`] is returned from [`is_iterable`](Self::is_iterable),
     /// then the runtime will call this function when the object is used in iterable contexts,
-    /// expecting a [KIterator] to be returned.
+    /// expecting a [`KIterator`] to be returned.
     fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
         unimplemented_error("@iterator", self.type_string())
     }
 
     /// Gets the object's next value in an iteration
     ///
-    /// If either [ForwardIterator][IsIterable::ForwardIterator] or
-    /// [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
+    /// If either [`ForwardIterator`][IsIterable::ForwardIterator] or
+    /// [`BidirectionalIterator`][IsIterable::BidirectionalIterator] is returned from
+    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [KIterator::next] is invoked.
+    /// [`KIterator::next`] is invoked.
     fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         None
     }
 
     /// Gets the object's next value from the end of an iteration
     ///
-    /// If [BidirectionalIterator][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [KIterator]
+    /// If [`BidirectionalIterator`][IsIterable::BidirectionalIterator] is returned from
+    /// [`is_iterable`](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
     /// whenever it's used in an iterable context. This function will then be called each time
-    /// [KIterator::next_back] is invoked.
+    /// [`KIterator::next_back`] is invoked.
     fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
         None
     }
@@ -285,7 +286,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
 
 impl_downcast!(KotoObject);
 
-/// A wrapper for [KotoObject]s used in the Koto runtime
+/// A [`KotoObject`] wrapper used in the Koto runtime
 #[derive(Clone)]
 pub struct KObject {
     object: PtrMut<dyn KotoObject>,
@@ -367,10 +368,10 @@ impl fmt::Debug for KObject {
     }
 }
 
-/// A trait that represents the basic requirements of fields in a type that implements [KotoObject]
+/// A trait that represents the basic requirements of fields in a type that implements [`KotoObject`]
 ///
 /// This is useful for reducing repetitive duplication in bounds when implementing a generic
-/// [KotoObject] type .
+/// [KotoObject] type.
 pub trait KotoField: Clone + KotoSend + KotoSync + 'static {}
 impl<T> KotoField for T where T: Clone + KotoSend + KotoSync + 'static {}
 
@@ -390,7 +391,7 @@ pub struct MethodContext<'a, T> {
     //    reference from the VM, disallowing a mutable reference.
     pub vm: &'a KotoVm,
     // The instance of the object for the method call,
-    // accessable via the context's `instance`/`instance_mut` functions
+    // accessible via the context's `instance`/`instance_mut` functions
     object: &'a KObject,
     // We want to be able to cast to `T`.
     _phantom: PhantomData<T>,
@@ -431,7 +432,7 @@ fn unimplemented_error<T>(fn_name: &'static str, object_type: KString) -> Result
     })
 }
 
-/// An enum that indicates to the runtime if a [KotoObject] is iterable
+/// An enum that indicates to the runtime if a [`KotoObject`] is iterable
 pub enum IsIterable {
     /// The object is not iterable
     NotIterable,

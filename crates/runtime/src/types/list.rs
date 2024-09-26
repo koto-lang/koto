@@ -1,9 +1,9 @@
 use crate::{prelude::*, Borrow, BorrowMut, PtrMut, Result};
 
-/// The underlying Vec type used by [KList]
+/// The underlying `Vec` type used by [KList]
 pub type ValueVec = smallvec::SmallVec<[KValue; 4]>;
 
-/// The Koto runtime's List type
+/// The List type used by the Koto runtime
 #[derive(Clone, Default)]
 pub struct KList(PtrMut<ValueVec>);
 

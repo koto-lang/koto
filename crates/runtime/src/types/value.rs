@@ -43,7 +43,7 @@ pub enum KValue {
     /// The iterator type used in Koto
     Iterator(KIterator),
 
-    /// An object with behaviour defined via the [KotoObject] trait
+    /// An object with behaviour defined via the [`KotoObject`] trait
     Object(KObject),
 
     /// A tuple of values that are packed into a contiguous series of registers
@@ -58,7 +58,7 @@ pub enum KValue {
 impl KValue {
     /// Returns a recursive 'deep copy' of a Value
     ///
-    /// This is used by koto.deep_copy.
+    /// This is used by `koto.deep_copy`.
     pub fn deep_copy(&self) -> Result<KValue> {
         let result = match &self {
             KValue::List(l) => {
@@ -321,7 +321,7 @@ where
     }
 }
 
-/// A slice of a VM's registers
+/// A slice of a VM's register stack
 ///
 /// See [Value::TemporaryTuple]
 #[allow(missing_docs)]
