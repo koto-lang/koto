@@ -425,7 +425,18 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
         self.object.cast_mut::<T>()
     }
 
-    /// Helper for methods that need to return a clone of the instance as the method result
+    /// Returns a clone of the instance as a [KValue]
+    ///
+    /// This is useful for builder methods.
+    /// e.g.
+    ///
+    /// ```koto
+    /// make_foo()
+    ///   .set_x 99
+    ///   .set_y 123
+    /// ```
+    ///
+    /// Here `set_x` and `set_y` would use `instance_result` to allow the builder chain to continue.
     pub fn instance_result(&self) -> Result<KValue> {
         Ok(self.object.clone().into())
     }

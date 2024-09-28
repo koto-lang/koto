@@ -1,3 +1,5 @@
+use koto_memory::Ptr;
+
 use crate::{prelude::*, vm::ReturnOrYield, Error, PtrMut, Result};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
@@ -128,6 +130,11 @@ impl KIterator {
     /// Creates a new KIterator from an Object that implements [KotoIterator]
     pub fn with_object(vm: KotoVm, o: KObject) -> Result<Self> {
         Ok(Self::new(ObjectIterator::new(vm, o)?))
+    }
+
+    /// Creates a new KIterator from a sequence of `u8` bytes
+    pub fn with_bytes(bytes: Ptr<[u8]>) -> Result<Self> {
+        Ok(Self::new(ByteIterator::new(bytes)))
     }
 
     /// Creates a new KIterator that yields a value once
@@ -665,5 +672,62 @@ where
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
+    }
+}
+
+#[derive(Clone)]
+struct ByteIterator {
+    bytes: Ptr<[u8]>,
+    index: usize,
+    end: usize,
+}
+
+impl ByteIterator {
+    fn new(bytes: Ptr<[u8]>) -> Self {
+        let end = bytes.len();
+        Self {
+            bytes,
+            index: 0,
+            end,
+        }
+    }
+}
+
+impl KotoIterator for ByteIterator {
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
+    }
+
+    fn is_bidirectional(&self) -> bool {
+        true
+    }
+
+    fn next_back(&mut self) -> Option<KIteratorOutput> {
+        if self.end > self.index {
+            self.end -= 1;
+            let result = (self.bytes)[self.index];
+            Some(result.into())
+        } else {
+            None
+        }
+    }
+}
+
+impl Iterator for ByteIterator {
+    type Item = KIteratorOutput;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.end > self.index {
+            let result = (self.bytes)[self.index];
+            self.index += 1;
+            Some(result.into())
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.bytes.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
