@@ -1,5 +1,8 @@
 //! The `os` core library module
 
+mod command;
+
+use self::command::Command;
 use crate::{derive::*, prelude::*, Result};
 use chrono::prelude::*;
 use instant::Instant;
@@ -9,6 +12,11 @@ pub fn make_module() -> KMap {
     use KValue::Number;
 
     let result = KMap::with_type("core.os");
+
+    result.add_fn("command", |ctx| match ctx.args() {
+        [KValue::Str(command)] => Ok(Command::make_value(command)),
+        unexpected => unexpected_args("|String|", unexpected),
+    });
 
     result.add_fn("name", |ctx| match ctx.args() {
         [] => Ok(std::env::consts::OS.into()),
