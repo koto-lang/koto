@@ -398,6 +398,21 @@ x
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn missing_value_on_rhs() {
+                let script = "\
+1 + foo
+#   ^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 7 },
+                    },
+                );
+            }
         }
 
         mod iterators {
@@ -555,6 +570,46 @@ x.insert (1, [2, 3]), 'hello'
 ";
                 check_script_fails(script);
             }
+
+            #[test]
+            fn missing_entry() {
+                let script = "\
+foo = {}
+foo.missing_entry()
+#   ^^^^^^^^^^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 1, column: 4 },
+                        end: Position {
+                            line: 1,
+                            column: 17,
+                        },
+                    },
+                )
+            }
+
+            #[test]
+            fn missing_entry_on_new_line() {
+                let script = "\
+foo = {bar: {}}
+foo
+  .bar
+  .missing_entry()
+#  ^^^^^^^^^^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 3, column: 3 },
+                        end: Position {
+                            line: 3,
+                            column: 16,
+                        },
+                    },
+                )
+            }
         }
 
         mod meta_maps {
@@ -609,6 +664,24 @@ x = '{foo}'
 x = r################################################################################################################################################################################################################################################################'foo'################################################################################################################################################################################################################################################################
 ";
                 check_script_fails(script);
+            }
+
+            #[test]
+            fn invalid_string_op_on_new_line() {
+                // Check that the span is correct for invalid string ops
+
+                let script = "\
+'testing'
+  .xxxx()
+#  ^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 1, column: 3 },
+                        end: Position { line: 1, column: 7 },
+                    },
+                )
             }
         }
     }
