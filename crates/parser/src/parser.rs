@@ -1861,7 +1861,7 @@ impl<'source> Parser<'source> {
             return self.error(InternalError::ExpectedMapColon);
         }
 
-        let mut entries = vec![(first_key, Some(self.consume_map_block_value()?))];
+        let mut entries = astvec![(first_key, Some(self.consume_map_block_value()?))];
 
         let block_context = ExpressionContext::permissive()
             .with_expected_indentation(Indentation::Equal(start_indent));
@@ -1919,8 +1919,10 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn parse_comma_separated_map_entries(&mut self) -> Result<Vec<(AstIndex, Option<AstIndex>)>> {
-        let mut entries = Vec::new();
+    fn parse_comma_separated_map_entries(
+        &mut self,
+    ) -> Result<AstVec<(AstIndex, Option<AstIndex>)>> {
+        let mut entries = AstVec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
 
         while self.peek_token_with_context(&entry_context).is_some() {
