@@ -20,8 +20,8 @@ nested:
   number: -1.2
 
 entries:
-  - foo: bar
-  - foo: baz
+- foo: bar
+- foo: baz
 '
 
 result = yaml.from_string data
@@ -56,12 +56,12 @@ data =
   )
 
 print! yaml.to_string data
-check! ---
-check! string: ">_>"
+check! string: '>_>'
 check! nested:
 check!   number: 99
 check! entries:
-check!   - foo: bar
-check!   - foo: baz
+check! - foo: bar
+check! - foo: baz
 check! 
 ```
+

@@ -65,8 +65,8 @@ rustyline = "13.0.0"
 serde = "1.0.0"
 # JSON support for serde
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
-# YAML support for serde
-serde_yaml = "0.8.20"
+# YAML data format for serde
+serde_yaml_ng = "0.10.0"
 # 'Small vector' optimization: store up to a small number of items on the stack
 smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
 # Parser for Rust source code

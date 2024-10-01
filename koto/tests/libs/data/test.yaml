@@ -8,5 +8,5 @@ nested:
   string: hello
 
 entries:
-  - foo: bar
-  - foo: baz
+- foo: bar
+- foo: baz

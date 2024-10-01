@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto", "yaml"]
 
 [dependencies]
-serde_yaml = { workspace = true }
+serde_yaml_ng = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
