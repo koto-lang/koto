@@ -2,9 +2,9 @@
 
 use koto_runtime::{prelude::*, Result};
 use koto_serialize::SerializableValue;
-use serde_yaml::Value as YamlValue;
+use serde_yaml_ng::Value as YamlValue;
 
-pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<KValue> {
+pub fn yaml_value_to_koto_value(value: &YamlValue) -> Result<KValue> {
     let result = match value {
         YamlValue::Null => KValue::Null,
         YamlValue::Bool(b) => KValue::Bool(*b),
@@ -37,6 +37,20 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<KValue> {
             }
             KValue::Map(map)
         }
+        YamlValue::Tagged(tagged_value) => {
+            let map = KMap::with_type("TaggedValue");
+
+            let tag = tagged_value.tag.to_string();
+            let tag = match tag.strip_prefix("!") {
+                Some(stripped) => stripped.to_string(),
+                None => tag,
+            };
+
+            map.insert("tag", tag);
+            map.insert("value", yaml_value_to_koto_value(value)?);
+
+            KValue::Map(map)
+        }
     };
 
     Ok(result)
@@ -46,7 +60,7 @@ pub fn make_module() -> KMap {
     let result = KMap::with_type("yaml");
 
     result.add_fn("from_string", |ctx| match ctx.args() {
-        [KValue::Str(s)] => match serde_yaml::from_str(s) {
+        [KValue::Str(s)] => match serde_yaml_ng::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("Error while parsing input: {}", e),
@@ -57,7 +71,7 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("to_string", |ctx| match ctx.args() {
-        [value] => match serde_yaml::to_string(&SerializableValue(value)) {
+        [value] => match serde_yaml_ng::to_string(&SerializableValue(value)) {
             Ok(result) => Ok(result.into()),
             Err(e) => runtime_error!("yaml.to_string: {}", e),
         },

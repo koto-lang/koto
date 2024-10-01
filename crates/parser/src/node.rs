@@ -107,7 +107,7 @@ pub enum Node {
     /// Keys will either be Id, String, or Meta nodes.
     ///
     /// Values are optional for inline maps.
-    Map(Vec<(AstIndex, Option<AstIndex>)>),
+    Map(AstVec<(AstIndex, Option<AstIndex>)>),
 
     /// The `self` keyword
     Self_,

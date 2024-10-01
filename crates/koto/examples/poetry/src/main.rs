@@ -4,11 +4,16 @@ mod poetry;
 use anyhow::{bail, Context, Result};
 use hotwatch::{
     blocking::{Flow, Hotwatch},
-    Event,
+    notify::event::ModifyKind,
+    Event, EventKind,
 };
 use koto::{Koto, KotoSettings};
 use poetry::*;
-use std::{fs, path::Path, time::Duration};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 fn version_string() -> String {
     format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
@@ -87,21 +92,21 @@ fn main() -> Result<()> {
         .insert("poetry", koto_bindings::make_module());
     koto.prelude().insert("random", koto_random::make_module());
 
-    let script_path = Path::new(&args.script);
-    koto.set_script_path(Some(script_path))
+    let script_path = PathBuf::from(args.script);
+    koto.set_script_path(Some(&script_path))
         .expect("Failed to set script path");
 
     if args.watch {
-        if let Err(e) = compile_and_run(&mut koto, script_path) {
+        if let Err(e) = compile_and_run(&mut koto, &script_path) {
             eprintln!("{e}");
         }
 
         let mut hotwatch = Hotwatch::new_with_custom_delay(Duration::from_secs_f64(0.25))
             .context("Failed to initialize file watcher")?;
         hotwatch
-            .watch(&args.script, move |event: Event| {
-                match event {
-                    Event::Create(script_path) | Event::Write(script_path) => {
+            .watch(script_path.clone(), move |event: Event| {
+                match event.kind {
+                    EventKind::Create(_) | EventKind::Modify(ModifyKind::Data(_)) => {
                         if let Err(error) = compile_and_run(&mut koto, &script_path) {
                             eprintln!("{error}");
                         }
@@ -114,7 +119,7 @@ fn main() -> Result<()> {
         hotwatch.run();
         Ok(())
     } else {
-        compile_and_run(&mut koto, script_path)
+        compile_and_run(&mut koto, &script_path)
     }
 }
 
