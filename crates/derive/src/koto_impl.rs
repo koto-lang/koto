@@ -1,4 +1,3 @@
-use crate::PREFIX_FUNCTION;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -6,6 +5,8 @@ use syn::{
     Generics, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType, Signature,
     Type, TypePath,
 };
+
+const PREFIX_FUNCTION: &str = "__koto_";
 
 struct KotoImplParser {
     runtime_path: Path,
