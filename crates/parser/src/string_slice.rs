@@ -1,5 +1,5 @@
 use koto_memory::Ptr;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 /// String data with bounds
 ///
@@ -98,9 +98,17 @@ impl From<String> for StringSlice {
     }
 }
 
+impl Deref for StringSlice {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl AsRef<str> for StringSlice {
     fn as_ref(&self) -> &str {
-        self.as_str()
+        self.deref()
     }
 }
 
