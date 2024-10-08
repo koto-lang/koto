@@ -35,13 +35,6 @@ impl KString {
         Self::from(EMPTY_STRING.with(|s| s.clone()))
     }
 
-    /// Initializes a new KString with the provided data and bounds
-    ///
-    /// If the bounds aren't valid for the data then `None` is returned.
-    pub fn new_with_bounds(string: Ptr<str>, bounds: Range<usize>) -> Option<Self> {
-        StringSlice::new(string, bounds).map(Self::from)
-    }
-
     /// Returns a new KString with shared data and new bounds
     ///
     /// If the bounds aren't valid for the string then `None` is returned.
