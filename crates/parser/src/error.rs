@@ -203,7 +203,7 @@ pub enum SyntaxError {
     UnterminatedString,
 }
 
-/// See [ParserError]
+/// See [`ParserError`]
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ErrorKind {

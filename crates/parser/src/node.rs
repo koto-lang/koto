@@ -2,19 +2,19 @@ use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, St
 use smallvec::SmallVec;
 use std::fmt;
 
-/// The vec type used in the AST
+/// The Vec type used in the AST
 //
-//  Q. Why 4 elements in the small vec?
+//  Q. Why 4 elements in the small Vec?
 //  A. It's the maximum number of elements that can be used in [Node] without increasing its overall
 //     size.
 pub type AstVec<T> = SmallVec<[T; 4]>;
 
-/// A convenience macro for initializing [AstVec]s
+/// A convenience macro for initializing an [`AstVec`]
 pub use smallvec::smallvec as astvec;
 
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
-/// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
+/// Nodes refer to each other via [`AstIndex`], see [`AstNode`](crate::AstNode).
 #[derive(Clone, Debug, Default, PartialEq, Eq, derive_name::VariantName)]
 pub enum Node {
     /// The `null` keyword
@@ -24,14 +24,14 @@ pub enum Node {
     /// A single expression wrapped in parentheses
     Nested(AstIndex),
 
-    /// An identifer, and optionally the type hint node
+    /// An identifier, and optionally the type hint node
     Id(ConstantIndex, Option<AstIndex>),
 
     /// A meta identifier, e.g. `@display` or `@test my_test`
     Meta(MetaKeyId, Option<ConstantIndex>),
 
     /// A chained expression, and optionally the node that follows it in the chain
-    Chain((ChainNode, Option<AstIndex>)), // chain node, next node
+    Chain((ChainNode, Option<AstIndex>)), // Chain node, next node
 
     /// The `true` keyword
     BoolTrue,
@@ -53,12 +53,12 @@ pub enum Node {
 
     /// A list literal
     ///
-    /// e.g. `[foo, bar, 42]`
+    /// E.g. `[foo, bar, 42]`
     List(AstVec<AstIndex>),
 
     /// A tuple literal
     ///
-    /// e.g. `(foo, bar, 42)`
+    /// E.g. `(foo, bar, 42)`
     ///
     /// Note that this is also used for implicit tuples, e.g. in `x = 1, 2, 3`
     Tuple(AstVec<AstIndex>),
@@ -78,8 +78,8 @@ pub enum Node {
         end: AstIndex,
         /// Whether or not the end of the range includes the end value itself
         ///
-        /// e.g. `1..10` - a range from 1 up to but not including 10
-        /// e.g. `1..=10` - a range from 1 up to and including 10
+        /// E.g. `1..10` - a range from 1 up to but not including 10
+        /// E.g. `1..=10` - a range from 1 up to and including 10
         inclusive: bool,
     },
 
@@ -128,7 +128,7 @@ pub enum Node {
     /// A block node
     ///
     /// Used for indented blocks that share the context of the frame they're in,
-    /// e.g. if expressions, arms in match or switch experssions, loop bodies
+    /// e.g. if expressions, arms in match or switch expressions, loop bodies.
     Block(AstVec<AstIndex>),
 
     /// A function node
@@ -136,7 +136,7 @@ pub enum Node {
 
     /// An import expression
     ///
-    /// e.g. `from foo.bar import baz, 'qux'
+    /// E.g. `from foo.bar import baz, 'qux'`
     Import {
         /// Where the items should be imported from
         ///
@@ -163,7 +163,7 @@ pub enum Node {
 
     /// A multiple-assignment expression
     ///
-    /// e.g. `x, y = foo()`, or `foo, bar, baz = 1, 2, 3`
+    /// E.g. `x, y = foo()`, or `foo, bar, baz = 1, 2, 3`
     MultiAssign {
         /// The targets of the assignment
         targets: AstVec<AstIndex>,
@@ -269,7 +269,7 @@ pub enum Node {
 
     /// A type hint
     ///
-    /// e.g. `let x: Number = 0`
+    /// E.g. `let x: Number = 0`
     ///            ^~~ This is the beginning of the type hint
     Type(ConstantIndex),
 }

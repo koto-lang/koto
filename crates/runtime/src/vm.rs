@@ -88,13 +88,13 @@ pub struct KotoVmSettings {
     /// reload the script when one of its dependencies has changed.
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
 
-    /// The runtime's stdin
+    /// The runtime's `stdin`
     pub stdin: Ptr<dyn KotoFile>,
 
-    /// The runtime's stdout
+    /// The runtime's `stdout`
     pub stdout: Ptr<dyn KotoFile>,
 
-    /// The runtime's stderr
+    /// The runtime's `stderr`
     pub stderr: Ptr<dyn KotoFile>,
 }
 
@@ -169,7 +169,7 @@ impl KotoVm {
 
     /// Spawn a VM that shares the same execution context
     ///
-    /// e.g.
+    /// E.g.
     ///   - An iterator spawns a shared VM that can be used to execute functors
     ///   - A generator function spawns a shared VM to yield incremental results
     ///   - Thrown errors spawn a shared VM to display an error from a custom error type
@@ -211,17 +211,17 @@ impl KotoVm {
         &mut self.exports
     }
 
-    /// The stdin wrapper used by the VM
+    /// The `stdin` wrapper used by the VM
     pub fn stdin(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stdin
     }
 
-    /// The stdout wrapper used by the VM
+    /// The `stdout` wrapper used by the VM
     pub fn stdout(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stdout
     }
 
-    /// The stderr wrapper used by the VM
+    /// The `stderr` wrapper used by the VM
     pub fn stderr(&self) -> &Ptr<dyn KotoFile> {
         &self.context.settings.stderr
     }
@@ -231,8 +231,8 @@ impl KotoVm {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
-        self.registers.push(KValue::Null); // result register
-        self.registers.push(KValue::Null); // instance register
+        self.registers.push(KValue::Null); // Result register
+        self.registers.push(KValue::Null); // Instance register
         self.push_frame(chunk, 0, frame_base, result_register);
 
         // Ensure that execution stops here if an error is thrown
@@ -299,8 +299,8 @@ impl KotoVm {
         let result_register = self.next_register();
         let frame_base = result_register + 1;
 
-        self.registers.push(KValue::Null); // result register
-        self.registers.push(instance.unwrap_or_default()); // frame base
+        self.registers.push(KValue::Null); // Result register
+        self.registers.push(instance.unwrap_or_default()); // Frame base
         let (arg_count, temp_tuple_values) = match args {
             CallArgs::Single(arg) => {
                 self.registers.push(arg);
@@ -327,8 +327,8 @@ impl KotoVm {
                 match &function {
                     KValue::Function(f) if f.arg_is_unpacked_tuple => {
                         let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
-                            // The unpacked tuple contents go into the registers after the
-                            // the temp tuple and instance registers.
+                            // The unpacked tuple's contents go into the registers after the
+                            // temp tuple and instance registers.
                             start: 2,
                             count: args.len() as u8,
                         });
@@ -404,8 +404,8 @@ impl KotoVm {
         let result_register = self.next_register();
         let value_register = result_register + 1;
 
-        self.registers.push(KValue::Null); // result_register
-        self.registers.push(value); // value_register
+        self.registers.push(KValue::Null); // `result_register`
+        self.registers.push(value); // `value_register`
 
         match op {
             Display => self.run_display(result_register, value_register)?,
@@ -454,7 +454,7 @@ impl KotoVm {
         let lhs_register = result_register + 1;
         let rhs_register = result_register + 2;
 
-        self.registers.push(KValue::Null); // result register
+        self.registers.push(KValue::Null); // Result register
         self.registers.push(lhs);
         self.registers.push(rhs);
 
@@ -566,7 +566,7 @@ impl KotoVm {
         use KValue::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
-        // to the internal test map data while calling the test functions, otherwise we'll end up in
+        // to the internal test map data while calling the test functions. Otherwise we'll end up in
         // deadlocks when the map needs to be modified (e.g. in pre or post test functions).
 
         let (pre_test, post_test, meta_entry_count) = match tests.meta_map() {
@@ -1026,7 +1026,7 @@ impl KotoVm {
     // This function is distinct from the public `make_iterator`, which will defer to this function
     // when the input value implements @iterator.
     //
-    // temp_iterator is used for temporary unpacking operations.
+    // `temp_iterator` is used for temporary unpacking operations.
     fn run_make_iterator(
         &mut self,
         result_register: u8,
@@ -1383,7 +1383,7 @@ impl KotoVm {
 
     fn run_capture_value(&mut self, function: u8, capture_index: u8, value: u8) -> Result<()> {
         let Some(function) = self.get_register_safe(function) else {
-            // e.g. x = (1..10).find |n| n == x
+            // E.g. `x = (1..10).find |n| n == x`
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
@@ -2018,8 +2018,8 @@ impl KotoVm {
 
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
-        self.registers.push(self.clone_register(lhs_register)); // frame_base
-        self.registers.push(rhs); // arg
+        self.registers.push(self.clone_register(lhs_register)); // Frame base
+        self.registers.push(rhs); // The rhs goes in the first arg register
         self.call_callable(
             &CallInfo {
                 result_register,
@@ -2144,11 +2144,11 @@ impl KotoVm {
             _ => {}
         }
 
-        // The module needs to be loaded, which involves the following steps:
-        //   - Execute the module's script
-        //   - If the module contains @tests, run them
-        //   - If the module contains a @main function, run it
-        //   - If the steps above are successful, then cache the resulting exports map
+        // The module needs to be loaded, which involves the following steps.
+        //   - Execute the module's script.
+        //   - If the module contains @tests, run them.
+        //   - If the module contains a @main function, run it.
+        //   - If the steps above are successful, then cache the resulting exports map.
 
         // Insert a placeholder for the new module, preventing recursive imports
         self.context
@@ -2302,7 +2302,7 @@ impl KotoVm {
             (Tuple(t), Range(range)) => {
                 let indices = range.indices(t.len());
                 let Some(result) = t.make_sub_tuple(indices) else {
-                    // range.indices is guaranteed to return valid indices for the tuple
+                    // `range.indices` is guaranteed to return valid indices for the tuple
                     unreachable!();
                 };
                 Tuple(result)

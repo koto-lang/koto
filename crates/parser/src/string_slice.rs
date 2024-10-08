@@ -1,5 +1,5 @@
 use koto_memory::Ptr;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 /// String data with bounds
 ///
@@ -11,7 +11,7 @@ pub struct StringSlice {
 }
 
 impl StringSlice {
-    /// Initalizes a string slice with the given string data and bounds
+    /// Initializes a string slice with the given string data and bounds
     ///
     /// If the bounds aren't valid for the given string data then None is returned.
     pub fn new(string: Ptr<str>, bounds: Range<usize>) -> Option<Self> {
@@ -25,11 +25,11 @@ impl StringSlice {
         }
     }
 
-    /// Initalizes a string slice with the given string data and bounds
+    /// Initializes a string slice with the given string data and bounds
     ///
     /// # Safety
     /// Care must be taken to ensure that the bounds are valid within the provided string,
-    /// i.e. string.get(bounds).is_some() must be true.
+    /// i.e. `string.get(bounds).is_some()` must be true.
     pub unsafe fn new_unchecked(string: Ptr<str>, bounds: Range<usize>) -> Self {
         Self {
             data: string,
@@ -98,9 +98,17 @@ impl From<String> for StringSlice {
     }
 }
 
+impl Deref for StringSlice {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl AsRef<str> for StringSlice {
     fn as_ref(&self) -> &str {
-        self.as_str()
+        self.deref()
     }
 }
 

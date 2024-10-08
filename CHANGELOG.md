@@ -15,7 +15,7 @@ The Koto project adheres to
 - Type hints with runtime type checks have been added ([#298](https://github.com/koto-lang/koto/issues/298)).
   - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
 - `export` can be used with multi-assignment expressions.
-  - e.g. expressions like `export a, b, c = foo()` are now allowed.
+  - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.
 - Objects that implement `KotoObject::call` can now be used in operations that
   expect functions.
@@ -61,6 +61,7 @@ The Koto project adheres to
     `unexpected_args_after_instance`. 
 - `From` impls for `KNumber` now saturate integer values that are out of the
   target type's bounds, instead of wrapping.
+- `KString` will now inline short strings to reduce allocations.
 
 ### Removed
 

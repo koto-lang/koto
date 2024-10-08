@@ -7,7 +7,7 @@ pub struct DefaultStdin {}
 
 impl KotoFile for DefaultStdin {
     fn id(&self) -> KString {
-        STDIN_ID.with(|id| id.clone())
+        "_stdin_".into()
     }
 }
 
@@ -35,7 +35,7 @@ pub struct DefaultStdout {}
 
 impl KotoFile for DefaultStdout {
     fn id(&self) -> KString {
-        STDOUT_ID.with(|id| id.clone())
+        "_stdout_".into()
     }
 }
 
@@ -63,7 +63,7 @@ pub struct DefaultStderr {}
 
 impl KotoFile for DefaultStderr {
     fn id(&self) -> KString {
-        STDERR_ID.with(|id| id.clone())
+        "_stderr_".into()
     }
 }
 
@@ -83,10 +83,4 @@ impl KotoWrite for DefaultStderr {
     fn flush(&self) -> Result<(), Error> {
         io::stdout().flush().map_err(map_io_err)
     }
-}
-
-thread_local! {
-    static STDIN_ID: KString = "_stdin_".into();
-    static STDOUT_ID: KString = "_stdout_".into();
-    static STDERR_ID: KString = "_stderr_".into();
 }

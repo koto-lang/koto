@@ -156,34 +156,33 @@ impl KValue {
     /// Returns the value's type as a [KString]
     pub fn type_as_string(&self) -> KString {
         use KValue::*;
+
         match &self {
-            Null => TYPE_NULL.with(|x| x.clone()),
-            Bool(_) => TYPE_BOOL.with(|x| x.clone()),
-            Number(_) => TYPE_NUMBER.with(|x| x.clone()),
-            List(_) => TYPE_LIST.with(|x| x.clone()),
-            Range { .. } => TYPE_RANGE.with(|x| x.clone()),
+            Null => "Null".into(),
+            Bool(_) => "Bool".into(),
+            Number(_) => "Number".into(),
+            List(_) => "List".into(),
+            Range { .. } => "Range".into(),
             Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s,
                 Some(_) => "Error: expected string as result of @type".into(),
                 None => match m.get_meta_value(&MetaKey::Base) {
                     Some(base @ Map(_)) => base.type_as_string(),
-                    _ => TYPE_OBJECT.with(|x| x.clone()),
+                    _ => "Object".into(),
                 },
             },
-            Map(_) => TYPE_MAP.with(|x| x.clone()),
-            Str(_) => TYPE_STRING.with(|x| x.clone()),
-            Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
-            Function(f) if f.generator => TYPE_GENERATOR.with(|x| x.clone()),
-            CaptureFunction(f) if f.info.generator => TYPE_GENERATOR.with(|x| x.clone()),
-            Function(_) | CaptureFunction(_) | NativeFunction(_) => {
-                TYPE_FUNCTION.with(|x| x.clone())
-            }
+            Map(_) => "Map".into(),
+            Str(_) => "String".into(),
+            Tuple(_) => "Tuple".into(),
+            Function(f) if f.generator => "Generator".into(),
+            CaptureFunction(f) if f.info.generator => "Generator".into(),
+            Function(_) | CaptureFunction(_) | NativeFunction(_) => "Function".into(),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
                 |o| o.type_string(),
             ),
-            Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
-            TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
+            Iterator(_) => "Iterator".into(),
+            TemporaryTuple { .. } => "Temporary_tuple".into(),
         }
     }
 
@@ -213,22 +212,6 @@ impl KValue {
             runtime_error!("Failed to write to string")
         }
     }
-}
-
-thread_local! {
-    static TYPE_NULL: KString = "Null".into();
-    static TYPE_BOOL: KString = "Bool".into();
-    static TYPE_NUMBER: KString = "Number".into();
-    static TYPE_LIST: KString = "List".into();
-    static TYPE_RANGE: KString = "Range".into();
-    static TYPE_MAP: KString = "Map".into();
-    static TYPE_OBJECT: KString = "Object".into();
-    static TYPE_STRING: KString = "String".into();
-    static TYPE_TUPLE: KString = "Tuple".into();
-    static TYPE_FUNCTION: KString = "Function".into();
-    static TYPE_GENERATOR: KString = "Generator".into();
-    static TYPE_ITERATOR: KString = "Iterator".into();
-    static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
 }
 
 impl fmt::Debug for KValue {

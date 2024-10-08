@@ -52,7 +52,7 @@ enum ConstantEntry {
     F64(f64),
     // An i64 constant
     I64(i64),
-    // The range in bytes in the ConstantPool's string data for a string constant
+    // The range in bytes in the `ConstantPool`'s string data for a string constant
     Str(Range<usize>),
 }
 
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(ConstantIndex(0), builder.add_string(s1).unwrap());
         assert_eq!(ConstantIndex(1), builder.add_string(s2).unwrap());
 
-        // don't duplicate string_data
+        // Don't duplicate string_data
         assert_eq!(ConstantIndex(0), builder.add_string(s1).unwrap());
         assert_eq!(ConstantIndex(1), builder.add_string(s2).unwrap());
 
@@ -349,7 +349,7 @@ mod tests {
         assert_eq!(ConstantIndex(0), builder.add_i64(n1).unwrap());
         assert_eq!(ConstantIndex(1), builder.add_f64(n2).unwrap());
 
-        // don't duplicate numbers
+        // Don't duplicate numbers
         assert_eq!(ConstantIndex(0), builder.add_i64(n1).unwrap());
         assert_eq!(ConstantIndex(1), builder.add_f64(n2).unwrap());
 
