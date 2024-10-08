@@ -19,7 +19,7 @@ pub struct KString(Inner);
 
 // Either the full string, or a slice
 //
-// By heap-allocating slice bounds we can keep KString's size down to 16 bytes; otherwise it
+// By heap-allocating slice bounds we can keep `KString`s size down to 16 bytes; otherwise it
 // would have a size of 32 bytes.
 #[derive(Clone)]
 enum Inner {
@@ -75,7 +75,7 @@ impl KString {
                 // By checking against start - 1 (rather than waiting until the next iteration),
                 // we can allow for indexing from 'one past the end' to get to an empty string,
                 // which can be useful when consuming characters from a string.
-                // e.g.
+                // E.g.
                 //   x = get_string()
                 //   do_something_with_first_char x[0]
                 //   do_something_with_remaining_string x[1..]
@@ -85,7 +85,7 @@ impl KString {
             if i == end - 1 {
                 // Checking against end - 1 in the same way as for result_start,
                 // allowing for indexing one-past-the-end.
-                // e.g. assert_eq 'xyz'[1..3], 'yz'
+                // E.g. `assert_eq 'xyz'[1..3], 'yz'`
                 result_end = Some(grapheme_start + grapheme.len());
                 break;
             }
@@ -101,6 +101,10 @@ impl KString {
     }
 
     /// Removes and returns the first grapheme from the string
+    ///
+    /// Although strings are treated as immutable in Koto scripts, there are cases where it's useful
+    /// to be able to mutate the string data in place. For example, iterators can hold on to a string
+    /// and pop characters without introducing extra allocations.
     pub fn pop_front(&mut self) -> Option<Self> {
         match self.clone().graphemes(true).next() {
             Some(grapheme) => match &mut self.0 {
@@ -122,6 +126,10 @@ impl KString {
     }
 
     /// Removes and returns the last grapheme from the string
+    ///
+    /// Although strings are treated as immutable in Koto scripts, there are cases where it's useful
+    /// to be able to mutate the string data in place. For example, iterators can hold on to a string
+    /// and pop characters without introducing extra allocations.
     pub fn pop_back(&mut self) -> Option<Self> {
         match self.clone().graphemes(true).next_back() {
             Some(grapheme) => match &mut self.0 {
