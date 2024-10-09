@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-nannou_core = { workspace = true }
+glam = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"

@@ -1,5 +1,5 @@
+use glam::DVec3;
 use koto_runtime::{derive::*, prelude::*, Result};
-use nannou_core::geom::DVec3;
 use std::{fmt, ops};
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
