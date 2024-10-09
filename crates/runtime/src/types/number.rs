@@ -128,10 +128,11 @@ impl fmt::Display for KNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             KNumber::F64(n) => {
-                if n.fract() > 0.0 {
-                    write!(f, "{n}")
-                } else {
+                // Ensure that floats without fractional parts are rendered with a `.0` suffix
+                if n.fract() == 0.0 {
                     write!(f, "{n:.1}")
+                } else {
+                    write!(f, "{n}")
                 }
             }
             KNumber::I64(n) => write!(f, "{n}"),

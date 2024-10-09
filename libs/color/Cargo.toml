@@ -10,6 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
+derive_more = { workspace = true, features = ["from"] }
 palette = { workspace = true }
 
 [dependencies.koto_runtime]
