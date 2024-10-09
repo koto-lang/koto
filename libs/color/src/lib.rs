@@ -5,32 +5,55 @@ mod color;
 pub use color::Color;
 
 use koto_runtime::{prelude::*, Result};
-use palette::{Hsl, Hsv};
 
 pub fn make_module() -> KMap {
     use KValue::{Number, Str};
     let mut result = KMap::default();
 
-    result.add_fn("hsl", |ctx| match ctx.args() {
-        [Number(h), Number(s), Number(l)] => {
-            let hsv = Hsl::new(f32::from(h), f32::from(s), f32::from(l));
-            Ok(Color::from(hsv).into())
-        }
-        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
-    });
+    macro_rules! color_init_fn_3 {
+        ($name:expr, $type:path) => {
+            result.add_fn($name, |ctx| match ctx.args() {
+                [Number(c1), Number(c2), Number(c3)] => {
+                    use $type as ColorType;
+                    let result = ColorType::new(f32::from(c1), f32::from(c2), f32::from(c3));
+                    Ok(Color::from(result).into())
+                }
+                unexpected => unexpected_args("|Number, Number, Number|", unexpected),
+            });
+        };
+    }
+    macro_rules! color_init_fn_4 {
+        ($name:expr, $type:path) => {
+            result.add_fn($name, |ctx| match ctx.args() {
+                [Number(c1), Number(c2), Number(c3), Number(c4)] => {
+                    use $type as ColorType;
+                    let result =
+                        ColorType::new(f32::from(c1), f32::from(c2), f32::from(c3), f32::from(c4));
+                    Ok(Color::from(result).into())
+                }
+                unexpected => unexpected_args("|Number, Number, Number, Number|", unexpected),
+            });
+        };
+    }
 
-    result.add_fn("hsv", |ctx| match ctx.args() {
-        [Number(h), Number(s), Number(v)] => {
-            let hsv = Hsv::new(f32::from(h), f32::from(s), f32::from(v));
-            Ok(Color::from(hsv).into())
-        }
-        unexpected => unexpected_args("|Number, Number, Number|", unexpected),
-    });
+    color_init_fn_3!("hsl", palette::Hsl);
+    color_init_fn_4!("hsla", palette::Hsla);
+    color_init_fn_3!("hsv", palette::Hsv);
+    color_init_fn_4!("hsva", palette::Hsva);
 
     result.add_fn("named", |ctx| match ctx.args() {
         [Str(s)] => named(s),
         unexpected => unexpected_args("|String|", unexpected),
     });
+
+    color_init_fn_3!("okhsl", palette::Okhsl);
+    color_init_fn_4!("okhsla", palette::Okhsla);
+    color_init_fn_3!("oklab", palette::Oklab);
+    color_init_fn_4!("oklaba", palette::Oklaba);
+    color_init_fn_3!("oklch", palette::Okhsl);
+    color_init_fn_4!("oklcha", palette::Okhsla);
+    color_init_fn_3!("oklch", palette::Srgb);
+    color_init_fn_4!("oklcha", palette::Srgba);
 
     result.add_fn("rgb", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
