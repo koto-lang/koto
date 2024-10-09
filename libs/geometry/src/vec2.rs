@@ -1,7 +1,7 @@
 use koto_runtime::{derive::*, prelude::*, Result};
 use std::{fmt, ops};
 
-type Inner = nannou_core::geom::DVec2;
+type Inner = glam::DVec2;
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(use_copy)]
@@ -19,7 +19,7 @@ impl Vec2 {
 
     #[koto_method]
     fn angle(&self) -> KValue {
-        Inner::X.angle_between(self.0).into()
+        Inner::X.angle_to(self.0).into()
     }
 
     #[koto_method]

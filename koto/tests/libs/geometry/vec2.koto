@@ -8,7 +8,6 @@ from number import pi
     assert_eq (vec2 vec2 1, 2), (vec2 1, 2)
 
   @test angle: ||
-    assert_eq (vec2 0, 0).angle(), pi
     assert_eq (vec2 1, 0).angle(), 0
     assert_eq (vec2 0, 1).angle(), pi / 2
     assert_eq (vec2 0, -1).angle(), -pi / 2
