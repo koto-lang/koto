@@ -38,7 +38,7 @@ pub fn make_module() -> KMap {
     });
 
     color_init_fn!("okhsl", palette::Okhsl, palette::Okhsla);
-    color_init_fn!("oklab", palette::Oklab, palette::Oklaba);
+    color_init_fn!("okhsv", palette::Okhsv, palette::Okhsva);
     color_init_fn!("oklch", palette::Oklch, palette::Oklcha);
 
     result.add_fn("rgb", |ctx| match ctx.args() {
