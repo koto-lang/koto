@@ -10,59 +10,40 @@ pub fn make_module() -> KMap {
     use KValue::{Number, Str};
     let mut result = KMap::default();
 
-    macro_rules! color_init_fn_3 {
-        ($name:expr, $type:path) => {
+    macro_rules! color_init_fn {
+        ($name:expr, $type3:path, $type4:path) => {
             result.add_fn($name, |ctx| match ctx.args() {
                 [Number(c1), Number(c2), Number(c3)] => {
-                    use $type as ColorType;
+                    use $type3 as ColorType;
                     let result = ColorType::new(f32::from(c1), f32::from(c2), f32::from(c3));
+                    Ok(Color::from(result).into())
+                }
+                [Number(c1), Number(c2), Number(c3), Number(c4)] => {
+                    use $type4 as ColorType;
+                    let result =
+                        ColorType::new(f32::from(c1), f32::from(c2), f32::from(c3), f32::from(c4));
                     Ok(Color::from(result).into())
                 }
                 unexpected => unexpected_args("|Number, Number, Number|", unexpected),
             });
         };
     }
-    macro_rules! color_init_fn_4 {
-        ($name:expr, $type:path) => {
-            result.add_fn($name, |ctx| match ctx.args() {
-                [Number(c1), Number(c2), Number(c3), Number(c4)] => {
-                    use $type as ColorType;
-                    let result =
-                        ColorType::new(f32::from(c1), f32::from(c2), f32::from(c3), f32::from(c4));
-                    Ok(Color::from(result).into())
-                }
-                unexpected => unexpected_args("|Number, Number, Number, Number|", unexpected),
-            });
-        };
-    }
 
-    color_init_fn_3!("hsl", palette::Hsl);
-    color_init_fn_4!("hsla", palette::Hsla);
-    color_init_fn_3!("hsv", palette::Hsv);
-    color_init_fn_4!("hsva", palette::Hsva);
+    color_init_fn!("hsl", palette::Hsl, palette::Hsla);
+    color_init_fn!("hsv", palette::Hsv, palette::Hsva);
 
     result.add_fn("named", |ctx| match ctx.args() {
         [Str(s)] => named(s),
         unexpected => unexpected_args("|String|", unexpected),
     });
 
-    color_init_fn_3!("okhsl", palette::Okhsl);
-    color_init_fn_4!("okhsla", palette::Okhsla);
-    color_init_fn_3!("oklab", palette::Oklab);
-    color_init_fn_4!("oklaba", palette::Oklaba);
-    color_init_fn_3!("oklch", palette::Okhsl);
-    color_init_fn_4!("oklcha", palette::Okhsla);
-    color_init_fn_3!("oklch", palette::Srgb);
-    color_init_fn_4!("oklcha", palette::Srgba);
+    color_init_fn!("okhsl", palette::Okhsl, palette::Okhsla);
+    color_init_fn!("oklab", palette::Oklab, palette::Oklaba);
+    color_init_fn!("oklch", palette::Oklch, palette::Oklcha);
 
     result.add_fn("rgb", |ctx| match ctx.args() {
         [Number(r), Number(g), Number(b)] => rgb(r, g, b),
         unexpected => unexpected_args("|Number, Number, Number|", unexpected),
-    });
-
-    result.add_fn("rgba", |ctx| match ctx.args() {
-        [Number(r), Number(g), Number(b), Number(a)] => rgba(r, g, b, a),
-        unexpected => unexpected_args("|Number, Number, Number, Number|", unexpected),
     });
 
     let mut meta = MetaMap::default();
