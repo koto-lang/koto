@@ -2680,7 +2680,7 @@ impl Compiler {
                 }
                 ChainNode::Index(_) => {
                     let index = index.unwrap(self)?;
-                    self.push_op(SetIndex, &[container_register, index, value_register]);
+                    self.push_op(IndexMut, &[container_register, index, value_register]);
                 }
                 _ => {}
             }

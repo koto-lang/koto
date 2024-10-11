@@ -32,10 +32,10 @@ impl Color {
         s.parse::<palette::Srgb<u8>>().ok().map(Self::from)
     }
 
-    pub fn get_component(&self, n: usize) -> Option<f32> {
+    pub fn get_component(&self, index: usize) -> Option<f32> {
         use Color::*;
 
-        let result = match (self, n) {
+        let result = match (self, index) {
             (Srgb(c), 0) => c.color.red,
             (Srgb(c), 1) => c.color.green,
             (Srgb(c), 2) => c.color.blue,
@@ -60,6 +60,36 @@ impl Color {
         };
 
         Some(result)
+    }
+
+    pub fn set_component(&mut self, index: usize, value: f32) -> Result<()> {
+        use Color::*;
+
+        match (self, index) {
+            (Srgb(c), 0) => c.color.red = value,
+            (Srgb(c), 1) => c.color.green = value,
+            (Srgb(c), 2) => c.color.blue = value,
+            (Srgb(c), 3) => c.alpha = value,
+            (Hsl(c), 0) => c.color.hue = value.into(),
+            (Hsl(c), 1) => c.color.saturation = value,
+            (Hsl(c), 2) => c.color.lightness = value,
+            (Hsl(c), 3) => c.alpha = value,
+            (Hsv(c), 0) => c.color.hue = value.into(),
+            (Hsv(c), 1) => c.color.saturation = value,
+            (Hsv(c), 2) => c.color.value = value,
+            (Hsv(c), 3) => c.alpha = value,
+            (Oklab(c), 0) => c.color.l = value,
+            (Oklab(c), 1) => c.color.a = value,
+            (Oklab(c), 2) => c.color.b = value,
+            (Oklab(c), 3) => c.alpha = value,
+            (Oklch(c), 0) => c.color.l = value,
+            (Oklch(c), 1) => c.color.chroma = value,
+            (Oklch(c), 2) => c.color.hue = value.into(),
+            (Oklch(c), 3) => c.alpha = value,
+            _ => return runtime_error!("Invalid component index ({index})"),
+        }
+
+        Ok(())
     }
 
     pub fn color_space_str(&self) -> &str {
@@ -171,6 +201,20 @@ impl KotoObject for Color {
                 None => runtime_error!("index out of range ({n}, should be <= 3)"),
             },
             unexpected => unexpected_type("Number", unexpected),
+        }
+    }
+
+    fn size(&self) -> Option<usize> {
+        // All current color spaces have 4 components
+        Some(4)
+    }
+
+    fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+        use KValue::Number;
+
+        match (index, value) {
+            (Number(index), Number(value)) => self.set_component(index.into(), value.into()),
+            _ => unexpected_args("two Numbers", &[index.clone(), value.clone()]),
         }
     }
 

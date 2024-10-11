@@ -17,6 +17,7 @@ The Koto project adheres to
 - `export` can be used with multi-assignment expressions.
   - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.
+  - Entries can also be replaced by index by assigning a key/value tuple.
 - Objects that implement `KotoObject::call` can now be used in operations that
   expect functions.
   - `KotoObject::is_callable` has been added to support this, and needs to be
@@ -33,6 +34,8 @@ The Koto project adheres to
   - The macros in `koto_derive` have been updated to support generics.
     - `KotoField` has been added to reduce boilerplate when using the derive
       macros.
+- `KotoObject::index_mut` has been added to allow objects to support mutable
+  indexing operations.
 - `TryFrom<KValue>` has been implemented for some `core` and `std` types,
   including `bool`, string, and number types.
 

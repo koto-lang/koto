@@ -140,6 +140,22 @@ mod objects {
             }
         }
 
+        fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+            match index {
+                KValue::Number(index) => {
+                    assert_eq!(usize::from(index), 0);
+                    match value {
+                        KValue::Number(value) => {
+                            self.x = value.into();
+                            Ok(())
+                        }
+                        unexpected => unexpected_type("Number as value", unexpected),
+                    }
+                }
+                unexpected => unexpected_type("Number as index", unexpected),
+            }
+        }
+
         fn size(&self) -> Option<usize> {
             Some(self.x.unsigned_abs() as usize)
         }
@@ -748,6 +764,24 @@ match make_object 10
   (rest..., y, z) then (size rest) + y + z # 8 + 18 + 19
 ";
             test_object_script(script, 45);
+        }
+
+        #[test]
+        fn index_mut_assign() {
+            let script = "
+x = make_object 100
+x[0] = 23
+";
+            test_object_script(script, 23);
+        }
+
+        #[test]
+        fn index_mut_compound_assign() {
+            let script = "
+x = make_object 100
+x[0] += 1
+";
+            test_object_script(script, 101);
         }
     }
 

@@ -116,7 +116,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     ///
     /// By default, the object's type is used as the display string.
     ///
-    /// The [`DisplayContext`] is used to append strings to the result, and also provides context
+    /// The [`DisplayContext`] is used to append strings to the result, and provides information
     /// about any parent containers.
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.type_string());
@@ -128,6 +128,13 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// See also: [KotoObject::size]
     fn index(&self, _index: &KValue) -> Result<KValue> {
         unimplemented_error("@index", self.type_string())
+    }
+
+    /// Called when mutating an object via indexing, e.g. `x[0] = 99`
+    ///
+    /// See also: [KotoObject::size]
+    fn index_mut(&mut self, _index: &KValue, _value: &KValue) -> Result<()> {
+        unimplemented_error("@index_mut", self.type_string())
     }
 
     /// Called when checking for the number of elements contained in the object

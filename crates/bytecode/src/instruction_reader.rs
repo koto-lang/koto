@@ -386,7 +386,7 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
                 index: get_u8!(),
             }),
-            Op::SetIndex => Some(SetIndex {
+            Op::IndexMut => Some(IndexMut {
                 register: get_u8!(),
                 index: get_u8!(),
                 value: get_u8!(),
