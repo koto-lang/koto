@@ -1,12 +1,11 @@
 import color
 
-assert_color_near = |a, b|
+assert_color_near = |(a0, a1, a2, a3), (b0, b1, b2, b3)|
   allowed_error = 1.0e-3
-  for component_a, component_b in a.zip b
-    assert_near component_a, component_b, allowed_error
-    assert_near component_a, component_b, allowed_error
-    assert_near component_a, component_b, allowed_error
-    assert_near component_a, component_b, allowed_error
+  assert_near a0, b0, allowed_error
+  assert_near a1, b1, allowed_error
+  assert_near a2, b2, allowed_error
+  assert_near a3, b3, allowed_error
 
 @tests =
   @test rgb: ||

@@ -174,6 +174,11 @@ impl KotoObject for Color {
         }
     }
 
+    fn size(&self) -> Option<usize> {
+        // All current color spaces have 4 components
+        Some(4)
+    }
+
     fn is_iterable(&self) -> IsIterable {
         IsIterable::Iterable
     }
