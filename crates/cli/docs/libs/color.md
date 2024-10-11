@@ -214,15 +214,18 @@ check! Color(RGB, r: 0.2, g: 0.4, b: 0.3, a: 0.5)
 
 The `color` module's core color type.
 
+An `alpha` value is always present as the color's fourth component.
+
 The color may belong to various different color spaces, 
 with the space's components available via iteration or indexing.
 
-An `alpha` value is always present as the fourth component.
+Components can be modified via index.
+
 
 ### Example
 
 ```koto
-r, g, b = color('yellow')
+r, g, b = color 'yellow'
 print! r, g, b
 check! (1.0, 1.0, 0.0)
 
@@ -232,6 +235,13 @@ check! (90.0, 0.5, 0.25, 1.0)
 
 print! color('red')[0]
 check! 1.0
+
+print! c = color.oklch 0.5, 0.1, 180
+check! Color(Oklch, l: 0.5, c: 0.1, h: 180, a: 1)
+c[0] = 0.25 # Set the lightness component to 0.25
+c[3] = 0.1 # Set the alpha component to 0.1
+print c
+check! Color(Oklch, l: 0.25, c: 0.1, h: 180, a: 0.1)
 ```
 
 ## Color.mix
