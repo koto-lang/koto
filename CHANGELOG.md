@@ -33,6 +33,8 @@ The Koto project adheres to
   - The macros in `koto_derive` have been updated to support generics.
     - `KotoField` has been added to reduce boilerplate when using the derive
       macros.
+- `KotoObject::index_mut` has been added to allow objects to support mutable
+  indexing operations.
 - `TryFrom<KValue>` has been implemented for some `core` and `std` types,
   including `bool`, string, and number types.
 

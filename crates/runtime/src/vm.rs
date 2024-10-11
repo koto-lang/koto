@@ -2230,8 +2230,8 @@ impl KotoVm {
         use KValue::*;
 
         let indexable = self.clone_register(indexable_register);
-        let index_value = self.clone_register(index_register);
-        let value = self.clone_register(value_register);
+        let index_value = self.get_register(index_register);
+        let value = self.get_register(value_register);
 
         match indexable {
             List(list) => {
@@ -2240,8 +2240,8 @@ impl KotoVm {
                 match index_value {
                     Number(index) => {
                         let u_index = usize::from(index);
-                        if index >= 0.0 && u_index < list_len {
-                            list_data[u_index] = value;
+                        if *index >= 0.0 && u_index < list_len {
+                            list_data[u_index] = value.clone();
                         } else {
                             return runtime_error!("Index '{index}' not in List");
                         }
@@ -2251,13 +2251,13 @@ impl KotoVm {
                             list_data[i] = value.clone();
                         }
                     }
-                    unexpected => return unexpected_type("index", &unexpected),
+                    unexpected => return unexpected_type("index", unexpected),
                 }
+                Ok(())
             }
-            unexpected => return unexpected_type("a mutable indexable value", &unexpected),
-        };
-
-        Ok(())
+            Object(o) => o.try_borrow_mut()?.index_mut(index_value, value),
+            unexpected => unexpected_type("a mutable indexable value", &unexpected),
+        }
     }
 
     fn validate_index(&self, n: KNumber, size: Option<usize>) -> Result<usize> {
