@@ -2243,7 +2243,7 @@ impl KotoVm {
                         if *index >= 0.0 && u_index < list_len {
                             list_data[u_index] = value.clone();
                         } else {
-                            return runtime_error!("Index '{index}' not in List");
+                            return runtime_error!("Invalid index ({index})");
                         }
                     }
                     Range(range) => {
@@ -2251,10 +2251,36 @@ impl KotoVm {
                             list_data[i] = value.clone();
                         }
                     }
-                    unexpected => return unexpected_type("index", unexpected),
+                    unexpected => return unexpected_type("Number or Range", unexpected),
                 }
                 Ok(())
             }
+            Map(map) => match index_value {
+                Number(index) => {
+                    let mut map_data = map.data_mut();
+                    let map_len = map_data.len();
+                    let u_index = usize::from(index);
+                    if *index >= 0.0 && u_index < map_len {
+                        match value {
+                            Tuple(new_entry) if new_entry.len() == 2 => {
+                                let key = ValueKey::try_from(new_entry[0].clone())?;
+                                // There's no API on IndexMap for replacing an entry,
+                                // so use swap_remove_index to remove the old entry,
+                                // then insert the new entry at the end of the map,
+                                // followed by swap_indices to swap the new entry back into position.
+                                map_data.swap_remove_index(u_index);
+                                map_data.insert(key, new_entry[1].clone());
+                                map_data.swap_indices(u_index, map_len - 1);
+                                Ok(())
+                            }
+                            unexpected => unexpected_type("Tuple with 2 elements", unexpected),
+                        }
+                    } else {
+                        runtime_error!("Invalid index ({index})")
+                    }
+                }
+                unexpected => unexpected_type("Number", unexpected),
+            },
             Object(o) => o.try_borrow_mut()?.index_mut(index_value, value),
             unexpected => unexpected_type("a mutable indexable value", &unexpected),
         }

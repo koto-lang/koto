@@ -643,6 +643,15 @@ print! m[1]
 check! ('oranges', 99)
 ```
 
+Entries can also be replaced by assigning a key/value tuple to the entry's index.
+
+```koto
+m = {apples: 42, oranges: 99, lemons: 63}
+m[1] = ('pears', 123)
+print! m
+check! {apples: 42, pears: 123, lemons: 63}
+```
+
 ### Shorthand Values
 
 Koto supports a shorthand notation when creating maps with inline syntax. 

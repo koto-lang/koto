@@ -17,6 +17,7 @@ The Koto project adheres to
 - `export` can be used with multi-assignment expressions.
   - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.
+  - Entries can also be replaced by index by assigning a key/value tuple.
 - Objects that implement `KotoObject::call` can now be used in operations that
   expect functions.
   - `KotoObject::is_callable` has been added to support this, and needs to be
