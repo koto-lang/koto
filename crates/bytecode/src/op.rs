@@ -413,7 +413,7 @@ pub enum Op {
     /// Sets a contained value via index
     ///
     /// `[*indexable, *value, *index]`
-    SetIndex,
+    IndexMut,
 
     /// Inserts a key/value entry into a map
     ///

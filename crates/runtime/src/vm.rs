@@ -892,11 +892,11 @@ impl KotoVm {
                 value,
                 index,
             } => self.run_index(register, value, index)?,
-            SetIndex {
+            IndexMut {
                 register,
                 index,
                 value,
-            } => self.run_set_index(register, index, value)?,
+            } => self.run_index_mut(register, index, value)?,
             MapInsert {
                 register,
                 key,
@@ -2221,7 +2221,7 @@ impl KotoVm {
         import_result
     }
 
-    fn run_set_index(
+    fn run_index_mut(
         &mut self,
         indexable_register: u8,
         index_register: u8,

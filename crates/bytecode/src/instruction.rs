@@ -270,7 +270,7 @@ pub enum Instruction {
         value: u8,
         index: u8,
     },
-    SetIndex {
+    IndexMut {
         register: u8,
         index: u8,
         value: u8,
@@ -693,13 +693,13 @@ impl fmt::Debug for Instruction {
                 f,
                 "Index\t\tresult: {register}\tvalue: {value}\tindex: {index}"
             ),
-            SetIndex {
+            IndexMut {
                 register,
                 index,
                 value,
             } => write!(
                 f,
-                "SetIndex\tregister: {register}\tindex: {index}\tvalue: {value}"
+                "IndexMut\tregister: {register}\tindex: {index}\tvalue: {value}"
             ),
             MapInsert {
                 register,
