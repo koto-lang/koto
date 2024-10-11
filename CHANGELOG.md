@@ -63,6 +63,13 @@ The Koto project adheres to
   target type's bounds, instead of wrapping.
 - `KString` will now inline short strings to reduce allocations.
 
+#### Libs
+
+- The `color` module has been reworked to support working with alternative 
+  color spaces.
+  - `Oklab` and `Oklch` color spaces have been added.
+  - `color.hex` has been added to support initializing colors with hex triples.
+
 ### Removed
 
 #### API

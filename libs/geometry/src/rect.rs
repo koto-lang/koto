@@ -1,62 +1,79 @@
 use crate::Vec2;
 use koto_runtime::{derive::*, prelude::*, Result};
-use std::fmt;
-
-type Inner = nannou_core::geom::Rect<f64>;
+use std::{
+    fmt,
+    ops::{Add, Div, Sub},
+};
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(use_copy)]
-pub struct Rect(Inner);
+pub struct Rect {
+    x: Bounds<f64>,
+    y: Bounds<f64>,
+}
 
 #[koto_impl(runtime = koto_runtime)]
 impl Rect {
     pub fn from_x_y_w_h(x: f64, y: f64, width: f64, height: f64) -> Self {
-        Inner::from_x_y_w_h(x, y, width, height).into()
+        let x_start = x - width / 2.0;
+        let x_end = x_start + width;
+        let y_start = y - height / 2.0;
+        let y_end = y_start + height;
+        Self {
+            x: Bounds {
+                start: x_start,
+                end: x_end,
+            },
+            y: Bounds {
+                start: y_start,
+                end: y_end,
+            },
+        }
     }
 
     #[koto_method]
     fn left(&self) -> KValue {
-        self.0.left().into()
+        self.x.start.into()
     }
 
     #[koto_method]
     fn right(&self) -> KValue {
-        self.0.right().into()
-    }
-
-    #[koto_method]
-    fn top(&self) -> KValue {
-        self.0.top().into()
+        self.x.end.into()
     }
 
     #[koto_method]
     fn bottom(&self) -> KValue {
-        self.0.bottom().into()
+        self.y.start.into()
+    }
+
+    #[koto_method]
+    fn top(&self) -> KValue {
+        self.y.end.into()
     }
 
     #[koto_method]
     fn width(&self) -> KValue {
-        self.0.w().into()
+        self.x.len().into()
     }
 
     #[koto_method]
     fn height(&self) -> KValue {
-        self.0.h().into()
+        self.y.len().into()
     }
 
     #[koto_method]
     fn center(&self) -> KValue {
-        Vec2::from(self.0.xy()).into()
+        Vec2::new(self.x.center(), self.y.center()).into()
     }
 
     #[koto_method]
     fn x(&self) -> KValue {
-        self.0.x().into()
+        self.x.center().into()
     }
 
     #[koto_method]
     fn y(&self) -> KValue {
-        self.0.y().into()
+        self.y.center().into()
     }
 
     #[koto_method]
@@ -64,7 +81,7 @@ impl Rect {
         match args {
             [KValue::Object(p)] if p.is_a::<Vec2>() => {
                 let p = p.cast::<Vec2>().unwrap();
-                let result = self.0.contains(p.inner());
+                let result = self.x.contains(p.inner().x) && self.y.contains(p.inner().y);
                 Ok(result.into())
             }
             unexpected => unexpected_args("|Vec2|", unexpected),
@@ -83,8 +100,10 @@ impl Rect {
             }
             unexpected => return unexpected_args("|Vec2|, or |Number, Number|", unexpected),
         };
+
         let mut this = ctx.instance_mut()?;
-        this.0 = Inner::from_x_y_w_h(x, y, this.0.w(), this.0.h());
+        this.x.set_center(x);
+        this.y.set_center(y);
 
         // Return a clone of the Rect instance
         ctx.instance_result()
@@ -114,22 +133,16 @@ impl KotoObject for Rect {
 
         let iter = (0..=3).map(move |i| {
             let result = match i {
-                0 => r.0.x(),
-                1 => r.0.y(),
-                2 => r.0.w(),
-                3 => r.0.h(),
+                0 => r.x(),
+                1 => r.y(),
+                2 => r.width(),
+                3 => r.height(),
                 _ => unreachable!(),
             };
-            KIteratorOutput::Value(result.into())
+            KIteratorOutput::Value(result)
         });
 
         Ok(KIterator::with_std_iter(iter))
-    }
-}
-
-impl From<Inner> for Rect {
-    fn from(r: Inner) -> Self {
-        Self(r)
     }
 }
 
@@ -147,14 +160,53 @@ impl From<Rect> for KValue {
 
 impl fmt::Display for Rect {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let r = &self.0;
         write!(
             f,
             "Rect{{x: {}, y: {}, width: {}, height: {}}}",
-            r.x(),
-            r.y(),
-            r.w(),
-            r.h()
+            self.x.center(),
+            self.y.center(),
+            self.x.len(),
+            self.y.len()
         )
+    }
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
+struct Bounds<T>
+where
+    T: Clone + Copy + Default + PartialEq,
+{
+    start: T,
+    end: T,
+}
+
+impl<T> Bounds<T>
+where
+    T: Clone
+        + Copy
+        + Default
+        + PartialEq
+        + PartialOrd
+        + Sub<Output = T>
+        + Add<Output = T>
+        + Div<Output = T>
+        + From<u8>,
+{
+    fn center(&self) -> T {
+        self.start + self.len() / T::from(2)
+    }
+
+    fn set_center(&mut self, center: T) {
+        let len = self.len();
+        self.start = center - len / T::from(2);
+        self.end = self.start + len;
+    }
+
+    fn len(&self) -> T {
+        self.end - self.start
+    }
+
+    fn contains(&self, value: T) -> bool {
+        value >= self.start && value <= self.end
     }
 }

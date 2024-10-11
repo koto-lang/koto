@@ -13,6 +13,8 @@ circular-buffer = "0.1.8"
 criterion = "0.5.1"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = "0.27.0"
+# Adds #[derive(x)] macros for more traits
+derive_more = "1.0.0"               
 # Derive macro to get the name of a struct, enum or enum variant
 derive-name = "1.1.0"
 # Trait object downcasting support using only safe Rust.
@@ -22,7 +24,7 @@ dunce = "1.0.2"
 # A small cross-platform library for retrieving random data from system source
 getrandom = "0.2.4"
 # A simple and fast 3D math library for games and graphics
-glam = "0.22.0"
+glam = "0.29.0"
 # Shared definitions of home directories.
 home = "0.5.5"
 # A Rust library for conveniently watching and handling file changes.
@@ -37,10 +39,8 @@ itertools = "0.12.1"
 lazy_static = "1.4.0"
 # Performance and security oriented drop-in allocator
 mimalloc = { version = "0.1.39", default-features = false }
-# The core components of nannou - a creative coding framework for Rust.
-nannou_core = "0.18.0"
 # Convert and manage colors with a focus on correctness, flexibility and ease of use.
-palette = "0.7.2"
+palette = "0.7.6"
 # More compact and efficient implementations of the standard synchronization primitives.
 parking_lot = "0.12.1"
 # An ultra simple CLI arguments parser.
