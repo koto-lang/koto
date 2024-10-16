@@ -129,7 +129,7 @@ impl CommandOutput {
     fn stdout(&self) -> KValue {
         let bytes = self.0.stdout.clone();
         if cfg!(windows) {
-            bytes_to_kvalue_utf16(bytes)
+            utf16_bytes_to_kvalue(bytes)
         } else {
             String::from_utf8(bytes).map_or(KValue::Null, KValue::from)
         }
@@ -139,7 +139,7 @@ impl CommandOutput {
     fn stderr(&self) -> KValue {
         let bytes = self.0.stderr.clone();
         if cfg!(windows) {
-            bytes_to_kvalue_utf16(bytes)
+            utf16_bytes_to_kvalue(bytes)
         } else {
             String::from_utf8(bytes).map_or(KValue::Null, KValue::from)
         }
@@ -162,7 +162,7 @@ impl CommandOutput {
 
 impl KotoObject for CommandOutput {}
 
-fn bytes_to_kvalue_utf16(bytes: Vec<u8>) -> KValue {
+fn utf16_bytes_to_kvalue(bytes: Vec<u8>) -> KValue {
     use KValue::Null;
 
     if bytes.len() % 2 != 0 {
