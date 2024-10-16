@@ -2561,6 +2561,7 @@ impl Compiler {
                         match ctx.node_with_span(next).node {
                             Node::Chain((ChainNode::NullCheck, None)) => {
                                 null_check_on_end_node = true;
+                                break;
                             }
                             _ => {}
                         };
@@ -2613,16 +2614,18 @@ impl Compiler {
         debug_assert!(rhs_op.is_none() || rhs_op.is_some() && rhs.is_some());
         let simple_assignment = rhs.is_some() && rhs_op.is_none();
         let compound_assignment = rhs.is_some() && rhs_op.is_some();
+        let access_end_node = !simple_assignment || null_check_on_end_node;
 
         // Do we need to read the last value in the lookup chain?
         // - No if it's a simple assignment and the last value is going to be overwritten.
         // - Yes otherwise, either there's a compound assignment or the last value is being accessed.
         match &end_node {
-            ChainNode::Id(id, ..) if !simple_assignment => {
+            ChainNode::Id(id, ..) if access_end_node => {
+                dbg!(result_register);
                 self.compile_access_id(result_register, container_register, *id);
                 chain_nodes.push(result_register, false);
             }
-            ChainNode::Str(_) if !simple_assignment => {
+            ChainNode::Str(_) if access_end_node => {
                 self.push_op(
                     AccessString,
                     &[
@@ -2633,7 +2636,7 @@ impl Compiler {
                 );
                 chain_nodes.push(result_register, false);
             }
-            ChainNode::Index(_) if !simple_assignment => {
+            ChainNode::Index(_) if access_end_node => {
                 self.push_op(
                     Index,
                     &[result_register, container_register, index.unwrap(self)?],
@@ -2660,18 +2663,17 @@ impl Compiler {
                     chain_nodes.push(result_register, false);
                 }
             }
-            ChainNode::NullCheck => {
-                // foo.bar? += 1
-                // This breaks the 'end node' concept, the null check needs to have been performed
-                // already before we get here.
-                todo!();
-            }
             _ => {}
+        }
+
+        if null_check_on_end_node {
+            self.push_op(JumpIfNull, &[result_register]);
+            null_check_jump_placeholders.push(self.push_offset_placeholder());
         }
 
         // Do we need to modify the accessed value?
         if compound_assignment {
-            // compound_assignment can only be true when both rhs and rhs_op have values
+            // Compound_assignment can only be true when both rhs and rhs_op have values
             let rhs = rhs.unwrap();
             let rhs_op = rhs_op.unwrap();
 
