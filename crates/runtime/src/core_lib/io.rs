@@ -179,6 +179,11 @@ impl File {
     }
 
     #[koto_method]
+    fn is_terminal(&self) -> KValue {
+        self.0.is_terminal().into()
+    }
+
+    #[koto_method]
     fn path(&self) -> Result<KValue> {
         self.0.path().map(KValue::from)
     }

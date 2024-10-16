@@ -25,6 +25,7 @@ The Koto project adheres to
 
 #### Core Library
 
+- `file.is_terminal` has been added.
 - `string.repeat` has been added.
 - `tuple.sort_copy` now supports sorting with a key function, like `list.sort`.
 

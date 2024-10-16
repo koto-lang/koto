@@ -8,7 +8,7 @@ A collection of utilities for working with the local filesystem.
 |path: String| -> File
 ```
 
-Returns an empty `File` at the provided path.
+Returns an empty [`File`](#file) at the provided path.
 If the file already exists it will be truncated.
 
 ### Errors
@@ -80,7 +80,7 @@ io.extend_path ".", "foo", "bar", "baz.txt"
 |path: String| -> File
 ```
 
-Opens the file at the given path, and returns a corresponding `File`.
+Opens the file at the given path, and returns a corresponding [`File`](#file).
 
 ### Errors
 
@@ -170,7 +170,7 @@ io.exists path
 || -> File
 ```
 
-Returns the standard error output of the current process as a file.
+Returns the standard error output of the current process as a [`File`](#file).
 
 ### Example
 
@@ -189,7 +189,7 @@ io.stderr().write_line "An error occurred!"
 || -> File
 ```
 
-Returns the standard input of the current process as a file.
+Returns the standard input of the current process as a [`File`](#file).
 
 ### Example
 
@@ -209,7 +209,7 @@ io.stdin().read_to_string()
 || -> File
 ```
 
-Returns the standard output of the current process as a file.
+Returns the standard output of the current process as a [`File`](#file).
 
 ### Example
 
@@ -237,7 +237,7 @@ This defers to Rust's `std::env::temp_dir`, for details see
 
 ## File
 
-A map that wraps a file handle, returned from functions in `io`.
+An object that represents a file handle.
 
 ## File.flush
 
@@ -251,6 +251,24 @@ Ensures that any buffered changes to the file have been written.
 
 - [`file.write`](#file-write)
 - [`file.write_line`](#file-write-line)
+
+## File.is_terminal
+
+```kototype
+|File| -> Bool
+```
+
+Returns `true` if the file refers to a terminal/tty.
+
+### Example
+
+```koto
+next_line = if io.stdin().is_terminal()
+  print 'Please provide some input'
+  io.stdin().read_line()
+else 
+  io.stdin().read_line()
+```
 
 ## File.path
 

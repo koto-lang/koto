@@ -14,6 +14,11 @@ pub trait KotoFile: KotoRead + KotoWrite + KotoSend + KotoSync {
     fn seek(&self, _position: u64) -> Result<()> {
         runtime_error!("unsupported for this file type")
     }
+
+    /// Returns true if the file refers to a terminal/tty
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 /// A trait that defines the read operations of a [KotoFile]

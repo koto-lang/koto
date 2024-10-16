@@ -4,10 +4,11 @@ use std::{
     process::{Command, Stdio},
 };
 
-fn run_koto_stdin_test(input: &str, expected_output: &str) {
+fn run_piped_stdio_test(input: &str, expected_output: &str) {
     let mut process = Command::new(env!("CARGO_BIN_EXE_koto"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .expect("failed to execute child");
 
@@ -16,10 +17,22 @@ fn run_koto_stdin_test(input: &str, expected_output: &str) {
         .write_all(input.as_bytes())
         .expect("Failed to write to stdin");
 
-    let output = process.wait_with_output().expect("Failed to get output");
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).expect("Failed to get output");
+    let output = process
+        .wait_with_output()
+        .expect("Failed to wait for output");
+    let stdout = String::from_utf8(output.stdout).expect("Invalid output in stdout");
+    let stderr = String::from_utf8(output.stderr).expect("Invalid output in stderr");
 
+    assert!(
+        output.status.success(),
+        "Process exited with error code {:?}
+stdout:
+{stdout}
+
+stderr:
+{stderr}",
+        output.status.code().unwrap(),
+    );
     assert_eq!(stdout, expected_output);
 }
 
@@ -28,12 +41,12 @@ mod stdin_tests {
 
     #[test]
     fn empty_output() {
-        run_koto_stdin_test("1 + 1", "");
+        run_piped_stdio_test("1 + 1", "");
     }
 
     #[test]
     fn printed_result() {
-        run_koto_stdin_test("print 1 + 1", "2\n");
+        run_piped_stdio_test("print 1 + 1", "2\n");
     }
 
     #[test]
@@ -46,7 +59,7 @@ print 'World!'
 Hello
 World!
 ";
-        run_koto_stdin_test(script, expected_output);
+        run_piped_stdio_test(script, expected_output);
     }
 
     #[test]
@@ -57,6 +70,31 @@ stdout.write 'Hello'
 stdout.write ', World!'
 ";
         let expected_output = "Hello, World!";
-        run_koto_stdin_test(script, expected_output);
+        run_piped_stdio_test(script, expected_output);
+    }
+
+    #[test]
+    fn is_terminal_stdin() {
+        let script = "
+assert not io.stdin().is_terminal()
+1 + 1
+";
+        run_piped_stdio_test(script, "");
+    }
+
+    #[test]
+    fn is_terminal_stdout() {
+        let script = "
+assert not io.stdout().is_terminal()
+";
+        run_piped_stdio_test(script, "");
+    }
+
+    #[test]
+    fn is_terminal_stderr() {
+        let script = "
+assert not io.stderr().is_terminal()
+";
+        run_piped_stdio_test(script, "");
     }
 }
