@@ -1,5 +1,5 @@
 use crate::{core_lib::io::map_io_err, Error, KString, KotoFile, KotoRead, KotoWrite};
-use std::io::{self, Read, Write};
+use std::io::{self, IsTerminal, Read, Write};
 
 /// The default stdin used in Koto
 #[derive(Default)]
@@ -8,6 +8,10 @@ pub struct DefaultStdin {}
 impl KotoFile for DefaultStdin {
     fn id(&self) -> KString {
         "_stdin_".into()
+    }
+
+    fn is_terminal(&self) -> bool {
+        io::stdin().is_terminal()
     }
 }
 
@@ -37,6 +41,10 @@ impl KotoFile for DefaultStdout {
     fn id(&self) -> KString {
         "_stdout_".into()
     }
+
+    fn is_terminal(&self) -> bool {
+        io::stdout().is_terminal()
+    }
 }
 
 impl KotoRead for DefaultStdout {}
@@ -65,12 +73,16 @@ impl KotoFile for DefaultStderr {
     fn id(&self) -> KString {
         "_stderr_".into()
     }
+
+    fn is_terminal(&self) -> bool {
+        io::stderr().is_terminal()
+    }
 }
 
 impl KotoRead for DefaultStderr {}
 impl KotoWrite for DefaultStderr {
     fn write(&self, bytes: &[u8]) -> Result<(), Error> {
-        io::stdout().write_all(bytes).map_err(map_io_err)
+        io::stderr().write_all(bytes).map_err(map_io_err)
     }
 
     fn write_line(&self, output: &str) -> Result<(), Error> {
@@ -81,6 +93,6 @@ impl KotoWrite for DefaultStderr {
     }
 
     fn flush(&self) -> Result<(), Error> {
-        io::stdout().flush().map_err(map_io_err)
+        io::stderr().flush().map_err(map_io_err)
     }
 }
