@@ -427,8 +427,9 @@ pub struct AstCatch {
 /// In other words, some series of operations involving indexing, `.` accesses, and function calls.
 ///
 /// e.g.
-/// `foo.bar."baz"[0](42)`
-///  |  |   |     |  ^ Call {args: 42, with_parens: true}
+/// `foo.bar."baz"[0]?(42)`
+///  |  |   |     |  |^ Call {args: 42, with_parens: true}
+///  |  |   |     |  ^ NullCheck
 ///  |  |   |     ^ Index (0)
 ///  |  |   ^ Str (baz)
 ///  |  ^ Id (bar)
@@ -457,6 +458,8 @@ pub enum ChainNode {
         ///   `99 -> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
         with_parens: bool,
     },
+    /// A `?` short-circuiting null check
+    NullCheck,
 }
 
 /// An arm in a match expression

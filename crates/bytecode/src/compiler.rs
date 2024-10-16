@@ -2433,12 +2433,13 @@ impl Compiler {
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
-        // let chain_temp_registers_start = self.frame().next_temporary_register();
 
         let mut chain_node = root_node.clone();
+        let mut null_check_jump_placeholders = SmallVec::<[usize; 4]>::new();
+        let mut null_check_on_end_node = false;
 
         // Work through the chain, up until the last node, which will be handled separately
-        while next_node_index.is_some() {
+        while let Some(next) = next_node_index {
             match &chain_node {
                 ChainNode::Root(root_node) => {
                     if !chain_nodes.is_empty() {
@@ -2535,17 +2536,35 @@ impl Compiler {
                         ctx.with_fixed_register(node_register),
                     )?;
                 }
+                ChainNode::NullCheck => {
+                    let Some(check_register) = chain_nodes.previous() else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
+                    };
+
+                    self.push_op(JumpIfNull, &[check_register]);
+                    null_check_jump_placeholders.push(self.push_offset_placeholder());
+                }
             }
 
-            // Is the chain complete?
-            let Some(next) = next_node_index else { break };
-
             let next_chain_node = ctx.node_with_span(next);
+            self.push_span(next_chain_node, ctx.ast);
 
             match next_chain_node.node.clone() {
                 Node::Chain((node, next)) => {
                     chain_node = node;
                     next_node_index = next;
+
+                    // If the last node in the chain is a null check then handle it here,
+                    // allowing the final node to be held in `chain_node` for further processing
+                    // below, after this loop.
+                    if let Some(next) = next {
+                        match ctx.node_with_span(next).node {
+                            Node::Chain((ChainNode::NullCheck, None)) => {
+                                null_check_on_end_node = true;
+                            }
+                            _ => {}
+                        };
+                    }
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
@@ -2553,9 +2572,7 @@ impl Compiler {
                         unexpected,
                     });
                 }
-            };
-
-            self.push_span(next_chain_node, ctx.ast);
+            }
         }
 
         // The chain is complete up until the last node, and now we need to handle:
@@ -2643,6 +2660,12 @@ impl Compiler {
                     chain_nodes.push(result_register, false);
                 }
             }
+            ChainNode::NullCheck => {
+                // foo.bar? += 1
+                // This breaks the 'end node' concept, the null check needs to have been performed
+                // already before we get here.
+                todo!();
+            }
             _ => {}
         }
 
@@ -2712,6 +2735,13 @@ impl Compiler {
                 parent_register,
                 ctx.with_register(call_result),
             )?;
+        }
+
+        // Now that all chain operations are complete, update the null check jump placeholders so
+        // that they point to the end of the chain.
+
+        for placeholder in null_check_jump_placeholders {
+            self.update_offset_placeholder(placeholder)?;
         }
 
         // Clean up the span and register stacks

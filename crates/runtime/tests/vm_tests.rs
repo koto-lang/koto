@@ -2491,6 +2491,46 @@ f()(8)
 ";
             check_script_output(script, 64);
         }
+
+        #[test]
+        fn null_check_after_lookup() {
+            let script = "
+m = {foo: null}
+x = m.foo?.nested
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_checks_between_calls() {
+            let script = "
+f = || null
+x = f()?()
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_before_assignment() {
+            let script = "
+m = {foo: null}
+m.foo? = 1
+m.foo
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_before_compound_assignment() {
+            let script = "
+m = {foo: 42}
+m.foo? += 1
+m.foo
+";
+            check_script_output(script, 43);
+        }
     }
 
     mod placeholders {

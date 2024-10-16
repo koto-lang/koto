@@ -808,6 +808,7 @@ impl KotoVm {
             JumpBack { offset } => self.jump_ip_back(offset as u32),
             JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset as u32)?,
             JumpIfFalse { register, offset } => self.run_jump_if_false(register, offset as u32)?,
+            JumpIfNull { register, offset } => self.run_jump_if_null(register, offset as u32)?,
             Call {
                 result,
                 function,
@@ -2045,6 +2046,14 @@ impl KotoVm {
         match &self.get_register(register) {
             KValue::Null => self.jump_ip(offset),
             KValue::Bool(b) if !b => self.jump_ip(offset),
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn run_jump_if_null(&mut self, register: u8, offset: u32) -> Result<()> {
+        match &self.get_register(register) {
+            KValue::Null => self.jump_ip(offset),
             _ => {}
         }
         Ok(())

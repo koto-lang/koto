@@ -153,6 +153,10 @@ mod parser {
         Node::Chain((ChainNode::Root(index.into()), next.map(AstIndex::from)))
     }
 
+    fn chain_null_check(next: u32) -> Node {
+        Node::Chain((ChainNode::NullCheck, Some(next.into())))
+    }
+
     mod values {
         use super::*;
 
@@ -4191,6 +4195,75 @@ foo.bar
                     Constant::Str("baz"),
                 ]),
             )
+        }
+
+        mod null_checks {
+            use super::*;
+
+            #[test]
+            fn after_root() {
+                let source = "
+foo?.bar
+";
+                check_ast(
+                    source,
+                    &[
+                        id(0),
+                        chain_id(1, None),
+                        chain_null_check(1),
+                        chain_root(0, Some(2)),
+                        MainBlock {
+                            body: nodes(&[3]),
+                            local_count: 0,
+                        },
+                    ],
+                    Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+                )
+            }
+
+            #[test]
+            fn between_calls() {
+                let source = "
+foo()?()
+";
+                check_ast(
+                    source,
+                    &[
+                        id(0),
+                        chain_call(&[], true, None),
+                        chain_null_check(1),
+                        chain_call(&[], true, Some(2)),
+                        chain_root(0, Some(3)),
+                        MainBlock {
+                            body: nodes(&[4]),
+                            local_count: 0,
+                        },
+                    ],
+                    Some(&[Constant::Str("foo")]),
+                )
+            }
+
+            #[test]
+            fn before_paren_free_call() {
+                let source = "
+foo? 42
+";
+                check_ast(
+                    source,
+                    &[
+                        id(0),
+                        SmallInt(42),
+                        chain_call(&[1], false, None),
+                        chain_null_check(2),
+                        chain_root(0, Some(3)),
+                        MainBlock {
+                            body: nodes(&[4]),
+                            local_count: 0,
+                        },
+                    ],
+                    Some(&[Constant::Str("foo")]),
+                )
+            }
         }
     }
 

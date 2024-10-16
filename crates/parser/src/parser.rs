@@ -1320,7 +1320,10 @@ impl<'source> Parser<'source> {
     fn next_token_is_chain_start(&mut self, context: &ExpressionContext) -> bool {
         use Token::*;
 
-        if matches!(self.peek_token(), Some(Dot | SquareOpen | RoundOpen)) {
+        if matches!(
+            self.peek_token(),
+            Some(Dot | SquareOpen | RoundOpen | QuestionMark)
+        ) {
             true
         } else if context.allow_linebreaks {
             matches!(
@@ -1403,6 +1406,15 @@ impl<'source> Parser<'source> {
                     } else {
                         return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     }
+                }
+                // Null check
+                Token::QuestionMark => {
+                    self.consume_token();
+                    if matches!(chain.last(), Some((ChainNode::NullCheck, _))) {
+                        return self.error(SyntaxError::UnexpectedNullCheck);
+                    }
+
+                    chain.push((ChainNode::NullCheck, node_start_span));
                 }
                 _ => {
                     let Some(peeked) = self.peek_token_with_context(&node_context) else {

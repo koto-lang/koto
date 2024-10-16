@@ -218,6 +218,10 @@ pub enum Instruction {
         register: u8,
         offset: u16,
     },
+    JumpIfNull {
+        register: u8,
+        offset: u16,
+    },
     Call {
         result: u8,
         function: u8,
@@ -624,6 +628,9 @@ impl fmt::Debug for Instruction {
             }
             JumpIfFalse { register, offset } => {
                 write!(f, "JumpIfFalse\tresult: {register}\toffset: {offset}")
+            }
+            JumpIfNull { register, offset } => {
+                write!(f, "JumpIfNull\tresult: {register}\toffset: {offset}")
             }
             Call {
                 result,
