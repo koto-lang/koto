@@ -14,6 +14,9 @@ The Koto project adheres to
 
 - Type hints with runtime type checks have been added ([#298](https://github.com/koto-lang/koto/issues/298)).
   - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
+- Optional chaining via the `?` operator has been added to simplify writing
+  expressions that need to check for `.null` on intermediate values.
+  - E.g. `x = get_data()?.bar()`, where `get_data` could return `null`.
 - `export` can be used with multi-assignment expressions.
   - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.

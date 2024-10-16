@@ -27,9 +27,7 @@ number_to_english = |n|
     else '???'
 
 @main = ||
-  n = match koto.args.get 0
-    null then 50
-    arg then arg.to_number()
+  n = koto.args.first()?.to_number() or 50
 
   result = -n..=n
     .each |x| number_to_english x

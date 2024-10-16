@@ -47,9 +47,7 @@ spectral_norm = |n|
   (vBv / vv).sqrt()
 
 @main = ||
-  n = match koto.args.get 0
-    null then 4
-    arg then arg.to_number()
+  n = koto.args.first()?.to_number() or 4
 
   result = spectral_norm n
 

@@ -916,11 +916,49 @@ print! match ['a', 'b', 'c'].extend [1, 2, 3]
 check! Starts with 'a', followed by 'b', then 4 others
 ```
 
+### Optional Chaining
+
+The `?` operator can be used to short-circuit expression chains where `null`
+might be encountered as an intermediate value. The `?` checks the current value 
+in the expression chain and if `null` is found then the chain is short-circuited 
+with `null` given as the expression's result.
+
+This makes it easier to check for `null` when you want to avoid runtime errors.
+
+```koto
+info = {town: 'Hamburg', country: 'Germany'}
+
+# `info` contains a value for 'town', which is then passed to to_uppercase():
+print! info.get('town')?.to_uppercase()
+check! HAMBURG
+
+# `info` doesn't contain a value for 'state', 
+# so the `?` operator short-circuits the expression, resulting in `null`:
+print! info.get('state')?.to_uppercase()
+check! null
+
+# Without the `?` operator an intermediate step is necessary:
+country = info.get('country')
+print! if country then country.to_uppercase()
+check! GERMANY
+```
+
+Multiple `?` checks can be performed in an expression chain:
+
+```koto
+get_data = || {nested: {maybe_string: null}}
+print! get_data()?
+  .get('nested')?
+  .get('maybe_string')?
+  .to_uppercase()
+check! null
+```
+
 ## Loops
 
 Koto includes several ways of evaluating expressions repeatedly in a loop.
 
-### for
+### `for`
 
 `for` loops are repeated for each element in a sequence, 
 such as a list or tuple.
@@ -933,7 +971,7 @@ check! 20
 check! 30
 ```
 
-### while
+### `while`
 
 `while` loops continue to repeat _while_ a condition is true.
 
@@ -945,7 +983,7 @@ print! x
 check! 5
 ```
 
-### until
+### `until`
 
 `until` loops continue to repeat _until_ a condition is true.
 

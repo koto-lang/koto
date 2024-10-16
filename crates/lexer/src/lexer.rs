@@ -36,6 +36,7 @@ pub enum Token {
     CurlyClose,
     Range,
     RangeInclusive,
+    QuestionMark,
 
     // operators
     Add,
@@ -736,6 +737,7 @@ impl<'a> TokenLexer<'a> {
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
         check_symbol!(".", Dot);
+        check_symbol!("?", QuestionMark);
         check_symbol!("(", RoundOpen);
         check_symbol!(")", RoundClose);
         check_symbol!("|", Function);

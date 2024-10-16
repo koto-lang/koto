@@ -160,6 +160,30 @@ x .foo
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn detached_null_check() {
+                let source = "
+x.foo ?.bar
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn null_check_at_root() {
+                let source = "
+?x.foo
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn double_null_check() {
+                let source = "
+x??.foo
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod piped_calls {

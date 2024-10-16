@@ -316,6 +316,10 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 offset: get_u16!(),
             }),
+            Op::JumpIfNull => Some(JumpIfNull {
+                register: get_u8!(),
+                offset: get_u16!(),
+            }),
             Op::Call => Some(Call {
                 result: get_u8!(),
                 function: get_u8!(),
