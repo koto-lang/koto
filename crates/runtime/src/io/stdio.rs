@@ -70,7 +70,7 @@ impl KotoFile for DefaultStderr {
 impl KotoRead for DefaultStderr {}
 impl KotoWrite for DefaultStderr {
     fn write(&self, bytes: &[u8]) -> Result<(), Error> {
-        io::stdout().write_all(bytes).map_err(map_io_err)
+        io::stderr().write_all(bytes).map_err(map_io_err)
     }
 
     fn write_line(&self, output: &str) -> Result<(), Error> {
@@ -81,6 +81,6 @@ impl KotoWrite for DefaultStderr {
     }
 
     fn flush(&self) -> Result<(), Error> {
-        io::stdout().flush().map_err(map_io_err)
+        io::stderr().flush().map_err(map_io_err)
     }
 }
