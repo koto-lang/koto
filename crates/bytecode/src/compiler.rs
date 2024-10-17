@@ -2435,6 +2435,7 @@ impl Compiler {
         let span_stack_count = self.span_stack.len();
 
         let mut chain_node = root_node.clone();
+
         let mut null_check_jump_placeholders = SmallVec::<[usize; 4]>::new();
         let mut null_check_on_end_node = false;
 
@@ -2537,6 +2538,7 @@ impl Compiler {
                     )?;
                 }
                 ChainNode::NullCheck => {
+                    // `?` null check
                     let Some(check_register) = chain_nodes.previous() else {
                         return self.error(ErrorKind::OutOfPositionChildNodeInChain);
                     };
@@ -2554,9 +2556,9 @@ impl Compiler {
                     chain_node = node;
                     next_node_index = next;
 
-                    // If the last node in the chain is a null check then handle it here,
-                    // allowing the final node to be held in `chain_node` for further processing
-                    // below, after this loop.
+                    // If the last node in the chain is a null check then break out now,
+                    // allowing the final node (before the null check) to be held in `chain_node`
+                    // for further processing below, after this loop.
                     if let Some(next) = next {
                         match ctx.node_with_span(next).node {
                             Node::Chain((ChainNode::NullCheck, None)) => {
@@ -2616,9 +2618,11 @@ impl Compiler {
         let compound_assignment = rhs.is_some() && rhs_op.is_some();
         let access_end_node = !simple_assignment || null_check_on_end_node;
 
-        // Do we need to read the last value in the lookup chain?
-        // - No if it's a simple assignment and the last value is going to be overwritten.
-        // - Yes otherwise, either there's a compound assignment or the last value is being accessed.
+        // Do we need to access the last node in the lookup chain?
+        // - No if it's a simple assignment (without a null check) and the last node is going to be
+        //   overwritten.
+        // - Yes otherwise, either there's a compound assignment, or a null check,
+        //   or the last node is the result.
         match &end_node {
             ChainNode::Id(id, ..) if access_end_node => {
                 dbg!(result_register);
@@ -2646,7 +2650,12 @@ impl Compiler {
             ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
                     return self.error(ErrorKind::AssigningToATemporaryValue);
-                } else if compound_assignment || piped_arg_register.is_none() || *with_parens {
+                } else if compound_assignment // e.g. `f() += 1 # (valid depending on return type)`
+                    // If there's a piped call on the chain result, defer it until below
+                    || piped_arg_register.is_none() 
+                    // Parenthesized calls need to be made now, e.g. `42 -> foo.bar()`
+                    || *with_parens
+                {
                     let (function_register, instance_register) = chain_nodes.previous_two();
 
                     let Some(function_register) = function_register else {
@@ -2666,6 +2675,7 @@ impl Compiler {
             _ => {}
         }
 
+        // Is a null check needed on the last node?
         if null_check_on_end_node {
             self.push_op(JumpIfNull, &[result_register]);
             null_check_jump_placeholders.push(self.push_offset_placeholder());
