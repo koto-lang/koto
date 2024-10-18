@@ -36,6 +36,7 @@ pub enum Token {
     CurlyClose,
     Range,
     RangeInclusive,
+    QuestionMark,
 
     // operators
     Add,
@@ -736,6 +737,7 @@ impl<'a> TokenLexer<'a> {
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
         check_symbol!(".", Dot);
+        check_symbol!("?", QuestionMark);
         check_symbol!("(", RoundOpen);
         check_symbol!(")", RoundClose);
         check_symbol!("|", Function);
@@ -846,7 +848,7 @@ impl<'a> TokenLexer<'a> {
     }
 }
 
-impl<'a> Iterator for TokenLexer<'a> {
+impl Iterator for TokenLexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -1005,7 +1007,7 @@ impl<'a> KotoLexer<'a> {
     }
 }
 
-impl<'a> Iterator for KotoLexer<'a> {
+impl Iterator for KotoLexer<'_> {
     type Item = LexedToken;
 
     fn next(&mut self) -> Option<Self::Item> {

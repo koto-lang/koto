@@ -1,7 +1,5 @@
 @main = ||
-  n = match koto.args.get 0
-    null then 10
-    arg then arg.to_number()
+  n = koto.args.first()?.to_number() or 4
 
   a = []
   for i in 0..n

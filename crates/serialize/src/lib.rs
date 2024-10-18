@@ -6,7 +6,7 @@ use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 /// A newtype that allows us to implement support for Serde serialization
 pub struct SerializableValue<'a>(pub &'a KValue);
 
-impl<'a> Serialize for SerializableValue<'a> {
+impl Serialize for SerializableValue<'_> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

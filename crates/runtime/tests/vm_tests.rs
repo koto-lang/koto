@@ -2491,6 +2491,100 @@ f()(8)
 ";
             check_script_output(script, 64);
         }
+
+        #[test]
+        fn null_check_after_lookup() {
+            let script = "
+m = {foo: null}
+x = m.foo?.nested
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_checks_between_calls() {
+            let script = "
+f = || null
+x = f()?()
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_before_assignment() {
+            let script = "
+m = {foo: null}
+m.foo? = 1
+m.foo
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_before_compound_assignment() {
+            let script = "
+m = {foo: 42}
+m.foo? += 1
+m.foo
+";
+            check_script_output(script, 43);
+        }
+
+        #[test]
+        fn several_null_checks_pass() {
+            let script = "
+m = || {foo: [{bar: {baz: 99}}]}
+m?()?.foo?[0]?.bar?.baz? += 1
+";
+            check_script_output(script, 100);
+        }
+
+        #[test]
+        fn several_null_checks_with_short_circuit() {
+            let script = "
+m = || {foo: [{bar: {}}]}
+m?()?.foo?[0]?.bar?.get('baz')? += 1
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_into_piped_call_pass() {
+            let script = "
+m = {foo: |x| x}
+42 -> m.foo?
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn null_check_into_piped_call_after_call_pass() {
+            let script = "
+m = {foo: |x| |x| x}
+42 -> m.foo()?
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn null_check_into_piped_call_with_short_circuit() {
+            let script = "
+m = {foo: null}
+42 -> m.foo?
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn null_check_after_call() {
+            let script = "
+m = {foo: || 42}
+m.foo()? # The check is redundant, but doesn't need to be an error
+";
+            check_script_output(script, 42);
+        }
     }
 
     mod placeholders {

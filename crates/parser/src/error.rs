@@ -193,6 +193,8 @@ pub enum SyntaxError {
     UnexpectedMetaKey,
     #[error("Unexpected 'else' in switch arm")]
     UnexpectedSwitchElse,
+    #[error("Unexpected '?'")]
+    UnexpectedNullCheck,
     #[error("Unexpected token")]
     UnexpectedToken,
     #[error("Unicode value out of range, the maximum is \\u{{10ffff}}")]

@@ -2433,12 +2433,14 @@ impl Compiler {
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
-        // let chain_temp_registers_start = self.frame().next_temporary_register();
 
         let mut chain_node = root_node.clone();
 
+        let mut null_check_jump_placeholders = SmallVec::<[usize; 4]>::new();
+        let mut null_check_on_end_node = false;
+
         // Work through the chain, up until the last node, which will be handled separately
-        while next_node_index.is_some() {
+        while let Some(next) = next_node_index {
             match &chain_node {
                 ChainNode::Root(root_node) => {
                     if !chain_nodes.is_empty() {
@@ -2535,27 +2537,42 @@ impl Compiler {
                         ctx.with_fixed_register(node_register),
                     )?;
                 }
+                ChainNode::NullCheck => {
+                    // `?` null check
+                    let Some(check_register) = chain_nodes.previous() else {
+                        return self.error(ErrorKind::OutOfPositionChildNodeInChain);
+                    };
+
+                    self.push_op(JumpIfNull, &[check_register]);
+                    null_check_jump_placeholders.push(self.push_offset_placeholder());
+                }
             }
 
-            // Is the chain complete?
-            let Some(next) = next_node_index else { break };
-
             let next_chain_node = ctx.node_with_span(next);
+            self.push_span(next_chain_node, ctx.ast);
 
-            match next_chain_node.node.clone() {
+            match &next_chain_node.node {
                 Node::Chain((node, next)) => {
-                    chain_node = node;
-                    next_node_index = next;
+                    chain_node = node.clone();
+                    next_node_index = *next;
+
+                    // If the last node in the chain is a null check then break out now,
+                    // allowing the final node (before the null check) to be held in `chain_node`
+                    // for further processing below, after this loop.
+                    if let Some(next) = *next {
+                        if ctx.node(next) == &Node::Chain((ChainNode::NullCheck, None)) {
+                            null_check_on_end_node = true;
+                            break;
+                        }
+                    }
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "a chain node".into(),
-                        unexpected,
+                        unexpected: unexpected.clone(),
                     });
                 }
-            };
-
-            self.push_span(next_chain_node, ctx.ast);
+            }
         }
 
         // The chain is complete up until the last node, and now we need to handle:
@@ -2596,16 +2613,20 @@ impl Compiler {
         debug_assert!(rhs_op.is_none() || rhs_op.is_some() && rhs.is_some());
         let simple_assignment = rhs.is_some() && rhs_op.is_none();
         let compound_assignment = rhs.is_some() && rhs_op.is_some();
+        let access_end_node = !simple_assignment || null_check_on_end_node;
 
-        // Do we need to read the last value in the lookup chain?
-        // - No if it's a simple assignment and the last value is going to be overwritten.
-        // - Yes otherwise, either there's a compound assignment or the last value is being accessed.
+        // Do we need to access the last node in the lookup chain?
+        // - No if it's a simple assignment (without a null check) and the last node is going to be
+        //   overwritten.
+        // - Yes otherwise, either there's a compound assignment, or a null check,
+        //   or the last node is the result.
         match &end_node {
-            ChainNode::Id(id, ..) if !simple_assignment => {
+            ChainNode::Id(id, ..) if access_end_node => {
+                dbg!(result_register);
                 self.compile_access_id(result_register, container_register, *id);
                 chain_nodes.push(result_register, false);
             }
-            ChainNode::Str(_) if !simple_assignment => {
+            ChainNode::Str(_) if access_end_node => {
                 self.push_op(
                     AccessString,
                     &[
@@ -2616,7 +2637,7 @@ impl Compiler {
                 );
                 chain_nodes.push(result_register, false);
             }
-            ChainNode::Index(_) if !simple_assignment => {
+            ChainNode::Index(_) if access_end_node => {
                 self.push_op(
                     Index,
                     &[result_register, container_register, index.unwrap(self)?],
@@ -2626,7 +2647,12 @@ impl Compiler {
             ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
                     return self.error(ErrorKind::AssigningToATemporaryValue);
-                } else if compound_assignment || piped_arg_register.is_none() || *with_parens {
+                } else if compound_assignment // e.g. `f() += 1 # (valid depending on return type)`
+                    // If there's a piped call on the chain result, defer it until below
+                    || piped_arg_register.is_none()
+                    // Parenthesized calls need to be made now, e.g. `42 -> foo.bar()`
+                    || *with_parens
+                {
                     let (function_register, instance_register) = chain_nodes.previous_two();
 
                     let Some(function_register) = function_register else {
@@ -2646,9 +2672,15 @@ impl Compiler {
             _ => {}
         }
 
+        // Is a null check needed on the last node?
+        if null_check_on_end_node {
+            self.push_op(JumpIfNull, &[result_register]);
+            null_check_jump_placeholders.push(self.push_offset_placeholder());
+        }
+
         // Do we need to modify the accessed value?
         if compound_assignment {
-            // compound_assignment can only be true when both rhs and rhs_op have values
+            // Compound_assignment can only be true when both rhs and rhs_op have values
             let rhs = rhs.unwrap();
             let rhs_op = rhs_op.unwrap();
 
@@ -2712,6 +2744,13 @@ impl Compiler {
                 parent_register,
                 ctx.with_register(call_result),
             )?;
+        }
+
+        // Now that all chain operations are complete, update the null check jump placeholders so
+        // that they point to the end of the chain.
+
+        for placeholder in null_check_jump_placeholders {
+            self.update_offset_placeholder(placeholder)?;
         }
 
         // Clean up the span and register stacks

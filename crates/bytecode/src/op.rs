@@ -303,15 +303,20 @@ pub enum Op {
     /// `[offset[2]]`
     JumpBack,
 
-    /// Causes the instruction pointer to jump forward, if a condition is true
+    /// Jumps the instruction pointer forward if a value is `false` or `null`
     ///
-    /// `[*condition, offset[2]]`
+    /// `[*value, offset[2]]`
+    JumpIfFalse,
+
+    /// Jumps the instruction pointer forward if a value is neither `false` or `null`
+    ///
+    /// `[*value, offset[2]]`
     JumpIfTrue,
 
-    /// Causes the instruction pointer to jump forward, if a condition is false
+    /// Jumps the instruction pointer forward if a value is `null`
     ///
-    /// `[*condition, offset[2]]`
-    JumpIfFalse,
+    /// `[*value, offset[2]]`
+    JumpIfNull,
 
     /// Calls a standalone function
     ///
@@ -522,7 +527,6 @@ pub enum Op {
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused85,
     Unused86,
     Unused87,
     Unused88,

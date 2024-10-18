@@ -76,7 +76,7 @@ impl<'a> DisplayContext<'a> {
     }
 }
 
-impl<'a> fmt::Write for DisplayContext<'a> {
+impl fmt::Write for DisplayContext<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.append(s);
         Ok(())
@@ -122,7 +122,7 @@ impl<'a> From<&'a KString> for StringBuilderAppend<'a> {
     }
 }
 
-impl<'a> StringBuilderAppend<'a> {
+impl StringBuilderAppend<'_> {
     fn append(self, string: &mut String) {
         match self {
             StringBuilderAppend::Char(c) => string.push(c),

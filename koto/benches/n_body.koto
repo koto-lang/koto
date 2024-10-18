@@ -116,9 +116,7 @@ run_nbody = |n|
   initial_energy, end_energy
 
 @main = ||
-  n = match koto.args.get 0
-    null then 100
-    arg then arg.to_number()
+  n = koto.args.first()?.to_number() or 100
 
   initial_energy, end_energy = run_nbody n
 
