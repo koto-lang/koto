@@ -846,7 +846,7 @@ impl<'a> TokenLexer<'a> {
     }
 }
 
-impl<'a> Iterator for TokenLexer<'a> {
+impl Iterator for TokenLexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -1005,7 +1005,7 @@ impl<'a> KotoLexer<'a> {
     }
 }
 
-impl<'a> Iterator for KotoLexer<'a> {
+impl Iterator for KotoLexer<'_> {
     type Item = LexedToken;
 
     fn next(&mut self) -> Option<Self::Item> {

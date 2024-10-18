@@ -9,7 +9,7 @@ use crate::Ptr;
 /// Makes a PtrMut, with support for casting to trait objects
 ///
 /// Although PtrMut::from is available, the challenge comes when a trait object needs to be used as
-/// the pointee type. Until the `CoerceUnized` trait is stabilized, casting from a concrete type to
+/// the pointer type. Until the `CoerceUnized` trait is stabilized, casting from a concrete type to
 /// `dyn Trait` needs to be performed on the inner pointer. This macro encapsulates the casting to
 /// make life easier at the call site.
 #[macro_export]
@@ -94,7 +94,7 @@ impl<'a, T: ?Sized> Borrow<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> Deref for Borrow<'a, T> {
+impl<T: ?Sized> Deref for Borrow<'_, T> {
     type Target = T;
 
     #[inline]
@@ -130,7 +130,7 @@ impl<'a, T: ?Sized> BorrowMut<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> Deref for BorrowMut<'a, T> {
+impl<T: ?Sized> Deref for BorrowMut<'_, T> {
     type Target = T;
 
     #[inline]
@@ -139,7 +139,7 @@ impl<'a, T: ?Sized> Deref for BorrowMut<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> DerefMut for BorrowMut<'a, T> {
+impl<T: ?Sized> DerefMut for BorrowMut<'_, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
         self.0.deref_mut()
