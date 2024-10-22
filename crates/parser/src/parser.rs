@@ -552,9 +552,7 @@ impl<'source> Parser<'source> {
 
                     // Move on to the token after the operator
                     if self.peek_token_with_context(context).is_none() {
-                        return self.consume_token_on_same_line_and_error(
-                            ExpectedIndentation::RhsExpression,
-                        );
+                        return self.error(ExpectedIndentation::RhsExpression);
                     }
                     self.consume_until_token_with_context(context).unwrap();
 
@@ -583,9 +581,7 @@ impl<'source> Parser<'source> {
                     let Some(rhs) =
                         self.parse_expression_start(&[], right_priority, &rhs_context)?
                     else {
-                        return self.consume_token_on_same_line_and_error(
-                            ExpectedIndentation::RhsExpression,
-                        );
+                        return self.error(ExpectedIndentation::RhsExpression);
                     };
 
                     use Token::*;
@@ -981,7 +977,7 @@ impl<'source> Parser<'source> {
             if let Some(body) = self.parse_line(&ExpressionContext::permissive())? {
                 body
             } else {
-                return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
+                return self.error(ExpectedIndentation::FunctionBody);
             }
         };
 
@@ -1766,13 +1762,11 @@ impl<'source> Parser<'source> {
 
         let (entries, last_token_was_a_comma) =
             self.parse_comma_separated_entries(Token::RoundClose)?;
-
-        if !matches!(
-            self.consume_token_with_context(context),
-            Some((Token::RoundClose, _)),
-        ) {
-            return self.error(SyntaxError::ExpectedCloseParen);
-        }
+        self.expect_and_consume_token(
+            Token::RoundClose,
+            SyntaxError::ExpectedCloseParen.into(),
+            &ExpressionContext::braced_items_continued(),
+        )?;
 
         let expressions_node = match entries.as_slice() {
             [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
@@ -1796,17 +1790,17 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
 
         let (entries, _) = self.parse_comma_separated_entries(Token::SquareClose)?;
+        self.expect_and_consume_token(
+            Token::SquareClose,
+            SyntaxError::ExpectedListEnd.into(),
+            &ExpressionContext::braced_items_continued(),
+        )?;
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
-
-        if let Some((Token::SquareClose, _)) = self.consume_token_with_context(context) {
-            self.check_for_chain_after_node(
-                list_node,
-                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
-            )
-        } else {
-            self.error(SyntaxError::ExpectedListEnd)
-        }
+        self.check_for_chain_after_node(
+            list_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     // Helper for parse_list and parse_tuple
@@ -1914,15 +1908,11 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
 
         let entries = self.parse_comma_separated_map_entries()?;
-
-        let mut map_end_context = ExpressionContext::permissive();
-        map_end_context.expected_indentation = Indentation::Equal(start_indent);
-        if !matches!(
-            self.consume_token_with_context(&map_end_context),
-            Some((Token::CurlyClose, _))
-        ) {
-            return self.error(SyntaxError::ExpectedMapEnd);
-        }
+        self.expect_and_consume_token(
+            Token::CurlyClose,
+            SyntaxError::ExpectedMapEnd.into(),
+            &ExpressionContext::braced_items_continued(),
+        )?;
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
         self.check_for_chain_after_node(
@@ -3056,6 +3046,22 @@ impl<'source> Parser<'source> {
     }
 
     //// Error helpers
+
+    // Consume an expected token, otherwise error
+    fn expect_and_consume_token(
+        &mut self,
+        expected_token: Token,
+        error: ErrorKind,
+        context: &ExpressionContext,
+    ) -> Result<()> {
+        match self.peek_token_with_context(context) {
+            Some(_) => match self.consume_token_with_context(context) {
+                Some((token, _)) if token == expected_token => Ok(()),
+                _ => self.error(error),
+            },
+            None => self.error(error),
+        }
+    }
 
     fn error<E, T>(&mut self, error_type: E) -> Result<T>
     where
