@@ -105,7 +105,7 @@ impl Error {
         Self::new(ErrorKind::KotoError { thrown_value, vm })
     }
 
-    /// Extends the error stack with the given [Chunk] and ip
+    /// Extends the error stack with the given [Chunk] and instruction pointer
     pub(crate) fn extend_trace(&mut self, chunk: Ptr<Chunk>, instruction: u32) {
         self.trace.push(ErrorFrame { chunk, instruction });
     }
@@ -176,7 +176,7 @@ where
     }
 }
 
-/// A chunk and ip in a call stack where an error was thrown
+/// A chunk and instruction pointer in a call stack where an error was thrown
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct ErrorFrame {
@@ -190,7 +190,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Creates a [crate::Error] from a message (with format-like behaviour), wrapped in `Err`
 ///
 /// Wrapping the result in `Err` is a convenience for functions that need to return immediately when
-/// an error has occured.
+/// an error has occurred.
 #[macro_export]
 macro_rules! runtime_error {
     ($error:literal) => {
@@ -212,7 +212,7 @@ pub fn unexpected_type<T>(expected_str: &str, unexpected: &KValue) -> Result<T> 
     })
 }
 
-/// Creates an unexpected arguments error containg the provided arguments
+/// Creates an unexpected arguments error containing the provided arguments
 pub fn unexpected_args<T>(expected_str: &str, arguments: &[KValue]) -> Result<T> {
     runtime_error!(ErrorKind::UnexpectedArguments {
         expected: expected_str.into(),
