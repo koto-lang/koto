@@ -552,9 +552,7 @@ impl<'source> Parser<'source> {
 
                     // Move on to the token after the operator
                     if self.peek_token_with_context(context).is_none() {
-                        return self.consume_token_on_same_line_and_error(
-                            ExpectedIndentation::RhsExpression,
-                        );
+                        return self.error(ExpectedIndentation::RhsExpression);
                     }
                     self.consume_until_token_with_context(context).unwrap();
 
@@ -583,9 +581,7 @@ impl<'source> Parser<'source> {
                     let Some(rhs) =
                         self.parse_expression_start(&[], right_priority, &rhs_context)?
                     else {
-                        return self.consume_token_on_same_line_and_error(
-                            ExpectedIndentation::RhsExpression,
-                        );
+                        return self.error(ExpectedIndentation::RhsExpression);
                     };
 
                     use Token::*;
