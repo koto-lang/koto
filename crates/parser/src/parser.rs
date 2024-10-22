@@ -969,7 +969,7 @@ impl<'source> Parser<'source> {
             None
         };
 
-        // body
+        // Function body
         let mut function_frame = Frame::default();
         function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
         self.frame_stack.push(function_frame);
@@ -1959,7 +1959,7 @@ impl<'source> Parser<'source> {
                     return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
                 }
             } else {
-                // valueless map entries are allowed in inline maps,
+                // Valueless map entries are allowed in inline maps,
                 // e.g.
                 //   bar = -1
                 //   x = {foo: 42, bar, baz: 99}
@@ -3162,7 +3162,7 @@ impl<'source> Parser<'source> {
     // Tokens on following lines will only be returned if the expression context allows linebreaks.
     //
     // If expected indentation is specified in the expression context, then the next token
-    // needs to have matching indentation, otherwise None is returned.
+    // needs to have matching indentation, otherwise `None` is returned.
     fn peek_token_with_context(&mut self, context: &ExpressionContext) -> Option<PeekInfo> {
         use Token::*;
 
@@ -3217,8 +3217,8 @@ impl<'source> Parser<'source> {
     // current expression context allows for the token to be consumed.
     //
     // If the expression context allows linebreaks and its expected indentation is set to Greater,
-    // and indentation is found, then the context will be updated to a) expect the new indentation,
-    // and b) allow the start of map blocks.
+    // and indentation is found, then a new context will be returned with
+    // a) the new expected indentation, and b) the `allow_map_block` flag set to true.
     //
     // See also: `consume_until_token_with_context()`.
     fn consume_token_with_context(
