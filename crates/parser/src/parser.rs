@@ -871,8 +871,6 @@ impl<'source> Parser<'source> {
     //   f = |x, y| x + y
     //   #   ^ You are here
     fn consume_function(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let start_indent = self.current_indent();
-
         self.consume_token_with_context(context); // Token::Function
 
         let span_start = self.current_span().start;
@@ -882,12 +880,11 @@ impl<'source> Parser<'source> {
         let mut arg_ids = AstVec::new();
         let mut is_variadic = false;
 
-        let mut args_context = ExpressionContext::permissive();
+        let args_context = ExpressionContext::braced_items_continued();
         while self.peek_token_with_context(&args_context).is_some() {
-            args_context = self
-                .consume_until_token_with_context(&args_context)
-                .unwrap();
-            match self.parse_id_or_wildcard(context)? {
+            self.consume_until_token_with_context(&args_context);
+
+            match self.parse_id_or_wildcard(&args_context)? {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
                     let arg_span = self.current_span();
@@ -922,12 +919,12 @@ impl<'source> Parser<'source> {
                         let nested_span_start = self.current_span();
 
                         let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
-                        if !matches!(
-                            self.consume_token_with_context(&args_context),
-                            Some((Token::RoundClose, _))
-                        ) {
-                            return self.error(SyntaxError::ExpectedCloseParen);
-                        }
+                        self.expect_and_consume_token(
+                            Token::RoundClose,
+                            SyntaxError::ExpectedCloseParen.into(),
+                            &args_context,
+                        )?;
+
                         arg_nodes.push(self.push_node_with_start_span(
                             Node::Tuple(tuple_args),
                             nested_span_start,
@@ -937,27 +934,30 @@ impl<'source> Parser<'source> {
                 },
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                self.consume_next_token_on_same_line();
+            if matches!(
+                self.peek_token_with_context(&args_context),
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                })
+            ) {
+                self.consume_token_with_context(&args_context);
             } else {
                 break;
             }
         }
 
         // Check for function args end
-        let function_end_context = ExpressionContext::permissive()
-            .with_expected_indentation(Indentation::Equal(start_indent));
-        if !matches!(
-            self.consume_token_with_context(&function_end_context),
-            Some((Token::Function, _))
-        ) {
-            return self.error(SyntaxError::ExpectedFunctionArgsEnd);
-        }
+        self.expect_and_consume_token(
+            Token::Function,
+            SyntaxError::ExpectedFunctionArgsEnd.into(),
+            &args_context,
+        )?;
 
         // Check for output type hint
         let output_type = if self.peek_next_token_on_same_line() == Some(Token::Arrow) {
-            self.consume_token_with_context(context); // ->
-            let Some((output_type, _)) = self.parse_id(context)? else {
+            self.consume_token_with_context(&args_context); // ->
+            let Some((output_type, _)) = self.parse_id(&args_context)? else {
                 return self.consume_token_and_error(SyntaxError::ExpectedType);
             };
             Some(self.push_node(Node::Type(output_type))?)
@@ -977,7 +977,7 @@ impl<'source> Parser<'source> {
             if let Some(body) = self.parse_line(&ExpressionContext::permissive())? {
                 body
             } else {
-                return self.error(ExpectedIndentation::FunctionBody);
+                return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
             }
         };
 
@@ -1048,7 +1048,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstVec<AstIndex>> {
         let mut nested_args = AstVec::new();
 
-        let args_context = ExpressionContext::permissive();
+        let args_context = ExpressionContext::braced_items_continued();
         while self.peek_token_with_context(&args_context).is_some() {
             self.consume_until_token_with_context(&args_context);
             match self.parse_id_or_wildcard(&args_context)? {

@@ -2312,6 +2312,12 @@ a()";
 |
   x + y
 ",
+                "
+|
+  x,
+  y,
+  | x + y
+",
             ];
             check_ast_for_equivalent_sources(
                 &sources,
@@ -2350,6 +2356,12 @@ a()";
   y: Number,
 |
   x + y
+",
+                "
+| x: String,
+  y: Number
+  |
+    x + y
 ",
             ];
             check_ast_for_equivalent_sources(
@@ -2397,6 +2409,12 @@ a()";
 ",
                 "
 |x: String
+| -> String
+  x
+",
+                "
+|
+  x: String
 | -> String
   x
 ",
@@ -3393,6 +3411,19 @@ z = y [0..20], |x| x > 1
   _e
 |
   a
+",
+                "
+|
+  a,
+  (
+    _,
+    (others...,
+        c,
+    _d,
+    ),
+  ),
+  _e,
+| a
 ",
             ];
             check_ast_for_equivalent_sources(

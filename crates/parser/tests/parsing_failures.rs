@@ -156,6 +156,21 @@ f = ||
             fn missing_commas_in_chained_call() {
                 check_parsing_fails("f.bar 1 2 3");
             }
+
+            #[test]
+            fn unexpected_token_as_body() {
+                let source = "\
+f = || ?
+#      ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position { line: 0, column: 7 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                )
+            }
         }
 
         mod chains {
