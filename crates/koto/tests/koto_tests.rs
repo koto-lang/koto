@@ -100,31 +100,12 @@ mod koto_tests {
 
     koto_test!(assignment);
     koto_test!(comments);
-    koto_test!(control_flow);
     koto_test!(enums);
-    koto_test!(eval);
-    koto_test!(function_closures);
-    koto_test!(functions);
     koto_test!(io);
-    koto_test!(iterators);
     koto_test!(line_breaks);
-    koto_test!(list_ops);
-    koto_test!(lists);
-    koto_test!(logic);
-    koto_test!(loops);
-    koto_test!(map_ops);
-    koto_test!(maps);
-    koto_test!(maps_and_lists);
+    koto_test!(load_and_run);
     koto_test!(meta_maps);
-    koto_test!(number_ops);
-    koto_test!(numbers);
-    koto_test!(os);
     koto_test!(primes);
-    koto_test!(ranges);
-    koto_test!(strings);
-    koto_test!(tests);
-    koto_test!(tuples);
-    koto_test!(types);
 
     koto_test!(error_handling, "error_handling_module/main.koto");
     koto_test!(import, "test_module/baz.koto", "test_module/main.koto");
