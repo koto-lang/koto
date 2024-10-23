@@ -2622,7 +2622,6 @@ impl Compiler {
         //   or the last node is the result.
         match &end_node {
             ChainNode::Id(id, ..) if access_end_node => {
-                dbg!(result_register);
                 self.compile_access_id(result_register, container_register, *id);
                 chain_nodes.push(result_register, false);
             }
