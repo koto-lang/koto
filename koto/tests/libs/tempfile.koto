@@ -1,4 +1,4 @@
-@tests =
+export
   @test temp_file: ||
     temp = tempfile.temp_file()
     temp.write_line "hello"

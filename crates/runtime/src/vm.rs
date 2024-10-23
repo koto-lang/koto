@@ -559,17 +559,17 @@ impl KotoVm {
         }
     }
 
-    /// Runs any tests that are contained in the map's @tests meta entry
+    /// Runs any function tagged with `@test` in the provided map
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, tests: KMap) -> Result<KValue> {
+    pub fn run_tests(&mut self, test_map: KMap) -> Result<KValue> {
         use KValue::{Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
         // to the internal test map data while calling the test functions. Otherwise we'll end up in
         // deadlocks when the map needs to be modified (e.g. in pre or post test functions).
 
-        let (pre_test, post_test, meta_entry_count) = match tests.meta_map() {
+        let (pre_test, post_test, meta_entry_count) = match test_map.meta_map() {
             Some(meta) => {
                 let meta = meta.borrow();
                 (
@@ -581,56 +581,53 @@ impl KotoVm {
             None => (None, None, 0),
         };
 
-        let self_arg = Map(tests.clone());
+        let self_arg = Map(test_map.clone());
 
         for i in 0..meta_entry_count {
-            let meta_entry = tests.meta_map().and_then(|meta| {
+            let meta_entry = test_map.meta_map().and_then(|meta| {
                 meta.borrow()
                     .get_index(i)
                     .map(|(key, value)| (key.clone(), value.clone()))
             });
 
-            match meta_entry {
-                Some((MetaKey::Test(test_name), test)) if test.is_callable() => {
-                    let make_test_error = |error: Error, message: &str| {
-                        Err(error.with_prefix(&format!("{message} '{test_name}'")))
-                    };
+            let Some((MetaKey::Test(test_name), test)) = meta_entry else {
+                continue;
+            };
 
-                    if let Some(pre_test) = &pre_test {
-                        if pre_test.is_callable() {
-                            let pre_test_result = self.call_instance_function(
-                                self_arg.clone(),
-                                pre_test.clone(),
-                                &[],
-                            );
+            if !test.is_callable() {
+                return unexpected_type(&format!("Callable for '{test_name}'"), &test);
+            }
 
-                            if let Err(error) = pre_test_result {
-                                return make_test_error(error, "Error while preparing to run test");
-                            }
-                        }
-                    }
+            let make_test_error = |error: Error, message: &str| {
+                Err(error.with_prefix(&format!("{message} '{test_name}'")))
+            };
 
-                    let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
+            if let Some(pre_test) = &pre_test {
+                if pre_test.is_callable() {
+                    let pre_test_result =
+                        self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
 
-                    if let Err(error) = test_result {
-                        return make_test_error(error, "Error while running test");
-                    }
-
-                    if let Some(post_test) = &post_test {
-                        if post_test.is_callable() {
-                            let post_test_result = self.call_instance_function(
-                                self_arg.clone(),
-                                post_test.clone(),
-                                &[],
-                            );
-
-                            if let Err(error) = post_test_result {
-                                return make_test_error(error, "Error after running test");
-                            }
-                        }
+                    if let Err(error) = pre_test_result {
+                        return make_test_error(error, "Error while preparing to run test");
                     }
                 }
-                _ => {}
+            }
+
+            let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
+
+            if let Err(error) = test_result {
+                return make_test_error(error, "Error while running test");
+            }
+
+            if let Some(post_test) = &post_test {
+                if post_test.is_callable() {
+                    let post_test_result =
+                        self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
+
+                    if let Err(error) = post_test_result {
+                        return make_test_error(error, "Error after running test");
+                    }
+                }
             }
         }
 
@@ -2175,19 +2172,7 @@ impl KotoVm {
                 self.run(compile_result.chunk.clone())?;
 
                 if self.context.settings.run_import_tests {
-                    let maybe_tests = self.exports.get_meta_value(&MetaKey::Tests);
-                    match maybe_tests {
-                        Some(KValue::Map(tests)) => {
-                            self.run_tests(tests)?;
-                        }
-                        Some(other) => {
-                            return runtime_error!(
-                                "Expected map for tests in module '{import_name}', found '{}'",
-                                other.type_as_string()
-                            )
-                        }
-                        None => {}
-                    }
+                    self.run_tests(self.exports.clone())?;
                 }
 
                 let maybe_main = self.exports.get_meta_value(&MetaKey::Main);

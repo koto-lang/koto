@@ -563,8 +563,6 @@ pub enum MetaKeyId {
     /// @||
     Call,
 
-    /// @tests
-    Tests,
     /// @test test_name
     Test,
     /// @pre_test
@@ -632,7 +630,6 @@ impl fmt::Display for MetaKeyId {
                 Type => "type",
                 Base => "base",
                 Call => "||",
-                Tests => "tests",
                 Test => "test",
                 PreTest => "pre_test",
                 PostTest => "post_test",

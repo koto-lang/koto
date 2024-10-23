@@ -868,36 +868,6 @@ x =
                 Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
-
-        #[test]
-        fn assigning_map_to_meta_key() {
-            let source = r#"
-@tests =
-  @pre_test: 0
-  @post_test: 1
-  @test foo: 0
-"#;
-            check_ast(
-                source,
-                &[
-                    Meta(MetaKeyId::Tests, None),
-                    Meta(MetaKeyId::PreTest, None),
-                    SmallInt(0),
-                    Meta(MetaKeyId::PostTest, None),
-                    SmallInt(1),
-                    Meta(MetaKeyId::Test, Some(0.into())), // 5 - foo
-                    SmallInt(0),
-                    map_block(&[(1, 2), (3, 4), (5, 6)]),
-                    assign(0, 7),
-                    Export(8.into()),
-                    MainBlock {
-                        body: nodes(&[9]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("foo")]),
-            )
-        }
     }
 
     mod ranges {

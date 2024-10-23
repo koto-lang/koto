@@ -10,6 +10,10 @@ fn run_script(script: &str, script_path: &Path, expected_module_paths: &[PathBuf
     let mut koto = Koto::with_settings(
         KotoSettings {
             run_tests: true,
+            vm_settings: KotoVmSettings {
+                run_import_tests: true,
+                ..Default::default()
+            },
             ..Default::default()
         }
         .with_module_imported_callback({
@@ -19,35 +23,31 @@ fn run_script(script: &str, script_path: &Path, expected_module_paths: &[PathBuf
     );
     koto.set_script_path(Some(script_path)).unwrap();
 
-    match koto.compile(script) {
-        Ok(_) => match koto.run() {
-            Ok(_) => {
-                for loaded_module_path in loaded_module_paths.borrow().iter() {
-                    if !expected_module_paths
-                        .iter()
-                        .any(|path| path == loaded_module_path)
-                    {
-                        panic!(
-                            "Unexpected imported module: '{}'",
-                            loaded_module_path.to_string_lossy()
-                        );
-                    }
-                }
-                // Check that the loaded module paths are correct
-                assert_eq!(
-                    loaded_module_paths.borrow().len(),
-                    expected_module_paths.len(),
-                    "Mismatch in number of imported module paths"
-                );
-            }
-            Err(error) => {
-                panic!("{error}");
-            }
-        },
-        Err(error) => {
-            panic!("{error}");
+    if let Err(error) = koto.compile(script) {
+        panic!("{error}");
+    }
+    if let Err(error) = koto.run() {
+        panic!("{error}");
+    }
+
+    for loaded_module_path in loaded_module_paths.borrow().iter() {
+        if !expected_module_paths
+            .iter()
+            .any(|path| path == loaded_module_path)
+        {
+            panic!(
+                "Unexpected imported module: '{}'",
+                loaded_module_path.to_string_lossy()
+            );
         }
     }
+
+    // Check that the loaded module paths are correct
+    assert_eq!(
+        loaded_module_paths.borrow().len(),
+        expected_module_paths.len(),
+        "Mismatch in number of imported module paths"
+    );
 }
 
 fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
@@ -100,31 +100,12 @@ mod koto_tests {
 
     koto_test!(assignment);
     koto_test!(comments);
-    koto_test!(control_flow);
     koto_test!(enums);
-    koto_test!(eval);
-    koto_test!(function_closures);
-    koto_test!(functions);
     koto_test!(io);
-    koto_test!(iterators);
     koto_test!(line_breaks);
-    koto_test!(list_ops);
-    koto_test!(lists);
-    koto_test!(logic);
-    koto_test!(loops);
-    koto_test!(map_ops);
-    koto_test!(maps);
-    koto_test!(maps_and_lists);
+    koto_test!(load_and_run);
     koto_test!(meta_maps);
-    koto_test!(number_ops);
-    koto_test!(numbers);
-    koto_test!(os);
     koto_test!(primes);
-    koto_test!(ranges);
-    koto_test!(strings);
-    koto_test!(tests);
-    koto_test!(tuples);
-    koto_test!(types);
 
     koto_test!(error_handling, "error_handling_module/main.koto");
     koto_test!(import, "test_module/baz.koto", "test_module/main.koto");

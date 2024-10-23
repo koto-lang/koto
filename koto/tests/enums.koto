@@ -12,7 +12,7 @@ make_bidirectional_enum = |entries...|
       result.insert index, id
       result
 
-@tests =
+export
   @test make_enum: ||
     enum = make_enum "foo", "bar", "baz"
     assert_eq enum.foo, 0

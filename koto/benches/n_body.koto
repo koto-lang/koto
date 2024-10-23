@@ -126,8 +126,7 @@ run_nbody = |n|
     print '{initial_energy:.9}'
     print '{end_energy:.9}'
 
-@tests =
-  @test nbody_100: ||
-    initial_energy, end_energy = run_nbody 100
-    assert_near initial_energy, -0.16907514, 1.0e-6
-    assert_near end_energy, -0.16904989, 1.0e-6
+@test nbody_100 = ||
+  initial_energy, end_energy = run_nbody 100
+  assert_near initial_energy, -0.16907514, 1.0e-6
+  assert_near end_energy, -0.16904989, 1.0e-6

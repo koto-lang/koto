@@ -2034,7 +2034,6 @@ impl<'source> Parser<'source> {
                 "type" => MetaKeyId::Type,
                 "base" => MetaKeyId::Base,
                 "main" => MetaKeyId::Main,
-                "tests" => MetaKeyId::Tests,
                 "pre_test" => MetaKeyId::PreTest,
                 "post_test" => MetaKeyId::PostTest,
                 "test" => match self.consume_next_token_on_same_line() {

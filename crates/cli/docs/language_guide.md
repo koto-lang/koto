@@ -2199,11 +2199,11 @@ check! An assertion failed
 
 ### Organizing Tests
 
-Tests can be organized by collecting `@test` functions in an object. 
+Tests can be organized by collecting `@test` functions in a map. 
 
-The tests can then be run manually with 
-[`test.run_tests`](./core_lib/test.md#run_tests).
-For automatic testing, see the description of exporting `@tests` in the
+The tests can then be run manually with [`test.run_tests`](./core_lib/test.md#run_tests).
+
+For automatic testing, see the description of exporting `@test` functions in the
 [following section](#modules).
 
 ```koto
@@ -2353,14 +2353,14 @@ export
   baz: 'baz'
 ```
 
-### `@tests` and `@main`
+### `@test` functions and `@main`
 
-A module can export a `@tests` object containing `@test` functions, which 
-will be automatically run after the module has been compiled and initialized.
+A module can export `@test` functions, which will be automatically run after
+the module has been compiled and initialized.
 
 Additionally, a module can export a `@main` function. 
 The `@main` function will be called after the module has been compiled and
-initialized, and after exported `@tests` have been successfully run.
+initialized, and after any exported `@test` functions have been successfully run.
 
 Note that because metakeys can't be assigned locally, 
 the use of `export` is optional when adding entries to the module's metamap.
@@ -2375,10 +2375,9 @@ export say_hello = |name| 'Hello, {name}!'
 @main = || # Equivalent to export @main =
   print '`my_module` initialized'
 
-@tests =
-  @test hello_world: ||
-    print 'Testing...'
-    assert_eq (say_hello 'World'), 'Hello, World!'
+@test hello_world = ||
+  print 'Testing...'
+  assert_eq (say_hello 'World'), 'Hello, World!'
 
 ##################
 #   other.koto   #

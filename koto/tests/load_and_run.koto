@@ -1,4 +1,4 @@
-@tests =
+export
   @test basic_eval_string_and_run: ||
     assert_eq 2, koto.run "1 + 1"
   

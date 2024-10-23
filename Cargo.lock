@@ -887,11 +887,7 @@ name = "lib_tests"
 version = "0.15.0"
 dependencies = [
  "koto",
- "koto_color",
- "koto_geometry",
  "koto_json",
- "koto_random",
- "koto_regex",
  "koto_tempfile",
  "koto_toml",
  "koto_yaml",

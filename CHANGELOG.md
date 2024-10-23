@@ -47,14 +47,14 @@ The Koto project adheres to
 
 #### Language
 
-- `await`, `const`, and `let` have been reserved as keywords for future use.
-- The type of a number is now always `Number`, rather than distinguishing
-  between `Int` and `Float`.
 - The `>>` pipe operator has been replaced with `->`.
   - This aligns it with the `->` function output type syntax, which avoids 
     having two different special-case operators related to function output.
+- The type of a number is now always `Number`, rather than distinguishing
+  between `Int` and `Float`.
 - Error messages have been improved when calling core library functions with
   incorrect arguments.
+- `await`, `const`, and `let` have been reserved as keywords for future use.
 
 #### API
 
@@ -78,6 +78,29 @@ The Koto project adheres to
   - `color.hex` has been added to support initializing colors with hex triples.
 
 ### Removed
+
+#### Language
+
+- The `@tests` metakey has been removed, with `@test` functions now exported directly 
+  in the module.
+  - Before:
+    ```koto
+    @tests =
+      @test foo: || assert something()
+      @test bar: || assert something_else()
+    ``` 
+    After:
+    ```koto
+    @test foo = || assert something()
+    @test bar = || assert something_else()
+    ```
+    - If you have a file with a lot of tests, you can replace `@tests =` with `export` 
+      to simplify the transition.
+      ```koto
+      export
+        @test foo: || assert something()
+        @test bar: || assert something_else()
+      ```
 
 #### API
 
