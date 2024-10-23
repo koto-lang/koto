@@ -1,26 +1,42 @@
 mod parser {
-    use koto_parser::Parser;
+    use koto_parser::{Ast, Parser, Position, Result, Span};
 
-    #[cfg(feature = "panic_on_parser_error")]
-    fn check_parsing_fails(source: &str) {
-        let catch_result = std::panic::catch_unwind(|| Parser::parse(source));
-
-        if let Ok(Ok(ast)) = catch_result {
-            panic!(
-                "Unexpected success while parsing:\n{source}\n{:#?}",
-                ast.nodes()
-            );
+    fn check_parsing_result(result: Result<Ast>, source: &str, span: Option<Span>) {
+        match result {
+            Ok(ast) => {
+                panic!(
+                    "Unexpected success while parsing:\n{source}\n{:#?}",
+                    ast.nodes()
+                );
+            }
+            Err(error) => {
+                if let Some(expected_span) = span {
+                    assert_eq!(expected_span, error.span);
+                }
+            }
         }
     }
 
+    #[cfg(feature = "panic_on_parser_error")]
+    fn check_parsing_fails(source: &str, span: Option<Span>) {
+        check_parsing_result(
+            std::panic::catch_unwind(|| Parser::parse(source)),
+            source,
+            span,
+        );
+    }
+
     #[cfg(not(feature = "panic_on_parser_error"))]
+    fn check_that_parsing_fails(source: &str, span: Option<Span>) {
+        check_parsing_result(Parser::parse(source), source, span);
+    }
+
     fn check_parsing_fails(source: &str) {
-        if let Ok(ast) = Parser::parse(source) {
-            panic!(
-                "Unexpected success while parsing:\n{source}\n{:#?}",
-                ast.nodes()
-            );
-        }
+        check_that_parsing_fails(source, None);
+    }
+
+    fn check_parsing_fails_with_span(source: &str, span: Span) {
+        check_that_parsing_fails(source, Some(span))
     }
 
     mod should_fail {
@@ -140,6 +156,21 @@ f = ||
             fn missing_commas_in_chained_call() {
                 check_parsing_fails("f.bar 1 2 3");
             }
+
+            #[test]
+            fn unexpected_token_as_body() {
+                let source = "\
+f = || ?
+#      ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position { line: 0, column: 7 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                )
+            }
         }
 
         mod chains {
@@ -247,6 +278,27 @@ x = {'y'}
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn unexpected_token_inside_braces() {
+                let source = "\
+x = {foo: 42, ?}
+#             ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 14,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 15,
+                        },
+                    },
+                );
+            }
         }
 
         mod lists {
@@ -265,6 +317,27 @@ x = {'y'}
 
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn unexpected_token_inside_list() {
+                let source = "\
+x = [1, 2, ?]
+#          ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position {
+                            line: 0,
+                            column: 11,
+                        },
+                        end: Position {
+                            line: 0,
+                            column: 12,
+                        },
+                    },
+                );
+            }
         }
 
         mod tuples {
@@ -275,6 +348,25 @@ x = {'y'}
                 let source = "x = (1, 2, , 3)";
 
                 check_parsing_fails(source);
+            }
+
+            #[test]
+            fn unexpected_token_inside_tuple() {
+                let source = "\
+x = (
+  1,
+  2,
+  ?
+)
+# ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position { line: 3, column: 2 },
+                        end: Position { line: 3, column: 3 },
+                    },
+                );
             }
         }
 
