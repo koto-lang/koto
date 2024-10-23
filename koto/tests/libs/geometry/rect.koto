@@ -1,6 +1,6 @@
 from geometry import rect, vec2
 
-@tests =
+export
   @test default_rect: ||
     assert_eq rect(), rect 0, 0, 0, 0
 

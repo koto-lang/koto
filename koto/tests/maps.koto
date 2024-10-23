@@ -1,4 +1,4 @@
-@tests =
+export
   @test access_by_key: ||
     m = {key: "value", another_key: "another_value"}
     assert_eq m.key, "value"

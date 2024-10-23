@@ -1,4 +1,4 @@
-@tests =
+export
   @test inline_if: ||
     x = if true then 10 else 20
     assert_eq x, 10

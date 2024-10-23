@@ -4,7 +4,7 @@ make_foo = |x|
   @>: |other| self.x > other.x
   @==: |other| self.x == other.x
 
-@tests =
+export
   @test next: ||
     i = (1..=3).iter()
     assert_eq i.next().get(), 1

@@ -1,4 +1,4 @@
-@tests =
+export
   @pre_test: ||
     # random.seed seeds the default generator
     random.seed 1

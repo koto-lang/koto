@@ -8,7 +8,6 @@ fib = |n|
   n = koto.args.first()?.to_number() or 8
   fib n
 
-@tests =
-  @test fib: ||
-    assert_eq (fib 4), 3
-    assert_eq (fib 5), 5
+@test fib = ||
+  assert_eq (fib 4), 3
+  assert_eq (fib 5), 5

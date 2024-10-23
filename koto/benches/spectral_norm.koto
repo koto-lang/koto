@@ -54,6 +54,5 @@ spectral_norm = |n|
   if (koto.args.get 1) != 'quiet'
     print result
 
-@tests =
-  @test spectral_norm_5: ||
-    assert_near (spectral_norm 5), 1.261218, 1e-6
+@test spectral_norm_5 = ||
+  assert_near (spectral_norm 5), 1.261218, 1e-6

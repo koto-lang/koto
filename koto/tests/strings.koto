@@ -1,4 +1,4 @@
-@tests =
+export
   @test comparisons: ||
     assert_eq "Hello", "Hello"
     assert_ne "Hello", "Héllö"

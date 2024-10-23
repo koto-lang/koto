@@ -36,10 +36,9 @@ number_to_english = |n|
   if not (koto.args.get 1) == 'quiet'
     print result
 
-@tests =
-  @test number_to_english: ||
-    assert_eq (number_to_english 0), 'zero'
-    assert_eq (number_to_english -42), 'minus forty-two'
-    assert_eq (number_to_english 217), 'two hundred and seventeen'
-    assert_eq (number_to_english 999), 'nine hundred and ninety-nine'
-    assert_eq (number_to_english 123456), '???'
+@test number_to_english = ||
+  assert_eq (number_to_english 0), 'zero'
+  assert_eq (number_to_english -42), 'minus forty-two'
+  assert_eq (number_to_english 217), 'two hundred and seventeen'
+  assert_eq (number_to_english 999), 'nine hundred and ninety-nine'
+  assert_eq (number_to_english 123456), '???'

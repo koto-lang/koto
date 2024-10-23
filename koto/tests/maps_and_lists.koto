@@ -1,4 +1,4 @@
-@tests =
+export
   @test lists_in_maps: ||
     x =
       foo: [10, 11, 12]

@@ -88,7 +88,7 @@ globals.foo_meta =
   @meta hello: "Hello"
   @meta say_hello: |name| "{self.hello}, {name}!"
 
-@tests =
+export
   @test add: ||
     assert_eq (foo(10) + foo(20)), foo 30
 

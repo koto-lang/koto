@@ -1,6 +1,6 @@
 import error_handling_module
 
-@tests =
+export
   @test try_expression: ||
     x = try
       42

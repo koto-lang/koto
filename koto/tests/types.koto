@@ -1,4 +1,4 @@
-@tests =
+export
   @test type_returns_type_name: ||
     assert_eq (type true), "Bool"
     assert_eq (type |x| x * x), "Function"

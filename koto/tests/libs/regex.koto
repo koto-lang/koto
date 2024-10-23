@@ -1,4 +1,4 @@
-@tests =
+export
   @test is_match: ||
     r = regex.new r'x\d\d'
     assert r.is_match 'x42'

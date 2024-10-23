@@ -1,7 +1,7 @@
 from geometry import vec2
 from number import pi
 
-@tests =
+export
   @test vec2: ||
     assert_eq vec2(), (vec2 0)
     assert_eq (vec2 1), (vec2 1, 0)

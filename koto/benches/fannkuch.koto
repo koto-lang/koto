@@ -70,8 +70,7 @@ fannkuch = |n|
     print sum
     print 'Pfannkuchen({n}) = {flips}'
 
-@tests =
-  @test fannkuch_5: ||
-    sum, flips = fannkuch 5
-    assert_eq sum, 11
-    assert_eq flips, 7
+@test fannkuch_5 = ||
+  sum, flips = fannkuch 5
+  assert_eq sum, 11
+  assert_eq flips, 7

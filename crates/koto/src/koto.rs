@@ -213,16 +213,7 @@ impl Koto {
         let result = self.runtime.run(chunk)?;
 
         if self.run_tests {
-            let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
-            match maybe_tests {
-                Some(KValue::Map(tests)) => {
-                    self.runtime.run_tests(tests)?;
-                }
-                Some(other) => {
-                    return unexpected_type("test map", &other);
-                }
-                None => {}
-            }
+            self.runtime.run_tests(self.runtime.exports().clone())?;
         }
 
         let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);

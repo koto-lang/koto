@@ -7,7 +7,7 @@ assert_color_near = |(a0, a1, a2, a3), (b0, b1, b2, b3)|
   assert_near a2, b2, allowed_error
   assert_near a3, b3, allowed_error
 
-@tests =
+export
   @test rgb: ||
     assert_eq (color 1, 0, 1), (color.rgb 1, 0, 1)
     assert_eq (color 0, 0.5, 0.9), (color.rgb 0, 0.5, 0.9)

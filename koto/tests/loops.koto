@@ -1,4 +1,4 @@
-@tests =
+export
   @test for_block: ||
     count = 0
     for x in 0..10

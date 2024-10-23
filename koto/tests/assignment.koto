@@ -1,4 +1,4 @@
-@tests =
+export
   @test basic_assignment: ||
     a = 1
     b = -a

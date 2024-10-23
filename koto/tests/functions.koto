@@ -1,4 +1,4 @@
-@tests =
+export
   @test square: ||
     square = |x| x * x
     assert_eq (square 7), 49

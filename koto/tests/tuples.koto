@@ -4,7 +4,7 @@ make_foo = |x|
   @>: |other| self.x > other.x
   @==: |other| self.x == other.x
 
-@tests =
+export
   @test for_loop: ||
     a = 1, 2, 3
     z = []

@@ -69,10 +69,6 @@ pub enum MetaKey {
     ///
     /// e.g. `@test my_test`
     Test(KString),
-    /// `@tests`
-    ///
-    /// Tests are defined together in a [KMap](crate::KMap).
-    Tests,
     /// `@pre_test`
     ///
     /// Used to define a function that will be run before each `@test`.
@@ -242,7 +238,6 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Named => {
             MetaKey::Named(name.ok_or_else(|| Error::from("Missing name for named meta entry"))?)
         }
-        MetaKeyId::Tests => MetaKey::Tests,
         MetaKeyId::Test => MetaKey::Test(name.ok_or_else(|| Error::from("Missing name for test"))?),
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,

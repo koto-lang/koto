@@ -16,9 +16,8 @@ export
 
   tests_were_run: false
 
-  @tests:
-    @test run_tests: ||
-      export tests_were_run = true
+  @test run_tests: ||
+    export tests_were_run = true
 
-    @test local_value_unmodified_by_import: ||
-      assert_eq local_value, 123
+  @test local_value_unmodified_by_import: ||
+    assert_eq local_value, 123
