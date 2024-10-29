@@ -1866,8 +1866,7 @@ If `@size` is implemented, then `@index` should also be implemented.
 
 The `@index` implementation can support indexing by any input values that make 
 sense for your object type, but for argument unpacking to work correctly the
-runtime expects that indexing by both single indices and ranges should be 
-supported.
+runtime expects that indexing should be supported for both single indices and also ranges.
 
 ```koto
 foo = |data|
@@ -1875,23 +1874,51 @@ foo = |data|
   @size: || size self.data
   @index: |index| self.data[index]
 
-x = foo (100, 200, 300)
+x = foo ('a', 'b', 'c')
 print! size x
 check! 3
 print! x[1]
-check! 200
+check! b
+```
 
-# Unpack the first two elements in the argument and multiply them
+Implementing `@size` and `@index` allows an object to participate in argument unpacking.
+
+```koto
+foo = |data|
+  data: data
+  @size: || size self.data
+  @index: |index| self.data[index]
+
+x = foo (10, 20, 30, 40, 50)
+
+# Unpack the first two elements in the value passed to the function and multiply them
 multiply_first_two = |(a, b, ...)| a * b
 print! multiply_first_two x
-check! 20000
+check! 200
 
 # Inspect the first element in the object
 print! match x
   (first, others...) then 'first: {first}, remaining: {size others}'
-check! first: 100, remaining: 2
+check! first: 10, remaining: 4
 ```
 
+#### `@index_mut`
+
+The `@index_mut` metakey defines how the object should behave when index-assignment is used. 
+
+The given value should be a function that takes an index as the first argument, and the value to be assigned as the second argument. 
+
+```koto
+foo = |data|
+  data: data
+  @index: |index| self.data[index]
+  @index_mut: |index, value| self.data[index] = value
+
+x = foo ['a', 'b', 'c']
+x[1] = 'hello'
+print! x[1]
+check! hello
+```
 
 #### `@call`
 

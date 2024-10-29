@@ -2028,6 +2028,7 @@ impl<'source> Parser<'source> {
                 "call" => MetaKeyId::Call,
                 "display" => MetaKeyId::Display,
                 "index" => MetaKeyId::Index,
+                "index_mut" => MetaKeyId::IndexMut,
                 "iterator" => MetaKeyId::Iterator,
                 "next" => MetaKeyId::Next,
                 "next_back" => MetaKeyId::NextBack,

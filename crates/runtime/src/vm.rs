@@ -2248,6 +2248,31 @@ impl KotoVm {
                 }
                 Ok(())
             }
+            Map(map) if map.contains_meta_key(&MetaKey::IndexMut) => {
+                let index_mut_fn = map.get_meta_value(&MetaKey::IndexMut).unwrap();
+                let index_value = index_value.clone();
+                let value = value.clone();
+
+                // Set up the function call.
+                let frame_base = self.new_frame_base()?;
+                self.registers.push(map.into()); // Frame base; the map is `self` for `@index_mut`.
+                self.registers.push(index_value);
+                self.registers.push(value);
+                self.call_callable(
+                    &CallInfo {
+                        // The result of a mutable index assignment is always the RHS, so the
+                        // function result can be placed in the frame base where it will be
+                        // immediately discarded.
+                        result_register: frame_base,
+                        arg_count: 2,
+                        frame_base,
+                        instance: Some(frame_base),
+                    },
+                    index_mut_fn,
+                    None,
+                )?;
+                Ok(())
+            }
             Map(map) => match index_value {
                 Number(index) => {
                     let mut map_data = map.data_mut();
@@ -2303,7 +2328,6 @@ impl KotoVm {
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
-        let index_op = BinaryOp::Index.into();
 
         let result = match (&value, index) {
             (List(l), Number(n)) => {
@@ -2344,8 +2368,8 @@ impl KotoVm {
                 };
                 Str(result)
             }
-            (Map(m), index) if m.contains_meta_key(&index_op) => {
-                let op = m.get_meta_value(&index_op).unwrap();
+            (Map(m), index) if m.contains_meta_key(&BinaryOp::Index.into()) => {
+                let op = m.get_meta_value(&BinaryOp::Index.into()).unwrap();
                 return self.call_overridden_binary_op(result_register, value_register, index, op);
             }
             (Map(m), Number(n)) => {

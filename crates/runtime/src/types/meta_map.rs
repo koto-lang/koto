@@ -56,8 +56,12 @@ pub enum MetaKey {
     UnaryOp(UnaryOp),
     /// Function call - `@call`
     ///
-    /// Defines the behaviour when performing a function call on the value.
+    /// Defines the behaviour when performing a function call on the object.
     Call,
+    /// `@index_mut`
+    ///
+    /// Defines how an object should behave in mutable indexing operations.
+    IndexMut,
     /// A named key
     ///
     /// e.g. `@meta my_named_key`
@@ -228,6 +232,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Equal => MetaKey::BinaryOp(Equal),
         MetaKeyId::NotEqual => MetaKey::BinaryOp(NotEqual),
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
+        MetaKeyId::IndexMut => MetaKey::IndexMut,
         MetaKeyId::Iterator => MetaKey::UnaryOp(Iterator),
         MetaKeyId::Next => MetaKey::UnaryOp(Next),
         MetaKeyId::NextBack => MetaKey::UnaryOp(NextBack),

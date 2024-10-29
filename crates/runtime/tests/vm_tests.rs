@@ -3491,10 +3491,36 @@ x 10
         fn index() {
             let script = "
 x =
-  @index: |i| i + 10
-x[1]
+  data: [1, 2, 3]
+  @index: |i| self.data[i]
+x[1] + x[2]
 ";
-            check_script_output(script, 11);
+            check_script_output(script, 5);
+        }
+
+        #[test]
+        fn index_mut() {
+            let script = "
+x =
+  data: [1, 2, 3]
+  @index: |i| self.data[i]
+  @index_mut: |i, x| self.data[i] = x
+x[1] = 99
+x[2] = 1
+x[1] + x[2]
+";
+            check_script_output(script, 100);
+        }
+
+        #[test]
+        fn index_mut_result_is_rhs() {
+            let script = "
+x =
+  @index_mut: |_i, _x| 
+    -1 # The result of @index_mut should be discarded
+x[1] = 99
+";
+            check_script_output(script, 99);
         }
 
         #[test]

@@ -543,6 +543,8 @@ pub enum MetaKeyId {
 
     /// @index
     Index,
+    /// @index_mut
+    IndexMut,
 
     /// @display
     Display,
@@ -622,6 +624,7 @@ impl fmt::Display for MetaKeyId {
                 Equal => "==",
                 NotEqual => "!=",
                 Index => "index",
+                IndexMut => "index_mut",
                 Display => "display",
                 Iterator => "iterator",
                 Next => "next",

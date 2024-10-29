@@ -53,6 +53,9 @@ globals.foo_meta =
     index
   @size: || self.x
 
+  @index_mut: |index, value|
+    throw '@index_mut is unsupported for this object type (index: {index}, value: {value}})'
+
   # Custom iteration
   # @iterator must be a function that returns an iterable value,
   # in this case a map with implementations of @next and @next_back
@@ -161,6 +164,17 @@ export
   @test size: ||
     assert_eq (size foo(10)), 10
     assert_eq (size foo(99)), 99
+
+  @test index_mut: ||
+    expection_caught = false
+
+    try 
+      foo(100)[1] = 42
+    catch error
+      assert error.contains '(index: 1, value: 42})'
+      exception_caught = true
+
+    assert exception_caught
 
   @test call: ||
     assert_eq foo(99)(), 99
