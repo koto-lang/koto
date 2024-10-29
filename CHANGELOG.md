@@ -12,7 +12,12 @@ The Koto project adheres to
 
 #### Language
 
-- Type hints with runtime type checks have been added ([#298](https://github.com/koto-lang/koto/issues/298)).
+- Type hints have been added, enabling runtime type checks.
+  - `let` is used for type-checked assignments, e.g. `let x: String = 'abc'`.
+  - Other bindings (`for` values, function arguments, etc.) can be similarly 
+    annotated with a type hints.
+  - Runtime checks can be optionally disabled via
+    `KotoSettings::enable_type_checks`.
   - Thanks to [@Tarbetu](https://github.com/Tarbetu) for the contributions.
 - Optional chaining via the `?` operator has been added to simplify writing
   expressions that need to check for `.null` on intermediate values.
@@ -21,6 +26,8 @@ The Koto project adheres to
   - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.
   - Entries can also be replaced by index by assigning a key/value tuple.
+- The `@index_mut` metakey has been added to define custom behaviour for 
+  index-assignment operations.
 - Objects that implement `KotoObject::call` can now be used in operations that
   expect functions.
   - `KotoObject::is_callable` has been added to support this, and needs to be
@@ -30,7 +37,8 @@ The Koto project adheres to
 
 - `file.is_terminal` has been added.
 - `string.repeat` has been added.
-- `tuple.sort_copy` now supports sorting with a key function, like `list.sort`.
+- `tuple.sort_copy` now supports sorting with a key function, following the 
+  behaviour of `list.sort`.
 
 #### API
 
@@ -54,7 +62,8 @@ The Koto project adheres to
   between `Int` and `Float`.
 - Error messages have been improved when calling core library functions with
   incorrect arguments.
-- `await`, `const`, and `let` have been reserved as keywords for future use.
+- `await` and `const` have been reserved as keywords for future use.
+- `@||` has been renamed to `@call`, and `@[]` has been renamed to `@index`.
 
 #### API
 
