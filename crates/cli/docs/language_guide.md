@@ -1856,15 +1856,15 @@ print! x.data
 check! -100
 ```
 
-#### `@size` and `@[]`
+#### `@size` and `@index`
 
 The `@size` metakey defines how the object should report its size,
-while the `@[]` metakey defines what values should be returned when indexing is
+while the `@index` metakey defines what values should be returned when indexing is
 performed on the object. 
 
-If `@size` is implemented, then `@[]` should also be implemented.
+If `@size` is implemented, then `@index` should also be implemented.
 
-The `@[]` implementation can support indexing by any input values that make 
+The `@index` implementation can support indexing by any input values that make 
 sense for your object type, but for argument unpacking to work correctly the
 runtime expects that indexing by both single indices and ranges should be 
 supported.
@@ -1873,7 +1873,7 @@ supported.
 foo = |data|
   data: data
   @size: || size self.data
-  @[]: |index| self.data[index]
+  @index: |index| self.data[index]
 
 x = foo (100, 200, 300)
 print! size x
@@ -1893,15 +1893,15 @@ check! first: 100, remaining: 2
 ```
 
 
-#### `@||`
+#### `@call`
 
-The `@||` metakey defines how the object should behave when its called as a
+The `@call` metakey defines how the object should behave when its called as a
 function.
 
 ```koto
 foo = |n|
   data: n
-  @||: || 
+  @call: || 
     self.data *= 2
     self.data
 

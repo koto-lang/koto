@@ -44,10 +44,10 @@ globals.foo_meta =
   @negate: || foo -self.x
 
   # Function call
-  @||: || self.x
+  @call: || self.x
 
   # Indexing
-  @[]: |index|
+  @index: |index|
     if not (0..self.x).contains index
       throw 'invalid index'
     index

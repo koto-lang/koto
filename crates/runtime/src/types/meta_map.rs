@@ -54,7 +54,7 @@ pub enum MetaKey {
     ///
     /// e.g. `@not`
     UnaryOp(UnaryOp),
-    /// Function call - `@||`
+    /// Function call - `@call`
     ///
     /// Defines the behaviour when performing a function call on the value.
     Call,
@@ -152,7 +152,7 @@ pub enum BinaryOp {
     Equal,
     /// `@!=`
     NotEqual,
-    /// `@[]`
+    /// `@index`
     Index,
 }
 
