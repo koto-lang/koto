@@ -3457,7 +3457,7 @@ c.get_a() + c.get_b()
         #[test]
         fn basic_call() {
             let script = "
-x = { @||: || 42 }
+x = { @call: || 42 }
 x()
 ";
             check_script_output(script, 42);
@@ -3466,7 +3466,7 @@ x()
         #[test]
         fn with_args() {
             let script = "
-x = { @||: |a, b| a + b }
+x = { @call: |a, b| a + b }
 x 12, 34
 ";
             check_script_output(script, 46);
@@ -3477,7 +3477,7 @@ x 12, 34
             let script = "
 x =
   data: 99
-  @||: |z| self.data * z
+  @call: |z| self.data * z
 x 10
 ";
             check_script_output(script, 990);
@@ -3491,10 +3491,36 @@ x 10
         fn index() {
             let script = "
 x =
-  @[]: |i| i + 10
-x[1]
+  data: [1, 2, 3]
+  @index: |i| self.data[i]
+x[1] + x[2]
 ";
-            check_script_output(script, 11);
+            check_script_output(script, 5);
+        }
+
+        #[test]
+        fn index_mut() {
+            let script = "
+x =
+  data: [1, 2, 3]
+  @index: |i| self.data[i]
+  @index_mut: |i, x| self.data[i] = x
+x[1] = 99
+x[2] = 1
+x[1] + x[2]
+";
+            check_script_output(script, 100);
+        }
+
+        #[test]
+        fn index_mut_result_is_rhs() {
+            let script = "
+x =
+  @index_mut: |_i, _x| 
+    -1 # The result of @index_mut should be discarded
+x[1] = 99
+";
+            check_script_output(script, 99);
         }
 
         #[test]
@@ -3514,7 +3540,7 @@ size x
             let script = "
 foo = |data|
   data: data
-  @[]: |index| self.data[index]
+  @index: |index| self.data[index]
   @size: || size self.data
 
 f = |(a, b, others...)| a + b + size others
@@ -3529,7 +3555,7 @@ f x # 10 + 11 + 2
             let script = "
 foo = |data|
   data: data
-  @[]: |index| self.data[index]
+  @index: |index| self.data[index]
   @size: || size self.data
 
 match foo (10, 11, 12, 13)

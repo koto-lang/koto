@@ -2025,7 +2025,10 @@ impl<'source> Parser<'source> {
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
             Some(Token::Id) => match self.current_token.slice(self.source) {
+                "call" => MetaKeyId::Call,
                 "display" => MetaKeyId::Display,
+                "index" => MetaKeyId::Index,
+                "index_mut" => MetaKeyId::IndexMut,
                 "iterator" => MetaKeyId::Iterator,
                 "next" => MetaKeyId::Next,
                 "next_back" => MetaKeyId::NextBack,
@@ -2052,14 +2055,6 @@ impl<'source> Parser<'source> {
                     }
                     _ => return self.error(SyntaxError::ExpectedMetaId),
                 },
-                _ => return self.error(SyntaxError::UnexpectedMetaKey),
-            },
-            Some(Token::SquareOpen) => match self.consume_token() {
-                Some(Token::SquareClose) => MetaKeyId::Index,
-                _ => return self.error(SyntaxError::UnexpectedMetaKey),
-            },
-            Some(Token::Function) => match self.consume_token() {
-                Some(Token::Function) => MetaKeyId::Call,
                 _ => return self.error(SyntaxError::UnexpectedMetaKey),
             },
             _ => return self.error(SyntaxError::UnexpectedMetaKey),
