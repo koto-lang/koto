@@ -665,15 +665,27 @@ x =
 
         #[test]
         fn map_block_syntax() {
-            let source = r#"
+            let sources = [
+                r#"
 x =
   foo: 42
   "baz":
     foo: 0
   @-: -1
-x"#;
-            check_ast(
-                source,
+x
+"#,
+                r#"
+x   =
+    foo: 42
+    "baz" :
+          foo   : 0
+    @-  : -1
+x
+"#,
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     id(0), // x
                     id(1), // foo

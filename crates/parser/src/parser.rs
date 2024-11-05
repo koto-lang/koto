@@ -305,7 +305,7 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    // Attempts to parse an indented block after the current positon
+    // Attempts to parse an indented block after the current position
     //
     // e.g.
     //   my_function = |x, y| # <- Here at entry
@@ -737,7 +737,9 @@ impl<'source> Parser<'source> {
                 let string = self.parse_string(context)?.unwrap();
                 let string_node = self.push_node_with_span(Str(string.string), string.span)?;
 
-                if self.peek_token() == Some(Token::Colon) && string.context.allow_map_block {
+                if string.context.allow_map_block
+                    && self.peek_next_token_on_same_line() == Some(Token::Colon)
+                {
                     self.consume_map_block(string_node, start_span, &string.context)
                 } else {
                     self.check_for_chain_after_node(string_node, &string.context)
@@ -1240,7 +1242,7 @@ impl<'source> Parser<'source> {
         let id_node = self.push_node(Node::Id(constant_index, None))?;
         let id_span = self.current_span();
 
-        if self.peek_token() == Some(Token::Colon) && id_context.allow_map_block {
+        if id_context.allow_map_block && self.peek_next_token_on_same_line() == Some(Token::Colon) {
             // The ID is the start of a map block
             self.consume_map_block(id_node, id_span, &id_context)
         } else {
@@ -1863,7 +1865,7 @@ impl<'source> Parser<'source> {
 
         let start_indent = self.current_indent();
 
-        if self.consume_token() != Some(Token::Colon) {
+        if self.consume_next_token_on_same_line() != Some(Token::Colon) {
             return self.error(InternalError::ExpectedMapColon);
         }
 
