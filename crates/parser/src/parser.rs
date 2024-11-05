@@ -1934,8 +1934,8 @@ impl<'source> Parser<'source> {
                 break;
             };
 
-            if self.peek_token() == Some(Token::Colon) {
-                self.consume_token();
+            if self.peek_next_token_on_same_line() == Some(Token::Colon) {
+                self.consume_next_token_on_same_line();
 
                 let value_context = ExpressionContext::permissive();
                 if self.peek_token_with_context(&value_context).is_none() {
