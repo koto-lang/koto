@@ -100,7 +100,7 @@ Actual:
 /// - `skip_check`: the example will be compiled and run, but the output won't be checked.
 /// - `skip_run`: the example will be compiled but not run.
 pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) -> Result<()> {
-    use pulldown_cmark::{CodeBlockKind, Event::*, Parser, Tag::*};
+    use pulldown_cmark::{CodeBlockKind, Event::*, Parser, Tag, TagEnd};
 
     let mut in_heading = false;
     let mut in_koto_code = false;
@@ -119,7 +119,9 @@ pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) 
             Text(text) if in_koto_code => code_block.push_str(&text),
             Text(text) if in_heading => headings.last_mut().unwrap().push_str(&text),
             Code(inline_code) if in_heading => headings.last_mut().unwrap().push_str(&inline_code),
-            Start(Heading(new_level, _, _)) => {
+            Start(Tag::Heading {
+                level: new_level, ..
+            }) => {
                 if let Some(current_level) = current_level {
                     if new_level <= current_level {
                         headings.truncate(new_level as usize - 1);
@@ -129,10 +131,10 @@ pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) 
                 current_level = Some(new_level);
                 in_heading = true;
             }
-            End(Heading(_, _, _)) => {
+            End(TagEnd::Heading { .. }) => {
                 in_heading = false;
             }
-            Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
+            Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 let mut lang_info = lang.deref().split(',');
                 if matches!(lang_info.next(), Some("koto")) {
                     in_koto_code = true;
@@ -142,7 +144,7 @@ pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) 
                     skip_run = matches!(modifier, Some("skip_run"));
                 }
             }
-            End(CodeBlock(_)) if in_koto_code => {
+            End(TagEnd::CodeBlock) if in_koto_code => {
                 in_koto_code = false;
 
                 script.clear();

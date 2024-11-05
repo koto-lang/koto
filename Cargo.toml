@@ -48,7 +48,7 @@ pico-args = { version = "0.3.4", default-features = false }
 # A substitute implementation of the compiler's `proc_macro` API
 proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
-pulldown-cmark = { version = "0.9.1", default-features = false }
+pulldown-cmark = { version = "0.12.2", default-features = false }
 # Quasi-quoting macro quote!(...)
 quote = "1.0.33"
 # Random number generators and other randomness functionality.
@@ -58,6 +58,7 @@ rand_chacha = "0.3.1"
 # A regular expression library
 regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
+# v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
 rustyline = "14.0.0"
