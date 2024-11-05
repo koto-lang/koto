@@ -82,7 +82,7 @@ test-case = "3.3.1"
 # derive(Error)
 thiserror = "1.0.44"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
-toml = { version = "0.5.6", features = ["preserve_order"] }
+toml = { version = "0.8.19", features = ["preserve_order"] }
 # Powerful library for word wrapping, indenting, and dedenting strings
 textwrap = "0.16.0"
 # Determine whether characters have the XID_Start or XID_Continue properties
