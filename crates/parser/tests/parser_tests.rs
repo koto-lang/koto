@@ -611,7 +611,7 @@ x = {'foo': 42, bar, baz: 'hello', @+: 99}",
 }
 x = { 'foo': 42
   , bar
-  , baz: 'hello'
+  , baz   : 'hello'
   , @+: 99
 }
 ",
@@ -620,7 +620,7 @@ x = { 'foo': 42
 x =
   { 'foo': 42, bar
     , baz: 'hello'
-    , @+: 99
+    , @+  : 99
     }
 ",
                 "
@@ -628,7 +628,7 @@ x =
   }
 
 x =
-  { 'foo': 42, bar,
+  { 'foo' : 42, bar,
      baz: 'hello'
   , @+: 99
 }
