@@ -335,7 +335,7 @@ fn consume_help_section(
     level_to_consume: HeadingLevel,
     include_sub_sections: bool,
 ) -> HelpSection {
-    use pulldown_cmark::{CodeBlockKind, Event::*, Tag::*};
+    use pulldown_cmark::{CodeBlockKind, Event::*, Tag, TagEnd};
 
     let mut section_name = String::new();
     let mut sub_section_name = String::new();
@@ -348,7 +348,7 @@ fn consume_help_section(
 
     while let Some(peeked) = parser.peek() {
         match peeked {
-            Start(Heading(level, _, _)) => {
+            Start(Tag::Heading { level, .. }) => {
                 use std::cmp::Ordering::*;
                 let waiting_for_start = matches!(parsing_mode, ParsingMode::WaitingForSectionStart);
                 match level.cmp(&level_to_consume) {
@@ -376,7 +376,7 @@ fn consume_help_section(
                     }
                 }
             }
-            End(Heading(_, _, _)) => {
+            End(TagEnd::Heading(_)) => {
                 if matches!(parsing_mode, ParsingMode::SubSection) {
                     sub_sections.push(sub_section_name.as_str().into());
                     result.push('\n');
@@ -386,26 +386,26 @@ fn consume_help_section(
                 }
                 parsing_mode = ParsingMode::Any;
             }
-            Start(Link(_type, _url, title)) => result.push_str(title),
-            End(Link(_, _, _)) => {}
-            Start(List(_)) => {
+            Start(Tag::Link { title, .. }) => result.push_str(title),
+            End(TagEnd::Link) => {}
+            Start(Tag::List(_)) => {
                 if list_indent == 0 {
                     result.push('\n');
                 }
                 list_indent += 1;
             }
-            End(List(_)) => list_indent -= 1,
-            Start(Item) => {
+            End(TagEnd::List(_)) => list_indent -= 1,
+            Start(Tag::Item) => {
                 result.push('\n');
                 for _ in 1..list_indent {
                     result.push_str("  ");
                 }
                 result.push_str("- ");
             }
-            End(Item) => {}
-            Start(Paragraph) => result.push_str("\n\n"),
-            End(Paragraph) => {}
-            Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
+            End(TagEnd::Item) => {}
+            Start(Tag::Paragraph) => result.push_str("\n\n"),
+            End(TagEnd::Paragraph) => {}
+            Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 result.push_str("\n\n");
                 match lang.split(',').next() {
                     Some("koto") => parsing_mode = ParsingMode::Code,
@@ -413,11 +413,11 @@ fn consume_help_section(
                     _ => {}
                 }
             }
-            End(CodeBlock(_)) => parsing_mode = ParsingMode::Any,
-            Start(Emphasis) => result.push('_'),
-            End(Emphasis) => result.push('_'),
-            Start(Strong) => result.push('*'),
-            End(Strong) => result.push('*'),
+            End(TagEnd::CodeBlock) => parsing_mode = ParsingMode::Any,
+            Start(Tag::Emphasis) => result.push('_'),
+            End(TagEnd::Emphasis) => result.push('_'),
+            Start(Tag::Strong) => result.push('*'),
+            End(TagEnd::Strong) => result.push('*'),
             Text(text) => match parsing_mode {
                 ParsingMode::WaitingForSectionStart => {}
                 ParsingMode::Any => result.push_str(text),

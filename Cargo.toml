@@ -10,11 +10,11 @@ chrono = "0.4.31"
 # Efficient, fixed-size, overwriting circular buffer
 circular-buffer = "0.1.8"
 # Statistics-driven micro-benchmarking library
-criterion = "0.5.1"
+criterion2 = "2.0.0"
 # A crossplatform terminal library for manipulating terminals.
-crossterm = "0.27.0"
+crossterm = { version = "0.28.1", default-features = false }
 # Adds #[derive(x)] macros for more traits
-derive_more = "1.0.0"               
+derive_more = "1.0.0"
 # Derive macro to get the name of a struct, enum or enum variant
 derive-name = "1.1.0"
 # Trait object downcasting support using only safe Rust.
@@ -34,7 +34,7 @@ indexmap = "2.0.0"
 # A partial replacement for std::time::Instant that works on WASM too.
 instant = "0.1.12"
 # Extra iterator adaptors
-itertools = "0.12.1"
+itertools = "0.13.0"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
 # Performance and security oriented drop-in allocator
@@ -44,11 +44,11 @@ palette = "0.7.6"
 # More compact and efficient implementations of the standard synchronization primitives.
 parking_lot = "0.12.1"
 # An ultra simple CLI arguments parser.
-pico-args = { version = "0.3.4", default-features = false }
+pico-args = { version = "0.5.0" }
 # A substitute implementation of the compiler's `proc_macro` API
 proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
-pulldown-cmark = { version = "0.9.1", default-features = false }
+pulldown-cmark = { version = "0.12.2", default-features = false }
 # Quasi-quoting macro quote!(...)
 quote = "1.0.33"
 # Random number generators and other randomness functionality.
@@ -58,9 +58,10 @@ rand_chacha = "0.3.1"
 # A regular expression library
 regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
+# v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
-rustyline = "13.0.0"
+rustyline = { version = "14.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework
@@ -82,13 +83,13 @@ test-case = "3.3.1"
 # derive(Error)
 thiserror = "1.0.44"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
-toml = { version = "0.5.6", features = ["preserve_order"] }
+toml = { version = "0.8.19", features = ["preserve_order"] }
 # Powerful library for word wrapping, indenting, and dedenting strings
 textwrap = "0.16.0"
 # Determine whether characters have the XID_Start or XID_Continue properties
 unicode-xid = "0.2.4"
 # Determine displayed width of `char` and `str` types
-unicode-width = "0.1.10"
+unicode-width = "0.2.0"
 # This crate provides Grapheme Cluster, Word and Sentence boundaries
 unicode-segmentation = "1.10.0"
 # Easy support for interacting between JS and Rust.

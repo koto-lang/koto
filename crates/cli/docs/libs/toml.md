@@ -58,15 +58,15 @@ data =
   )
 
 print! toml.to_string data
-check! string = '>_>'
+check! string = ">_>"
 check! 
 check! [nested]
 check! number = 99
 check! 
 check! [[entries]]
-check! foo = 'bar'
+check! foo = "bar"
 check! 
 check! [[entries]]
-check! foo = 'baz'
+check! foo = "baz"
 check! 
 ```
