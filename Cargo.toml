@@ -88,7 +88,7 @@ textwrap = "0.16.0"
 # Determine whether characters have the XID_Start or XID_Continue properties
 unicode-xid = "0.2.4"
 # Determine displayed width of `char` and `str` types
-unicode-width = "0.1.10"
+unicode-width = "0.2.0"
 # This crate provides Grapheme Cluster, Word and Sentence boundaries
 unicode-segmentation = "1.10.0"
 # Easy support for interacting between JS and Rust.
