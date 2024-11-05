@@ -92,6 +92,6 @@ unicode-width = "0.1.10"
 # This crate provides Grapheme Cluster, Word and Sentence boundaries
 unicode-segmentation = "1.10.0"
 # Easy support for interacting between JS and Rust.
-wasm-bindgen = "0.2.71"
+wasm-bindgen = "0.2.95"
 # Internal testing crate for wasm-bindgen
 wasm-bindgen-test = "0.3.33"
