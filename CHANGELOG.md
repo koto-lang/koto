@@ -64,6 +64,8 @@ The Koto project adheres to
   incorrect arguments.
 - `await` and `const` have been reserved as keywords for future use.
 - `@||` has been renamed to `@call`, and `@[]` has been renamed to `@index`.
+- `:` placement following keys in maps is now more flexible.
+  ([#368](https://github.com/koto-lang/koto/issues/368))
 
 #### API
 
