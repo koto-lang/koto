@@ -27,7 +27,7 @@ koto_geometry = { path = "../../libs/geometry" }
 koto_test_utils = { path = "../test_utils" }
 
 anyhow = { workspace = true }
-criterion = { workspace = true }
+criterion2 = { workspace = true }
 mimalloc = { workspace = true }
 
 [[bench]]

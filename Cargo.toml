@@ -10,7 +10,7 @@ chrono = "0.4.31"
 # Efficient, fixed-size, overwriting circular buffer
 circular-buffer = "0.1.8"
 # Statistics-driven micro-benchmarking library
-criterion = "0.5.1"
+criterion2 = "2.0.0"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = "0.27.0"
 # Adds #[derive(x)] macros for more traits
@@ -34,7 +34,7 @@ indexmap = "2.0.0"
 # A partial replacement for std::time::Instant that works on WASM too.
 instant = "0.1.12"
 # Extra iterator adaptors
-itertools = "0.12.1"
+itertools = "0.13.0"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
 # Performance and security oriented drop-in allocator
