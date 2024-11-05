@@ -61,7 +61,7 @@ regex = "1.10.2"
 # v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
-rustyline = "14.0.0"
+rustyline = { version = "14.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework

@@ -33,7 +33,7 @@ pico-args = { workspace = true, features = [
   "short-space-opt",
 ] }
 pulldown-cmark = { workspace = true }
-rustyline = { workspace = true }
+rustyline = { workspace = true, features = ["with-file-history"] }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
 
