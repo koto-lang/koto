@@ -86,11 +86,13 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
+    #[allow(unused)]
     fn one_plus_one() {
         assert_eq!(compile_and_run("print 1 + 1"), "2\n");
     }
 
     #[wasm_bindgen_test]
+    #[allow(unused)]
     fn tuple_to_list() {
         assert_eq!(compile_and_run("print (1, 2, 3).to_list()"), "[1, 2, 3]\n");
     }
