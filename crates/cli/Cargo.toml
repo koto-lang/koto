@@ -25,7 +25,6 @@ koto_toml = { path = "../../libs/toml", version = "^0.15.0" }
 koto_yaml = { path = "../../libs/yaml", version = "^0.15.0" }
 
 anyhow = { workspace = true }
-crossterm = { workspace = true }
 home = { workspace = true }
 indexmap = { workspace = true }
 mimalloc = { workspace = true }
@@ -37,6 +36,12 @@ pulldown-cmark = { workspace = true }
 rustyline = { workspace = true }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+crossterm = { workspace = true, features = ["windows"] }
+
+[target.'cfg(unix)'.dependencies]
+crossterm = { workspace = true }
 
 [dev-dependencies]
 test_bin = { workspace = true }
