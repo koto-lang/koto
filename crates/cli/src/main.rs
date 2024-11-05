@@ -91,14 +91,14 @@ fn parse_arguments() -> Result<KotoArgs> {
 
     let script = args.subcommand()?;
 
-    let script_args = match args.free() {
-        Ok(extra_args) => extra_args,
-        Err(e) => match e {
-            pico_args::Error::UnusedArgsLeft(unused) => {
-                bail!("Unsupported argument: {}", unused.first().unwrap())
-            }
-            other => bail!("Error while parsing arguments: {other}"),
-        },
+    let script_args = match args
+        .finish()
+        .drain(..)
+        .map(|s| s.into_string())
+        .collect::<Result<_, _>>()
+    {
+        Ok(args) => args,
+        Err(_) => bail!("Arguments must be valid unicode strings"),
     };
 
     Ok(KotoArgs {
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
     let args = match parse_arguments() {
         Ok(args) => args,
         Err(error) => {
-            bail!("{}\n\n{}", help_string(), error);
+            bail!("{}\n\n{}", error, help_string());
         }
     };
 

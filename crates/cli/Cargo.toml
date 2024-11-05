@@ -29,7 +29,10 @@ crossterm = { workspace = true }
 home = { workspace = true }
 indexmap = { workspace = true }
 mimalloc = { workspace = true }
-pico-args = { workspace = true }
+pico-args = { workspace = true, features = [
+  "combined-flags",
+  "short-space-opt",
+] }
 pulldown-cmark = { workspace = true }
 rustyline = { workspace = true }
 textwrap = { workspace = true }

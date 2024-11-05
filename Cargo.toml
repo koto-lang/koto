@@ -44,7 +44,7 @@ palette = "0.7.6"
 # More compact and efficient implementations of the standard synchronization primitives.
 parking_lot = "0.12.1"
 # An ultra simple CLI arguments parser.
-pico-args = { version = "0.3.4", default-features = false }
+pico-args = { version = "0.5.0" }
 # A substitute implementation of the compiler's `proc_macro` API
 proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
