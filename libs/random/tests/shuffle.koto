@@ -1,0 +1,21 @@
+@test shuffle_koto_object = ||
+  my_container =
+    data: [10, 20, 30, 40, 50]
+
+    @size: || size self.data
+    @index: |i| self.data[i]
+    @index_mut: |i, value| self.data[i] = value
+
+  random.seed 42
+  random.shuffle my_container
+  assert_eq my_container.data, [50, 30, 10, 20, 40]
+  random.shuffle my_container
+  assert_eq my_container.data, [30, 50, 20, 40, 10]
+
+@test shuffle_external_object = ||
+  x = new_container 'a', 'b', 'c', 'd'
+  rng = random.generator 100
+  rng.shuffle x
+  assert_eq x.to_tuple(), ('b', 'a', 'd', 'c')
+  rng.shuffle x
+  assert_eq x.to_tuple(), ('d', 'a', 'c', 'b')

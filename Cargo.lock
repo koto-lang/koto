@@ -674,6 +674,7 @@ name = "koto_random"
 version = "0.15.0"
 dependencies = [
  "getrandom",
+ "koto_derive",
  "koto_runtime",
  "koto_test_utils",
  "lazy_static",

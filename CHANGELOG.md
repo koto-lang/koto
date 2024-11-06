@@ -35,8 +35,10 @@ The Koto project adheres to
 
 #### Core Library
 
-- `file.is_terminal` has been added.
-- `string.repeat` has been added.
+- New functions:
+  - `file.is_terminal`
+  - `random.shuffle`
+  - `string.repeat`
 - `tuple.sort_copy` now supports sorting with a key function, following the 
   behaviour of `list.sort`.
 
