@@ -31,8 +31,8 @@ test_rc *args:
     -p koto_bytecode \
     -p koto_runtime \
     -p koto \
-    -p lib_tests \
     {{args}}
+  just test_libs --no-default-features --features rc
 
 test_benches:
   cargo test --benches
@@ -52,8 +52,13 @@ test_docs:
 test_koto:
   cargo test --test koto_tests
 
-test_libs:
-  cargo test --test lib_tests
+test_libs *args:
+  cargo test --test koto_tests \
+    -p koto_json \
+    -p koto_tempfile \
+    -p koto_toml \
+    -p koto_yaml \
+    {{args}}
 
 test_parser *args:
   cargo test -p koto_lexer -p koto_parser {{args}}

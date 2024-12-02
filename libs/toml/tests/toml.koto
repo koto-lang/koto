@@ -1,7 +1,7 @@
-@test serialize_and_deserialize_yaml = ||
-  path = io.extend_path koto.script_dir, "data", "test.yaml"
+@test serialize_and_deserialize_toml = ||
+  path = io.extend_path koto.script_dir, "test.toml"
   file_data = io.read_to_string path
-  data = yaml.from_string file_data
+  data = toml.from_string file_data
 
   assert_eq data.number, 99
   assert_eq data.bool, true
@@ -12,6 +12,6 @@
   assert_eq data.entries[0].foo, "bar"
   assert_eq data.entries[1].foo, "baz"
 
-  serialized = yaml.to_string data
-  data_2 = yaml.from_string serialized
+  serialized = toml.to_string data
+  data_2 = toml.from_string serialized
   assert_eq data, data_2
