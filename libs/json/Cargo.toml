@@ -9,6 +9,11 @@ homepage = "https://koto.dev"
 repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
+[features]
+default = ["arc"]
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
+
 [dependencies]
 serde_json = { workspace = true }
 

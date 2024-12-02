@@ -1,16 +1,14 @@
 @test serialize_and_deserialize_json = ||
   file_data = try
-    path = io.extend_path koto.script_dir, "data", "test.json"
+    path = io.extend_path koto.script_dir, "test.json"
     io.read_to_string path
   catch error
-    io.stderr().write_line "Error reading file data: $error"
-    assert false
+    throw "Error reading file data: {error}"
 
   data = try
     json.from_string file_data
   catch error
-    io.stderr().write_line "Error reading decoding json data: $error"
-    assert false
+    throw "Error decoding json data: {error}"
 
   assert_eq data.empty, null
   assert_eq data.number, 99
