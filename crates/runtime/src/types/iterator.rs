@@ -498,9 +498,9 @@ impl KotoIterator for ObjectIterator {
     }
 
     fn is_bidirectional(&self) -> bool {
-        self.object.try_borrow().map_or(false, |o| {
-            matches!(o.is_iterable(), IsIterable::BidirectionalIterator)
-        })
+        self.object
+            .try_borrow()
+            .is_ok_and(|o| matches!(o.is_iterable(), IsIterable::BidirectionalIterator))
     }
 
     fn next_back(&mut self) -> Option<KIteratorOutput> {

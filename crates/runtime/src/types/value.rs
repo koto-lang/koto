@@ -104,7 +104,7 @@ impl KValue {
             CaptureFunction(f) if f.info.generator => false,
             Function(_) | CaptureFunction(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
-            Object(o) => o.try_borrow().map_or(false, |o| o.is_callable()),
+            Object(o) => o.try_borrow().is_ok_and(|o| o.is_callable()),
             _ => false,
         }
     }
@@ -136,7 +136,7 @@ impl KValue {
         use KValue::*;
         match self {
             List(_) | Map(_) | Str(_) | Tuple(_) => true,
-            Object(o) => o.try_borrow().map_or(false, |o| o.size().is_some()),
+            Object(o) => o.try_borrow().is_ok_and(|o| o.size().is_some()),
             _ => false,
         }
     }
@@ -146,9 +146,9 @@ impl KValue {
         use KValue::*;
         match self {
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
-            Object(o) => o.try_borrow().map_or(false, |o| {
-                !matches!(o.is_iterable(), IsIterable::NotIterable)
-            }),
+            Object(o) => o
+                .try_borrow()
+                .is_ok_and(|o| !matches!(o.is_iterable(), IsIterable::NotIterable)),
             _ => false,
         }
     }

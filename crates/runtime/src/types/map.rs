@@ -132,7 +132,7 @@ impl KMap {
     pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
         self.meta
             .as_ref()
-            .map_or(false, |meta| meta.borrow().contains_key(key))
+            .is_some_and(|meta| meta.borrow().contains_key(key))
     }
 
     /// Returns a clone of the data value corresponding to the given key

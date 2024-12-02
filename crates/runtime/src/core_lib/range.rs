@@ -67,9 +67,7 @@ pub fn make_module() -> KMap {
         let expected_error = "|Range|";
 
         match ctx.instance_and_args(is_range, expected_error)? {
-            (KValue::Range(r), []) => {
-                Ok(r.end().map_or(false, |(_end, inclusive)| inclusive).into())
-            }
+            (KValue::Range(r), []) => Ok(r.end().is_some_and(|(_end, inclusive)| inclusive).into()),
             (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
     });

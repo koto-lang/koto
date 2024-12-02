@@ -3548,10 +3548,10 @@ impl Compiler {
         let first_or_last_pattern_is_ellipsis = {
             let first_is_ellipsis = nested_patterns
                 .first()
-                .map_or(false, |first| matches!(ctx.node(*first), Node::Ellipsis(_)));
+                .is_some_and(|first| matches!(ctx.node(*first), Node::Ellipsis(_)));
             let last_is_ellipsis = nested_patterns
                 .last()
-                .map_or(false, |last| matches!(ctx.node(*last), Node::Ellipsis(_)));
+                .is_some_and(|last| matches!(ctx.node(*last), Node::Ellipsis(_)));
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
                 return self.error(ErrorKind::MultipleMatchEllipses);
             }
