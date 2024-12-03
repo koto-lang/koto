@@ -42,19 +42,32 @@ mod parser {
     mod should_fail {
         use super::*;
 
-        #[test]
-        fn wildcard_as_map_id() {
-            check_parsing_fails("{_}");
+        mod arithmetic {
+            use super::*;
+
+            #[test]
+            fn missing_term_in_arithmetic() {
+                check_parsing_fails("1 + * 2");
+            }
         }
 
-        #[test]
-        fn missing_term_in_arithmetic() {
-            check_parsing_fails("1 + * 2");
-        }
+        mod assignment {
+            use super::*;
 
-        #[test]
-        fn missing_comma_in_import() {
-            check_parsing_fails("import foo bar");
+            #[test]
+            fn missing_assignment_rhs() {
+                let source = "\
+x =
+# ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position { line: 0, column: 2 },
+                        end: Position { line: 0, column: 3 },
+                    },
+                )
+            }
         }
 
         mod indentation {
@@ -233,6 +246,11 @@ x = ||
 
         mod maps {
             use super::*;
+
+            #[test]
+            fn wildcard_as_map_id() {
+                check_parsing_fails("{_}");
+            }
 
             #[test]
             fn block_starting_on_same_line_as_assignment_single_entry() {
@@ -489,6 +507,11 @@ switch
 
         mod import {
             use super::*;
+
+            #[test]
+            fn missing_comma_in_import() {
+                check_parsing_fails("import foo bar");
+            }
 
             #[test]
             fn nested_import() {
