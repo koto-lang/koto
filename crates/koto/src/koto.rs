@@ -1,7 +1,7 @@
 use crate::{prelude::*, Ptr, Result};
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 /// The main interface for the Koto language.
 ///
@@ -275,17 +275,17 @@ pub struct CompileArgs<'a> {
     ///
     /// The path provided here becomes accessible within the script via
     /// `koto.script_path`/`koto.script_dir`.
-    pub script_path: Option<PathBuf>,
+    pub script_path: Option<KString>,
     /// Settings used during compilation
     pub compiler_settings: CompilerSettings,
 }
 
 impl<'a> CompileArgs<'a> {
     /// A convenience initializer for when the script has been loaded from a path
-    pub fn with_path(script: &'a str, script_path: PathBuf) -> Self {
+    pub fn with_path(script: &'a str, script_path: impl Into<KString>) -> Self {
         Self {
             script,
-            script_path: Some(script_path),
+            script_path: Some(script_path.into()),
             compiler_settings: Default::default(),
         }
     }

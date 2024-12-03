@@ -88,39 +88,46 @@ fn main() -> Result<()> {
         .insert("poetry", koto_bindings::make_module());
     koto.prelude().insert("random", koto_random::make_module());
 
-    let script_path = PathBuf::from(args.script);
+    let script_path = KString::from(args.script);
 
     if args.watch {
-        if let Err(e) = compile_and_run(&mut koto, script_path.clone()) {
+        if let Err(e) = compile_and_run(&mut koto, &script_path) {
             eprintln!("{e}");
         }
 
         let mut hotwatch = Hotwatch::new_with_custom_delay(Duration::from_secs_f64(0.25))
             .context("Failed to initialize file watcher")?;
         hotwatch
-            .watch(script_path.clone(), move |event: Event| {
-                match event.kind {
-                    EventKind::Create(_) | EventKind::Modify(ModifyKind::Data(_)) => {
-                        if let Err(error) = compile_and_run(&mut koto, script_path.clone()) {
-                            eprintln!("{error}");
+            .watch(&script_path, {
+                let script_path = script_path.clone();
+                move |event: Event| {
+                    match event.kind {
+                        EventKind::Create(_) | EventKind::Modify(ModifyKind::Data(_)) => {
+                            if let Err(error) = compile_and_run(&mut koto, &script_path) {
+                                eprintln!("{error}");
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
+                    Flow::Continue
                 }
-                Flow::Continue
             })
             .context("Failed to watch file!")?;
         hotwatch.run();
         Ok(())
     } else {
-        compile_and_run(&mut koto, script_path.clone())
+        compile_and_run(&mut koto, &script_path)
     }
 }
 
-fn compile_and_run(koto: &mut Koto, script_path: PathBuf) -> Result<()> {
-    let script = fs::read_to_string(&script_path)?;
-    koto.compile(CompileArgs::with_path(&script, script_path))
-        .context("Error while compiling script")?;
+fn compile_and_run(koto: &mut Koto, script_path: &KString) -> Result<()> {
+    let script = fs::read_to_string(script_path.as_str())?;
+    koto.compile(CompileArgs {
+        script: &script,
+        script_path: Some(script_path.clone()),
+        compiler_settings: Default::default(),
+    })
+    .context("Error while compiling script")?;
     koto.run().context("Error while running script")?;
     Ok(())
 }

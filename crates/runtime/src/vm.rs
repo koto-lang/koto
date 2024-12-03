@@ -2853,9 +2853,9 @@ impl KotoVm {
                 .get_source_span(self.instruction_ip),
             self.reader.chunk.source_path.as_ref(),
         ) {
-            (Some(span), Some(path)) => format!("[{}: {}] ", path.display(), span.start.line + 1),
+            (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line + 1),
             (Some(span), None) => format!("[{}] ", span.start.line + 1),
-            (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
+            (None, Some(path)) => format!("[{}: #ERR] ", path),
             (None, None) => "[#ERR] ".to_string(),
         };
 

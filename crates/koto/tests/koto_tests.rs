@@ -24,7 +24,7 @@ fn run_script(script: &str, script_path: PathBuf, expected_module_paths: &[PathB
 
     if let Err(error) = koto.compile(CompileArgs {
         script,
-        script_path: Some(script_path),
+        script_path: Some(script_path.into()),
         compiler_settings: Default::default(),
     }) {
         panic!("{error}");

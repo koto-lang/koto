@@ -1,10 +1,7 @@
 use crate::InstructionReader;
 use koto_memory::Ptr;
-use koto_parser::{ConstantPool, Span};
-use std::{
-    fmt::{self, Write},
-    path::PathBuf,
-};
+use koto_parser::{ConstantPool, KString, Span};
+use std::fmt::{self, Write};
 
 /// Debug information for a Koto program
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -56,7 +53,7 @@ pub struct Chunk {
     /// The constant data associated with the chunk's bytecode
     pub constants: ConstantPool,
     /// The path of the program's source file
-    pub source_path: Option<PathBuf>,
+    pub source_path: Option<KString>,
     /// Debug information associated with the chunk's bytecode
     pub debug_info: DebugInfo,
 }

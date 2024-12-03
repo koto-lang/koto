@@ -1,13 +1,12 @@
 use crate::script_instructions;
 use koto_bytecode::{CompilerSettings, Loader};
 use koto_runtime::{prelude::*, Result};
-use std::path::PathBuf;
 
 /// Runs a script using the provided Vm, optionally checking its output
 pub fn run_test_script(
     mut vm: KotoVm,
     script: &str,
-    script_path: Option<PathBuf>,
+    script_path: Option<KString>,
     expected_output: Option<KValue>,
 ) -> Result<()> {
     let mut loader = Loader::default();

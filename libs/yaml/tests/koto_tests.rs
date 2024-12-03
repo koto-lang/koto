@@ -10,7 +10,7 @@ fn json_tests() -> Result<(), Box<dyn Error>> {
     let script_path = PathBuf::from_iter(&[env!("CARGO_MANIFEST_DIR"), "tests", "yaml.koto"]);
     let script = fs::read_to_string(&script_path)?;
 
-    run_test_script(vm, &script, Some(script_path), None)?;
+    run_test_script(vm, &script, Some(script_path.into()), None)?;
 
     Ok(())
 }

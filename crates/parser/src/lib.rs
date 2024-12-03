@@ -7,6 +7,7 @@ mod constant_pool;
 mod error;
 mod node;
 mod parser;
+mod string;
 mod string_format_options;
 mod string_slice;
 
@@ -16,6 +17,7 @@ pub use crate::{
     error::{format_source_excerpt, Error, Result},
     node::*,
     parser::Parser,
+    string::KString,
     string_format_options::{StringAlignment, StringFormatOptions},
     string_slice::StringSlice,
 };

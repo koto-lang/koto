@@ -1,9 +1,10 @@
-use crate::{prelude::*, Ptr, Result};
-use koto_parser::StringSlice;
+use crate::StringSlice;
+use koto_memory::Ptr;
 use std::{
     fmt,
     hash::{Hash, Hasher},
     ops::{Deref, Range},
+    path::{Path, PathBuf},
     str::from_utf8_unchecked,
 };
 use unicode_segmentation::UnicodeSegmentation;
@@ -26,8 +27,8 @@ enum Inner {
     Full(Ptr<str>),
     // A heap-allocated string with bounds
     //
-    // By heap-allocating the slice bounds we can keep the size of KString below 24 bytes,
-    // which is the maximum allowed by KValue.
+    // By heap-allocating the slice bounds we can keep the size of `KString` below 24 bytes,
+    // which is the maximum allowed by `koto_runtime::KValue`.
     Slice(Ptr<StringSlice>),
 }
 
@@ -164,18 +165,6 @@ impl KString {
             Inner::Slice(slice) => slice,
         }
     }
-
-    /// Renders the string to the provided display context
-    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        if ctx.is_contained() {
-            ctx.append('\'');
-            ctx.append(self);
-            ctx.append('\'');
-        } else {
-            ctx.append(self);
-        }
-        Ok(())
-    }
 }
 
 impl Default for KString {
@@ -220,6 +209,12 @@ impl From<&str> for KString {
     }
 }
 
+impl From<PathBuf> for KString {
+    fn from(path: PathBuf) -> Self {
+        Self::from(path.to_string_lossy().to_string())
+    }
+}
+
 impl PartialEq<&str> for KString {
     fn eq(&self, other: &&str) -> bool {
         self.as_str() == *other
@@ -250,6 +245,12 @@ impl Deref for KString {
 impl AsRef<str> for KString {
     fn as_ref(&self) -> &str {
         self.deref()
+    }
+}
+
+impl AsRef<Path> for KString {
+    fn as_ref(&self) -> &Path {
+        Path::new(self.as_str())
     }
 }
 

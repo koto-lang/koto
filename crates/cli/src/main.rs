@@ -166,7 +166,7 @@ fn main() -> Result<()> {
 
         match koto.compile(CompileArgs {
             script: &script,
-            script_path: script_path.map(PathBuf::from),
+            script_path: script_path.map(KString::from),
             compiler_settings: Default::default(),
         }) {
             Ok(chunk) => {

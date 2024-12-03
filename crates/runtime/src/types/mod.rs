@@ -9,10 +9,11 @@ mod native_function;
 mod number;
 mod object;
 mod range;
-mod string;
 mod tuple;
 pub mod value;
 mod value_key;
+
+pub use koto_parser::KString;
 
 pub use self::{
     function::{KCaptureFunction, KFunction},
@@ -26,7 +27,6 @@ pub use self::{
         IsIterable, KObject, KotoCopy, KotoEntries, KotoField, KotoObject, KotoType, MethodContext,
     },
     range::KRange,
-    string::KString,
     tuple::KTuple,
     value::KValue,
     value_key::ValueKey,
