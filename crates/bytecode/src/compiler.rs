@@ -203,14 +203,16 @@ impl CompileNodeOutput {
 
 /// The settings used by the [Compiler]
 pub struct CompilerSettings {
-    /// Causes all top level identifiers to be exported
+    /// Whether or not top-level identifiers should be automatically exported
     ///
-    /// Disabled by default.
+    /// The default behaviour in Koto is that `export` expressions are required to make a value
+    /// available outside of the current module.
     ///
-    /// This is used by the REPL to automatically export values so that they're available between
-    /// chunks.
+    /// This is used by the REPL, allowing for incremental compilation and execution of expressions
+    /// that need to share declared values.
     pub export_top_level_ids: bool,
-    /// Causes the compiler to emit CheckType instructions when type hints are encountered.
+    /// When enabled, the compiler will emit type check instructions when type hints are encountered
+    /// that will be performed at runtime.
     ///
     /// Enabled by default.
     pub enable_type_checks: bool,

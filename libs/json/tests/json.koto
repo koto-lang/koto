@@ -1,6 +1,6 @@
 @test serialize_and_deserialize_json = ||
   file_data = try
-    path = io.extend_path koto.script_dir, "test.json"
+    path = io.extend_path koto.script_dir(), "test.json"
     io.read_to_string path
   catch error
     throw "Error reading file data: {error}"

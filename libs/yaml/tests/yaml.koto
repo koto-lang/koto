@@ -1,5 +1,5 @@
 @test serialize_and_deserialize_yaml = ||
-  path = io.extend_path koto.script_dir, "test.yaml"
+  path = io.extend_path koto.script_dir(), "test.yaml"
   file_data = io.read_to_string path
   data = yaml.from_string file_data
 

@@ -5,7 +5,7 @@ use koto_runtime::{prelude::*, Result};
 pub fn check_script_output(script: &str, expected_output: impl Into<KValue>) {
     let (vm, output) = OutputCapture::make_vm_with_output_capture();
 
-    if let Err(e) = run_test_script(vm, script, Some(expected_output.into())) {
+    if let Err(e) = run_test_script(vm, script, None, Some(expected_output.into())) {
         let output = output.captured_output();
         if !output.is_empty() {
             println!("Stdout:\n-------\n\n{output}\n-------\n");
@@ -20,5 +20,5 @@ pub fn check_script_output_with_vm(
     script: &str,
     expected_output: impl Into<KValue>,
 ) -> Result<()> {
-    run_test_script(vm, script, Some(expected_output.into()))
+    run_test_script(vm, script, None, Some(expected_output.into()))
 }

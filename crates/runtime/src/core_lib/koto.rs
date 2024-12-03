@@ -50,8 +50,35 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|Any|", unexpected),
     });
 
-    result.insert("script_dir", KValue::Null);
-    result.insert("script_path", KValue::Null);
+    result.add_fn("script_dir", |ctx| {
+        let result = ctx
+            .vm
+            .chunk()
+            .source_path
+            .as_ref()
+            .and_then(|path| path.parent())
+            .map_or(KValue::Null, |path| {
+                KValue::from(path.to_string_lossy().to_string())
+            });
+        Ok(result)
+    });
+
+    result.add_fn("script_path", |ctx| {
+        let result = ctx
+            .vm
+            .chunk()
+            .source_path
+            .as_ref()
+            .map_or(KValue::Null, |path| {
+                KValue::from(path.to_string_lossy().to_string())
+            });
+        Ok(result)
+    });
+
+    result.add_fn("script_path", |ctx| match &ctx.vm.chunk().source_path {
+        Some(path) => Ok(path.to_string_lossy().to_string().into()),
+        None => Ok(KValue::Null),
+    });
 
     result.add_fn("size", |ctx| match ctx.args() {
         [value] => ctx.vm.run_unary_op(UnaryOp::Size, value.clone()),

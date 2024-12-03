@@ -53,12 +53,12 @@ impl LoaderError {
     pub(crate) fn from_parser_error(
         error: koto_parser::Error,
         source: &str,
-        source_path: Option<&Path>,
+        source_path: Option<PathBuf>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path.map(Path::to_path_buf),
+            path: source_path,
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -69,12 +69,12 @@ impl LoaderError {
     pub(crate) fn from_compiler_error(
         error: CompilerError,
         source: &str,
-        source_path: Option<&Path>,
+        source_path: Option<PathBuf>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path.map(Path::to_path_buf),
+            path: source_path,
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -136,7 +136,7 @@ impl Loader {
     pub fn compile_script(
         &mut self,
         script: &str,
-        script_path: Option<&Path>,
+        script_path: Option<PathBuf>,
         settings: CompilerSettings,
     ) -> Result<Ptr<Chunk>, LoaderError> {
         match Parser::parse(script) {
@@ -148,7 +148,13 @@ impl Loader {
 
                 debug_info.source = script.to_string();
 
-                Ok(Chunk::new(bytes, ast.consume_constants(), script_path, debug_info).into())
+                Ok(Chunk {
+                    bytes,
+                    constants: ast.consume_constants(),
+                    source_path: script_path,
+                    debug_info,
+                }
+                .into())
             }
             Err(e) => Err(LoaderError::from_parser_error(e, script, script_path)),
         }
@@ -174,7 +180,7 @@ impl Loader {
 
                     let chunk = self.compile_script(
                         &script,
-                        Some(&module_path),
+                        Some(module_path.clone()),
                         CompilerSettings::default(),
                     )?;
 

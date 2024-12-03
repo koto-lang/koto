@@ -36,4 +36,4 @@ pub use koto_parser as parser;
 pub use koto_runtime as runtime;
 pub use koto_runtime::{derive, Borrow, BorrowMut, Error, ErrorKind, Ptr, PtrMut, Result};
 
-pub use crate::koto::{Koto, KotoSettings};
+pub use crate::koto::{CompileArgs, Koto, KotoSettings};

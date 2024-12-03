@@ -1,6 +1,6 @@
 @main = ||
   input_file =
-    io.extend_path koto.script_dir, '..', '..', '..', '..', '..', 'docs', 'language_guide.md'
+    io.extend_path koto.script_dir(), '..', '..', '..', '..', '..', 'docs', 'language_guide.md'
     -> io.read_to_string
   generator = poetry.new input_file
 

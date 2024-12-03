@@ -7,13 +7,9 @@ use hotwatch::{
     notify::event::ModifyKind,
     Event, EventKind,
 };
-use koto::{Koto, KotoSettings};
+use koto::prelude::*;
 use poetry::*;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{fs, path::PathBuf, time::Duration};
 
 fn version_string() -> String {
     format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
@@ -93,11 +89,9 @@ fn main() -> Result<()> {
     koto.prelude().insert("random", koto_random::make_module());
 
     let script_path = PathBuf::from(args.script);
-    koto.set_script_path(Some(&script_path))
-        .expect("Failed to set script path");
 
     if args.watch {
-        if let Err(e) = compile_and_run(&mut koto, &script_path) {
+        if let Err(e) = compile_and_run(&mut koto, script_path.clone()) {
             eprintln!("{e}");
         }
 
@@ -107,7 +101,7 @@ fn main() -> Result<()> {
             .watch(script_path.clone(), move |event: Event| {
                 match event.kind {
                     EventKind::Create(_) | EventKind::Modify(ModifyKind::Data(_)) => {
-                        if let Err(error) = compile_and_run(&mut koto, &script_path) {
+                        if let Err(error) = compile_and_run(&mut koto, script_path.clone()) {
                             eprintln!("{error}");
                         }
                     }
@@ -119,13 +113,13 @@ fn main() -> Result<()> {
         hotwatch.run();
         Ok(())
     } else {
-        compile_and_run(&mut koto, &script_path)
+        compile_and_run(&mut koto, script_path.clone())
     }
 }
 
-fn compile_and_run(koto: &mut Koto, script_path: &Path) -> Result<()> {
-    let script = fs::read_to_string(script_path)?;
-    koto.compile(&script)
+fn compile_and_run(koto: &mut Koto, script_path: PathBuf) -> Result<()> {
+    let script = fs::read_to_string(&script_path)?;
+    koto.compile(CompileArgs::with_path(&script, script_path))
         .context("Error while compiling script")?;
     koto.run().context("Error while running script")?;
     Ok(())

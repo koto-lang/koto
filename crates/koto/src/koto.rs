@@ -1,11 +1,7 @@
-use crate::{prelude::*, Error, Ptr, Result};
-use dunce::canonicalize;
+use crate::{prelude::*, Ptr, Result};
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::PathBuf, time::Duration};
 
 /// The main interface for the Koto language.
 ///
@@ -32,9 +28,6 @@ use std::{
 pub struct Koto {
     runtime: KotoVm,
     run_tests: bool,
-    export_top_level_ids: bool,
-    enable_type_checks: bool,
-    script_path: Option<PathBuf>,
     chunk: Option<Ptr<Chunk>>,
 }
 
@@ -55,10 +48,7 @@ impl Koto {
         Self {
             runtime: KotoVm::with_settings(settings.vm_settings),
             run_tests: settings.run_tests,
-            export_top_level_ids: settings.export_top_level_ids,
-            enable_type_checks: settings.enable_type_checks,
             chunk: None,
-            script_path: None,
         }
     }
 
@@ -79,15 +69,17 @@ impl Koto {
 
     /// Compiles a Koto script, returning the complied chunk if successful
     ///
-    /// On success, the chunk is cached as the current chunk for subsequent calls to [Koto::run].
-    pub fn compile(&mut self, script: &str) -> Result<Ptr<Chunk>> {
+    /// If successful, the compiled chunk is cached for subsequent calls to [Koto::run].
+    ///
+    /// Compilation arguments are provided via [`CompileArgs`].
+    /// `Into<CompileArgs>` is implemented for `&str` for convenience when
+    /// default settings are appropriate, e.g. `koto.compile("1 + 1")`.
+    pub fn compile<'a>(&mut self, args: impl Into<CompileArgs<'a>>) -> Result<Ptr<Chunk>> {
+        let args = args.into();
         let chunk = self.runtime.loader().borrow_mut().compile_script(
-            script,
-            self.script_path.as_deref(),
-            CompilerSettings {
-                export_top_level_ids: self.export_top_level_ids,
-                enable_type_checks: self.enable_type_checks,
-            },
+            args.script,
+            args.script_path,
+            args.compiler_settings,
         )?;
 
         self.chunk = Some(chunk.clone());
@@ -106,7 +98,11 @@ impl Koto {
     /// Compiles and runs a Koto script, and returns the script's result
     ///
     /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).
-    pub fn compile_and_run(&mut self, script: &str) -> Result<KValue> {
+    ///
+    /// Compilation arguments are provided via [`CompileArgs`].
+    /// `Into<CompileArgs>` is implemented for `&str` for convenience when
+    /// default settings are appropriate, e.g. `koto.compile_and_run("1 + 1")`.
+    pub fn compile_and_run<'a>(&mut self, script: impl Into<CompileArgs<'a>>) -> Result<KValue> {
         self.compile(script)?;
         self.run()
     }
@@ -173,42 +169,6 @@ impl Koto {
         self.run_tests = enabled;
     }
 
-    /// Sets the path of the current script, accessible via `koto.script_dir` / `koto.script_path`
-    pub fn set_script_path(&mut self, path: Option<&Path>) -> Result<()> {
-        use KValue::{Map, Null, Str};
-
-        let (script_dir, script_path) = match &path {
-            Some(path) => {
-                let path = canonicalize(path).map_err(|_| {
-                    Error::from(format!("Invalid script path '{}'", path.to_string_lossy()))
-                })?;
-
-                let script_dir = path
-                    .parent()
-                    .map(|p| {
-                        let s = p.to_string_lossy();
-                        Str(s.into_owned().into())
-                    })
-                    .unwrap_or(Null);
-                let script_path = Str(path.display().to_string().into());
-
-                (script_dir, script_path)
-            }
-            None => (Null, Null),
-        };
-
-        self.script_path = path.map(Path::to_path_buf);
-
-        match self.runtime.prelude().data_mut().get("koto") {
-            Some(Map(map)) => {
-                map.insert("script_dir", script_dir);
-                map.insert("script_path", script_path);
-                Ok(())
-            }
-            _ => runtime_error!("missing koto module in the prelude"),
-        }
-    }
-
     fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         let result = self.runtime.run(chunk)?;
 
@@ -229,19 +189,6 @@ impl Koto {
 pub struct KotoSettings {
     /// Whether or not tests should be run when loading a script
     pub run_tests: bool,
-    /// Whether or not top-level identifiers should be automatically exported
-    ///
-    /// The default behaviour in Koto is that `export` expressions are required to make a value
-    /// available outside of the current module.
-    ///
-    /// This is used by the REPL, allowing for incremental compilation and execution of expressions
-    /// that need to share declared values.
-    pub export_top_level_ids: bool,
-    /// When enabled, the compiler will emit type check instructions when type hints are encountered
-    /// that will be performed at runtime.
-    ///
-    /// Enabled by default.
-    pub enable_type_checks: bool,
     /// Settings that apply to the runtime
     pub vm_settings: KotoVmSettings,
 }
@@ -315,9 +262,51 @@ impl Default for KotoSettings {
     fn default() -> Self {
         Self {
             run_tests: true,
-            export_top_level_ids: false,
-            enable_type_checks: true,
             vm_settings: KotoVmSettings::default(),
+        }
+    }
+}
+
+/// Arguments for [Koto::compile]
+pub struct CompileArgs<'a> {
+    /// The script to compile
+    pub script: &'a str,
+    /// The optional path of the script
+    ///
+    /// The path provided here becomes accessible within the script via
+    /// `koto.script_path`/`koto.script_dir`.
+    pub script_path: Option<PathBuf>,
+    /// Settings used during compilation
+    pub compiler_settings: CompilerSettings,
+}
+
+impl<'a> CompileArgs<'a> {
+    /// A convenience initializer for when the script has been loaded from a path
+    pub fn with_path(script: &'a str, script_path: PathBuf) -> Self {
+        Self {
+            script,
+            script_path: Some(script_path),
+            compiler_settings: Default::default(),
+        }
+    }
+}
+
+impl<'a> From<&'a str> for CompileArgs<'a> {
+    fn from(script: &'a str) -> Self {
+        Self {
+            script,
+            script_path: None,
+            compiler_settings: Default::default(),
+        }
+    }
+}
+
+impl<'a> From<&'a String> for CompileArgs<'a> {
+    fn from(script: &'a String) -> Self {
+        Self {
+            script: script.as_str(),
+            script_path: None,
+            compiler_settings: Default::default(),
         }
     }
 }
