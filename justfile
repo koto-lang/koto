@@ -53,8 +53,9 @@ test_koto:
   cargo test --test koto_tests
 
 test_libs *args:
-  cargo test --test koto_tests \
+  cargo test \
     -p koto_json \
+    -p koto_random \
     -p koto_tempfile \
     -p koto_toml \
     -p koto_yaml \

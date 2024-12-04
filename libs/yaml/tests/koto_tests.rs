@@ -3,7 +3,7 @@ use koto_test_utils::run_test_script;
 use std::{error::Error, fs, path::PathBuf};
 
 #[test]
-fn json_tests() -> Result<(), Box<dyn Error>> {
+fn yaml_tests() -> Result<(), Box<dyn Error>> {
     let vm = KotoVm::default();
     vm.prelude().insert("yaml", koto_yaml::make_module());
 

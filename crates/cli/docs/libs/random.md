@@ -93,7 +93,6 @@ Selects a random value from the input using the current thread's generator.
 - If the input is some other indexable type (like a list or tuple), 
   then a randomly selected element from the input will be returned. 
 
-
 ### Example
 
 ```koto
@@ -118,7 +117,6 @@ check! null
 
 Seeds the current thread's generator so that it produces predictable results.
 
-
 ### Example
 
 ```koto
@@ -141,6 +139,33 @@ print! pick_3()
 check! (5, 3, 8)
 ```
 
+## shuffle
+
+```kototype
+|Indexable| -> Any
+```
+
+Reorders the entries in a container so that they have a new randomly shuffled order,
+and returns the container.
+
+```koto
+from random import seed, shuffle
+
+x = [1, 2, 3, 4, 5]
+
+seed 2
+print! shuffle x
+check! [4, 1, 2, 3, 5]
+print! shuffle x
+check! [5, 2, 4, 3, 1]
+
+y = {a: 1, b: 2, c: 3}
+print! shuffle y
+check! {b: 2, a: 1, c: 3}
+print! shuffle y
+check! {a: 1, c: 3, b: 2}
+```
+
 ## Rng
 
 `Rng` is the `random` module's core random generator.
@@ -160,6 +185,10 @@ See [random.number](#number).
 ## Rng.pick
 
 See [random.pick](#pick).
+
+## Rng.shuffle
+
+See [random.shuffle](#shuffle).
 
 ## Rng.seed
 

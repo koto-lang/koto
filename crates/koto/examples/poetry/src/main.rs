@@ -9,7 +9,7 @@ use hotwatch::{
 };
 use koto::prelude::*;
 use poetry::*;
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, time::Duration};
 
 fn version_string() -> String {
     format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
