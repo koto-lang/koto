@@ -1,21 +1,16 @@
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::prelude::*;
 use koto_test_utils::run_test_script;
-use std::path::PathBuf;
+use std::{error::Error, fs, path::PathBuf};
 
 #[test]
-fn json_tests() -> Result<()> {
+fn json_tests() -> Result<(), Box<dyn Error>> {
     let vm = KotoVm::default();
     vm.prelude().insert("yaml", koto_yaml::make_module());
 
-    match vm.prelude().data_mut().get("koto") {
-        Some(KValue::Map(m)) => m.insert(
-            "script_dir",
-            PathBuf::from_iter(&[env!("CARGO_MANIFEST_DIR"), "tests"])
-                .to_string_lossy()
-                .to_string(),
-        ),
-        _ => return runtime_error!("Missing koto module"),
-    }
+    let script_path = PathBuf::from_iter(&[env!("CARGO_MANIFEST_DIR"), "tests", "yaml.koto"]);
+    let script = fs::read_to_string(&script_path)?;
 
-    run_test_script(vm, include_str!("yaml.koto"), None)
+    run_test_script(vm, &script, Some(script_path.into()), None)?;
+
+    Ok(())
 }

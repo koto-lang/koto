@@ -5,7 +5,10 @@ use crate::Result;
 use koto_bytecode::CompilerSettings;
 use koto_derive::{KotoCopy, KotoType};
 use koto_memory::Ptr;
-use std::hash::{Hash, Hasher};
+use std::{
+    hash::{Hash, Hasher},
+    path::Path,
+};
 
 /// Initializes the `koto` core library module
 pub fn make_module() -> KMap {
@@ -50,8 +53,25 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|Any|", unexpected),
     });
 
-    result.insert("script_dir", KValue::Null);
-    result.insert("script_path", KValue::Null);
+    result.add_fn("script_dir", |ctx| {
+        let result = match &ctx.vm.chunk().source_path {
+            Some(source_path) => Path::new(source_path.as_str())
+                .parent()
+                .and_then(|parent| parent.to_str())
+                .and_then(|parent| source_path.with_bounds(0..parent.len()))
+                .map_or(KValue::Null, KValue::from),
+            None => KValue::Null,
+        };
+        Ok(result)
+    });
+
+    result.add_fn("script_path", |ctx| {
+        let result = match &ctx.vm.chunk().source_path {
+            Some(path) => KValue::from(path.clone()),
+            None => KValue::Null,
+        };
+        Ok(result)
+    });
 
     result.add_fn("size", |ctx| match ctx.args() {
         [value] => ctx.vm.run_unary_op(UnaryOp::Size, value.clone()),

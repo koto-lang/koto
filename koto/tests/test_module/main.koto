@@ -10,14 +10,23 @@ export let square: Function = |x| x * x
 
 # Export with a map block
 export
-  @type: 'test_module'
-
   baz: import baz # Re-export the neighbouring baz module
-
   tests_were_run: false
 
-  @test run_tests: ||
-    export tests_were_run = true
+# Metakeys can be assigned to directly
+@type = 'test_module'
 
-  @test local_value_unmodified_by_import: ||
-    assert_eq local_value, 123
+@test run_tests = ||
+  # Re-export `tests_were_run` when this test is run
+  export tests_were_run = true
+
+@test local_value_unmodified_by_import = ||
+  # Ensure that the local value captured here wasn't affected by the earlier `import`
+  assert_eq local_value, 123
+
+@test script_dir_and_path = ||
+  # Ensure that script_dir/path are defined correctly within the module
+  assert koto.script_dir().ends_with 'test_module'
+  path = koto.script_path()
+  assert path.contains 'test_module'
+  assert path.ends_with 'main.koto'

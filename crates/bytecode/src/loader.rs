@@ -1,7 +1,7 @@
 use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
 use dunce::canonicalize;
 use koto_memory::Ptr;
-use koto_parser::{format_source_excerpt, Parser, Span};
+use koto_parser::{format_source_excerpt, KString, Parser, Span};
 use rustc_hash::FxHasher;
 use std::{
     collections::HashMap,
@@ -46,19 +46,19 @@ pub struct LoaderErrorSource {
     /// The span in the script where the error occurred
     pub span: Span,
     /// The script's path
-    pub path: Option<PathBuf>,
+    pub path: Option<KString>,
 }
 
 impl LoaderError {
     pub(crate) fn from_parser_error(
         error: koto_parser::Error,
         source: &str,
-        source_path: Option<&Path>,
+        source_path: Option<KString>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path.map(Path::to_path_buf),
+            path: source_path,
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -69,12 +69,12 @@ impl LoaderError {
     pub(crate) fn from_compiler_error(
         error: CompilerError,
         source: &str,
-        source_path: Option<&Path>,
+        source_path: Option<KString>,
     ) -> Self {
         let source = LoaderErrorSource {
             contents: source.into(),
             span: error.span,
-            path: source_path.map(Path::to_path_buf),
+            path: source_path,
         };
         Self {
             error: LoaderErrorKind::from(error).into(),
@@ -136,7 +136,7 @@ impl Loader {
     pub fn compile_script(
         &mut self,
         script: &str,
-        script_path: Option<&Path>,
+        script_path: Option<KString>,
         settings: CompilerSettings,
     ) -> Result<Ptr<Chunk>, LoaderError> {
         match Parser::parse(script) {
@@ -148,7 +148,13 @@ impl Loader {
 
                 debug_info.source = script.to_string();
 
-                Ok(Chunk::new(bytes, ast.consume_constants(), script_path, debug_info).into())
+                Ok(Chunk {
+                    bytes,
+                    constants: ast.consume_constants(),
+                    source_path: script_path,
+                    debug_info,
+                }
+                .into())
             }
             Err(e) => Err(LoaderError::from_parser_error(e, script, script_path)),
         }
@@ -158,39 +164,34 @@ impl Loader {
     pub fn compile_module(
         &mut self,
         module_name: &str,
-        current_script_path: Option<&Path>,
+        current_script_path: Option<impl AsRef<Path>>,
     ) -> Result<CompileModuleResult, LoaderError> {
-        let mut load_module_from_path = |module_path: PathBuf| {
-            let module_path = module_path.canonicalize()?;
-
-            match self.chunks.get(&module_path) {
-                Some(chunk) => Ok(CompileModuleResult {
-                    chunk: chunk.clone(),
-                    path: module_path,
-                    loaded_from_cache: true,
-                }),
-                None => {
-                    let script = std::fs::read_to_string(&module_path)?;
-
-                    let chunk = self.compile_script(
-                        &script,
-                        Some(&module_path),
-                        CompilerSettings::default(),
-                    )?;
-
-                    self.chunks.insert(module_path.clone(), chunk.clone());
-
-                    Ok(CompileModuleResult {
-                        chunk,
-                        path: module_path,
-                        loaded_from_cache: false,
-                    })
-                }
-            }
-        };
-
         let module_path = find_module(module_name, current_script_path)?;
-        load_module_from_path(module_path)
+
+        match self.chunks.get(&module_path) {
+            Some(chunk) => Ok(CompileModuleResult {
+                chunk: chunk.clone(),
+                path: module_path,
+                loaded_from_cache: true,
+            }),
+            None => {
+                let script = std::fs::read_to_string(&module_path)?;
+
+                let chunk = self.compile_script(
+                    &script,
+                    Some(module_path.clone().into()),
+                    CompilerSettings::default(),
+                )?;
+
+                self.chunks.insert(module_path.clone(), chunk.clone());
+
+                Ok(CompileModuleResult {
+                    chunk,
+                    path: module_path,
+                    loaded_from_cache: false,
+                })
+            }
+        }
     }
 
     /// Clears the compiled module cache
@@ -211,7 +212,7 @@ pub struct CompileModuleResult {
 /// provided then std::env::current_dir will be used.
 pub fn find_module(
     module_name: &str,
-    current_script_path: Option<&Path>,
+    current_script_path: Option<impl AsRef<Path>>,
 ) -> Result<PathBuf, LoaderError> {
     // Get the directory of the provided script path, or the current working directory
     let search_folder = match &current_script_path {
@@ -220,7 +221,10 @@ pub fn find_module(
             if canonicalized.is_file() {
                 match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
-                    None => return Err(LoaderErrorKind::FailedToGetPathParent(path.into()).into()),
+                    None => {
+                        let path = PathBuf::from(path.as_ref());
+                        return Err(LoaderErrorKind::FailedToGetPathParent(path).into());
+                    }
                 }
             } else {
                 canonicalized
@@ -242,6 +246,7 @@ pub fn find_module(
             .join("main")
             .with_extension(extension);
         if result.exists() {
+            let result = canonicalize(result)?;
             Ok(result)
         } else {
             Err(LoaderErrorKind::UnableToFindModule(module_name.into()).into())

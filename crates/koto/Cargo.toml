@@ -19,7 +19,6 @@ koto_bytecode = { path = "../bytecode", version = "^0.15.0", default-features = 
 koto_parser = { path = "../parser", version = "^0.15.0", default-features = false }
 koto_runtime = { path = "../runtime", version = "^0.15.0", default-features = false }
 
-dunce = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
@@ -28,6 +27,7 @@ koto_test_utils = { path = "../test_utils" }
 
 anyhow = { workspace = true }
 criterion2 = { workspace = true }
+dunce = { workspace = true }
 mimalloc = { workspace = true }
 
 [[bench]]

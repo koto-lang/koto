@@ -66,12 +66,7 @@ fn history_path() -> Option<PathBuf> {
 }
 
 impl Repl {
-    pub fn with_settings(
-        repl_settings: ReplSettings,
-        mut koto_settings: KotoSettings,
-    ) -> Result<Self> {
-        koto_settings.export_top_level_ids = true;
-
+    pub fn with_settings(repl_settings: ReplSettings, koto_settings: KotoSettings) -> Result<Self> {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
 

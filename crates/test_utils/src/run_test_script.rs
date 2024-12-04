@@ -6,10 +6,11 @@ use koto_runtime::{prelude::*, Result};
 pub fn run_test_script(
     mut vm: KotoVm,
     script: &str,
+    script_path: Option<KString>,
     expected_output: Option<KValue>,
 ) -> Result<()> {
     let mut loader = Loader::default();
-    let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
+    let chunk = match loader.compile_script(script, script_path, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {
             println!("{script}\n");

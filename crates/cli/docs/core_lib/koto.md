@@ -217,20 +217,18 @@ check! 10
 ## script_dir
 
 ```kototype
-String or Null
+|| -> String or Null
 ```
 
-If a script is being executed then `script_dir` provides the directory that the
-current script is contained in as a String, otherwise `script_dir` is Null.
+Returns the path of the directory containing the current script, if available.
 
 ## script_path
 
 ```kototype
-String or Null
+|| -> String or Null
 ```
 
-If a script is being executed then `script_path` provides the path of the
-current script as a String, otherwise `script_path` is Null.
+Returns the path of the file containing the current script, if available.
 
 ## size
 

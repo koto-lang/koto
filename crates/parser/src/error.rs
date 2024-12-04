@@ -1,5 +1,5 @@
 use koto_lexer::Span;
-use std::{fmt::Write, path::Path};
+use std::fmt::Write;
 use thiserror::Error;
 
 use crate::string_format_options::StringFormatError;
@@ -245,7 +245,7 @@ impl Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Renders the excerpt of the source corresponding to the given span
-pub fn format_source_excerpt(source: &str, span: &Span, source_path: Option<&Path>) -> String {
+pub fn format_source_excerpt(source: &str, span: &Span, source_path: Option<&str>) -> String {
     let Span { start, end } = span;
 
     let (excerpt, padding) = {
@@ -291,15 +291,10 @@ pub fn format_source_excerpt(source: &str, span: &Span, source_path: Option<&Pat
     };
 
     let position_info = if let Some(path) = source_path {
-        let display_path = if let Ok(current_dir) = std::env::current_dir() {
-            if let Ok(stripped) = path.strip_prefix(current_dir) {
-                stripped.display()
-            } else {
-                path.display()
-            }
-        } else {
-            path.display()
-        };
+        let display_path = std::env::current_dir()
+            .ok()
+            .and_then(|dir| dir.to_str().and_then(|dir_str| path.strip_prefix(dir_str)))
+            .unwrap_or(path);
 
         format!("{display_path} - {}:{}", start.line + 1, start.column + 1)
     } else {

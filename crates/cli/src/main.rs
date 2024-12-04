@@ -6,12 +6,7 @@ use crossterm::tty::IsTty;
 use koto::prelude::*;
 use repl::{Repl, ReplSettings};
 use rustyline::EditMode;
-use std::{
-    env,
-    error::Error,
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{env, error::Error, fs, io, path::PathBuf};
 
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -139,7 +134,6 @@ fn main() -> Result<()> {
             run_import_tests: args.run_import_tests,
             ..Default::default()
         },
-        ..Default::default()
     };
 
     let mut stdin = io::stdin();
@@ -167,13 +161,14 @@ fn main() -> Result<()> {
 
     if let Some(script) = script {
         let mut koto = Koto::with_settings(koto_settings);
-        if let Err(error) = koto.set_script_path(script_path.as_deref().map(Path::new)) {
-            bail!("{error}");
-        }
 
         add_modules(&koto);
 
-        match koto.compile(&script) {
+        match koto.compile(CompileArgs {
+            script: &script,
+            script_path: script_path.map(KString::from),
+            compiler_settings: Default::default(),
+        }) {
             Ok(chunk) => {
                 if args.show_bytecode {
                     println!("{}\n", &Chunk::bytes_as_string(&chunk));
@@ -266,10 +261,10 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
 
     // Load the config file if it exists
     if let Some(config_path) = config_path {
-        let script = fs::read_to_string(config_path).context("Failed to load the config file")?;
+        let script = fs::read_to_string(&config_path).context("Failed to load the config file")?;
 
         let mut koto = Koto::new();
-        match koto.compile_and_run(&script) {
+        match koto.compile_and_run(CompileArgs::with_path(&script, config_path)) {
             Ok(_) => {
                 let exports = koto.exports().data();
                 match exports.get("repl") {

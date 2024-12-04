@@ -189,28 +189,30 @@ impl KValue {
     /// Renders the value into the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         use KValue::*;
-        let result = match self {
+        let _ = match self {
             Null => write!(ctx, "null"),
             Bool(b) => write!(ctx, "{b}"),
             Number(n) => write!(ctx, "{n}"),
             Range(r) => write!(ctx, "{r}"),
             Function(_) | CaptureFunction(_) => write!(ctx, "||"),
-            Iterator(_) => write!(ctx, "Iterator"),
             NativeFunction(_) => write!(ctx, "||"),
+            Iterator(_) => write!(ctx, "Iterator"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
-            Str(s) => return s.display(ctx),
+            Str(s) => {
+                if ctx.is_contained() {
+                    write!(ctx, "\'{s}\'")
+                } else {
+                    write!(ctx, "{s}")
+                }
+            }
             List(l) => return l.display(ctx),
             Tuple(t) => return t.display(ctx),
             Map(m) => return m.display(ctx),
             Object(o) => return o.try_borrow()?.display(ctx),
         };
-        if result.is_ok() {
-            Ok(())
-        } else {
-            runtime_error!("Failed to write to string")
-        }
+        Ok(())
     }
 }
 

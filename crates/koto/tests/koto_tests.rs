@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn run_script(script: &str, script_path: &Path, expected_module_paths: &[PathBuf]) {
+fn run_script(script: &str, script_path: PathBuf, expected_module_paths: &[PathBuf]) {
     let loaded_module_paths = PtrMut::from(vec![]);
 
     let mut koto = Koto::with_settings(
@@ -21,9 +21,12 @@ fn run_script(script: &str, script_path: &Path, expected_module_paths: &[PathBuf
             move |path: &Path| loaded_module_paths.borrow_mut().push(path.to_path_buf())
         }),
     );
-    koto.set_script_path(Some(script_path)).unwrap();
 
-    if let Err(error) = koto.compile(script) {
+    if let Err(error) = koto.compile(CompileArgs {
+        script,
+        script_path: Some(script_path.into()),
+        compiler_settings: Default::default(),
+    }) {
         panic!("{error}");
     }
     if let Err(error) = koto.run() {
@@ -57,7 +60,7 @@ fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
     test_folder.push("..");
     test_folder.push("koto");
     test_folder.push("tests");
-    test_folder = test_folder.canonicalize().unwrap();
+    test_folder = dunce::canonicalize(test_folder).unwrap();
 
     let mut script_path = test_folder.clone();
     script_path.push(script_file_name);
@@ -76,7 +79,7 @@ fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
         })
         .collect::<Vec<_>>();
 
-    run_script(&script, &script_path, &expected_module_paths);
+    run_script(&script, script_path, &expected_module_paths);
 }
 
 macro_rules! koto_test {

@@ -703,7 +703,7 @@ impl<'source> Parser<'source> {
             };
             Ok(Some(self.push_node_with_span(node, assign_span)?))
         } else {
-            self.consume_token_on_same_line_and_error(ExpectedIndentation::AssignmentExpression)
+            self.error(ExpectedIndentation::AssignmentExpression)
         }
     }
 

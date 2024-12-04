@@ -67,6 +67,10 @@ The Koto project adheres to
 - `:` placement following keys in maps is now more flexible.
   ([#368](https://github.com/koto-lang/koto/issues/368))
 
+#### Core Library
+
+- `koto.script_path` and `script_dir` are now functions.
+
 #### API
 
 - The line and column numbers referred to in spans are now zero-based. 
@@ -80,6 +84,9 @@ The Koto project adheres to
 - `From` impls for `KNumber` now saturate integer values that are out of the
   target type's bounds, instead of wrapping.
 - `KString` will now inline short strings to reduce allocations.
+- `Koto::compile` and `compile_and_run` now take `CompileArgs` which include
+  compiler settings. The equivalent compiler settings have been removed from 
+  `KotoSettings`.
 
 #### Libs
 

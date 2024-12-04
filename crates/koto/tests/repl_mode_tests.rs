@@ -6,27 +6,32 @@
 //! each subsequent chunk.
 
 use koto::{prelude::*, runtime::Result, PtrMut};
+use koto_bytecode::CompilerSettings;
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
     let output = PtrMut::from(String::new());
 
     let mut koto = Koto::with_settings(
-        KotoSettings {
-            export_top_level_ids: true,
-            ..Default::default()
-        }
-        .with_stdout(OutputCapture {
-            output: output.clone(),
-        })
-        .with_stderr(OutputCapture {
-            output: output.clone(),
-        }),
+        KotoSettings::default()
+            .with_stdout(OutputCapture {
+                output: output.clone(),
+            })
+            .with_stderr(OutputCapture {
+                output: output.clone(),
+            }),
     );
 
     let mut chunks = Vec::with_capacity(inputs_and_expected_outputs.len());
 
     for (input, expected_output) in inputs_and_expected_outputs {
-        match koto.compile(input) {
+        match koto.compile(CompileArgs {
+            script: *input,
+            script_path: None,
+            compiler_settings: CompilerSettings {
+                export_top_level_ids: true,
+                ..Default::default()
+            },
+        }) {
             Ok(chunk) => chunks.push((input, chunk)),
             Err(error) => panic!("{}", error),
         }

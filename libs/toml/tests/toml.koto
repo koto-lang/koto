@@ -1,5 +1,5 @@
 @test serialize_and_deserialize_toml = ||
-  path = io.extend_path koto.script_dir, "test.toml"
+  path = io.extend_path koto.script_dir(), "test.toml"
   file_data = io.read_to_string path
   data = toml.from_string file_data
 

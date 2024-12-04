@@ -1,11 +1,11 @@
 # This file is imported by ./main.koto
 
+local_value = 999
+qux = null
+
 # Testing that import works within a submodule
 from number import pi
 assert_eq pi, pi
-
-local_value = 999
-qux = null
 
 # Export using inline map syntax
 export { qux, @type: 'Baz' }
@@ -14,3 +14,14 @@ export { qux, @type: 'Baz' }
   # Redefine qux to check that main has been called
   export qux = 'O_o'
   assert_eq qux, 'O_o'
+
+@test local_value_unmodified_by_import = ||
+  # Ensure that the local value captured here wasn't affected by the earlier `import`
+  assert_eq local_value, 999
+
+@test script_dir_and_path = ||
+  # Ensure that script_dir/path are defined correctly within the module
+  assert koto.script_dir().ends_with 'test_module'
+  path = koto.script_path()
+  assert path.contains 'test_module'
+  assert path.ends_with 'baz.koto'

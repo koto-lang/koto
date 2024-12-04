@@ -2119,15 +2119,11 @@ impl KotoVm {
         // Attempt to compile the imported module from disk,
         // using the current source path as the relative starting location
         let source_path = self.reader.chunk.source_path.clone();
-        let compile_result = match self
+        let compile_result = self
             .context
             .loader
             .borrow_mut()
-            .compile_module(&import_name, source_path.as_deref())
-        {
-            Ok(result) => result,
-            Err(error) => return runtime_error!("Failed to import '{import_name}': {error}"),
-        };
+            .compile_module(&import_name, source_path.as_deref())?;
 
         // Has the module been loaded previously?
         let maybe_in_cache = self
@@ -2857,9 +2853,9 @@ impl KotoVm {
                 .get_source_span(self.instruction_ip),
             self.reader.chunk.source_path.as_ref(),
         ) {
-            (Some(span), Some(path)) => format!("[{}: {}] ", path.display(), span.start.line + 1),
+            (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line + 1),
             (Some(span), None) => format!("[{}] ", span.start.line + 1),
-            (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
+            (None, Some(path)) => format!("[{}: #ERR] ", path),
             (None, None) => "[#ERR] ".to_string(),
         };
 
