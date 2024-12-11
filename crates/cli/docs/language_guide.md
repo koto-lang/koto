@@ -21,7 +21,7 @@ print 'Hello, {name}!'
 
 ### Comments
 
-Single-line comments start with a `#`. 
+Single-line comments start with a `#`.
 
 ```koto
 # This is a comment, everything until the end of the line is ignored.
@@ -30,14 +30,14 @@ Single-line comments start with a `#`.
 Multi-line comments start with `#-` and end with `-#`.
 
 ```koto
-#- 
-This is a 
-multi-line 
+#-
+This is a
+multi-line
 comment.
 -#
 ```
 
-### Numbers 
+### Numbers
 
 Numbers and arithmetic are expressed in a familiar way.
 
@@ -63,8 +63,8 @@ check! 2
 
 #### Parentheses
 
-Arithmetic operations follow the 
-[conventional order of precedence][operation-order]. 
+Arithmetic operations follow the
+[conventional order of precedence][operation-order].
 Parentheses can be used to group expressions as needed.
 
 ```koto
@@ -76,7 +76,7 @@ print! (1 + 2) * (3 + 4)
 check! 21
 ```
 
-### Booleans 
+### Booleans
 
 Booleans are declared with the `true` and `false` keywords, and combined using
 the `and` and `or` operators.
@@ -143,7 +143,7 @@ x = 42
 print! x
 check! 42
 
-# Replace the existing value of `x` 
+# Replace the existing value of `x`
 x = true
 print! x
 check! true
@@ -167,8 +167,8 @@ check! 1110
 
 ### Debug
 
-The `debug` keyword allows you to quickly display a value while working on a 
-program. 
+The `debug` keyword allows you to quickly display a value while working on a
+program.
 
 It prints the result of an expression, prefixed with its line number and the
 original expression as a string.
@@ -179,7 +179,7 @@ debug x / 10
 check! [2] x / 10: 3.0
 ```
 
-When using `debug`, the displayed value is also the result of the expression, 
+When using `debug`, the displayed value is also the result of the expression,
 which can be useful if you want to quickly get feedback during development.
 
 ```koto
@@ -220,7 +220,7 @@ check! false
 ```
 
 Once a list has been created, its underlying data is shared between other
-instances of the same list. 
+instances of the same list.
 Changes to one instance of the list are reflected in the other.
 
 ```koto
@@ -234,7 +234,7 @@ y = x
 y[1] = 99
 
 # The change to y is also reflected in x
-print! x 
+print! x
 check! [10, 99, 30]
 ```
 
@@ -255,7 +255,7 @@ check! [98, 99, 100, 1, 2, 3]
 Tuples in Koto are similar to lists,
 but are designed for sequences of values that have a fixed structure.
 
-Unlike lists, tuples can't be resized after creation, 
+Unlike lists, tuples can't be resized after creation,
 and values that are contained in the tuple can't be replaced.
 
 Tuples are declared with a series of expressions separated by commas.
@@ -291,7 +291,7 @@ check! ((false, 10), (true, 20))
 
 ### Joining Tuples
 
-The `+` operator allows tuples to be joined together, 
+The `+` operator allows tuples to be joined together,
 creating a new tuple containing their concatenated elements.
 
 ```koto
@@ -301,25 +301,25 @@ print! b
 check! (1, 2, 3, 4, 5, 6)
 ```
 
-### Creating Empty Tuples 
+### Creating Empty Tuples
 
 An empty pair of parentheses in Koto resolves to `null`.
 If an empty tuple is needed then use a single `,` inside parentheses.
 
 ```koto
 # An empty pair of parentheses resolves to null
-print! () 
+print! ()
 check! null
 
-# A comma inside parentheses creates a tuple 
-print! (,) 
+# A comma inside parentheses creates a tuple
+print! (,)
 check! ()
 ```
 
 ### Tuple Mutability
 
-While tuples have a fixed structure and its contained elements can't be 
-replaced, [_mutable_][immutable] value types (like [lists](#lists)) can be 
+While tuples have a fixed structure and its contained elements can't be
+replaced, [_mutable_][immutable] value types (like [lists](#lists)) can be
 modified while they're contained in tuples.
 
 ```koto
@@ -334,8 +334,8 @@ check! ([1, 2, 3], [99, 5, 6])
 
 ## Strings
 
-Strings in Koto contain a sequence of [UTF-8][utf-8] encoded characters, 
-and can be declared using `'` or `"` quotes. 
+Strings in Koto contain a sequence of [UTF-8][utf-8] encoded characters,
+and can be declared using `'` or `"` quotes.
 
 ```koto
 print! 'Hello, World!'
@@ -386,7 +386,7 @@ check! 2 plus 3 is 5.
 ### String Escape Codes
 
 Strings can contain the following escape codes to define special characters,
-all of which start with a `\`. 
+all of which start with a `\`.
 
 - `\n`: Newline
 - `\r`: Carriage Return
@@ -408,7 +408,7 @@ print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
 
-### Continuing a Long Line 
+### Continuing a Long Line
 
 The end of a line can be escaped with a `\`, which will skip the
 newline and any leading whitespace on the next line.
@@ -449,16 +449,16 @@ check! yz
 ```
 
 Care must be taken when using indexing with strings that could contain
-non-[ASCII][ascii] data. 
-If the indexed bytes would produce invalid UTF-8 data then an 
+non-[ASCII][ascii] data.
+If the indexed bytes would produce invalid UTF-8 data then an
 error will be thrown. To access Unicode characters see [`string.chars`][chars].
 
 ### Raw Strings
 
 When a string contains a lot of special characters, it can be preferable to use
-a _raw string_. 
+a _raw string_.
 
-Raw strings ignore escape characters and interpolated expressions, 
+Raw strings ignore escape characters and interpolated expressions,
 providing the raw contents of the string between its _delimiters_.
 
 Raw strings use single or double quotes as the delimiter, prefixed with an `r`.
@@ -468,7 +468,7 @@ print r'This string contains special characters: {foo}\n\t.'
 check! This string contains special characters: {foo}\n\t.
 ```
 
-For more complex string contents, the delimiter can be extended using up to 255 
+For more complex string contents, the delimiter can be extended using up to 255
 `#` characters after the `r` prefix,
 
 ```koto
@@ -481,8 +481,8 @@ check! This string also includes a '#' symbol.
 
 ## Functions
 
-Functions in Koto are created using a pair of vertical bars (`||`), 
-with the function's _arguments_ listed between the bars. 
+Functions in Koto are created using a pair of vertical bars (`||`),
+with the function's _arguments_ listed between the bars.
 The _body_ of the function follows the vertical bars.
 
 ```koto
@@ -503,7 +503,7 @@ print! add(50, 5)
 check! 55
 ```
 
-A function's body can be an indented block, where the last 
+A function's body can be an indented block, where the last
 expression in the body is evaluated as the function's result.
 
 ```koto
@@ -517,7 +517,7 @@ check! 234
 
 ### Optional Call Parentheses
 
-The parentheses for arguments when calling a function are optional and can be 
+The parentheses for arguments when calling a function are optional and can be
 omitted in simple expressions.
 
 ```koto
@@ -530,7 +530,7 @@ print! add 2, 3
 check! 5
 
 # Equivalent to square(add(2, 3))
-print! square add 2, 3 
+print! square add 2, 3
 check! 25
 ```
 
@@ -540,7 +540,7 @@ is parsed as a call to `f` with two arguments, whereas the latter is a call to
 `f` with a tuple as the single argument.
 
 
-### Return 
+### Return
 
 When the function should be exited early, the `return` keyword can be used.
 
@@ -565,8 +565,8 @@ check! null
 
 ### Function Piping
 
-The arrow operator (`->`) can be used to pass the result of one function to 
-another, working from left to right. This is known as _function piping_, 
+The arrow operator (`->`) can be used to pass the result of one function to
+another, working from left to right. This is known as _function piping_,
 and can aid readability when working with a long chain of function calls.
 
 ```koto
@@ -588,14 +588,14 @@ check! 32
 
 # Call chains can also be broken across lines.
 print! x = add 1, 3
-  -> square 
+  -> square
   -> multiply 2
 check! 32
 ```
 
 ## Maps
 
-_Maps_ in Koto are containers that contain a series of 
+_Maps_ in Koto are containers that contain a series of
 _entries_ with _keys_ that correspond to [associated][associated] _values_.
 
 The `.` dot operator returns the value associated with a particular key.
@@ -613,7 +613,7 @@ check! 99
 ...Or using _block syntax_ with indented entries:
 
 ```koto
-m = 
+m =
   apples: 42
   oranges: 99
   lemons: 63
@@ -626,7 +626,7 @@ instances of the same map. Changes to one instance are reflected in the other.
 
 ```koto
 # Create a map and assign it to `a`.
-a = {foo: 99} 
+a = {foo: 99}
 print! a.foo
 check! 99
 
@@ -639,10 +639,10 @@ print! a.foo
 check! Hi!
 ```
 
-### Entry Order 
+### Entry Order
 
-A map's entries are maintained in a consistent order, 
-representing the sequence in which its entries were added. 
+A map's entries are maintained in a consistent order,
+representing the sequence in which its entries were added.
 
 You can access map entries by index using square brackets, starting from `0`.
 
@@ -665,7 +665,7 @@ check! {apples: 42, pears: 123, lemons: 63}
 
 ### Shorthand Values
 
-Koto supports a shorthand notation when creating maps with inline syntax. 
+Koto supports a shorthand notation when creating maps with inline syntax.
 If a value isn't provided for a key, then Koto will look for a value in scope
 that matches the key's name, and if one is found then it will be used as that
 entry's value.
@@ -678,11 +678,11 @@ check! {hi: 'hi!', x: 42, bye: 'bye!'}
 
 ### Maps and Self
 
-Maps can store any type of value, including functions, 
+Maps can store any type of value, including functions,
 which provides a convenient way to group functions together.
 
 ```koto
-m = 
+m =
   hello: |name| 'Hello, {name}!'
   bye: |name| 'Bye, {name}!'
 
@@ -693,13 +693,13 @@ check! Bye, Friend!
 ```
 
 `self` is a special identifier that refers to the instance of the container in
-which the function is contained. 
+which the function is contained.
 
-In maps, `self` allows functions to access and modify data from the map, 
+In maps, `self` allows functions to access and modify data from the map,
 enabling object-like behaviour.
 
 ```koto
-m = 
+m =
   name: 'World'
   say_hello: || 'Hello, {self.name}!'
 
@@ -750,7 +750,7 @@ Map keys are typically strings, but any [_immutable_][immutable] value can be
 used as a map key by using the [`map.insert`][map-insert] and [`map.get`][map-get]
 functions.
 
-The immutable value types in Koto are [strings](#strings), [numbers](#numbers), 
+The immutable value types in Koto are [strings](#strings), [numbers](#numbers),
 [booleans](#booleans), [ranges](#ranges), and [`null`](#null).
 
 A [tuple](#tuples) is also considered to be immutable when its contained
@@ -760,7 +760,7 @@ elements are also immutable.
 ## Core Library
 
 The [_Core Library_][core] provides a collection of fundamental functions
-and values for working with the Koto language, organized within _modules_. 
+and values for working with the Koto language, organized within _modules_.
 
 ```koto
 # Get the size of a string
@@ -772,7 +772,7 @@ print! list.first [99, -1, 3]
 check! 99
 ```
 
-Values in Koto automatically have access to their corresponding core modules 
+Values in Koto automatically have access to their corresponding core modules
 via `.` access.
 
 ```koto
@@ -794,10 +794,10 @@ available in the `help` command of the [Koto CLI][cli].
 
 ### Prelude
 
-Koto's _prelude_ is a collection of core library items that are automatically 
+Koto's _prelude_ is a collection of core library items that are automatically
 made available in a Koto script without the need for first calling `import`.
 
-The modules that make up the core library are all included by default in the 
+The modules that make up the core library are all included by default in the
 prelude. The following functions are also added to the prelude by default:
 
 - [`io.print`](./core_lib/io.md#print)
@@ -836,7 +836,7 @@ if x < 0
   print 'negative'
 else if x > 24
   print 'no way!'
-else 
+else
   print 'ok'
 check! ok
 ```
@@ -853,7 +853,7 @@ check! 3
 foo = if x > 0
   y = x * 10
   y + 3
-else 
+else
   y = x * 100
   y * y
 
@@ -863,7 +863,7 @@ check! 33
 
 ### `switch`
 
-`switch` expressions can be used as a cleaner alternative to 
+`switch` expressions can be used as a cleaner alternative to
 `if`/`else if`/`else` cascades.
 
 ```koto
@@ -879,10 +879,10 @@ check! 13
 
 ### `match`
 
-`match` expressions can be used to match a value against a series of patterns, 
+`match` expressions can be used to match a value against a series of patterns,
 with the matched pattern causing a specific branch of code to be executed.
 
-Patterns can be literals or identifiers. An identifier will accept any value, 
+Patterns can be literals or identifiers. An identifier will accept any value,
 so they're often used with `if` conditions to refine the match.
 
 ```koto
@@ -895,8 +895,8 @@ print! match 40 + 2
 check! less than 50: 42
 ```
 
-The `_` wildcard match can be used to match against any value 
-(when the matched value itself can be ignored), 
+The `_` wildcard match can be used to match against any value
+(when the matched value itself can be ignored),
 and `else` can be used for fallback branches.
 
 ```koto
@@ -913,7 +913,7 @@ print! (10, 11, 12, 13, 14, 15)
 check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
-List and tuple entries can be matched against by using parentheses, 
+List and tuple entries can be matched against by using parentheses,
 with `...` available for capturing the rest of the sequence.
 
 ```koto
@@ -930,8 +930,8 @@ check! Starts with 'a', followed by 'b', then 4 others
 ### Optional Chaining
 
 The `?` operator can be used to short-circuit expression chains where `null`
-might be encountered as an intermediate value. The `?` checks the current value 
-in the expression chain and if `null` is found then the chain is short-circuited 
+might be encountered as an intermediate value. The `?` checks the current value
+in the expression chain and if `null` is found then the chain is short-circuited
 with `null` given as the expression's result.
 
 This makes it easier to check for `null` when you want to avoid runtime errors.
@@ -943,7 +943,7 @@ info = {town: 'Hamburg', country: 'Germany'}
 print! info.get('town')?.to_uppercase()
 check! HAMBURG
 
-# `info` doesn't contain a value for 'state', 
+# `info` doesn't contain a value for 'state',
 # so the `?` operator short-circuits the expression, resulting in `null`:
 print! info.get('state')?.to_uppercase()
 check! null
@@ -971,7 +971,7 @@ Koto includes several ways of evaluating expressions repeatedly in a loop.
 
 ### `for`
 
-`for` loops are repeated for each element in a sequence, 
+`for` loops are repeated for each element in a sequence,
 such as a list or tuple.
 
 ```koto
@@ -1087,7 +1087,7 @@ check! null
 ### Iterator Generators
 
 The [`iterator` module][iterator] contains iterator _generators_ like
-[`once`][once] and [`repeat`][repeat] that generate output values 
+[`once`][once] and [`repeat`][repeat] that generate output values
 [_lazily_][lazy] during iteration.
 
 ```koto
@@ -1104,7 +1104,7 @@ check! null
 
 ### Iterator Adaptors
 
-The output of an iterator can be modified using _adaptors_ from the 
+The output of an iterator can be modified using _adaptors_ from the
 [`iterator` module][iterator].
 
 ```koto
@@ -1155,7 +1155,7 @@ check! 40
 ### Iterator Consumers
 
 Iterators can also be _consumed_ using functions like
-[`.to_list()`][to_list] and [`.to_tuple()`][to_tuple], 
+[`.to_list()`][to_list] and [`.to_tuple()`][to_tuple],
 allowing the output of an iterator to be easily captured in a container.
 
 ```koto
@@ -1301,7 +1301,7 @@ check! [10, 30, 50]
 
 Ranges of integers can be created with `..` or `..=`.
 
-`..` creates a _non-inclusive_ range, 
+`..` creates a _non-inclusive_ range,
 which defines a range up to but _not including_ the end of the range.
 
 ```koto
@@ -1336,7 +1336,7 @@ print! r.start()
 check! 10
 print! r.end()
 check! null
- 
+
 # Create an unbounded range up to and including 100
 r = ..=100
 print! r.start()
@@ -1345,7 +1345,7 @@ print! r.end()
 check! 100
 ```
 
-_Bounded_ ranges are declared as iterable, 
+_Bounded_ ranges are declared as iterable,
 so they can be used in for loops and with the [`iterator`][iterator] module.
 
 ```koto
@@ -1365,14 +1365,14 @@ Ranges can be used to create a _slice_ of a container's data.
 
 ```koto
 x = (10, 20, 30, 40, 50)
-print! x[1..=3] 
+print! x[1..=3]
 check! (20, 30, 40)
 ```
 
-For immutable containers like tuples and strings, 
+For immutable containers like tuples and strings,
 slices share the original value's data, with no copies being made.
 
-For mutable containers like lists, creating a slice makes a copy of the sliced 
+For mutable containers like lists, creating a slice makes a copy of the sliced
 portion of the underlying data.
 
 ```koto
@@ -1391,8 +1391,8 @@ print! a[0]
 check! 1
 ```
 
-When creating a slice with an unbounded range, 
-if the start of the range if omitted then the slice starts from the beginning of the container. 
+When creating a slice with an unbounded range,
+if the start of the range if omitted then the slice starts from the beginning of the container.
 If the end of the range is omitted, then the slice includes all remaining elements in the container.
 
 ```koto
@@ -1405,13 +1405,13 @@ check! ('l', 'l', 'ø')
 
 ## Type Checks
 
-Koto is a primarily a dynamically typed language, however in more complex programs 
+Koto is a primarily a dynamically typed language, however in more complex programs
 you might find it beneficial to add type checks.
 
 These checks can help in catching errors earlier, and can also act as
 documentation for the reader.
 
-One way to add type checks to your program is to use the 
+One way to add type checks to your program is to use the
 [`type`][koto-type] function, which returns a value's type as a string.
 
 ```koto
@@ -1441,7 +1441,7 @@ check! (123, true)
 
 ### `for` arguments
 
-Type hints can also be added to `for` loop arguments. 
+Type hints can also be added to `for` loop arguments.
 The type will be checked on each iteration of the loop.
 
 ```koto
@@ -1454,11 +1454,11 @@ check! (2, 'c')
 
 ### Functions
 
-Function arguments can also be given type hints, and the type of the 
+Function arguments can also be given type hints, and the type of the
 return value can be checked with the `->` operator.
 
 ```koto
-f = |s: String| -> Tuple 
+f = |s: String| -> Tuple
   s.to_tuple()
 print! f 'abc'
 check! ('a', 'b', 'c')
@@ -1468,7 +1468,7 @@ For [generator functions](#generators), the `->` type hint is used to check
 the generator's `yield` expressions.
 
 ```koto
-g = || -> Number 
+g = || -> Number
   yield 1
   yield 2
   yield 3
@@ -1479,7 +1479,7 @@ check! (1, 2, 3)
 ### `match` patterns
 
 Type hints can be used in `match` patterns to check the type of the a value.
-Rather than throwing an error, if a type check fails then the next 
+Rather than throwing an error, if a type check fails then the next
 match pattern will be attempted.
 
 ```koto
@@ -1511,7 +1511,7 @@ print! say_hello()
 check! hello
 ```
 
-#### `Indexable` 
+#### `Indexable`
 
 The `Indexable` type hint will accept any value that supports `[]` indexing.
 
@@ -1521,9 +1521,9 @@ print! add_first_two (100, 99, -1)
 check! 199
 ```
 
-#### `Iterable` 
+#### `Iterable`
 
-The `Iterable` type is useful when any iterable value can be accepted. 
+The `Iterable` type is useful when any iterable value can be accepted.
 
 ```koto
 let a: Iterable, b: Iterable = [1, 2], 3..=5
@@ -1566,7 +1566,7 @@ print! '_{foo:^8}_'
 check! _  abcd  _
 ```
 
-All values are left-aligned if an alignment modifier isn't specified, 
+All values are left-aligned if an alignment modifier isn't specified,
 except for numbers which are right-aligned by default.
 
 ```koto
@@ -1594,9 +1594,9 @@ print! '{x:06}'
 check! 0001.2
 ```
 
-### Maximum Width / Precision 
+### Maximum Width / Precision
 
-A maximum width for the interpolated expression can be specified following a 
+A maximum width for the interpolated expression can be specified following a
 `.` character.
 
 ```koto
@@ -1620,18 +1620,18 @@ Functions in Koto have some advanced features that are worth exploring.
 
 ### Captured Variables
 
-When a variable is accessed in a function that wasn't declared locally, 
+When a variable is accessed in a function that wasn't declared locally,
 then it gets _captured_ by copying it into the function.
 
 ```koto
 x = 1
 
-my_function = |n| 
+my_function = |n|
   # x is assigned outside the function,
   # so it gets captured when the function is created.
-  n + x 
+  n + x
 
-# Reassigning x here doesn't modify the value 
+# Reassigning x here doesn't modify the value
 # of x that was captured when my_function was created.
 x = 100
 
@@ -1639,17 +1639,17 @@ print! my_function 2
 check! 3
 ```
 
-This behavior is different to many other languages, 
+This behavior is different to many other languages,
 where captures are often taken by _reference_ rather than by _copy_.
 
 It's also worth noting that captured variables will have the same starting value
-each time the function is called. 
+each time the function is called.
 
 ```koto
 x = 99
-f = || 
+f = ||
   # Modifying x only happens with a local copy during a function call.
-  # The value of x at the start of the call matches when the value it had when 
+  # The value of x at the start of the call matches when the value it had when
   # it was captured.
   x += 1
 
@@ -1657,14 +1657,14 @@ print! f(), f(), f()
 check! (100, 100, 100)
 ```
 
-To modify captured values, use a container (like a map) to hold on to mutable 
+To modify captured values, use a container (like a map) to hold on to mutable
 data.
 
 ```koto
 data = {x: 99}
 
-f = || 
-  # The data map gets captured by the function, 
+f = ||
+  # The data map gets captured by the function,
   # and its contained values can be modified between calls.
   data.x += 1
 
@@ -1704,7 +1704,7 @@ check! (99, 100, -3)
 direct comparison against `null` can be used instead.
 
 ```koto
-f = |a| 
+f = |a|
   print if a == null then -1 else a
 
 f()
@@ -1715,8 +1715,8 @@ check! false
 
 ### Variadic Functions
 
-A [_variadic function_][variadic] can be created by appending `...` to the 
-last argument. 
+A [_variadic function_][variadic] can be created by appending `...` to the
+last argument.
 When the function is called any extra arguments will be collected into a tuple.
 
 ```koto
@@ -1741,22 +1741,22 @@ print! f x
 check! 111
 ```
 
-Any container that supports indexing operations (like lists and tuples) 
-with a matching number of elements will be unpacked, 
+Any container that supports indexing operations (like lists and tuples)
+with a matching number of elements will be unpacked,
 otherwise an error will be thrown.
 
 Unpacked arguments can also be nested.
 
 ```koto
 # A function that sums elements from nested containers
-f = |((a, b), (c, d, e))| 
+f = |((a, b), (c, d, e))|
   a + b + c + d + e
 x = ([1, 2], [3, 4, 5])
 print! f x
 check! 15
 ```
 
-Ellipses can be used to unpack any number of elements at the start or end of a 
+Ellipses can be used to unpack any number of elements at the start or end of a
 container.
 
 ```koto
@@ -1766,7 +1766,7 @@ print! f x
 check! 16
 ```
 
-A name can be added to ellipses to assign the unpacked elements. 
+A name can be added to ellipses to assign the unpacked elements.
 
 ```koto
 f = |(first, others...)| first * others.sum()
@@ -1787,8 +1787,8 @@ print! f [100, 10, 1]
 check! 101
 ```
 
-If you would like to keep the name of the ignored value as a reminder, 
-then `_` can be used as a prefix for an identifier. Identifiers starting with 
+If you would like to keep the name of the ignored value as a reminder,
+then `_` can be used as a prefix for an identifier. Identifiers starting with
 `_` can be written to, but can't be accessed.
 
 ```koto
@@ -1801,15 +1801,15 @@ check! (('foo_a', 1), ('foo_b', 3))
 
 ## Objects and Metamaps
 
-Value types with custom behaviour can be defined in Koto through the concept of 
+Value types with custom behaviour can be defined in Koto through the concept of
 _objects_.
 
-An object is any map that includes one or more _metakeys_ 
+An object is any map that includes one or more _metakeys_
 (keys prefixed with `@`), that are stored in the object's _metamap_.
-Whenever operations are performed on the object, the runtime checks its metamap 
+Whenever operations are performed on the object, the runtime checks its metamap
 for corresponding metakeys.
 
-In the following example, addition and subtraction operators are overridden for 
+In the following example, addition and subtraction operators are overridden for
 a custom `Foo` object:
 
 ```koto
@@ -1819,7 +1819,7 @@ foo = |n|
 
   # Overriding the addition operator
   @+: |other|
-    # A new Foo is made using the result 
+    # A new Foo is made using the result
     # of adding the two data values together
     foo self.data + other.data
 
@@ -1846,7 +1846,7 @@ check! 200
 
 ### Meta Operators
 
-All of the binary arithmetic and logic operators (`*`, `<`, `>=`, etc) can be 
+All of the binary arithmetic and logic operators (`*`, `<`, `>=`, etc) can be
 implemented following this pattern.
 
 Additionally, the following metakeys can also be defined:
@@ -1869,7 +1869,7 @@ check! -100
 
 The `@size` metakey defines how the object should report its size,
 while the `@index` metakey defines what values should be returned when indexing is
-performed on the object. 
+performed on the object.
 
 If `@size` is implemented, then `@index` should also be implemented.
 
@@ -1913,9 +1913,9 @@ check! first: 10, remaining: 4
 
 #### `@index_mut`
 
-The `@index_mut` metakey defines how the object should behave when index-assignment is used. 
+The `@index_mut` metakey defines how the object should behave when index-assignment is used.
 
-The given value should be a function that takes an index as the first argument, and the value to be assigned as the second argument. 
+The given value should be a function that takes an index as the first argument, and the value to be assigned as the second argument.
 
 ```koto
 foo = |data|
@@ -1937,7 +1937,7 @@ function.
 ```koto
 foo = |n|
   data: n
-  @call: || 
+  @call: ||
     self.data *= 2
     self.data
 
@@ -1950,15 +1950,15 @@ check! 8
 
 #### `@iterator`
 
-The `@iterator` metakey defines how iterators should be created when the object 
-is used in an iterable context. 
-When called, `@iterator` should return an iterable value that will then be used 
+The `@iterator` metakey defines how iterators should be created when the object
+is used in an iterable context.
+When called, `@iterator` should return an iterable value that will then be used
 for iterator operations.
 
 ```koto
 foo = |n|
   # Return a generator that yields the three numbers following n
-  @iterator: || 
+  @iterator: ||
     yield n + 1
     yield n + 2
     yield n + 3
@@ -1970,34 +1970,34 @@ print! (foo 100).to_list()
 check! [101, 102, 103]
 ```
 
-Note that this key will be ignored if the object also implements `@next`, 
-which implies that the object is _already_ an iterator. 
+Note that this key will be ignored if the object also implements `@next`,
+which implies that the object is _already_ an iterator.
 
 
 #### `@next`
 
 The `@next` metakey allows for objects to behave as iterators.
 
-Whenever the runtime needs to produce an iterator from an object, it will first 
+Whenever the runtime needs to produce an iterator from an object, it will first
 check the metamap for an implementation of `@next`, before looking for
 `@iterator`.
 
-The `@next` function will be called repeatedly during iteration, 
-with the returned value being used as the iterator's output. 
-When the returned value is `null` then the iterator will stop producing output. 
+The `@next` function will be called repeatedly during iteration,
+with the returned value being used as the iterator's output.
+When the returned value is `null` then the iterator will stop producing output.
 
 ```koto
 foo = |start, end|
   start: start
   end: end
-  @next: || 
+  @next: ||
     if self.start < self.end
       result = self.start
       self.start += 1
       result
-    else 
+    else
       null
-  
+
 print! foo(10, 15).to_tuple()
 check! (10, 11, 12, 13, 14)
 ```
@@ -2006,9 +2006,9 @@ check! (10, 11, 12, 13, 14)
 
 The `@next_back` metakey is used by
 [`iterator.reversed`](./core_lib/iterator.md#reversed) when producing a reversed
-iterator. 
+iterator.
 
-The runtime will only look for `@next_back` if `@next` is implemented. 
+The runtime will only look for `@next_back` if `@next` is implemented.
 
 ```koto
 foo =
@@ -2058,7 +2058,7 @@ check! Foo
 
 #### `@base`
 
-Objects can inherit properties and behavior from other values, 
+Objects can inherit properties and behavior from other values,
 establishing a _base value_ through the `@base` metakey.
 This allows objects to share common functionality while maintaining their own
 unique attributes.
@@ -2088,17 +2088,17 @@ check! Meow! My name is Smudge!
 
 #### `@meta`
 
-The `@meta` metakey allows named metakeys to be added to the metamap. 
-Metakeys defined with `@meta` are accessible via `.` access, 
-similar to regular object `keys`, but they don't appear as part of the object's 
+The `@meta` metakey allows named metakeys to be added to the metamap.
+Metakeys defined with `@meta` are accessible via `.` access,
+similar to regular object `keys`, but they don't appear as part of the object's
 main data entries when treated as a regular map.
 
 ```koto
 foo = |n|
   data: n
   @meta hello: "Hello!"
-  @meta get_info: || 
-    info = match self.data 
+  @meta get_info: ||
+    info = match self.data
       0 then "zero"
       n if n < 0 then "negative"
       else "positive"
@@ -2117,7 +2117,7 @@ check! ('data')
 
 ### Sharing Metamaps
 
-Metamaps can be shared between objects by using 
+Metamaps can be shared between objects by using
 [`Map.with_meta`](./core_lib/map.md#with_meta), which helps to avoid inefficient
 duplication when creating a lot of objects.
 
@@ -2130,7 +2130,7 @@ global = {}
 
 # Define a function that makes a Foo object
 foo = |data|
-  # Make a new map that contains `data`, 
+  # Make a new map that contains `data`,
   # and then attach a shared copy of the metamap from foo_meta.
   {data}.with_meta global.foo_meta
 
@@ -2139,7 +2139,7 @@ global.foo_meta =
   # Override the + operator
   @+: |other| foo self.data + other.data
 
-  # Define how the object should be displayed 
+  # Define how the object should be displayed
   @display: || "Foo({self.data})"
 
 print! (foo 10) + (foo 20)
@@ -2152,8 +2152,8 @@ Errors can be _thrown_ in the Koto runtime, which then cause the runtime to stop
 execution.
 
 A `try` / `catch` expression can be used to _catch_ any thrown errors,
-allowing execution to continue. 
-An optional `finally` block can be used for cleanup actions that need to 
+allowing execution to continue.
+An optional `finally` block can be used for cleanup actions that need to
 performed whether or not an error was caught.
 
 ```koto
@@ -2161,7 +2161,7 @@ x = [1, 2, 3]
 try
   # Accessing an invalid index will throw an error
   print x[100]
-catch error 
+catch error
   print "Caught an error"
 finally
   print "...and finally"
@@ -2210,23 +2210,23 @@ check! Throwing a String
 
 ## Testing
 
-Koto includes a simple testing framework that help you to check that your code 
+Koto includes a simple testing framework that help you to check that your code
 is behaving as you expect through automated checks.
 
 ### Assertions
 
-The core library includes a collection of _assertion_ functions in the 
+The core library includes a collection of _assertion_ functions in the
 [`test` module](./core_lib/test.md),
 which are included by default in the [prelude](#prelude).
 
 ```koto
-try 
+try
   assert 1 + 1 == 3
 catch error
   print 'An assertion failed'
 check! An assertion failed
 
-try 
+try
   assert_eq 'hello', 'goodbye'
 catch error
   print 'An assertion failed'
@@ -2235,7 +2235,7 @@ check! An assertion failed
 
 ### Organizing Tests
 
-Tests can be organized by collecting `@test` functions in a map. 
+Tests can be organized by collecting `@test` functions in a map.
 
 The tests can then be run manually with [`test.run_tests`](./core_lib/test.md#run_tests).
 
@@ -2243,14 +2243,14 @@ For automatic testing, see the description of exporting `@test` functions in the
 [following section](#modules).
 
 ```koto
-basic_tests = 
-  @test add: || assert_eq 1 + 1, 2 
-  @test subtract: || assert_eq 1 - 1, 0 
+basic_tests =
+  @test add: || assert_eq 1 + 1, 2
+  @test subtract: || assert_eq 1 - 1, 0
 
 test.run_tests basic_tests
 ```
 
-For setup and cleanup operations shared across tests, 
+For setup and cleanup operations shared across tests,
 `@pre_test` and `@post_test` metakeys can be implemented.
 `@pre_test` will be run before each `@test`, and `@post_test` will be run after.
 
@@ -2261,10 +2261,10 @@ make_x = |n|
   @-: |other| make_x self.data - other.data
 
 x_tests =
-  @pre_test: || 
+  @pre_test: ||
     self.x1 = make_x 100
     self.x2 = make_x 200
-      
+
   @post_test: ||
     print 'Test complete'
 
@@ -2294,7 +2294,7 @@ check! A test failed
 
 ## Modules
 
-Koto includes a module system that helps you to organize and re-use your code 
+Koto includes a module system that helps you to organize and re-use your code
 when your program grows too large for a single file.
 
 ### `import`
@@ -2363,7 +2363,7 @@ export say_hello = |name| '{hello}, {name}!'
 from my_module import say_hello
 
 say_hello 'Koto'
-check! 'Hello, Koto!' 
+check! 'Hello, Koto!'
 ```
 
 To add a [type check](#type_checks) to an exported assignment, use a `let` expression:
@@ -2386,7 +2386,7 @@ a, b, c = 1, 2, 3
 export { a, b, c, foo: 42 }
 
 # Map blocks can also be used with export
-export 
+export
   bar: 99
   baz: 'baz'
 ```
@@ -2440,7 +2440,7 @@ check! 99
 A module can export `@test` functions, which will be automatically run after
 the module has been compiled and initialized.
 
-Additionally, a module can export a `@main` function. 
+Additionally, a module can export a `@main` function.
 The `@main` function will be called after the module has been compiled and
 initialized, and after any exported `@test` functions have been successfully run.
 
@@ -2470,16 +2470,16 @@ check! Testing...
 check! Successfully initialized `my_module`
 
 say_hello 'Koto'
-check! 'Hello, Koto!' 
+check! 'Hello, Koto!'
 ```
 
 ### Module Paths
 
-When looking for a module, `import` will look for a `.koto` file with a matching 
+When looking for a module, `import` will look for a `.koto` file with a matching
 name, or for a folder with a matching name that contains a `main.koto` file.
 
 E.g. When an `import foo` expression is run, then a `foo.koto` file will be
-looked for in the same location as the current script, 
+looked for in the same location as the current script,
 and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 
 ---
