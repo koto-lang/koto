@@ -2301,7 +2301,7 @@ when your program grows too large for a single file.
 
 ### `import`
 
-Items from modules can be brought into the current scope using `import`.
+Values from other modules can be brought into the current scope using `import`.
 
 ```koto
 from list import last
@@ -2315,7 +2315,7 @@ print! abs -42
 check! 42
 ```
 
-Multiple items from a single module can be imported at the same time.
+Multiple values from a single module can be imported at the same time.
 
 ```koto
 from tuple import contains, first, last
@@ -2329,7 +2329,7 @@ print! contains x, 'b'
 check! true
 ```
 
-Imported items can be renamed using `as` for clarity or to avoid conflicts.
+Imported values can be renamed using `as` for clarity or to avoid conflicts.
 
 ```koto
 from list import first as list_first
@@ -2342,37 +2342,39 @@ check! 3
 
 ### `export`
 
-`export` is used to add values to the current module's _exports map_.
+A value can only be imported from a module if the module has _exported_ it.
 
-Values can be assigned to and exported at the same time:
+`export` is used to add values to the current module's _exports map_,
+making them available to be imported by other modules.
 
 ```koto,skip_run
 ##################
 # my_module.koto #
 ##################
 
-export hello, goodbye = 'Hello', 'Goodbye'
+# hello is a local variable, and isn't exported
+hello = 'Hello'
+
+# export say_hello to make it available to other modules
 export say_hello = |name| '{hello}, {name}!'
 
 ##################
 #   other.koto   #
 ##################
 
-from my_module import say_hello, goodbye
+from my_module import say_hello
 
 say_hello 'Koto'
 check! 'Hello, Koto!' 
-print! goodbye
-check! Goodbye
 ```
 
-To add a [type check](#type_checks) to an exported value, use a `let` expression:
+To add a [type check](#type_checks) to an exported assignment, use a `let` expression:
 
 ```koto,skip_run
 export let foo: Number = -1
 ```
 
-When exporting a lot of values, it can be convenient to use map syntax:
+`export` also supports map syntax, which can be convinient when exporting a lot of values:
 
 ```koto
 ##################
@@ -2405,7 +2407,7 @@ print! get_x()
 check! 123
 ```
 
-Exports can be accessed and modified directly via [`koto.exports`][koto-exports].
+The exports map can be accessed and modified directly via [`koto.exports`][koto-exports].
 
 ```koto
 export a, b = 1, 2
@@ -2414,14 +2416,15 @@ export a, b = 1, 2
 print! exports = koto.exports()
 check! {a: 1, b: 2}
 
-# Values can be added directly into the exports map
+# Values can be inserted directly into the exports map
 exports.insert 'c', 3
 print! c
 check! 3
 ```
 
 Assigning a new value to a variable that was previously exported won't change
-the exported value. If you need to update the exported value, then use `export` (or update the exports map via [`koto.exports`][koto-exports]).
+the exported value. If you need to update the exported value, then use `export`
+(or update the exports map via [`koto.exports`][koto-exports]).
 
 ```koto
 export x = 99
@@ -2443,8 +2446,7 @@ Additionally, a module can export a `@main` function.
 The `@main` function will be called after the module has been compiled and
 initialized, and after any exported `@test` functions have been successfully run.
 
-Note that because metakeys can't be assigned locally, 
-the use of `export` is optional when adding entries to the module's metamap.
+The use of `export` is optional when assigning to metakeys like `@main` and `@test`.
 
 ```koto,skip_run
 ##################
@@ -2453,7 +2455,8 @@ the use of `export` is optional when adding entries to the module's metamap.
 
 export say_hello = |name| 'Hello, {name}!'
 
-@main = || # Equivalent to export @main =
+# Equivalent to `export @main = ...`
+@main = ||
   print '`my_module` initialized'
 
 @test hello_world = ||
