@@ -165,8 +165,6 @@ pub enum SyntaxError {
     FormatStringError(StringFormatError),
     #[error("Non-inline if expression isn't allowed in this context")]
     IfBlockNotAllowedInThisContext,
-    #[error("Found an unexpected token while lexing input")]
-    LexerError,
     #[error("Ellipsis found outside of nested match patterns")]
     MatchEllipsisOutsideOfNestedPatterns,
     #[error("'else' can only be used in the last arm in a match expression")]

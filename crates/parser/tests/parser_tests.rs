@@ -401,6 +401,7 @@ null"#;
                 Some(&[Constant::Str("!"), Constant::Str("a"), Constant::Str("_")]),
             )
         }
+
         #[test]
         fn raw_strings() {
             let source = r###"
@@ -4342,6 +4343,59 @@ debug x + x
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("x + x")]),
+            )
+        }
+    }
+
+    mod semicolons {
+        use super::*;
+
+        #[test]
+        fn separated_expressions_on_same_line() {
+            let source = r#"
+x = 1; x + x
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    assign(0, 1),
+                    id(0),
+                    id(0),
+                    binary_op(AstBinaryOp::Add, 3, 4), // 5
+                    MainBlock {
+                        body: nodes(&[2, 5]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn separated_expressions_in_block() {
+            let source = r#"
+loop
+  x = 1; y = x
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    assign(0, 1),
+                    id(1),
+                    id(0),
+                    assign(3, 4), // 5
+                    Block(nodes(&[2, 5])),
+                    Loop { body: 6.into() },
+                    MainBlock {
+                        body: nodes(&[7]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
     }

@@ -189,6 +189,17 @@ print! x
 check! 4
 ```
 
+### Semicolons
+
+Expressions are typically placed on separate lines,
+but if necessary they can be separated with semicolons.
+
+```koto
+a = 1; b = 2; c = a + b
+print! c
+check! 3
+```
+
 ## Lists
 
 Lists in Koto are created with `[]` square brackets and can contain a mix of
