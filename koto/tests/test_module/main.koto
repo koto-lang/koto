@@ -10,8 +10,12 @@ export let square: Function = |x| x * x
 
 # Export with a map block
 export
-  baz: import baz # Re-export the neighbouring baz module
   tests_were_run: false
+  baz: import baz # Re-export the neighbouring baz module
+  'exported_with_string_id': 99
+
+# Export by inserting an entry to koto.exports()
+koto.exports().insert 'exported_via_insert', -123
 
 # Metakeys can be assigned to directly
 @type = 'test_module'

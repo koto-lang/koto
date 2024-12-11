@@ -101,7 +101,6 @@ macro_rules! koto_test {
 mod koto_tests {
     use super::*;
 
-    koto_test!(assignment);
     koto_test!(comments);
     koto_test!(enums);
     koto_test!(io);

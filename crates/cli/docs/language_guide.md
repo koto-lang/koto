@@ -2363,7 +2363,7 @@ export let foo: Number = -1
 
 When exporting a lot of values, it can be convenient to use map syntax:
 
-```koto,skip_run
+```koto
 ##################
 # my_module.koto #
 ##################
@@ -2378,6 +2378,49 @@ export { a, b, c, foo: 42 }
 export 
   bar: 99
   baz: 'baz'
+```
+
+Exported values are available anywhere in the module that exported them.
+
+```koto
+get_x = ||
+  # x hasn't been created yet. When the function is called, the runtime
+  # will check the exports map for a matching value.
+  x
+
+export x = 123
+
+print! get_x()
+check! 123
+```
+
+Exports can be accessed and modified directly via [`koto.exports`][koto-exports].
+
+```koto
+export a, b = 1, 2
+
+# koto.exports() returns the current module's exports map
+print! exports = koto.exports()
+check! {a: 1, b: 2}
+
+# Values can be added directly into the exports map
+exports.insert 'c', 3
+print! c
+check! 3
+```
+
+Assigning a new value to a variable that was previously exported won't change
+the exported value. If you need to update the exported value, then use `export` (or update the exports map via [`koto.exports`][koto-exports]).
+
+```koto
+export x = 99
+
+# Reassigning a new value to x doesn't affect the previously exported value
+print! x = 123
+check! 123
+
+print! koto.exports().x
+check! 99
 ```
 
 ### `@test` functions and `@main`
@@ -2437,6 +2480,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
 [iterator]: ./core_lib/iterator.md
+[koto-exports]: ./core_lib/koto.md#exports
 [koto-type]: ./core_lib/koto.md#type
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert

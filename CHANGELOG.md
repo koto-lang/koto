@@ -68,6 +68,9 @@ The Koto project adheres to
 - `@||` has been renamed to `@call`, and `@[]` has been renamed to `@index`.
 - `:` placement following keys in maps is now more flexible.
   ([#368](https://github.com/koto-lang/koto/issues/368))
+- When a map is used with `export`, the map entries now get added to the 
+  local scope. Local variables with names that match an exported map key
+  will be updated.
 
 #### Core Library
 
