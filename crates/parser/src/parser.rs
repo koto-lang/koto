@@ -283,7 +283,10 @@ impl<'source> Parser<'source> {
             body.push(expression);
 
             match self.peek_next_token_on_same_line() {
-                Some(Token::NewLine) => continue,
+                Some(Token::Semicolon) => {
+                    self.consume_next_token_on_same_line();
+                }
+                Some(Token::NewLine) => {}
                 None => break,
                 _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
             }
@@ -345,6 +348,9 @@ impl<'source> Parser<'source> {
             match self.peek_next_token_on_same_line() {
                 None => break,
                 Some(Token::NewLine) => {}
+                Some(Token::Semicolon) => {
+                    self.consume_next_token_on_same_line();
+                }
                 _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
             }
 
@@ -862,7 +868,7 @@ impl<'source> Parser<'source> {
             Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             // An error occurred in the lexer
-            Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
+            Token::Error => self.consume_token_and_error(SyntaxError::UnexpectedToken),
             _ => return Ok(None),
         };
 

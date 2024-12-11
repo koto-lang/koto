@@ -32,6 +32,7 @@ The Koto project adheres to
   expect functions.
   - `KotoObject::is_callable` has been added to support this, and needs to be
     implemented for the runtime to accept the object as a function.
+- Semicolons can be used to separate expressions on a single line.
 
 #### Core Library
 

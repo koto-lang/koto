@@ -105,6 +105,36 @@ z = if f x
             }
         }
 
+        mod semicolons {
+            use super::*;
+
+            #[test]
+            fn without_expression() {
+                let source = "
+;
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn in_map_block() {
+                let source = "
+foo = 
+  bar: x = 1; x
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn in_for_condition() {
+                let source = "
+for x in y = 1; y
+  x
+";
+                check_parsing_fails(source);
+            }
+        }
+
         mod loops {
             use super::*;
 

@@ -137,6 +137,17 @@ Returns the current module's `export` map.
 Although typically module items are exported with `export` expressions,
 it can be useful to export items programatically.
 
+### Example
+
+```koto
+export a, b, c = 1, 2, 3
+print! koto.exports()
+check! {a: 1, b: 2, c: 3}
+
+koto.exports().remove 'b'
+print! koto.exports()
+check! {a: 1, c: 3}
+```
 
 ## hash
 
