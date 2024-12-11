@@ -965,9 +965,7 @@ impl Compiler {
         match &target_node.node {
             Node::Id(id_index, type_hint) => {
                 if !value_result.is_temporary {
-                    // To ensure that exported rhs ids with the same name as a local that's
-                    // currently being assigned can be loaded correctly, only commit the
-                    // reserved local as assigned after the rhs has been compiled.
+                    // The ID being assigned to must be committed now that the RHS has been resolved.
                     self.commit_local_register(value_register)?;
                 }
 
@@ -3971,18 +3969,27 @@ impl Compiler {
             .map_err(|e| self.make_error(e))
     }
 
+    // Used for values that can be assigned directly to a register
     fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .assign_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
+    // Used for expressions that are about to evaluated and assigned to a register
+    //
+    // After the RHS has been compiled it needs to be committed to be available in the local scope,
+    // see commit_local_register.
+    //
+    // Reserving is necessary to avoid bringing the local's name into scope during the RHS's
+    // evaluation before it's been assigned.
     fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8> {
         self.frame_mut()
             .reserve_local_register(local)
             .map_err(|e| self.make_error(e))
     }
 
+    // Commit a register now that the RHS expression for an assignment has been computed
     fn commit_local_register(&mut self, register: u8) -> Result<u8> {
         for deferred_op in self
             .frame_mut()
