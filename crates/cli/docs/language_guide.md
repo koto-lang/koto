@@ -1,7 +1,7 @@
 A rendered version of this document can be found
 [here](https://koto.dev/docs/next/language).
 
-See the neighbouring [readme](./README.md) for an explanation of the
+See the neighboring [readme](./README.md) for an explanation of the
 `print!` and `check!` commands used in the following example.
 
 ---
@@ -252,7 +252,7 @@ check! [98, 99, 100, 1, 2, 3]
 
 ## Tuples
 
-Tuples in Koto are similiar to lists, 
+Tuples in Koto are similar to lists,
 but are designed for sequences of values that have a fixed structure.
 
 Unlike lists, tuples can't be resized after creation, 
@@ -451,7 +451,7 @@ check! yz
 Care must be taken when using indexing with strings that could contain
 non-[ASCII][ascii] data. 
 If the indexed bytes would produce invalid UTF-8 data then an 
-error will be thrown. To access unicode characters see [`string.chars`][chars].
+error will be thrown. To access Unicode characters see [`string.chars`][chars].
 
 ### Raw Strings
 
@@ -518,7 +518,7 @@ check! 234
 ### Optional Call Parentheses
 
 The parentheses for arguments when calling a function are optional and can be 
-ommitted in simple expressions.
+omitted in simple expressions.
 
 ```koto
 square = |x| x * x
@@ -610,7 +610,7 @@ print! m.oranges
 check! 99
 ```
 
-...or using _block syntax_ with indented entries:
+...Or using _block syntax_ with indented entries:
 
 ```koto
 m = 
@@ -747,7 +747,7 @@ check! 99
 ### Map Key Types
 
 Map keys are typically strings, but any [_immutable_][immutable] value can be
-used as a map key by using the [map.insert][map-insert] and [map.get][map-get] 
+used as a map key by using the [`map.insert`][map-insert] and [`map.get`][map-get]
 functions.
 
 The immutable value types in Koto are [strings](#strings), [numbers](#numbers), 
@@ -818,9 +818,9 @@ check! io.print is available without needing to be imported
 
 Koto includes several ways of producing values that depend on _conditions_.
 
-### if
+### `if`
 
-`if` expressions come in two flavours; single-line:
+`if` expressions come in two flavors; single-line:
 
 ```koto
 x = 99
@@ -828,7 +828,7 @@ if x % 2 == 0 then print 'even' else print 'odd'
 check! odd
 ```
 
-...and multi-line using indented blocks:
+...And multi-line using indented blocks:
 
 ```koto
 x = 24
@@ -861,7 +861,7 @@ print! foo
 check! 33
 ```
 
-### switch
+### `switch`
 
 `switch` expressions can be used as a cleaner alternative to 
 `if`/`else if`/`else` cascades.
@@ -877,7 +877,7 @@ print! fib 7
 check! 13
 ```
 
-### match
+### `match`
 
 `match` expressions can be used to match a value against a series of patterns, 
 with the matched pattern causing a specific branch of code to be executed.
@@ -1008,7 +1008,7 @@ check! 2
 check! 1
 ```
 
-### continue 
+### `continue`
 
 `continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
 
@@ -1022,7 +1022,7 @@ check! 1
 check! 2
 ```
 
-### break
+### `break`
 
 Loops can be terminated with the `break` keyword.
 
@@ -1050,7 +1050,7 @@ print! y
 check! 103
 ```
 
-### loop
+### `loop`
 
 `loop` creates a loop that will repeat indefinitely.
 
@@ -1392,10 +1392,8 @@ check! 1
 ```
 
 When creating a slice with an unbounded range, 
-if the start of the range if ommitted then the slice starts from the beginning 
-of the container. 
-If the end of the range is ommitted, then the slice includes all remaining 
-elements in the container.
+if the start of the range if omitted then the slice starts from the beginning of the container. 
+If the end of the range is omitted, then the slice includes all remaining elements in the container.
 
 ```koto
 z = 'Hëllø'.to_tuple()
@@ -1875,10 +1873,6 @@ performed on the object.
 
 If `@size` is implemented, then `@index` should also be implemented.
 
-The `@index` implementation can support indexing by any input values that make 
-sense for your object type, but for argument unpacking to work correctly the
-runtime expects that indexing should be supported for both single indices and also ranges.
-
 ```koto
 foo = |data|
   data: data
@@ -1893,6 +1887,10 @@ check! b
 ```
 
 Implementing `@size` and `@index` allows an object to participate in argument unpacking.
+
+The `@index` implementation can support indexing by any input values that make
+sense for your object type, however for argument unpacking to work correctly, the
+runtime expects that indexing should be supported for at least single indices and ranges.
 
 ```koto
 foo = |data|
@@ -2171,7 +2169,7 @@ check! Caught an error
 check! ...and finally
 ```
 
-`throw` can be used to explicity throw an error when an exceptional condition
+`throw` can be used to explicitly throw an error when an exceptional condition
 has occurred.
 
 `throw` accepts strings or objects that implement `@display`.
@@ -2374,7 +2372,7 @@ To add a [type check](#type_checks) to an exported assignment, use a `let` expre
 export let foo: Number = -1
 ```
 
-`export` also supports map syntax, which can be convinient when exporting a lot of values:
+`export` also supports map syntax, which can be convenient when exporting a lot of values:
 
 ```koto
 ##################
@@ -2480,7 +2478,7 @@ check! 'Hello, Koto!'
 When looking for a module, `import` will look for a `.koto` file with a matching 
 name, or for a folder with a matching name that contains a `main.koto` file.
 
-e.g. When an `import foo` expression is run, then a `foo.koto` file will be 
+E.g. When an `import foo` expression is run, then a `foo.koto` file will be
 looked for in the same location as the current script, 
 and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 
