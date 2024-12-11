@@ -43,6 +43,7 @@ An example in '{}' failed to compile: {error}",
         skip_check: bool,
     ) -> Result<()> {
         self.output.clear();
+        self.vm.exports_mut().clear();
 
         let chunk = self.compile_example(script, sections)?;
 
