@@ -1625,7 +1625,7 @@ export
                     Export(4.into()), //  5
                     MainBlock {
                         body: nodes(&[5]),
-                        local_count: 0,
+                        local_count: 2,
                     },
                 ],
                 Some(&[Constant::Str("a"), Constant::Str("b")]),

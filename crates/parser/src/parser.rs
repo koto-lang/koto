@@ -116,6 +116,9 @@ struct ExpressionContext {
     allow_map_block: bool,
     // The indentation rules for the current context
     expected_indentation: Indentation,
+    // When true, map entries should be exported, with the keys assigned to local variables.
+    // This is used in export expressions where a map is used to define the exported items.
+    export_map_entries: bool,
 }
 
 // The indentation that should be expected on following lines for an expression to continue
@@ -136,30 +139,28 @@ enum Indentation {
 }
 
 impl ExpressionContext {
-    fn permissive() -> Self {
-        Self {
-            allow_space_separated_call: true,
-            allow_linebreaks: true,
-            allow_map_block: false,
-            expected_indentation: Indentation::Greater,
-        }
-    }
-
     fn restricted() -> Self {
         Self {
             allow_space_separated_call: false,
             allow_linebreaks: false,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+            export_map_entries: false,
+        }
+    }
+
+    fn permissive() -> Self {
+        Self {
+            allow_space_separated_call: true,
+            allow_linebreaks: true,
+            ..Self::restricted()
         }
     }
 
     fn inline() -> Self {
         Self {
             allow_space_separated_call: true,
-            allow_linebreaks: false,
-            allow_map_block: false,
-            expected_indentation: Indentation::Greater,
+            ..Self::restricted()
         }
     }
 
@@ -167,10 +168,8 @@ impl ExpressionContext {
     // Like inline(), but inherits allow_linebreaks
     fn start_new_expression(&self) -> Self {
         Self {
-            allow_space_separated_call: true,
             allow_linebreaks: self.allow_linebreaks,
-            allow_map_block: false,
-            expected_indentation: Indentation::Greater,
+            ..Self::inline()
         }
     }
 
@@ -179,10 +178,8 @@ impl ExpressionContext {
     //   x = [f x, y] # A single entry list is created with the result of calling `f(x, y)`
     fn braced_items_start() -> Self {
         Self {
-            allow_space_separated_call: true,
-            allow_linebreaks: true,
-            allow_map_block: false,
             expected_indentation: Indentation::Flexible,
+            ..Self::permissive()
         }
     }
 
@@ -194,9 +191,7 @@ impl ExpressionContext {
     fn braced_items_continued() -> Self {
         Self {
             allow_space_separated_call: false,
-            allow_linebreaks: true,
-            allow_map_block: false,
-            expected_indentation: Indentation::Flexible,
+            ..Self::braced_items_start()
         }
     }
 
@@ -215,16 +210,23 @@ impl ExpressionContext {
         };
 
         Self {
-            allow_space_separated_call: self.allow_space_separated_call,
-            allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation,
+            export_map_entries: false,
+            ..*self
         }
     }
 
     fn with_expected_indentation(&self, expected_indentation: Indentation) -> Self {
         Self {
             expected_indentation,
+            ..*self
+        }
+    }
+
+    fn with_exported_map_entries(&self) -> Self {
+        Self {
+            export_map_entries: true,
             ..*self
         }
     }
@@ -1244,6 +1246,9 @@ impl<'source> Parser<'source> {
 
         if id_context.allow_map_block && self.peek_next_token_on_same_line() == Some(Token::Colon) {
             // The ID is the start of a map block
+            if context.export_map_entries {
+                self.frame_mut()?.add_local_id_assignment(constant_index);
+            }
             self.consume_map_block(id_node, id_span, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
@@ -1649,9 +1654,10 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(context); // Token::Export
         let start_span = self.current_span();
 
-        if let Some(expression) =
-            self.parse_expressions(&ExpressionContext::permissive(), TempResult::No)?
-        {
+        if let Some(expression) = self.parse_expressions(
+            &ExpressionContext::permissive().with_exported_map_entries(),
+            TempResult::No,
+        )? {
             self.push_node_with_start_span(Node::Export(expression), start_span)
         } else {
             self.consume_token_and_error(SyntaxError::ExpectedExpression)
@@ -1877,7 +1883,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(&block_context).is_some() {
             self.consume_until_token_with_context(&block_context);
 
-            let Some(key) = self.parse_map_key()? else {
+            let Some(key) = self.parse_map_key(context.export_map_entries)? else {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapEntry);
             };
 
@@ -1909,7 +1915,7 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
         let start_span = self.current_span();
 
-        let entries = self.parse_comma_separated_map_entries()?;
+        let entries = self.parse_comma_separated_map_entries(context)?;
         self.expect_and_consume_token(
             Token::CurlyClose,
             SyntaxError::ExpectedMapEnd.into(),
@@ -1925,6 +1931,7 @@ impl<'source> Parser<'source> {
 
     fn parse_comma_separated_map_entries(
         &mut self,
+        context: &ExpressionContext,
     ) -> Result<AstVec<(AstIndex, Option<AstIndex>)>> {
         let mut entries = AstVec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
@@ -1932,7 +1939,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(&entry_context).is_some() {
             self.consume_until_token_with_context(&entry_context);
 
-            let Some(key) = self.parse_map_key()? else {
+            let Some(key) = self.parse_map_key(context.export_map_entries)? else {
                 break;
             };
 
@@ -1986,8 +1993,11 @@ impl<'source> Parser<'source> {
     //     regular_id: 1
     //     'string_id': 2
     //     @meta meta_key: 3
-    fn parse_map_key(&mut self) -> Result<Option<AstIndex>> {
+    fn parse_map_key(&mut self, export_map_entry: bool) -> Result<Option<AstIndex>> {
         let result = if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
+            if export_map_entry {
+                self.frame_mut()?.add_local_id_assignment(id);
+            }
             Some(self.push_node(Node::Id(id, None))?)
         } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
             Some(self.push_node_with_span(Node::Str(s.string), s.span)?)

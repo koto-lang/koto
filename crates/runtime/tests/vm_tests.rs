@@ -3801,10 +3801,20 @@ x + y";
             let script = "
 export
   x: 1
-  y: 2
+  y: x + 1
 x + y
 ";
             check_script_output(script, 3);
+        }
+
+        #[test]
+        fn map_export_of_previously_assigned_variable() {
+            let script = "
+x = 99
+export {x: 1} # The local variable should be updated
+x
+";
+            check_script_output(script, 1);
         }
     }
 

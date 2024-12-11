@@ -2240,12 +2240,23 @@ impl Compiler {
             for (key, maybe_value_node) in entries.iter() {
                 let key_node = ctx.node(*key);
                 let value = match (key_node, maybe_value_node) {
-                    // A value has been provided for the entry
+                    // An ID key with a value, and we're in an export expression
+                    (Node::Id(id, ..), Some(value_node)) if export_entries => {
+                        // The value is being exported, and should be made available in scope
+                        let value_register = self.reserve_local_register(*id)?;
+                        let value_node = *value_node;
+                        let result =
+                            self.compile_node(value_node, ctx.with_fixed_register(value_register))?;
+                        // Commit the register now that the value has been compiled.
+                        self.commit_local_register(value_register)?;
+                        result
+                    }
+                    // A key with a value
                     (_, Some(value_node)) => {
                         let value_node = *value_node;
                         self.compile_node(value_node, ctx.with_any_register())?
                     }
-                    // ID-only entry, the value should be locally assigned
+                    // An ID key without a value, a value with matching ID should be available
                     (Node::Id(id, ..), None) => match self.frame().get_local_assigned_register(*id)
                     {
                         Some(register) => CompileNodeOutput::with_assigned(register),

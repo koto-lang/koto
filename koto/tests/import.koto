@@ -60,6 +60,12 @@ export
     import "test_module/baz" as baz
     assert_eq baz.qux, "O_o"
 
+  @test import_item_exported_with_string_id: ||
+    assert_eq test_module.exported_with_string_id, 99
+
+  @test import_item_exported_via_inserting_into_exports_map: ||
+    assert_eq test_module.exported_via_insert, -123
+
   @test tests_should_be_run_when_importing_a_module: ||
     # Tests will be run when importing a module when the 'run import tests' setting is set
     # in the runtime.
