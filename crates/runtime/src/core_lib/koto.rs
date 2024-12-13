@@ -59,7 +59,7 @@ pub fn make_module() -> KMap {
                 .parent()
                 .and_then(|parent| parent.to_str())
                 .and_then(|parent| source_path.with_bounds(0..parent.len()))
-                .map_or(KValue::Null, KValue::from),
+                .into(),
             None => KValue::Null,
         };
         Ok(result)

@@ -180,7 +180,7 @@ impl CommandOutput {
 
     #[koto_method]
     fn exit_code(&self) -> KValue {
-        self.0.status.code().map_or(KValue::Null, KValue::from)
+        self.0.status.code().into()
     }
 
     #[koto_method]
@@ -191,13 +191,13 @@ impl CommandOutput {
     #[koto_method]
     fn stdout(&self) -> KValue {
         let bytes = self.0.stdout.clone();
-        String::from_utf8(bytes).map_or(KValue::Null, KValue::from)
+        String::from_utf8(bytes).ok().into()
     }
 
     #[koto_method]
     fn stderr(&self) -> KValue {
         let bytes = self.0.stderr.clone();
-        String::from_utf8(bytes).map_or(KValue::Null, KValue::from)
+        String::from_utf8(bytes).ok().into()
     }
 
     #[koto_method]

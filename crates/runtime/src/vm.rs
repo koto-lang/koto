@@ -1227,7 +1227,7 @@ impl KotoVm {
             }
             Str(s) => {
                 let index = signed_index_to_unsigned(index, s.len());
-                s.with_bounds(index..index + 1).map_or(Null, KValue::from)
+                s.with_bounds(index..index + 1).into()
             }
             Map(map) if map.contains_meta_key(&index_op) => {
                 let op = map.get_meta_value(&index_op).unwrap();
@@ -1279,17 +1279,17 @@ impl KotoVm {
             Tuple(tuple) => {
                 let index = signed_index_to_unsigned(index, tuple.len());
                 if is_slice_to {
-                    tuple.make_sub_tuple(0..index).map_or(Null, Tuple)
+                    tuple.make_sub_tuple(0..index).into()
                 } else {
-                    tuple.make_sub_tuple(index..tuple.len()).map_or(Null, Tuple)
+                    tuple.make_sub_tuple(index..tuple.len()).into()
                 }
             }
             Str(s) => {
                 let index = signed_index_to_unsigned(index, s.len());
                 if is_slice_to {
-                    s.with_bounds(0..index).map_or(Null, KValue::from)
+                    s.with_bounds(0..index).into()
                 } else {
-                    s.with_bounds(index..s.len()).map_or(Null, KValue::from)
+                    s.with_bounds(index..s.len()).into()
                 }
             }
             Map(m) if m.contains_meta_key(&index_op) => {
