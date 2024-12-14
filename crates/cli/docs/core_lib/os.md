@@ -29,6 +29,14 @@ check! ...
 Returns a string containing the name of the current operating system, e.g.
 "linux", "macos", "windows", etc.
 
+## process_id
+
+```kototype
+|| -> Number
+```
+
+Returns the ID associated with the current process.
+
 ## start_timer
 
 ```kototype

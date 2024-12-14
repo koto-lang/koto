@@ -1,3 +1,6 @@
+@test process_id = ||
+  assert os.process_id() > 0
+
 @test wait_for_command_output = ||
   output = os.command('echo')
     .args 'testing', 'one', 'two', 'three'

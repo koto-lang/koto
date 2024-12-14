@@ -23,6 +23,22 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("||", unexpected),
     });
 
+    result.add_fn("process_id", |ctx| match ctx.args() {
+        [] => {
+            #[cfg(target_arch = "wasm32")]
+            {
+                // `process::id()` panics on wasm targets
+                return runtime_error!(crate::ErrorKind::UnsupportedPlatform);
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                Ok(std::process::id().into())
+            }
+        }
+        unexpected => unexpected_args("||", unexpected),
+    });
+
     result.add_fn("start_timer", |ctx| match ctx.args() {
         [] => Ok(Timer::now()),
         unexpected => unexpected_args("||", unexpected),
