@@ -24,9 +24,11 @@ impl Iterator for InstructionReader {
     fn next(&mut self) -> Option<Self::Item> {
         use Instruction::*;
 
+        let bytes = self.chunk.bytes.as_ref();
+
         macro_rules! get_u8 {
             () => {{
-                match self.chunk.bytes.get(self.ip) {
+                match bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
                         *byte
@@ -38,7 +40,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8x2 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                match bytes.get(self.ip..self.ip + 2) {
                     Some(&[a, b]) => {
                         self.ip += 2;
                         (a, b)
@@ -50,7 +52,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8x3 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 3) {
+                match bytes.get(self.ip..self.ip + 3) {
                     Some(&[a, b, c]) => {
                         self.ip += 3;
                         (a, b, c)
@@ -62,7 +64,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8x4 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 4) {
+                match bytes.get(self.ip..self.ip + 4) {
                     Some(&[a, b, c, d]) => {
                         self.ip += 4;
                         (a, b, c, d)
@@ -74,7 +76,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8x5 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 5) {
+                match bytes.get(self.ip..self.ip + 5) {
                     Some(&[a, b, c, d, e]) => {
                         self.ip += 5;
                         (a, b, c, d, e)
@@ -96,7 +98,7 @@ impl Iterator for InstructionReader {
                 let mut result = 0;
                 let mut shift_amount = 0;
                 loop {
-                    let Some(&byte) = self.chunk.bytes.get(self.ip) else {
+                    let Some(&byte) = bytes.get(self.ip) else {
                         return out_of_bounds_access_error(self.ip);
                     };
                     self.ip += 1;
@@ -117,7 +119,7 @@ impl Iterator for InstructionReader {
                 let mut result = (byte as u32 & 0x7f);
                 let mut shift_amount = 0;
                 while byte & 0x80 != 0 {
-                    let Some(&next_byte) = self.chunk.bytes.get(self.ip) else {
+                    let Some(&next_byte) = bytes.get(self.ip) else {
                         return out_of_bounds_access_error(self.ip);
                     };
 
@@ -133,7 +135,7 @@ impl Iterator for InstructionReader {
 
         // Each op consists of at least two bytes
         let op_ip = self.ip;
-        let (op, byte_a) = match self.chunk.bytes.get(op_ip..op_ip + 2) {
+        let (op, byte_a) = match bytes.get(op_ip..op_ip + 2) {
             Some(&[op, byte]) => (Op::from(op), byte),
             _ => return None,
         };
@@ -562,10 +564,8 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::MetaExportNamed => {
-                let (byte_b, byte_c) = get_u8x2!();
                 let meta_id = byte_a;
-                let name = byte_b;
-                let value = byte_c;
+                let (name, value) = get_u8x2!();
                 if let Ok(id) = meta_id.try_into() {
                     Some(MetaExportNamed { id, value, name })
                 } else {
@@ -577,11 +577,11 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::Access => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let (value, key_a) = get_u8x2!();
                 Some(Access {
                     register: byte_a,
-                    value: byte_b,
-                    key: get_var_u32_with_first_byte!(byte_c).into(),
+                    value,
+                    key: get_var_u32_with_first_byte!(key_a).into(),
                 })
             }
             Op::AccessString => {
