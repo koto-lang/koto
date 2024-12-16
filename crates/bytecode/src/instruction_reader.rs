@@ -32,9 +32,7 @@ impl Iterator for InstructionReader {
                         *byte
                     }
                     None => {
-                        return Some(Error {
-                            message: format!("Expected byte at position {}", self.ip),
-                        });
+                        return out_of_bounds_access_error(self.ip);
                     }
                 }
             }};
@@ -48,9 +46,7 @@ impl Iterator for InstructionReader {
                         u16::from_le_bytes(u16_bytes.try_into().unwrap())
                     }
                     None => {
-                        return Some(Error {
-                            message: format!("Expected 2 bytes at position {}", self.ip),
-                        });
+                        return out_of_bounds_access_error(self.ip);
                     }
                 }
             }};
@@ -72,9 +68,7 @@ impl Iterator for InstructionReader {
                             }
                         }
                         None => {
-                            return Some(Error {
-                                message: format!("Expected byte at position {}", self.ip),
-                            });
+                            return out_of_bounds_access_error(self.ip);
                         }
                     }
                 }
@@ -543,4 +537,11 @@ impl Iterator for InstructionReader {
             }),
         }
     }
+}
+
+#[inline(never)]
+fn out_of_bounds_access_error(ip: usize) -> Option<Instruction> {
+    Some(Instruction::Error {
+        message: format!("Instruction access out of bounds at {ip}"),
+    })
 }
