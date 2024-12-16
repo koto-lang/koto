@@ -1,6 +1,8 @@
 /// The operations used in Koto bytecode
 ///
-/// Each operation is made up of a byte, followed by N additional bytes that define its behaviour.
+/// Each operation is made up of a byte, followed by N additional bytes (where N is at least 1)
+/// that define its behaviour.
+///
 /// The combined operation bytes are interpreted as an [Instruction](crate::Instruction) by the
 /// [InstructionReader](crate::InstructionReader).
 ///
@@ -486,7 +488,9 @@ pub enum Op {
 
     /// Ends a try block
     ///
-    /// `[]`
+    /// A placeholder is used here to ensure that each op has at least one byte following it.
+    ///
+    /// `[placeholder]`
     TryEnd,
 
     /// Displays the contents of a value along with the source expression that produced it

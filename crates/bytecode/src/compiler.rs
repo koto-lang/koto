@@ -1612,7 +1612,9 @@ impl Compiler {
 
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
-        self.push_op_without_span(TryEnd, &[]);
+        // A dummy byte is appended to TryEnd as required by the bytecode format.
+        let dummy_byte = 0;
+        self.push_op_without_span(TryEnd, &[dummy_byte]);
 
         // The try block hasn't thrown, so jump to the finally block
         let mut finally_jump_placeholders = SmallVec::<[usize; 4]>::new();
@@ -1625,7 +1627,7 @@ impl Compiler {
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
-        self.push_op(TryEnd, &[]);
+        self.push_op(TryEnd, &[dummy_byte]);
 
         for (i, catch_block) in catch_blocks.iter().enumerate() {
             let is_last_catch = i == catch_blocks.len() - 1;

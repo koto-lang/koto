@@ -31,9 +31,7 @@ impl Iterator for InstructionReader {
                         self.ip += 1;
                         *byte
                     }
-                    None => {
-                        return out_of_bounds_access_error(self.ip);
-                    }
+                    None => return out_of_bounds_access_error(self.ip),
                 }
             }};
         }
@@ -45,9 +43,7 @@ impl Iterator for InstructionReader {
                         self.ip += 2;
                         u16::from_le_bytes(u16_bytes.try_into().unwrap())
                     }
-                    None => {
-                        return out_of_bounds_access_error(self.ip);
-                    }
+                    None => return out_of_bounds_access_error(self.ip),
                 }
             }};
         }
@@ -57,146 +53,152 @@ impl Iterator for InstructionReader {
                 let mut result = 0;
                 let mut shift_amount = 0;
                 loop {
-                    match self.chunk.bytes.get(self.ip) {
-                        Some(byte) => {
-                            self.ip += 1;
-                            result |= (*byte as u32 & 0x7f) << shift_amount;
-                            if byte & 0x80 == 0 {
-                                break;
-                            } else {
-                                shift_amount += 7;
-                            }
-                        }
-                        None => {
-                            return out_of_bounds_access_error(self.ip);
-                        }
+                    let Some(&byte) = self.chunk.bytes.get(self.ip) else {
+                        return out_of_bounds_access_error(self.ip);
+                    };
+                    self.ip += 1;
+                    result |= (byte as u32 & 0x7f) << shift_amount;
+                    if byte & 0x80 == 0 {
+                        break;
+                    } else {
+                        shift_amount += 7;
                     }
                 }
                 result
             }};
         }
 
-        let op = match self.chunk.bytes.get(self.ip) {
-            Some(byte) => Op::from(*byte),
-            None => return None,
-        };
-        let op_ip = self.ip;
+        macro_rules! get_var_u32_with_first_byte {
+            ($first_byte:expr) => {{
+                let mut byte = $first_byte;
+                let mut result = (byte as u32 & 0x7f);
+                let mut shift_amount = 0;
+                while byte & 0x80 != 0 {
+                    let Some(&next_byte) = self.chunk.bytes.get(self.ip) else {
+                        return out_of_bounds_access_error(self.ip);
+                    };
 
-        self.ip += 1;
+                    byte = next_byte;
+                    self.ip += 1;
+                    shift_amount += 7;
+
+                    result |= (byte as u32 & 0x7f) << shift_amount;
+                }
+                result
+            }};
+        }
+
+        // Each op consists of at least two bytes
+        let op_ip = self.ip;
+        let (op, byte_a) = match self.chunk.bytes.get(op_ip..op_ip + 2) {
+            Some(&[op, byte]) => (Op::from(op), byte),
+            _ => return None,
+        };
+        self.ip += 2;
 
         match op {
             Op::Copy => Some(Copy {
-                target: get_u8!(),
+                target: byte_a,
                 source: get_u8!(),
             }),
-            Op::SetNull => Some(SetNull {
-                register: get_u8!(),
-            }),
+            Op::SetNull => Some(SetNull { register: byte_a }),
             Op::SetFalse => Some(SetBool {
-                register: get_u8!(),
+                register: byte_a,
                 value: false,
             }),
             Op::SetTrue => Some(SetBool {
-                register: get_u8!(),
+                register: byte_a,
                 value: true,
             }),
             Op::Set0 => Some(SetNumber {
-                register: get_u8!(),
+                register: byte_a,
                 value: 0,
             }),
             Op::Set1 => Some(SetNumber {
-                register: get_u8!(),
+                register: byte_a,
                 value: 1,
             }),
             Op::SetNumberU8 => Some(SetNumber {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!() as i64,
             }),
             Op::SetNumberNegU8 => Some(SetNumber {
-                register: get_u8!(),
+                register: byte_a,
                 value: -(get_u8!() as i64),
             }),
             Op::LoadFloat => Some(LoadFloat {
-                register: get_u8!(),
+                register: byte_a,
                 constant: get_var_u32!().into(),
             }),
             Op::LoadInt => Some(LoadInt {
-                register: get_u8!(),
+                register: byte_a,
                 constant: get_var_u32!().into(),
             }),
             Op::LoadString => Some(LoadString {
-                register: get_u8!(),
+                register: byte_a,
                 constant: get_var_u32!().into(),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
-                register: get_u8!(),
+                register: byte_a,
                 constant: get_var_u32!().into(),
             }),
             Op::ValueExport => Some(ValueExport {
-                name: get_u8!(),
+                name: byte_a,
                 value: get_u8!(),
             }),
-            Op::Import => Some(Import {
-                register: get_u8!(),
-            }),
+            Op::Import => Some(Import { register: byte_a }),
             Op::MakeTempTuple => Some(MakeTempTuple {
-                register: get_u8!(),
+                register: byte_a,
                 start: get_u8!(),
                 count: get_u8!(),
             }),
             Op::TempTupleToTuple => Some(TempTupleToTuple {
-                register: get_u8!(),
+                register: byte_a,
                 source: get_u8!(),
             }),
             Op::MakeMap => Some(MakeMap {
-                register: get_u8!(),
+                register: byte_a,
                 size_hint: get_var_u32!(),
             }),
             Op::SequenceStart => Some(SequenceStart {
-                size_hint: get_var_u32!(),
+                size_hint: get_var_u32_with_first_byte!(byte_a),
             }),
-            Op::SequencePush => Some(SequencePush { value: get_u8!() }),
+            Op::SequencePush => Some(SequencePush { value: byte_a }),
             Op::SequencePushN => Some(SequencePushN {
-                start: get_u8!(),
+                start: byte_a,
                 count: get_u8!(),
             }),
-            Op::SequenceToList => Some(SequenceToList {
-                register: get_u8!(),
-            }),
-            Op::SequenceToTuple => Some(SequenceToTuple {
-                register: get_u8!(),
-            }),
+            Op::SequenceToList => Some(SequenceToList { register: byte_a }),
+            Op::SequenceToTuple => Some(SequenceToTuple { register: byte_a }),
             Op::Range => Some(Range {
-                register: get_u8!(),
+                register: byte_a,
                 start: get_u8!(),
                 end: get_u8!(),
             }),
             Op::RangeInclusive => Some(RangeInclusive {
-                register: get_u8!(),
+                register: byte_a,
                 start: get_u8!(),
                 end: get_u8!(),
             }),
             Op::RangeTo => Some(RangeTo {
-                register: get_u8!(),
+                register: byte_a,
                 end: get_u8!(),
             }),
             Op::RangeToInclusive => Some(RangeToInclusive {
-                register: get_u8!(),
+                register: byte_a,
                 end: get_u8!(),
             }),
             Op::RangeFrom => Some(RangeFrom {
-                register: get_u8!(),
+                register: byte_a,
                 start: get_u8!(),
             }),
-            Op::RangeFull => Some(RangeFull {
-                register: get_u8!(),
-            }),
+            Op::RangeFull => Some(RangeFull { register: byte_a }),
             Op::MakeIterator => Some(MakeIterator {
-                register: get_u8!(),
+                register: byte_a,
                 iterable: get_u8!(),
             }),
             Op::Function => {
-                let register = get_u8!();
+                let register = byte_a;
                 let arg_count = get_u8!();
                 let capture_count = get_u8!();
                 let flags = FunctionFlags::from_byte(get_u8!());
@@ -213,189 +215,187 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Capture => Some(Capture {
-                function: get_u8!(),
+                function: byte_a,
                 target: get_u8!(),
                 source: get_u8!(),
             }),
             Op::Negate => Some(Negate {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
             }),
             Op::Not => Some(Not {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
             }),
             Op::Add => Some(Add {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Subtract => Some(Subtract {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Multiply => Some(Multiply {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Divide => Some(Divide {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Remainder => Some(Remainder {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::AddAssign => Some(AddAssign {
-                lhs: get_u8!(),
+                lhs: byte_a,
                 rhs: get_u8!(),
             }),
             Op::SubtractAssign => Some(SubtractAssign {
-                lhs: get_u8!(),
+                lhs: byte_a,
                 rhs: get_u8!(),
             }),
             Op::MultiplyAssign => Some(MultiplyAssign {
-                lhs: get_u8!(),
+                lhs: byte_a,
                 rhs: get_u8!(),
             }),
             Op::DivideAssign => Some(DivideAssign {
-                lhs: get_u8!(),
+                lhs: byte_a,
                 rhs: get_u8!(),
             }),
             Op::RemainderAssign => Some(RemainderAssign {
-                lhs: get_u8!(),
+                lhs: byte_a,
                 rhs: get_u8!(),
             }),
             Op::Less => Some(Less {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::LessOrEqual => Some(LessOrEqual {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Greater => Some(Greater {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::GreaterOrEqual => Some(GreaterOrEqual {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::Equal => Some(Equal {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
             Op::NotEqual => Some(NotEqual {
-                register: get_u8!(),
+                register: byte_a,
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
-            Op::Jump => Some(Jump { offset: get_u16!() }),
-            Op::JumpBack => Some(JumpBack { offset: get_u16!() }),
+            Op::Jump => Some(Jump {
+                offset: u16::from_le_bytes([byte_a, get_u8!()]),
+            }),
+            Op::JumpBack => Some(JumpBack {
+                offset: u16::from_le_bytes([byte_a, get_u8!()]),
+            }),
             Op::JumpIfTrue => Some(JumpIfTrue {
-                register: get_u8!(),
+                register: byte_a,
                 offset: get_u16!(),
             }),
             Op::JumpIfFalse => Some(JumpIfFalse {
-                register: get_u8!(),
+                register: byte_a,
                 offset: get_u16!(),
             }),
             Op::JumpIfNull => Some(JumpIfNull {
-                register: get_u8!(),
+                register: byte_a,
                 offset: get_u16!(),
             }),
             Op::Call => Some(Call {
-                result: get_u8!(),
+                result: byte_a,
                 function: get_u8!(),
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
             }),
             Op::CallInstance => Some(CallInstance {
-                result: get_u8!(),
+                result: byte_a,
                 function: get_u8!(),
                 instance: get_u8!(),
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
             }),
-            Op::Return => Some(Return {
-                register: get_u8!(),
-            }),
-            Op::Yield => Some(Yield {
-                register: get_u8!(),
-            }),
-            Op::Throw => Some(Throw {
-                register: get_u8!(),
-            }),
+            Op::Return => Some(Return { register: byte_a }),
+            Op::Yield => Some(Yield { register: byte_a }),
+            Op::Throw => Some(Throw { register: byte_a }),
             Op::Size => Some(Size {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
             }),
             Op::IterNext => Some(IterNext {
-                result: Some(get_u8!()),
+                result: Some(byte_a),
                 iterator: get_u8!(),
                 jump_offset: get_u16!(),
                 temporary_output: false,
             }),
             Op::IterNextTemp => Some(IterNext {
-                result: Some(get_u8!()),
+                result: Some(byte_a),
                 iterator: get_u8!(),
                 jump_offset: get_u16!(),
                 temporary_output: true,
             }),
             Op::IterNextQuiet => Some(IterNext {
                 result: None,
-                iterator: get_u8!(),
+                iterator: byte_a,
                 jump_offset: get_u16!(),
                 temporary_output: false,
             }),
             Op::IterUnpack => Some(IterNext {
-                result: Some(get_u8!()),
+                result: Some(byte_a),
                 iterator: get_u8!(),
                 jump_offset: 0,
                 temporary_output: false,
             }),
             Op::TempIndex => Some(TempIndex {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 index: get_u8!() as i8,
             }),
             Op::SliceFrom => Some(SliceFrom {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 index: get_u8!() as i8,
             }),
             Op::SliceTo => Some(SliceTo {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 index: get_u8!() as i8,
             }),
             Op::Index => Some(Index {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 index: get_u8!(),
             }),
             Op::IndexMut => Some(IndexMut {
-                register: get_u8!(),
+                register: byte_a,
                 index: get_u8!(),
                 value: get_u8!(),
             }),
             Op::MapInsert => Some(MapInsert {
-                register: get_u8!(),
+                register: byte_a,
                 key: get_u8!(),
                 value: get_u8!(),
             }),
             Op::MetaInsert => {
-                let register = get_u8!();
+                let register = byte_a;
                 let meta_id = get_u8!();
                 let value = get_u8!();
                 if let Ok(id) = meta_id.try_into() {
@@ -413,7 +413,7 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::MetaInsertNamed => {
-                let register = get_u8!();
+                let register = byte_a;
                 let meta_id = get_u8!();
                 let name = get_u8!();
                 let value = get_u8!();
@@ -433,7 +433,7 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::MetaExport => {
-                let meta_id = get_u8!();
+                let meta_id = byte_a;
                 let value = get_u8!();
                 if let Ok(id) = meta_id.try_into() {
                     Some(MetaExport { id, value })
@@ -446,7 +446,7 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::MetaExportNamed => {
-                let meta_id = get_u8!();
+                let meta_id = byte_a;
                 let name = get_u8!();
                 let value = get_u8!();
                 if let Ok(id) = meta_id.try_into() {
@@ -460,46 +460,46 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::Access => Some(Access {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 key: get_var_u32!().into(),
             }),
             Op::AccessString => Some(AccessString {
-                register: get_u8!(),
+                register: byte_a,
                 value: get_u8!(),
                 key: get_u8!(),
             }),
             Op::TryStart => Some(TryStart {
-                arg_register: get_u8!(),
+                arg_register: byte_a,
                 catch_offset: get_u16!(),
             }),
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
-                register: get_u8!(),
+                register: byte_a,
                 constant: get_var_u32!().into(),
             }),
             Op::CheckSizeEqual => Some(CheckSizeEqual {
-                register: get_u8!(),
+                register: byte_a,
                 size: get_u8!() as usize,
             }),
             Op::CheckSizeMin => Some(CheckSizeMin {
-                register: get_u8!(),
+                register: byte_a,
                 size: get_u8!() as usize,
             }),
             Op::AssertType => Some(AssertType {
-                value: get_u8!(),
+                value: byte_a,
                 type_string: get_var_u32!().into(),
             }),
             Op::CheckType => Some(CheckType {
-                value: get_u8!(),
+                value: byte_a,
                 type_string: get_var_u32!().into(),
                 jump_offset: get_u16!(),
             }),
             Op::StringStart => Some(StringStart {
-                size_hint: get_var_u32!(),
+                size_hint: get_var_u32_with_first_byte!(byte_a),
             }),
             Op::StringPush => {
-                let value = get_u8!();
+                let value = byte_a;
                 let flags = get_u8!();
 
                 let format_options = if flags != 0 {
@@ -529,9 +529,7 @@ impl Iterator for InstructionReader {
                     format_options,
                 })
             }
-            Op::StringFinish => Some(StringFinish {
-                register: get_u8!(),
-            }),
+            Op::StringFinish => Some(StringFinish { register: byte_a }),
             _ => Some(Error {
                 message: format!("Unexpected opcode {op:?} found at instruction {op_ip}"),
             }),
