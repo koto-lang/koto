@@ -2,6 +2,7 @@ checks: test test_rc clippy clippy_rc fmt check_links doc wasm
 
 check_links:
   mlc --offline README.md
+  mlc --offline CONTRIBUTING.md
   mlc --offline docs
 
 clippy:

@@ -17,7 +17,7 @@ Equivalent to calling [`color.named`](#named), or [`color.hex`](#hex) if no matc
 |Number| -> Color
 ```
 
-Equivalent to calling [`color.hex`] with a number. 
+Equivalent to calling [`color.hex`](#hex) with a number.
 
 ```kototype
 |r: Number, g: Number, b: Number| -> Color
