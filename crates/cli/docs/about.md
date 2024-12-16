@@ -1,7 +1,7 @@
-A rendered version of this document can be found 
+A rendered version of this document can be found
 [here](https://koto.dev/about).
 
-See the neighbouring [readme](./README.md) for an explanation of the
+See the neighboring [readme](./README.md) for an explanation of the
 `print!` and `check!` commands used in the code examples.
 
 ---
@@ -32,7 +32,7 @@ scripting to applications developed in Rust. Of particular interest were
 interactive systems like animation or game engines, where rapid iteration
 demands a lightweight programming interface that compiles and runs quickly.
 
-The guiding design principle is that Koto should be _simple_, 
+The guiding design principle is that Koto should be _simple_,
 conceptually as well as visually. To that end, a focus throughout the language's
 development has been on reducing syntax noise and minimizing core concepts
 wherever possible.
@@ -73,16 +73,13 @@ the [CLI](./cli.md), and see how well it works in your
 - **Built-in testing:** Automated testing has
   [first-class support in Koto][testing], making it natural to write tests along
   with your code.
-- **Tooling:** Plugins offering [editor support](#tooling) for Koto.
-  [Tree-sitter][#tree-sitter] and [LSP][#lsp] implementations are also available 
-  or linting are still topics for the future.
+- **Tooling:** Support for Koto is available for [several popular editors](#editors).
+  [Tree-sitter](#tree-sitter) and [LSP](#lsp) implementations are also available.
+  Auto-formatting and linting are future topics, contributions are welcome!
 
 ### Missing/Incomplete Features
 
-- **Type Checking:** Koto is currently a dynamically typed language without
-  support for type checking, but type hints [could be added][type-hints] in the
-  future.
-- **async tasks:** Koto doesn't have support for asynchronous tasks, 
+- **Async tasks:** Koto doesn't have support for asynchronous tasks,
   support [could be added][async] in the future.
 - **Integration with other languages:** There's currently no C API for Koto,
   which would allow it to be integrated with other languages.
@@ -90,14 +87,14 @@ the [CLI](./cli.md), and see how well it works in your
 ## Influences
 
 Koto was influenced by and is indebted to many other languages.
-- **Scope:** [Lua][lua] was a strong influence on Koto, showing the strength of 
-  a minimalistic feature set in a companion scripting language. 
-- **Syntax:** [Coffeescript][coffeescript] and [Moonscript][moonscript] show how 
-  languages can be easy on the eye by minimizing visual distractions, 
+- **Scope:** [Lua][lua] was a strong influence on Koto, showing the strength of
+  a minimalistic feature-set in an embeddable scripting language.
+- **Syntax:** [Coffeescript][coffeescript] and [Moonscript][moonscript] show how
+  languages can be made easy on the eye by minimizing visual distractions,
   while also managing to avoid inexpressive terseness.
 - **Language Design:** Although the syntax and core purpose is very different,
-  [Rust][rust] had a huge impact on Koto's design, in particular Rust's 
-  [rich iterator support][rust-iterators] was a major influence on emphasizing 
+  [Rust][rust] had a huge impact on Koto's design. In particular Rust's
+  [rich iterator support][rust-iterators] was a major influence on emphasizing
   the role of iterators in Koto.
 
 ## Tooling
@@ -111,15 +108,15 @@ Plugins that provide Koto support is available for the following editors:
 
 ### Tree-sitter
 
-A [Tree-sitter][tree-sitter] implementation is 
-[available here](https://github.com/koto-lang/tree-sitter-koto). 
-If you're using Neovim then it's easy to set up with
-[nvim-treesitter][nvim-treesitter].
+A [Tree-sitter][tree-sitter] implementation is [available here](https://github.com/koto-lang/tree-sitter-koto).
+If you're using Neovim then it's easy to set up with [nvim-treesitter][nvim-treesitter].
 
-### LSP 
+### LSP
 
-An implementation of the [Language Server Protocol][lsp] for Koto is 
+An implementation of the [Language Server Protocol][lsp] for Koto is
 [available here][koto-ls].
+
+
 
 [async]: https://github.com/koto-lang/koto/issues/277
 [coffeescript]: https://coffeescript.org
