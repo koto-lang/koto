@@ -1,6 +1,7 @@
 use crate::{Chunk, FunctionFlags, Instruction, Op, StringFormatFlags};
 use koto_memory::Ptr;
 use koto_parser::StringFormatOptions;
+use std::mem::MaybeUninit;
 
 /// An iterator that converts bytecode into a series of [Instruction]s
 #[derive(Clone, Default)]
@@ -38,57 +39,54 @@ impl Iterator for InstructionReader {
             }};
         }
 
+        macro_rules! get_u8_array {
+            ($n:expr) => {{
+                if bytes.len() >= self.ip + $n {
+                    // Safety:
+                    // - The size of `bytes` has been checked so we know its safe to access ip + $n
+                    // - `result` is fully initialized as a result of the copy_nonoverlapping call
+                    //   so it's safe to transmute.
+                    // Todo: Simplify once https://github.com/rust-lang/rust/issues/96097 is stable.
+                    unsafe {
+                        let mut result: [MaybeUninit<u8>; $n] = MaybeUninit::uninit().assume_init();
+                        std::ptr::copy_nonoverlapping(
+                            bytes.as_ptr().add(self.ip),
+                            result.as_mut_ptr() as *mut u8,
+                            $n,
+                        );
+                        self.ip += $n;
+                        // Convert `MaybeUninit<[u8; $n]>` to `[u8; $n]`.
+                        std::mem::transmute::<[MaybeUninit<u8>; $n], [u8; $n]>(result)
+                    }
+                } else {
+                    return out_of_bounds_access_error(self.ip);
+                }
+            }};
+        }
         macro_rules! get_u8x2 {
             () => {{
-                match bytes.get(self.ip..self.ip + 2) {
-                    Some(&[a, b]) => {
-                        self.ip += 2;
-                        (a, b)
-                    }
-                    _ => return out_of_bounds_access_error(self.ip),
-                }
+                get_u8_array!(2)
             }};
         }
-
         macro_rules! get_u8x3 {
             () => {{
-                match bytes.get(self.ip..self.ip + 3) {
-                    Some(&[a, b, c]) => {
-                        self.ip += 3;
-                        (a, b, c)
-                    }
-                    _ => return out_of_bounds_access_error(self.ip),
-                }
+                get_u8_array!(3)
             }};
         }
-
         macro_rules! get_u8x4 {
             () => {{
-                match bytes.get(self.ip..self.ip + 4) {
-                    Some(&[a, b, c, d]) => {
-                        self.ip += 4;
-                        (a, b, c, d)
-                    }
-                    _ => return out_of_bounds_access_error(self.ip),
-                }
+                get_u8_array!(4)
             }};
         }
-
         macro_rules! get_u8x5 {
             () => {{
-                match bytes.get(self.ip..self.ip + 5) {
-                    Some(&[a, b, c, d, e]) => {
-                        self.ip += 5;
-                        (a, b, c, d, e)
-                    }
-                    _ => return out_of_bounds_access_error(self.ip),
-                }
+                get_u8_array!(5)
             }};
         }
 
         macro_rules! get_u16 {
             () => {{
-                let (a, b) = get_u8x2!();
+                let [a, b] = get_u8x2!();
                 u16::from_le_bytes([a, b])
             }};
         }
@@ -193,7 +191,7 @@ impl Iterator for InstructionReader {
             }),
             Op::Import => Some(Import { register: byte_a }),
             Op::MakeTempTuple => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(MakeTempTuple {
                     register: byte_a,
                     start: byte_b,
@@ -219,7 +217,7 @@ impl Iterator for InstructionReader {
             Op::SequenceToList => Some(SequenceToList { register: byte_a }),
             Op::SequenceToTuple => Some(SequenceToTuple { register: byte_a }),
             Op::Range => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Range {
                     register: byte_a,
                     start: byte_b,
@@ -227,7 +225,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::RangeInclusive => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(RangeInclusive {
                     register: byte_a,
                     start: byte_b,
@@ -253,7 +251,7 @@ impl Iterator for InstructionReader {
             }),
             Op::Function => {
                 let register = byte_a;
-                let (arg_count, capture_count, flags, size_a, size_b) = get_u8x5!();
+                let [arg_count, capture_count, flags, size_a, size_b] = get_u8x5!();
                 let flags = FunctionFlags::from_byte(flags);
                 let size = u16::from_le_bytes([size_a, size_b]);
 
@@ -268,7 +266,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Capture => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Capture {
                     function: byte_a,
                     target: byte_b,
@@ -284,7 +282,7 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
             }),
             Op::Add => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Add {
                     register: byte_a,
                     lhs: byte_b,
@@ -292,7 +290,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Subtract => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Subtract {
                     register: byte_a,
                     lhs: byte_b,
@@ -300,7 +298,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Multiply => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Multiply {
                     register: byte_a,
                     lhs: byte_b,
@@ -308,7 +306,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Divide => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Divide {
                     register: byte_a,
                     lhs: byte_b,
@@ -316,7 +314,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Remainder => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(Remainder {
                     register: byte_a,
                     lhs: byte_b,
@@ -344,7 +342,7 @@ impl Iterator for InstructionReader {
                 rhs: get_u8!(),
             }),
             Op::Less => {
-                let (lhs, rhs) = get_u8x2!();
+                let [lhs, rhs] = get_u8x2!();
                 Some(Less {
                     register: byte_a,
                     lhs,
@@ -352,7 +350,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::LessOrEqual => {
-                let (lhs, rhs) = get_u8x2!();
+                let [lhs, rhs] = get_u8x2!();
                 Some(LessOrEqual {
                     register: byte_a,
                     lhs,
@@ -360,7 +358,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Greater => {
-                let (lhs, rhs) = get_u8x2!();
+                let [lhs, rhs] = get_u8x2!();
                 Some(Greater {
                     register: byte_a,
                     lhs,
@@ -368,7 +366,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::GreaterOrEqual => {
-                let (lhs, rhs) = get_u8x2!();
+                let [lhs, rhs] = get_u8x2!();
                 Some(GreaterOrEqual {
                     register: byte_a,
                     lhs,
@@ -376,7 +374,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Equal => {
-                let (lhs, rhs) = get_u8x2!();
+                let [lhs, rhs] = get_u8x2!();
                 Some(Equal {
                     register: byte_a,
                     lhs,
@@ -384,7 +382,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::NotEqual => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(NotEqual {
                     register: byte_a,
                     lhs: byte_b,
@@ -410,7 +408,7 @@ impl Iterator for InstructionReader {
                 offset: get_u16!(),
             }),
             Op::Call => {
-                let (byte_b, byte_c, byte_d) = get_u8x3!();
+                let [byte_b, byte_c, byte_d] = get_u8x3!();
                 Some(Call {
                     result: byte_a,
                     function: byte_b,
@@ -419,7 +417,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::CallInstance => {
-                let (function, instance, frame_base, arg_count) = get_u8x4!();
+                let [function, instance, frame_base, arg_count] = get_u8x4!();
                 Some(CallInstance {
                     result: byte_a,
                     function,
@@ -436,7 +434,7 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
             }),
             Op::IterNext => {
-                let (byte_b, byte_c, byte_d) = get_u8x3!();
+                let [byte_b, byte_c, byte_d] = get_u8x3!();
                 Some(IterNext {
                     result: Some(byte_a),
                     iterator: byte_b,
@@ -445,7 +443,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::IterNextTemp => {
-                let (byte_b, byte_c, byte_d) = get_u8x3!();
+                let [byte_b, byte_c, byte_d] = get_u8x3!();
                 Some(IterNext {
                     result: Some(byte_a),
                     iterator: byte_b,
@@ -466,7 +464,7 @@ impl Iterator for InstructionReader {
                 temporary_output: false,
             }),
             Op::TempIndex => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(TempIndex {
                     register: byte_a,
                     value: byte_b,
@@ -474,7 +472,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::SliceFrom => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(SliceFrom {
                     register: byte_a,
                     value: byte_b,
@@ -482,7 +480,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::SliceTo => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(SliceTo {
                     register: byte_a,
                     value: byte_b,
@@ -490,7 +488,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::Index => {
-                let (value, index) = get_u8x2!();
+                let [value, index] = get_u8x2!();
                 Some(Index {
                     register: byte_a,
                     value,
@@ -498,7 +496,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::IndexMut => {
-                let (index, value) = get_u8x2!();
+                let [index, value] = get_u8x2!();
                 Some(IndexMut {
                     register: byte_a,
                     index,
@@ -506,7 +504,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::MapInsert => {
-                let (key, value) = get_u8x2!();
+                let [key, value] = get_u8x2!();
                 Some(MapInsert {
                     register: byte_a,
                     key,
@@ -515,7 +513,7 @@ impl Iterator for InstructionReader {
             }
             Op::MetaInsert => {
                 let register = byte_a;
-                let (meta_id, value) = get_u8x2!();
+                let [meta_id, value] = get_u8x2!();
                 if let Ok(id) = meta_id.try_into() {
                     {
                         Some(MetaInsert {
@@ -534,7 +532,7 @@ impl Iterator for InstructionReader {
             }
             Op::MetaInsertNamed => {
                 let register = byte_a;
-                let (meta_id, name, value) = get_u8x3!();
+                let [meta_id, name, value] = get_u8x3!();
                 if let Ok(id) = meta_id.try_into() {
                     Some(MetaInsertNamed {
                         register,
@@ -565,7 +563,7 @@ impl Iterator for InstructionReader {
             }
             Op::MetaExportNamed => {
                 let meta_id = byte_a;
-                let (name, value) = get_u8x2!();
+                let [name, value] = get_u8x2!();
                 if let Ok(id) = meta_id.try_into() {
                     Some(MetaExportNamed { id, value, name })
                 } else {
@@ -577,7 +575,7 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::Access => {
-                let (value, key_a) = get_u8x2!();
+                let [value, key_a] = get_u8x2!();
                 Some(Access {
                     register: byte_a,
                     value,
@@ -585,7 +583,7 @@ impl Iterator for InstructionReader {
                 })
             }
             Op::AccessString => {
-                let (byte_b, byte_c) = get_u8x2!();
+                let [byte_b, byte_c] = get_u8x2!();
                 Some(AccessString {
                     register: byte_a,
                     value: byte_b,
