@@ -1,0 +1,40 @@
+@test process_id = ||
+  assert os.process_id() > 0
+
+@test wait_for_command_output = ||
+  output = os.command('echo')
+    .args 'testing', 'one', 'two', 'three'
+    .wait_for_output()
+
+  assert_eq output.exit_code(), 0
+  assert_eq output.stdout(), 'testing one two three\n'
+  assert_eq output.stderr(), ''
+
+@test spawn_command = ||
+  spawned = os.command('cat')
+    .stdin 'piped'
+    .stdout 'piped'
+    .stderr 'piped'
+    .spawn()
+
+  spawned.stdin().write 'abc, '
+  spawned.stdin().write '123'
+  spawned.stdin().flush()
+
+  assert spawned.id() > 0
+  assert not spawned.has_exited()
+
+  output = spawned.wait_for_output()
+  assert spawned.has_exited()
+
+  assert_eq output.exit_code(), 0
+  assert_eq output.stdout(), 'abc, 123'
+  assert_eq output.stderr(), ''
+
+@test kill_spawned_command = ||
+  spawned = os.command('cat')
+    .stdin 'piped'
+    .spawn()
+
+  assert not spawned.has_exited()
+  assert spawned.kill()

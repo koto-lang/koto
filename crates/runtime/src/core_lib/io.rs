@@ -153,6 +153,11 @@ pub struct File(Ptr<dyn KotoFile>);
 
 #[koto_impl(runtime = crate)]
 impl File {
+    /// Creates a new [File] from a value that implements [KotoFile]
+    pub fn new(file: Ptr<dyn KotoFile>) -> Self {
+        Self(file)
+    }
+
     /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
     pub fn system_file<T>(file: T, path: PathBuf) -> KValue
     where

@@ -309,6 +309,18 @@ where
     }
 }
 
+impl<T> From<Option<T>> for KValue
+where
+    T: Into<KValue>,
+{
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(value) => value.into(),
+            None => KValue::Null,
+        }
+    }
+}
+
 /// A slice of a VM's register stack
 ///
 /// See [Value::TemporaryTuple]

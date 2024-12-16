@@ -62,6 +62,8 @@ pub enum ErrorKind {
     MissingSequenceBuilder,
     #[error("Missing string builder")]
     MissingStringBuilder,
+    #[error("This operation is unsupported on this platform")]
+    UnsupportedPlatform,
     #[error("An unexpected error occurred, please report this as a bug at https://github.com/koto-lang/koto/issues")]
     UnexpectedError,
 }

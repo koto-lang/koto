@@ -38,6 +38,10 @@ The Koto project adheres to
 
 - New functions:
   - `file.is_terminal`
+    - Supports checking if (e.g.) `io.stdin()` is connected to a terminal.
+  - `os.command`
+    - Supports executing and spawning system commands.
+  - `os.process_id`
   - `random.shuffle`
   - `string.repeat`
 - `tuple.sort_copy` now supports sorting with a key function, following the 

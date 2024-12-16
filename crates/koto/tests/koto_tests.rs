@@ -107,6 +107,7 @@ mod koto_tests {
     koto_test!(line_breaks);
     koto_test!(load_and_run);
     koto_test!(meta_maps);
+    koto_test!(os);
     koto_test!(primes);
 
     koto_test!(error_handling, "error_handling_module/main.koto");
