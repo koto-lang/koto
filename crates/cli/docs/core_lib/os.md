@@ -5,10 +5,12 @@ A collection of utilities for working with the operating system.
 ## command
 
 ```kototype
-|String| -> Command
+|program: String| -> Command
 ```
 
-Creates a new [Command](#command-2)
+Creates a new [Command](#command-1), which supports executing external programs in separate processes.
+
+Builder methods allow configuration of properties like [command arguments](#command-args) or [environment variables](#command-env) before [spawning](#command-spawn) the program in a new process.
 
 ### Example
 
@@ -98,7 +100,7 @@ print! now.timestamp()
 
 ## Command
 
-See [`os.command`](#command-1)
+See [`os.command`](#command)
 
 ## Command.args
 
@@ -221,7 +223,7 @@ The default stream behavior is `inherit` when the command is used with `spawn` o
 
 Configures the command's `stdout` stream.
 
-See [Command.stdin](#Command.stdin) for valid values of `stream_config`.
+See [Command.stdin](#command-stdin) for valid values of `stream_config`.
 
 ## Command.stderr
 
@@ -231,7 +233,7 @@ See [Command.stdin](#Command.stdin) for valid values of `stream_config`.
 
 Configures the command's `stderr` stream.
 
-See [Command.stdin](#Command.stdin) for valid values of `stream_config`.
+See [Command.stdin](#command-stdin) for valid values of `stream_config`.
 
 ## Command.spawn
 
@@ -247,6 +249,7 @@ Executes the command, returning the command's [Child](#child) process.
 spawned = os.command('ls')
   .stdout('piped')
   .spawn()
+
 print! spawned
   .wait_for_output()
   .stdout()
@@ -288,7 +291,7 @@ check! 0
 
 Contains captured output from a command, and information about how the command exited.
 
-See [Command.wait_for_output](#command.wait_for_output) and [Child.wait_for_output](#child.wait_for_output).
+See [Command.wait_for_output](#command-wait_for_output) and [Child.wait_for_output](#child-wait-for-output).
 
 ## CommandOutput.exit_code
 
@@ -316,7 +319,7 @@ Returns the contents of the command's `stdout` stream if it contains valid unico
 
 ### See also
 
-- [Command.stdout_bytes](#Command.stdout_bytes)
+- [CommandOutput.stdout_bytes](#commandoutput-stdout_bytes)
 
 ## CommandOutput.stderr
 
@@ -344,7 +347,7 @@ Returns an iterator that yields the bytes contained in the command's `stderr` st
 
 ## Child
 
-A handle to a child process, see [Command.spawn](#command.spawn).
+A handle to a child process, see [Command.spawn](#command-spawn).
 
 ## Child.stdin
 
@@ -378,7 +381,7 @@ check! one two three
 
 Returns the child process's `stdout` standard output stream as a [File](./io.md#File) that supports read operations.
 
-Calling this function will prevent the stream from being included in [wait_for_output](#Child.wait_for_output).
+Calling this function will prevent the stream from being included in [wait_for_output](#child-wait-for-output).
 
 ## Child.stderr
 
@@ -388,7 +391,7 @@ Calling this function will prevent the stream from being included in [wait_for_o
 
 Returns the child process's `stderr` standard error stream as a [File](./io.md#File) that supports read operations.
 
-Calling this function will prevent the stream from being included in [wait_for_output](#Child.wait_for_output).
+Calling this function will prevent the stream from being included in [wait_for_output](#child-wait-for-output).
 
 ## Child.has_exited
 
@@ -406,7 +409,7 @@ Returns `true` without blocking if the child process has exited, and `false` oth
 
 Closes all input and output streams, waits for the command to exit, and then returns the captured output.
 
-Note that if the `stdout` or `stderr` streams were manually retrieved via [Child.stdout](#Child.stdout)/[Child.stderr](#Child.stderr) then they won't be included in the captured output.
+Note that if the `stdout` or `stderr` streams were manually retrieved via [Child.stdout](#child-stdout)/[Child.stderr](#child-stderr) then they won't be included in the captured output.
 
 ## Child.wait_for_exit
 
