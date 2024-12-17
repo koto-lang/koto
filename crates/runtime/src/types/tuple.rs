@@ -11,13 +11,13 @@ pub struct KTuple(Inner);
 // would have a size of 32 bytes.
 #[derive(Clone)]
 enum Inner {
-    Full(Ptr<[KValue]>),
+    Full(Ptr<Vec<KValue>>),
     Slice(Ptr<TupleSlice>),
 }
 
 #[derive(Clone)]
 struct TupleSlice {
-    data: Ptr<[KValue]>,
+    data: Ptr<Vec<KValue>>,
     bounds: Range<usize>,
 }
 
@@ -156,7 +156,7 @@ impl From<Vec<KValue>> for KTuple {
 
 impl From<&[KValue]> for KTuple {
     fn from(data: &[KValue]) -> Self {
-        Self(Inner::Full(data.into()))
+        Self(Inner::Full(data.to_vec().into()))
     }
 }
 
@@ -175,8 +175,8 @@ impl Deref for TupleSlice {
     }
 }
 
-impl From<Ptr<[KValue]>> for TupleSlice {
-    fn from(data: Ptr<[KValue]>) -> Self {
+impl From<Ptr<Vec<KValue>>> for TupleSlice {
+    fn from(data: Ptr<Vec<KValue>>) -> Self {
         let bounds = 0..data.len();
         Self { data, bounds }
     }
