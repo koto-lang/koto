@@ -122,6 +122,8 @@ pub struct KotoVm {
     reader: InstructionReader,
     // The VM's register stack
     registers: Vec<KValue>,
+    // The current frame's register base
+    register_base: usize,
     // The VM's call stack
     call_stack: Vec<Frame>,
     // A stack of sequences that are currently under construction
@@ -159,6 +161,7 @@ impl KotoVm {
             context: VmContext::with_settings(settings).into(),
             reader: InstructionReader::default(),
             registers: Vec::with_capacity(32),
+            register_base: 0,
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -180,6 +183,7 @@ impl KotoVm {
             context: self.context.clone(),
             reader: self.reader.clone(),
             registers: Vec::with_capacity(8),
+            register_base: 0,
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -386,6 +390,7 @@ impl KotoVm {
         };
 
         self.truncate_registers(result_register);
+
         result
     }
 
@@ -3000,7 +3005,7 @@ impl KotoVm {
             other => match self.run_unary_op(UnaryOp::Display, other)? {
                 KValue::Str(rendered) => match precision {
                     Some(precision) => {
-                        // precision acts as a maximum width for non-number values
+                        // `precision` acts as a maximum width for non-number values
                         let mut truncated =
                             String::with_capacity((precision as usize).min(rendered.len()));
                         for grapheme in rendered.graphemes(true).take(precision as usize) {
@@ -3112,43 +3117,45 @@ impl KotoVm {
 
     fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: u32, frame_base: u8, return_register: u8) {
         let return_ip = self.ip();
-        let previous_frame_base = if let Some(frame) = self.call_stack.last_mut() {
+        if let Some(frame) = self.call_stack.last_mut() {
             frame.return_register_and_ip = Some((return_register, return_ip));
             frame.return_instruction_ip = self.instruction_ip;
-            frame.register_base
-        } else {
-            0
-        };
+        }
+
+        let previous_frame_base = self.register_base;
         let new_frame_base = previous_frame_base + frame_base as usize;
 
         self.call_stack
             .push(Frame::new(chunk.clone(), new_frame_base));
+        self.register_base = new_frame_base;
         self.set_chunk_and_ip(chunk, ip);
     }
 
     fn pop_frame(&mut self, return_value: KValue) -> Result<Option<KValue>> {
         self.truncate_registers(0);
 
-        match self.call_stack.pop() {
-            Some(popped_frame) => {
-                if self.call_stack.is_empty() {
-                    Ok(Some(return_value))
-                } else {
-                    let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
+        let Some(popped_frame) = self.call_stack.pop() else {
+            return runtime_error!(ErrorKind::EmptyCallStack);
+        };
 
-                    self.set_register(return_register, return_value.clone());
-                    self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
-                    self.instruction_ip = self.frame().return_instruction_ip;
+        if self.call_stack.is_empty() {
+            Ok(Some(return_value))
+        } else {
+            let return_frame = self.frame();
+            let (return_register, return_ip) = return_frame.return_register_and_ip.unwrap();
+            let chunk = return_frame.chunk.clone();
+            let return_instruction_ip = return_frame.return_instruction_ip;
+            let register_base = return_frame.register_base;
 
-                    if popped_frame.execution_barrier {
-                        Ok(Some(return_value))
-                    } else {
-                        Ok(None)
-                    }
-                }
-            }
-            None => {
-                runtime_error!(ErrorKind::EmptyCallStack)
+            self.instruction_ip = return_instruction_ip;
+            self.register_base = register_base;
+            self.set_register(return_register, return_value.clone());
+            self.set_chunk_and_ip(chunk, return_ip);
+
+            if popped_frame.execution_barrier {
+                Ok(Some(return_value))
+            } else {
+                Ok(None)
             }
         }
     }
@@ -3188,24 +3195,17 @@ impl KotoVm {
     }
 
     fn new_frame_base(&self) -> Result<u8> {
-        u8::try_from(self.registers.len() - self.register_base())
-            .map_err(|_| "Overflow of Koto's stack".into())
-    }
-
-    fn register_base(&self) -> usize {
-        match self.call_stack.last() {
-            Some(frame) => frame.register_base,
-            None => 0,
-        }
+        u8::try_from(self.registers.len() - self.register_base)
+            .map_err(|_| "Overflow of the current frame's register stack".into())
     }
 
     fn register_index(&self, register: u8) -> usize {
-        self.register_base() + register as usize
+        self.register_base + register as usize
     }
 
     // Returns the register id that corresponds to the next push to the value stack
     fn next_register(&self) -> u8 {
-        (self.registers.len() - self.register_base()) as u8
+        (self.registers.len() - self.register_base) as u8
     }
 
     fn set_register(&mut self, register: u8, value: KValue) {
@@ -3259,7 +3259,7 @@ impl KotoVm {
     }
 
     fn truncate_registers(&mut self, len: u8) {
-        self.registers.truncate(self.register_base() + len as usize);
+        self.registers.truncate(self.register_base + len as usize);
     }
 
     fn get_constant_str(&self, constant_index: ConstantIndex) -> &str {
