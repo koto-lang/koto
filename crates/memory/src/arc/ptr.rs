@@ -27,10 +27,21 @@ macro_rules! make_ptr {
 #[derive(Debug, Default)]
 pub struct Ptr<T: ?Sized>(Arc<T>);
 
-impl<T> Ptr<T> {
-    /// Moves the provided value into newly allocated memory
-    pub fn new(value: T) -> Self {
-        Self::from(value)
+impl<T> From<T> for Ptr<T> {
+    fn from(value: T) -> Self {
+        Self(Arc::from(value))
+    }
+}
+
+impl<T: ?Sized> From<Box<T>> for Ptr<T> {
+    fn from(boxed: Box<T>) -> Self {
+        Self(boxed.into())
+    }
+}
+
+impl<T: ?Sized> From<Arc<T>> for Ptr<T> {
+    fn from(inner: Arc<T>) -> Self {
+        Self(inner)
     }
 }
 
@@ -65,24 +76,6 @@ impl<T: Clone> Ptr<T> {
     /// See also: [std::sync::Arc::make_mut]
     pub fn make_mut(this: &mut Self) -> &mut T {
         Arc::make_mut(&mut this.0)
-    }
-}
-
-impl<T> From<T> for Ptr<T> {
-    fn from(value: T) -> Self {
-        Self(Arc::from(value))
-    }
-}
-
-impl<T: ?Sized> From<Box<T>> for Ptr<T> {
-    fn from(boxed: Box<T>) -> Self {
-        Self(boxed.into())
-    }
-}
-
-impl<T: ?Sized> From<Arc<T>> for Ptr<T> {
-    fn from(inner: Arc<T>) -> Self {
-        Self(inner)
     }
 }
 
