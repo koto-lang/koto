@@ -21,15 +21,12 @@ pub struct KString(Inner);
 
 #[derive(Clone)]
 enum Inner {
-    // A string that's short enough to be stored without allocation
+    // A string that's short enough to be stored inline without extra allocation
     Inline(InlineString),
-    // A heap-allocated string
-    Full(Ptr<str>),
-    // A heap-allocated string with bounds
-    //
-    // By heap-allocating the slice bounds we can keep the size of `KString` below 24 bytes,
-    // which is the maximum allowed by `koto_runtime::KValue`.
-    Slice(Ptr<StringSlice>),
+    // A shared heap-allocated string
+    Full(Ptr<String>),
+    // A shared heap-allocated string with bounds
+    Slice(StringSlice),
 }
 
 impl KString {
@@ -37,59 +34,11 @@ impl KString {
     ///
     /// If the bounds aren't valid for the string then `None` is returned.
     pub fn with_bounds(&self, new_bounds: Range<usize>) -> Option<Self> {
-        let slice = match &self.0 {
+        match &self.0 {
             Inner::Inline(inline) => return inline.with_bounds(new_bounds).map(Self::from),
-            Inner::Full(string) => StringSlice::from(string.clone()),
-            Inner::Slice(slice) => slice.deref().clone(),
-        };
-
-        slice.with_bounds(new_bounds).map(Self::from)
-    }
-
-    /// Returns a new KString with shared data and bounds defined by the grapheme indices
-    ///
-    /// This allows for subslicing by index, with the index referring to Unicode graphemes.
-    ///
-    /// If the provided indices are out of bounds then an empty string will be returned.
-    pub fn with_grapheme_indices(&self, indices: Range<usize>) -> Self {
-        let start = indices.start;
-        let end = indices.end;
-
-        if start == end {
-            return Self::default();
+            Inner::Full(string) => StringSlice::new(string.clone(), new_bounds).map(Self::from),
+            Inner::Slice(slice) => slice.with_bounds(new_bounds).map(Self::from),
         }
-
-        let mut result_start = if start == 0 { Some(0) } else { None };
-        let mut result_end = None;
-
-        for (i, (grapheme_start, grapheme)) in self.grapheme_indices(true).enumerate() {
-            if result_start.is_none() && i == start - 1 {
-                // By checking against start - 1 (rather than waiting until the next iteration),
-                // we can allow for indexing from 'one past the end' to get to an empty string,
-                // which can be useful when consuming characters from a string.
-                // E.g.
-                //   x = get_string()
-                //   do_something_with_first_char x[0]
-                //   do_something_with_remaining_string x[1..]
-                result_start = Some(grapheme_start + grapheme.len());
-            }
-
-            if i == end - 1 {
-                // Checking against end - 1 in the same way as for result_start,
-                // allowing for indexing one-past-the-end.
-                // E.g. `assert_eq 'xyz'[1..3], 'yz'`
-                result_end = Some(grapheme_start + grapheme.len());
-                break;
-            }
-        }
-
-        let result_bounds = match (result_start, result_end) {
-            (Some(result_start), Some(result_end)) => result_start..result_end,
-            (Some(result_start), None) => result_start..self.len(),
-            _ => return Self::default(),
-        };
-
-        self.with_bounds(result_bounds).unwrap_or_default()
     }
 
     /// Removes and returns the first grapheme from the string
@@ -106,15 +55,16 @@ impl KString {
                     Some(popped.into())
                 }
                 Inner::Full(string) => {
-                    let (popped, rest) = StringSlice::from(string.clone())
-                        .split(grapheme.len())
-                        .unwrap();
+                    let Ok(slice) = StringSlice::try_from(string.clone()) else {
+                        return None;
+                    };
+                    let (popped, rest) = slice.split(grapheme.len()).unwrap();
                     *self = rest.into();
                     Some(popped.into())
                 }
                 Inner::Slice(slice) => {
                     let (popped, rest) = slice.split(grapheme.len()).unwrap();
-                    *Ptr::make_mut(slice) = rest;
+                    *slice = rest;
                     Some(popped.into())
                 }
             },
@@ -136,15 +86,16 @@ impl KString {
                     Some(popped.into())
                 }
                 Inner::Full(string) => {
-                    let (rest, popped) = StringSlice::from(string.clone())
-                        .split(string.len() - grapheme.len())
-                        .unwrap();
+                    let Ok(slice) = StringSlice::try_from(string.clone()) else {
+                        return None;
+                    };
+                    let (rest, popped) = slice.split(string.len() - grapheme.len()).unwrap();
                     *self = rest.into();
                     Some(popped.into())
                 }
                 Inner::Slice(slice) => {
                     let (rest, popped) = slice.split(slice.len() - grapheme.len()).unwrap();
-                    *Ptr::make_mut(slice) = rest;
+                    *slice = rest;
                     Some(popped.into())
                 }
             },
@@ -179,8 +130,8 @@ impl From<InlineString> for KString {
     }
 }
 
-impl From<Ptr<str>> for KString {
-    fn from(string: Ptr<str>) -> Self {
+impl From<Ptr<String>> for KString {
+    fn from(string: Ptr<String>) -> Self {
         Self(Inner::Full(string))
     }
 }
@@ -195,7 +146,7 @@ impl From<String> for KString {
     fn from(s: String) -> Self {
         match InlineString::try_from(s.as_str()) {
             Ok(inline) => inline.into(),
-            Err(()) => Ptr::<str>::from(s.into_boxed_str()).into(),
+            Err(()) => Ptr::<String>::from(s).into(),
         }
     }
 }
@@ -204,7 +155,7 @@ impl From<&str> for KString {
     fn from(s: &str) -> Self {
         match InlineString::try_from(s) {
             Ok(inline) => inline.into(),
-            Err(()) => Ptr::<str>::from(s).into(),
+            Err(()) => Ptr::<String>::from(s.to_string()).into(),
         }
     }
 }
@@ -293,9 +244,7 @@ impl InlineString {
     }
 
     fn with_bounds(&self, bounds: Range<usize>) -> Option<Self> {
-        self.as_str()
-            .get(bounds.clone())
-            .map(Self::from_short_string)
+        self.as_str().get(bounds).map(Self::from_short_string)
     }
 
     fn split(&self, split_point: usize) -> Option<(Self, Self)> {

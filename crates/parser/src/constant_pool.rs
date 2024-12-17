@@ -7,7 +7,7 @@ use std::{
     ops::Range,
 };
 
-use crate::{error::InternalError, StringSlice};
+use crate::{error::InternalError, string_slice::u32_to_usize_range, StringSlice};
 
 /// The type used to refer to constants in the [ConstantPool]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -53,7 +53,7 @@ enum ConstantEntry {
     // An i64 constant
     I64(i64),
     // The range in bytes in the `ConstantPool`'s string data for a string constant
-    Str(Range<usize>),
+    Str(Range<u32>),
 }
 
 /// A constant provided by a [ConstantPool]
@@ -78,7 +78,10 @@ pub struct ConstantPool {
     // constant itself.
     constants: Vec<ConstantEntry>,
     // A series of constant strings concatenated into a single string
-    string_data: Ptr<str>,
+    //
+    // Although the data is constant, Ptr<str> isn't used here to minimize the size of StringSlice.
+    // On a 64-bit machine, Ptr<str> has a size of 16 bytes vs. 8 bytes for Ptr<String>.
+    string_data: Ptr<String>,
     // A hash of the pool contents, incrementally prepared by the builder
     hash: u64,
 }
@@ -105,14 +108,16 @@ impl ConstantPool {
             Some(constant_info) => match constant_info {
                 ConstantEntry::F64(n) => Some(Constant::F64(*n)),
                 ConstantEntry::I64(n) => Some(Constant::I64(*n)),
-                ConstantEntry::Str(range) => Some(Constant::Str(&self.string_data[range.clone()])),
+                ConstantEntry::Str(range) => {
+                    Some(Constant::Str(&self.string_data[u32_to_usize_range(range)]))
+                }
             },
             None => None,
         }
     }
 
     /// Returns the concatenated string data stored in the pool
-    pub fn string_data(&self) -> &Ptr<str> {
+    pub fn string_data(&self) -> &Ptr<String> {
         &self.string_data
     }
 
@@ -122,7 +127,10 @@ impl ConstantPool {
     #[inline]
     pub fn get_str(&self, index: ConstantIndex) -> &str {
         // Safety: The bounds have already been checked while the pool is being prepared
-        unsafe { self.string_data.get_unchecked(self.get_str_bounds(index)) }
+        unsafe {
+            self.string_data
+                .get_unchecked(u32_to_usize_range(&self.get_str_bounds(index)))
+        }
     }
 
     /// Returns the string corresponding to the provided index as a string slice
@@ -134,7 +142,7 @@ impl ConstantPool {
         unsafe { StringSlice::new_unchecked(self.string_data.clone(), self.get_str_bounds(index)) }
     }
 
-    fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
+    fn get_str_bounds(&self, index: ConstantIndex) -> Range<u32> {
         match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
@@ -248,8 +256,12 @@ impl ConstantPoolBuilder {
 
                 let start = self.string_data.len();
                 let end = start + s.len();
+                if end > u32::MAX as usize {
+                    return Err(InternalError::StringCapacityOverflow);
+                }
                 self.string_data.push_str(s);
-                self.constants.push(ConstantEntry::Str(start..end));
+                self.constants
+                    .push(ConstantEntry::Str(start as u32..end as u32));
                 s.hash(&mut self.hasher);
 
                 self.string_map.insert(s.to_string(), result);
@@ -293,7 +305,7 @@ impl ConstantPoolBuilder {
         match self.constants.get(usize::from(index)) {
             Some(ConstantEntry::Str(range)) => {
                 // Safety: The bounds have already been checked while the pool is being prepared
-                unsafe { self.string_data.get_unchecked(range.clone()) }
+                unsafe { self.string_data.get_unchecked(u32_to_usize_range(range)) }
             }
             _ => panic!("Invalid index"),
         }

@@ -26,6 +26,8 @@ pub enum InternalError {
     NumberParseFailure,
     #[error("Failed to parse raw string")]
     RawStringParseFailure,
+    #[error("The program contains more than 4GB of string data")]
+    StringCapacityOverflow,
     #[error("Unexpected token")]
     UnexpectedToken,
 }
