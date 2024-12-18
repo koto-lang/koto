@@ -1098,92 +1098,102 @@ impl KotoVm {
     ) -> Result<()> {
         use KValue::*;
 
-        let output = match self.clone_register(iterable_register) {
-            Iterator(mut iterator) => {
-                match iterator.next() {
-                    Some(KIteratorOutput::Value(value)) => Some(value),
-                    Some(KIteratorOutput::ValuePair(first, second)) => {
-                        if let Some(result) = result_register {
-                            if output_is_temporary {
-                                self.set_register(result + 1, first);
-                                self.set_register(result + 2, second);
-                                Some(TemporaryTuple(RegisterSlice {
-                                    start: result + 1,
-                                    count: 2,
-                                }))
-                            } else {
-                                Some(Tuple(vec![first, second].into()))
-                            }
-                        } else {
-                            // The output is going to be ignored, but we use Some here to indicate that
-                            // iteration should continue.
-                            Some(Null)
-                        }
-                    }
-                    Some(KIteratorOutput::Error(error)) => {
-                        return runtime_error!(error.to_string());
-                    }
-                    None => None,
-                }
-            }
-            Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
-                let op = m.get_meta_value(&UnaryOp::Next.into()).unwrap();
-                if !op.is_callable() {
-                    return unexpected_type("Callable function from @next", &op);
-                }
-                let old_frame_count = self.call_stack.len();
-                let call_result_register = self.next_register();
-                self.call_overridden_unary_op(call_result_register, iterable_register, op)?;
-                if self.call_stack.len() == old_frame_count {
-                    // If the call stack is the same size,
-                    // then the result will be in the result register
-                    Some(self.clone_register(call_result_register))
-                } else {
-                    self.frame_mut().execution_barrier = true;
-                    match self.execute_instructions() {
-                        Ok(Null) => None,
-                        Ok(output) => Some(output),
-                        Err(error) => {
-                            self.pop_frame(KValue::Null)?;
-                            return Err(error);
-                        }
-                    }
-                }
-            }
-            other => {
-                // The iterable isn't an Iterator, but might be a temporary value that's being used
-                // during unpacking.
-                let (output, new_iterable) = match other {
-                    Range(mut r) => {
-                        let output = r.pop_front()?;
-                        (output.map(KValue::from), Range(r))
-                    }
-                    Tuple(mut t) => {
-                        let output = t.pop_front();
-                        (output, Tuple(t))
-                    }
-                    Str(mut s) => {
-                        let output = s.pop_front();
-                        (output.map(KValue::from), Str(s))
-                    }
-                    TemporaryTuple(RegisterSlice { start, count }) => {
-                        if count > 0 {
-                            (
-                                Some(self.clone_register(start)),
-                                TemporaryTuple(RegisterSlice {
-                                    start: start + 1,
-                                    count: count - 1,
-                                }),
-                            )
-                        } else {
-                            (None, TemporaryTuple(RegisterSlice { start, count }))
-                        }
-                    }
-                    unexpected => return unexpected_type("Iterator", &unexpected),
-                };
+        // Temporary iterators need to be removed from the register so that they can be mutated in
+        // place (there should be no other references), and then returned to the iterator.
+        let iterable_is_temporary = matches!(
+            self.get_register(iterable_register),
+            Range(_) | Tuple(_) | Str(_) | TemporaryTuple { .. }
+        );
 
-                self.set_register(iterable_register, new_iterable);
-                output
+        let output = if iterable_is_temporary {
+            let (output, new_iterable) = match self.remove_register(iterable_register) {
+                Range(mut r) => {
+                    let output = r.pop_front()?;
+                    (output.map(KValue::from), Range(r))
+                }
+                Tuple(mut t) => {
+                    let output = t.pop_front();
+                    (output, Tuple(t))
+                }
+                Str(mut s) => {
+                    let output = s.pop_front();
+                    (output.map(KValue::from), Str(s))
+                }
+                TemporaryTuple(RegisterSlice { start, count }) => {
+                    if count > 0 {
+                        (
+                            Some(self.clone_register(start)),
+                            TemporaryTuple(RegisterSlice {
+                                start: start + 1,
+                                count: count - 1,
+                            }),
+                        )
+                    } else {
+                        (None, TemporaryTuple(RegisterSlice { start, count }))
+                    }
+                }
+                _ => {
+                    // The match arms here match the arms when calculating iterable_is_temporary
+                    unreachable!()
+                }
+            };
+
+            self.set_register(iterable_register, new_iterable);
+            output
+        } else {
+            match self.clone_register(iterable_register) {
+                Iterator(mut iterator) => {
+                    match iterator.next() {
+                        Some(KIteratorOutput::Value(value)) => Some(value),
+                        Some(KIteratorOutput::ValuePair(first, second)) => {
+                            if let Some(result) = result_register {
+                                if output_is_temporary {
+                                    self.set_register(result + 1, first);
+                                    self.set_register(result + 2, second);
+                                    Some(TemporaryTuple(RegisterSlice {
+                                        start: result + 1,
+                                        count: 2,
+                                    }))
+                                } else {
+                                    Some(Tuple(vec![first, second].into()))
+                                }
+                            } else {
+                                // The output is going to be ignored, but we use Some here to indicate that
+                                // iteration should continue.
+                                Some(Null)
+                            }
+                        }
+                        Some(KIteratorOutput::Error(error)) => {
+                            return runtime_error!(error.to_string());
+                        }
+                        None => None,
+                    }
+                }
+                Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
+                    let op = m.get_meta_value(&UnaryOp::Next.into()).unwrap();
+                    if !op.is_callable() {
+                        return unexpected_type("Callable function from @next", &op);
+                    }
+                    let old_frame_count = self.call_stack.len();
+                    let call_result_register = self.next_register();
+                    self.call_overridden_unary_op(call_result_register, iterable_register, op)?;
+                    if self.call_stack.len() == old_frame_count {
+                        // If the call stack is the same size,
+                        // then the result will be in the result register
+                        Some(self.clone_register(call_result_register))
+                    } else {
+                        self.frame_mut().execution_barrier = true;
+                        match self.execute_instructions() {
+                            Ok(Null) => None,
+                            Ok(output) => Some(output),
+                            Err(error) => {
+                                self.pop_frame(KValue::Null)?;
+                                return Err(error);
+                            }
+                        }
+                    }
+                }
+                unexpected => return unexpected_type("Iterator", &unexpected),
             }
         };
 
@@ -3221,6 +3231,12 @@ impl KotoVm {
     #[track_caller]
     fn clone_register(&self, register: u8) -> KValue {
         self.get_register(register).clone()
+    }
+
+    #[track_caller]
+    fn remove_register(&mut self, register: u8) -> KValue {
+        self.registers.push(KValue::Null);
+        self.registers.swap_remove(self.register_index(register))
     }
 
     #[track_caller]
