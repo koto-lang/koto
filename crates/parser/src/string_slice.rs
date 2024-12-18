@@ -1,16 +1,35 @@
 use koto_memory::Ptr;
 use std::ops::{Deref, Range};
 
+trait StringSliceIndex: TryFrom<usize> + Copy + Default {
+    // u32 doesn't implement Into<usize>
+    fn to_usize(self) -> usize;
+}
+
+impl StringSliceIndex for usize {
+    fn to_usize(self) -> usize {
+        self
+    }
+}
+impl StringSliceIndex for u32 {
+    fn to_usize(self) -> usize {
+        self as usize
+    }
+}
+
 /// String data with 32-bit bounds
 ///
 /// The bounds are guaranteed to be indices to a valid UTF-8 sub-string of the original data.
 #[derive(Clone, Debug)]
-pub struct StringSlice {
+pub struct StringSlice<T> {
     data: Ptr<String>,
-    bounds: Range<u32>,
+    bounds: Range<T>,
 }
 
-impl StringSlice {
+impl<T> StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     /// Initializes a string slice with the given string data and bounds
     ///
     /// If the bounds aren't valid for the given string data then None is returned.
@@ -25,7 +44,7 @@ impl StringSlice {
     /// # Safety
     /// Care must be taken to ensure that the bounds are valid within the provided string,
     /// i.e. `string.get(bounds).is_some()` must be true.
-    pub unsafe fn new_unchecked(string: Ptr<String>, bounds: Range<u32>) -> Self {
+    pub unsafe fn new_unchecked(string: Ptr<String>, bounds: Range<T>) -> Self {
         Self {
             data: string,
             bounds,
@@ -36,23 +55,33 @@ impl StringSlice {
     ///
     /// If the bounds aren't valid within the current string slice, then None is returned.
     pub fn with_bounds(&self, bounds: Range<usize>) -> Option<Self> {
-        let new_bounds =
-            (bounds.start + self.bounds.start as usize)..(bounds.end + self.bounds.start as usize);
+        let new_bounds = (bounds.start + self.bounds.start.to_usize())
+            ..(bounds.end + self.bounds.start.to_usize());
 
         if self.data.get(new_bounds.clone()).is_some() {
-            Some(Self {
+            try_from_range(&new_bounds).map(|bounds| Self {
                 data: self.data.clone(),
-                bounds: usize_to_u32_range(&new_bounds),
+                bounds,
             })
         } else {
             None
         }
     }
 
+    pub fn try_convert<U>(&self) -> Option<StringSlice<U>>
+    where
+        U: TryFrom<T>,
+    {
+        try_from_range(&self.bounds).map(|bounds| StringSlice::<U> {
+            data: self.data.clone(),
+            bounds,
+        })
+    }
+
     /// Returns the string slice as a `&str`
     pub fn as_str(&self) -> &str {
         // Safety: bounds have already been checked in new_with_bounds / with_bounds
-        unsafe { self.data.get_unchecked(u32_to_usize_range(&self.bounds)) }
+        unsafe { self.data.get_unchecked(to_usize_range(&self.bounds)) }
     }
 
     /// Splits the string slice at the given byte offset, returning the two resulting strings
@@ -60,51 +89,64 @@ impl StringSlice {
     /// If the offset is outside of the string slice's bounds or would produce invalid UTF-8 data,
     /// then None is returned.
     pub fn split(&self, offset: usize) -> Option<(Self, Self)> {
-        if self.as_str().is_char_boundary(offset) {
-            let split_point = self.bounds.start + offset as u32;
-            Some((
-                Self {
-                    data: self.data.clone(),
-                    bounds: self.bounds.start..split_point,
-                },
-                Self {
-                    data: self.data.clone(),
-                    bounds: split_point..self.bounds.end,
-                },
-            ))
+        let split_point = self.bounds.start.to_usize() + offset;
+        if self.data.is_char_boundary(split_point) {
+            if let Ok(split_point_t) = T::try_from(split_point) {
+                Some((
+                    Self {
+                        data: self.data.clone(),
+                        bounds: self.bounds.start..split_point_t,
+                    },
+                    Self {
+                        data: self.data.clone(),
+                        bounds: split_point_t..self.bounds.end,
+                    },
+                ))
+            } else {
+                None
+            }
         } else {
             None
         }
     }
 }
 
-impl TryFrom<Ptr<String>> for StringSlice {
+impl<T> TryFrom<Ptr<String>> for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     type Error = Ptr<String>;
 
     fn try_from(string: Ptr<String>) -> std::result::Result<Self, Self::Error> {
-        u32::try_from(string.len())
+        T::try_from(string.len())
             .map(|len| Self {
                 data: string.clone(),
-                bounds: 0_u32..len,
+                bounds: T::default()..len,
             })
             .map_err(|_| string)
     }
 }
 
-impl<'a> TryFrom<&'a str> for StringSlice {
+impl<'a, T> TryFrom<&'a str> for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     type Error = &'a str;
 
     fn try_from(s: &'a str) -> std::result::Result<Self, Self::Error> {
-        u32::try_from(s.len())
+        T::try_from(s.len())
             .map(|len| Self {
                 data: s.to_string().into(),
-                bounds: 0_u32..len,
+                bounds: T::default()..len,
             })
             .map_err(|_| s)
     }
 }
 
-impl Deref for StringSlice {
+impl<T> Deref for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     type Target = str;
 
     fn deref(&self) -> &str {
@@ -112,30 +154,48 @@ impl Deref for StringSlice {
     }
 }
 
-impl AsRef<str> for StringSlice {
+impl<T> AsRef<str> for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     fn as_ref(&self) -> &str {
         self.deref()
     }
 }
 
-impl PartialEq<StringSlice> for StringSlice {
-    fn eq(&self, other: &StringSlice) -> bool {
+impl<T> PartialEq<StringSlice<T>> for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
+    fn eq(&self, other: &StringSlice<T>) -> bool {
         self.as_str() == other.as_str()
     }
 }
 
-impl PartialEq<&str> for StringSlice {
+impl<T> PartialEq<&str> for StringSlice<T>
+where
+    T: StringSliceIndex,
+{
     fn eq(&self, other: &&str) -> bool {
         self.as_str() == *other
     }
 }
 
-pub(crate) fn u32_to_usize_range(r: &Range<u32>) -> Range<usize> {
-    r.start as usize..r.end as usize
+pub(crate) fn to_usize_range<T>(r: &Range<T>) -> Range<usize>
+where
+    T: StringSliceIndex,
+{
+    r.start.to_usize()..r.end.to_usize()
 }
 
-pub(crate) fn usize_to_u32_range(r: &Range<usize>) -> Range<u32> {
-    r.start as u32..r.end as u32
+pub(crate) fn try_from_range<T, U>(r: &Range<U>) -> Option<Range<T>>
+where
+    T: TryFrom<U>,
+{
+    match (T::try_from(r.start), T::try_from(r.end)) {
+        (Ok(start), Ok(end)) => Some(start..end),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -151,14 +211,14 @@ mod test {
 
     #[test]
     fn with_bounds() {
-        let original = StringSlice::try_from("0123456789").unwrap();
+        let original = StringSlice::<u32>::try_from("0123456789").unwrap();
         let slice = original.with_bounds(4..8).unwrap();
         assert_eq!(slice.as_str(), "4567");
     }
 
     #[test]
     fn split() {
-        let original = StringSlice::try_from("hello, world!").unwrap();
+        let original = StringSlice::<usize>::try_from("hello, world!").unwrap();
         let (a, b) = original.split(6).unwrap();
         assert_eq!(a.as_str(), "hello,");
         assert_eq!(b.as_str(), " world!");
