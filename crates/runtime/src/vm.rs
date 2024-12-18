@@ -124,6 +124,8 @@ pub struct KotoVm {
     registers: Vec<KValue>,
     // The current frame's register base
     register_base: usize,
+    // The minimum number of registers required by the current frame, declared by the NewFrame op
+    min_frame_registers: usize,
     // The VM's call stack
     call_stack: Vec<Frame>,
     // A stack of sequences that are currently under construction
@@ -162,6 +164,7 @@ impl KotoVm {
             reader: InstructionReader::default(),
             registers: Vec::with_capacity(32),
             register_base: 0,
+            min_frame_registers: 0,
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -184,6 +187,7 @@ impl KotoVm {
             reader: self.reader.clone(),
             registers: Vec::with_capacity(8),
             register_base: 0,
+            min_frame_registers: 0,
             call_stack: Vec::new(),
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
@@ -233,11 +237,9 @@ impl KotoVm {
     /// Runs the provided [Chunk], returning the resulting [KValue]
     pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         // Set up an execution frame to run the chunk in
-        let result_register = self.next_register();
-        let frame_base = result_register + 1;
-        self.registers.push(KValue::Null); // Result register
+        let frame_base = self.next_register();
         self.registers.push(KValue::Null); // Instance register
-        self.push_frame(chunk, 0, frame_base, result_register);
+        self.push_frame(chunk, 0, frame_base, None);
 
         // Ensure that execution stops here if an error is thrown
         self.frame_mut().execution_barrier = true;
@@ -248,8 +250,8 @@ impl KotoVm {
             self.pop_frame(KValue::Null)?;
         }
 
-        // Reset the value stack back to where it was at the start of the run
-        self.truncate_registers(result_register);
+        // Reset the register stack back to where it was at the start of the run
+        self.truncate_registers(frame_base);
         result
     }
 
@@ -305,6 +307,7 @@ impl KotoVm {
 
         self.registers.push(KValue::Null); // Result register
         self.registers.push(instance.unwrap_or_default()); // Frame base
+
         let (arg_count, temp_tuple_values) = match args {
             CallArgs::Single(arg) => {
                 self.registers.push(arg);
@@ -364,7 +367,7 @@ impl KotoVm {
 
         self.call_callable(
             &CallInfo {
-                result_register,
+                result_register: Some(result_register),
                 frame_base,
                 // The instance (or Null) has already been copied into the frame base
                 instance: Some(frame_base),
@@ -375,8 +378,8 @@ impl KotoVm {
         )?;
 
         let result = if self.call_stack.len() == old_frame_count {
-            // If the call stack is the same size as before calling the function,
-            // then an external function was called and the result should be in the frame base.
+            // If the call stack is the same size as before calling call_callable,
+            // then an external function was called and the result should be in the result register.
             let result = self.clone_register(result_register);
             Ok(result)
         } else {
@@ -423,7 +426,7 @@ impl KotoVm {
                     if !op.is_callable() {
                         return unexpected_type("Callable function from @next_back", &op);
                     }
-                    self.call_overridden_unary_op(result_register, value_register, op)?
+                    self.call_overridden_unary_op(Some(result_register), value_register, op)?
                 }
                 unexpected => {
                     return unexpected_type(
@@ -436,10 +439,12 @@ impl KotoVm {
         }
 
         let result = if self.call_stack.len() == old_frame_count {
-            // If the call stack is the same size, then the result will be in the result register
+            // If the call stack is the same size, then a native function was called and the result
+            // will be in the result register
             Ok(self.clone_register(result_register))
         } else {
-            // If the call stack size has changed, then an overridden operator has been called.
+            // If the call stack size has changed, then an overridden operator in Koto has been
+            // called, so continue execution until the call is complete.
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -507,10 +512,12 @@ impl KotoVm {
         }
 
         let result = if self.call_stack.len() == old_frame_count {
-            // If the call stack is the same size, then the result will be in the result register
+            // If the call stack is the same size, then a native function was called and the result
+            // will be in the result register
             Ok(self.clone_register(result_register))
         } else {
-            // If the call stack size has changed, then an overridden operator has been called.
+            // If the call stack size has changed, then an overridden operator in Koto has been
+            // called, so continue execution until the call is complete.
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -706,6 +713,12 @@ impl KotoVm {
 
         match instruction {
             Error { message } => runtime_error!(message)?,
+            NewFrame { register_count } => {
+                self.frame_mut().required_registers = register_count;
+                self.min_frame_registers = self.register_base + register_count as usize;
+                self.registers
+                    .resize(self.min_frame_registers, KValue::Null);
+            }
             Copy { target, source } => self.set_register(target, self.clone_register(source)),
             SetNull { register } => self.set_register(register, KValue::Null),
             SetBool { register, value } => self.set_register(register, value.into()),
@@ -818,7 +831,7 @@ impl KotoVm {
                 arg_count,
             } => self.call_callable(
                 &CallInfo {
-                    result_register: result,
+                    result_register: Some(result),
                     frame_base,
                     instance: None,
                     arg_count,
@@ -834,7 +847,7 @@ impl KotoVm {
                 arg_count,
             } => self.call_callable(
                 &CallInfo {
-                    result_register: result,
+                    result_register: Some(result),
                     frame_base,
                     instance: Some(instance),
                     arg_count,
@@ -1049,7 +1062,11 @@ impl KotoVm {
                     unreachable!()
                 };
                 if op.is_callable() || op.is_generator() {
-                    return self.call_overridden_unary_op(result_register, iterable_register, op);
+                    return self.call_overridden_unary_op(
+                        Some(result_register),
+                        iterable_register,
+                        op,
+                    );
                 } else {
                     return unexpected_type("callable function from @iterator", &op);
                 }
@@ -1158,8 +1175,8 @@ impl KotoVm {
                                     Some(Tuple(vec![first, second].into()))
                                 }
                             } else {
-                                // The output is going to be ignored, but we use Some here to indicate that
-                                // iteration should continue.
+                                // The output is going to be ignored, but we use Some here to
+                                // indicate that iteration should continue.
                                 Some(Null)
                             }
                         }
@@ -1174,22 +1191,15 @@ impl KotoVm {
                     if !op.is_callable() {
                         return unexpected_type("Callable function from @next", &op);
                     }
-                    let old_frame_count = self.call_stack.len();
-                    let call_result_register = self.next_register();
-                    self.call_overridden_unary_op(call_result_register, iterable_register, op)?;
-                    if self.call_stack.len() == old_frame_count {
-                        // If the call stack is the same size,
-                        // then the result will be in the result register
-                        Some(self.clone_register(call_result_register))
-                    } else {
-                        self.frame_mut().execution_barrier = true;
-                        match self.execute_instructions() {
-                            Ok(Null) => None,
-                            Ok(output) => Some(output),
-                            Err(error) => {
-                                self.pop_frame(KValue::Null)?;
-                                return Err(error);
-                            }
+                    // The return value will be retrieved from execute_instructions
+                    self.call_overridden_unary_op(None, iterable_register, op)?;
+                    self.frame_mut().execution_barrier = true;
+                    match self.execute_instructions() {
+                        Ok(Null) => None,
+                        Ok(output) => Some(output),
+                        Err(error) => {
+                            self.pop_frame(KValue::Null)?;
+                            return Err(error);
                         }
                     }
                 }
@@ -1246,7 +1256,7 @@ impl KotoVm {
             }
             Map(map) if map.contains_meta_key(&index_op) => {
                 let op = map.get_meta_value(&index_op).unwrap();
-                return self.call_overridden_binary_op(result, value, index.into(), op);
+                return self.call_overridden_binary_op(Some(result), value, index.into(), op);
             }
             Map(map) => {
                 let data = map.data();
@@ -1420,7 +1430,7 @@ impl KotoVm {
             Number(n) => Number(-n),
             Map(m) if m.contains_meta_key(&Negate.into()) => {
                 let op = m.get_meta_value(&Negate.into()).unwrap();
-                return self.call_overridden_unary_op(result, value, op);
+                return self.call_overridden_unary_op(Some(result), value, op);
             }
             Object(o) => o.try_borrow()?.negate(self)?,
             unexpected => return unexpected_type("negatable value", &unexpected),
@@ -1449,7 +1459,7 @@ impl KotoVm {
         match self.clone_register(value) {
             KValue::Map(m) if m.contains_meta_key(&Display.into()) => {
                 let op = m.get_meta_value(&Display.into()).unwrap();
-                self.call_overridden_unary_op(result, value, op)
+                self.call_overridden_unary_op(Some(result), value, op)
             }
             other => {
                 let mut display_context = DisplayContext::with_vm(self);
@@ -1487,7 +1497,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Add.into()) => {
                 let op = m.get_meta_value(&Add.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Map(a), Map(b)) => {
                 let mut data = a.data().clone();
@@ -1523,7 +1533,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Subtract.into()) => {
                 let op = m.get_meta_value(&Subtract.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Subtract),
@@ -1545,7 +1555,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Multiply.into()) => {
                 let op = m.get_meta_value(&Multiply.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Multiply),
@@ -1566,7 +1576,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Divide.into()) => {
                 let op = m.get_meta_value(&Divide.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Divide),
@@ -1592,7 +1602,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Remainder.into()) => {
                 let op = m.get_meta_value(&Remainder.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Remainder),
@@ -1617,8 +1627,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&AddAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
-                let unused = self.next_register();
-                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(None, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1644,8 +1653,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&SubtractAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
-                let unused = self.next_register();
-                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(None, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1671,8 +1679,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&MultiplyAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
-                let unused = self.next_register();
-                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(None, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1698,8 +1705,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&DivideAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
-                let unused = self.next_register();
-                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(None, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1725,8 +1731,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&RemainderAssign.into()).unwrap();
                 let rhs_value = rhs_value.clone();
                 // The call result can be discarded, the result is always the modified LHS
-                let unused = self.next_register();
-                self.call_overridden_binary_op(unused, lhs, rhs_value, op)
+                self.call_overridden_binary_op(None, lhs, rhs_value, op)
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1749,7 +1754,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Less.into()) => {
                 let op = m.get_meta_value(&Less.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Less),
@@ -1771,7 +1776,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&LessOrEqual.into()) => {
                 let op = m.get_meta_value(&LessOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
@@ -1793,7 +1798,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Greater.into()) => {
                 let op = m.get_meta_value(&Greater.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Greater),
@@ -1815,7 +1820,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&GreaterOrEqual.into()) => {
                 let op = m.get_meta_value(&GreaterOrEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
@@ -1853,7 +1858,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
                 let op = m.get_meta_value(&Equal.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -1913,7 +1918,7 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
                 let op = m.get_meta_value(&NotEqual.into()).unwrap();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(result, lhs, rhs_value, op);
+                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -1992,23 +1997,18 @@ impl KotoVm {
 
     fn call_overridden_unary_op(
         &mut self,
-        result_register: u8,
+        result_register: Option<u8>,
         value_register: u8,
         op: KValue,
     ) -> Result<()> {
-        // Ensure that the result register is present in the stack, otherwise it might be lost after
-        // the call to the op, which expects a frame base at or after the result register.
-        if self.register_index(result_register) >= self.registers.len() {
-            self.set_register(result_register, KValue::Null);
-        }
-
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
+        self.registers.push(self.clone_register(value_register)); // Frame base
         self.call_callable(
             &CallInfo {
                 result_register,
                 frame_base,
-                instance: Some(value_register),
+                instance: Some(frame_base),
                 arg_count: 0,
             },
             op,
@@ -2018,19 +2018,14 @@ impl KotoVm {
 
     fn call_overridden_binary_op(
         &mut self,
-        result_register: u8,
+        result_register: Option<u8>,
         lhs_register: u8,
         rhs: KValue,
         op: KValue,
     ) -> Result<()> {
-        // Ensure that the result register is present in the stack, otherwise it might be lost after
-        // the call to the op, which expects a frame base at or after the result register.
-        if self.register_index(result_register) >= self.registers.len() {
-            self.set_register(result_register, KValue::Null);
-        }
-
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
+
         self.registers.push(self.clone_register(lhs_register)); // Frame base
         self.registers.push(rhs); // The rhs goes in the first arg register
         self.call_callable(
@@ -2088,7 +2083,7 @@ impl KotoVm {
             Range(r) => r.size(),
             Map(m) if m.contains_meta_key(&size_key) => {
                 let op = m.get_meta_value(&size_key).unwrap();
-                return self.call_overridden_unary_op(result_register, value_register, op);
+                return self.call_overridden_unary_op(Some(result_register), value_register, op);
             }
             Map(m) => Some(m.len()),
             Object(o) => o.try_borrow()?.size(),
@@ -2266,15 +2261,16 @@ impl KotoVm {
 
                 // Set up the function call.
                 let frame_base = self.new_frame_base()?;
+                // The result of a mutable index assignment is always the RHS, so the
+                // function result can be placed in the frame base where it will be
+                // immediately discarded.
+                let result_register = None;
                 self.registers.push(map.into()); // Frame base; the map is `self` for `@index_mut`.
                 self.registers.push(index_value);
                 self.registers.push(value);
                 self.call_callable(
                     &CallInfo {
-                        // The result of a mutable index assignment is always the RHS, so the
-                        // function result can be placed in the frame base where it will be
-                        // immediately discarded.
-                        result_register: frame_base,
+                        result_register,
                         arg_count: 2,
                         frame_base,
                         instance: Some(frame_base),
@@ -2381,7 +2377,12 @@ impl KotoVm {
             }
             (Map(m), index) if m.contains_meta_key(&BinaryOp::Index.into()) => {
                 let op = m.get_meta_value(&BinaryOp::Index.into()).unwrap();
-                return self.call_overridden_binary_op(result_register, value_register, index, op);
+                return self.call_overridden_binary_op(
+                    Some(result_register),
+                    value_register,
+                    index,
+                    op,
+                );
             }
             (Map(m), Number(n)) => {
                 let entries = m.data();
@@ -2649,11 +2650,17 @@ impl KotoVm {
             ExternalCallable::Object(o) => o.try_borrow_mut()?.call(&mut call_context),
         }?;
 
-        self.set_register(call_info.result_register, result);
+        if let Some(result_register) = call_info.result_register {
+            self.set_register(result_register, result);
+        }
+
         // External function calls don't use the push/pop frame mechanism,
         // so drop the call args here now that the call has been completed.
         self.truncate_registers(call_info.frame_base);
-
+        let min_frame_registers = self.register_base + self.frame().required_registers as usize;
+        if self.registers.len() < min_frame_registers {
+            self.registers.resize(min_frame_registers, KValue::Null);
+        }
         Ok(())
     }
 
@@ -2671,7 +2678,7 @@ impl KotoVm {
             f.chunk.clone(),
             f.ip,
             0, // arguments will be copied starting in register 0
-            0,
+            None,
         );
         // Set the generator VM's state as suspended
         generator_vm.execution_state = ExecutionState::Suspended;
@@ -2687,33 +2694,29 @@ impl KotoVm {
             .get_register_safe(call_info.frame_base)
             .cloned()
             .unwrap_or(KValue::Null);
-        generator_vm.set_register(0, instance);
-
-        let arg_offset = 1;
+        generator_vm.registers.push(instance);
 
         // Copy any regular (non-variadic) arguments into the generator vm
-        for (arg_index, arg) in self
+        for arg in self
             .register_slice(
                 call_info.frame_base + 1,
                 expected_arg_count.min(call_info.arg_count),
             )
             .iter()
             .cloned()
-            .enumerate()
         {
-            generator_vm.set_register(arg_index as u8 + arg_offset, arg);
+            generator_vm.registers.push(arg);
         }
 
         // Ensure that registers for missing arguments are set to Null
         if call_info.arg_count < expected_arg_count {
-            for arg_index in call_info.arg_count..expected_arg_count {
-                generator_vm.set_register(arg_index + arg_offset, KValue::Null);
+            for _ in call_info.arg_count..expected_arg_count {
+                generator_vm.registers.push(KValue::Null);
             }
         }
 
         // Check for variadic arguments, and validate argument count
         if f.variadic {
-            let variadic_register = expected_arg_count + arg_offset;
             if call_info.arg_count >= expected_arg_count {
                 // Capture the varargs into a tuple and place them in the
                 // generator vm's last arg register
@@ -2721,9 +2724,9 @@ impl KotoVm {
                 let varargs_count = call_info.arg_count - expected_arg_count;
                 let varargs =
                     KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                generator_vm.set_register(variadic_register, varargs);
+                generator_vm.registers.push(varargs);
             } else {
-                generator_vm.set_register(variadic_register, KValue::Null);
+                generator_vm.registers.push(KValue::Null);
             }
         }
         // Place any captures in the registers following the arguments
@@ -2738,14 +2741,10 @@ impl KotoVm {
             generator_vm.registers.extend_from_slice(temp_tuple_values);
         }
 
-        // The args have been cloned into the generator vm, so at this point they can be removed
-        self.truncate_registers(call_info.frame_base);
-
-        // Wrap the generator vm in an iterator and place it in the result register
-        self.set_register(
-            call_info.result_register,
-            KIterator::with_vm(generator_vm).into(),
-        );
+        if let Some(result_register) = call_info.result_register {
+            // Wrap the generator vm in an iterator and place it in the result register
+            self.set_register(result_register, KIterator::with_vm(generator_vm).into());
+        }
 
         Ok(())
     }
@@ -2776,7 +2775,7 @@ impl KotoVm {
             let varargs_count = call_info.arg_count - expected_arg_count;
             let varargs = KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
             self.set_register(varargs_start, varargs);
-            self.truncate_registers(varargs_start + 1);
+            // self.truncate_registers(varargs_start + 1);
         }
 
         // self is in the frame base register, arguments start from register frame_base + 1
@@ -3125,11 +3124,25 @@ impl KotoVm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Ptr<Chunk>, ip: u32, frame_base: u8, return_register: u8) {
+    // Pushes a new frame onto the call stack
+    //
+    // This is used for the main top-level frame, and for any function calls.
+    //
+    // - The `frame_base` register should already exist in the register stack.
+    // - If the new frame's return value should be copied to a register in the calling frame,
+    //   then `return_register` should be lower in the stack than `frame_base`.
+    fn push_frame(
+        &mut self,
+        chunk: Ptr<Chunk>,
+        ip: u32,
+        frame_base: u8,
+        return_register: Option<u8>,
+    ) {
         let return_ip = self.ip();
         if let Some(frame) = self.call_stack.last_mut() {
-            frame.return_register_and_ip = Some((return_register, return_ip));
             frame.return_instruction_ip = self.instruction_ip;
+            frame.return_resume_ip = return_ip;
+            frame.return_value_register = return_register;
         }
 
         let previous_frame_base = self.register_base;
@@ -3141,30 +3154,49 @@ impl KotoVm {
         self.set_chunk_and_ip(chunk, ip);
     }
 
+    // Pops the current frame from the call stack
+    //
+    // If there is a new current frame after popping, and if execution should continue
+    // (i.e. `frame.execution_barrier` is false), the return value will be placed in the current
+    // frame's return register, and `None` will be returned. Otherwise, the return value will be
+    // passed back to the caller as `Some`.
     fn pop_frame(&mut self, return_value: KValue) -> Result<Option<KValue>> {
-        self.truncate_registers(0);
-
         let Some(popped_frame) = self.call_stack.pop() else {
             return runtime_error!(ErrorKind::EmptyCallStack);
         };
 
         if self.call_stack.is_empty() {
+            // The call stack is empty, so clean up by resetting the register base.
+            self.register_base = 0;
+            self.min_frame_registers = 0;
             Ok(Some(return_value))
         } else {
             let return_frame = self.frame();
-            let (return_register, return_ip) = return_frame.return_register_and_ip.unwrap();
+            let return_register = return_frame.return_value_register;
+            let resume_ip = return_frame.return_resume_ip;
             let chunk = return_frame.chunk.clone();
             let return_instruction_ip = return_frame.return_instruction_ip;
             let register_base = return_frame.register_base;
+            let required_registers = return_frame.required_registers;
 
             self.instruction_ip = return_instruction_ip;
             self.register_base = register_base;
-            self.set_register(return_register, return_value.clone());
-            self.set_chunk_and_ip(chunk, return_ip);
+            self.min_frame_registers = self.register_base + required_registers as usize;
+            self.set_chunk_and_ip(chunk, resume_ip);
 
+            // If the popped frame should stop execution then return the value
             if popped_frame.execution_barrier {
                 Ok(Some(return_value))
             } else {
+                // Execution will continue, so minimize the register stack by discarding registers
+                // used by this frame that are no longer needed.
+                self.registers
+                    .resize(self.min_frame_registers, KValue::Null);
+
+                if let Some(return_register) = return_register {
+                    self.set_register(return_register, return_value);
+                }
+
                 Ok(None)
             }
         }
@@ -3220,11 +3252,6 @@ impl KotoVm {
 
     fn set_register(&mut self, register: u8, value: KValue) {
         let index = self.register_index(register);
-
-        if index >= self.registers.len() {
-            self.registers.resize(index + 1, KValue::Null);
-        }
-
         self.registers[index] = value;
     }
 
@@ -3384,10 +3411,14 @@ struct Frame {
     // The frame's instance is always in register 0 (Null if not set).
     // Call arguments followed by local values are in registers starting from index 1.
     pub register_base: usize,
+    // The number of registers required by this frame
+    pub required_registers: u8,
     // When returning to this frame, the ip that produced the most recently read instruction
     pub return_instruction_ip: u32,
-    // When returning to this frame, the register for the return value and the ip to resume from.
-    pub return_register_and_ip: Option<(u8, u32)>,
+    // When returning to this frame, the ip that should be jumped to for resumed execution
+    pub return_resume_ip: u32,
+    // When returning to this frame, the register that should receive the return value
+    pub return_value_register: Option<u8>,
     // A stack of catch points for handling errors
     pub catch_stack: Vec<(u8, u32)>, // catch error register, catch ip
     // True if the frame should prevent execution from continuing after the frame is exited.
@@ -3404,7 +3435,9 @@ impl Frame {
         Self {
             chunk,
             register_base,
-            return_register_and_ip: None,
+            required_registers: 0,
+            return_resume_ip: 0,
+            return_value_register: None,
             return_instruction_ip: 0,
             catch_stack: vec![],
             execution_barrier: false,
@@ -3421,7 +3454,7 @@ enum ExternalCallable {
 // See Vm::call_callable
 #[derive(Debug)]
 struct CallInfo {
-    result_register: u8,
+    result_register: Option<u8>,
     frame_base: u8,
     instance: Option<u8>,
     arg_count: u8,

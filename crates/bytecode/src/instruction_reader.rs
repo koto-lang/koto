@@ -140,6 +140,9 @@ impl Iterator for InstructionReader {
         self.ip += 2;
 
         match op {
+            Op::NewFrame => Some(NewFrame {
+                register_count: byte_a,
+            }),
             Op::Copy => Some(Copy {
                 target: byte_a,
                 source: get_u8!(),

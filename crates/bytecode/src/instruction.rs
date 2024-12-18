@@ -11,6 +11,9 @@ pub enum Instruction {
     Error {
         message: String,
     },
+    NewFrame {
+        register_count: u8,
+    },
     Copy {
         target: u8,
         source: u8,
@@ -470,6 +473,7 @@ impl fmt::Debug for Instruction {
         use Instruction::*;
         match self {
             Error { message } => unreachable!("{message}"),
+            NewFrame { register_count } => write!(f, "NewFrame\tregisters: {register_count}"),
             Copy { target, source } => write!(f, "Copy\t\tresult: {target}\tsource: {source}"),
             SetNull { register } => write!(f, "SetNull\t\tresult: {register}"),
             SetBool { register, value } => {
@@ -653,9 +657,9 @@ impl fmt::Debug for Instruction {
                 "CallInstance\tresult: {result}\tfunction: {function}\t\
                  instance: {instance}\tframe base: {frame_base}\targs: {arg_count}",
             ),
-            Return { register } => write!(f, "Return\t\tresult: {register}"),
-            Yield { register } => write!(f, "Yield\t\tresult: {register}"),
-            Throw { register } => write!(f, "Throw\t\tresult: {register}"),
+            Return { register } => write!(f, "Return\t\tregister: {register}"),
+            Yield { register } => write!(f, "Yield\t\tregister: {register}"),
+            Throw { register } => write!(f, "Throw\t\tregister: {register}"),
             Size { register, value } => write!(f, "Size\t\tresult: {register}\tvalue: {value}"),
             IterNext {
                 result,

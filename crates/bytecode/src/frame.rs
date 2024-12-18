@@ -74,6 +74,8 @@ pub(crate) struct Frame {
     exported_ids: HashSet<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
+    // Tracks the number of temporary registers used by the frame
+    temporaries_used_in_frame: u8,
     // Used to decide if an additional return instruction is needed,
     // e.g. `f = |x| return x`
     //               ^ explicit return as final expression, implicit return not needed
@@ -138,18 +140,6 @@ impl Frame {
             output_type,
             is_generator,
             ..Default::default()
-        }
-    }
-
-    pub fn push_register(&mut self) -> Result<u8, FrameError> {
-        let new_register = self.temporary_base + self.temporary_count;
-        self.temporary_count += 1;
-
-        if new_register == u8::MAX {
-            Err(FrameError::StackOverflow)
-        } else {
-            self.register_stack.push(new_register);
-            Ok(new_register)
         }
     }
 
@@ -260,6 +250,22 @@ impl Frame {
         }
     }
 
+    // Provides the next temporary register
+    pub fn push_register(&mut self) -> Result<u8, FrameError> {
+        let new_register = self.temporary_base + self.temporary_count;
+
+        if new_register == u8::MAX {
+            Err(FrameError::StackOverflow)
+        } else {
+            self.temporary_count += 1;
+            self.temporaries_used_in_frame =
+                self.temporaries_used_in_frame.max(self.temporary_count);
+            self.register_stack.push(new_register);
+            Ok(new_register)
+        }
+    }
+
+    // Returns the most recently used temporary register to the stack
     pub fn pop_register(&mut self) -> Result<u8, FrameError> {
         let Some(register) = self.register_stack.pop() else {
             return Err(FrameError::EmptyRegisterStack);
@@ -295,6 +301,7 @@ impl Frame {
         Ok(())
     }
 
+    // Provides the register that will be returned from push_register
     pub fn next_temporary_register(&self) -> u8 {
         self.temporary_count + self.temporary_base
     }
@@ -346,5 +353,9 @@ impl Frame {
 
     pub fn pop_loop(&mut self) -> Result<Loop, FrameError> {
         self.loop_stack.pop().ok_or(FrameError::EmptyLoopInfoStack)
+    }
+
+    pub fn registers_used(&self) -> u8 {
+        self.temporary_base + self.temporaries_used_in_frame
     }
 }

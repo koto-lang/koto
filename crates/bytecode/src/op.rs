@@ -20,9 +20,16 @@
 #[repr(u8)]
 #[allow(missing_docs)] // Allowed for the UnusedX ops
 pub enum Op {
+    /// Marks the start of a new frame
+    ///
+    /// The VM will reserve space for the given number of registers used by the frame.
+    ///
+    /// `[registers]`
+    NewFrame,
+
     /// Copies the source value to the target register
     ///
-    /// `[Copy, *target, *source]`
+    /// `[*target, *source]`
     Copy,
 
     /// Sets a register to contain Null
@@ -531,7 +538,6 @@ pub enum Op {
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused86,
     Unused87,
     Unused88,
     Unused89,

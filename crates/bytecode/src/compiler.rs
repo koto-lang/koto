@@ -570,6 +570,11 @@ impl Compiler {
     }
 
     fn compile_frame(&mut self, params: FrameParameters, ctx: CompileNodeContext) -> Result<()> {
+        // Push a NewFrame op, and keep track of the register count's byte index so that it can be
+        // updated after the frame has been compiled.
+        self.push_op(Op::NewFrame, &[0]);
+        let register_count_byte_index = self.bytes.len() - 1;
+
         let FrameParameters {
             local_count,
             expressions,
@@ -648,7 +653,8 @@ impl Compiler {
             self.pop_register()?;
         }
 
-        self.frame_stack.pop();
+        let frame = self.frame_stack.pop().unwrap();
+        self.bytes[register_count_byte_index] = frame.registers_used();
 
         Ok(())
     }

@@ -522,6 +522,8 @@ f (1, 2, 3)
             #[test]
             fn capturing_a_reserved_value_in_a_temporary_function() {
                 let script = "
+# The functor is temporary and it shouldn't be possible to capture
+# the identifier that's reserved as the assignment target.
 x = (1..10).find |n| n == x
 ";
                 check_script_fails(script);
