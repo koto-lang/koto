@@ -151,7 +151,16 @@ impl Repl {
 
             self.editor.add_history_entry(&input)?;
 
-            match self.koto.compile(&input) {
+            let compile_args = CompileArgs {
+                script: &input,
+                script_path: None,
+                compiler_settings: CompilerSettings {
+                    export_top_level_ids: true,
+                    enable_type_checks: true,
+                },
+            };
+
+            match self.koto.compile(compile_args) {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {
                         print_wrapped!(self.stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
