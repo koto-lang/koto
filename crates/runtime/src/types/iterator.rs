@@ -248,26 +248,26 @@ impl Iterator for RangeIterator {
 
 #[derive(Clone)]
 struct ListIterator {
-    data: KList,
+    list: KList,
     index: usize,
     end: usize,
 }
 
 impl ListIterator {
-    fn new(data: KList) -> Self {
-        let end = data.len();
+    fn new(list: KList) -> Self {
+        let end = list.len();
         Self {
-            data,
+            list,
             index: 0,
             end,
         }
     }
 
     fn get_output(&self, index: usize) -> Option<KIteratorOutput> {
-        self.data
+        self.list
             .data()
             .get(index)
-            .map(|data| KIteratorOutput::Value(data.clone()))
+            .map(|result| KIteratorOutput::Value(result.clone()))
     }
 }
 
@@ -304,17 +304,32 @@ impl Iterator for ListIterator {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.data.len().saturating_sub(self.index);
+        let remaining = self.list.len().saturating_sub(self.index);
         (remaining, Some(remaining))
     }
 }
 
 #[derive(Clone)]
-struct TupleIterator(KTuple);
+struct TupleIterator {
+    tuple: KTuple,
+    index: usize,
+    end: usize,
+}
 
 impl TupleIterator {
     fn new(tuple: KTuple) -> Self {
-        Self(tuple)
+        let end = tuple.len();
+        Self {
+            tuple,
+            index: 0,
+            end,
+        }
+    }
+
+    fn get_output(&self, index: usize) -> Option<KIteratorOutput> {
+        self.tuple
+            .get(index)
+            .map(|output| KIteratorOutput::Value(output.clone()))
     }
 }
 
@@ -328,7 +343,12 @@ impl KotoIterator for TupleIterator {
     }
 
     fn next_back(&mut self) -> Option<KIteratorOutput> {
-        self.0.pop_back().map(KIteratorOutput::Value)
+        if self.end > self.index {
+            self.end -= 1;
+            self.get_output(self.end)
+        } else {
+            None
+        }
     }
 }
 
@@ -336,11 +356,17 @@ impl Iterator for TupleIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.pop_front().map(KIteratorOutput::Value)
+        if self.end > self.index {
+            let result = self.get_output(self.index);
+            self.index += 1;
+            result
+        } else {
+            None
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.0.len();
+        let remaining = self.tuple.len().saturating_sub(self.index);
         (remaining, Some(remaining))
     }
 }

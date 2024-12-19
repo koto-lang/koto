@@ -42,10 +42,15 @@ The Koto project adheres to
   - `os.command`
     - Supports executing and spawning system commands.
   - `os.process_id`
-  - `random.shuffle`
   - `string.repeat`
 - `tuple.sort_copy` now supports sorting with a key function, following the 
   behaviour of `list.sort`.
+
+#### Extra Libs
+
+- New functions:
+  - `random.shuffle`
+  - `vec3.length`
 
 #### API
 
@@ -137,6 +142,7 @@ The Koto project adheres to
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
 - `KNumber::as_i64` has been removed in favour of `i64::from`.
+- `KValue::CaptureFunction` has been merged into `KValue::Function`.
 
 ### Fixed
 

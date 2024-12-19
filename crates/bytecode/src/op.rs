@@ -1,6 +1,8 @@
 /// The operations used in Koto bytecode
 ///
-/// Each operation is made up of a byte, followed by N additional bytes that define its behaviour.
+/// Each operation is made up of a byte, followed by N additional bytes (where N is at least 1)
+/// that define its behaviour.
+///
 /// The combined operation bytes are interpreted as an [Instruction](crate::Instruction) by the
 /// [InstructionReader](crate::InstructionReader).
 ///
@@ -18,9 +20,16 @@
 #[repr(u8)]
 #[allow(missing_docs)] // Allowed for the UnusedX ops
 pub enum Op {
+    /// Marks the start of a new frame
+    ///
+    /// The VM will reserve space for the given number of registers used by the frame.
+    ///
+    /// `[registers]`
+    NewFrame,
+
     /// Copies the source value to the target register
     ///
-    /// `[Copy, *target, *source]`
+    /// `[*target, *source]`
     Copy,
 
     /// Sets a register to contain Null
@@ -486,7 +495,9 @@ pub enum Op {
 
     /// Ends a try block
     ///
-    /// `[]`
+    /// A placeholder is used here to ensure that each op has at least one byte following it.
+    ///
+    /// `[placeholder]`
     TryEnd,
 
     /// Displays the contents of a value along with the source expression that produced it
@@ -527,7 +538,6 @@ pub enum Op {
     CheckType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused86,
     Unused87,
     Unused88,
     Unused89,

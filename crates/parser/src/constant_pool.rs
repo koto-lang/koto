@@ -78,7 +78,10 @@ pub struct ConstantPool {
     // constant itself.
     constants: Vec<ConstantEntry>,
     // A series of constant strings concatenated into a single string
-    string_data: Ptr<str>,
+    //
+    // Although the data is constant, Ptr<str> isn't used here to minimize the size of StringSlice.
+    // On a 64-bit machine, Ptr<str> has a size of 16 bytes vs. 8 bytes for Ptr<String>.
+    string_data: Ptr<String>,
     // A hash of the pool contents, incrementally prepared by the builder
     hash: u64,
 }
@@ -112,7 +115,7 @@ impl ConstantPool {
     }
 
     /// Returns the concatenated string data stored in the pool
-    pub fn string_data(&self) -> &Ptr<str> {
+    pub fn string_data(&self) -> &Ptr<String> {
         &self.string_data
     }
 
@@ -129,7 +132,7 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't a string at the provided index
     #[inline]
-    pub fn get_string_slice(&self, index: ConstantIndex) -> StringSlice {
+    pub fn get_string_slice(&self, index: ConstantIndex) -> StringSlice<usize> {
         // Safety: The bounds have already been checked while the pool is being prepared
         unsafe { StringSlice::new_unchecked(self.string_data.clone(), self.get_str_bounds(index)) }
     }

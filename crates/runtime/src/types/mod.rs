@@ -16,7 +16,7 @@ mod value_key;
 pub use koto_parser::KString;
 
 pub use self::{
-    function::{KCaptureFunction, KFunction},
+    function::KFunction,
     iterator::{KIterator, KIteratorOutput, KotoIterator},
     list::{KList, ValueVec},
     map::{KMap, KotoHasher, ValueMap},

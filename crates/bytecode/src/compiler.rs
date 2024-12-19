@@ -570,6 +570,11 @@ impl Compiler {
     }
 
     fn compile_frame(&mut self, params: FrameParameters, ctx: CompileNodeContext) -> Result<()> {
+        // Push a NewFrame op, and keep track of the register count's byte index so that it can be
+        // updated after the frame has been compiled.
+        self.push_op(Op::NewFrame, &[0]);
+        let register_count_byte_index = self.bytes.len() - 1;
+
         let FrameParameters {
             local_count,
             expressions,
@@ -648,7 +653,8 @@ impl Compiler {
             self.pop_register()?;
         }
 
-        self.frame_stack.pop();
+        let frame = self.frame_stack.pop().unwrap();
+        self.bytes[register_count_byte_index] = frame.registers_used();
 
         Ok(())
     }
@@ -1612,7 +1618,9 @@ impl Compiler {
 
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
-        self.push_op_without_span(TryEnd, &[]);
+        // A dummy byte is appended to TryEnd as required by the bytecode format.
+        let dummy_byte = 0;
+        self.push_op_without_span(TryEnd, &[dummy_byte]);
 
         // The try block hasn't thrown, so jump to the finally block
         let mut finally_jump_placeholders = SmallVec::<[usize; 4]>::new();
@@ -1625,7 +1633,7 @@ impl Compiler {
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
-        self.push_op(TryEnd, &[]);
+        self.push_op(TryEnd, &[dummy_byte]);
 
         for (i, catch_block) in catch_blocks.iter().enumerate() {
             let is_last_catch = i == catch_blocks.len() - 1;

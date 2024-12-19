@@ -109,10 +109,7 @@ impl error::Error for LoaderError {}
 
 impl From<io::Error> for LoaderError {
     fn from(error: io::Error) -> Self {
-        Self {
-            error: Ptr::new(error.into()),
-            source: None,
-        }
+        Self::from(LoaderErrorKind::Io(error))
     }
 }
 
