@@ -416,8 +416,9 @@ mod tests {
 
     #[test]
     fn test_value_mem_size() {
-        // All Value variants should have a size of <= 16 bytes, and with the variant flag the
-        // total size of Value will be <= 24 bytes.
+        // All Value variants except for String should have a size of <= 16 bytes.
+        // KString has a size of 24 bytes, but is the single variant of that size, and has a niche
+        // of 8 bytes which is then usable as the niche for KValue.
         assert!(std::mem::size_of::<KValue>() <= 24);
     }
 
