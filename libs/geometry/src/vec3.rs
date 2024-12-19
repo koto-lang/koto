@@ -26,6 +26,11 @@ impl Vec3 {
     fn z(&self) -> KValue {
         self.0.z.into()
     }
+
+    #[koto_method]
+    fn length(&self) -> KValue {
+        (self.0.length()).into()
+    }
 }
 
 impl KotoObject for Vec3 {

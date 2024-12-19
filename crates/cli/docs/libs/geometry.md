@@ -506,3 +506,22 @@ from geometry import vec3
 print! (vec3 10, 20, 30).z()
 check! 30.0
 ```
+
+## Vec3.length
+
+```kototype
+|Vec3| -> Number
+```
+
+Returns the length of the vector.
+
+### Example
+
+```koto
+from geometry import vec3
+
+print! (vec3 0, 0, 10).length()
+check! 10.0
+print! (vec3 1, 2, 2).length()
+check! 3.0
+```
