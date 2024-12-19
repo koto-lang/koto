@@ -1860,21 +1860,9 @@ impl KotoVm {
             }
             (Object(o), _) => o.try_borrow()?.equal(rhs_value)?,
             (Function(a), Function(b)) => {
-                if a.chunk == b.chunk && a.ip == b.ip {
-                    match (&a.captures, &b.captures) {
-                        (None, None) => true,
-                        (Some(captures_a), Some(captures_b)) => {
-                            let captures_a = captures_a.clone();
-                            let captures_b = captures_b.clone();
-                            let data_a = captures_a.data();
-                            let data_b = captures_b.data();
-                            self.compare_value_ranges(&data_a, &data_b)?
-                        }
-                        _ => false,
-                    }
-                } else {
-                    false
-                }
+                let a = a.clone();
+                let b = b.clone();
+                self.compare_functions(a, b)?
             }
             _ => false,
         };
@@ -1925,27 +1913,33 @@ impl KotoVm {
             }
             (Object(o), _) => o.try_borrow()?.not_equal(rhs_value)?,
             (Function(a), Function(b)) => {
-                if a.chunk == b.chunk && a.ip == b.ip {
-                    match (&a.captures, &b.captures) {
-                        (None, None) => true,
-                        (Some(captures_a), Some(captures_b)) => {
-                            let captures_a = captures_a.clone();
-                            let captures_b = captures_b.clone();
-                            let data_a = captures_a.data();
-                            let data_b = captures_b.data();
-                            !self.compare_value_ranges(&data_a, &data_b)?
-                        }
-                        _ => false,
-                    }
-                } else {
-                    true
-                }
+                let a = a.clone();
+                let b = b.clone();
+                !self.compare_functions(a, b)?
             }
             _ => true,
         };
         self.set_register(result, result_value.into());
 
         Ok(())
+    }
+
+    fn compare_functions(&mut self, a: KFunction, b: KFunction) -> Result<bool> {
+        if a.chunk == b.chunk && a.ip == b.ip {
+            match (&a.captures, &b.captures) {
+                (None, None) => Ok(true),
+                (Some(captures_a), Some(captures_b)) => {
+                    let captures_a = captures_a.clone();
+                    let captures_b = captures_b.clone();
+                    let data_a = captures_a.data();
+                    let data_b = captures_b.data();
+                    self.compare_value_ranges(&data_a, &data_b)
+                }
+                _ => Ok(false),
+            }
+        } else {
+            Ok(false)
+        }
     }
 
     // Called from run_equal / run_not_equal to compare the contents of lists and tuples

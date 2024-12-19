@@ -1612,6 +1612,57 @@ f().x
 ";
                 check_script_output(script, 99);
             }
+
+            mod comparisions {
+                use super::*;
+
+                #[test]
+                fn matching_functions_no_captures() {
+                    let script = "
+f = |x| x + x
+f2 = f
+f == f, f == f2, f != f, f != f2
+";
+                    check_script_output(
+                        script,
+                        tuple(&[true.into(), true.into(), false.into(), false.into()]),
+                    );
+                }
+
+                #[test]
+                fn different_functions() {
+                    let script = "
+f = |x| x + x
+g = |y| y * y
+f == g, f != g
+";
+                    check_script_output(script, tuple(&[false.into(), true.into()]));
+                }
+
+                #[test]
+                fn matching_captures() {
+                    let script = "
+f, g =
+  (1, 1)
+    .each |x| return || x * x
+    .to_tuple()
+f == g, f != g
+";
+                    check_script_output(script, tuple(&[true.into(), false.into()]));
+                }
+
+                #[test]
+                fn different_captures() {
+                    let script = "
+f, g =
+  (1, 2)
+    .each |x| return || x * x
+    .to_tuple()
+f == g, f != g
+";
+                    check_script_output(script, tuple(&[false.into(), true.into()]));
+                }
+            }
         }
 
         mod piped_calls {
@@ -3416,18 +3467,19 @@ b >= a
         #[test]
         fn equality_of_functions_with_overridden_captures() {
             let script = "
-# Make two functions which capture a different foo
-foos = (0, 1)
+# Make two functions which capture different values of `foo`
+f, g = (0, 1)
   .each |n|
     foo =
       x: n
-      @==: |other| self.x != other.x # inverting the usual behaviour to show its effect
-    || foo # The function returns its captured foo
-  .to_tuple()
+      # Invert the equality comparison so that its effect is visible
+      @==: |other| self.x != other.x
+    || foo
 
-foos[0] == foos[1]
+# The overridden operator on the captured value of `foo` inverts the usual comparison logic
+f == g, f != g
 ";
-            check_script_output(script, true);
+            check_script_output(script, tuple(&[true.into(), false.into()]));
         }
 
         #[test]
