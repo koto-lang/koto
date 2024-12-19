@@ -3,7 +3,7 @@ use std::ops::{Deref, Range};
 
 /// A trait for index types used by [StringSlice]
 pub trait StringSliceIndex: TryFrom<usize> + Copy + Default {
-    // u32 doesn't implement Into<usize>
+    // u16 doesn't implement Into<usize>
     fn to_usize(self) -> usize;
 }
 
@@ -12,19 +12,21 @@ impl StringSliceIndex for usize {
         self
     }
 }
-impl StringSliceIndex for u32 {
+
+impl StringSliceIndex for u16 {
     fn to_usize(self) -> usize {
         self as usize
     }
 }
 
-/// String data with 32-bit bounds
+/// String data with defined bounds
 ///
 /// The bounds are guaranteed to be indices to a valid UTF-8 sub-string of the original data.
 #[derive(Clone, Debug)]
 pub struct StringSlice<T> {
     data: Ptr<String>,
     bounds: Range<T>,
+    _niche: bool,
 }
 
 impl<T> StringSlice<T>
@@ -38,6 +40,7 @@ where
         try_from_range(&bounds).map(|bounds| Self {
             data: string,
             bounds,
+            _niche: false,
         })
     }
 
@@ -50,6 +53,7 @@ where
         Self {
             data: string,
             bounds,
+            _niche: false,
         }
     }
 
@@ -64,6 +68,7 @@ where
             try_from_range(&new_bounds).map(|bounds| Self {
                 data: self.data.clone(),
                 bounds,
+                _niche: false,
             })
         } else {
             None
@@ -80,6 +85,7 @@ where
         try_from_range(&self.bounds).map(|bounds| StringSlice::<U> {
             data: self.data.clone(),
             bounds,
+            _niche: false,
         })
     }
 
@@ -101,10 +107,12 @@ where
                     Self {
                         data: self.data.clone(),
                         bounds: self.bounds.start..split_point_t,
+                        _niche: false,
                     },
                     Self {
                         data: self.data.clone(),
                         bounds: split_point_t..self.bounds.end,
+                        _niche: false,
                     },
                 ))
             } else {
@@ -122,6 +130,7 @@ impl From<Ptr<String>> for StringSlice<usize> {
         Self {
             data: string,
             bounds,
+            _niche: false,
         }
     }
 }
@@ -132,6 +141,7 @@ impl From<&str> for StringSlice<usize> {
         Self {
             data: string.to_string().into(),
             bounds,
+            _niche: false,
         }
     }
 }

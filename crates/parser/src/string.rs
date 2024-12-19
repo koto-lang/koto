@@ -22,8 +22,8 @@ pub struct KString(Inner);
 enum Inner {
     // A shared string
     Full(Ptr<String>),
-    // A shared string with 32bit bounds, small enough to store without extra allocation
-    Slice(StringSlice<u32>),
+    // A shared string with 16bit bounds, small enough to store without extra allocation
+    Slice(StringSlice<u16>),
     // A shared string with bounds, heap-allocated to keep the size of `KString` down to 24 bytes
     SliceLarge(Ptr<StringSlice<usize>>),
 }
@@ -75,7 +75,7 @@ impl KString {
     ///
     /// Although strings are treated as immutable in Koto scripts, there are cases where it's useful
     /// to be able to mutate the string data in place. For example, iterators can hold on to a string
-    /// and pop characters without introducing extra allocations (assuming the bounds are within 32
+    /// and pop characters without introducing extra allocations (assuming the bounds are within 16
     /// bit limits, otherwise an allocated slice will be used when ).
     pub fn pop_back(&mut self) -> Option<Self> {
         match self.clone().graphemes(true).next_back() {
@@ -124,16 +124,16 @@ impl From<Ptr<String>> for KString {
 
 impl From<StringSlice<usize>> for KString {
     fn from(slice: StringSlice<usize>) -> Self {
-        if let Some(slice32) = slice.try_convert() {
-            Self(Inner::Slice(slice32))
+        if let Some(slice16) = slice.try_convert() {
+            Self(Inner::Slice(slice16))
         } else {
             Self(Inner::SliceLarge(slice.into()))
         }
     }
 }
 
-impl From<StringSlice<u32>> for KString {
-    fn from(slice: StringSlice<u32>) -> Self {
+impl From<StringSlice<u16>> for KString {
+    fn from(slice: StringSlice<u16>) -> Self {
         Self(Inner::Slice(slice))
     }
 }

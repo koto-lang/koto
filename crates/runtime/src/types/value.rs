@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, KCaptureFunction, KFunction, Ptr, Result};
+use crate::{prelude::*, KFunction, Result};
 use std::{
     fmt::{self, Write},
     result::Result as StdResult,
@@ -36,9 +36,6 @@ pub enum KValue {
 
     /// A Koto function
     Function(KFunction),
-
-    /// A Koto function with captures
-    CaptureFunction(Ptr<KCaptureFunction>),
 
     /// A function that's implemented outside of the Koto runtime
     NativeFunction(KNativeFunction),
@@ -101,8 +98,7 @@ impl KValue {
         use KValue::*;
         match self {
             Function(f) if f.generator => false,
-            CaptureFunction(f) if f.info.generator => false,
-            Function(_) | CaptureFunction(_) | NativeFunction(_) => true,
+            Function(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
             Object(o) => o.try_borrow().is_ok_and(|o| o.is_callable()),
             _ => false,
@@ -111,12 +107,7 @@ impl KValue {
 
     /// Returns true if the value is a generator function
     pub fn is_generator(&self) -> bool {
-        use KValue::*;
-        match self {
-            Function(f) if f.generator => true,
-            CaptureFunction(f) if f.info.generator => true,
-            _ => false,
-        }
+        matches!(self, KValue::Function(f) if f.generator)
     }
 
     /// Returns true if the value is hashable
@@ -175,8 +166,7 @@ impl KValue {
             Str(_) => "String".into(),
             Tuple(_) => "Tuple".into(),
             Function(f) if f.generator => "Generator".into(),
-            CaptureFunction(f) if f.info.generator => "Generator".into(),
-            Function(_) | CaptureFunction(_) | NativeFunction(_) => "Function".into(),
+            Function(_) | NativeFunction(_) => "Function".into(),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
                 |o| o.type_string(),
@@ -194,7 +184,7 @@ impl KValue {
             Bool(b) => write!(ctx, "{b}"),
             Number(n) => write!(ctx, "{n}"),
             Range(r) => write!(ctx, "{r}"),
-            Function(_) | CaptureFunction(_) => write!(ctx, "||"),
+            Function(_) => write!(ctx, "||"),
             NativeFunction(_) => write!(ctx, "||"),
             Iterator(_) => write!(ctx, "Iterator"),
             TemporaryTuple(RegisterSlice { start, count }) => {

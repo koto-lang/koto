@@ -21,10 +21,10 @@ pub use crate::{
     io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
     send_sync::{KotoSend, KotoSync},
     types::{
-        BinaryOp, CallContext, IsIterable, KCaptureFunction, KFunction, KIterator, KIteratorOutput,
-        KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy,
-        KotoEntries, KotoField, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType,
-        MetaKey, MetaMap, MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
+        BinaryOp, CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,
+        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy, KotoEntries,
+        KotoField, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap,
+        MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield},
 };

@@ -5,10 +5,9 @@ use koto_memory::Ptr;
 /// A Koto function
 ///
 /// See also:
-/// * [`KCaptureFunction`]
 /// * [`KNativeFunction`](crate::KNativeFunction)
 /// * [`KValue::Function`](crate::KValue::Function)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct KFunction {
     /// The [Chunk] in which the function can be found.
     pub chunk: Ptr<Chunk>,
@@ -32,18 +31,6 @@ pub struct KFunction {
     // - `Vm::call_generator`
     // - `Iterable::Generator`
     pub generator: bool,
-}
-
-/// A Koto function with captured values
-///
-/// See also:
-/// * [`KFunction`]
-/// * [`KNativeFunction`](crate::KNativeFunction)
-/// * [`KValue::CaptureFunction`](crate::KValue::CaptureFunction)
-#[derive(Clone)]
-pub struct KCaptureFunction {
-    /// The function's properties
-    pub info: KFunction,
     /// The optional list of captures that should be copied into scope when the function is called.
     //
     // Q. Why use a KList?
@@ -51,8 +38,5 @@ pub struct KCaptureFunction {
     //    itself has been created, and the captured function and the assigned function both need to
     //    share the same captures list. Currently the only way for this to work is to allow mutation
     //    of the shared list after the creation of the function, so a KList is a reasonable choice.
-    // Q. After capturing is complete, what about using Ptr<[Value]> for non-recursive functions,
-    //    or Option<Value> for non-recursive functions with a single capture?
-    // A. These could be worth investigating as optimizations, but a KList will do for now.
-    pub captures: KList,
+    pub captures: Option<KList>,
 }

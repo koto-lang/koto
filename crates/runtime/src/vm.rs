@@ -3,7 +3,7 @@ use crate::{
     error::{Error, ErrorKind},
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
-    DefaultStderr, DefaultStdin, DefaultStdout, KCaptureFunction, KFunction, Ptr, Result,
+    DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader};
@@ -333,24 +333,18 @@ impl KotoVm {
                 // non-temporary Tuple for the values.
                 match &function {
                     KValue::Function(f) if f.arg_is_unpacked_tuple => {
-                        let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
-                            // The unpacked tuple's contents go into the registers after the
-                            // temp tuple and instance registers.
-                            start: 2,
-                            count: args.len() as u8,
-                        });
-                        self.registers.push(temp_tuple);
-                        (1, Some(args))
-                    }
-                    KValue::CaptureFunction(f) if f.info.arg_is_unpacked_tuple => {
+                        let capture_count = f
+                            .captures
+                            .as_ref()
+                            .map(|captures| captures.len())
+                            .unwrap_or(0) as u8;
                         let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
-                            // captures, which are placed after the temp tuple and instance
-                            // registers.
-                            start: f.captures.len() as u8 + 2,
+                            // function's captures, which are placed after the temp tuple and
+                            // instance registers.
+                            start: 2 + capture_count,
                             count: args.len() as u8,
                         });
-
                         self.registers.push(temp_tuple);
                         (1, Some(args))
                     }
@@ -1361,8 +1355,6 @@ impl KotoVm {
     }
 
     fn run_make_function(&mut self, function_instruction: Instruction) {
-        use KValue::*;
-
         match function_instruction {
             Instruction::Function {
                 register,
@@ -1373,32 +1365,27 @@ impl KotoVm {
                 arg_is_unpacked_tuple,
                 size,
             } => {
-                let info = KFunction {
+                let captures = if capture_count > 0 {
+                    // Initialize the function's captures with Null
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, KValue::Null);
+                    Some(KList::with_data(captures))
+                } else {
+                    None
+                };
+
+                let function = KFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
                     variadic,
                     arg_is_unpacked_tuple,
                     generator,
-                };
-
-                let value = if capture_count > 0 {
-                    // Initialize the function's captures with Null
-                    let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Null);
-                    CaptureFunction(
-                        KCaptureFunction {
-                            info,
-                            captures: KList::with_data(captures),
-                        }
-                        .into(),
-                    )
-                } else {
-                    Function(info)
+                    captures,
                 };
 
                 self.jump_ip(size as u32);
-                self.set_register(register, value);
+                self.set_register(register, KValue::Function(function));
             }
             _ => unreachable!(),
         }
@@ -1414,8 +1401,10 @@ impl KotoVm {
         };
 
         match function {
-            KValue::CaptureFunction(f) => {
-                f.captures.data_mut()[capture_index as usize] = self.clone_register(value);
+            KValue::Function(f) => {
+                if let Some(captures) = &f.captures {
+                    captures.data_mut()[capture_index as usize] = self.clone_register(value);
+                }
                 Ok(())
             }
             unexpected => unexpected_type("Function while capturing value", unexpected),
@@ -1870,18 +1859,23 @@ impl KotoVm {
                 }
             }
             (Object(o), _) => o.try_borrow()?.equal(rhs_value)?,
-            (CaptureFunction(a), CaptureFunction(b)) => {
-                if a.info == b.info {
-                    let captures_a = a.captures.clone();
-                    let captures_b = b.captures.clone();
-                    let data_a = captures_a.data();
-                    let data_b = captures_b.data();
-                    self.compare_value_ranges(&data_a, &data_b)?
+            (Function(a), Function(b)) => {
+                if a.chunk == b.chunk && a.ip == b.ip {
+                    match (&a.captures, &b.captures) {
+                        (None, None) => true,
+                        (Some(captures_a), Some(captures_b)) => {
+                            let captures_a = captures_a.clone();
+                            let captures_b = captures_b.clone();
+                            let data_a = captures_a.data();
+                            let data_b = captures_b.data();
+                            self.compare_value_ranges(&data_a, &data_b)?
+                        }
+                        _ => false,
+                    }
                 } else {
                     false
                 }
             }
-            (Function(a), Function(b)) => a == b,
             _ => false,
         };
 
@@ -1930,13 +1924,19 @@ impl KotoVm {
                 }
             }
             (Object(o), _) => o.try_borrow()?.not_equal(rhs_value)?,
-            (CaptureFunction(a), CaptureFunction(b)) => {
-                if a.info == b.info {
-                    let captures_a = a.captures.clone();
-                    let captures_b = b.captures.clone();
-                    let data_a = captures_a.data();
-                    let data_b = captures_b.data();
-                    !self.compare_value_ranges(&data_a, &data_b)?
+            (Function(a), Function(b)) => {
+                if a.chunk == b.chunk && a.ip == b.ip {
+                    match (&a.captures, &b.captures) {
+                        (None, None) => true,
+                        (Some(captures_a), Some(captures_b)) => {
+                            let captures_a = captures_a.clone();
+                            let captures_b = captures_b.clone();
+                            let data_a = captures_a.data();
+                            let data_b = captures_b.data();
+                            !self.compare_value_ranges(&data_a, &data_b)?
+                        }
+                        _ => false,
+                    }
                 } else {
                     true
                 }
@@ -2668,7 +2668,6 @@ impl KotoVm {
         &mut self,
         call_info: &CallInfo,
         f: &KFunction,
-        captures: Option<&KList>,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
         // Spawn a VM for the generator
@@ -2677,7 +2676,7 @@ impl KotoVm {
         generator_vm.push_frame(
             f.chunk.clone(),
             f.ip,
-            0, // arguments will be copied starting in register 0
+            0, // Arguments will be copied starting in register 0
             None,
         );
         // Set the generator VM's state as suspended
@@ -2730,7 +2729,7 @@ impl KotoVm {
             }
         }
         // Place any captures in the registers following the arguments
-        if let Some(captures) = captures {
+        if let Some(captures) = &f.captures {
             generator_vm
                 .registers
                 .extend(captures.data().iter().cloned())
@@ -2753,11 +2752,10 @@ impl KotoVm {
         &mut self,
         call_info: &CallInfo,
         f: &KFunction,
-        captures: Option<&KList>,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
         if f.generator {
-            return self.call_generator(call_info, f, captures, temp_tuple_values);
+            return self.call_generator(call_info, f, temp_tuple_values);
         }
 
         let expected_arg_count = if f.variadic {
@@ -2791,7 +2789,7 @@ impl KotoVm {
         self.registers
             .resize(arg_base_index + f.arg_count as usize, KValue::Null);
 
-        if let Some(captures) = captures {
+        if let Some(captures) = &f.captures {
             // Copy the captures list into the registers following the args
             self.registers.extend(captures.data().iter().cloned());
         }
@@ -2829,10 +2827,7 @@ impl KotoVm {
         }
 
         match callable {
-            Function(f) => self.call_koto_function(info, &f, None, temp_tuple_values),
-            CaptureFunction(f) => {
-                self.call_koto_function(info, &f.info, Some(&f.captures), temp_tuple_values)
-            }
+            Function(f) => self.call_koto_function(info, &f, temp_tuple_values),
             NativeFunction(f) => self.call_native_function(info, ExternalCallable::Function(f)),
             Object(o) => self.call_native_function(info, ExternalCallable::Object(o)),
             Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {

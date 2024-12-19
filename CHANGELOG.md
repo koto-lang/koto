@@ -142,6 +142,7 @@ The Koto project adheres to
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
 - `KNumber::as_i64` has been removed in favour of `i64::from`.
+- `KValue::CaptureFunction` has been merged into `KValue::Function`.
 
 ### Fixed
 

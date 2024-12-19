@@ -9,8 +9,8 @@ pub struct KTuple(Inner);
 #[derive(Clone)]
 enum Inner {
     Full(Ptr<Vec<KValue>>),
-    Slice(Ptr<TupleSlice>),
-    Slice16(TupleSlice16),
+    Slice(TupleSlice16),
+    SliceLarge(Ptr<TupleSlice>),
 }
 
 impl KTuple {
@@ -22,8 +22,8 @@ impl KTuple {
     pub fn make_sub_tuple(&self, mut new_bounds: Range<usize>) -> Option<Self> {
         let slice = match &self.0 {
             Inner::Full(data) => TupleSlice::from(data.clone()),
-            Inner::Slice(slice) => slice.deref().clone(),
-            Inner::Slice16(slice) => TupleSlice::from(slice.clone()),
+            Inner::SliceLarge(slice) => slice.deref().clone(),
+            Inner::Slice(slice) => TupleSlice::from(slice.clone()),
         };
 
         new_bounds.start += slice.bounds.start;
@@ -62,7 +62,7 @@ impl KTuple {
                     None
                 }
             }
-            Inner::Slice(slice) => {
+            Inner::SliceLarge(slice) => {
                 if let Some(value) = slice.first().cloned() {
                     Ptr::make_mut(slice).bounds.start += 1;
                     Some(value)
@@ -70,7 +70,7 @@ impl KTuple {
                     None
                 }
             }
-            Inner::Slice16(slice) => {
+            Inner::Slice(slice) => {
                 if let Some(value) = slice.first().cloned() {
                     slice.bounds.start += 1;
                     Some(value)
@@ -98,7 +98,7 @@ impl KTuple {
                     None
                 }
             }
-            Inner::Slice(slice) => {
+            Inner::SliceLarge(slice) => {
                 if let Some(value) = slice.last().cloned() {
                     Ptr::make_mut(slice).bounds.end -= 1;
                     Some(value)
@@ -106,7 +106,7 @@ impl KTuple {
                     None
                 }
             }
-            Inner::Slice16(slice) => {
+            Inner::Slice(slice) => {
                 if let Some(value) = slice.last().cloned() {
                     slice.bounds.end -= 1;
                     Some(value)
@@ -121,8 +121,8 @@ impl KTuple {
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         let id = Ptr::address(match &self.0 {
             Inner::Full(data) => data,
+            Inner::SliceLarge(slice) => &slice.data,
             Inner::Slice(slice) => &slice.data,
-            Inner::Slice16(slice) => &slice.data,
         });
         ctx.push_container(id);
         ctx.append('(');
@@ -147,8 +147,8 @@ impl Deref for KTuple {
     fn deref(&self) -> &[KValue] {
         match &self.0 {
             Inner::Full(data) => data,
-            Inner::Slice16(slice) => slice.deref(),
             Inner::Slice(slice) => slice.deref(),
+            Inner::SliceLarge(slice) => slice.deref(),
         }
     }
 }
@@ -181,14 +181,14 @@ impl From<TupleSlice> for KTuple {
     fn from(slice: TupleSlice) -> Self {
         match TupleSlice16::try_from(slice) {
             Ok(slice16) => Self::from(slice16),
-            Err(slice) => Self(Inner::Slice(slice.into())),
+            Err(slice) => Self(Inner::SliceLarge(slice.into())),
         }
     }
 }
 
 impl From<TupleSlice16> for KTuple {
     fn from(slice: TupleSlice16) -> Self {
-        Self(Inner::Slice16(slice.into()))
+        Self(Inner::Slice(slice))
     }
 }
 
@@ -225,16 +225,6 @@ impl From<TupleSlice16> for TupleSlice {
 
 // A slice with 16bit bounds, allowing it to be stored in KTuple without the overhead of additional
 // allocation.
-//
-// Q. Why 16bit bounds, when the non-allocated slice in KString has 32bit bounds?
-// A. Because KValue can only have a single variant that has a size of 24 bytes to allow niche
-//    optimization to be performed, reusing KString's niche.
-//    If KTuple also had a size of 24 bytes, then niche optimization would fail (the compiler
-//    currently doesn't allow niches from variants with the same layout to be shared).
-// Q. Ok, but why not have 32bit bounds for tuple slices instead of string slices?
-// A. A call has to be made here, and I think maybe making string slices 16bit instead would be more
-//    sensible, opening the possibility of an alternative variant increasing in size to 24 and
-//    taking on the niche-provider role.
 #[derive(Clone)]
 struct TupleSlice16 {
     data: Ptr<Vec<KValue>>,
