@@ -101,10 +101,13 @@ Koto was influenced by and is indebted to many other languages.
 
 ### Editors
 
-Plugins that provide Koto support is available for the following editors:
+Plugins that provide Koto support are available for the following editors:
 - [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
+
+The next version of [Helix](https://helix-editor.com) editor will include built-in Koto support,
+and is available now if you're happy to [build it from source](https://docs.helix-editor.com/building-from-source.html).
 
 ### Tree-sitter
 
