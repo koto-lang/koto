@@ -108,7 +108,7 @@ See [`os.command`](#command)
 |Command, args...| -> Command
 ```
 
-Adds the given arguments to the command, and returns the command
+Adds the given arguments to the command, and returns the command.
 
 ### Example
 
@@ -121,10 +121,6 @@ check! ...
 ```
 
 ## Command.current_dir
-
-See [`os.command`](#command-1)
-
-## Command.args
 
 ```kototype
 |Command, path: String| -> Command
