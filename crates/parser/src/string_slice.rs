@@ -135,14 +135,20 @@ impl From<Ptr<String>> for StringSlice<usize> {
     }
 }
 
-impl From<&str> for StringSlice<usize> {
-    fn from(string: &str) -> Self {
+impl From<String> for StringSlice<usize> {
+    fn from(string: String) -> Self {
         let bounds = 0..string.len();
         Self {
-            data: string.to_string().into(),
+            data: string.into(),
             bounds,
             _niche: false,
         }
+    }
+}
+
+impl From<&str> for StringSlice<usize> {
+    fn from(string: &str) -> Self {
+        Self::from(string.to_string())
     }
 }
 
@@ -230,9 +236,9 @@ mod test {
 
     #[test]
     fn equality() {
-        let s1 = StringSlice::from("abc");
+        let s1 = StringSlice::from("abc".to_string());
         let s2 = StringSlice::from("xyz");
-        let s3 = StringSlice::new(Ptr::from("___xyz___".to_string()), 3..6).unwrap();
+        let s3 = StringSlice::from("___xyz___").with_bounds(3..6).unwrap();
         assert_ne!(s1, s2);
         assert_ne!(s1, s3);
         assert_eq!(s2, s3);
