@@ -161,7 +161,7 @@ impl Loader {
     pub fn compile_module(
         &mut self,
         module_name: &str,
-        current_script_path: Option<impl AsRef<Path>>,
+        current_script_path: Option<&Path>,
     ) -> Result<CompileModuleResult, LoaderError> {
         let module_path = find_module(module_name, current_script_path)?;
 
@@ -209,7 +209,7 @@ pub struct CompileModuleResult {
 /// provided then std::env::current_dir will be used.
 pub fn find_module(
     module_name: &str,
-    current_script_path: Option<impl AsRef<Path>>,
+    current_script_path: Option<&Path>,
 ) -> Result<PathBuf, LoaderError> {
     // Get the directory of the provided script path, or the current working directory
     let search_folder = match &current_script_path {
@@ -219,7 +219,7 @@ pub fn find_module(
                 match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
                     None => {
-                        let path = PathBuf::from(path.as_ref());
+                        let path = PathBuf::from(path);
                         return Err(LoaderErrorKind::FailedToGetPathParent(path).into());
                     }
                 }
