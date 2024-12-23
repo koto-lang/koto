@@ -214,12 +214,13 @@ check! Color(RGB, r: 0.2, g: 0.4, b: 0.3, a: 0.5)
 
 The `color` module's core color type.
 
-An `alpha` value is always present as the color's fourth component.
-
 The color may belong to various different color spaces, 
 with the space's components available via iteration or indexing.
 
-Components can be modified via index.
+The color's `alpha` value is always present as the color's fourth component.
+
+The color space's components can be modified via index, and the `alpha`
+component can also be modified via [`.set_alpha`](#color-set-alpha).
 
 
 ### Example
@@ -239,9 +240,47 @@ check! 1.0
 print! c = color.oklch 0.5, 0.1, 180
 check! Color(Oklch, l: 0.5, c: 0.1, h: 180, a: 1)
 c[0] = 0.25 # Set the lightness component to 0.25
-c[3] = 0.1 # Set the alpha component to 0.1
+c[1] = 0.1 # Set the chroma component to 0.1
 print c
-check! Color(Oklch, l: 0.25, c: 0.1, h: 180, a: 0.1)
+check! Color(Oklch, l: 0.25, c: 0.1, h: 180, a: 1)
+```
+
+## Color.alpha
+
+```kototype
+|Color| -> Number
+```
+
+Returns the color's alpha value.
+
+### Example
+
+```koto
+c = color 'red'
+
+print! c.alpha()
+check! 1.0
+
+c[3] = 0.5
+print! c.alpha()
+check! 0.5
+```
+
+## Color.set_alpha
+
+```kototype
+|Color, alpha: Number| -> Color
+```
+
+Sets the color's alpha component to the given value, and returns the color.
+
+### Example
+
+```koto
+c = color 'red'
+
+print! c.set_alpha(0.25).alpha()
+check! 0.25
 ```
 
 ## Color.mix
