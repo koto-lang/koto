@@ -1502,7 +1502,7 @@ check! hello
 
 #### `Callable`
 
-The `Callable` type hint will accept functions, or any value that can behave
+The `Callable` type hint will accept functions, or any object that can behave
 like a function.
 
 ```koto
@@ -2437,8 +2437,11 @@ check! 99
 
 ### `@test` functions and `@main`
 
-A module can export `@test` functions, which will be automatically run after
-the module has been compiled and initialized.
+A module can export `@test` functions, which by default will be automatically run
+after the module has been compiled and initialized.
+
+The runtime can be configured to skip running tests, so scripts shouldn't rely on
+tests being run.
 
 Additionally, a module can export a `@main` function.
 The `@main` function will be called after the module has been compiled and

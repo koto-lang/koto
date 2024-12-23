@@ -1,12 +1,12 @@
 A rendered version of this document can be found
 [here](https://koto.dev/docs/next/api).
 
-The Rust code examples are included from the 
+The Rust code examples are included from the
 [Koto examples dir](../../koto/examples).
 
 ---
 
-# Rust API Cookbook
+# Rust API
 
 ## Hello World
 
@@ -21,7 +21,7 @@ hello_world.rs
 The result of calling `compile_and_run` is a `KValue`, which is Koto's main
 value type.
 
-`KValue` is an enum that contains variants for each of the core Koto types, 
+`KValue` is an enum that contains variants for each of the core Koto types,
 like `Number`, `String`, etc.
 
 The type of a `KValue` as a string can be retrieved via `KValue::type_as_string`,
@@ -42,11 +42,11 @@ exported_values.rs
 
 ## Adding Values to the Prelude
 
-The runtime's prelude is a `KMap`, which is Koto's standard hashmap type. 
+The runtime's prelude is a `KMap`, which is Koto's standard hashmap type.
 
 Values can be added to the prelude via `KMap::insert`, taking any Rust value
 that implements `Into<KValue>`. Basic types like strings and numbers are
-automatically converted to corresponding Koto types. 
+automatically converted to corresponding Koto types.
 
 ```rust_include
 prelude_value.rs
@@ -64,7 +64,7 @@ args.rs
 ## Calling Rust Functions in Koto
 
 Any Rust function that implements `KotoFunction` can be made available to the
-Koto runtime. 
+Koto runtime.
 
 ```rust_include
 rust_function.rs
@@ -95,10 +95,32 @@ module.rs
 
 Any Rust type that implements `KotoObject` can be used in the Koto runtime.
 `KotoObject` requires `KotoType`, `KotoCopy`, and `KotoEntries` to be
-implemented. 
+implemented.
 
 ```rust_include
 rust_object.rs
 ```
 
 [type]: ./language_guide.md#type
+
+## Using the multi-threaded runtime
+
+By default, Koto's runtime is single-threaded, and many of its core types (e.g. `KValue`) don't
+implement `Send` or `Sync`.
+
+For applications that need to support multi-threaded scripting, the `arc` feature switches from an
+`Rc<RefCell<T>>`-based memory strategy to one using `Arc<RwLock<T>>`.
+
+Only one memory strategy can be enabled at a time, so default features need to be disabled.
+
+```toml
+# Cargo.toml
+# ...
+
+[dependencies.koto]
+version = "0.15"
+default-feautures = false
+features = ["arc"]
+```
+
+---
