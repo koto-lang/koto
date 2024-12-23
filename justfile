@@ -6,7 +6,7 @@ check_links:
   mlc --offline docs
 
 clippy:
-  cargo clippy --workspace -- -D warnings
+  cargo clippy --all-targets -- -D warnings
 
 clippy_rc:
   cargo clippy -p koto_memory --no-default-features --features rc -- -D warnings

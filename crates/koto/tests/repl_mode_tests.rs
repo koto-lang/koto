@@ -25,7 +25,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
 
     for (input, expected_output) in inputs_and_expected_outputs {
         match koto.compile(CompileArgs {
-            script: *input,
+            script: input,
             script_path: None,
             compiler_settings: CompilerSettings {
                 export_top_level_ids: true,

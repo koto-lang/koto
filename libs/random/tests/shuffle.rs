@@ -16,7 +16,7 @@ impl TestContainer {
     }
 
     #[koto_method]
-    fn to_tuple(&mut self) -> KValue {
+    fn to_tuple(&self) -> KValue {
         KTuple::from(self.data.clone()).into()
     }
 }
@@ -52,7 +52,7 @@ fn shuffle() -> StdResult<(), Box<dyn Error>> {
     prelude.insert("random", koto_random::make_module());
 
     prelude.add_fn("new_container", |ctx| {
-        let data: Vec<KValue> = ctx.args().iter().cloned().collect();
+        let data: Vec<KValue> = ctx.args().to_vec();
         Ok(KObject::from(TestContainer { data }).into())
     });
 

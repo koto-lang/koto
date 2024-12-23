@@ -228,7 +228,7 @@ mod test {
 
     #[test]
     fn split() {
-        let original = StringSlice::<usize>::try_from("hello, world!").unwrap();
+        let original = StringSlice::from("hello, world!");
         let (a, b) = original.split(6).unwrap();
         assert_eq!(a.as_str(), "hello,");
         assert_eq!(b.as_str(), " world!");
