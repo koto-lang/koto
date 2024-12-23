@@ -1,7 +1,7 @@
 //! A Koto language module for working with colors
 
 mod color;
-pub use color::Color;
+pub use color::{Color, Encoding};
 
 use koto_runtime::{prelude::*, Result};
 use palette::{Hsl, Hsla, Hsv, Hsva, Oklab, Oklaba, Oklch, Oklcha, Srgb, Srgba};

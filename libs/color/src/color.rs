@@ -11,12 +11,12 @@ macro_rules! color_comparison_op {
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(use_copy)]
 pub struct Color {
-    color: Encoding,
-    alpha: f32,
+    pub color: Encoding,
+    pub alpha: f32,
 }
 
 #[derive(Copy, Clone, From, PartialEq)]
-enum Encoding {
+pub enum Encoding {
     Srgb(palette::Srgb),
     Hsl(palette::Hsl),
     Hsv(palette::Hsv),
