@@ -1,4 +1,4 @@
-use crate::{prelude::*, Ptr, Result};
+use crate::{prelude::*, Error, Ptr, Result};
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
 use std::time::Duration;
@@ -76,11 +76,12 @@ impl Koto {
     /// default settings are appropriate, e.g. `koto.compile("1 + 1")`.
     pub fn compile<'a>(&mut self, args: impl Into<CompileArgs<'a>>) -> Result<Ptr<Chunk>> {
         let args = args.into();
-        let chunk = self.runtime.loader().borrow_mut().compile_script(
-            args.script,
-            args.script_path,
-            args.compiler_settings,
-        )?;
+        let chunk = self
+            .runtime
+            .loader()
+            .borrow_mut()
+            .compile_script(args.script, args.script_path, args.compiler_settings)
+            .map_err(Error::from)?;
 
         self.chunk = Some(chunk.clone());
         Ok(chunk)
@@ -91,7 +92,7 @@ impl Koto {
         let chunk = self.chunk.clone();
         match chunk {
             Some(chunk) => self.run_chunk(chunk),
-            None => runtime_error!("Nothing to run"),
+            None => Err(Error::NothingToRun),
         }
     }
 
@@ -115,7 +116,9 @@ impl Koto {
         function: KValue,
         args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
-        self.runtime.call_function(function, args)
+        self.runtime
+            .call_function(function, args)
+            .map_err(From::from)
     }
 
     /// Calls an instance function with the given arguments
@@ -129,11 +132,12 @@ impl Koto {
     ) -> Result<KValue> {
         self.runtime
             .call_instance_function(instance, function, args)
+            .map_err(From::from)
     }
 
     /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: KValue) -> Result<String> {
-        self.runtime.value_to_string(&value)
+        self.runtime.value_to_string(&value).map_err(From::from)
     }
 
     /// Clears the loader's cached modules
@@ -157,7 +161,7 @@ impl Koto {
                 map.insert("args", Tuple(koto_args.into()));
                 Ok(())
             }
-            _ => runtime_error!("missing koto module in the prelude"),
+            _ => Err(Error::MissingPrelude),
         }
     }
 
@@ -178,7 +182,7 @@ impl Koto {
 
         let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
         if let Some(main) = maybe_main {
-            self.runtime.call_function(main, &[])
+            self.runtime.call_function(main, &[]).map_err(From::from)
         } else {
             Ok(result)
         }

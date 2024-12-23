@@ -1,4 +1,4 @@
-use koto::{derive::*, prelude::*, Result};
+use koto::{derive::*, prelude::*, runtime::Result};
 
 fn main() {
     let script = "
