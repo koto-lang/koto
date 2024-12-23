@@ -43,8 +43,8 @@ jobs:
       - name: Test with optimizations
         run: just test_release --verbose
 
-  build_and_test_rc:
-    # We don't need to test rc builds on all platforms for now
+  build_and_test_arc:
+    # We don't need to test arc builds on all platforms for now
     runs-on: ubuntu-latest
 
     steps:
@@ -54,11 +54,11 @@ jobs:
         with:
           tool: just@1.5.0
 
-      - name: Test the rc build variant
-        run: just test_rc --verbose
+      - name: Test the arc build variant
+        run: just test_arc --verbose
 
-  build_and_test_release_rc:
-    # We don't need to test rc builds on all platforms for now
+  build_and_test_release_arc:
+    # We don't need to test arc builds on all platforms for now
     runs-on: ubuntu-latest
 
     steps:
@@ -68,8 +68,8 @@ jobs:
         with:
           tool: just@1.5.0
 
-      - name: Test the rc build variant
-        run: just test_rc --release --verbose
+      - name: Test the arc build variant
+        run: just test_arc --release --verbose
 
   code_checks:
     runs-on: ubuntu-latest

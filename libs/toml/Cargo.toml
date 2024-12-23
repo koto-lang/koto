@@ -1,16 +1,20 @@
 [package]
 name = "koto_toml"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
-license = "MIT"
 description = "A Koto library for working with TOML data"
-homepage = "https://koto.dev"
-repository = "https://github.com/koto-lang/koto"
-keywords = ["scripting", "language", "koto"]
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
 
 [features]
-default = ["arc"]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 

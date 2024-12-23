@@ -1,13 +1,15 @@
 [package]
 name = "koto_serialize"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
-license = "MIT"
 description = "Serde serialization support for the Koto programming language"
-homepage = "https://koto.dev"
-repository = "https://github.com/koto-lang/koto"
-keywords = ["scripting", "language", "koto"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde = { workspace = true }

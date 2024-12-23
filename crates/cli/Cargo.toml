@@ -1,28 +1,38 @@
 [package]
 name = "koto_cli"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
-license = "MIT"
 description = "A CLI and script runner for the Koto programming language"
-homepage = "https://koto.dev"
-repository = "https://github.com/koto-lang/koto"
-keywords = ["scripting", "language", "koto"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto/arc"]
+rc = ["koto/rc"]
 
 [[bin]]
 name = "koto"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../koto", version = "^0.15.0" }
-koto_color = { path = "../../libs/color", version = "^0.15.0" }
-koto_geometry = { path = "../../libs/geometry", version = "^0.15.0" }
-koto_json = { path = "../../libs/json", version = "^0.15.0" }
-koto_random = { path = "../../libs/random", version = "^0.15.0" }
-koto_regex = { path = "../../libs/regex", version = "^0.15.0" }
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.15.0" }
-koto_toml = { path = "../../libs/toml", version = "^0.15.0" }
-koto_yaml = { path = "../../libs/yaml", version = "^0.15.0" }
+koto = { path = "../koto", version = "^0.15.0", default-features = false }
+koto_color = { path = "../../libs/color", version = "^0.15.0", default-features = false }
+koto_geometry = { path = "../../libs/geometry", version = "^0.15.0", default-features = false }
+koto_json = { path = "../../libs/json", version = "^0.15.0", default-features = false }
+koto_random = { path = "../../libs/random", version = "^0.15.0", default-features = false }
+koto_regex = { path = "../../libs/regex", version = "^0.15.0", default-features = false }
+koto_tempfile = { path = "../../libs/tempfile", version = "^0.15.0", default-features = false }
+koto_toml = { path = "../../libs/toml", version = "^0.15.0", default-features = false }
+koto_yaml = { path = "../../libs/yaml", version = "^0.15.0", default-features = false }
 
 anyhow = { workspace = true }
 home = { workspace = true }

@@ -1,4 +1,4 @@
-use koto::prelude::*;
+use koto::{prelude::*, runtime::Result};
 
 fn main() {
     let script = "
@@ -21,7 +21,7 @@ print plus 10, 20
     koto.compile_and_run(script).unwrap();
 }
 
-fn say_hello(ctx: &mut CallContext) -> koto::Result<KValue> {
+fn say_hello(ctx: &mut CallContext) -> Result<KValue> {
     match ctx.args() {
         [] => println!("Hello?"),
         [KValue::Str(name)] => println!("Hello, {name}"),

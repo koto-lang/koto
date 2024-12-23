@@ -14,7 +14,6 @@ fn run_script(script: &str, script_path: PathBuf, expected_module_paths: &[PathB
                 run_import_tests: true,
                 ..Default::default()
             },
-            ..Default::default()
         }
         .with_module_imported_callback({
             let loaded_module_paths = loaded_module_paths.clone();

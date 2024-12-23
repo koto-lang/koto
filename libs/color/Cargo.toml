@@ -1,13 +1,15 @@
 [package]
 name = "koto_color"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
-license = "MIT"
 description = "A Koto library containing simple color utilities"
-homepage = "https://koto.dev"
-repository = "https://github.com/koto-lang/koto"
-keywords = ["scripting", "language", "koto"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 
 [dependencies]
 derive_more = { workspace = true, features = ["from"] }

@@ -1,10 +1,12 @@
 [package]
 name = "koto_poetry"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
 autobins = false
 publish = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [[example]]
 name = "poetry"

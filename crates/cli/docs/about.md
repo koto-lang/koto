@@ -73,16 +73,19 @@ the [CLI](./cli.md), and see how well it works in your
 - **Built-in testing:** Automated testing has
   [first-class support in Koto][testing], making it natural to write tests along
   with your code.
+- **Optional multi-threaded runtime** By default, Koto has a single-threaded
+  runtime. For applications that require multi-threaded scripting,
+  a [feature flag][api-multi-threaded] enables a thread-safe runtime.
 - **Tooling:** Support for Koto is available for [several popular editors](#editors).
   [Tree-sitter](#tree-sitter) and [LSP](#lsp) implementations are also available.
   Auto-formatting and linting are future topics, contributions are welcome!
 
 ### Missing/Incomplete Features
 
-- **Async tasks:** Koto doesn't have support for asynchronous tasks,
-  support [could be added][async] in the future.
+- **Async tasks:** Koto doesn't have support for `async`/`await`-style
+  asynchronous tasks, although support [is planned][async] for the future.
 - **Integration with other languages:** There's currently no C API for Koto,
-  which would allow it to be integrated with other languages.
+  which would allow it to be integrated with languages other than Rust.
 
 ## Influences
 
@@ -106,12 +109,12 @@ Plugins that provide Koto support are available for the following editors:
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
 
-The next version of [Helix](https://helix-editor.com) editor will include built-in Koto support,
-and is available now if you're happy to [build it from source](https://docs.helix-editor.com/building-from-source.html).
+The upcoming release of [Helix][helix] editor will include built-in Koto support,
+and is available now if you [build it from source][helix-build].
 
 ### Tree-sitter
 
-A [Tree-sitter][tree-sitter] implementation is [available here](https://github.com/koto-lang/tree-sitter-koto).
+A [Tree-sitter][tree-sitter] implementation is [available here][tree-sitter-koto].
 If you're using Neovim then it's easy to set up with [nvim-treesitter][nvim-treesitter].
 
 ### LSP
@@ -119,12 +122,15 @@ If you're using Neovim then it's easy to set up with [nvim-treesitter][nvim-tree
 An implementation of the [Language Server Protocol][lsp] for Koto is
 [available here][koto-ls].
 
+---
 
-
+[api-multi-threaded]: ./api.md#using-the-multi-threaded-runtime
 [async]: https://github.com/koto-lang/koto/issues/277
 [coffeescript]: https://coffeescript.org
 [discord]: https://discord.gg/JeV8RuK4CT
 [discussions]: https://github.com/koto-lang/koto/discussions
+[helix]: https://helix-editor.com
+[helix-build]: https://docs.helix-editor.com/building-from-source.html
 [issues]: https://github.com/koto-lang/koto/issues
 [iterator]: ./core_lib/iterator.md
 [koto]: https://koto.dev
@@ -139,4 +145,5 @@ An implementation of the [Language Server Protocol][lsp] for Koto is
 [rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html
 [testing]: ./language_guide.md#testing
 [tree-sitter]: https://tree-sitter.github.io/tree-sitter/
+[tree-sitter-koto]: https://github.com/koto-lang/tree-sitter-koto
 [type-hints]: https://github.com/koto-lang/koto/issues/298

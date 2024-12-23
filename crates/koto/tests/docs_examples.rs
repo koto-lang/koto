@@ -1,4 +1,4 @@
-use koto::{prelude::*, Result};
+use koto::{prelude::*, runtime::Result};
 use koto_test_utils::run_koto_examples_in_markdown;
 use std::{fs, path::PathBuf};
 

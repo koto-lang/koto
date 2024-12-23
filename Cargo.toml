@@ -2,6 +2,15 @@
 members = ["crates/*", "crates/koto/examples/*", "libs/*"]
 resolver = "2"
 
+[workspace.package]
+authors = ["irh <ian.r.hobson@gmail.com>"]
+edition = "2021"
+homepage = "https://koto.dev"
+keywords = ["scripting", "language", "koto"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/koto-lang/koto"
+
 [workspace.dependencies]
 # Flexible concrete Error type built on std::error::Error
 anyhow = "1.0.75"
