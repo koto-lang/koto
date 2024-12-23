@@ -1,10 +1,12 @@
+default: checks
+
 bench:
   cargo bench -p koto
 
-bench_rc:
-  cargo bench -p koto --no-default-features --features rc
+bench_arc:
+  cargo bench -p koto --no-default-features --features arc
 
-checks: test test_rc clippy clippy_rc fmt check_links doc wasm
+checks: test test_arc clippy clippy_arc fmt check_links doc wasm
 
 check_links:
   mlc --offline README.md
@@ -14,8 +16,8 @@ check_links:
 clippy:
   cargo clippy --all-targets -- -D warnings
 
-clippy_rc:
-  cargo clippy -p koto_memory --no-default-features --features rc -- -D warnings
+clippy_arc:
+  cargo clippy -p koto_memory --no-default-features --features arc -- -D warnings
 
 doc *args:
   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --exclude koto_cli {{args}}
@@ -32,14 +34,14 @@ temp *args:
 test *args:
   cargo test {{args}}
 
-test_rc *args:
-  cargo test --tests --no-default-features --features rc \
+test_arc *args:
+  cargo test --tests --no-default-features --features arc \
     -p koto_parser \
     -p koto_bytecode \
     -p koto_runtime \
     -p koto \
     {{args}}
-  just test_libs --no-default-features --features rc
+  just test_libs --no-default-features --features arc
 
 test_benches:
   cargo test --benches

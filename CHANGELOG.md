@@ -88,6 +88,9 @@ The Koto project adheres to
 
 #### API
 
+- The single-threaded runtime flavor (`rc`) is now the default.
+  Applications that require a multi-threaded runtime should disable default
+  features and use the `arc` feature.
 - The line and column numbers referred to in spans are now zero-based. 
 - Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
 - `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.

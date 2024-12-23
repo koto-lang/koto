@@ -1,20 +1,24 @@
 [package]
 name = "koto_derive"
 version = "0.15.0"
-authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2021"
-license = "MIT"
 description = "Macros for working with the Koto programming language"
-homepage = "https://koto.dev"
-repository = "https://github.com/koto-lang/koto"
-keywords = ["scripting", "language", "koto"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 
 [lib]
 proc-macro = true
 
 [features]
-default = ["arc"]
-# One memory management scheme can be enabled at a time
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
 arc = []
 rc = []
 
