@@ -1,3 +1,9 @@
+bench:
+  cargo bench -p koto
+
+bench_rc:
+  cargo bench -p koto --no-default-features --features rc
+
 checks: test test_rc clippy clippy_rc fmt check_links doc wasm
 
 check_links:
