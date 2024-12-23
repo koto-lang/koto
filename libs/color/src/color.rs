@@ -8,14 +8,20 @@ macro_rules! color_comparison_op {
     ($self:ident, $rhs:expr, $op:tt) => {{}};
 }
 
-#[derive(Copy, Clone, From, PartialEq, KotoCopy, KotoType)]
+#[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(use_copy)]
-pub enum Color {
-    Srgb(palette::Srgba),
-    Hsl(palette::Hsla),
-    Hsv(palette::Hsva),
-    Oklab(palette::Oklaba),
-    Oklch(palette::Oklcha),
+pub struct Color {
+    color: Encoding,
+    alpha: f32,
+}
+
+#[derive(Copy, Clone, From, PartialEq)]
+enum Encoding {
+    Srgb(palette::Srgb),
+    Hsl(palette::Hsl),
+    Hsv(palette::Hsv),
+    Oklab(palette::Oklab),
+    Oklch(palette::Oklch),
 }
 
 #[koto_impl(runtime = koto_runtime)]
@@ -33,29 +39,23 @@ impl Color {
     }
 
     pub fn get_component(&self, index: usize) -> Option<f32> {
-        use Color::*;
-
-        let result = match (self, index) {
-            (Srgb(c), 0) => c.color.red,
-            (Srgb(c), 1) => c.color.green,
-            (Srgb(c), 2) => c.color.blue,
-            (Srgb(c), 3) => c.alpha,
-            (Hsl(c), 0) => c.color.hue.into_inner(),
-            (Hsl(c), 1) => c.color.saturation,
-            (Hsl(c), 2) => c.color.lightness,
-            (Hsl(c), 3) => c.alpha,
-            (Hsv(c), 0) => c.color.hue.into_inner(),
-            (Hsv(c), 1) => c.color.saturation,
-            (Hsv(c), 2) => c.color.value,
-            (Hsv(c), 3) => c.alpha,
-            (Oklab(c), 0) => c.color.l,
-            (Oklab(c), 1) => c.color.a,
-            (Oklab(c), 2) => c.color.b,
-            (Oklab(c), 3) => c.alpha,
-            (Oklch(c), 0) => c.color.l,
-            (Oklch(c), 1) => c.color.chroma,
-            (Oklch(c), 2) => c.color.hue.into_inner(),
-            (Oklch(c), 3) => c.alpha,
+        let result = match (&self.color, index) {
+            (Encoding::Srgb(c), 0) => c.red,
+            (Encoding::Srgb(c), 1) => c.green,
+            (Encoding::Srgb(c), 2) => c.blue,
+            (Encoding::Hsl(c), 0) => c.hue.into_inner(),
+            (Encoding::Hsl(c), 1) => c.saturation,
+            (Encoding::Hsl(c), 2) => c.lightness,
+            (Encoding::Hsv(c), 0) => c.hue.into_inner(),
+            (Encoding::Hsv(c), 1) => c.saturation,
+            (Encoding::Hsv(c), 2) => c.value,
+            (Encoding::Oklab(c), 0) => c.l,
+            (Encoding::Oklab(c), 1) => c.a,
+            (Encoding::Oklab(c), 2) => c.b,
+            (Encoding::Oklch(c), 0) => c.l,
+            (Encoding::Oklch(c), 1) => c.chroma,
+            (Encoding::Oklch(c), 2) => c.hue.into_inner(),
+            (_, 3) => self.alpha,
             _ => return None,
         };
 
@@ -63,29 +63,23 @@ impl Color {
     }
 
     pub fn set_component(&mut self, index: usize, value: f32) -> Result<()> {
-        use Color::*;
-
-        match (self, index) {
-            (Srgb(c), 0) => c.color.red = value,
-            (Srgb(c), 1) => c.color.green = value,
-            (Srgb(c), 2) => c.color.blue = value,
-            (Srgb(c), 3) => c.alpha = value,
-            (Hsl(c), 0) => c.color.hue = value.into(),
-            (Hsl(c), 1) => c.color.saturation = value,
-            (Hsl(c), 2) => c.color.lightness = value,
-            (Hsl(c), 3) => c.alpha = value,
-            (Hsv(c), 0) => c.color.hue = value.into(),
-            (Hsv(c), 1) => c.color.saturation = value,
-            (Hsv(c), 2) => c.color.value = value,
-            (Hsv(c), 3) => c.alpha = value,
-            (Oklab(c), 0) => c.color.l = value,
-            (Oklab(c), 1) => c.color.a = value,
-            (Oklab(c), 2) => c.color.b = value,
-            (Oklab(c), 3) => c.alpha = value,
-            (Oklch(c), 0) => c.color.l = value,
-            (Oklch(c), 1) => c.color.chroma = value,
-            (Oklch(c), 2) => c.color.hue = value.into(),
-            (Oklch(c), 3) => c.alpha = value,
+        match (&mut self.color, index) {
+            (Encoding::Srgb(c), 0) => c.red = value,
+            (Encoding::Srgb(c), 1) => c.green = value,
+            (Encoding::Srgb(c), 2) => c.blue = value,
+            (Encoding::Hsl(c), 0) => c.hue = value.into(),
+            (Encoding::Hsl(c), 1) => c.saturation = value,
+            (Encoding::Hsl(c), 2) => c.lightness = value,
+            (Encoding::Hsv(c), 0) => c.hue = value.into(),
+            (Encoding::Hsv(c), 1) => c.saturation = value,
+            (Encoding::Hsv(c), 2) => c.value = value,
+            (Encoding::Oklab(c), 0) => c.l = value,
+            (Encoding::Oklab(c), 1) => c.a = value,
+            (Encoding::Oklab(c), 2) => c.b = value,
+            (Encoding::Oklch(c), 0) => c.l = value,
+            (Encoding::Oklch(c), 1) => c.chroma = value,
+            (Encoding::Oklch(c), 2) => c.hue = value.into(),
+            (_, 3) => self.alpha = value,
             _ => return runtime_error!("Invalid component index ({index})"),
         }
 
@@ -93,15 +87,28 @@ impl Color {
     }
 
     pub fn color_space_str(&self) -> &str {
-        use Color::*;
-
-        match self {
-            Srgb(_) => "RGB",
-            Hsl(_) => "HSL",
-            Hsv(_) => "HSV",
-            Oklab(_) => "Oklab",
-            Oklch(_) => "Oklch",
+        match &self.color {
+            Encoding::Srgb(_) => "RGB",
+            Encoding::Hsl(_) => "HSL",
+            Encoding::Hsv(_) => "HSV",
+            Encoding::Oklab(_) => "Oklab",
+            Encoding::Oklch(_) => "Oklch",
         }
+    }
+
+    #[koto_method]
+    pub fn alpha(&self) -> KValue {
+        self.alpha.into()
+    }
+
+    #[koto_method]
+    pub fn set_alpha(ctx: MethodContext<Self>) -> Result<KValue> {
+        match ctx.args {
+            [KValue::Number(n)] => ctx.instance_mut()?.alpha = n.into(),
+            unexpected => return unexpected_args("|Number|", unexpected),
+        }
+
+        ctx.instance_result()
     }
 
     #[koto_method]
@@ -122,14 +129,13 @@ impl Color {
         };
 
         use palette::Mix;
-        use Color::*;
 
-        let result: Color = match (a, b) {
-            (Srgb(a), Srgb(b)) => a.mix(b, amount).into(),
-            (Hsl(a), Hsl(b)) => a.mix(b, amount).into(),
-            (Hsv(a), Hsv(b)) => a.mix(b, amount).into(),
-            (Oklab(a), Oklab(b)) => a.mix(b, amount).into(),
-            (Oklch(a), Oklch(b)) => a.mix(b, amount).into(),
+        let mixed: Encoding = match (&a.color, &b.color) {
+            (Encoding::Srgb(a), Encoding::Srgb(b)) => a.mix(*b, amount).into(),
+            (Encoding::Hsl(a), Encoding::Hsl(b)) => a.mix(*b, amount).into(),
+            (Encoding::Hsv(a), Encoding::Hsv(b)) => a.mix(*b, amount).into(),
+            (Encoding::Oklab(a), Encoding::Oklab(b)) => a.mix(*b, amount).into(),
+            (Encoding::Oklch(a), Encoding::Oklch(b)) => a.mix(*b, amount).into(),
             _ => {
                 return runtime_error!(
                     "mix only works with matching color spaces (found {}, {})",
@@ -137,6 +143,11 @@ impl Color {
                     b.color_space_str()
                 )
             }
+        };
+
+        let result = Self {
+            color: mixed,
+            alpha: (a.alpha + b.alpha) * 0.5,
         };
 
         Ok(result.into())
@@ -238,49 +249,45 @@ impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Color({}, ", self.color_space_str())?;
 
-        match self {
-            Color::Srgb(c) => {
+        match &self.color {
+            Encoding::Srgb(c) => {
                 write!(
                     f,
                     "r: {}, g: {}, b: {}, a: {}",
-                    c.color.red, c.color.green, c.color.blue, c.alpha
+                    c.red, c.green, c.blue, self.alpha
                 )?;
             }
-            Color::Hsl(c) => {
+            Encoding::Hsl(c) => {
                 write!(
                     f,
                     "h: {}, s: {}, l: {}, a: {}",
-                    c.color.hue.into_inner(),
-                    c.color.saturation,
-                    c.color.lightness,
-                    c.alpha
+                    c.hue.into_inner(),
+                    c.saturation,
+                    c.lightness,
+                    self.alpha
                 )?;
             }
-            Color::Hsv(c) => {
+            Encoding::Hsv(c) => {
                 write!(
                     f,
                     "h: {}, s: {}, v: {}, a: {}",
-                    c.color.hue.into_inner(),
-                    c.color.saturation,
-                    c.color.value,
-                    c.alpha
+                    c.hue.into_inner(),
+                    c.saturation,
+                    c.value,
+                    self.alpha
                 )?;
             }
-            Color::Oklab(c) => {
-                write!(
-                    f,
-                    "l: {}, a: {}, b: {}, a: {}",
-                    c.color.l, c.color.a, c.color.b, c.alpha
-                )?;
+            Encoding::Oklab(c) => {
+                write!(f, "l: {}, a: {}, b: {}, a: {}", c.l, c.a, c.b, self.alpha)?;
             }
-            Color::Oklch(c) => {
+            Encoding::Oklch(c) => {
                 write!(
                     f,
                     "l: {}, c: {}, h: {}, a: {}",
-                    c.color.l,
-                    c.color.chroma,
-                    c.color.hue.into_inner(),
-                    c.alpha
+                    c.l,
+                    c.chroma,
+                    c.hue.into_inner(),
+                    self.alpha
                 )?;
             }
         }
@@ -289,90 +296,154 @@ impl fmt::Display for Color {
     }
 }
 
+impl From<Encoding> for Color {
+    fn from(color: Encoding) -> Self {
+        Self { color, alpha: 1.0 }
+    }
+}
+
 impl From<palette::Srgb<u8>> for Color {
     fn from(c: palette::Srgb<u8>) -> Self {
-        palette::Srgba::new(
+        Encoding::from(palette::Srgb::new(
             c.red as f32 / 255.0,
             c.green as f32 / 255.0,
             c.blue as f32 / 255.0,
-            1.0,
-        )
+        ))
         .into()
     }
 }
 
-impl From<Color> for KValue {
-    fn from(color: Color) -> Self {
-        KObject::from(color).into()
+impl From<palette::Srgba> for Color {
+    fn from(c: palette::Srgba) -> Self {
+        Self {
+            color: Encoding::from(c.color),
+            alpha: c.alpha,
+        }
+    }
+}
+
+impl From<palette::Hsla> for Color {
+    fn from(c: palette::Hsla) -> Self {
+        Self {
+            color: Encoding::from(c.color),
+            alpha: c.alpha,
+        }
+    }
+}
+
+impl From<palette::Hsva> for Color {
+    fn from(c: palette::Hsva) -> Self {
+        Self {
+            color: Encoding::from(c.color),
+            alpha: c.alpha,
+        }
+    }
+}
+
+impl From<palette::Oklaba> for Color {
+    fn from(c: palette::Oklaba) -> Self {
+        Self {
+            color: Encoding::from(c.color),
+            alpha: c.alpha,
+        }
+    }
+}
+
+impl From<palette::Oklcha> for Color {
+    fn from(c: palette::Oklcha) -> Self {
+        Self {
+            color: Encoding::from(c.color),
+            alpha: c.alpha,
+        }
     }
 }
 
 impl From<Color> for palette::Srgba {
     fn from(color: Color) -> Self {
-        use Color::*;
-
-        match color {
-            Srgb(c) => c,
-            Hsl(c) => Self::from_color(c),
-            Hsv(c) => Self::from_color(c),
-            Oklab(c) => Self::from_color(c),
-            Oklch(c) => Self::from_color(c),
+        let inner = match color.color {
+            Encoding::Srgb(c) => c,
+            Encoding::Hsl(c) => palette::Srgb::from_color(c),
+            Encoding::Hsv(c) => palette::Srgb::from_color(c),
+            Encoding::Oklab(c) => palette::Srgb::from_color(c),
+            Encoding::Oklch(c) => palette::Srgb::from_color(c),
+        };
+        Self {
+            color: inner,
+            alpha: color.alpha,
         }
     }
 }
 
 impl From<Color> for palette::Hsla {
     fn from(color: Color) -> Self {
-        use Color::*;
+        let inner = match color.color {
+            Encoding::Srgb(c) => palette::Hsl::from_color(c),
+            Encoding::Hsl(c) => c,
+            Encoding::Hsv(c) => palette::Hsl::from_color(c),
+            Encoding::Oklab(c) => palette::Hsl::from_color(c),
+            Encoding::Oklch(c) => palette::Hsl::from_color(c),
+        };
 
-        match color {
-            Srgb(c) => Self::from_color(c),
-            Hsl(c) => c,
-            Hsv(c) => Self::from_color(c),
-            Oklab(c) => Self::from_color(c),
-            Oklch(c) => Self::from_color(c),
+        Self {
+            color: inner,
+            alpha: color.alpha,
         }
     }
 }
 
 impl From<Color> for palette::Hsva {
     fn from(color: Color) -> Self {
-        use Color::*;
+        let inner = match color.color {
+            Encoding::Srgb(c) => palette::Hsv::from_color(c),
+            Encoding::Hsl(c) => palette::Hsv::from_color(c),
+            Encoding::Hsv(c) => c,
+            Encoding::Oklab(c) => palette::Hsv::from_color(c),
+            Encoding::Oklch(c) => palette::Hsv::from_color(c),
+        };
 
-        match color {
-            Srgb(c) => Self::from_color(c),
-            Hsl(c) => Self::from_color(c),
-            Hsv(c) => c,
-            Oklab(c) => Self::from_color(c),
-            Oklch(c) => Self::from_color(c),
+        Self {
+            color: inner,
+            alpha: color.alpha,
         }
     }
 }
 
 impl From<Color> for palette::Oklaba {
     fn from(color: Color) -> Self {
-        use Color::*;
+        let inner = match color.color {
+            Encoding::Srgb(c) => palette::Oklab::from_color(c),
+            Encoding::Hsl(c) => palette::Oklab::from_color(c),
+            Encoding::Hsv(c) => palette::Oklab::from_color(c),
+            Encoding::Oklab(c) => c,
+            Encoding::Oklch(c) => palette::Oklab::from_color(c),
+        };
 
-        match color {
-            Srgb(c) => Self::from_color(c),
-            Hsl(c) => Self::from_color(c),
-            Hsv(c) => Self::from_color(c),
-            Oklab(c) => c,
-            Oklch(c) => Self::from_color(c),
+        Self {
+            color: inner,
+            alpha: color.alpha,
         }
     }
 }
 
 impl From<Color> for palette::Oklcha {
     fn from(color: Color) -> Self {
-        use Color::*;
+        let inner = match color.color {
+            Encoding::Srgb(c) => palette::Oklch::from_color(c),
+            Encoding::Hsl(c) => palette::Oklch::from_color(c),
+            Encoding::Hsv(c) => palette::Oklch::from_color(c),
+            Encoding::Oklab(c) => palette::Oklch::from_color(c),
+            Encoding::Oklch(c) => c,
+        };
 
-        match color {
-            Srgb(c) => Self::from_color(c),
-            Hsl(c) => Self::from_color(c),
-            Hsv(c) => Self::from_color(c),
-            Oklab(c) => Self::from_color(c),
-            Oklch(c) => c,
+        Self {
+            color: inner,
+            alpha: color.alpha,
         }
+    }
+}
+
+impl From<Color> for KValue {
+    fn from(color: Color) -> Self {
+        KObject::from(color).into()
     }
 }
