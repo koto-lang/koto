@@ -152,10 +152,10 @@ check! {a: 1, c: 3}
 ## hash
 
 ```kototype
-|value: Any| -> Number or Null
+|value: Any| -> Number?
 ```
 
-Returns the value's hash as an integer, or Null if the value is not hashable.
+Returns the value's hash as an integer, or `null` if the value is not hashable.
 
 ### Example
 
@@ -228,7 +228,7 @@ check! 10
 ## script_dir
 
 ```kototype
-|| -> String or Null
+|| -> String?
 ```
 
 Returns the path of the directory containing the current script, if available.
@@ -236,7 +236,7 @@ Returns the path of the directory containing the current script, if available.
 ## script_path
 
 ```kototype
-|| -> String or Null
+|| -> String?
 ```
 
 Returns the path of the file containing the current script, if available.

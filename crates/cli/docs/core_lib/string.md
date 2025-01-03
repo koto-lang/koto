@@ -298,7 +298,7 @@ check! o_o
 ## to_number
 
 ```kototype
-|String| -> Number
+|String| -> Number?
 ```
 
 Returns the string converted into a number.
@@ -307,10 +307,10 @@ Returns the string converted into a number.
 - Otherwise the number is assumed to be base 10, and the presence of a decimal
   point will produce a float instead of an integer.
 
-If a number can't be produced then `Null` is returned.
+If a number can't be produced then `null` is returned.
 
 ```kototype
-|String, base: Number| -> Number
+|String, base: Number| -> Number?
 ```
 
 Returns the string converted into a number given the specified `base`.

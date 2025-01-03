@@ -80,10 +80,10 @@ check! [99, 99, 99]
 ## first
 
 ```kototype
-|List| -> Any
+|List| -> Any?
 ```
 
-Returns the first value in the list, or Null if the list is empty.
+Returns the first value in the list, or `null` if the list is empty.
 
 ### Example
 
@@ -103,10 +103,10 @@ check! null
 ## get
 
 ```kototype
-|List, index: Number| -> Any
+|List, index: Number| -> Any?
 ```
 ```kototype
-|List, index: Number, default: Any| -> Any
+|List, index: Number, default: Any| -> Any?
 ```
 
 Gets the element at the given `index` in the list.
@@ -184,10 +184,10 @@ check! false
 ## last
 
 ```kototype
-|List| -> Any
+|List| -> Any?
 ```
 
-Returns the last value in the list, or Null if the list is empty.
+Returns the last value in the list, or `null` if the list is empty.
 
 ### Example
 
@@ -207,12 +207,12 @@ check! null
 ## pop
 
 ```kototype
-|List| -> Any
+|List| -> Any?
 ```
 
 Removes the last value from the list and returns it.
 
-If the list is empty then Null is returned.
+If the list is empty then `null` is returned.
 
 ### Example
 
@@ -235,7 +235,7 @@ check! null
 ## push
 
 ```kototype
-|List, value: Any| -> Any
+|List, value: Any| -> List
 ```
 
 Adds the `value` to the end of the list, and returns the list.
@@ -260,9 +260,9 @@ check! [99, -1, 'hello']
 |List, position: Number| -> Any
 ```
 
-Removes the value at the given position from the list and returns it.
+Removes the value at the given position from the list, and returns the removed value.
 
-Throws an error if the position isn't a valid index in the list.
+An error is thrown if the position isn't a valid index in the list.
 
 ### Example
 

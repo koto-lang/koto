@@ -520,6 +520,15 @@ x
         }
 
         #[test]
+        fn assigning_an_optional_string() {
+            let script = "
+let x: String? = null
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
         fn multi_assignment() {
             let script = "
 let x: String, y: Bool, z: Number = 'foo', true, 123

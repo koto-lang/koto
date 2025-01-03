@@ -967,10 +967,7 @@ impl<'source> Parser<'source> {
         // Check for output type hint
         let output_type = if self.peek_next_token_on_same_line() == Some(Token::Arrow) {
             self.consume_token_with_context(&args_context); // ->
-            let Some((output_type, _)) = self.parse_id(&args_context)? else {
-                return self.consume_token_and_error(SyntaxError::ExpectedType);
-            };
-            Some(self.push_node(Node::Type(output_type))?)
+            self.consume_type(&args_context).map(Some)?
         } else {
             None
         };
@@ -1034,7 +1031,11 @@ impl<'source> Parser<'source> {
         };
 
         self.consume_token_with_context(context); // :
-        let Some((type_hint, _)) = self.parse_id(context)? else {
+        self.consume_type(context).map(Some)
+    }
+
+    fn consume_type(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+        let Some((type_index, _)) = self.parse_id(context)? else {
             return self.consume_token_and_error(SyntaxError::ExpectedType);
         };
 
@@ -1043,8 +1044,18 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(SyntaxError::NestedTypesArentSupported);
         };
 
-        let result = self.push_node(Node::Type(type_hint))?;
-        Ok(Some(result))
+        let allow_null = match self.peek_token() {
+            Some(Token::QuestionMark) => {
+                self.consume_token();
+                true
+            }
+            _ => false,
+        };
+
+        self.push_node(Node::Type {
+            type_index,
+            allow_null,
+        })
     }
 
     // Helper for parse_function() that recursively parses nested function arguments

@@ -62,7 +62,17 @@ mod parser {
     }
 
     fn type_hint(constant: u32) -> Node {
-        Node::Type(constant.into())
+        Node::Type {
+            type_index: constant.into(),
+            allow_null: false,
+        }
+    }
+
+    fn optional_type_hint(constant: u32) -> Node {
+        Node::Type {
+            type_index: constant.into(),
+            allow_null: true,
+        }
     }
 
     fn int(constant: u32) -> Node {
@@ -1409,6 +1419,33 @@ x %= 4";
         }
 
         #[test]
+        fn string_with_optional_type_hint() {
+            let source = "let a: String? = 'hello'";
+
+            check_ast(
+                source,
+                &[
+                    optional_type_hint(1),   // String?
+                    id_with_type_hint(0, 0), // a
+                    string_literal(2, StringQuote::Single),
+                    Assign {
+                        target: 1.into(),
+                        expression: 2.into(),
+                    },
+                    MainBlock {
+                        body: nodes(&[3]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("String"),
+                    Constant::Str("hello"),
+                ]),
+            )
+        }
+
+        #[test]
         fn multiple_targets() {
             let source = "let foo: String, bar: Int = baz";
 
@@ -2408,6 +2445,53 @@ a()";
                     type_hint(1),            // String
                     id_with_type_hint(0, 0), // x
                     type_hint(1),            // String
+                    id(0),                   // x
+                    Function(koto_parser::Function {
+                        args: nodes(&[1]),
+                        local_count: 1,
+                        accessed_non_locals: constants(&[]),
+                        body: 3.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: Some(2.into()),
+                    }),
+                    MainBlock {
+                        body: nodes(&[4]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("String")]),
+            )
+        }
+
+        #[test]
+        fn output_optional_type_hint() {
+            let sources = [
+                "
+|x: String| -> String? x
+",
+                "
+|x: String| -> String?
+  x
+",
+                "
+|x: String
+| -> String?
+  x
+",
+                "
+|
+  x: String
+| -> String?
+  x
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    type_hint(1),            // String
+                    id_with_type_hint(0, 0), // x
+                    optional_type_hint(1),   // String
                     id(0),                   // x
                     Function(koto_parser::Function {
                         args: nodes(&[1]),

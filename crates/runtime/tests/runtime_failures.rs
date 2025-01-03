@@ -144,7 +144,7 @@ let foo: Indexable = null
             #[test]
             fn expected_iterable() {
                 let script = "\
-let foo: Iterable = true
+let foo: Iterable? = true
 #   ^^^
 ";
                 check_script_fails_with_span(
@@ -205,7 +205,7 @@ f 'hello'
             #[test]
             fn nested_arg_with_type() {
                 let script = "\
-f = |(foo: Number)| foo
+f = |(foo: Number?)| foo
 #     ^^^
 f ('hello',)
 ";
@@ -253,7 +253,7 @@ f ('hello',)
             #[test]
             fn function_with_output_type_and_implicit_return() {
                 let script = "\
-f = |x: Number| -> String
+f = |x: Number| -> String?
   x + x
 # ^^^^^
 f 42

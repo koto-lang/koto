@@ -67,7 +67,7 @@ check! c!
 Returns the value corresponding to the given key, or the provided default value
 if the map doesn't contain the key.
 
-If no default value is provided then Null is returned.
+If no default value is provided then `null` is returned.
 
 ### Example
 
@@ -103,7 +103,7 @@ check! xyz
 Returns the entry at the given index as a key/value tuple, or the provided
 default value if the map doesn't contain an entry at that index.
 
-If no default value is provided then Null is returned.
+If no default value is provided then `null` is returned.
 
 ### Example
 
@@ -169,7 +169,7 @@ Inserts an entry into the map with the given key and value.
 Inserts an entry into the map with the given key, and `null` as its value.
 
 If the key already existed in the map, then the old value is returned.
-If the key didn't already exist, then Null is returned.
+If the key didn't already exist, then `null` is returned.
 
 See the [language guide](../language_guide.md#map-key-types) for a description 
 of the types of values that can be used as map keys.
@@ -267,7 +267,7 @@ check! null
 
 Removes the entry that matches the given key.
 
-If the entry existed then its value is returned, otherwise Null is returned.
+If the entry existed then its value is returned, otherwise `null` is returned.
 
 ### Example
 

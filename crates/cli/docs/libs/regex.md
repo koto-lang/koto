@@ -41,7 +41,7 @@ check! false
 ## Regex.find
 
 ```kototype
-|Regex, input: String| -> Match or Null
+|Regex, input: String| -> Match?
 ```
 
 If the given `input` string matches the regular expression, then an instance of
@@ -64,7 +64,7 @@ check! null
 ## Regex.find_all
 
 ```kototype
-|Regex, input: String| -> Matches or Null
+|Regex, input: String| -> Matches?
 ```
 
 If the given `input` string matches the regular expression, then an instance of
@@ -87,7 +87,7 @@ check! ('gh', 9..11)
 ## Regex.captures
 
 ```kototype
-|Regex, input: String| -> Map or Null
+|Regex, input: String| -> Map?
 ```
 
 If the given string matches the regular expression, then a map is returned

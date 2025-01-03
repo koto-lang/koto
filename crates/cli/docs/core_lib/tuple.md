@@ -23,10 +23,10 @@ check! false
 ## first
 
 ```kototype
-|Tuple| -> Any
+|Tuple| -> Any?
 ```
 
-Returns the first value in the tuple, or Null if the tuple is empty.
+Returns the first value in the tuple, or `null` if the tuple is empty.
 
 ### Example
 
@@ -42,15 +42,15 @@ check! null
 ## get
 
 ```kototype
-|Tuple, index: Number| -> Any
+|Tuple, index: Number| -> Any?
 ```
 ```kototype
-|Tuple, index: Number, default: Any| -> Any
+|Tuple, index: Number, default: Any| -> Any?
 ```
 
 Gets the Nth value in the tuple.
 If the tuple doesn't contain a value at that position then the provided `default`
-value is returned. If no default value is provided then Null is returned.
+value is returned. If no default value is provided then `null` is returned.
 
 ### Example
 
@@ -70,10 +70,10 @@ check! abc
 ## last
 
 ```kototype
-|Tuple| -> Any
+|Tuple| -> Any?
 ```
 
-Returns the last value in the tuple, or Null if the tuple is empty.
+Returns the last value in the tuple, or `null` if the tuple is empty.
 
 ### Example
 

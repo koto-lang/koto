@@ -271,7 +271,12 @@ pub enum Node {
     ///
     /// E.g. `let x: Number = 0`
     ///            ^~~ This is the beginning of the type hint
-    Type(ConstantIndex),
+    Type {
+        /// The expected type as a string
+        type_index: ConstantIndex,
+        /// True if the type was specified with a `?` suffix
+        allow_null: bool,
+    },
 }
 
 /// A function definition
