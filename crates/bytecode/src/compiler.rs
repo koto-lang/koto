@@ -2764,11 +2764,22 @@ impl Compiler {
             )?;
         }
 
-        // Now that all chain operations are complete, update the null check jump placeholders so
-        // that they point to the end of the chain.
+        // Now that all chain operations are complete, if `?` null checks were used then the result
+        // register needs to be set to null for checks that failed.
 
-        for placeholder in null_check_jump_placeholders {
-            self.update_offset_placeholder(placeholder)?;
+        if !null_check_jump_placeholders.is_empty() {
+            // First, add a jump to the end of the chain for the success path (all null checks passed).
+            self.push_op(Op::Jump, &[]);
+            let success_jump_placeholder = self.push_offset_placeholder();
+
+            // Next, update the null check jump offsets, and set the result register to null
+            for placeholder in null_check_jump_placeholders {
+                self.update_offset_placeholder(placeholder)?;
+            }
+            self.push_op(Op::SetNull, &[result_register]);
+
+            // Update the success jump offset, skipping the SetNull op
+            self.update_offset_placeholder(success_jump_placeholder)?;
         }
 
         // Clean up the span and register stacks

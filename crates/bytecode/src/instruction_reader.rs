@@ -411,12 +411,12 @@ impl Iterator for InstructionReader {
                 offset: get_u16!(),
             }),
             Op::Call => {
-                let [byte_b, byte_c, byte_d] = get_u8x3!();
+                let [function, frame_base, arg_count] = get_u8x3!();
                 Some(Call {
                     result: byte_a,
-                    function: byte_b,
-                    frame_base: byte_c,
-                    arg_count: byte_d,
+                    function,
+                    frame_base,
+                    arg_count,
                 })
             }
             Op::CallInstance => {

@@ -2543,98 +2543,152 @@ f()(8)
             check_script_output(script, 64);
         }
 
-        #[test]
-        fn null_check_after_lookup() {
-            let script = "
+        mod optional_chaining {
+            use super::*;
+
+            #[test]
+            fn check_after_lookup() {
+                let script = "
 m = {foo: null}
 x = m.foo?.nested
 x
 ";
-            check_script_output(script, KValue::Null);
-        }
+                check_script_output(script, KValue::Null);
+            }
 
-        #[test]
-        fn null_checks_between_calls() {
-            let script = "
+            #[test]
+            fn check_after_previous_assignment() {
+                let script = "
+m = {foo: null}
+x = 99
+x = m.foo?.nested
+x
+";
+                check_script_output(script, KValue::Null);
+            }
+
+            #[test]
+            fn checks_between_calls() {
+                let script = "
 f = || null
 x = f()?()
 x
 ";
-            check_script_output(script, KValue::Null);
-        }
+                check_script_output(script, KValue::Null);
+            }
 
-        #[test]
-        fn null_check_before_assignment() {
-            let script = "
+            #[test]
+            fn check_before_assignment() {
+                let script = "
 m = {foo: null}
 m.foo? = 1
 m.foo
 ";
-            check_script_output(script, KValue::Null);
-        }
+                check_script_output(script, KValue::Null);
+            }
 
-        #[test]
-        fn null_check_before_compound_assignment() {
-            let script = "
+            #[test]
+            fn check_before_compound_assignment() {
+                let script = "
 m = {foo: 42}
 m.foo? += 1
 m.foo
 ";
-            check_script_output(script, 43);
-        }
+                check_script_output(script, 43);
+            }
 
-        #[test]
-        fn several_null_checks_pass() {
-            let script = "
+            #[test]
+            fn several_checks_pass() {
+                let script = "
 m = || {foo: [{bar: {baz: 99}}]}
 m?()?.foo?[0]?.bar?.baz? += 1
 ";
-            check_script_output(script, 100);
-        }
+                check_script_output(script, 100);
+            }
 
-        #[test]
-        fn several_null_checks_with_short_circuit() {
-            let script = "
+            #[test]
+            fn several_checks_with_short_circuit() {
+                let script = "
 m = || {foo: [{bar: {}}]}
 m?()?.foo?[0]?.bar?.get('baz')? += 1
 ";
-            check_script_output(script, KValue::Null);
-        }
+                check_script_output(script, KValue::Null);
+            }
 
-        #[test]
-        fn null_check_into_piped_call_pass() {
-            let script = "
+            #[test]
+            fn check_into_piped_call_pass() {
+                let script = "
 m = {foo: |x| x}
 42 -> m.foo?
 ";
-            check_script_output(script, 42);
-        }
+                check_script_output(script, 42);
+            }
 
-        #[test]
-        fn null_check_into_piped_call_after_call_pass() {
-            let script = "
+            #[test]
+            fn check_into_piped_call_after_call_pass() {
+                let script = "
 m = {foo: |x| |x| x}
 42 -> m.foo()?
 ";
-            check_script_output(script, 42);
-        }
+                check_script_output(script, 42);
+            }
 
-        #[test]
-        fn null_check_into_piped_call_with_short_circuit() {
-            let script = "
+            #[test]
+            fn check_into_piped_call_with_short_circuit() {
+                let script = "
 m = {foo: null}
 42 -> m.foo?
 ";
-            check_script_output(script, KValue::Null);
-        }
+                check_script_output(script, KValue::Null);
+            }
 
-        #[test]
-        fn null_check_after_call() {
-            let script = "
-m = {foo: || 42}
-m.foo()? # The check is redundant, but doesn't need to be an error
+            #[test]
+            fn check_before_piped_call_pass() {
+                let script = "
+f = |x|
+  x = x or 0
+  x * x
+m = {foo: || 10}
+m.foo?() -> f
 ";
-            check_script_output(script, 42);
+                check_script_output(script, 100);
+            }
+
+            #[test]
+            fn check_short_circuited_before_piped_call() {
+                let script = "
+f = |x|
+  x = x or 0
+  x * x
+m = {foo: null}
+m.foo?() -> f
+";
+                check_script_output(script, 0);
+            }
+
+            #[test]
+            fn check_after_call() {
+                let script = "
+m = {foo: || 42}
+m.foo()? # The check is redundant, but shouldn't error
+";
+                check_script_output(script, 42);
+            }
+
+            #[test]
+            fn check_when_result_is_temporary() {
+                // The result should be 0 due to `m` not containing a value for `bar`
+                // If the temporary register used by the match expression isn't cleared correctly,
+                // then the `other` arm will be matched instead of the `null` arm.
+                let script = "
+m = {foo: 42.0}
+m.get('foo')?.floor() # Fill temporary registers with non-null values
+match m.get('bar')?.floor()
+  null then 0
+  other then other
+";
+                check_script_output(script, 0);
+            }
         }
     }
 
