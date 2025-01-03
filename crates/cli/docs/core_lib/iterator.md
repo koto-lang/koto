@@ -221,7 +221,7 @@ check! [(0, 'a'), (1, 'b'), (2, 'c')]
 ## find
 
 ```kototype
-|Iterable, test: |Any| -> Bool| -> Any
+|Iterable, test: |Any| -> Bool| -> Any?
 ```
 
 Returns the first value in the iterable that passes the test function.
@@ -430,7 +430,7 @@ check! (0, 2, 4, 6, 8)
 ## last
 
 ```kototype
-|Iterable| -> Any
+|Iterable| -> Any?
 ```
 
 Consumes the iterator, returning the last yielded value.
@@ -540,7 +540,7 @@ check! (-3, 99)
 ## next
 
 ```kototype
-|Iterable| -> IteratorOutput
+|Iterable| -> IteratorOutput?
 ```
 
 Returns the next value from the iterator wrapped in an 
@@ -572,7 +572,7 @@ check! a
 ## next_back
 
 ```kototype
-|Iterable| -> IteratorOutput
+|Iterable| -> IteratorOutput?
 ```
 
 Returns the next value from the end of the iterator wrapped in an 

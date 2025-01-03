@@ -125,7 +125,7 @@ check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
 ## named
 
 ```kototype
-|name: String| -> Color or Null
+|name: String| -> Color? 
 ```
 
 Returns a color corresponding to one of the named colors listed in the

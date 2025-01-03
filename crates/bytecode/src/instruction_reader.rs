@@ -612,10 +612,23 @@ impl Iterator for InstructionReader {
             }),
             Op::AssertType => Some(AssertType {
                 value: byte_a,
+                allow_null: false,
                 type_string: get_var_u32!().into(),
             }),
             Op::CheckType => Some(CheckType {
                 value: byte_a,
+                allow_null: false,
+                type_string: get_var_u32!().into(),
+                jump_offset: get_u16!(),
+            }),
+            Op::AssertOptionalType => Some(AssertType {
+                value: byte_a,
+                allow_null: true,
+                type_string: get_var_u32!().into(),
+            }),
+            Op::CheckOptionalType => Some(CheckType {
+                value: byte_a,
+                allow_null: true,
                 type_string: get_var_u32!().into(),
                 jump_offset: get_u16!(),
             }),

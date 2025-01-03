@@ -270,10 +270,10 @@ check! ...
 ## Command.wait_for_exit
 
 ```kototype
-|Command| -> Number or Null
+|Command| -> Number?
 ```
 
-Executes the command and waits for it to exit, returning its exit code if the command exited normally, or `Null` if it was interrupted.
+Executes the command and waits for it to exit, returning its exit code if the command exited normally, or `null` if it was interrupted.
 
 ### Example
 
@@ -292,7 +292,7 @@ See [Command.wait_for_output](#command-wait_for_output) and [Child.wait_for_outp
 ## CommandOutput.exit_code
 
 ```kototype
-|CommandOutput| -> Number or Null
+|CommandOutput| -> Number?
 ```
 
 Returns the command's exit code if available.
@@ -308,7 +308,7 @@ Returns `true` if the command exited successfully.
 ## CommandOutput.stdout
 
 ```kototype
-|CommandOutput| -> String or Null
+|CommandOutput| -> String?
 ```
 
 Returns the contents of the command's `stdout` stream if it contains valid unicode, or `null` otherwise.
@@ -320,7 +320,7 @@ Returns the contents of the command's `stdout` stream if it contains valid unico
 ## CommandOutput.stderr
 
 ```kototype
-|CommandOutput| -> String or Null
+|CommandOutput| -> String?
 ```
 
 Returns the contents of the command's `stderr` stream if it contains valid unicode, or `null` otherwise.
@@ -410,7 +410,7 @@ Note that if the `stdout` or `stderr` streams were manually retrieved via [Child
 ## Child.wait_for_exit
 
 ```kototype
-|Child| -> Number or Null
+|Child| -> Number?
 ```
 
 Closes all input and output streams, waits for the command to exit, and then returns the command's exit code if available.

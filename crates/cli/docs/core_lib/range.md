@@ -93,7 +93,7 @@ check! -5..5
 ## intersection
 
 ```kototype
-|Range, Range| -> Range
+|Range, Range| -> Range?
 ```
 
 Returns a range representing the intersecting region of the two input ranges.

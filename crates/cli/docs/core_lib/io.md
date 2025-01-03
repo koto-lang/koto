@@ -27,10 +27,10 @@ f.read_to_string()
 ## current_dir
 
 ```kototype
-|| -> String
+|| -> String?
 ```
 
-Returns the current working directory as a String, or Null if the current
+Returns the current working directory as a String, or `null` if the current
 directory can't be retrieved.
 
 ## exists
@@ -281,12 +281,12 @@ Returns the file's path.
 ## File.read_line
 
 ```kototype
-|File| -> String or Null
+|File| -> String?
 ```
 
 Reads a line of output from the file as a string, not including the newline.
 
-When the end of the file is reached, Null will be returned.
+When the end of the file is reached, `null` will be returned.
 
 ### Errors
 

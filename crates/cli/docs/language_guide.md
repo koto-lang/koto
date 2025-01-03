@@ -1489,6 +1489,25 @@ print! match 'abc'
 check! ('a', 'b', 'c')
 ```
 
+### Optional Values
+
+Sometimes a value can either be of a particular type, or otherwise it should `null`.
+
+These kinds of values are referred to as [_optional_][optional-type],
+and are useful for functions or expressions that return either a valid value, or nothing at all.
+
+Optional value types are expressed by appending `?` to the type hint.
+
+```koto
+m = {foo: 'hi!'}
+
+print! let foo: String? = m.get('foo')?.to_uppercase()
+check! HI!
+
+print! let bar: String? = m.get('bar')?.to_uppercase()
+check! null
+```
+
 ### Special Types
 
 #### `Any`
@@ -2502,6 +2521,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation
 [next]: ./core_lib/iterator.md#next
 [once]: ./core_lib/iterator.md#once
+[optional-type]: https://en.wikipedia.org/wiki/Option_type
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
 [repeat]: ./core_lib/iterator.md#repeat
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters

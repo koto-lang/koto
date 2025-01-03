@@ -548,7 +548,7 @@ impl Compiler {
                 // see compile_assign().
                 unreachable!();
             }
-            Node::Type(..) => {
+            Node::Type { .. } => {
                 // Type hints are only compiled in the context of typed identifiers.
                 unreachable!();
             }
@@ -1209,14 +1209,22 @@ impl Compiler {
     ) -> Result<()> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
-            Node::Type(type_index) => {
+            Node::Type {
+                type_index,
+                allow_null,
+            } => {
                 if self.settings.enable_type_checks {
                     if let Some(span_node_index) = span {
                         let span_node = ctx.node_with_span(span_node_index);
                         self.push_span(span_node, ctx.ast);
                     }
 
-                    self.push_op(Op::AssertType, &[value_register]);
+                    let op = if *allow_null {
+                        Op::AssertOptionalType
+                    } else {
+                        Op::AssertType
+                    };
+                    self.push_op(op, &[value_register]);
                     self.push_var_u32((*type_index).into());
 
                     if span.is_some() {
@@ -1237,8 +1245,8 @@ impl Compiler {
     // Returns the jump placeholder for a failed type check; the caller needs to update the
     // placeholder with the offset to the jump target.
     //
-    // This is used for type checks that conditionally affect logic flow, so are emitted
-    // irregardless of the `enable_type_checks` flag.
+    // This is used for type checks that conditionally affect logic flow,
+    // and are therefore emitted without checking the `enable_type_checks` flag.
     //
     // See also: compile_assert_type
     fn compile_check_type(
@@ -1249,10 +1257,20 @@ impl Compiler {
     ) -> Result<usize> {
         let type_node = ctx.node_with_span(type_hint);
         match &type_node.node {
-            Node::Type(type_index) => {
+            Node::Type {
+                type_index,
+                allow_null,
+            } => {
                 self.push_span(type_node, ctx.ast);
-                self.push_op(Op::CheckType, &[value_register]);
+
+                let op = if *allow_null {
+                    Op::CheckOptionalType
+                } else {
+                    Op::CheckType
+                };
+                self.push_op(op, &[value_register]);
                 self.push_var_u32((*type_index).into());
+
                 let jump_placeholder = self.push_offset_placeholder();
                 self.pop_span();
                 Ok(jump_placeholder)

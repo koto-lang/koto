@@ -954,12 +954,17 @@ impl KotoVm {
             Debug { register, constant } => self.run_debug(register, constant)?,
             CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
             CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
-            AssertType { value, type_string } => self.run_assert_type(value, type_string)?,
+            AssertType {
+                value,
+                allow_null,
+                type_string,
+            } => self.run_assert_type(value, type_string, allow_null)?,
             CheckType {
                 value,
-                jump_offset,
+                allow_null,
                 type_string,
-            } => self.run_check_type(value, jump_offset as u32, type_string)?,
+                jump_offset,
+            } => self.run_check_type(value, jump_offset as u32, type_string, allow_null)?,
         }
 
         Ok(control_flow)
@@ -2889,14 +2894,22 @@ impl KotoVm {
         }
     }
 
-    fn run_assert_type(&self, value_register: u8, type_index: ConstantIndex) -> Result<()> {
-        if self.compare_value_type(value_register, type_index) {
+    fn run_assert_type(
+        &self,
+        value_register: u8,
+        type_index: ConstantIndex,
+        allow_null: bool,
+    ) -> Result<()> {
+        if self.compare_value_type(value_register, type_index, allow_null) {
             Ok(())
         } else {
-            unexpected_type(
-                self.get_constant_str(type_index),
-                self.get_register(value_register),
-            )
+            let expected_type = self.get_constant_str(type_index);
+            let value = self.get_register(value_register);
+            if allow_null {
+                unexpected_type(&format!("{expected_type}?"), value)
+            } else {
+                unexpected_type(expected_type, value)
+            }
         }
     }
 
@@ -2905,15 +2918,26 @@ impl KotoVm {
         value_register: u8,
         jump_offset: u32,
         type_index: ConstantIndex,
+        allow_null: bool,
     ) -> Result<()> {
-        if !self.compare_value_type(value_register, type_index) {
+        if !self.compare_value_type(value_register, type_index, allow_null) {
             self.jump_ip(jump_offset);
         }
         Ok(())
     }
 
-    fn compare_value_type(&self, value_register: u8, type_index: ConstantIndex) -> bool {
+    fn compare_value_type(
+        &self,
+        value_register: u8,
+        type_index: ConstantIndex,
+        allow_null: bool,
+    ) -> bool {
         let value = self.get_register(value_register);
+
+        if allow_null && matches!(value, KValue::Null) {
+            return true;
+        }
+
         match self.get_constant_str(type_index) {
             "Any" => true,
             "Callable" => value.is_callable(),
