@@ -628,13 +628,13 @@ impl fmt::Debug for Instruction {
             Jump { offset } => write!(f, "Jump\t\toffset: {offset}"),
             JumpBack { offset } => write!(f, "JumpBack\toffset: {offset}"),
             JumpIfTrue { register, offset } => {
-                write!(f, "JumpIfTrue\tresult: {register}\toffset: {offset}")
+                write!(f, "JumpIfTrue\tregister: {register}\toffset: {offset}")
             }
             JumpIfFalse { register, offset } => {
-                write!(f, "JumpIfFalse\tresult: {register}\toffset: {offset}")
+                write!(f, "JumpIfFalse\tregister: {register}\toffset: {offset}")
             }
             JumpIfNull { register, offset } => {
-                write!(f, "JumpIfNull\tresult: {register}\toffset: {offset}")
+                write!(f, "JumpIfNull\tregister: {register}\toffset: {offset}")
             }
             Call {
                 result,
