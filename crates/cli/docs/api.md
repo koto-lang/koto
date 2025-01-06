@@ -83,7 +83,6 @@ koto_function.rs
 
 ## Adding a Module to the Prelude
 
-
 A module in Koto is simply a `KMap`, conventionally with a defined
 [`@type`][type].
 
@@ -101,7 +100,14 @@ implemented.
 rust_object.rs
 ```
 
-[type]: ./language_guide.md#type
+## Disabling type checks
+
+Runtime type checks are enabled by default, the compiler can be prevented from
+emitting type check instructions by disabling the `enable_type_checks` flag.
+
+```rust_include
+disabling_type_checks.rs
+```
 
 ## Using the multi-threaded runtime
 
@@ -124,3 +130,7 @@ features = ["arc"]
 ```
 
 ---
+
+[type]: ./language_guide.md#type
+
+
