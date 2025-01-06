@@ -109,8 +109,7 @@ Plugins that provide Koto support are available for the following editors:
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
 
-The upcoming release of [Helix][helix] editor will include built-in Koto support,
-and is available now if you [build it from source][helix-build].
+[Helix][helix] has built-in Koto support (since `25.01`).
 
 ### Tree-sitter
 
