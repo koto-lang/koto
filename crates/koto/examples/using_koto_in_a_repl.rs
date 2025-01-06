@@ -1,5 +1,4 @@
-use anyhow::{bail, Result};
-use koto::prelude::*;
+use koto::{prelude::*, Result};
 
 fn main() -> Result<()> {
     let mut koto = Koto::default();
@@ -15,7 +14,7 @@ fn main() -> Result<()> {
     // The exports map gets reused by the Koto instance for each run.
     match koto.compile_and_run(CompileArgs::new("x + x").export_top_level_ids(true))? {
         KValue::Number(result) => assert_eq!(result, KNumber::from(2)),
-        _ => bail!("unexpected result"),
+        unexpected => unexpected_type("Number", &unexpected)?,
     }
 
     Ok(())
