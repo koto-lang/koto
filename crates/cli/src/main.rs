@@ -182,7 +182,7 @@ fn main() -> Result<()> {
                         Chunk::instructions_as_string(chunk, &script_lines)
                     );
                 }
-                koto.set_args(&args.script_args)?;
+                koto.set_args(args.script_args)?;
                 match koto.run() {
                     Ok(_) => {}
                     Err(error) if error.source().is_some() => {

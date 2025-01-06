@@ -148,17 +148,12 @@ impl Koto {
     }
 
     /// Sets the arguments that can be accessed from within the script via `koto.args()`
-    pub fn set_args(&mut self, args: &[String]) -> Result<()> {
-        use KValue::{Map, Str, Tuple};
-
-        let koto_args = args
-            .iter()
-            .map(|arg| Str(arg.as_str().into()))
-            .collect::<Vec<_>>();
+    pub fn set_args(&mut self, args: impl IntoIterator<Item = String>) -> Result<()> {
+        let koto_args = args.into_iter().map(KValue::from).collect::<Vec<_>>();
 
         match self.runtime.prelude().data_mut().get("koto") {
-            Some(Map(map)) => {
-                map.insert("args", Tuple(koto_args.into()));
+            Some(KValue::Map(map)) => {
+                map.insert("args", KValue::Tuple(koto_args.into()));
                 Ok(())
             }
             _ => Err(Error::MissingPrelude),

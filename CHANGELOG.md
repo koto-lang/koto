@@ -105,6 +105,8 @@ The Koto project adheres to
 - `Koto::compile` and `compile_and_run` now take `CompileArgs` which include
   compiler settings. The equivalent compiler settings have been removed from 
   `KotoSettings`.
+- `Koto::set_args` now accepts any value that implements
+  `IntoIterator<Item = String>`, which includes the output of `std::env::args()`.
 
 #### Libs
 
