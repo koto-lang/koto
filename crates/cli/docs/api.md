@@ -129,8 +129,16 @@ default-feautures = false
 features = ["arc"]
 ```
 
+## Using Koto in a REPL
+
+Some applications (like REPLs) require assigned variables to persist between each script evaluation.
+This can be achieved by enabling the `export_top_level_ids` flag,
+which will result in all top-level assignments being exported.
+
+```rust_include
+using_koto_in_a_repl.rs
+```
+
 ---
 
 [type]: ./language_guide.md#type
-
-
