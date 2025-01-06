@@ -19,6 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.5.0
 
       - name: Build
         run: cargo build --verbose
@@ -26,8 +29,8 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
-      - name: Run poetry example
-        run: cargo run --example poetry -- -s crates/koto/examples/poetry/scripts/readme.koto
+      - name: Run examples
+        run: just test_examples
 
   build_and_test_release:
     # We don't need to test release builds on all platforms for now

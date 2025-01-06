@@ -6,7 +6,7 @@ bench:
 bench_arc:
   cargo bench -p koto --no-default-features --features arc
 
-checks: test test_arc clippy clippy_arc fmt check_links doc wasm
+checks: fmt test test_arc test_examples clippy clippy_arc check_links doc wasm
 
 check_links:
   mlc --offline README.md
@@ -57,6 +57,14 @@ test_docs:
     --test tempfile_docs \
     --test toml_docs \
     --test yaml_docs
+
+test_examples:
+  #!/usr/bin/env sh
+  set -e pipefail
+  for example in crates/koto/examples/*.rs; do
+    cargo run --example "$(basename "${example%.rs}")" -- $args
+  done
+  cargo run --example poetry -- -s crates/koto/examples/poetry/scripts/readme.koto
 
 test_koto:
   cargo test --test koto_tests
