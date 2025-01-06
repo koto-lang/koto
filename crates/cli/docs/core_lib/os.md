@@ -16,7 +16,7 @@ Builder methods allow configuration of properties like [command arguments](#comm
 
 ```koto,skip_run
 print! os.command('ls')
-  .args('/tmp', '-al')
+  .args('-al', '/tmp')
   .wait_for_output()
   .stdout()
 check! ...
@@ -114,7 +114,7 @@ Adds the given arguments to the command, and returns the command.
 
 ```koto,skip_run
 print! os.command('ls')
-  .args('/tmp', '-al')
+  .args('-al', '/tmp')
   .wait_for_output()
   .stdout()
 check! ...
