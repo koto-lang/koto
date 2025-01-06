@@ -285,13 +285,31 @@ pub struct CompileArgs<'a> {
 }
 
 impl<'a> CompileArgs<'a> {
-    /// A convenience initializer for when the script has been loaded from a path
-    pub fn with_path(script: &'a str, script_path: impl Into<KString>) -> Self {
+    /// Initializes CompileArgs with the given script and default settings
+    pub fn new(script: &'a str) -> Self {
         Self {
             script,
-            script_path: Some(script_path.into()),
-            compiler_settings: Default::default(),
+            script_path: None,
+            compiler_settings: CompilerSettings::default(),
         }
+    }
+
+    /// Sets the script's path
+    pub fn script_path(mut self, script_path: impl Into<KString>) -> Self {
+        self.script_path = Some(script_path.into());
+        self
+    }
+
+    /// Sets the [`CompilerSettings::enable_type_checks`] flag, enabled by default.
+    pub fn enable_type_checks(mut self, enabled: bool) -> Self {
+        self.compiler_settings.enable_type_checks = enabled;
+        self
+    }
+
+    /// Sets the [`CompilerSettings::export_top_level_ids`] flag, disabled by default.
+    pub fn export_top_level_ids(mut self, enabled: bool) -> Self {
+        self.compiler_settings.export_top_level_ids = enabled;
+        self
     }
 }
 
