@@ -4,7 +4,7 @@ fn main() {
     let script = "
 from koto import args
 
-if (size args) > 0
+if (size args) > 1
   for i, arg in args.enumerate()
     print '{i + 1}: {arg}'
 else

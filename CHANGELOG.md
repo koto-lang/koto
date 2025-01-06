@@ -43,6 +43,7 @@ The Koto project adheres to
     - Supports executing and spawning system commands.
   - `os.process_id`
   - `string.repeat`
+  - `tuple.is_empty`
 - `tuple.sort_copy` now supports sorting with a key function, following the 
   behaviour of `list.sort`.
 
