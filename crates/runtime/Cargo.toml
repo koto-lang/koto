@@ -43,5 +43,5 @@ chrono = { workspace = true, features = ["wasmbind"] }
 instant = { workspace = true, features = ["wasm-bindgen"] }
 
 [dev-dependencies]
-koto_test_utils = { path = "../test_utils" }
+koto_test_utils = { path = "../../crates/test_utils", default-features = false }
 test-case = { workspace = true }
