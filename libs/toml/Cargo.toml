@@ -1,6 +1,6 @@
 [package]
 name = "koto_toml"
-version = "0.15.0"
+version = "0.16.0"
 description = "A Koto library for working with TOML data"
 
 authors.workspace = true
@@ -23,12 +23,12 @@ toml = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.15.0"
+version = "^0.16.0"
 default-features = false
 
 [dependencies.koto_serialize]
 path = "../../crates/serialize"
-version = "^0.15.0"
+version = "^0.16.0"
 default-features = false
 
 [dev-dependencies]
