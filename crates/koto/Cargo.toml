@@ -28,8 +28,8 @@ koto_runtime = { path = "../runtime", version = "^0.15.0", default-features = fa
 thiserror = { workspace = true }
 
 [dev-dependencies]
-koto_geometry = { path = "../../libs/geometry" }
-koto_test_utils = { path = "../test_utils" }
+koto_geometry = { path = "../../libs/geometry", default-features = false }
+koto_test_utils = { path = "../test_utils", default-features = false }
 
 anyhow = { workspace = true }
 criterion2 = { workspace = true }
