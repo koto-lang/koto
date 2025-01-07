@@ -1,7 +1,7 @@
 use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
 use dunce::canonicalize;
 use koto_memory::Ptr;
-use koto_parser::{format_source_excerpt, KString, Parser, Span};
+use koto_parser::{format_source_excerpt, KString, Span};
 use rustc_hash::FxHasher;
 use std::{
     collections::HashMap,
@@ -13,12 +13,10 @@ use std::{
 };
 use thiserror::Error;
 
-/// Errors that can be returned from [Loader] operations
+/// Errors that can be returned from [ModuleLoader] operations
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
-pub enum LoaderErrorKind {
-    #[error("{0}")]
-    Parser(#[from] koto_parser::Error),
+pub enum ModuleLoaderErrorKind {
     #[error("{0}")]
     Compiler(#[from] CompilerError),
     #[error(transparent)]
@@ -29,16 +27,16 @@ pub enum LoaderErrorKind {
     UnableToFindModule(String),
 }
 
-/// The error type used by the [Loader]
+/// The error type used by the [ModuleLoader]
 #[derive(Clone, Debug)]
-pub struct LoaderError {
+pub struct ModuleLoaderError {
     /// The error
-    pub error: Ptr<LoaderErrorKind>,
+    pub error: Ptr<ModuleLoaderErrorKind>,
     /// The source of the error
     pub source: Option<Ptr<LoaderErrorSource>>,
 }
 
-/// The source of a [LoaderError]
+/// The source of a [ModuleLoaderError]
 #[derive(Debug)]
 pub struct LoaderErrorSource {
     /// The script's contents
@@ -49,23 +47,7 @@ pub struct LoaderErrorSource {
     pub path: Option<KString>,
 }
 
-impl LoaderError {
-    pub(crate) fn from_parser_error(
-        error: koto_parser::Error,
-        source: &str,
-        source_path: Option<KString>,
-    ) -> Self {
-        let source = LoaderErrorSource {
-            contents: source.into(),
-            span: error.span,
-            path: source_path,
-        };
-        Self {
-            error: LoaderErrorKind::from(error).into(),
-            source: Some(source.into()),
-        }
-    }
-
+impl ModuleLoaderError {
     pub(crate) fn from_compiler_error(
         error: CompilerError,
         source: &str,
@@ -77,7 +59,7 @@ impl LoaderError {
             path: source_path,
         };
         Self {
-            error: LoaderErrorKind::from(error).into(),
+            error: ModuleLoaderErrorKind::from(error).into(),
             source: Some(source.into()),
         }
     }
@@ -85,13 +67,13 @@ impl LoaderError {
     /// Returns true if the error was caused by the expectation of indentation during parsing
     pub fn is_indentation_error(&self) -> bool {
         match self.error.deref() {
-            LoaderErrorKind::Parser(e) => e.is_indentation_error(),
+            ModuleLoaderErrorKind::Compiler(e) => e.is_indentation_error(),
             _ => false,
         }
     }
 }
 
-impl fmt::Display for LoaderError {
+impl fmt::Display for ModuleLoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{}.", self.error)?;
         if let Some(source) = &self.source {
@@ -105,16 +87,16 @@ impl fmt::Display for LoaderError {
     }
 }
 
-impl error::Error for LoaderError {}
+impl error::Error for ModuleLoaderError {}
 
-impl From<io::Error> for LoaderError {
+impl From<io::Error> for ModuleLoaderError {
     fn from(error: io::Error) -> Self {
-        Self::from(LoaderErrorKind::Io(error))
+        Self::from(ModuleLoaderErrorKind::Io(error))
     }
 }
 
-impl From<LoaderErrorKind> for LoaderError {
-    fn from(error: LoaderErrorKind) -> Self {
+impl From<ModuleLoaderErrorKind> for ModuleLoaderError {
+    fn from(error: ModuleLoaderErrorKind) -> Self {
         Self {
             error: error.into(),
             source: None,
@@ -124,37 +106,20 @@ impl From<LoaderErrorKind> for LoaderError {
 
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
-pub struct Loader {
+pub struct ModuleLoader {
     chunks: HashMap<PathBuf, Ptr<Chunk>, BuildHasherDefault<FxHasher>>,
 }
 
-impl Loader {
-    /// Compiles a script
+impl ModuleLoader {
+    /// Compiles a script, deferring to [Compiler::compile]
     pub fn compile_script(
         &mut self,
         script: &str,
         script_path: Option<KString>,
         settings: CompilerSettings,
-    ) -> Result<Ptr<Chunk>, LoaderError> {
-        match Parser::parse(script) {
-            Ok(ast) => {
-                let (bytes, mut debug_info) = match Compiler::compile(&ast, settings) {
-                    Ok((bytes, debug_info)) => (bytes, debug_info),
-                    Err(e) => return Err(LoaderError::from_compiler_error(e, script, script_path)),
-                };
-
-                debug_info.source = script.to_string();
-
-                Ok(Chunk {
-                    bytes,
-                    constants: ast.consume_constants(),
-                    source_path: script_path,
-                    debug_info,
-                }
-                .into())
-            }
-            Err(e) => Err(LoaderError::from_parser_error(e, script, script_path)),
-        }
+    ) -> Result<Ptr<Chunk>, ModuleLoaderError> {
+        Compiler::compile(script, script_path.clone(), settings)
+            .map_err(|e| ModuleLoaderError::from_compiler_error(e, script, script_path))
     }
 
     /// Finds a module from its name, and then compiles it
@@ -162,7 +127,7 @@ impl Loader {
         &mut self,
         module_name: &str,
         current_script_path: Option<&Path>,
-    ) -> Result<CompileModuleResult, LoaderError> {
+    ) -> Result<CompileModuleResult, ModuleLoaderError> {
         let module_path = find_module(module_name, current_script_path)?;
 
         match self.chunks.get(&module_path) {
@@ -197,20 +162,24 @@ impl Loader {
     }
 }
 
+/// Returned from [ModuleLoader::compile_module]
 pub struct CompileModuleResult {
+    /// The compiled module
     pub chunk: Ptr<Chunk>,
+    // The path of the compiled module
     pub path: PathBuf,
+    // True if the module was found in the [ModuleLoader] cache
     pub loaded_from_cache: bool,
 }
 
 /// Finds a module that matches the given name
 ///
-/// The current_script_path gives the function a location to start searching from, if None is
-/// provided then std::env::current_dir will be used.
+/// The `current_script_path` argument gives a location to start searching from,
+/// if `None` is provided then `std::env::current_dir` will be used instead.
 pub fn find_module(
     module_name: &str,
     current_script_path: Option<&Path>,
-) -> Result<PathBuf, LoaderError> {
+) -> Result<PathBuf, ModuleLoaderError> {
     // Get the directory of the provided script path, or the current working directory
     let search_folder = match &current_script_path {
         Some(path) => {
@@ -220,7 +189,7 @@ pub fn find_module(
                     Some(parent_dir) => parent_dir.to_path_buf(),
                     None => {
                         let path = PathBuf::from(path);
-                        return Err(LoaderErrorKind::FailedToGetPathParent(path).into());
+                        return Err(ModuleLoaderErrorKind::FailedToGetPathParent(path).into());
                     }
                 }
             } else {
@@ -230,13 +199,13 @@ pub fn find_module(
         None => std::env::current_dir()?,
     };
 
-    // First, check for a neighbouring file with a matching name.
+    // First, check for a neighboring file with a matching name.
     let extension = "koto";
     let result = search_folder.join(module_name).with_extension(extension);
     if result.exists() {
         Ok(result)
     } else {
-        // Alternatively, check for a neighbouring directory with a matching name,
+        // Alternatively, check for a neighboring directory with a matching name,
         // that also contains a main file.
         let result = search_folder
             .join(module_name)
@@ -246,7 +215,7 @@ pub fn find_module(
             let result = canonicalize(result)?;
             Ok(result)
         } else {
-            Err(LoaderErrorKind::UnableToFindModule(module_name.into()).into())
+            Err(ModuleLoaderErrorKind::UnableToFindModule(module_name.into()).into())
         }
     }
 }

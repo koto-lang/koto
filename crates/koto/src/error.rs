@@ -37,7 +37,6 @@ impl From<koto_runtime::Error> for Error {
         // Runtime errors aren't Send+Sync when compiled without multi-threaded support,
         // so render the error message to a String.
         match error.error {
-            RuntimeError::StringError(error) => Self::StringError(error),
             // Preserve compilation errors so they can be inspected by
             // [`is_indentation_error`](Self::is_indentation_error).
             RuntimeError::CompileError(error) => Self::from(error),
@@ -46,8 +45,8 @@ impl From<koto_runtime::Error> for Error {
     }
 }
 
-impl From<koto_bytecode::LoaderError> for Error {
-    fn from(error: koto_bytecode::LoaderError) -> Self {
+impl From<koto_bytecode::ModuleLoaderError> for Error {
+    fn from(error: koto_bytecode::ModuleLoaderError) -> Self {
         // Loader errors aren't Send+Sync when compiled without multi-threaded support,
         // so render the error message to a String.
         Self::CompileError {

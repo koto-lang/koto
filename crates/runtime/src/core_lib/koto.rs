@@ -54,11 +54,11 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("script_dir", |ctx| {
-        let result = match &ctx.vm.chunk().source_path {
-            Some(source_path) => Path::new(source_path.as_str())
+        let result = match &ctx.vm.chunk().path {
+            Some(script_path) => Path::new(script_path.as_str())
                 .parent()
                 .and_then(|parent| parent.to_str())
-                .and_then(|parent| source_path.with_bounds(0..parent.len()))
+                .and_then(|parent| script_path.with_bounds(0..parent.len()))
                 .into(),
             None => KValue::Null,
         };
@@ -66,7 +66,7 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("script_path", |ctx| {
-        let result = match &ctx.vm.chunk().source_path {
+        let result = match &ctx.vm.chunk().path {
             Some(path) => KValue::from(path.clone()),
             None => KValue::Null,
         };

@@ -6,7 +6,7 @@ use crate::{
     DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
 };
 use instant::Instant;
-use koto_bytecode::{Chunk, Instruction, InstructionReader, Loader};
+use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
 use koto_parser::{ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions};
 use rustc_hash::FxHasher;
 use std::{
@@ -34,7 +34,7 @@ struct VmContext {
     // The runtime's core library
     core_lib: CoreLib,
     // The module loader used to compile imported modules
-    loader: KCell<Loader>,
+    loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
     imported_modules: KCell<ModuleCache>,
 }
@@ -53,7 +53,7 @@ impl VmContext {
             settings,
             prelude: core_lib.prelude(),
             core_lib,
-            loader: Loader::default().into(),
+            loader: ModuleLoader::default().into(),
             imported_modules: ModuleCache::default().into(),
         }
     }
@@ -197,7 +197,7 @@ impl KotoVm {
     }
 
     /// The loader, responsible for loading and compiling Koto scripts and modules
-    pub fn loader(&self) -> &KCell<Loader> {
+    pub fn loader(&self) -> &KCell<ModuleLoader> {
         &self.context.loader
     }
 
@@ -2127,7 +2127,7 @@ impl KotoVm {
 
         // Attempt to compile the imported module from disk,
         // using the current source path as the relative starting location
-        let source_path = self.reader.chunk.source_path.clone();
+        let source_path = self.reader.chunk.path.clone();
         let compile_result = self.context.loader.borrow_mut().compile_module(
             &import_name,
             source_path
@@ -2860,7 +2860,7 @@ impl KotoVm {
                 .chunk
                 .debug_info
                 .get_source_span(self.instruction_ip),
-            self.reader.chunk.source_path.as_ref(),
+            self.reader.chunk.path.as_ref(),
         ) {
             (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line + 1),
             (Some(span), None) => format!("[{}] ", span.start.line + 1),

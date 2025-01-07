@@ -19,8 +19,8 @@ macro_rules! print_wrapped {
     ($stdout:expr, $text:expr) => {
         $stdout.write_all(wrap_string(&format!($text)).as_bytes())
     };
-    ($stdout:expr, $text:literal, $($y:expr),+ $(,)?) => {
-        $stdout.write_all(wrap_string(&format!($text, $($y),+)).as_bytes())
+    ($stdout:expr, $text:literal, $($y:expr),* $(,)?) => {
+        $stdout.write_all(wrap_string(&format!($text, $($y),*)).as_bytes())
     };
 }
 
@@ -161,6 +161,7 @@ impl Repl {
                         print_wrapped!(self.stdout, "Constants\n---------\n{}\n", chunk.constants)?;
 
                         let script_lines = input.lines().collect::<Vec<_>>();
+
                         print_wrapped!(
                             self.stdout,
                             "Instructions\n------------\n{}",

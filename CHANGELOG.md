@@ -105,6 +105,9 @@ The Koto project adheres to
 - `Koto::compile` and `compile_and_run` now take `CompileArgs` which include
   compiler settings. The equivalent compiler settings have been removed from 
   `KotoSettings`.
+- `Compiler::compile` now takes a string rather than an `Ast`, and returns
+  a `Chunk` with prepared debug info.  
+- `Loader` has been renamed `ModuleLoader` to clarify its purpose.
 - `Koto::set_args` now accepts any value that implements
   `IntoIterator<Item = String>`, which includes the output of `std::env::args()`.
 

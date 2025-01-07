@@ -59,7 +59,7 @@ pub struct AstNode {
 /// A Koto program represented as an Abstract Syntax Tree
 ///
 /// This is produced by the parser, and consumed by the compiler.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Ast {
     nodes: Vec<AstNode>,
     spans: Vec<Span>,

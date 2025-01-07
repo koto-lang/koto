@@ -4,6 +4,14 @@ A rendered version of this document can be found
 See the neighboring [readme](./README.md) for an explanation of the
 `print!` and `check!` commands used in the code examples.
 
+- [About Koto](#about-koto)
+- [Background](#background)
+- [Current State](#current-state)
+- [Features](#features)
+- [Influences](#influences)
+- [Tooling](#tooling)
+- [Performance](#performance)
+
 ---
 
 # About Koto
@@ -121,8 +129,17 @@ If you're using Neovim then it's easy to set up with [nvim-treesitter][nvim-tree
 An implementation of the [Language Server Protocol][lsp] for Koto is
 [available here][koto-ls].
 
+## Performance
+
+Koto's runtime is fast enough for many applications, with performance comparable to similar embedded scripting languages for Rust like [Rhai] and [Dyon].
+
+By default, Koto uses a single-threaded runtime. The multi-threaded runtime is available via a [feature flag][api-multi-threaded], but comes with a runtime performance cost typically in the range of ~5-10%.
+
+As an embedded language that runs in a virtual machine within an application, runtime performance is heavily affected by the way that the application is compiled. See [The Rust Performance Book][performance-book] for lots of excellent advice on how to improve performance. In particular, the choice of [allocator][allocators] used by the application should be considered.
+
 ---
 
+[allocators]: https://nnethercote.github.io/perf-book/build-configuration.html#alternative-allocators
 [api-multi-threaded]: ./api.md#using-the-multi-threaded-runtime
 [async]: https://github.com/koto-lang/koto/issues/277
 [coffeescript]: https://coffeescript.org
@@ -139,6 +156,7 @@ An implementation of the [Language Server Protocol][lsp] for Koto is
 [lua]: https://www.lua.org
 [moonscript]: https://moonscript.org
 [nvim-treesitter]: https://github.com/nvim-treesitter/nvim-treesitter
+[performance-book]: https://nnethercote.github.io/perf-book
 [playground]: https://koto.dev/play
 [rust]: https://rust-lang.org
 [rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html

@@ -1,13 +1,14 @@
 use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
-    DebugInfo, FunctionFlags, Op, StringFormatFlags,
+    Chunk, DebugInfo, FunctionFlags, Op, StringFormatFlags,
 };
 use circular_buffer::CircularBuffer;
 use derive_name::VariantName;
+use koto_memory::Ptr;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
-    ConstantIndex, Function, ImportItem, MatchArm, MetaKeyId, Node, Span, StringContents,
-    StringFormatOptions, StringNode, SwitchArm,
+    ConstantIndex, Function, ImportItem, KString, MatchArm, MetaKeyId, Node, Parser, Span,
+    StringContents, StringFormatOptions, StringNode, SwitchArm,
 };
 use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
@@ -84,6 +85,8 @@ enum ErrorKind {
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
 
+    #[error("{0}")]
+    Parser(#[from] koto_parser::Error),
     #[error(transparent)]
     FrameError(#[from] FrameError),
 }
@@ -98,6 +101,25 @@ pub struct CompilerError {
     error: ErrorKind,
     /// The span in the source where the error occurred
     pub span: Span,
+}
+
+impl CompilerError {
+    /// Returns true if the error was caused by the expectation of indentation during parsing
+    pub fn is_indentation_error(&self) -> bool {
+        match &self.error {
+            ErrorKind::Parser(e) => e.is_indentation_error(),
+            _ => false,
+        }
+    }
+}
+
+impl From<koto_parser::Error> for CompilerError {
+    fn from(error: koto_parser::Error) -> Self {
+        Self {
+            span: error.span,
+            error: error.into(),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -202,6 +224,7 @@ impl CompileNodeOutput {
 }
 
 /// The settings used by the [Compiler]
+#[derive(Copy, Clone)]
 pub struct CompilerSettings {
     /// Whether or not top-level identifiers should be automatically exported
     ///
@@ -238,10 +261,13 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    /// Compiles an [Ast]
-    ///
-    /// Returns compiled bytecode along with corresponding debug information
-    pub fn compile(ast: &Ast, settings: CompilerSettings) -> Result<(Box<[u8]>, DebugInfo)> {
+    /// Compiles a Koto script using the provided settings, returning a compiled [Chunk]
+    pub fn compile(
+        script: &str,
+        script_path: Option<KString>,
+        settings: CompilerSettings,
+    ) -> Result<Ptr<Chunk>> {
+        let ast = Parser::parse(script)?;
         let mut compiler = Compiler {
             settings,
             ..Default::default()
@@ -250,15 +276,24 @@ impl Compiler {
         if let Some(entry_point) = ast.entry_point() {
             compiler.compile_node(
                 entry_point,
-                CompileNodeContext::new(ast, ResultRegister::None),
+                CompileNodeContext::new(&ast, ResultRegister::None),
             )?;
         }
 
-        if compiler.bytes.len() <= u32::MAX as usize {
-            Ok((compiler.bytes.into(), compiler.debug_info))
-        } else {
-            compiler.error(ErrorKind::ResultingBytecodeIsTooLarge(compiler.bytes.len()))
+        if compiler.bytes.len() > u32::MAX as usize {
+            return compiler.error(ErrorKind::ResultingBytecodeIsTooLarge(compiler.bytes.len()));
         }
+
+        compiler.debug_info.source = script.to_string();
+
+        let result = Chunk {
+            bytes: compiler.bytes,
+            constants: ast.consume_constants(),
+            path: script_path,
+            debug_info: compiler.debug_info,
+        };
+
+        Ok(result.into())
     }
 
     fn compile_node(

@@ -7,7 +7,7 @@ mod compiler;
 mod frame;
 mod instruction;
 mod instruction_reader;
-mod loader;
+mod module_loader;
 mod op;
 
 pub use crate::{
@@ -15,6 +15,6 @@ pub use crate::{
     compiler::{Compiler, CompilerError, CompilerSettings},
     instruction::{FunctionFlags, Instruction, StringFormatFlags},
     instruction_reader::InstructionReader,
-    loader::{find_module, Loader, LoaderError},
+    module_loader::{find_module, ModuleLoader, ModuleLoaderError},
     op::Op,
 };

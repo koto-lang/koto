@@ -1,5 +1,5 @@
 use crate::{prelude::*, Ptr};
-use koto_bytecode::{Chunk, LoaderError};
+use koto_bytecode::{Chunk, ModuleLoaderError};
 use koto_parser::format_source_excerpt;
 use std::{error, fmt, time::Duration};
 use thiserror::Error;
@@ -55,7 +55,7 @@ pub enum ErrorKind {
         op: BinaryOp,
     },
     #[error(transparent)]
-    CompileError(#[from] LoaderError),
+    CompileError(#[from] ModuleLoaderError),
     #[error("Empty call stack")]
     EmptyCallStack,
     #[error("Missing sequence builder")]
@@ -141,14 +141,21 @@ impl fmt::Display for Error {
         for ErrorFrame { chunk, instruction } in self.trace.iter() {
             write!(f, "\n--- ")?;
 
-            match chunk.debug_info.get_source_span(*instruction) {
-                Some(span) => f.write_str(&format_source_excerpt(
+            if let Some(span) = chunk.debug_info.get_source_span(*instruction) {
+                f.write_str(&format_source_excerpt(
                     &chunk.debug_info.source,
                     &span,
-                    chunk.source_path.as_deref(),
-                ))?,
-                None => write!(f, "Runtime error at instruction {}", instruction)?,
+                    chunk.path.as_deref(),
+                ))?;
+
+                continue;
             }
+
+            write!(
+                f,
+                "Runtime error at instruction {} in chunk {:p}",
+                instruction, &chunk
+            )?
         }
 
         Ok(())

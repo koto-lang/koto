@@ -1,17 +1,9 @@
 mod bytecode {
     use koto_bytecode::{Compiler, CompilerSettings};
-    use koto_parser::Parser;
 
     fn check_compilation_fails(source: &str) {
-        match Parser::parse(source) {
-            Ok(ast) => {
-                if Compiler::compile(&ast, CompilerSettings::default()).is_ok() {
-                    panic!("\nUnexpected success while compiling: {source}");
-                }
-            }
-            Err(parser_error) => {
-                panic!("Failure while parsing:\n{source}\n{parser_error}");
-            }
+        if Compiler::compile(source, None, CompilerSettings::default()).is_ok() {
+            panic!("\nUnexpected success while compiling: {source}");
         }
     }
 

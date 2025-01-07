@@ -1,12 +1,12 @@
 use itertools::join;
-use koto_bytecode::{Chunk, CompilerSettings, Loader};
+use koto_bytecode::{Chunk, CompilerSettings, ModuleLoader};
 use koto_runtime::{prelude::*, Error, Ptr, Result};
 use std::ops::Deref;
 
 use crate::OutputCapture;
 
 struct ExampleTestRunner {
-    loader: Loader,
+    loader: ModuleLoader,
     vm: KotoVm,
     output: OutputCapture,
 }
@@ -17,7 +17,7 @@ impl ExampleTestRunner {
         vm.prelude().data_mut().extend(prelude_entries.drain(..));
 
         Self {
-            loader: Loader::default(),
+            loader: ModuleLoader::default(),
             vm,
             output,
         }

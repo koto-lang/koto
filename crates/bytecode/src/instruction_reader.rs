@@ -25,7 +25,7 @@ impl Iterator for InstructionReader {
     fn next(&mut self) -> Option<Self::Item> {
         use Instruction::*;
 
-        let bytes = self.chunk.bytes.as_ref();
+        let bytes = self.chunk.bytes.as_slice();
 
         macro_rules! get_u8 {
             () => {{

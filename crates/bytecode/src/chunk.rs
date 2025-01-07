@@ -49,11 +49,11 @@ impl DebugInfo {
 #[derive(Clone, Default, PartialEq)]
 pub struct Chunk {
     /// The bytes representing the chunk's bytecode
-    pub bytes: Box<[u8]>,
+    pub bytes: Vec<u8>,
     /// The constant data associated with the chunk's bytecode
     pub constants: ConstantPool,
     /// The path of the program's source file
-    pub source_path: Option<KString>,
+    pub path: Option<KString>,
     /// Debug information associated with the chunk's bytecode
     pub debug_info: DebugInfo,
 }

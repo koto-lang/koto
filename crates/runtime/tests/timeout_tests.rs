@@ -1,5 +1,5 @@
 mod timeout {
-    use koto_bytecode::{CompilerSettings, Loader};
+    use koto_bytecode::{CompilerSettings, ModuleLoader};
     use koto_runtime::{prelude::*, Error, ErrorKind};
     use std::time::Duration;
 
@@ -9,7 +9,7 @@ mod timeout {
             ..Default::default()
         });
 
-        let mut loader = Loader::default();
+        let mut loader = ModuleLoader::default();
         let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
