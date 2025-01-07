@@ -67,6 +67,24 @@ print! x.get 5, "abc"
 check! abc
 ```
 
+## is_empty
+
+```kototype
+|Tuple| -> Bool
+```
+
+Returns `true` if the tuple has a size of zero, and `false` otherwise.
+
+### Example
+
+```koto
+print! (,).is_empty()
+check! true
+
+print! (1, 2, 3).is_empty()
+check! false
+```
+
 ## last
 
 ```kototype

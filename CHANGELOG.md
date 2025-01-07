@@ -43,6 +43,7 @@ The Koto project adheres to
     - Supports executing and spawning system commands.
   - `os.process_id`
   - `string.repeat`
+  - `tuple.is_empty`
 - `tuple.sort_copy` now supports sorting with a key function, following the 
   behaviour of `list.sort`.
 
@@ -104,6 +105,8 @@ The Koto project adheres to
 - `Koto::compile` and `compile_and_run` now take `CompileArgs` which include
   compiler settings. The equivalent compiler settings have been removed from 
   `KotoSettings`.
+- `Koto::set_args` now accepts any value that implements
+  `IntoIterator<Item = String>`, which includes the output of `std::env::args()`.
 
 #### Libs
 

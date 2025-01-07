@@ -151,15 +151,7 @@ impl Repl {
 
             self.editor.add_history_entry(&input)?;
 
-            let compile_args = CompileArgs {
-                script: &input,
-                script_path: None,
-                compiler_settings: CompilerSettings {
-                    export_top_level_ids: true,
-                    enable_type_checks: true,
-                },
-            };
-
+            let compile_args = CompileArgs::new(&input).export_top_level_ids(true);
             match self.koto.compile(compile_args) {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {

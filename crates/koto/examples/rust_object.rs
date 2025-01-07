@@ -1,4 +1,4 @@
-use koto::{derive::*, prelude::*, runtime::Result};
+use koto::{derive::*, prelude::*, runtime};
 
 fn main() {
     let script = "
@@ -36,13 +36,13 @@ impl MyType {
 
     // A simple getter function
     #[koto_method]
-    fn get(&self) -> Result<KValue> {
+    fn get(&self) -> runtime::Result<KValue> {
         Ok(self.0.into())
     }
 
     // A function that returns the object instance as the result
     #[koto_method]
-    fn set(ctx: MethodContext<Self>) -> Result<KValue> {
+    fn set(ctx: MethodContext<Self>) -> runtime::Result<KValue> {
         match ctx.args {
             [KValue::Number(n)] => {
                 ctx.instance_mut()?.0 = n.into();
@@ -55,7 +55,7 @@ impl MyType {
 
 impl KotoObject for MyType {
     // KotoObject::Display allows mytype to be used with Koto's print function
-    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+    fn display(&self, ctx: &mut DisplayContext) -> runtime::Result<()> {
         ctx.append(format!("MyType({})", self.0));
         Ok(())
     }

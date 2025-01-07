@@ -182,7 +182,7 @@ fn main() -> Result<()> {
                         Chunk::instructions_as_string(chunk, &script_lines)
                     );
                 }
-                koto.set_args(&args.script_args)?;
+                koto.set_args(args.script_args)?;
                 match koto.run() {
                     Ok(_) => {}
                     Err(error) if error.source().is_some() => {
@@ -264,45 +264,44 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
         let script = fs::read_to_string(&config_path).context("Failed to load the config file")?;
 
         let mut koto = Koto::new();
-        match koto.compile_and_run(CompileArgs::with_path(&script, config_path)) {
-            Ok(_) => {
-                let exports = koto.exports().data();
-                match exports.get("repl") {
-                    Some(KValue::Map(repl_config)) => {
-                        let repl_config = repl_config.data();
-                        match repl_config.get("colored_output") {
-                            Some(KValue::Bool(value)) => config.colored_output = *value,
-                            Some(_) => bail!("expected bool for colored_output setting"),
-                            None => {}
-                        }
-                        match repl_config.get("edit_mode") {
-                            Some(KValue::Str(value)) => match value.as_str() {
-                                "emacs" => config.edit_mode = EditMode::Emacs,
-                                "vi" => config.edit_mode = EditMode::Vi,
-                                other => {
-                                    bail!(
-                                        "invalid edit mode '{other}',
+        if let Err(e) = koto.compile_and_run(CompileArgs::new(&script).script_path(config_path)) {
+            bail!("error while loading config: {e}");
+        }
+
+        let exports = koto.exports().data();
+        match exports.get("repl") {
+            Some(KValue::Map(repl_config)) => {
+                let repl_config = repl_config.data();
+                match repl_config.get("colored_output") {
+                    Some(KValue::Bool(value)) => config.colored_output = *value,
+                    Some(_) => bail!("expected bool for colored_output setting"),
+                    None => {}
+                }
+                match repl_config.get("edit_mode") {
+                    Some(KValue::Str(value)) => match value.as_str() {
+                        "emacs" => config.edit_mode = EditMode::Emacs,
+                        "vi" => config.edit_mode = EditMode::Vi,
+                        other => {
+                            bail!(
+                                "invalid edit mode '{other}',
                                          valid options are 'emacs' or 'vi'"
-                                    )
-                                }
-                            },
-                            Some(_) => bail!("expected string for edit_mode setting"),
-                            None => {}
+                            )
                         }
-                        match repl_config.get("max_history") {
-                            Some(KValue::Number(value)) => match i64::from(value) {
-                                value if value > 0 => config.max_history = value as usize,
-                                _ => bail!("expected positive number for max_history setting"),
-                            },
-                            Some(_) => bail!("expected positive number for max_history setting"),
-                            None => {}
-                        }
-                    }
-                    Some(_) => bail!("expected map for repl settings"),
+                    },
+                    Some(_) => bail!("expected string for edit_mode setting"),
+                    None => {}
+                }
+                match repl_config.get("max_history") {
+                    Some(KValue::Number(value)) => match i64::from(value) {
+                        value if value > 0 => config.max_history = value as usize,
+                        _ => bail!("expected positive number for max_history setting"),
+                    },
+                    Some(_) => bail!("expected positive number for max_history setting"),
                     None => {}
                 }
             }
-            Err(e) => bail!("error while loading config: {e}",),
+            Some(_) => bail!("expected map for repl settings"),
+            None => {}
         }
     }
 

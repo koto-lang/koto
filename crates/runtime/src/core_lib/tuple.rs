@@ -82,6 +82,15 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("is_empty", |ctx| {
+        let expected_error = "|Tuple|";
+
+        match ctx.instance_and_args(is_tuple, expected_error)? {
+            (KValue::Tuple(t), []) => Ok(t.is_empty().into()),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
     result.add_fn("sort_copy", |ctx| {
         let expected_error = "|Tuple|, or |Tuple, |Any| -> Any|";
 

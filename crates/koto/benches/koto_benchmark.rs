@@ -10,7 +10,7 @@ struct BenchmarkRunner {
 }
 
 impl BenchmarkRunner {
-    fn setup(script_path: &str, args: &[String]) -> Self {
+    fn setup(script_path: &str, args: &[&str]) -> Self {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("..");
         path.push("..");
@@ -25,7 +25,9 @@ impl BenchmarkRunner {
 
         match runtime.compile(&script) {
             Ok(_) => {
-                runtime.set_args(args).unwrap();
+                runtime
+                    .set_args(args.iter().map(|s| s.to_string()))
+                    .unwrap();
                 if let Err(error) = runtime.run() {
                     panic!("{error}");
                 }
@@ -61,33 +63,25 @@ pub fn koto_benchmark(c: &mut Criterion) {
         })
     });
     c.bench_function("string_formatting", |b| {
-        let mut runner = BenchmarkRunner::setup(
-            "string_formatting.koto",
-            &["70".to_string(), "quiet".to_string()],
-        );
+        let mut runner = BenchmarkRunner::setup("string_formatting.koto", &["70", "quiet"]);
         b.iter(|| {
             runner.run();
         })
     });
     c.bench_function("spectral_norm", |b| {
-        let mut runner = BenchmarkRunner::setup(
-            "spectral_norm.koto",
-            &["2".to_string(), "quiet".to_string()],
-        );
+        let mut runner = BenchmarkRunner::setup("spectral_norm.koto", &["2", "quiet"]);
         b.iter(|| {
             runner.run();
         })
     });
     c.bench_function("fannkuch", |b| {
-        let mut runner =
-            BenchmarkRunner::setup("fannkuch.koto", &["4".to_string(), "quiet".to_string()]);
+        let mut runner = BenchmarkRunner::setup("fannkuch.koto", &["4", "quiet"]);
         b.iter(|| {
             runner.run();
         })
     });
     c.bench_function("n_body", |b| {
-        let mut runner =
-            BenchmarkRunner::setup("n_body.koto", &["10".to_string(), "quiet".to_string()]);
+        let mut runner = BenchmarkRunner::setup("n_body.koto", &["10", "quiet"]);
         b.iter(|| {
             runner.run();
         })

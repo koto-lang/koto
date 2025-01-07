@@ -148,17 +148,12 @@ impl Koto {
     }
 
     /// Sets the arguments that can be accessed from within the script via `koto.args()`
-    pub fn set_args(&mut self, args: &[String]) -> Result<()> {
-        use KValue::{Map, Str, Tuple};
-
-        let koto_args = args
-            .iter()
-            .map(|arg| Str(arg.as_str().into()))
-            .collect::<Vec<_>>();
+    pub fn set_args(&mut self, args: impl IntoIterator<Item = String>) -> Result<()> {
+        let koto_args = args.into_iter().map(KValue::from).collect::<Vec<_>>();
 
         match self.runtime.prelude().data_mut().get("koto") {
-            Some(Map(map)) => {
-                map.insert("args", Tuple(koto_args.into()));
+            Some(KValue::Map(map)) => {
+                map.insert("args", KValue::Tuple(koto_args.into()));
                 Ok(())
             }
             _ => Err(Error::MissingPrelude),
@@ -285,13 +280,31 @@ pub struct CompileArgs<'a> {
 }
 
 impl<'a> CompileArgs<'a> {
-    /// A convenience initializer for when the script has been loaded from a path
-    pub fn with_path(script: &'a str, script_path: impl Into<KString>) -> Self {
+    /// Initializes CompileArgs with the given script and default settings
+    pub fn new(script: &'a str) -> Self {
         Self {
             script,
-            script_path: Some(script_path.into()),
-            compiler_settings: Default::default(),
+            script_path: None,
+            compiler_settings: CompilerSettings::default(),
         }
+    }
+
+    /// Sets the script's path
+    pub fn script_path(mut self, script_path: impl Into<KString>) -> Self {
+        self.script_path = Some(script_path.into());
+        self
+    }
+
+    /// Sets the [`CompilerSettings::enable_type_checks`] flag, enabled by default.
+    pub fn enable_type_checks(mut self, enabled: bool) -> Self {
+        self.compiler_settings.enable_type_checks = enabled;
+        self
+    }
+
+    /// Sets the [`CompilerSettings::export_top_level_ids`] flag, disabled by default.
+    pub fn export_top_level_ids(mut self, enabled: bool) -> Self {
+        self.compiler_settings.export_top_level_ids = enabled;
+        self
     }
 }
 
