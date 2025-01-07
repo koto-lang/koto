@@ -1,5 +1,5 @@
 mod runtime {
-    use koto_bytecode::{CompilerSettings, Loader};
+    use koto_bytecode::{CompilerSettings, ModuleLoader};
     use koto_lexer::{Position, Span};
     use koto_runtime::{ErrorFrame, KotoVm};
     use koto_test_utils::script_instructions;
@@ -15,7 +15,7 @@ mod runtime {
     fn check_that_script_fails(script: &str, span: Option<Span>) {
         let mut vm = KotoVm::default();
 
-        let mut loader = Loader::default();
+        let mut loader = ModuleLoader::default();
         let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {

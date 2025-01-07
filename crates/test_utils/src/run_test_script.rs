@@ -1,5 +1,5 @@
 use crate::script_instructions;
-use koto_bytecode::{CompilerSettings, Loader};
+use koto_bytecode::{CompilerSettings, ModuleLoader};
 use koto_runtime::{prelude::*, Result};
 
 /// Runs a script using the provided Vm, optionally checking its output
@@ -9,7 +9,7 @@ pub fn run_test_script(
     script_path: Option<KString>,
     expected_output: Option<KValue>,
 ) -> Result<()> {
-    let mut loader = Loader::default();
+    let mut loader = ModuleLoader::default();
     let chunk = match loader.compile_script(script, script_path, CompilerSettings::default()) {
         Ok(chunk) => chunk,
         Err(error) => {

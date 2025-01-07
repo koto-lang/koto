@@ -1,4 +1,4 @@
-use koto_bytecode::{Chunk, CompilerSettings, Loader};
+use koto_bytecode::{Chunk, CompilerSettings, ModuleLoader};
 use koto_runtime::Ptr;
 use koto_test_utils::OutputCapture;
 
@@ -19,7 +19,7 @@ mod vm {
             );
         };
 
-        let mut loader = Loader::default();
+        let mut loader = ModuleLoader::default();
         let chunk = match loader.compile_script(script, None, CompilerSettings::default()) {
             Ok(chunk) => chunk,
             Err(error) => {
