@@ -1,6 +1,6 @@
 [package]
 name = "koto_regex"
-version = "0.15.0"
+version = "0.15.1"
 description = "A Koto library for working with regular expressions"
 authors = ["jasal82 <johannes.asal@gmx.de>", "irh <ian.r.hobson@gmail.com>"]
 
@@ -24,7 +24,7 @@ regex = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.15.0"
+version = "^0.15.1"
 default-features = false
 
 [dev-dependencies]

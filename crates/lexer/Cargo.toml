@@ -1,6 +1,6 @@
 [package]
 name = "koto_lexer"
-version = "0.15.0"
+version = "0.15.1"
 description = "The lexer used by the Koto programming language"
 
 authors.workspace = true

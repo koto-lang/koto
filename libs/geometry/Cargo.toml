@@ -1,6 +1,6 @@
 [package]
 name = "koto_geometry"
-version = "0.15.0"
+version = "0.15.1"
 description = "A Koto library with basic geometry types and operations"
 
 authors.workspace = true
@@ -24,7 +24,7 @@ glam = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.15.0"
+version = "^0.15.1"
 default-features = false
 
 [dev-dependencies]

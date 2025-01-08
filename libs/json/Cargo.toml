@@ -1,6 +1,6 @@
 [package]
 name = "koto_json"
-version = "0.15.0"
+version = "0.15.1"
 description = "A Koto library for working with JSON data"
 
 authors.workspace = true
@@ -24,12 +24,12 @@ serde_json = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.15.0"
+version = "^0.15.1"
 default-features = false
 
 [dependencies.koto_serialize]
 path = "../../crates/serialize"
-version = "^0.15.0"
+version = "^0.15.1"
 default-features = false
 
 [dev-dependencies]
