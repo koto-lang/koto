@@ -119,6 +119,7 @@ impl ModuleLoader {
         settings: CompilerSettings,
     ) -> Result<Ptr<Chunk>, ModuleLoaderError> {
         Compiler::compile(script, script_path.clone(), settings)
+            .map(Ptr::from)
             .map_err(|e| ModuleLoaderError::from_compiler_error(e, script, script_path))
     }
 

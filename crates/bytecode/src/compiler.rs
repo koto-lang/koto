@@ -4,7 +4,6 @@ use crate::{
 };
 use circular_buffer::CircularBuffer;
 use derive_name::VariantName;
-use koto_memory::Ptr;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
     ConstantIndex, Function, ImportItem, KString, MatchArm, MetaKeyId, Node, Parser, Span,
@@ -261,13 +260,24 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    /// Compiles a Koto script using the provided settings, returning a compiled [Chunk]
+    /// Compiles a script using the provided settings, returning a compiled [Chunk]
     pub fn compile(
         script: &str,
         script_path: Option<KString>,
         settings: CompilerSettings,
-    ) -> Result<Ptr<Chunk>> {
+    ) -> Result<Chunk> {
         let ast = Parser::parse(script)?;
+        let mut result = Self::compile_ast(ast, script_path, settings)?;
+        result.debug_info.source = script.to_string();
+        Ok(result)
+    }
+
+    /// Compiles an [Ast] using the provided settings, returning a compiled [Chunk]
+    pub fn compile_ast(
+        ast: Ast,
+        script_path: Option<KString>,
+        settings: CompilerSettings,
+    ) -> Result<Chunk> {
         let mut compiler = Compiler {
             settings,
             ..Default::default()
@@ -284,8 +294,6 @@ impl Compiler {
             return compiler.error(ErrorKind::ResultingBytecodeIsTooLarge(compiler.bytes.len()));
         }
 
-        compiler.debug_info.source = script.to_string();
-
         let result = Chunk {
             bytes: compiler.bytes,
             constants: ast.consume_constants(),
@@ -293,7 +301,7 @@ impl Compiler {
             debug_info: compiler.debug_info,
         };
 
-        Ok(result.into())
+        Ok(result)
     }
 
     fn compile_node(

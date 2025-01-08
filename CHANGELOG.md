@@ -8,6 +8,13 @@ The Koto project adheres to
 
 ## [0.16.0] Unreleased 
 
+### Added
+
+#### API
+
+- `Compiler::compile_ast` has been added, useful for tools that want to work with the AST
+  after checking that it compiles correctly.
+
 ### Changed
 
 #### Language
