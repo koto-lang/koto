@@ -10,7 +10,8 @@ See the neighboring [readme](./README.md) for an explanation of the
 
 ## Language Basics
 
-Koto programs contain a series of expressions that are evaluated by Koto's runtime.
+Koto programs contain a series of expressions that are evaluated in
+top-to-bottom order by Koto's runtime.
 
 As an example, this simple script prints a friendly greeting.
 
@@ -2416,7 +2417,7 @@ export
   baz: 'baz'
 ```
 
-Exported values are available anywhere in the module that exported them.
+Once a value has been exported, it becomes available anywhere in the module.
 
 ```koto
 get_x = ||
@@ -2428,6 +2429,22 @@ export x = 123
 
 print! get_x()
 check! 123
+
+# A function that exports `y` with the given value
+export_y = |value|
+  export y = value
+
+# y hasn't been exported yet, so attempting to access it now throws an error.
+print! try
+  y
+catch _
+  'y not found'
+check! y not found
+
+# Calling export_y adds y to the exports map
+export_y 42
+print! y
+check! 42
 ```
 
 The exports map can be accessed and modified directly via [`koto.exports`][koto-exports].
