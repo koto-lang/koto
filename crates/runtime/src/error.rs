@@ -33,6 +33,8 @@ pub enum ErrorKind {
         expected: String,
         unexpected: Vec<KValue>,
     },
+    #[error("Too many arguments - expected {expected}, found {actual}")]
+    TooManyArguments { expected: u8, actual: u8 },
     #[error("Unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
     UnexpectedType {
         expected: String,

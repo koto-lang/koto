@@ -8,6 +8,12 @@ The Koto project adheres to
 
 ## [0.16.0] Unreleased 
 
+### Changed
+
+#### Language
+
+- Calls to functions with more arguments than expected by the function will now throw an error.
+
 ### Fixed
 
 #### Core Library
