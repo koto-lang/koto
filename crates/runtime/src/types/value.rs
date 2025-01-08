@@ -136,7 +136,15 @@ impl KValue {
     pub fn is_iterable(&self) -> bool {
         use KValue::*;
         match self {
-            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_) => true,
+            Range(_) | List(_) | Tuple(_) | Str(_) | Iterator(_) => true,
+            Map(m) => {
+                if m.meta_map().is_some() {
+                    m.contains_meta_key(&UnaryOp::Iterator.into())
+                        || m.contains_meta_key(&UnaryOp::Next.into())
+                } else {
+                    true
+                }
+            }
             Object(o) => o
                 .try_borrow()
                 .is_ok_and(|o| !matches!(o.is_iterable(), IsIterable::NotIterable)),
