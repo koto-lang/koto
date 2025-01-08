@@ -8,6 +8,12 @@ The Koto project adheres to
 
 ## [0.16.0] Unreleased 
 
+### Fixed
+
+#### Core Library
+
+- Iterator adaptors can now be used as standalone functions.
+  - e.g. `for i, n in iterator.enumerate 'abc'` would previously throw an error.
 
 ## [0.15.0] 2025.01.07
 
