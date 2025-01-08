@@ -171,6 +171,15 @@ x.next().get()
         use super::*;
 
         #[test]
+        fn as_standalone_function() {
+            let script = "
+x = iterator.enumerate 'abc'
+x.next().get()
+";
+            check_script_output(script, tuple(&[0.into(), "a".into()]));
+        }
+
+        #[test]
         fn make_copy() {
             let script = "
 x = (10..20).enumerate()
