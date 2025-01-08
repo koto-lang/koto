@@ -1280,19 +1280,25 @@ in any iterator chain.
 ```koto
 # Make an iterator adaptor that yields every
 # other value from the adapted iterator
-iterator.every_other = ||
+iterator.every_other = |iter|
   n = 0
-  # When the generator is created, self is initialized with the previous
-  # iterator in the chain, allowing its output to be adapted.
-  for output in self
+  # If the iterator to be adapted is provided as an argument then use it,
+  # otherwise defer to `self`, which is set by the runtime when the
+  # generator is used in an iterator chain.
+  for output in iter or self
     # If n is even, then yield a value
     if n % 2 == 0
       yield output
     n += 1
 
+# The adaptor can be called directly...
+print! iterator.every_other('abcdef').to_string()
+check! ace
+
+# ...or anywhere in an iterator chain
 print! (1, 2, 3, 4, 5)
   .each |n| n * 10
-  .every_other() # Skip over every other value in the iterator chain
+  .every_other()
   .to_list()
 check! [10, 30, 50]
 ```
