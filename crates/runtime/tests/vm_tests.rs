@@ -1151,15 +1151,6 @@ foo 42
         }
 
         #[test]
-        fn call_with_extra_args() {
-            let script = "
-foo = |a, b| a + b
-foo 10, 20, 30, 40
-";
-            check_script_output(script, 30);
-        }
-
-        #[test]
         fn nested_call_without_parens() {
             let script = "
 add = |a, b|

@@ -2764,16 +2764,23 @@ impl KotoVm {
             f.arg_count
         };
 
-        if f.variadic && call_info.arg_count >= expected_arg_count {
-            // The last defined arg is the start of the var_args,
-            // e.g. f = |x, y, z...|
-            // arg index 2 is the first vararg, and where the tuple will be placed
-            let arg_base = call_info.frame_base + 1;
-            let varargs_start = arg_base + expected_arg_count;
-            let varargs_count = call_info.arg_count - expected_arg_count;
-            let varargs = KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
-            self.set_register(varargs_start, varargs);
-            // self.truncate_registers(varargs_start + 1);
+        if f.variadic {
+            if call_info.arg_count >= expected_arg_count {
+                // The last defined arg is the start of the var_args,
+                // e.g. f = |x, y, z...|
+                // arg index 2 is the first vararg, and where the tuple will be placed
+                let arg_base = call_info.frame_base + 1;
+                let varargs_start = arg_base + expected_arg_count;
+                let varargs_count = call_info.arg_count - expected_arg_count;
+                let varargs =
+                    KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                self.set_register(varargs_start, varargs);
+            }
+        } else if call_info.arg_count > expected_arg_count {
+            return runtime_error!(ErrorKind::TooManyArguments {
+                expected: expected_arg_count,
+                actual: call_info.arg_count
+            });
         }
 
         // self is in the frame base register, arguments start from register frame_base + 1
