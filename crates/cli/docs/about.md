@@ -131,7 +131,7 @@ An implementation of the [Language Server Protocol][lsp] for Koto is
 
 ## Performance
 
-Koto's runtime is fast enough for many applications, with performance comparable to similar embedded scripting languages for Rust like [Rhai] and [Dyon].
+Koto's runtime is fast enough for many applications, with performance comparable to similar embedded scripting languages for Rust like [Rhai][rhai] and [Dyon][dyon].
 
 By default, Koto uses a single-threaded runtime. The multi-threaded runtime is available via a [feature flag][api-multi-threaded], but comes with a runtime performance cost typically in the range of ~5-10%.
 
@@ -145,6 +145,7 @@ As an embedded language that runs in a virtual machine within an application, ru
 [coffeescript]: https://coffeescript.org
 [discord]: https://discord.gg/JeV8RuK4CT
 [discussions]: https://github.com/koto-lang/koto/discussions
+[dyon]: https://github.com/PistonDevelopers/dyon 
 [helix]: https://helix-editor.com
 [helix-build]: https://docs.helix-editor.com/building-from-source.html
 [issues]: https://github.com/koto-lang/koto/issues
@@ -158,6 +159,7 @@ As an embedded language that runs in a virtual machine within an application, ru
 [nvim-treesitter]: https://github.com/nvim-treesitter/nvim-treesitter
 [performance-book]: https://nnethercote.github.io/perf-book
 [playground]: https://koto.dev/play
+[rhai]: https://rhai.rs
 [rust]: https://rust-lang.org
 [rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html
 [testing]: ./language_guide.md#testing
