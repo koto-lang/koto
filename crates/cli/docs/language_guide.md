@@ -1248,6 +1248,25 @@ check! ('foo', 42)
 check! ('bar', 99)
 ```
 
+#### Ignoring Unpacked Values
+
+`_` can be used as a placeholder for unpacked values that aren't needed elsewhere
+in the code and can be ignored.
+
+If you would like to add a name to the ignored value as a reminder,
+then the name can be appended to `_`. Ignored values (any variables starting with
+`_`) can be written to, but can't be accessed.
+
+```koto
+a, _, c = 10..20
+print! a, c
+check! (10, 12)
+
+_first, second = 'xyz'
+print! second
+check! y
+```
+
 ## Generators
 
 Generators are iterators that are made by calling _generator functions_,
@@ -1822,7 +1841,7 @@ check! 60
 
 ### Ignoring Arguments
 
-The wildcard `_` can be used to ignore function arguments.
+As with [assignments](#ignoring-unpacked-values), `_` can be used to ignore function arguments.
 
 ```koto
 # A function that sums the first and third elements of a container
@@ -1831,10 +1850,6 @@ f = |(a, _, c)| a + c
 print! f [100, 10, 1]
 check! 101
 ```
-
-If you would like to keep the name of the ignored value as a reminder,
-then `_` can be used as a prefix for an identifier. Identifiers starting with
-`_` can be written to, but can't be accessed.
 
 ```koto
 my_map = {foo1: 1, bar1: 2, foo2: 3, bar2: 4}
