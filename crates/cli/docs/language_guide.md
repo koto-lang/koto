@@ -2269,90 +2269,6 @@ catch other
 check! Throwing a String
 ```
 
-## Testing
-
-Koto includes a simple testing framework that help you to check that your code
-is behaving as you expect through automated checks.
-
-### Assertions
-
-The core library includes a collection of _assertion_ functions in the
-[`test` module](./core_lib/test.md),
-which are included by default in the [prelude](#prelude).
-
-```koto
-try
-  assert 1 + 1 == 3
-catch error
-  print 'An assertion failed'
-check! An assertion failed
-
-try
-  assert_eq 'hello', 'goodbye'
-catch error
-  print 'An assertion failed'
-check! An assertion failed
-```
-
-### Organizing Tests
-
-Tests can be organized by collecting `@test` functions in a map.
-
-The tests can then be run manually with [`test.run_tests`](./core_lib/test.md#run_tests).
-
-For automatic testing, see the description of exporting `@test` functions in the
-[following section](#modules).
-
-```koto
-basic_tests =
-  @test add: || assert_eq 1 + 1, 2
-  @test subtract: || assert_eq 1 - 1, 0
-
-test.run_tests basic_tests
-```
-
-For setup and cleanup operations shared across tests,
-`@pre_test` and `@post_test` metakeys can be implemented.
-`@pre_test` will be run before each `@test`, and `@post_test` will be run after.
-
-```koto
-make_x = |n|
-  data: n
-  @+: |other| make_x self.data + other.data
-  @-: |other| make_x self.data - other.data
-
-x_tests =
-  @pre_test: ||
-    self.x1 = make_x 100
-    self.x2 = make_x 200
-
-  @post_test: ||
-    print 'Test complete'
-
-  @test addition: ||
-    print 'Testing addition'
-    assert_eq self.x1 + self.x2, make_x 300
-
-  @test subtraction: ||
-    print 'Testing subtraction'
-    assert_eq self.x1 - self.x2, make_x -100
-
-  @test failing_test: ||
-    print 'About to fail'
-    assert false
-
-try
-  test.run_tests x_tests
-catch _
-  print 'A test failed'
-check! Testing addition
-check! Test complete
-check! Testing subtraction
-check! Test complete
-check! About to fail
-check! A test failed
-```
-
 ## Modules
 
 Koto includes a module system that helps you to organize and re-use your code
@@ -2512,19 +2428,11 @@ print! koto.exports().x
 check! 99
 ```
 
-### `@test` functions and `@main`
+### `@main`
 
-A module can export `@test` functions, which by default will be automatically run
-after the module has been compiled and initialized.
+A module can export a `@main` function, which will be called after the module has been compiled and successfully initialized.
 
-The runtime can be configured to skip running tests, so scripts shouldn't rely on
-tests being run.
-
-Additionally, a module can export a `@main` function.
-The `@main` function will be called after the module has been compiled and
-initialized, and after any exported `@test` functions have been successfully run.
-
-The use of `export` is optional when assigning to metakeys like `@main` and `@test`.
+The use of `export` is optional when assigning to module metakeys like `@main`.
 
 ```koto,skip_run
 ##################
@@ -2534,20 +2442,14 @@ The use of `export` is optional when assigning to metakeys like `@main` and `@te
 export say_hello = |name| 'Hello, {name}!'
 
 # Equivalent to `export @main = ...`
-@main = ||
-  print '`my_module` initialized'
-
-@test hello_world = ||
-  print 'Testing...'
-  assert_eq (say_hello 'World'), 'Hello, World!'
+@main = || print '`my_module` initialized'
 
 ##################
 #   other.koto   #
 ##################
 
 from my_module import say_hello
-check! Testing...
-check! Successfully initialized `my_module`
+check! `my_module` initialized
 
 say_hello 'Koto'
 check! 'Hello, Koto!'
@@ -2561,6 +2463,114 @@ name, or for a folder with a matching name that contains a `main.koto` file.
 E.g. When an `import foo` expression is run, then a `foo.koto` file will be
 looked for in the same location as the current script,
 and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
+
+## Testing
+
+Koto includes a simple testing framework that allows you to automatically check that your code is behaving as you would expect.
+
+### Assertions
+
+The core library includes a collection of _assertion_ functions which
+throw errors if a given condition isn't met.
+
+The assertion functions are found in the [`test` module](./core_lib/test.md),
+and are included by default in the [prelude](#prelude).
+
+```koto
+try
+  assert 1 + 1 == 3
+catch error
+  print 'An assertion failed'
+check! An assertion failed
+
+try
+  assert_eq 'hello', 'goodbye'
+catch error
+  print 'An assertion failed'
+check! An assertion failed
+```
+
+### Module Tests
+
+Tests can be added to a module by exporting `@test` functions. A test function is considered to have failed if it throws an error (e.g. from an assertion).
+
+By default, tests will be run after a module has been successfully initialized. If the module also exports `@main` then it will be called after all tests have run successfully.
+
+```koto,skip_run
+##################
+# my_module.koto #
+##################
+
+export say_hello = |name| 'Hello, {name}!'
+
+@main = || print '`my_module` initialized'
+
+@test say_hello = ||
+  print 'Running @test say_hello'
+  assert_eq say_hello('Test'), 'Hello, Test!'
+
+##################
+#   other.koto   #
+##################
+
+from my_module import say_hello
+check! Running @test say_hello
+check! `my_module` initialized
+```
+
+`@pre_test` and `@post_test` functions can be implemented alongside tests
+for setup and cleanup operations.
+`@pre_test` will be run before each `@test`, and `@post_test` will be run after.
+
+```koto,skip_run
+##################
+# my_module.koto #
+##################
+
+export say_hello = |name| 'Hello, {name}!'
+
+@main = || print '`my_module` initialized'
+
+@pre_test = ||
+  print 'In @pre_test'
+
+@post_test = ||
+  print 'In @post_test'
+
+@test say_hello_1 = ||
+  print 'Running @test say_hello_1'
+  assert_eq say_hello('One'), 'Hello, One!'
+
+@test say_hello_2 = ||
+  print 'Running @test say_hello_2'
+  assert_eq say_hello('Two'), 'Hello, Two!'
+
+##################
+#   other.koto   #
+##################
+
+from my_module import say_hello
+check! In @pre_test
+check! Running @test say_hello_1
+check! In @post_test
+check! In @pre_test
+check! Running @test say_hello_2
+check! In @post_test
+check! `my_module` initialized
+```
+
+### Running Tests Manually
+
+Tests can be run manually by calling [`test.run_tests`][test-run_tests]
+with a map that contains `@test` functions.
+
+```koto
+my_tests =
+  @test add: || assert_eq 1 + 1, 2
+  @test subtract: || assert_eq 1 - 1, 0
+
+test.run_tests my_tests
+```
 
 ---
 
@@ -2587,6 +2597,7 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
 [repeat]: ./core_lib/iterator.md#repeat
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
+[test-run_tests]: ./core_lib/test.md#run_tests
 [to_list]: ./core_lib/iterator.md#to_list
 [to_map]: ./core_lib/iterator.md#to_map
 [to_string]: ./core_lib/iterator.md#to_string
