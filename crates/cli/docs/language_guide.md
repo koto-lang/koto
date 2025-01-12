@@ -150,6 +150,18 @@ print! x
 check! true
 ```
 
+The result of an assignment is the value that's being assigned, so chained assignments are possible.
+
+```koto
+print! x = 1
+check! 1
+
+print! a = b = 100
+check! 100
+print! a + b
+check! 200
+```
+
 [Compound assignment][compound-assignment] operators are also available.
 For example, `x *= y` is a simpler way of writing `x = x * y`.
 
@@ -384,6 +396,22 @@ print! '2 plus 3 is {2 + 3}.'
 check! 2 plus 3 is 5.
 ```
 
+### String Indexing
+
+Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
+
+```koto
+print! 'abcdef'[3]
+check! d
+print! 'xyz'[1..]
+check! yz
+```
+
+Care must be taken when using indexing with strings that could contain
+non-[ASCII][ascii] data.
+If the indexed bytes would produce invalid UTF-8 data then an
+error will be thrown. To access Unicode characters see [`string.chars`][chars].
+
 ### String Escape Codes
 
 Strings can contain the following escape codes to define special characters,
@@ -425,7 +453,7 @@ check! This string doesn't contain newlines.
 ### Single or Double Quotes
 
 Both single `'` and double `"` quotes are valid for defining strings in Koto
-and can be used interchangeably.
+and have the same meaning.
 
 A practical reason to choose one over the other is that the alternate
 quote type can be used in a string without needing to use escape characters.
@@ -437,22 +465,6 @@ check! This string has to escape its 'single quotes'.
 print "This string contains unescaped 'single quotes'."
 check! This string contains unescaped 'single quotes'.
 ```
-
-### String Indexing
-
-Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
-
-```koto
-print! 'abcdef'[3]
-check! d
-print! 'xyz'[1..]
-check! yz
-```
-
-Care must be taken when using indexing with strings that could contain
-non-[ASCII][ascii] data.
-If the indexed bytes would produce invalid UTF-8 data then an
-error will be thrown. To access Unicode characters see [`string.chars`][chars].
 
 ### Raw Strings
 
@@ -540,7 +552,6 @@ of optional parentheses, `f(1, 2)` is _not the same_ as `f (1, 2)`. The former
 is parsed as a call to `f` with two arguments, whereas the latter is a call to
 `f` with a tuple as the single argument.
 
-
 ### Return
 
 When the function should be exited early, the `return` keyword can be used.
@@ -596,8 +607,8 @@ check! 32
 
 ## Maps
 
-_Maps_ in Koto are containers that contain a series of
-_entries_ with _keys_ that correspond to [associated][associated] _values_.
+_Maps_ in Koto are [associative containers][associated] that contain a series of
+_entries_ with _keys_ that correspond to associated _values_.
 
 The `.` dot operator returns the value associated with a particular key.
 
@@ -666,8 +677,10 @@ check! {apples: 42, pears: 123, lemons: 63}
 
 ### Shorthand Values
 
-Koto supports a shorthand notation when creating maps with inline syntax.
-If a value isn't provided for a key, then Koto will look for a value in scope
+When creating maps with inline syntax, Koto supports a shorthand notation that
+simplifies adding existing values to the map.
+
+If a value isn't provided for a key, then Koto will look for a value
 that matches the key's name, and if one is found then it will be used as that
 entry's value.
 
@@ -796,7 +809,7 @@ available in the `help` command of the [Koto CLI][cli].
 ### Prelude
 
 Koto's _prelude_ is a collection of core library items that are automatically
-made available in a Koto script without the need for first calling `import`.
+made available in a Koto script without the need for first calling [`import`](#import).
 
 The modules that make up the core library are all included by default in the
 prelude. The following functions are also added to the prelude by default:
@@ -919,9 +932,12 @@ with `...` available for capturing the rest of the sequence.
 
 ```koto
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
-  ('a', 'b') then "A list containing 'a' and 'b'"
-  (1, ...) then "Starts with '1'"
-  (..., 'y', last) then "Ends with 'y' followed by '{last}'"
+  ('a', 'b') then
+    "A list containing 'a' and 'b'"
+  (1, ...) then
+    "Starts with '1'"
+  (..., 'y', last) then
+    "Ends with 'y' followed by '{last}'"
   ('a', x, others...) then
     "Starts with 'a', followed by '{x}', then {size others} others"
   unmatched then "other: {unmatched}"
@@ -1087,7 +1103,7 @@ check! null
 
 ### Iterator Generators
 
-The [`iterator` module][iterator] contains iterator _generators_ like
+The [`iterator`][iterator] module contains iterator _generators_ like
 [`once`][once] and [`repeat`][repeat] that generate output values
 [_lazily_][lazy] during iteration.
 
@@ -1102,11 +1118,10 @@ print! i.next()
 check! null
 ```
 
-
 ### Iterator Adaptors
 
 The output of an iterator can be modified using _adaptors_ from the
-[`iterator` module][iterator].
+[`iterator`][iterator] module.
 
 ```koto
 # Create an iterator that keeps any value above 3
@@ -1134,8 +1149,8 @@ check! d
 
 ### Iterator Chains
 
-Iterator adaptors can be passed into other adaptors, creating _iterator chains_
-that act as data processing pipelines.
+Any iterator can be passed into an adaptor, including other adaptors,
+creating _iterator chains_ that act as data processing pipelines.
 
 ```koto
 i = (1, 2, 3, 4, 5)
@@ -1171,6 +1186,10 @@ print! (1, 2, 3, 4)
   .to_list()
 check! [22, 44]
 ```
+
+Iterator consumers are also available for creating [strings][to_string] and [maps][to_map],
+as well as operations like [counting the number of values][iterator-count] yielded from an
+iterator, or getting the [total sum][iterator-sum] of an iterator's output.
 
 ## Value Unpacking
 
@@ -1413,7 +1432,7 @@ check! ('l', 'l', 'ø')
 ## Type Checks
 
 Koto is a primarily a dynamically typed language, however in more complex programs
-you might find it beneficial to add type checks.
+you might find it beneficial to add _type checks_.
 
 These checks can help in catching errors earlier, and can also act as
 documentation for the reader.
@@ -1519,7 +1538,7 @@ check! null
 
 #### `Any`
 
-The `Any` type will result in a successful check with any value.
+The `Any` type hint will result in a successful check with any value.
 
 ```koto
 print! let x: Any = 'hello'
@@ -1549,7 +1568,7 @@ check! 199
 
 #### `Iterable`
 
-The `Iterable` type is useful when any iterable value can be accepted.
+The `Iterable` type hint is useful when any iterable value can be accepted.
 
 ```koto
 let a: Iterable, b: Iterable = [1, 2], 3..=5
@@ -1818,11 +1837,12 @@ then `_` can be used as a prefix for an identifier. Identifiers starting with
 `_` can be written to, but can't be accessed.
 
 ```koto
-my_map = {foo_a: 1, bar_a: 2, foo_b: 3, bar_b: 4}
+my_map = {foo1: 1, bar1: 2, foo2: 3, bar2: 4}
+
 print! my_map
   .keep |(key, _value)| key.starts_with 'foo'
   .to_tuple()
-check! (('foo_a', 1), ('foo_b', 3))
+check! (('foo1', 1), ('foo2', 3))
 ```
 
 ## Objects and Metamaps
@@ -1893,9 +1913,9 @@ check! -100
 
 #### `@size` and `@index`
 
-The `@size` metakey defines how the object should report its size,
-while the `@index` metakey defines what values should be returned when indexing is
-performed on the object.
+The `@size` metakey defines how an object should report its size,
+while the `@index` metakey defines which values should be returned
+when indexing is performed.
 
 If `@size` is implemented, then `@index` should also be implemented.
 
@@ -1939,9 +1959,10 @@ check! first: 10, remaining: 4
 
 #### `@index_mut`
 
-The `@index_mut` metakey defines how the object should behave when index-assignment is used.
+The `@index_mut` metakey defines how an object should behave when index-assignment is used.
 
-The given value should be a function that takes an index as the first argument, and the value to be assigned as the second argument.
+The given value should be a function that takes an index as the first argument,
+with the second argument being the value to be assigned.
 
 ```koto
 foo = |data|
@@ -1957,7 +1978,7 @@ check! hello
 
 #### `@call`
 
-The `@call` metakey defines how the object should behave when its called as a
+The `@call` metakey defines how an object should behave when its called as a
 function.
 
 ```koto
@@ -1976,8 +1997,9 @@ check! 8
 
 #### `@iterator`
 
-The `@iterator` metakey defines how iterators should be created when the object
+The `@iterator` metakey defines how iterators should be created when an object
 is used in an iterable context.
+
 When called, `@iterator` should return an iterable value that will then be used
 for iterator operations.
 
@@ -1989,24 +2011,22 @@ foo = |n|
     yield n + 2
     yield n + 3
 
-print! (foo 0).to_tuple()
+print! foo(0).to_tuple()
 check! (1, 2, 3)
 
-print! (foo 100).to_list()
+print! foo(100).to_list()
 check! [101, 102, 103]
 ```
 
 Note that this key will be ignored if the object also implements `@next`,
 which implies that the object is _already_ an iterator.
 
-
 #### `@next`
 
 The `@next` metakey allows for objects to behave as iterators.
 
 Whenever the runtime needs to produce an iterator from an object, it will first
-check the metamap for an implementation of `@next`, before looking for
-`@iterator`.
+check the metamap for an implementation of `@next`, before looking for `@iterator`.
 
 The `@next` function will be called repeatedly during iteration,
 with the returned value being used as the iterator's output.
@@ -2030,9 +2050,8 @@ check! (10, 11, 12, 13, 14)
 
 #### `@next_back`
 
-The `@next_back` metakey is used by
-[`iterator.reversed`](./core_lib/iterator.md#reversed) when producing a reversed
-iterator.
+The `@next_back` metakey is used by [`iterator.reversed`][iterator-reversed]
+when producing a reversed iterator.
 
 The runtime will only look for `@next_back` if `@next` is implemented.
 
@@ -2052,7 +2071,7 @@ check! (2, 1, 0)
 
 #### `@display`
 
-The `@display` metakey defines how the object should be represented when
+The `@display` metakey defines how an object should be represented when
 displaying the object as a string.
 
 ```koto
@@ -2070,15 +2089,16 @@ check! The value of x is 'Foo(-1)'
 
 #### `@type`
 
-The `@type` metakey takes a string as a value which is used when checking the
-value's type, e.g. with [`koto.type`](./core_lib/koto.md#type)
+The `@type` metakey takes a string which is used when checking a
+value's type, e.g. with [type checks](#type-checks) or [`koto.type`][koto-type].
 
 ```koto
 foo = |n|
   data: n
   @type: "Foo"
 
-print! koto.type (foo 42)
+let x: Foo = foo 42
+print! koto.type x
 check! Foo
 ```
 
@@ -2144,7 +2164,7 @@ check! ('data')
 ### Sharing Metamaps
 
 Metamaps can be shared between objects by using
-[`Map.with_meta`](./core_lib/map.md#with_meta), which helps to avoid inefficient
+[`Map.with_meta`][map-with_meta], which helps to avoid inefficient
 duplication when creating a lot of objects.
 
 In the following example, behavior is overridden in a single metamap, which is
@@ -2537,10 +2557,14 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
 [iterator]: ./core_lib/iterator.md
+[iterator-count]: ./core_lib/iterator.md#count
+[iterator-reversed]: ./core_lib/iterator.md#reversed
+[iterator-sum]: ./core_lib/iterator.md#sum
 [koto-exports]: ./core_lib/koto.md#exports
 [koto-type]: ./core_lib/koto.md#type
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert
+[map-with_meta]: ./core_lib/map.md#with_meta
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation
 [next]: ./core_lib/iterator.md#next
 [once]: ./core_lib/iterator.md#once
@@ -2549,6 +2573,8 @@ and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
 [repeat]: ./core_lib/iterator.md#repeat
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
 [to_list]: ./core_lib/iterator.md#to_list
+[to_map]: ./core_lib/iterator.md#to_map
+[to_string]: ./core_lib/iterator.md#to_string
 [to_tuple]: ./core_lib/iterator.md#to_tuple
 [utf-8]: https://en.wikipedia.org/wiki/UTF-8
 [variadic]: https://en.wikipedia.org/wiki/Variadic_function
