@@ -21,9 +21,9 @@ pub enum ErrorKind {
         /// A VM that should be used to format the thrown value
         vm: KotoVm,
     },
-    #[error("Execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
+    #[error("execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
-    #[error("Unable to borrow an object that is already mutably borrowed")]
+    #[error("unable to borrow an object that is already mutably borrowed")]
     UnableToBorrowObject,
     #[error(
         "Unexpected arguments.\n  Expected: {expected}\n  Provided: |{}|",
@@ -33,14 +33,14 @@ pub enum ErrorKind {
         expected: String,
         unexpected: Vec<KValue>,
     },
-    #[error("Too many arguments - expected {expected}, found {actual}")]
+    #[error("too many arguments - expected {expected}, found {actual}")]
     TooManyArguments { expected: u8, actual: u8 },
-    #[error("Unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
+    #[error("unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
     UnexpectedType {
         expected: String,
         unexpected: KValue,
     },
-    #[error("Unexpected object type - expected: '{expected}', found: '{unexpected}'")]
+    #[error("unexpected object type - expected: '{expected}', found: '{unexpected}'")]
     UnexpectedObjectType {
         expected: &'static str,
         unexpected: KString,
@@ -50,7 +50,7 @@ pub enum ErrorKind {
         fn_name: &'static str,
         object_type: KString,
     },
-    #[error("Unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
+    #[error("unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
         lhs: KValue,
         rhs: KValue,
@@ -58,15 +58,15 @@ pub enum ErrorKind {
     },
     #[error(transparent)]
     CompileError(#[from] ModuleLoaderError),
-    #[error("Empty call stack")]
+    #[error("empty call stack")]
     EmptyCallStack,
-    #[error("Missing sequence builder")]
+    #[error("missing sequence builder")]
     MissingSequenceBuilder,
-    #[error("Missing string builder")]
+    #[error("missing string builder")]
     MissingStringBuilder,
-    #[error("This operation is unsupported on this platform")]
+    #[error("this operation is unsupported on this platform")]
     UnsupportedPlatform,
-    #[error("An unexpected error occurred, please report this as a bug at https://github.com/koto-lang/koto/issues")]
+    #[error("an unexpected error occurred, please report this as a bug at https://github.com/koto-lang/koto/issues")]
     UnexpectedError,
 }
 

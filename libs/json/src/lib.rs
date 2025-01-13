@@ -12,7 +12,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<KValue> {
             Some(n64) => KValue::Number(n64.into()),
             None => match n.as_f64() {
                 Some(n64) => KValue::Number(n64.into()),
-                None => return runtime_error!("Number is out of range: {n}"),
+                None => return runtime_error!("number is out of range: {n}"),
             },
         },
         JsonValue::String(s) => KValue::Str(s.as_str().into()),

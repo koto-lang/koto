@@ -1412,7 +1412,7 @@ impl KotoVm {
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
-            return runtime_error!("Function not found while attempting to capture a value");
+            return runtime_error!("function not found while attempting to capture a value");
         };
 
         match function {
@@ -1472,7 +1472,7 @@ impl KotoVm {
                         self.set_register(result, display_context.result().into());
                         Ok(())
                     }
-                    Err(_) => runtime_error!("Failed to get display value"),
+                    Err(_) => runtime_error!("failed to get display value"),
                 }
             }
         }
@@ -2156,7 +2156,7 @@ impl KotoVm {
             Some(None) => {
                 // If the cache contains a None placeholder entry for the module path,
                 // then we're in a recursive import (see below).
-                return runtime_error!("Recursive import of module '{import_name}'");
+                return runtime_error!("recursive import of module '{import_name}'");
             }
             Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
                 self.set_register(import_register, KValue::Map(cached_exports));
@@ -2252,7 +2252,7 @@ impl KotoVm {
                         if *index >= 0.0 && u_index < list_len {
                             list_data[u_index] = value.clone();
                         } else {
-                            return runtime_error!("Invalid index ({index})");
+                            return runtime_error!("invalid index ({index})");
                         }
                     }
                     Range(range) => {
@@ -2311,7 +2311,7 @@ impl KotoVm {
                             unexpected => unexpected_type("Tuple with 2 elements", unexpected),
                         }
                     } else {
-                        runtime_error!("Invalid index ({index})")
+                        runtime_error!("invalid index ({index})")
                     }
                 }
                 unexpected => unexpected_type("Number", unexpected),
@@ -2325,10 +2325,10 @@ impl KotoVm {
         let index = usize::from(n);
 
         if n < 0.0 {
-            return runtime_error!("Negative indices aren't allowed ('{n}')");
+            return runtime_error!("negative indices aren't allowed ('{n}')");
         } else if let Some(size) = size {
             if index >= size {
-                return runtime_error!("Index out of bounds - index: {n}, size: {size}");
+                return runtime_error!("index out of bounds - index: {n}, size: {size}");
             }
         }
 
@@ -2439,7 +2439,7 @@ impl KotoVm {
                     entries.insert(key, value);
                     Ok(())
                 } else {
-                    runtime_error!("Insertion not supported for '{}'", o.type_string())
+                    runtime_error!("insertion not supported for '{}'", o.type_string())
                 }
             }
             unexpected => unexpected_type("a value that supports insertion", unexpected),
@@ -2450,7 +2450,7 @@ impl KotoVm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
+            Err(error) => return runtime_error!("error while preparing meta key: {error}"),
         };
 
         match self.get_register_mut(map_register) {
@@ -2474,7 +2474,7 @@ impl KotoVm {
         let meta_key = match self.clone_register(name_register) {
             KValue::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
+                Err(error) => return runtime_error!("error while preparing meta key: {error}"),
             },
             other => return unexpected_type("String", &other),
         };
@@ -2492,7 +2492,7 @@ impl KotoVm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
+            Err(error) => return runtime_error!("error while preparing meta key: {error}"),
         };
 
         self.exports.insert_meta(meta_key, value);
@@ -2510,7 +2510,7 @@ impl KotoVm {
         let meta_key = match self.clone_register(name_register) {
             KValue::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
+                Err(error) => return runtime_error!("error while preparing meta key: {error}"),
             },
             other => return unexpected_type("String", &other),
         };
@@ -2896,7 +2896,7 @@ impl KotoVm {
         if size == expected_size {
             Ok(())
         } else {
-            runtime_error!("The container has a size of '{size}', expected '{expected_size}'")
+            runtime_error!("the container has a size of '{size}', expected '{expected_size}'")
         }
     }
 

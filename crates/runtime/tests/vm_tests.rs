@@ -1066,7 +1066,7 @@ x
                     match value {
                         KValue::Bool(b) => {
                             if !b {
-                                return runtime_error!("Assertion failed");
+                                return runtime_error!("assertion failed");
                             }
                         }
                         unexpected => {

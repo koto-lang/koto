@@ -205,7 +205,7 @@ impl RangeIterator {
         if range.is_bounded() {
             Ok(Self { range })
         } else {
-            runtime_error!("Unbounded ranges can't be used as iterators (range: {range})")
+            runtime_error!("unbounded ranges can't be used as iterators (range: {range})")
         }
     }
 }
@@ -444,13 +444,13 @@ struct MetaIterator {
 impl MetaIterator {
     fn new(vm: KotoVm, iterator: KValue) -> Result<Self> {
         let KValue::Map(m) = &iterator else {
-            return runtime_error!("Expected Map with implementation of @next");
+            return runtime_error!("expected Map with implementation of @next");
         };
 
         match m.get_meta_value(&UnaryOp::Next.into()) {
             Some(op) if op.is_callable() => {}
             Some(op) => return unexpected_type("Callable function from @next", &op),
-            None => return runtime_error!("Expected implementation of @next"),
+            None => return runtime_error!("expected implementation of @next"),
         };
 
         let is_bidirectional = match m.get_meta_value(&UnaryOp::NextBack.into()) {

@@ -11,7 +11,7 @@ pub fn make_module() -> KMap {
             match value {
                 KValue::Bool(b) => {
                     if !b {
-                        return runtime_error!("Assertion failed");
+                        return runtime_error!("assertion failed");
                     }
                 }
                 unexpected => return unexpected_type("Bool", unexpected),
@@ -29,7 +29,7 @@ pub fn make_module() -> KMap {
                 Ok(KValue::Bool(true)) => Ok(KValue::Null),
                 Ok(KValue::Bool(false)) => {
                     runtime_error!(
-                        "Assertion failed, '{}' is not equal to '{}'",
+                        "assertion failed, '{}' is not equal to '{}'",
                         ctx.vm.value_to_string(&a)?,
                         ctx.vm.value_to_string(&b)?,
                     )
@@ -52,7 +52,7 @@ pub fn make_module() -> KMap {
                 Ok(KValue::Bool(true)) => Ok(KValue::Null),
                 Ok(KValue::Bool(false)) => {
                     runtime_error!(
-                        "Assertion failed, '{}' should not be equal to '{}'",
+                        "assertion failed, '{}' should not be equal to '{}'",
                         ctx.vm.value_to_string(&a)?,
                         ctx.vm.value_to_string(&b)?
                     )
@@ -92,7 +92,7 @@ fn number_near(a: KNumber, b: KNumber, allowed_diff: f64) -> Result<KValue> {
         Ok(KValue::Null)
     } else {
         runtime_error!(
-            "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
+            "assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
         )
     }
 }

@@ -34,9 +34,9 @@ pub fn make_module() -> KMap {
         [KValue::Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
-                Err(e) => runtime_error!("Error while parsing input: {e}"),
+                Err(e) => runtime_error!("error while parsing input: {e}"),
             },
-            Err(e) => runtime_error!("Error while parsing input: {}", e.to_string()),
+            Err(e) => runtime_error!("error while parsing input: {}", e.to_string()),
         },
         unexpected => unexpected_args("|String|", unexpected),
     });

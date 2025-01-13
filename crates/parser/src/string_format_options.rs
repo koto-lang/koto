@@ -135,13 +135,13 @@ pub enum StringAlignment {
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum StringFormatError {
-    #[error("Expected a number '{0}'")]
+    #[error("expected a number '{0}'")]
     ExpectedNumber(char),
     #[error("{0} is larger than the maximum of {}", u32::MAX)]
     FormatNumberIsTooLarge(u64),
-    #[error("An unexpected internal error occurred")]
+    #[error("an unexpected internal error occurred")]
     InternalError,
-    #[error("Unexpected token '{0}'")]
+    #[error("unexpected token '{0}'")]
     UnexpectedToken(char),
 }
 

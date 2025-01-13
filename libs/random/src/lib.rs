@@ -180,7 +180,7 @@ impl ChaChaRng {
                 match vm.run_unary_op(UnaryOp::Size, arg.clone())? {
                     Number(size) => {
                         if size <= 0 {
-                            return runtime_error!("Expected a positive @size, found {}", size);
+                            return runtime_error!("expected a positive @size, found {}", size);
                         }
 
                         for i in (1..usize::from(size)).rev() {

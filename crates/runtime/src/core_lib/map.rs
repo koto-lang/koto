@@ -214,7 +214,7 @@ pub fn make_module() -> KMap {
                         Some(ordering) => ordering,
                         None => {
                             // This should never happen, ValueKeys can only be made with sortable values
-                            error = Some(runtime_error!("Invalid map key encountered"));
+                            error = Some(runtime_error!("invalid map key encountered"));
                             Ordering::Equal
                         }
                     }

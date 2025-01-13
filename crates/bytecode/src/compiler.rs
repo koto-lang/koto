@@ -34,7 +34,7 @@ enum ErrorKind {
         u16::MAX
     )]
     JumpOffsetIsTooLarge(usize),
-    #[error("Function has too many {property} ({amount})")]
+    #[error("function has too many {property} ({amount})")]
     FunctionPropertyLimit { property: String, amount: usize },
     #[error("missing argument in for loop")]
     MissingArgumentInForLoop,

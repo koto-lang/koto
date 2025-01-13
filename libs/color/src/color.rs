@@ -80,7 +80,7 @@ impl Color {
             (Encoding::Oklch(c), 1) => c.chroma = value,
             (Encoding::Oklch(c), 2) => c.hue = value.into(),
             (_, 3) => self.alpha = value,
-            _ => return runtime_error!("Invalid component index ({index})"),
+            _ => return runtime_error!("invalid component index ({index})"),
         }
 
         Ok(())

@@ -19,7 +19,7 @@ impl Regex {
     pub fn new(pattern: &str) -> Result<Self> {
         match regex::Regex::new(pattern) {
             Ok(r) => Ok(Self(r.into())),
-            Err(e) => runtime_error!("Failed to parse regex pattern: {e}"),
+            Err(e) => runtime_error!("failed to parse regex pattern: {e}"),
         }
     }
 
