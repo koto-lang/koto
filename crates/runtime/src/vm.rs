@@ -68,6 +68,8 @@ impl<T> ModuleImportedCallback for T where T: Fn(&Path) + KotoSend + KotoSync {}
 /// The configurable settings that should be used by the Koto runtime
 pub struct KotoVmSettings {
     /// Whether or not tests should be run when importing modules
+    ///
+    /// Default: `true`
     pub run_import_tests: bool,
 
     /// An optional duration that limits how long execution is allowed to take.
@@ -80,6 +82,8 @@ pub struct KotoVmSettings {
     ///
     /// The check is performed between VM instructions, so external functions will still be able to
     /// block execution.
+    ///
+    /// Default: `None`
     pub execution_limit: Option<Duration>,
 
     /// An optional callback that is called whenever a module is imported by the runtime
@@ -89,12 +93,18 @@ pub struct KotoVmSettings {
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
 
     /// The runtime's `stdin`
+    ///
+    /// Default: [`DefaultStdin`]
     pub stdin: Ptr<dyn KotoFile>,
 
     /// The runtime's `stdout`
+    ///
+    /// Default: [`DefaultStdout`]
     pub stdout: Ptr<dyn KotoFile>,
 
     /// The runtime's `stderr`
+    ///
+    /// Default: [`DefaultStderr`]
     pub stderr: Ptr<dyn KotoFile>,
 }
 
