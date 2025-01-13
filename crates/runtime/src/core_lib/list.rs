@@ -146,7 +146,7 @@ pub fn make_module() -> KMap {
             (KValue::List(l), [KValue::Number(n), value]) => {
                 let index: usize = n.into();
                 if *n < 0.0 || index > l.data().len() {
-                    return runtime_error!("Index out of bounds");
+                    return runtime_error!("index out of bounds");
                 }
 
                 l.data_mut().insert(index, value.clone());
@@ -208,7 +208,7 @@ pub fn make_module() -> KMap {
             (KValue::List(l), [KValue::Number(n)]) => {
                 let index: usize = n.into();
                 if *n < 0.0 || index >= l.data().len() {
-                    return runtime_error!("Index out of bounds");
+                    return runtime_error!("index out of bounds");
                 }
 
                 Ok(l.data_mut().remove(index))
@@ -222,7 +222,7 @@ pub fn make_module() -> KMap {
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (_, [KValue::Number(n), ..]) if *n < 0.0 => {
-                runtime_error!("Expected a non-negative size")
+                runtime_error!("expected a non-negative size")
             }
             (KValue::List(l), [KValue::Number(n)]) => {
                 l.data_mut().resize(n.into(), KValue::Null);
@@ -242,7 +242,7 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [KValue::Number(n), f]) if f.is_callable() => {
                 if *n < 0.0 {
-                    return runtime_error!("Expected a non-negative size");
+                    return runtime_error!("expected a non-negative size");
                 }
 
                 let new_size = usize::from(n);

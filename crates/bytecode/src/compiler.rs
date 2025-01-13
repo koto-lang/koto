@@ -34,7 +34,7 @@ enum ErrorKind {
         u16::MAX
     )]
     JumpOffsetIsTooLarge(usize),
-    #[error("Function has too many {property} ({amount})")]
+    #[error("function has too many {property} ({amount})")]
     FunctionPropertyLimit { property: String, amount: usize },
     #[error("missing argument in for loop")]
     MissingArgumentInForLoop,
@@ -64,7 +64,7 @@ enum ErrorKind {
     OutOfPositionMatchEllipsis,
     #[error("root chain node out of position")]
     OutOfPositionRootNodeInChain,
-    #[error("The compiled bytecode is larger than the maximum size of 4GB (size: {0} bytes)")]
+    #[error("the compiled bytecode is larger than the maximum size of 4GB (size: {0} bytes)")]
     ResultingBytecodeIsTooLarge(usize),
     #[error("too many targets in assignment ({0})")]
     TooManyAssignmentTargets(usize),
@@ -79,7 +79,7 @@ enum ErrorKind {
     UnassignedBreakValue,
     #[error("unexpected Ellipsis")]
     UnexpectedEllipsis,
-    #[error("unexpected Wildcard")]
+    #[error("attempting to access an ignored value")]
     UnexpectedWildcard,
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },

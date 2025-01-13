@@ -107,20 +107,49 @@ assert_near 1 % 0.2, 0.2
 |tests: Map| -> Null
 ```
 
-Runs the tests contained in the map.
+Runs the `@test` functions contained in the map.
+
+`@pre_test` and `@post_test` functions can be implemented in the same way as when exporting
+[module tests](../language_guide.md#module-tests).
+`@pre_test` will be run before each `@test`, and `@post_test` will be run after.
+
 
 ### Example
 
-```koto,skip_check
-my_tests =
-  @pre_test: || self.test_data = 1, 2, 3
-  @post_test: || self.test_data = null
+```koto
+make_x = |n|
+  data: n
+  @+: |other| make_x self.data + other.data
+  @-: |other| make_x self.data - other.data
 
-  @test data_size: || assert_eq self.test_data.size(), 3
-  @test failure: || assert_eq self.test_data.size(), 0
+x_tests =
+  @pre_test: ||
+    self.x1 = make_x 100
+    self.x2 = make_x 200
+
+  @post_test: ||
+    print 'Test complete'
+
+  @test addition: ||
+    print 'Testing addition'
+    assert_eq self.x1 + self.x2, make_x 300
+
+  @test subtraction: ||
+    print 'Testing subtraction'
+    assert_eq self.x1 - self.x2, make_x -100
+
+  @test failing_test: ||
+    print 'About to fail'
+    assert false
 
 try
-  test.run_tests my_tests
-catch error
-  print "An error occurred while running my_tests:\n  {error}"
+  test.run_tests x_tests
+catch _
+  print 'A test failed'
+check! Testing addition
+check! Test complete
+check! Testing subtraction
+check! Test complete
+check! About to fail
+check! A test failed
 ```

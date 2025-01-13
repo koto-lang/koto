@@ -19,7 +19,7 @@ pub fn make_module() -> KMap {
                 let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => runtime_error!("Error while creating file: {error}"),
+                    Err(error) => runtime_error!("error while creating file: {error}"),
                 }
             }
             unexpected => unexpected_args("|String|", unexpected),
@@ -66,9 +66,9 @@ pub fn make_module() -> KMap {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(error) => runtime_error!("Error while opening path: {error}"),
+                    Err(error) => runtime_error!("error while opening path: {error}"),
                 },
-                Err(_) => runtime_error!("Failed to canonicalize path"),
+                Err(_) => runtime_error!("failed to canonicalize path"),
             },
             unexpected => unexpected_args("|String|", unexpected),
         }
@@ -218,7 +218,7 @@ impl File {
         match args {
             [KValue::Number(n)] => {
                 if *n < 0.0 {
-                    return runtime_error!("Negative seek positions not allowed");
+                    return runtime_error!("negative seek positions not allowed");
                 }
                 self.0.seek(n.into()).map(|_| KValue::Null)
             }

@@ -26,7 +26,7 @@ impl TryFrom<KValue> for ValueKey {
         if value.is_hashable() {
             Ok(Self(value))
         } else {
-            runtime_error!("Only hashable values can be used as value keys")
+            runtime_error!("only hashable values can be used as value keys")
         }
     }
 }

@@ -96,7 +96,7 @@ pub fn make_module() -> KMap {
 
             match String::from_utf8(bytes) {
                 Ok(result) => Ok(result.into()),
-                Err(_) => runtime_error!("Input failed UTF-8 validation"),
+                Err(_) => runtime_error!("input failed UTF-8 validation"),
             }
         }
         unexpected => unexpected_args("|Iterable|", unexpected),
@@ -225,7 +225,7 @@ pub fn make_module() -> KMap {
             (KValue::Str(s), [KValue::Number(n)]) => {
                 let base = n.into();
                 if !(2..=36).contains(&base) {
-                    return runtime_error!("Number base must be within 2..=36");
+                    return runtime_error!("number base must be within 2..=36");
                 }
 
                 if let Ok(result) = i64::from_str_radix(s, base) {

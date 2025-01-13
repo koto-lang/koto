@@ -233,7 +233,7 @@ macro_rules! child_stream_fn {
     ($self:expr, $stream:ident, $buffer_wrapper:ident, $child_stream:ident) => {{
         let mut this = $self.handle.borrow_mut();
         let Some(child) = this.as_mut() else {
-            return runtime_error!("The process has already finished");
+            return runtime_error!("the process has already finished");
         };
 
         match child.$stream.take() {
@@ -267,7 +267,7 @@ impl Child {
     fn id(&self) -> Result<KValue> {
         let mut this = self.handle.borrow_mut();
         let Some(child) = this.as_mut() else {
-            return runtime_error!("The process has already finished");
+            return runtime_error!("the process has already finished");
         };
         Ok(child.id().into())
     }
@@ -306,7 +306,7 @@ impl Child {
         let mut this = self.handle.borrow_mut();
 
         let Some(child) = this.as_mut() else {
-            return runtime_error!("The process has already finished");
+            return runtime_error!("the process has already finished");
         };
 
         match child.kill() {
@@ -323,7 +323,7 @@ impl Child {
         self.close_streams();
 
         let Some(child) = self.handle.borrow_mut().take() else {
-            return runtime_error!("The process has already finished");
+            return runtime_error!("the process has already finished");
         };
 
         match child.wait_with_output() {
@@ -338,7 +338,7 @@ impl Child {
 
         let mut this = self.handle.borrow_mut();
         let Some(child) = this.as_mut() else {
-            return runtime_error!("The process has already finished");
+            return runtime_error!("the process has already finished");
         };
 
         match child.wait() {
@@ -379,7 +379,7 @@ impl KotoWrite for ChildStdin {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.write_all(bytes).map_err(map_io_err),
-            None => runtime_error!("The stream has been closed"),
+            None => runtime_error!("the stream has been closed"),
         }
     }
 
@@ -387,14 +387,14 @@ impl KotoWrite for ChildStdin {
         self.write(output.as_bytes())?;
         match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.write_all("\n".as_bytes()).map_err(map_io_err),
-            None => runtime_error!("The stream has been closed"),
+            None => runtime_error!("the stream has been closed"),
         }
     }
 
     fn flush(&self) -> Result<()> {
         match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.flush().map_err(map_io_err),
-            None => runtime_error!("The stream has been closed"),
+            None => runtime_error!("the stream has been closed"),
         }
     }
 }
@@ -413,7 +413,7 @@ impl KotoRead for ChildStdout {
         let mut result = String::new();
         let bytes_read = match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.read_line(&mut result).map_err(map_io_err)?,
-            None => return runtime_error!("The stream has been closed"),
+            None => return runtime_error!("the stream has been closed"),
         };
         if bytes_read > 0 {
             Ok(Some(result))
@@ -426,7 +426,7 @@ impl KotoRead for ChildStdout {
         let mut result = String::new();
         match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.read_to_string(&mut result).map_err(map_io_err)?,
-            None => return runtime_error!("The stream has been closed"),
+            None => return runtime_error!("the stream has been closed"),
         };
         Ok(result)
     }
@@ -447,7 +447,7 @@ impl KotoRead for ChildStderr {
         let mut result = String::new();
         let bytes_read = match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.read_line(&mut result).map_err(map_io_err)?,
-            None => return runtime_error!("The stream has been closed"),
+            None => return runtime_error!("the stream has been closed"),
         };
         if bytes_read > 0 {
             Ok(Some(result))
@@ -460,7 +460,7 @@ impl KotoRead for ChildStderr {
         let mut result = String::new();
         match self.0.borrow_mut().as_mut() {
             Some(stream) => stream.read_to_string(&mut result).map_err(map_io_err)?,
-            None => return runtime_error!("The stream has been closed"),
+            None => return runtime_error!("the stream has been closed"),
         };
         Ok(result)
     }

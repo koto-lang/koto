@@ -198,7 +198,7 @@ impl KMap {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
             let mut vm = ctx
                 .vm()
-                .ok_or_else(|| Error::from("Missing VM in map display op"))?
+                .ok_or_else(|| Error::from("missing VM in map display op"))?
                 .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
                 KValue::Str(display_result) => {

@@ -257,7 +257,7 @@ impl KRange {
                     }
                 }
             }
-            _ => return runtime_error!("KRange::pop_front can only be used with bounded ranges"),
+            _ => return runtime_error!("expected a bounded range"),
         };
 
         Ok(result)
@@ -322,7 +322,7 @@ impl KRange {
                     }
                 }
             }
-            _ => return runtime_error!("KRange::pop_back can only be used with bounded ranges"),
+            _ => return runtime_error!("expected a bounded range"),
         };
 
         Ok(result)

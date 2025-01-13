@@ -47,11 +47,11 @@ impl KotoFile for BlockedInput {
 impl KotoWrite for BlockedInput {}
 impl KotoRead for BlockedInput {
     fn read_line(&self) -> Result<Option<String>> {
-        runtime_error!("Unsupported in the browser")
+        runtime_error!("unsupported in the browser")
     }
 
     fn read_to_string(&self) -> Result<String> {
-        runtime_error!("Unsupported in the browser")
+        runtime_error!("unsupported in the browser")
     }
 }
 

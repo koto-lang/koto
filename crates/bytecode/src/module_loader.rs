@@ -21,9 +21,9 @@ pub enum ModuleLoaderErrorKind {
     Compiler(#[from] CompilerError),
     #[error(transparent)]
     Io(#[from] io::Error),
-    #[error("Failed to get parent of path ('{0}')")]
+    #[error("failed to get parent of path ('{0}')")]
     FailedToGetPathParent(PathBuf),
-    #[error("Unable to find module '{0}'")]
+    #[error("unable to find module '{0}'")]
     UnableToFindModule(String),
 }
 

@@ -8,25 +8,25 @@ use crate::string_format_options::StringFormatError;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum InternalError {
-    #[error("There are more nodes in the program than the AST can support")]
+    #[error("there are more nodes in the program than the AST can support")]
     AstCapacityOverflow,
-    #[error("There are more constants in the program than the runtime can support")]
+    #[error("there are more constants in the program than the runtime can support")]
     ConstantPoolCapacityOverflow,
-    #[error("Expected ':' after map key")]
+    #[error("expected ':' after map key")]
     ExpectedMapColon,
-    #[error("Failed to parse ID")]
+    #[error("failed to parse ID")]
     IdParseFailure,
-    #[error("Failed to parse chain")]
+    #[error("failed to parse chain")]
     ChainParseFailure,
-    #[error("Missing assignment target")]
+    #[error("missing assignment target")]
     MissingAssignmentTarget,
-    #[error("Frame unavailable during parsing")]
+    #[error("frame unavailable during parsing")]
     MissingFrame,
-    #[error("Failed to parse number")]
+    #[error("failed to parse number")]
     NumberParseFailure,
-    #[error("Failed to parse raw string")]
+    #[error("failed to parse raw string")]
     RawStringParseFailure,
-    #[error("Unexpected token")]
+    #[error("unexpected token")]
     UnexpectedToken,
 }
 
@@ -37,35 +37,35 @@ pub enum InternalError {
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ExpectedIndentation {
-    #[error("Expected expression after assignment operator")]
+    #[error("expected expression after assignment operator")]
     AssignmentExpression,
-    #[error("Expected indented block for catch expression")]
+    #[error("expected indented block for catch expression")]
     CatchBody,
-    #[error("Expected indented block for 'else'.")]
+    #[error("expected indented block for 'else'.")]
     ElseBlock,
-    #[error("Expected indented block for 'else if'.")]
+    #[error("expected indented block for 'else if'.")]
     ElseIfBlock,
-    #[error("Expected indented block for finally expression")]
+    #[error("expected indented block for finally expression")]
     FinallyBody,
-    #[error("Expected indented block as for loop body")]
+    #[error("expected indented block as for loop body")]
     ForBody,
-    #[error("Expected function body")]
+    #[error("expected function body")]
     FunctionBody,
-    #[error("Expected indented block as loop body")]
+    #[error("expected indented block as loop body")]
     LoopBody,
-    #[error("Expected indented arm for match expression")]
+    #[error("expected indented arm for match expression")]
     MatchArm,
-    #[error("Expected expression after binary operator")]
+    #[error("expected expression after binary operator")]
     RhsExpression,
-    #[error("Expected indented arm for switch expression")]
+    #[error("expected indented arm for switch expression")]
     SwitchArm,
-    #[error("Error parsing if expression, expected 'then' keyword or indented block.")]
+    #[error("error parsing if expression, expected 'then' keyword or indented block.")]
     ThenKeywordOrBlock,
-    #[error("Expected indented block for try expression")]
+    #[error("expected indented block for try expression")]
     TryBody,
-    #[error("Expected indented block as until loop body")]
+    #[error("expected indented block as until loop body")]
     UntilBody,
-    #[error("Expected indented block as while loop body")]
+    #[error("expected indented block as while loop body")]
     WhileBody,
 }
 
@@ -73,133 +73,133 @@ pub enum ExpectedIndentation {
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum SyntaxError {
-    #[error("Ascii value out of range, the maximum is \\x7f")]
+    #[error("ascii value out of range, the maximum is \\x7f")]
     AsciiEscapeCodeOutOfRange,
-    #[error("Expected end of arguments ')'")]
+    #[error("expected end of arguments ')'")]
     ExpectedArgsEnd,
-    #[error("Expected target for assignment")]
+    #[error("expected target for assignment")]
     ExpectedAssignmentTarget,
-    #[error("Expected '=' assignment after meta key")]
+    #[error("expected '=' assignment after meta key")]
     ExpectedAssignmentAfterMetaKey,
-    #[error("Expected argument for catch expression")]
+    #[error("expected argument for catch expression")]
     ExpectedCatchArgument,
-    #[error("Expected catch expression after try")]
+    #[error("expected catch expression after try")]
     ExpectedCatch,
-    #[error("Expected closing parenthesis ')'")]
+    #[error("expected closing parenthesis ')'")]
     ExpectedCloseParen,
-    #[error("Expected expression after 'else'.")]
+    #[error("expected expression after 'else'.")]
     ExpectedElseExpression,
-    #[error("Expected condition for 'else if'.")]
+    #[error("expected condition for 'else if'.")]
     ExpectedElseIfCondition,
-    #[error("Expected expression")]
+    #[error("expected expression")]
     ExpectedExpression,
-    #[error("Expected arguments in for loop")]
+    #[error("expected arguments in for loop")]
     ExpectedForArgs,
-    #[error("Expected 'in' keyword in for loop")]
+    #[error("expected 'in' keyword in for loop")]
     ExpectedForInKeyword,
-    #[error("Expected iterable in for loop")]
+    #[error("expected iterable in for loop")]
     ExpectedForIterable,
-    #[error("Expected format string after ':'")]
+    #[error("expected format string after ':'")]
     ExpectedFormatString,
-    #[error("Expected end of function arguments '|'")]
+    #[error("expected end of function arguments '|'")]
     ExpectedFunctionArgsEnd,
-    #[error("Expected ID in import expression")]
+    #[error("expected ID in import expression")]
     ExpectedIdInImportExpression,
-    #[error("Expected condition after 'if'")]
+    #[error("expected condition after 'if'")]
     ExpectedIfCondition,
-    #[error("Expected import after from")]
+    #[error("expected import after from")]
     ExpectedImportAfterFrom,
-    #[error("Expected module ID in import expression")]
+    #[error("expected module ID in import expression")]
     ExpectedImportModuleId,
-    #[error("Expected index end ']'")]
+    #[error("expected index end ']'")]
     ExpectedIndexEnd,
-    #[error("Expected index expression")]
+    #[error("expected index expression")]
     ExpectedIndexExpression,
-    #[error("Expected id after 'as'")]
+    #[error("expected id after 'as'")]
     ExpectedIdAfterAs,
-    #[error("Expected List end ']'")]
+    #[error("expected List end ']'")]
     ExpectedListEnd,
-    #[error("Expected ':' after map key")]
+    #[error("expected ':' after map key")]
     ExpectedMapColon,
-    #[error("Expected '}}' at end of map declaration")]
+    #[error("expected '}}' at end of map declaration")]
     ExpectedMapEnd,
-    #[error("Expected map entry")]
+    #[error("expected map entry")]
     ExpectedMapEntry,
-    #[error("Expected key after '.' in Map access")]
+    #[error("expected key after '.' in Map access")]
     ExpectedMapKey,
-    #[error("Expected value after ':' in Map")]
+    #[error("expected value after ':' in Map")]
     ExpectedMapValue,
-    #[error("Expected expression in match arm")]
+    #[error("expected expression in match arm")]
     ExpectedMatchArmExpression,
-    #[error("Expected expression after then in match arm")]
+    #[error("expected expression after then in match arm")]
     ExpectedMatchArmExpressionAfterThen,
-    #[error("Expected condition after if in match arm")]
+    #[error("expected condition after if in match arm")]
     ExpectedMatchCondition,
-    #[error("Expected expression after match")]
+    #[error("expected expression after match")]
     ExpectedMatchExpression,
-    #[error("Expected pattern for match arm")]
+    #[error("expected pattern for match arm")]
     ExpectedMatchPattern,
-    #[error("Expected id after @meta")]
+    #[error("expected id after @meta")]
     ExpectedMetaId,
-    #[error("Expected a module path after 'from'")]
+    #[error("expected a module path after 'from'")]
     ExpectedPathAfterFrom,
-    #[error("Expected a line break before starting a map block")]
+    #[error("expected a line break before starting a map block")]
     ExpectedLineBreakBeforeMapBlock,
-    #[error("Expected '}}' at end of string placeholder")]
+    #[error("expected '}}' at end of string placeholder")]
     ExpectedStringPlaceholderEnd,
-    #[error("Expected expression in switch arm")]
+    #[error("expected expression in switch arm")]
     ExpectedSwitchArmExpression,
-    #[error("Expected expression after 'then' in switch arm")]
+    #[error("expected expression after 'then' in switch arm")]
     ExpectedSwitchArmExpressionAfterThen,
-    #[error("Expected a test name")]
+    #[error("expected a test name")]
     ExpectedTestName,
-    #[error("Expected expression after 'then'")]
+    #[error("expected expression after 'then'")]
     ExpectedThenExpression,
-    #[error("Expected condition in until loop")]
+    #[error("expected condition in until loop")]
     ExpectedUntilCondition,
-    #[error("Expected condition in while loop")]
+    #[error("expected condition in while loop")]
     ExpectedWhileCondition,
-    #[error("Expected a type after ':'")]
+    #[error("expected a type after ':'")]
     ExpectedType,
     #[error(transparent)]
     FormatStringError(StringFormatError),
-    #[error("Non-inline if expression isn't allowed in this context")]
+    #[error("non-inline if expression isn't allowed in this context")]
     IfBlockNotAllowedInThisContext,
-    #[error("Ellipsis found outside of nested match patterns")]
+    #[error("ellipsis found outside of nested match patterns")]
     MatchEllipsisOutsideOfNestedPatterns,
     #[error("'else' can only be used in the last arm in a match expression")]
     MatchElseNotInLastArm,
-    #[error("Nested types aren't currently supported")]
+    #[error("nested types aren't currently supported")]
     NestedTypesArentSupported,
-    #[error("Keyword reserved for future use")]
+    #[error("keyword reserved for future use")]
     ReservedKeyword,
     #[error("'self' doesn't need to be declared as an argument")]
     SelfArg,
     #[error("'else' can only be used in the last arm in a switch expression")]
     SwitchElseNotInLastArm,
-    #[error("Unexpected character in numeric escape code")]
+    #[error("unexpected character in numeric escape code")]
     UnexpectedCharInNumericEscapeCode,
     #[error("'.' after imported item. You might want a 'from' import instead")]
     UnexpectedDotAfterImportItem,
-    #[error("Unexpected escape pattern in string")]
+    #[error("unexpected escape pattern in string")]
     UnexpectedEscapeInString,
-    #[error("Unexpected 'else' in match arm")]
+    #[error("unexpected 'else' in match arm")]
     UnexpectedMatchElse,
-    #[error("Unexpected if condition in match arm")]
+    #[error("unexpected if condition in match arm")]
     UnexpectedMatchIf,
-    #[error("Unexpected meta key")]
+    #[error("unexpected meta key")]
     UnexpectedMetaKey,
-    #[error("Unexpected 'else' in switch arm")]
+    #[error("unexpected 'else' in switch arm")]
     UnexpectedSwitchElse,
-    #[error("Unexpected '?'")]
+    #[error("unexpected '?'")]
     UnexpectedNullCheck,
-    #[error("Unexpected token")]
+    #[error("unexpected token")]
     UnexpectedToken,
-    #[error("Unicode value out of range, the maximum is \\u{{10ffff}}")]
+    #[error("unicode value out of range, the maximum is \\u{{10ffff}}")]
     UnicodeEscapeCodeOutOfRange,
-    #[error("Unterminated numeric escape code")]
+    #[error("unterminated numeric escape code")]
     UnterminatedNumericEscapeCode,
-    #[error("Unterminated string")]
+    #[error("unterminated string")]
     UnterminatedString,
 }
 

@@ -27,6 +27,7 @@ Welcome to Koto
 » 'hello!'
 ➝ hello!
 ```
+
 ## Help
 
 The [language guide][guide] and the [core library reference][core], 

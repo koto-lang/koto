@@ -12,7 +12,7 @@ pub fn yaml_value_to_koto_value(value: &YamlValue) -> Result<KValue> {
             Some(n64) => KValue::Number(n64.into()),
             None => match n.as_f64() {
                 Some(n64) => KValue::Number(n64.into()),
-                None => return runtime_error!("Number is out of range: {n}"),
+                None => return runtime_error!("number is out of range: {n}"),
             },
         },
         YamlValue::String(s) => KValue::Str(s.as_str().into()),
@@ -63,9 +63,9 @@ pub fn make_module() -> KMap {
         [KValue::Str(s)] => match serde_yaml_ng::from_str(s) {
             Ok(value) => match yaml_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
-                Err(e) => runtime_error!("Error while parsing input: {}", e),
+                Err(e) => runtime_error!("error while parsing input: {}", e),
             },
-            Err(e) => runtime_error!("Error while parsing input: {}", e.to_string()),
+            Err(e) => runtime_error!("error while parsing input: {}", e.to_string()),
         },
         unexpected => unexpected_args("|String|", unexpected),
     });
