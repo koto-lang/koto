@@ -168,9 +168,9 @@ pub enum Op {
     /// Makes a Function
     ///
     /// The flags are a bitfield constructed from [FunctionFlags](crate::FunctionFlags).
-    /// The N size bytes following this instruction make up the body of the function.
+    /// The bytes following this instruction make up the body of the function.
     ///
-    /// `[*target, arg count, capture count, flags, function size[2]]`
+    /// `[*target, arg count, optional arg count, capture count, flags, function size[2]]`
     Function,
 
     /// Captures a value for a Function

@@ -78,9 +78,9 @@ impl Iterator for InstructionReader {
                 get_u8_array!(4)
             }};
         }
-        macro_rules! get_u8x5 {
+        macro_rules! get_u8x6 {
             () => {{
-                get_u8_array!(5)
+                get_u8_array!(6)
             }};
         }
 
@@ -254,7 +254,8 @@ impl Iterator for InstructionReader {
             }),
             Op::Function => {
                 let register = byte_a;
-                let [arg_count, capture_count, flags, size_a, size_b] = get_u8x5!();
+                let [arg_count, optional_arg_count, capture_count, flags, size_a, size_b] =
+                    get_u8x6!();
                 match FunctionFlags::try_from(flags) {
                     Ok(flags) => {
                         let size = u16::from_le_bytes([size_a, size_b]);
@@ -262,6 +263,7 @@ impl Iterator for InstructionReader {
                         Some(Function {
                             register,
                             arg_count,
+                            optional_arg_count,
                             capture_count,
                             flags,
                             size,

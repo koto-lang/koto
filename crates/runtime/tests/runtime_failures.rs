@@ -502,6 +502,33 @@ for i in 0..
             use super::*;
 
             #[test]
+            fn insufficient_arguments_for_call() {
+                let script = r#"
+f = |a, b, c| a + b + c
+f 1, 2
+"#;
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn insufficient_arguments_with_default_args() {
+                let script = r#"
+f = |a, b = -1, c = -2| a + b + c
+f()
+"#;
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn insufficient_arguments_for_generator() {
+                let script = r#"
+f = |a, b, c| yield a + b + c
+f 1, 2
+"#;
+                check_script_fails(script);
+            }
+
+            #[test]
             fn tuple_unpacking_of_non_tuple() {
                 let script = r#"
 f = |(a, b)| a + b

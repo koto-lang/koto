@@ -33,6 +33,8 @@ pub enum ErrorKind {
         expected: String,
         unexpected: Vec<KValue>,
     },
+    #[error("insufficient arguments - expected {expected}, found {actual}")]
+    InsufficientArguments { expected: u8, actual: u8 },
     #[error("too many arguments - expected {expected}, found {actual}")]
     TooManyArguments { expected: u8, actual: u8 },
     #[error("unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
@@ -66,7 +68,7 @@ pub enum ErrorKind {
     MissingStringBuilder,
     #[error("this operation is unsupported on this platform")]
     UnsupportedPlatform,
-    #[error("an unexpected error occurred, please report this as a bug at https://github.com/koto-lang/koto/issues")]
+    #[error("an unexpected error occurred, please report this as a bug at\nhttps://github.com/koto-lang/koto/issues")]
     UnexpectedError,
 }
 

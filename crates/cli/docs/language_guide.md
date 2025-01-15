@@ -1319,7 +1319,7 @@ in any iterator chain.
 ```koto
 # Make an iterator adaptor that yields every
 # other value from the adapted iterator
-iterator.every_other = |iter|
+iterator.every_other = |iter = null|
   n = 0
   # If the iterator to be adapted is provided as an argument then use it,
   # otherwise defer to `self`, which is set by the runtime when the
@@ -1736,52 +1736,10 @@ print! f(), f(), f()
 check! (100, 101, 102)
 ```
 
-### Optional Arguments
-
-When calling a function, any missing arguments will be replaced by `null`.
-
-```koto
-f = |a, b, c|
-  print a, b, c
-
-f 1
-check! (1, null, null)
-f 1, 2
-check! (1, 2, null)
-f 1, 2, 3
-check! (1, 2, 3)
-```
-
-Missing arguments can be replaced with default values by using `or`.
-
-```koto
-f = |a, b, c|
-  print a or -1, b or -2, c or -3
-
-f 42
-check! (42, -2, -3)
-f 99, 100
-check! (99, 100, -3)
-```
-
-`or` will reject `false`, so if `false` would be a valid input then a
-direct comparison against `null` can be used instead.
-
-```koto
-f = |a|
-  print if a == null then -1 else a
-
-f()
-check! -1
-f false
-check! false
-```
-
 ### Variadic Functions
 
-A [_variadic function_][variadic] can be created by appending `...` to the
-last argument.
-When the function is called any extra arguments will be collected into a tuple.
+A [_variadic function_][variadic] can be created by appending `...` to the last argument.
+When the function is called, any extra arguments will be collected into a tuple.
 
 ```koto
 f = |a, b, others...|
@@ -1789,6 +1747,54 @@ f = |a, b, others...|
 
 f 1, 2, 3, 4, 5
 check! a: 1, b: 2, others: (3, 4, 5)
+f 10, 20
+check! a: 10, b: 20, others: ()
+```
+
+### Optional Arguments
+
+Arguments can be made optional by assigning default values.
+
+```koto
+f = |a, b = 2, c = 3|
+  print a, b, c
+
+f 1
+check! (1, 2, 3)
+f 1, -2
+check! (1, -2, 3)
+f 1, -2, -3
+check! (1, -2, -3)
+```
+
+Default argument values behave like [captured variables](#captured-variables),
+with the same value being applied each time the function is called.
+
+```koto
+f = |x = 10|
+  x += 1
+  x
+
+print! f()
+check! 11
+print! f()
+check! 11
+```
+
+All arguments following an optional argument must also be optional,
+unless the last argument is [variadic](#variadic-functions).
+
+```koto
+# f = |a = 1, b| a, b
+#             ^ Error!
+
+f = |a = 1, b...| a, b 
+#           ^ Ok!
+
+print! f()
+check! (1, ())
+print! f(1, 2, 3)
+check! (1, (2, 3))
 ```
 
 ### Argument Unpacking

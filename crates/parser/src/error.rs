@@ -87,6 +87,8 @@ pub enum SyntaxError {
     ExpectedCatch,
     #[error("expected closing parenthesis ')'")]
     ExpectedCloseParen,
+    #[error("all arguments following a default value must also have a default value")]
+    ExpectedDefaultValue,
     #[error("expected expression after 'else'.")]
     ExpectedElseExpression,
     #[error("expected condition for 'else if'.")]

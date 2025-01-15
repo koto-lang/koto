@@ -113,6 +113,7 @@ pub enum Instruction {
     Function {
         register: u8,
         arg_count: u8,
+        optional_arg_count: u8,
         capture_count: u8,
         flags: FunctionFlags,
         size: u16,
@@ -575,13 +576,14 @@ impl fmt::Debug for Instruction {
             Function {
                 register,
                 arg_count,
+                optional_arg_count,
                 capture_count,
                 flags,
                 size,
             } => write!(
                 f,
                 "Function\tresult: {register}\targs: {arg_count}\
-                 \t\tcaptures: {capture_count}
+                 \t\toptional args: {optional_arg_count}\tcaptures: {capture_count}
                  \t\t\tsize: {size} \tgenerator: {}
                  \t\t\tvariadic: {}\targ_is_unpacked_tuple: {}",
                 flags.is_generator(),
@@ -767,7 +769,7 @@ impl fmt::Debug for Instruction {
             MetaExport { id, value } => write!(f, "MetaExport\tid: {id:?}\tvalue: {value}"),
             MetaExportNamed { id, name, value } => write!(
                 f,
-                "MetaExportNamed\tid: {id:?}\tname: {name}\tvalue: {value}",
+                "MetaExportNamed\tid: {id:?}\tname: {name}\t\tvalue: {value}",
             ),
             Access {
                 register,

@@ -153,9 +153,19 @@ impl Deref for KTuple {
     }
 }
 
+thread_local! {
+    static EMPTY_TUPLE: Ptr<Vec<KValue>> = Vec::new().into();
+}
+
 impl Default for KTuple {
     fn default() -> Self {
-        Vec::new().into()
+        Self::from(EMPTY_TUPLE.with(|x| x.clone()))
+    }
+}
+
+impl From<Ptr<Vec<KValue>>> for KTuple {
+    fn from(data: Ptr<Vec<KValue>>) -> Self {
+        Self(Inner::Full(data))
     }
 }
 

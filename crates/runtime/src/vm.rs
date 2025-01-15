@@ -1374,20 +1374,29 @@ impl KotoVm {
             Instruction::Function {
                 register,
                 arg_count,
+                optional_arg_count,
                 capture_count,
                 flags,
                 size,
             } => {
-                let captures = if capture_count > 0 {
+                let total_captures_count = optional_arg_count + capture_count;
+                let captures = if total_captures_count > 0 {
                     // Initialize the function's captures with Null
                     let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, KValue::Null);
+                    captures.resize(total_captures_count as usize, KValue::Null);
                     Some(KList::with_data(captures))
                 } else {
                     None
                 };
 
-                let function = KFunction::new(self.chunk(), self.ip(), arg_count, flags, captures);
+                let function = KFunction::new(
+                    self.chunk(),
+                    self.ip(),
+                    arg_count,
+                    optional_arg_count,
+                    flags,
+                    captures,
+                );
 
                 self.jump_ip(size as u32);
                 self.set_register(register, KValue::Function(function));
@@ -2664,6 +2673,7 @@ impl KotoVm {
         Ok(())
     }
 
+    // Similar to `call_koto_function`, but sets up the frame in a new VM for the generator
     fn call_generator(
         &mut self,
         call_info: &CallInfo,
@@ -2682,12 +2692,6 @@ impl KotoVm {
         // Set the generator VM's state as suspended
         generator_vm.execution_state = ExecutionState::Suspended;
 
-        let expected_arg_count = if f.flags.is_variadic() {
-            f.arg_count - 1
-        } else {
-            f.arg_count
-        };
-
         // Place the instance in the first register of the generator vm
         let instance = self
             .get_register_safe(call_info.frame_base)
@@ -2695,53 +2699,49 @@ impl KotoVm {
             .unwrap_or(KValue::Null);
         generator_vm.registers.push(instance);
 
+        let call_arg_base = call_info.frame_base + 1;
+        let expected_arg_count = f.expected_arg_count();
+
         // Copy any regular (non-variadic) arguments into the generator vm
-        for arg in self
-            .register_slice(
-                call_info.frame_base + 1,
-                expected_arg_count.min(call_info.arg_count),
+        generator_vm.registers.extend(
+            self.register_slice(call_arg_base, expected_arg_count.min(call_info.arg_count))
+                .iter()
+                .cloned(),
+        );
+
+        // Fill in any missing arguments with default values
+        apply_optional_arguments(
+            &mut generator_vm.registers,
+            f,
+            call_info.arg_count,
+            expected_arg_count,
+        )?;
+
+        // Copy any extra arguments into the generator vm,
+        // they'll get extracted into a tuple in apply_variadic_arguments
+        generator_vm.registers.extend(
+            self.register_slice(
+                call_arg_base + expected_arg_count,
+                call_info.arg_count.saturating_sub(expected_arg_count),
             )
             .iter()
-            .cloned()
-        {
-            generator_vm.registers.push(arg);
-        }
+            .cloned(),
+        );
 
-        // Ensure that registers for missing arguments are set to Null
-        if call_info.arg_count < expected_arg_count {
-            for _ in call_info.arg_count..expected_arg_count {
-                generator_vm.registers.push(KValue::Null);
-            }
-        }
+        // Move variadic arguments into a tuple
+        apply_variadic_arguments(
+            &mut generator_vm.registers,
+            1, // The first argument goes into register 1 in the generator vm
+            call_info,
+            f,
+            expected_arg_count,
+        )?;
 
-        // Check for variadic arguments, and validate argument count
-        if f.flags.is_variadic() {
-            if call_info.arg_count >= expected_arg_count {
-                // Capture the varargs into a tuple and place them in the
-                // generator vm's last arg register
-                let varargs_start = call_info.frame_base + 1 + expected_arg_count;
-                let varargs_count = call_info.arg_count - expected_arg_count;
-                let varargs =
-                    KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                generator_vm.registers.push(varargs);
-            } else {
-                generator_vm.registers.push(KValue::Null);
-            }
-        }
-        // Place any captures in the registers following the arguments
-        if let Some(captures) = &f.captures {
-            generator_vm
-                .registers
-                .extend(captures.data().iter().cloned())
-        }
+        // Captures and temp tuple values are placed in the registerst following the arguments
+        apply_captures_and_temp_tuple_values(&mut generator_vm.registers, f, temp_tuple_values);
 
-        // Place any temp tuple values in the registers following the args and captures
-        if let Some(temp_tuple_values) = temp_tuple_values {
-            generator_vm.registers.extend_from_slice(temp_tuple_values);
-        }
-
+        // Move the generator vm into an iterator and then place it in the result register
         if let Some(result_register) = call_info.result_register {
-            // Wrap the generator vm in an iterator and place it in the result register
             self.set_register(result_register, KIterator::with_vm(generator_vm).into());
         }
 
@@ -2754,58 +2754,37 @@ impl KotoVm {
         f: &KFunction,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
-        if f.flags.is_generator() {
-            return self.call_generator(call_info, f, temp_tuple_values);
-        }
+        debug_assert!(!f.flags.is_generator());
 
-        let variadic = f.flags.is_variadic();
-        let expected_arg_count = if variadic {
-            f.arg_count - 1
-        } else {
-            f.arg_count
-        };
-
-        if variadic {
-            if call_info.arg_count >= expected_arg_count {
-                // The last defined arg is the start of the var_args,
-                // e.g. f = |x, y, z...|
-                // arg index 2 is the first vararg, and where the tuple will be placed
-                let arg_base = call_info.frame_base + 1;
-                let varargs_start = arg_base + expected_arg_count;
-                let varargs_count = call_info.arg_count - expected_arg_count;
-                let varargs =
-                    KValue::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                self.set_register(varargs_start, varargs);
-            }
-        } else if call_info.arg_count > expected_arg_count {
-            return runtime_error!(ErrorKind::TooManyArguments {
-                expected: expected_arg_count,
-                actual: call_info.arg_count
-            });
-        }
-
-        // self is in the frame base register, arguments start from register frame_base + 1
-        let arg_base_index = self.register_index(call_info.frame_base) + 1;
+        // The caller instance is in the frame base register,
+        // and then arguments start from register frame_base + 1.
+        let call_arg_base_index = self.register_index(call_info.frame_base + 1);
+        let expected_arg_count = f.expected_arg_count();
 
         // Ensure that any temporary registers used to prepare the call args have been removed
         // from the value stack.
         self.registers
-            .truncate(arg_base_index + call_info.arg_count as usize);
-        // Ensure that registers have been filled with Null for any missing args.
-        // If there are extra args, truncating is necessary at this point. Extra args have either
-        // been bundled into a variadic Tuple or they can be ignored.
-        self.registers
-            .resize(arg_base_index + f.arg_count as usize, KValue::Null);
+            .truncate(call_arg_base_index + call_info.arg_count as usize);
 
-        if let Some(captures) = &f.captures {
-            // Copy the captures list into the registers following the args
-            self.registers.extend(captures.data().iter().cloned());
-        }
+        // Fill in any missing arguments with default values
+        apply_optional_arguments(
+            &mut self.registers,
+            f,
+            call_info.arg_count,
+            expected_arg_count,
+        )?;
 
-        // Place any temp tuple values in the registers following the args and captures
-        if let Some(temp_tuple_values) = temp_tuple_values {
-            self.registers.extend_from_slice(temp_tuple_values);
-        }
+        // Move variadic arguments into a tuple
+        apply_variadic_arguments(
+            &mut self.registers,
+            call_arg_base_index,
+            call_info,
+            f,
+            expected_arg_count,
+        )?;
+
+        // Captures and temp tuple values are placed in the registerst following the arguments
+        apply_captures_and_temp_tuple_values(&mut self.registers, f, temp_tuple_values);
 
         // Set up a new frame for the called function
         self.push_frame(
@@ -2827,15 +2806,25 @@ impl KotoVm {
         use KValue::*;
 
         if let Some(instance) = info.instance {
+            // The instance will only match the frame base when the call stack has been set up
+            // manually, like in `call_and_run_function`.
+            // Koto bytecode may or may not have placed the instance in the frame base.
             if instance != info.frame_base {
                 self.set_register(info.frame_base, self.clone_register(instance));
             }
         } else {
+            // If there's no instance for the call then ensure that the frame base is null.
             self.set_register(info.frame_base, KValue::Null);
         }
 
         match callable {
-            Function(f) => self.call_koto_function(info, &f, temp_tuple_values),
+            Function(f) => {
+                if f.flags.is_generator() {
+                    self.call_generator(info, &f, temp_tuple_values)
+                } else {
+                    self.call_koto_function(info, &f, temp_tuple_values)
+                }
+            }
             NativeFunction(f) => self.call_native_function(info, ExternalCallable::Function(f)),
             Object(o) => self.call_native_function(info, ExternalCallable::Object(o)),
             Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {
@@ -3359,6 +3348,101 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
         size - (index as isize).unsigned_abs().min(size)
     } else {
         index as usize
+    }
+}
+
+// See [KotoVm::call_koto_function] and [KotoVm::call_generator]
+fn apply_optional_arguments(
+    registers: &mut Vec<KValue>,
+    f: &KFunction,
+    call_arg_count: u8,
+    expected_arg_count: u8,
+) -> Result<()> {
+    if call_arg_count < expected_arg_count {
+        let default_values_to_apply = (expected_arg_count - call_arg_count) as usize;
+        let optional_arg_count = f.optional_arg_count as usize;
+        if default_values_to_apply > optional_arg_count {
+            return runtime_error!(ErrorKind::InsufficientArguments {
+                expected: f.arg_count - f.optional_arg_count,
+                actual: call_arg_count,
+            });
+        }
+
+        let Some(captures) = f.captures.as_ref() else {
+            // Non-zero default arg count without captures is unexpected
+            return runtime_error!(ErrorKind::UnexpectedError);
+        };
+        if captures.len() < default_values_to_apply {
+            // There should never be fewer captures than default args
+            return runtime_error!(ErrorKind::UnexpectedError);
+        }
+
+        let default_values_to_skip = optional_arg_count - default_values_to_apply;
+        registers.extend(
+            captures
+                .data()
+                .iter()
+                .skip(default_values_to_skip)
+                .take(default_values_to_apply)
+                .cloned(),
+        );
+    }
+
+    Ok(())
+}
+
+// See [KotoVm::call_koto_function] and [KotoVm::call_generator]
+fn apply_variadic_arguments(
+    registers: &mut Vec<KValue>,
+    arg_base_index: usize, // The index in `registers` of the first call arg
+    call_info: &CallInfo,
+    f: &KFunction,
+    expected_arg_count: u8,
+) -> Result<()> {
+    if f.flags.is_variadic() {
+        // The last defined arg is the start of the var_args,
+        // e.g. f = |x, y, z...|
+        // arg index 2 is the first vararg, and where the tuple will be placed
+        let varargs_count = call_info.arg_count.saturating_sub(expected_arg_count) as usize;
+        let varargs_start = arg_base_index + expected_arg_count as usize;
+        let varargs = if call_info.arg_count >= expected_arg_count {
+            KTuple::from(&registers[varargs_start..varargs_start + varargs_count])
+        } else {
+            KTuple::default()
+        };
+        // Remove the variadic args from the register stack
+        registers.resize(varargs_start, KValue::Null);
+        // Push the variadic args back on to the stack as a tuple
+        registers.push(KValue::Tuple(varargs));
+    } else if call_info.arg_count > expected_arg_count {
+        return runtime_error!(ErrorKind::TooManyArguments {
+            expected: expected_arg_count,
+            actual: call_info.arg_count
+        });
+    }
+    Ok(())
+}
+
+// See [KotoVm::call_koto_function] and [KotoVm::call_generator]
+fn apply_captures_and_temp_tuple_values(
+    registers: &mut Vec<KValue>,
+    f: &KFunction,
+    temp_tuple_values: Option<&[KValue]>,
+) {
+    if let Some(captures) = &f.captures {
+        // Copy the captures list into the registers following the args
+        registers.extend(
+            captures
+                .data()
+                .iter()
+                .skip(f.optional_arg_count as usize)
+                .cloned(),
+        );
+    }
+
+    // Place any temp tuple values in the registers following the args and captures
+    if let Some(temp_tuple_values) = temp_tuple_values {
+        registers.extend_from_slice(temp_tuple_values);
     }
 }
 
