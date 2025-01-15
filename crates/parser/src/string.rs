@@ -24,7 +24,7 @@ enum Inner {
     Full(Ptr<String>),
     // A shared string with 16bit bounds, small enough to store without extra allocation
     Slice(StringSlice<u16>),
-    // A shared string with bounds, heap-allocated to keep the size of `KString` down to 24 bytes
+    // A shared string with bounds, heap-allocated to keep the size of `KString` down to 16 bytes
     SliceLarge(Ptr<StringSlice<usize>>),
 }
 

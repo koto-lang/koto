@@ -2400,16 +2400,15 @@ impl Compiler {
                 &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
             );
 
-            let flags_byte = FunctionFlags {
-                variadic: function.is_variadic,
-                generator: function.is_generator,
+            let flags = FunctionFlags::new(
+                function.is_variadic,
+                function.is_generator,
                 arg_is_unpacked_tuple,
-            }
-            .as_byte();
+            );
 
             self.push_op(
                 Function,
-                &[result_register, arg_count, capture_count, flags_byte],
+                &[result_register, arg_count, capture_count, flags.into()],
             );
             let function_size_ip = self.push_offset_placeholder();
 

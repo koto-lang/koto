@@ -342,7 +342,7 @@ impl KotoVm {
                 // already in. This is redundant work, but more efficient than allocating a
                 // non-temporary Tuple for the values.
                 match &function {
-                    KValue::Function(f) if f.arg_is_unpacked_tuple => {
+                    KValue::Function(f) if f.flags.arg_is_unpacked_tuple() => {
                         let capture_count = f
                             .captures
                             .as_ref()
@@ -1375,9 +1375,7 @@ impl KotoVm {
                 register,
                 arg_count,
                 capture_count,
-                variadic,
-                generator,
-                arg_is_unpacked_tuple,
+                flags,
                 size,
             } => {
                 let captures = if capture_count > 0 {
@@ -1389,15 +1387,7 @@ impl KotoVm {
                     None
                 };
 
-                let function = KFunction {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                    variadic,
-                    arg_is_unpacked_tuple,
-                    generator,
-                    captures,
-                };
+                let function = KFunction::new(self.chunk(), self.ip(), arg_count, flags, captures);
 
                 self.jump_ip(size as u32);
                 self.set_register(register, KValue::Function(function));
@@ -2692,7 +2682,7 @@ impl KotoVm {
         // Set the generator VM's state as suspended
         generator_vm.execution_state = ExecutionState::Suspended;
 
-        let expected_arg_count = if f.variadic {
+        let expected_arg_count = if f.flags.is_variadic() {
             f.arg_count - 1
         } else {
             f.arg_count
@@ -2725,7 +2715,7 @@ impl KotoVm {
         }
 
         // Check for variadic arguments, and validate argument count
-        if f.variadic {
+        if f.flags.is_variadic() {
             if call_info.arg_count >= expected_arg_count {
                 // Capture the varargs into a tuple and place them in the
                 // generator vm's last arg register
@@ -2764,17 +2754,18 @@ impl KotoVm {
         f: &KFunction,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
-        if f.generator {
+        if f.flags.is_generator() {
             return self.call_generator(call_info, f, temp_tuple_values);
         }
 
-        let expected_arg_count = if f.variadic {
+        let variadic = f.flags.is_variadic();
+        let expected_arg_count = if variadic {
             f.arg_count - 1
         } else {
             f.arg_count
         };
 
-        if f.variadic {
+        if variadic {
             if call_info.arg_count >= expected_arg_count {
                 // The last defined arg is the start of the var_args,
                 // e.g. f = |x, y, z...|

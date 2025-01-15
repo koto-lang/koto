@@ -255,18 +255,20 @@ impl Iterator for InstructionReader {
             Op::Function => {
                 let register = byte_a;
                 let [arg_count, capture_count, flags, size_a, size_b] = get_u8x5!();
-                let flags = FunctionFlags::from_byte(flags);
-                let size = u16::from_le_bytes([size_a, size_b]);
+                match FunctionFlags::try_from(flags) {
+                    Ok(flags) => {
+                        let size = u16::from_le_bytes([size_a, size_b]);
 
-                Some(Function {
-                    register,
-                    arg_count,
-                    capture_count,
-                    variadic: flags.variadic,
-                    generator: flags.generator,
-                    arg_is_unpacked_tuple: flags.arg_is_unpacked_tuple,
-                    size,
-                })
+                        Some(Function {
+                            register,
+                            arg_count,
+                            capture_count,
+                            flags,
+                            size,
+                        })
+                    }
+                    Err(e) => Some(Error { message: e }),
+                }
             }
             Op::Capture => {
                 let [byte_b, byte_c] = get_u8x2!();

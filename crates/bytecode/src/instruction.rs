@@ -114,9 +114,7 @@ pub enum Instruction {
         register: u8,
         arg_count: u8,
         capture_count: u8,
-        variadic: bool,
-        generator: bool,
-        arg_is_unpacked_tuple: bool,
+        flags: FunctionFlags,
         size: u16,
     },
     Capture {
@@ -358,45 +356,71 @@ pub enum Instruction {
 }
 
 /// Flags used to define the properties of a Function
-pub struct FunctionFlags {
-    /// True if the function has a variadic argument
-    pub variadic: bool,
-    /// True if the function is a generator
-    pub generator: bool,
-    /// True if the function has a single argument which is an unpacked tuple
-    pub arg_is_unpacked_tuple: bool,
-}
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct FunctionFlags(u8);
 
 impl FunctionFlags {
-    /// Corresponding to [FunctionFlags::variadic]
-    pub const VARIADIC: u8 = 1 << 0;
-    /// Corresponding to [FunctionFlags::generator]
-    pub const GENERATOR: u8 = 1 << 1;
-    /// Corresponding to [FunctionFlags::arg_is_unpacked_tuple]
-    pub const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 2;
+    const VARIADIC: u8 = 1 << 0;
+    const GENERATOR: u8 = 1 << 1;
+    const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 2;
 
-    /// Initializes a flags struct from a byte
-    pub fn from_byte(byte: u8) -> Self {
-        Self {
-            variadic: byte & Self::VARIADIC != 0,
-            generator: byte & Self::GENERATOR != 0,
-            arg_is_unpacked_tuple: byte & Self::ARG_IS_UNPACKED_TUPLE != 0,
+    /// Returns a new [FunctionFlags] with the given flags set
+    pub fn new(variadic: bool, generator: bool, arg_is_unpacked_tuple: bool) -> Self {
+        let mut flags = 0;
+        if variadic {
+            flags |= Self::VARIADIC;
         }
+        if generator {
+            flags |= Self::GENERATOR;
+        }
+        if arg_is_unpacked_tuple {
+            flags |= Self::ARG_IS_UNPACKED_TUPLE;
+        }
+        Self(flags)
     }
 
-    /// Returns a byte containing the packed flags
-    pub fn as_byte(&self) -> u8 {
-        let mut result = 0;
-        if self.variadic {
-            result |= Self::VARIADIC;
+    /// True if the function has a variadic argument
+    ///
+    /// If the function is variadic, then extra args will be captured in a tuple.
+    pub fn is_variadic(self) -> bool {
+        self.0 & Self::VARIADIC != 0
+    }
+
+    /// True if the function is a generator
+    ///
+    /// If the function is a generator, then calling the function will yield an iterator that
+    /// executes the function's body for each iteration step, pausing when a yield instruction is
+    /// encountered.
+    pub fn is_generator(self) -> bool {
+        self.0 & Self::GENERATOR != 0
+    }
+
+    /// True if the function has a single argument which is an unpacked tuple
+    ///
+    /// This is used to optimize calls where the caller has a series of args that might be unpacked
+    /// by the function, and it would be wasteful to create a Tuple when it's going to be
+    /// immediately unpacked and discarded.
+    pub fn arg_is_unpacked_tuple(self) -> bool {
+        self.0 & Self::ARG_IS_UNPACKED_TUPLE != 0
+    }
+}
+
+impl TryFrom<u8> for FunctionFlags {
+    type Error = String;
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        if byte <= 0b111 {
+            Ok(Self(byte))
+        } else {
+            Err(format!("Invalid function flags: {byte:#010b}"))
         }
-        if self.generator {
-            result |= Self::GENERATOR;
-        }
-        if self.arg_is_unpacked_tuple {
-            result |= Self::ARG_IS_UNPACKED_TUPLE;
-        }
-        result
+    }
+}
+
+impl From<FunctionFlags> for u8 {
+    fn from(value: FunctionFlags) -> Self {
+        value.0
     }
 }
 
@@ -552,16 +576,17 @@ impl fmt::Debug for Instruction {
                 register,
                 arg_count,
                 capture_count,
-                variadic,
-                generator,
-                arg_is_unpacked_tuple,
+                flags,
                 size,
             } => write!(
                 f,
                 "Function\tresult: {register}\targs: {arg_count}\
                  \t\tcaptures: {capture_count}
-                 \t\t\tsize: {size} \tgenerator: {generator}
-                 \t\t\tvariadic: {variadic}\targ_is_unpacked_tuple: {arg_is_unpacked_tuple}",
+                 \t\t\tsize: {size} \tgenerator: {}
+                 \t\t\tvariadic: {}\targ_is_unpacked_tuple: {}",
+                flags.is_generator(),
+                flags.is_variadic(),
+                flags.arg_is_unpacked_tuple()
             ),
             Capture {
                 function,
