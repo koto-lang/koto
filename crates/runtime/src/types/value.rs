@@ -97,7 +97,7 @@ impl KValue {
     pub fn is_callable(&self) -> bool {
         use KValue::*;
         match self {
-            Function(f) if f.generator => false,
+            Function(f) if f.flags.is_generator() => false,
             Function(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
             Object(o) => o.try_borrow().is_ok_and(|o| o.is_callable()),
@@ -107,7 +107,7 @@ impl KValue {
 
     /// Returns true if the value is a generator function
     pub fn is_generator(&self) -> bool {
-        matches!(self, KValue::Function(f) if f.generator)
+        matches!(self, KValue::Function(f) if f.flags.is_generator())
     }
 
     /// Returns true if the value is hashable
@@ -173,7 +173,7 @@ impl KValue {
             Map(_) => "Map".into(),
             Str(_) => "String".into(),
             Tuple(_) => "Tuple".into(),
-            Function(f) if f.generator => "Generator".into(),
+            Function(f) if f.flags.is_generator() => "Generator".into(),
             Function(_) | NativeFunction(_) => "Function".into(),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
@@ -414,10 +414,15 @@ mod tests {
 
     #[test]
     fn test_value_mem_size() {
-        // All Value variants except for String should have a size of <= 16 bytes.
-        // KString has a size of 24 bytes, but is the single variant of that size, and has a niche
-        // of 8 bytes which is then usable as the niche for KValue.
-        assert!(std::mem::size_of::<KValue>() <= 24);
+        // All KValue variants except for KValue::Function` should have a size of <= 16 bytes.
+        // KFunction has a size of 24 bytes, but is the single variant of that size,
+        // and has a niche which is then usable as the niche for KValue.
+        assert!(size_of::<KString>() <= 16);
+        assert!(size_of::<KList>() <= 16);
+        assert!(size_of::<KMap>() <= 16);
+        assert!(size_of::<KObject>() <= 16);
+        assert!(size_of::<KFunction>() <= 24);
+        assert!(size_of::<KValue>() <= 24);
     }
 
     #[test]

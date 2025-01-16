@@ -1142,12 +1142,12 @@ add(5, 6)";
         }
 
         #[test]
-        fn call_with_insufficient_args() {
+        fn call_with_default_value() {
             let script = "
-foo = |a, b| b
+foo = |a, b = 99| b
 foo 42
 ";
-            check_script_output(script, KValue::Null);
+            check_script_output(script, 99);
         }
 
         #[test]
@@ -1347,11 +1347,27 @@ f (f 5, 10, 20, 30), 40, 50";
         }
 
         #[test]
-        fn variadic_function_with_missing_args() {
+        fn variadic_function_without_contents() {
             let script = "
 f = |a, b...| b
+f 42";
+            check_script_output(script, tuple(&[]));
+        }
+
+        #[test]
+        fn variadic_function_with_contents() {
+            let script = "
+f = |a, b...| b
+f 42, 1, 2, 3";
+            check_script_output(script, number_tuple(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn variadic_function_after_default_arg() {
+            let script = "
+f = |a = 3, b...| b
 f()";
-            check_script_output(script, KValue::Null);
+            check_script_output(script, tuple(&[]));
         }
 
         #[test]
@@ -1558,13 +1574,13 @@ else
             fn missing_argument_in_function_with_capture() {
                 let script = "
 x = -1
-foo = |a| if a then return a else return x
+foo = |a = 101| a + x
 # Add some temporary values to the stack,
 # a runtime bug prevented registers from being assigned correctly in foo.
 z = 1 + 2 + 3
 foo()
 ";
-                check_script_output(script, -1);
+                check_script_output(script, 100);
             }
 
             #[test]
@@ -2468,56 +2484,61 @@ foo min..max, 20
         }
 
         #[test]
-        fn missing_arg_set_to_null() {
+        fn default_value_for_second_arg() {
             let script = "
-foo = |a, b|
-  if b == null
-    99
-  else
-    -1
+foo = |a, b = 99| b
 foo 42
 ";
             check_script_output(script, 99);
         }
 
         #[test]
-        fn missing_arg_set_to_null_with_list_as_first_arg() {
+        fn default_arg_after_list() {
             let script = "
-foo = |a, b|
-  if b == null
-    99
-  else
-    -1
+foo = |a, b = 3| b
 foo [42]
 ";
-            check_script_output(script, 99);
+            check_script_output(script, 3);
         }
 
         #[test]
-        fn missing_arg_set_to_null_with_list_as_first_arg_and_capture() {
+        fn default_arg_with_capture() {
             let script = "
-x = 123
-foo = |a, b|
-  if b == null
-    x
-  else
-    -1
+x = 100
+foo = |a, b = 23| b + x
 foo [42]
 ";
             check_script_output(script, 123);
         }
 
         #[test]
-        fn missing_arg_set_to_null_with_list_as_first_arg_for_generator() {
+        fn default_arg_before_unused_variadic() {
             let script = "
-foo = |a, b|
-  if b == null
-    yield 123
-  else
-    yield -1
-foo([42]).next().get()
+foo = |a, b = 99, rest...| (a, b) + rest
+foo 1
 ";
-            check_script_output(script, 123);
+            check_script_output(script, number_tuple(&[1, 99]));
+        }
+
+        #[test]
+        fn default_arg_before_filled_variadic() {
+            let script = "
+foo = |a, b = -1, rest...| (a, b) + rest
+foo 1, 2, 3, 4, 5
+";
+            check_script_output(script, number_tuple(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn default_arg_for_generator() {
+            let script = "
+foo = |a, b = 123|
+  for x in a
+    yield x
+  yield b
+foo([42, 99]).to_tuple()
+";
+            check_script_output(script, number_tuple(&[42, 99, 123]));
         }
 
         #[test]
@@ -2627,7 +2648,7 @@ m = {foo: |x| x}
             #[test]
             fn check_into_piped_call_after_call_pass() {
                 let script = "
-m = {foo: |x| |x| x}
+m = {foo: || |x| x}
 42 -> m.foo()?
 ";
                 check_script_output(script, 42);
@@ -2753,10 +2774,9 @@ gen(1..=5).to_tuple()";
         }
 
         #[test]
-        fn generator_with_missing_arg() {
+        fn generator_with_default_arg() {
             let script = "
-gen = |xs|
-  xs = xs or (1, 2, 3)
+gen = |xs = (1, 2, 3)|
   for x in xs
     yield x
 gen().to_tuple()";
@@ -2797,11 +2817,10 @@ gen().to_tuple()
         }
 
         #[test]
-        fn generator_with_captured_data_and_missing_args() {
+        fn generator_with_captured_data_and_default_arg() {
             let script = "
 x = 1, 2, 3
-gen = |offset, bar...|
-  offset = offset or 10
+gen = |offset = 10, bar...|
   for y in x
     yield y + offset
 gen().to_tuple()

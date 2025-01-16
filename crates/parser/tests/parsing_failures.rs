@@ -182,6 +182,11 @@ for x in y if f x
             }
 
             #[test]
+            fn missing_default_value() {
+                check_parsing_fails("f = |a = 42, b| a");
+            }
+
+            #[test]
             fn missing_commas_in_call() {
                 check_parsing_fails("f 1 2 3");
             }

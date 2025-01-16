@@ -2321,7 +2321,7 @@ a()";
         }
 
         #[test]
-        fn inline_two_args() {
+        fn two_args_basic() {
             let sources = [
                 "
 |x, y| x + y
@@ -2366,20 +2366,71 @@ a()";
         }
 
         #[test]
+        fn two_args_with_default_values() {
+            let sources = [
+                "
+|x = 1, y = 2| x + y
+",
+                "
+| x = 1,
+  y=2,
+|
+  x + y
+",
+                "
+|
+  x =
+    1,
+  y =
+      2,
+  | x + y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0), // x
+                    SmallInt(1),
+                    assign(0, 1),
+                    id(1), // y
+                    SmallInt(2),
+                    assign(3, 4), // - 5
+                    id(0),        // x
+                    id(1),        // y
+                    binary_op(AstBinaryOp::Add, 6, 7),
+                    Function(koto_parser::Function {
+                        args: nodes(&[2, 5]),
+                        local_count: 2,
+                        accessed_non_locals: constants(&[]),
+                        body: 8.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: None,
+                    }),
+                    MainBlock {
+                        body: nodes(&[9]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
         fn two_args_with_type_hints() {
             let sources = [
                 "
-|x: String, y: Number| x + y
+|x: String, y: Number = 42| x + y
 ",
                 "
 | x: String,
-  y: Number,
+  y: Number = 42,
 |
   x + y
 ",
                 "
 | x: String,
-  y: Number
+  y: Number=42
   |
     x + y
 ",
@@ -2391,20 +2442,22 @@ a()";
                     id_with_type_hint(0, 0), // x
                     type_hint(3),            // Number
                     id_with_type_hint(2, 2), // y
-                    id(0),                   // x
-                    id(2),                   // y - 5
-                    binary_op(AstBinaryOp::Add, 4, 5),
+                    SmallInt(42),
+                    assign(3, 4), // - 5
+                    id(0),        // x
+                    id(2),        // y
+                    binary_op(AstBinaryOp::Add, 6, 7),
                     Function(koto_parser::Function {
-                        args: nodes(&[1, 3]),
+                        args: nodes(&[1, 5]),
                         local_count: 2,
                         accessed_non_locals: constants(&[]),
-                        body: 6.into(),
+                        body: 8.into(),
                         is_variadic: false,
                         is_generator: false,
                         output_type: None,
                     }),
                     MainBlock {
-                        body: nodes(&[7]),
+                        body: nodes(&[9]),
                         local_count: 0,
                     },
                 ],

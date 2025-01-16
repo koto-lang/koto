@@ -10,6 +10,19 @@ The Koto project adheres to
 
 ### Added
 
+#### Language
+
+- Default argument values have been introduced to make it easier to implement optional arguments.
+  - e.g. Instead of:
+    ```koto
+    f = |a, b|
+      a + b
+    ```
+    You can write
+    ```koto
+    f = |a, b = 42| a + b
+    ```
+
 #### API
 
 - `Compiler::compile_ast` has been added, useful for tools that want to work with the AST
@@ -19,7 +32,9 @@ The Koto project adheres to
 
 #### Language
 
-- Calls to functions with more arguments than expected by the function will now throw an error.
+- Calls to Koto functions with the incorrect number of arguments will now throw an error.
+  - Default values should be provided for optional arguments.
+  - Variadic arguments should be used to capture additional arguments.
 
 ### Fixed
 

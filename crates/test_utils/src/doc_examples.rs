@@ -48,16 +48,34 @@ An example in '{}' failed to compile: {error}",
         let chunk = self.compile_example(script, sections)?;
 
         if let Err(error) = self.vm.run(chunk.clone()) {
-            println!("\n--------\n{script}\n--------\n");
-            println!("Constants\n---------\n{}\n", chunk.constants);
             let script_lines = script.lines().collect::<Vec<_>>();
-            println!(
-                "Instructions\n------------\n{}",
-                Chunk::instructions_as_string(chunk, &script_lines)
-            );
-            println!("{error}");
+            return runtime_error!(
+                "
+Runtime error in '{}':
 
-            return Err(error);
+--------
+
+{script}
+
+--------
+
+Constants
+---------
+{}
+
+Instructions
+------------
+{}
+
+--------
+
+Error: {error}.
+
+",
+                join(sections.iter(), " / "),
+                chunk.constants,
+                Chunk::instructions_as_string(chunk.clone(), &script_lines)
+            );
         }
 
         if !skip_check {

@@ -20,6 +20,8 @@ enum ErrorKind {
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,
+    #[error("all arguments following an optional argument must also be optional")]
+    ExpectedOptionalArgumentValue,
     #[error("invalid {kind} op ({op:?})")]
     InvalidBinaryOp { kind: String, op: AstBinaryOp },
     #[error("`{0}` used outside of loop")]
@@ -630,7 +632,7 @@ impl Compiler {
 
         self.frame_stack.push(Frame::new(
             local_count,
-            &self.collect_args(args, ctx.ast)?,
+            &self.collect_args(args, ctx)?,
             captures,
             output_type,
             is_generator,
@@ -638,9 +640,23 @@ impl Compiler {
 
         // Check argument types and unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
-            let arg_node = ctx.node_with_span(*arg);
             let arg_register = arg_index as u8 + 1; // self is in register 0, args start from 1
+            let arg_node = ctx.node_with_span(*arg);
+
             match &arg_node.node {
+                Node::Assign { target, .. } => match &ctx.node_with_span(*target).node {
+                    Node::Id(_, maybe_type) => {
+                        if let Some(type_hint) = maybe_type {
+                            self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
+                        }
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "ID for default value".into(),
+                            unexpected: unexpected.clone(),
+                        })
+                    }
+                },
                 Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
@@ -803,7 +819,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>> {
+    fn collect_args(&self, args: &[AstIndex], ctx: CompileNodeContext) -> Result<Vec<Arg>> {
         // Collect args for local assignment in the new frame
         // Top-level args need to match the arguments as they appear in the arg list, with
         // Placeholders for wildcards and containers that are being unpacked.
@@ -821,17 +837,26 @@ impl Compiler {
         let mut nested_args = Vec::new();
 
         for arg in args.iter() {
-            match &ast.node(*arg).node {
+            match &ctx.node(*arg) {
+                Node::Assign { target, .. } => match &ctx.node(*target) {
+                    Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "ID for default value".into(),
+                            unexpected: (*unexpected).clone(),
+                        })
+                    }
+                },
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(..) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
-                    nested_args.extend(self.collect_nested_args(nested, ast)?);
+                    nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID in function args".into(),
-                        unexpected: unexpected.clone(),
+                        unexpected: (*unexpected).clone(),
                     })
                 }
             }
@@ -2373,91 +2398,125 @@ impl Compiler {
 
         let result = self.assign_result_register(ctx)?;
 
-        if let Some(result_register) = result.register {
-            let arg_count = match u8::try_from(function.args.len()) {
-                Ok(x) => x,
-                Err(_) => {
-                    return self.error(ErrorKind::FunctionPropertyLimit {
-                        property: "args".into(),
-                        amount: function.args.len(),
-                    })
-                }
-            };
+        let Ok(arg_count) = u8::try_from(function.args.len()) else {
+            return self.error(ErrorKind::FunctionPropertyLimit {
+                property: "args".into(),
+                amount: function.args.len(),
+            });
+        };
 
-            let captures = self
-                .frame()
-                .captures_for_nested_frame(&function.accessed_non_locals);
-            if captures.len() > u8::MAX as usize {
+        // Gather any default value expressions for optional args.
+        // The number of optional args is needed now, although the expressions get compiled
+        // below, after the function itself is compiled.
+        let mut optional_args = AstVec::new();
+        for (i, arg) in function.args.iter().enumerate() {
+            let is_last_arg = i == function.args.len() - 1;
+            match ctx.node(*arg) {
+                Node::Assign { expression, .. } => {
+                    optional_args.push(*expression);
+                }
+                _ => {
+                    if !(optional_args.is_empty() || function.is_variadic && is_last_arg) {
+                        return self.error(ErrorKind::ExpectedOptionalArgumentValue);
+                    }
+                }
+            }
+        }
+
+        let captures = self
+            .frame()
+            .captures_for_nested_frame(&function.accessed_non_locals);
+        if optional_args.len() + captures.len() > u8::MAX as usize {
+            return self.error(ErrorKind::FunctionPropertyLimit {
+                property: "captures".into(),
+                amount: optional_args.len() + captures.len(),
+            });
+        }
+
+        let arg_is_unpacked_tuple = matches!(
+            function.args.as_slice(),
+            &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
+        );
+
+        let flags = FunctionFlags::new(
+            function.is_variadic,
+            function.is_generator,
+            arg_is_unpacked_tuple,
+        );
+
+        let function_size_ip = if let Some(result_register) = result.register {
+            self.push_op(
+                Function,
+                &[
+                    result_register,
+                    arg_count,
+                    optional_args.len() as u8,
+                    captures.len() as u8,
+                    flags.into(),
+                ],
+            );
+            Some(self.push_offset_placeholder())
+        } else {
+            None
+        };
+
+        let local_count = match u8::try_from(function.local_count) {
+            Ok(x) => x,
+            Err(_) => {
                 return self.error(ErrorKind::FunctionPropertyLimit {
-                    property: "captures".into(),
+                    property: "locals".into(),
                     amount: function.args.len(),
                 });
             }
-            let capture_count = captures.len() as u8;
+        };
 
-            let arg_is_unpacked_tuple = matches!(
-                function.args.as_slice(),
-                &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
-            );
+        let allow_implicit_return = !function.is_generator;
+        let body_as_slice = [function.body];
+        let function_body = match ctx.node(function.body) {
+            Node::Block(expressions) => expressions.as_slice(),
+            _ => &body_as_slice,
+        };
+        self.compile_frame(
+            FrameParameters {
+                local_count,
+                expressions: function_body,
+                args: &function.args,
+                captures: &captures,
+                allow_implicit_return,
+                output_type: function.output_type,
+                is_generator: function.is_generator,
+            },
+            ctx,
+        )?;
 
-            let flags_byte = FunctionFlags {
-                variadic: function.is_variadic,
-                generator: function.is_generator,
-                arg_is_unpacked_tuple,
+        if let Some(ip) = function_size_ip {
+            self.update_offset_placeholder(ip)?;
+        }
+
+        if let Some(result_register) = result.register {
+            for (i, expression) in optional_args.iter().enumerate() {
+                let capture_register = self.push_register()?;
+                self.compile_node(*expression, ctx.with_fixed_register(capture_register))?;
+                self.push_op(Capture, &[result_register, i as u8, capture_register]);
+                self.pop_register()?;
             }
-            .as_byte();
 
-            self.push_op(
-                Function,
-                &[result_register, arg_count, capture_count, flags_byte],
-            );
-            let function_size_ip = self.push_offset_placeholder();
-
-            let local_count = match u8::try_from(function.local_count) {
-                Ok(x) => x,
-                Err(_) => {
-                    return self.error(ErrorKind::FunctionPropertyLimit {
-                        property: "locals".into(),
-                        amount: function.args.len(),
-                    });
-                }
-            };
-
-            let allow_implicit_return = !function.is_generator;
-            let body_as_slice = [function.body];
-            let function_body = match ctx.node(function.body) {
-                Node::Block(expressions) => expressions.as_slice(),
-                _ => &body_as_slice,
-            };
-            self.compile_frame(
-                FrameParameters {
-                    local_count,
-                    expressions: function_body,
-                    args: &function.args,
-                    captures: &captures,
-                    allow_implicit_return,
-                    output_type: function.output_type,
-                    is_generator: function.is_generator,
-                },
-                ctx,
-            )?;
-
-            self.update_offset_placeholder(function_size_ip)?;
-
+            let optional_arg_count = optional_args.len() as u8;
             for (i, capture) in captures.iter().enumerate() {
+                let index = optional_arg_count + i as u8;
                 match self
                     .frame()
                     .get_local_assigned_or_reserved_register(*capture)
                 {
                     AssignedOrReserved::Assigned(assigned_register) => {
-                        self.push_op(Capture, &[result_register, i as u8, assigned_register]);
+                        self.push_op(Capture, &[result_register, index, assigned_register]);
                     }
                     AssignedOrReserved::Reserved(reserved_register) => {
                         let capture_span = self.span();
                         self.frame_mut()
                             .defer_op_until_register_is_committed(
                                 reserved_register,
-                                vec![Capture as u8, result_register, i as u8, reserved_register],
+                                vec![Capture as u8, result_register, index, reserved_register],
                                 capture_span,
                             )
                             .map_err(|e| self.make_error(e))?;
@@ -2465,10 +2524,15 @@ impl Compiler {
                     AssignedOrReserved::Unassigned => {
                         let capture_register = self.push_register()?;
                         self.compile_load_non_local(capture_register, *capture);
-                        self.push_op(Capture, &[result_register, i as u8, capture_register]);
+                        self.push_op(Capture, &[result_register, index, capture_register]);
                         self.pop_register()?;
                     }
                 }
+            }
+        } else {
+            // The function is unused, but compile the optional arg values to check for errors
+            for expression in optional_args.iter() {
+                self.compile_node(*expression, ctx.with_any_register())?;
             }
         }
 
