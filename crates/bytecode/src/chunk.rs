@@ -87,6 +87,8 @@ impl Chunk {
 
     /// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
     pub fn instructions_as_string(chunk: Ptr<Chunk>, source_lines: &[&str]) -> String {
+        let ip_width = 5 + chunk.bytes.len().ilog10() as usize;
+
         let mut result = String::new();
         let mut reader = InstructionReader::new(chunk);
         let mut ip = reader.ip;
@@ -120,7 +122,14 @@ impl Chunk {
                 span = Some(instruction_span);
             }
 
-            writeln!(result, "{ip}\t{instruction:?}").ok();
+            for (i, line) in format!("{instruction:?}").lines().enumerate() {
+                if i == 0 {
+                    writeln!(result, "{ip:<ip_width$}{line}").ok();
+                } else {
+                    writeln!(result, "{:ip_width$}{line}", "").ok();
+                }
+            }
+
             ip = reader.ip;
         }
 

@@ -195,11 +195,11 @@ impl<'a> Iterator for ConstantPoolIterator<'a> {
 impl fmt::Display for ConstantPool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (i, constant) in self.iter().enumerate() {
-            write!(f, "{i}\t")?;
+            write!(f, "{i:<8}")?;
             match constant {
-                Constant::F64(n) => write!(f, "Float\t{n}")?,
-                Constant::I64(n) => write!(f, "Int\t{n}")?,
-                Constant::Str(s) => write!(f, "String\t{s}")?,
+                Constant::F64(n) => write!(f, "Float   {n}")?,
+                Constant::I64(n) => write!(f, "Int     {n}")?,
+                Constant::Str(s) => write!(f, "String  {s}")?,
             }
             writeln!(f)?;
         }
