@@ -8,6 +8,11 @@ The Koto project adheres to
 
 ## [0.15.1] Unreleased
 
+#### CLI
+
+- The CLI is now built with extra optimizations by default,
+  resulting in a faster binary at the expense of longer build times.
+
 ### Fixed
 
 #### Core Library

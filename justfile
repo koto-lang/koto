@@ -82,7 +82,7 @@ test_parser *args:
   cargo test -p koto_lexer -p koto_parser {{args}}
 
 test_release *args:
-  just test --release {{args}}
+  just test --profile release-dev {{args}}
 
 test_runtime *args:
   cargo test -p koto_runtime -p koto_bytecode {{args}}
