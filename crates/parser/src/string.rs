@@ -1,6 +1,7 @@
 use crate::StringSlice;
 use koto_memory::Ptr;
 use std::{
+    cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
     ops::{Deref, Range},
@@ -156,6 +157,12 @@ impl From<PathBuf> for KString {
     }
 }
 
+impl PartialEq<KString> for &str {
+    fn eq(&self, other: &KString) -> bool {
+        *self == other.as_str()
+    }
+}
+
 impl PartialEq<&str> for KString {
     fn eq(&self, other: &&str) -> bool {
         self.as_str() == *other
@@ -168,6 +175,30 @@ impl PartialEq for KString {
     }
 }
 impl Eq for KString {}
+
+impl PartialOrd<KString> for &str {
+    fn partial_cmp(&self, other: &KString) -> Option<Ordering> {
+        PartialOrd::partial_cmp(*self, other.as_str())
+    }
+}
+
+impl PartialOrd<&str> for KString {
+    fn partial_cmp(&self, other: &&str) -> Option<Ordering> {
+        PartialOrd::partial_cmp(self.as_str(), *other)
+    }
+}
+
+impl PartialOrd for KString {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Ord::cmp(self, other))
+    }
+}
+
+impl Ord for KString {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
 
 impl Hash for KString {
     fn hash<H: Hasher>(&self, state: &mut H) {
