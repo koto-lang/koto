@@ -165,6 +165,16 @@ x.next().get()
 ";
             check_script_output(script, 36);
         }
+
+        #[test]
+        fn each_with_native_function() {
+            let script = "
+(2.5, 4.6, 6.1)
+ .each number.round
+ .to_tuple()
+";
+            check_script_output(script, number_tuple(&[3, 5, 6]));
+        }
     }
 
     mod enumerate {

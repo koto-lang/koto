@@ -2663,12 +2663,15 @@ impl KotoVm {
             self.set_register(result_register, result);
         }
 
-        // External function calls don't use the push/pop frame mechanism,
-        // so drop the call args here now that the call has been completed.
-        self.truncate_registers(call_info.frame_base);
-        let min_frame_registers = self.register_base + self.frame().required_registers as usize;
-        if self.registers.len() < min_frame_registers {
-            self.registers.resize(min_frame_registers, KValue::Null);
+        if !self.call_stack.is_empty() {
+            // External function calls don't use the push/pop frame mechanism,
+            // so drop the call args here now that the call has been completed,
+            self.truncate_registers(call_info.frame_base);
+            // Ensure that the calling frame still has the required number of registers
+            let min_frame_registers = self.register_index(self.frame().required_registers);
+            if self.registers.len() < min_frame_registers {
+                self.registers.resize(min_frame_registers, KValue::Null);
+            }
         }
         Ok(())
     }
