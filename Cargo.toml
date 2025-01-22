@@ -106,7 +106,13 @@ wasm-bindgen = "0.2.97"
 # Internal testing crate for wasm-bindgen
 wasm-bindgen-test = "0.3.47"
 
-[profile.release-perf]
-inherits = "release"
+# Enable extra optimizations for release builds
+[profile.release]
 codegen-units = 1
 lto = true
+
+# Re-enables default release profile settings, used for CI and local testing
+[profile.release-dev]
+inherits = "release"
+codegen-units = 16
+lto = false

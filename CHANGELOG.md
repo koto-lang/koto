@@ -36,6 +36,11 @@ The Koto project adheres to
   - Default values should be provided for optional arguments.
   - Variadic arguments should be used to capture additional arguments.
 
+#### CLI
+
+- The CLI is now built with extra optimizations by default,
+  resulting in a faster binary at the expense of longer build times.
+
 ### Fixed
 
 #### Core Library
