@@ -1111,7 +1111,7 @@ impl<'source> Parser<'source> {
                     let arg_span = self.current_span();
                     let arg_node = if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
-                        Node::Ellipsis(Some(constant_index))
+                        Node::PackedId(Some(constant_index))
                     } else {
                         Node::Id(constant_index, self.parse_type_hint(&args_context)?)
                     };
@@ -1144,7 +1144,7 @@ impl<'source> Parser<'source> {
                     }
                     Some(Token::Ellipsis) => {
                         self.consume_token();
-                        nested_args.push(self.push_node(Node::Ellipsis(None))?);
+                        nested_args.push(self.push_node(Node::PackedId(None))?);
                     }
                     _ => break,
                 },
@@ -1188,10 +1188,21 @@ impl<'source> Parser<'source> {
                     break;
                 }
 
+                let arg_start_span = self.current_span();
                 if let Some(expression) = self
                     .parse_expression_with_min_precedence(MIN_PRECEDENCE_AFTER_PIPE, &arg_context)?
                 {
-                    args.push(expression);
+                    let arg_expression = if self.peek_token() == Some(Token::Ellipsis) {
+                        self.consume_token();
+                        self.push_node_with_start_span(
+                            Node::PackedExpression(expression),
+                            arg_start_span,
+                        )?
+                    } else {
+                        expression
+                    };
+
+                    args.push(arg_expression);
                 } else {
                     break;
                 }
@@ -1288,8 +1299,9 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
 
-        let id_node = self.push_node(Node::Id(constant_index, None))?;
         let id_span = self.current_span();
+
+        let id_node = self.push_node(Node::Id(constant_index, None))?;
 
         if id_context.allow_map_block && self.peek_next_token_on_same_line() == Some(Token::Colon) {
             // The ID is the start of a map block
@@ -2561,7 +2573,7 @@ impl<'source> Parser<'source> {
                             self.consume_token();
                             if in_nested_patterns {
                                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                                self.push_node(Node::Ellipsis(Some(id)))?
+                                self.push_node(Node::PackedId(Some(id)))?
                             } else {
                                 return self
                                     .error(SyntaxError::MatchEllipsisOutsideOfNestedPatterns);
@@ -2609,7 +2621,7 @@ impl<'source> Parser<'source> {
                 }
                 Ellipsis if in_nested_patterns => {
                     self.consume_token_with_context(&pattern_context);
-                    Some(self.push_node(Node::Ellipsis(None))?)
+                    Some(self.push_node(Node::PackedId(None))?)
                 }
                 _ => None,
             },

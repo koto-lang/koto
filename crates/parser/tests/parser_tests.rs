@@ -2744,6 +2744,27 @@ f = |x|
         }
 
         #[test]
+        fn call_unpacked_arg() {
+            let source = "f a..., b";
+            check_ast(
+                source,
+                &[
+                    id(0),                      // f
+                    id(1),                      // a
+                    PackedExpression(1.into()), // a
+                    id(2),                      // b
+                    chain_call(&[2, 3], false, None),
+                    chain_root(0, Some(4)), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
+
+        #[test]
         fn call_with_parentheses() {
             let sources = [
                 "
@@ -3551,7 +3572,7 @@ z = y [0..20], |x| x > 1
                 &[
                     id(0), // a
                     Wildcard(None, None),
-                    Ellipsis(Some(1.into())),       // others
+                    PackedId(Some(1.into())),       // others
                     id(2),                          // c
                     Wildcard(Some(3.into()), None), // d
                     Tuple(nodes(&[2, 3, 4])),       // ast index 5
@@ -5216,12 +5237,12 @@ match x
                 source,
                 &[
                     id(0),
-                    Ellipsis(None),
+                    PackedId(None),
                     SmallInt(0),
                     Tuple(nodes(&[1, 2])),
                     SmallInt(0),
                     SmallInt(1), // 5
-                    Ellipsis(None),
+                    PackedId(None),
                     Tuple(nodes(&[5, 6])),
                     SmallInt(1),
                     Match {
@@ -5259,14 +5280,14 @@ match y
                 source,
                 &[
                     id(0),
-                    Ellipsis(Some(1.into())),
+                    PackedId(Some(1.into())),
                     SmallInt(0),
                     SmallInt(1),
                     Tuple(nodes(&[1, 2, 3])),
                     SmallInt(0), // 5
                     SmallInt(1),
                     SmallInt(0),
-                    Ellipsis(Some(2.into())),
+                    PackedId(Some(2.into())),
                     Tuple(nodes(&[6, 7, 8])),
                     SmallInt(1), // 10
                     Match {
