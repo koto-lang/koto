@@ -229,6 +229,7 @@ pub enum Instruction {
         function: u8,
         frame_base: u8,
         arg_count: u8,
+        packed_arg_count: u8,
     },
     CallInstance {
         result: u8,
@@ -236,6 +237,7 @@ pub enum Instruction {
         instance: u8,
         frame_base: u8,
         arg_count: u8,
+        packed_arg_count: u8,
     },
     Return {
         register: u8,
@@ -729,11 +731,13 @@ impl fmt::Debug for Instruction {
                 function,
                 frame_base,
                 arg_count,
+                packed_arg_count,
             } => write!(
                 f,
                 "Call            \
                  result: {result:<7} function: {function:<5} \
-                 frame base: {frame_base:<3} args: {arg_count}",
+                 frame base: {frame_base}
+                args: {arg_count:<9} packed args: {packed_arg_count}",
             ),
             CallInstance {
                 result,
@@ -741,12 +745,13 @@ impl fmt::Debug for Instruction {
                 instance,
                 frame_base,
                 arg_count,
+                packed_arg_count,
             } => write!(
                 f,
                 "CallInstance    \
                 result: {result:<7} function: {function:<5} \
                 frame base: {frame_base:<3} args: {arg_count}
-                instance: {instance}",
+                instance: {instance:<5} packed args: {packed_arg_count}",
             ),
             Return { register } => write!(f, "Return          register: {register}"),
             Yield { register } => write!(f, "Yield           register: {register}"),

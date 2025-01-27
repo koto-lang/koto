@@ -78,6 +78,11 @@ impl Iterator for InstructionReader {
                 get_u8_array!(4)
             }};
         }
+        macro_rules! get_u8x5 {
+            () => {{
+                get_u8_array!(5)
+            }};
+        }
         macro_rules! get_u8x6 {
             () => {{
                 get_u8_array!(6)
@@ -415,22 +420,24 @@ impl Iterator for InstructionReader {
                 offset: get_u16!(),
             }),
             Op::Call => {
-                let [function, frame_base, arg_count] = get_u8x3!();
+                let [function, frame_base, arg_count, unpacked_arg_count] = get_u8x4!();
                 Some(Call {
                     result: byte_a,
                     function,
                     frame_base,
                     arg_count,
+                    packed_arg_count: unpacked_arg_count,
                 })
             }
             Op::CallInstance => {
-                let [function, instance, frame_base, arg_count] = get_u8x4!();
+                let [function, instance, frame_base, arg_count, unpacked_arg_count] = get_u8x5!();
                 Some(CallInstance {
                     result: byte_a,
                     function,
                     instance,
                     frame_base,
                     arg_count,
+                    packed_arg_count: unpacked_arg_count,
                 })
             }
             Op::Return => Some(Return { register: byte_a }),

@@ -13,7 +13,7 @@ The Koto project adheres to
 #### Language
 
 - Default argument values have been introduced to make it easier to implement optional arguments.
-  - e.g. Instead of:
+  - E.g. Instead of:
     ```koto
     f = |a, b|
       a + b
@@ -22,6 +22,15 @@ The Koto project adheres to
     ```koto
     f = |a, b = 42| a + b
     ```
+- When calling a function, arguments can be now be unpacked at the call site.
+  [#418](https://github.com/koto-lang/koto/issues/418)
+  - E.g.
+  ```koto
+  f = |a, b, c| a + b + c
+  x = 1, 2, 3
+  f x...
+  # -> 6
+  ```
 
 #### API
 
@@ -46,7 +55,7 @@ The Koto project adheres to
 #### Core Library
 
 - Iterator adaptors can now be used as standalone functions.
-  - e.g. `for i, n in iterator.enumerate 'abc'` would previously throw an error.
+  - E.g. `for i, n in iterator.enumerate 'abc'` would previously throw an error.
 
 ## [0.15.0] 2025.01.07
 

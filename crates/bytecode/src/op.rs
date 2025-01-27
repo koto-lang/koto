@@ -335,7 +335,12 @@ pub enum Op {
     /// If the result can be ignored then it will be placed in the frame base at the end of the
     /// call, which will result in it being discarded.
     ///
-    /// `[*result, *function, *frame base, arg count]`
+    /// Arguments are placed in the registers following the frame base.
+    /// If there are any arguments to unpack, their indices are placed in the registers following
+    /// the arguments, and the runtime will unpack them in place, shifting later arguments if
+    /// necessary.
+    ///
+    /// `[*result, *function, *frame base, arg count, packed arg count]`
     Call,
 
     /// Calls an instance function
@@ -345,7 +350,12 @@ pub enum Op {
     /// If the result can be ignored then it will be placed in the frame base at the end of the
     /// call, which will result in it being discarded.
     ///
-    /// `[*result, *function, *instance, *frame base, arg count]`
+    /// Arguments are placed in the registers following the frame base.
+    /// If there are any arguments to unpack, their indices are placed in the registers following
+    /// the arguments, and the runtime will unpack them in place, shifting later arguments if
+    /// necessary.
+    ///
+    /// `[*result, *function, *instance, *frame base, arg count, packed arg count]`
     CallInstance,
 
     /// Returns from the current frame with the given result

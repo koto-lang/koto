@@ -1,3 +1,5 @@
+//! A collection of Koto scripts that should throw an error at runtime
+
 mod runtime {
     use koto_bytecode::{CompilerSettings, ModuleLoader};
     use koto_lexer::{Position, Span};
@@ -553,6 +555,26 @@ f (1, 2, 3)
 # the identifier that's reserved as the assignment target.
 x = (1..10).find |n| n == x
 ";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn too_many_arguments_after_unpacking() {
+                let script = r#"
+f = |a, b| a + b
+x = 1, 2, 3 
+f x...
+"#;
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn too_many_arguments_during_unpacking() {
+                let script = r#"
+f = |args...| args
+x = 1..1000 
+f x...
+"#;
                 check_script_fails(script);
             }
         }

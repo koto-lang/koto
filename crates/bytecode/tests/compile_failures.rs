@@ -42,6 +42,14 @@ continue
             check_compilation_fails(source);
         }
 
+        #[test]
+        fn ellipsis_outside_of_call() {
+            let source = "
+a...
+";
+            check_compilation_fails(source);
+        }
+
         mod try_catch {
             use super::*;
 
