@@ -1328,46 +1328,119 @@ f [10, (1, 2, 3), 20, 30]
             }
         }
 
-        #[test]
-        fn variadic_function() {
-            let script = "
+        mod variadic {
+            use super::*;
+
+            #[test]
+            fn with_two_extra_args() {
+                let script = "
 f = |a, b, c...|
   a + b + c.fold 0, |x, y| x + y
 f 5, 10, 20, 30";
-            check_script_output(script, 65);
-        }
+                check_script_output(script, 65);
+            }
 
-        #[test]
-        fn variadic_function_stacked_call() {
-            let script = "
+            #[test]
+            fn with_three_extra_args() {
+                let script = "
+f = |a, b...| b
+f 42, 1, 2, 3";
+                check_script_output(script, number_tuple(&[1, 2, 3]));
+            }
+
+            #[test]
+            fn with_no_extra_args() {
+                let script = "
+f = |a, b...| b
+f 42";
+                check_script_output(script, tuple(&[]));
+            }
+
+            #[test]
+            fn stacked_call() {
+                let script = "
 f = |a, b, c...|
   a + b + c.fold 0, |x, y| x + y
 f (f 5, 10, 20, 30), 40, 50";
-            check_script_output(script, 155);
-        }
+                check_script_output(script, 155);
+            }
 
-        #[test]
-        fn variadic_function_without_contents() {
-            let script = "
-f = |a, b...| b
-f 42";
-            check_script_output(script, tuple(&[]));
-        }
-
-        #[test]
-        fn variadic_function_with_contents() {
-            let script = "
-f = |a, b...| b
-f 42, 1, 2, 3";
-            check_script_output(script, number_tuple(&[1, 2, 3]));
-        }
-
-        #[test]
-        fn variadic_function_after_default_arg() {
-            let script = "
+            #[test]
+            fn variadic_arg_after_default_arg() {
+                let script = "
 f = |a = 3, b...| b
 f()";
-            check_script_output(script, tuple(&[]));
+                check_script_output(script, tuple(&[]));
+            }
+        }
+
+        mod packed_call_args {
+            use super::*;
+
+            #[test]
+            fn variadic_forwarding() {
+                let script = "
+f = |args...| args
+g = |args...| f args...
+g 1, 2, 3
+";
+                check_script_output(script, number_tuple(&[1, 2, 3]));
+            }
+
+            #[test]
+            fn two_unpacked_args() {
+                let script = "
+f = |a, b, c, d| (a, b, c, d)
+x = (1, 2)
+y = (3, 4)
+f x..., y...
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+            }
+
+            #[test]
+            fn unpacking_before_and_after_normal_arg() {
+                let script = "
+f = |args...| args.to_string()
+x = 'ab'
+y = 'de'
+f x..., 'c', y...
+";
+                check_script_output(script, "abcde".to_string());
+            }
+
+            #[test]
+            fn with_piped_call() {
+                let script = "
+f = |args...| args
+x = (1, 2)
+y = (3, 4)
+5 -> f x..., y...
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4, 5]));
+            }
+
+            #[test]
+            fn with_stateful_iterators() {
+                let script = "
+f = |a, b, c, d| (a, b, c, d)
+m = {n: 0}
+g = ||
+  loop
+    yield m.n += 1
+f g().take(2)..., g().take(2)...
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+            }
+
+            #[test]
+            fn with_empty_packed_args() {
+                let script = "
+f = |a, b, c, d| (a, b, c, d)
+f []..., (1, 2, 3, 4)...
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+            }
         }
 
         #[test]
@@ -1860,7 +1933,7 @@ sum = 0
 for i in (1, 2)
   if i == 2
     continue
-  else 
+  else
     i
 ";
             check_script_output(script, KValue::Null);
@@ -1894,7 +1967,7 @@ for a, _foo, b in ((1, 99, 2), (3, 99, 4))
             let script = "
 f = |x| x * x
 result = for x in 0..=10
-  f x 
+  f x
 result
 ";
             check_script_output(script, 100);
@@ -1956,10 +2029,10 @@ while (i += 1) < 10
         fn while_continue_result_is_null() {
             let script = "
 i = 0
-while (i += 1) < 5 
+while (i += 1) < 5
   if i == 4
     continue
-  else 
+  else
     i
 ";
             check_script_output(script, KValue::Null);
@@ -2544,10 +2617,10 @@ foo([42, 99]).to_tuple()
         #[test]
         fn if_else_used_in_map_block() {
             let script = "
-foo = 
+foo =
   x: if 1 == 2
        99
-     else 
+     else
        42
 foo.x
 ";
@@ -3641,7 +3714,7 @@ x[1] + x[2]
         fn index_mut_result_is_rhs() {
             let script = "
 x =
-  @index_mut: |_i, _x| 
+  @index_mut: |_i, _x|
     -1 # The result of @index_mut should be discarded
 x[1] = 99
 ";

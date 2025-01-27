@@ -1788,7 +1788,7 @@ unless the last argument is [variadic](#variadic-functions).
 # f = |a = 1, b| a, b
 #             ^ Error!
 
-f = |a = 1, b...| a, b 
+f = |a = 1, b...| a, b
 #           ^ Ok!
 
 print! f()
@@ -1797,7 +1797,7 @@ print! f(1, 2, 3)
 check! (1, (2, 3))
 ```
 
-### Argument Unpacking
+### Container Argument Unpacking
 
 Functions that expect containers as arguments can _unpack_ the contained
 elements directly in the argument declaration by using parentheses.
@@ -1865,6 +1865,57 @@ print! my_map
   .to_tuple()
 check! (('foo1', 1), ('foo2', 3))
 ```
+
+### Packed Call Arguments
+
+When calling a function, a _packed argument_ is any argument to which `...` is appended.
+The runtime will replace the packed argument with the output of iterating over the argument's contents.
+Any iterable value can be unpacked.
+
+```koto
+f = |a, b, c| a + b + c
+
+x = 10, 20, 30
+print! f x...
+check! 60
+
+print! f (1..10).take(3)...
+check! 6
+```
+
+This is especially useful when [variadic arguments](#variadic-functions) need
+to be forwarded to another variadic function.
+
+```koto
+f = |args...|
+  for i, arg in args.enumerate()
+    print '{i}: {arg}'
+
+g = |args...| f args...
+g 2, 4, 6, 8
+check! 0: 2
+check! 1: 4
+check! 2: 6
+check! 3: 8
+```
+
+More than one argument can be unpacked during a call.
+
+```koto
+f = |args...|
+  for i, arg in args.enumerate()
+    print '{i}: {arg}'
+
+x = 10, 20
+y = 99, 100
+f x..., -1, y...
+check! 0: 10
+check! 1: 20
+check! 2: -1
+check! 3: 99
+check! 4: 100
+```
+
 
 ## Objects and Metamaps
 

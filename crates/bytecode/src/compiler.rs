@@ -79,7 +79,7 @@ enum ErrorKind {
     TypeCheckOnLastCatchBlock,
     #[error("the result of this `break` expression will be ignored")]
     UnassignedBreakValue,
-    #[error("unexpected Ellipsis")]
+    #[error("unexpected ellipsis")]
     UnexpectedEllipsis,
     #[error("attempting to access an ignored value")]
     UnexpectedWildcard,
@@ -503,7 +503,8 @@ impl Compiler {
             Node::If(ast_if) => self.compile_if(ast_if, ctx)?,
             Node::Match { expression, arms } => self.compile_match(*expression, arms, ctx)?,
             Node::Switch(arms) => self.compile_switch(arms, ctx)?,
-            Node::Ellipsis(_) => return self.error(ErrorKind::UnexpectedEllipsis),
+            Node::PackedId(_) => return self.error(ErrorKind::UnexpectedEllipsis),
+            Node::PackedExpression(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::Wildcard(..) => return self.error(ErrorKind::UnexpectedWildcard),
             Node::For(ast_for) => self.compile_for(ast_for, ctx)?,
             Node::While { condition, body } => {
@@ -876,8 +877,8 @@ impl Compiler {
                 Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
-                Node::Ellipsis(Some(id)) => result.push(Arg::Unpacked(*id)),
-                Node::Ellipsis(None) => {}
+                Node::PackedId(Some(id)) => result.push(Arg::Unpacked(*id)),
+                Node::PackedId(None) => {}
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID in function args".into(),
@@ -931,7 +932,7 @@ impl Compiler {
                     self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
                     self.pop_register()?; // tuple_register
                 }
-                Node::Ellipsis(maybe_id) if is_first_arg => {
+                Node::PackedId(maybe_id) if is_first_arg => {
                     if let Some(id) = maybe_id {
                         // e.g. [first..., x, y]
                         // We want to assign the slice containing all but the last two items to
@@ -943,15 +944,15 @@ impl Compiler {
 
                     index_from_end = true;
                 }
-                Node::Ellipsis(Some(id)) if is_last_arg => {
+                Node::PackedId(Some(id)) if is_last_arg => {
                     // e.g. [x, y, z, rest...]
                     // We want to assign the slice containing all but the first three items
                     // to the given id.
                     let id_register = self.assign_local_register(*id)?;
                     self.push_op(SliceFrom, &[id_register, container_register, arg_index]);
                 }
-                Node::Ellipsis(None) if is_last_arg => {}
-                Node::Ellipsis(_) => {
+                Node::PackedId(None) if is_last_arg => {}
+                Node::PackedId(_) => {
                     return self.error(ErrorKind::InvalidPositionForArgWithEllipses)
                 }
                 _ => {}
@@ -3125,15 +3126,27 @@ impl Compiler {
             self.push_register()?
         };
 
-        for arg in args.iter() {
+        let mut packed_arg_indices = AstVec::<u8>::new();
+        for (i, arg) in args.iter().enumerate() {
+            let arg = if let Node::PackedExpression(packed_arg) = ctx.node(*arg) {
+                packed_arg_indices.push(i as u8);
+                packed_arg
+            } else {
+                arg
+            };
             let arg_register = self.push_register()?;
             self.compile_node(*arg, ctx.with_fixed_register(arg_register))?;
         }
-
         if let Some(piped_arg) = piped_arg {
             arg_count += 1;
             let arg_register = self.push_register()?;
             self.push_op(Copy, &[arg_register, piped_arg]);
+        }
+
+        // Indices of args that need to be unpacked are placed in the registers following the args
+        for index in packed_arg_indices.iter() {
+            let register = self.push_register()?;
+            self.push_op(SetNumberU8, &[register, *index]);
         }
 
         let call_result_register = if let Some(result_register) = result.register {
@@ -3153,6 +3166,7 @@ impl Compiler {
                     instance_register,
                     frame_base,
                     arg_count as u8,
+                    packed_arg_indices.len() as u8,
                 ],
             );
         } else {
@@ -3163,6 +3177,7 @@ impl Compiler {
                     function_register,
                     frame_base,
                     arg_count as u8,
+                    packed_arg_indices.len() as u8,
                 ],
             );
         }
@@ -3632,7 +3647,7 @@ impl Compiler {
                         ctx,
                     )?;
                 }
-                Node::Ellipsis(maybe_id) => {
+                Node::PackedId(maybe_id) => {
                     if is_last_pattern {
                         if let Some(id) = maybe_id {
                             // e.g. [x, y, z, rest...]
@@ -3703,10 +3718,10 @@ impl Compiler {
         let first_or_last_pattern_is_ellipsis = {
             let first_is_ellipsis = nested_patterns
                 .first()
-                .is_some_and(|first| matches!(ctx.node(*first), Node::Ellipsis(_)));
+                .is_some_and(|first| matches!(ctx.node(*first), Node::PackedId(_)));
             let last_is_ellipsis = nested_patterns
                 .last()
-                .is_some_and(|last| matches!(ctx.node(*last), Node::Ellipsis(_)));
+                .is_some_and(|last| matches!(ctx.node(*last), Node::PackedId(_)));
             if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
                 return self.error(ErrorKind::MultipleMatchEllipses);
             }
@@ -4184,7 +4199,7 @@ impl Compiler {
 fn args_size_op(args: &[AstIndex], ast: &Ast) -> (Op, usize) {
     if args
         .iter()
-        .any(|arg| matches!(&ast.node(*arg).node, Node::Ellipsis(_)))
+        .any(|arg| matches!(&ast.node(*arg).node, Node::PackedId(_)))
     {
         (Op::CheckSizeMin, args.len() - 1)
     } else {

@@ -211,10 +211,17 @@ pub enum Node {
     /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
     Wildcard(Option<ConstantIndex>, Option<AstIndex>),
 
-    /// The `...` operator
+    /// Used when capturing variadic arguments, and when unpacking list or tuple arguments.
     ///
-    /// Used when capturing variadic arguments, and when unpacking list or tuple values.
-    Ellipsis(Option<ConstantIndex>),
+    /// The id is optional, e.g. `f = |(..., last)| last`
+    PackedId(Option<ConstantIndex>),
+
+    /// Used when an argument in a function call needs to be unpacked
+    ///
+    /// e.g. `f(args...)`
+    ///
+    /// The argument can be any expression, e.g. `f (1..100).take(3)...`
+    PackedExpression(AstIndex),
 
     /// A `for` loop
     For(AstFor),

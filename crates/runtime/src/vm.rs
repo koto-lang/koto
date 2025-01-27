@@ -9,6 +9,7 @@ use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
 use koto_parser::{ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions};
 use rustc_hash::FxHasher;
+use smallvec::SmallVec;
 use std::{
     collections::HashMap,
     fmt,
@@ -370,12 +371,13 @@ impl KotoVm {
         let old_frame_count = self.call_stack.len();
 
         self.call_callable(
-            &CallInfo {
+            CallInfo {
                 result_register: Some(result_register),
                 frame_base,
                 // The instance (or Null) has already been copied into the frame base
                 instance: Some(frame_base),
                 arg_count,
+                packed_arg_count: 0,
             },
             function,
             temp_tuple_values,
@@ -833,12 +835,14 @@ impl KotoVm {
                 function,
                 frame_base,
                 arg_count,
+                packed_arg_count: unpacked_arg_count,
             } => self.call_callable(
-                &CallInfo {
+                CallInfo {
                     result_register: Some(result),
                     frame_base,
                     instance: None,
                     arg_count,
+                    packed_arg_count: unpacked_arg_count,
                 },
                 self.clone_register(function),
                 None,
@@ -849,12 +853,14 @@ impl KotoVm {
                 instance,
                 frame_base,
                 arg_count,
+                packed_arg_count: unpacked_arg_count,
             } => self.call_callable(
-                &CallInfo {
+                CallInfo {
                     result_register: Some(result),
                     frame_base,
                     instance: Some(instance),
                     arg_count,
+                    packed_arg_count: unpacked_arg_count,
                 },
                 self.clone_register(function),
                 None,
@@ -2013,11 +2019,12 @@ impl KotoVm {
         let frame_base = self.new_frame_base()?;
         self.registers.push(self.clone_register(value_register)); // Frame base
         self.call_callable(
-            &CallInfo {
+            CallInfo {
                 result_register,
                 frame_base,
                 instance: Some(frame_base),
                 arg_count: 0,
+                packed_arg_count: 0,
             },
             op,
             None,
@@ -2037,11 +2044,12 @@ impl KotoVm {
         self.registers.push(self.clone_register(lhs_register)); // Frame base
         self.registers.push(rhs); // The rhs goes in the first arg register
         self.call_callable(
-            &CallInfo {
+            CallInfo {
                 result_register,
                 frame_base,
                 instance: Some(frame_base),
                 arg_count: 1, // 1 arg, the rhs value
+                packed_arg_count: 0,
             },
             op,
             None,
@@ -2278,11 +2286,12 @@ impl KotoVm {
                 self.registers.push(index_value);
                 self.registers.push(value);
                 self.call_callable(
-                    &CallInfo {
+                    CallInfo {
                         result_register,
-                        arg_count: 2,
                         frame_base,
                         instance: Some(frame_base),
+                        arg_count: 2,
+                        packed_arg_count: 0,
                     },
                     index_mut_fn,
                     None,
@@ -2786,7 +2795,7 @@ impl KotoVm {
             expected_arg_count,
         )?;
 
-        // Captures and temp tuple values are placed in the registerst following the arguments
+        // Captures and temp tuple values are placed in the registers following the arguments
         apply_captures_and_temp_tuple_values(&mut self.registers, f, temp_tuple_values);
 
         // Set up a new frame for the called function
@@ -2802,7 +2811,7 @@ impl KotoVm {
 
     fn call_callable(
         &mut self,
-        info: &CallInfo,
+        mut info: CallInfo,
         callable: KValue,
         temp_tuple_values: Option<&[KValue]>,
     ) -> Result<()> {
@@ -2820,25 +2829,27 @@ impl KotoVm {
             self.set_register(info.frame_base, KValue::Null);
         }
 
+        self.unpack_packed_arguments(&mut info)?;
+
         match callable {
             Function(f) => {
                 if f.flags.is_generator() {
-                    self.call_generator(info, &f, temp_tuple_values)
+                    self.call_generator(&info, &f, temp_tuple_values)
                 } else {
-                    self.call_koto_function(info, &f, temp_tuple_values)
+                    self.call_koto_function(&info, &f, temp_tuple_values)
                 }
             }
-            NativeFunction(f) => self.call_native_function(info, ExternalCallable::Function(f)),
-            Object(o) => self.call_native_function(info, ExternalCallable::Object(o)),
+            NativeFunction(f) => self.call_native_function(&info, ExternalCallable::Function(f)),
+            Object(o) => self.call_native_function(&info, ExternalCallable::Object(o)),
             Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {
                 let f = m.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the callable value as the instance by placing it in the frame base,
                 // and then passing the @|| function into call_callable
                 self.set_register(info.frame_base, callable);
                 self.call_callable(
-                    &CallInfo {
+                    CallInfo {
                         instance: Some(info.frame_base),
-                        ..*info
+                        ..info
                     },
                     f,
                     temp_tuple_values,
@@ -2846,6 +2857,74 @@ impl KotoVm {
             }
             unexpected => unexpected_type("callable function", &unexpected),
         }
+    }
+
+    fn unpack_packed_arguments(&mut self, info: &mut CallInfo) -> Result<()> {
+        if info.packed_arg_count == 0 {
+            return Ok(());
+        }
+
+        // The indices of the registers that need to be unpacked are place in the registers
+        // following the call args.
+        let first_arg_index = self.register_index(info.frame_base + 1);
+        let first_packed_arg_index = first_arg_index + info.arg_count as usize;
+        let last_packed_arg_index = first_packed_arg_index + info.packed_arg_count as usize;
+        let packed_arg_registers = self
+            .registers
+            .drain(first_packed_arg_index..last_packed_arg_index)
+            .map(|packed_arg_register| match packed_arg_register {
+                KValue::Number(n) => Ok(usize::from(n)),
+                unexpected => unexpected_type("Number", &unexpected),
+            })
+            .collect::<Result<SmallVec<[usize; 4]>>>()?;
+        let mut unpacked_values = ValueVec::new();
+
+        let original_arg_count = info.arg_count as isize;
+
+        // Unpack the packed arguments in reverse order
+        for packed_arg_register in packed_arg_registers.iter() {
+            // Get the index of the argument that needs to be unpacked,
+            // taking in to account the offset resulting from unpacking previous packed arguments.
+            // Packed arguments can be empty, which can result in a negative offset,
+            // e.g. `f []..., x...`
+            //         ^ The first argument is empty, so the second argument is shifted by -1
+            let arg_offset = info.arg_count as isize - original_arg_count;
+            let unpack_index =
+                ((first_arg_index + packed_arg_register) as isize + arg_offset) as usize;
+
+            // First, swap-remove the argument to be unpacked,
+            // replacing the argument with null and keeping any trailing registers in place.
+            self.registers.push(KValue::Null);
+            let iterable = self.registers.swap_remove(unpack_index);
+
+            // Convert the value into an iterator
+            let iterator = self.make_iterator(iterable)?;
+
+            // Process the iterator output, checking for errors and collecting `ValuePair`s
+            let max_unpacked_args = (u8::MAX - info.arg_count - 1) as usize; // -1 for frame base
+            for output in iterator {
+                if unpacked_values.len() == max_unpacked_args {
+                    return runtime_error!("Call argument limit reached during unpacking");
+                }
+                match output {
+                    KIteratorOutput::Value(value) => unpacked_values.push(value),
+                    KIteratorOutput::ValuePair(a, b) => {
+                        unpacked_values.push(KTuple::from(&[a, b]).into())
+                    }
+                    KIteratorOutput::Error(e) => return Err(e),
+                }
+            }
+
+            info.arg_count -= 1; // Subtract 1 for the arg that was unpacked
+            info.arg_count += unpacked_values.len() as u8; // Add the unpacked value count
+
+            // Splice the unpacked args into the register stack, replacing the register that
+            // was occupied by the original argument.
+            self.registers
+                .splice(unpack_index..unpack_index + 1, unpacked_values.drain(..));
+        }
+
+        Ok(())
     }
 
     fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> Result<()> {
@@ -3274,6 +3353,7 @@ impl KotoVm {
         self.get_register(register).clone()
     }
 
+    // Moves the register's value out of the stack, replacing it with null
     #[track_caller]
     fn remove_register(&mut self, register: u8) -> KValue {
         self.registers.push(KValue::Null);
@@ -3567,6 +3647,7 @@ struct CallInfo {
     frame_base: u8,
     instance: Option<u8>,
     arg_count: u8,
+    packed_arg_count: u8,
 }
 
 struct ExecutionTimeout {
