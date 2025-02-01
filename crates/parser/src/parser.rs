@@ -9,6 +9,7 @@ use crate::{
 };
 use koto_lexer::{LexedToken, Lexer, Span, StringType, Token};
 use std::{
+    borrow::Cow,
     collections::HashSet,
     iter::Peekable,
     str::{Chars, FromStr},
@@ -1772,6 +1773,12 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(context); // Token::Number
 
         let slice = self.current_token.slice(self.source);
+        // Strip underscores if necessary
+        let slice = if slice.contains('_') {
+            Cow::Owned(slice.chars().filter(|&c| c != '_').collect())
+        } else {
+            Cow::Borrowed(slice)
+        };
 
         let maybe_integer = if let Some(hex) = slice.strip_prefix("0x") {
             i64::from_str_radix(hex, 16)
@@ -1780,7 +1787,7 @@ impl<'source> Parser<'source> {
         } else if let Some(binary) = slice.strip_prefix("0b") {
             i64::from_str_radix(binary, 2)
         } else {
-            i64::from_str(slice)
+            i64::from_str(&slice)
         };
 
         let number_node = if let Ok(n) = maybe_integer {
@@ -1796,7 +1803,7 @@ impl<'source> Parser<'source> {
                 }
             }
         } else {
-            match f64::from_str(slice) {
+            match f64::from_str(&slice) {
                 Ok(n) => {
                     let n = if negate { -n } else { n };
                     match self.constants.add_f64(n) {
