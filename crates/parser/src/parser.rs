@@ -9,6 +9,7 @@ use crate::{
 };
 use koto_lexer::{LexedToken, Lexer, Span, StringType, Token};
 use std::{
+    borrow::Cow,
     collections::HashSet,
     iter::Peekable,
     str::{Chars, FromStr},
@@ -1772,6 +1773,12 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(context); // Token::Number
 
         let slice = self.current_token.slice(self.source);
+        // Strip underscores if necessary
+        let slice = if slice.contains('_') {
+            Cow::Owned(slice.chars().filter(|&c| c != '_').collect())
+        } else {
+            Cow::Borrowed(slice)
+        };
 
         let maybe_integer = if let Some(hex) = slice.strip_prefix("0x") {
             i64::from_str_radix(hex, 16)
@@ -1780,37 +1787,35 @@ impl<'source> Parser<'source> {
         } else if let Some(binary) = slice.strip_prefix("0b") {
             i64::from_str_radix(binary, 2)
         } else {
-            i64::from_str(slice)
+            i64::from_str(&slice)
         };
 
         let number_node = if let Ok(n) = maybe_integer {
             // Should we store the number as a SmallInt or as a stored constant?
             if u8::try_from(n).is_ok() {
                 let n = if negate { -n } else { n };
-                self.push_node(SmallInt(n as i16))?
+                SmallInt(n as i16)
             } else {
                 let n = if negate { -n } else { n };
-                match self.constants.add_i64(n) {
-                    Ok(constant_index) => self.push_node(Int(constant_index))?,
-                    Err(_) => return self.error(InternalError::ConstantPoolCapacityOverflow),
+                if let Ok(constant_index) = self.constants.add_i64(n) {
+                    Int(constant_index)
+                } else {
+                    return self.error(InternalError::ConstantPoolCapacityOverflow);
                 }
+            }
+        } else if let Ok(n) = f64::from_str(&slice) {
+            let n = if negate { -n } else { n };
+            if let Ok(constant_index) = self.constants.add_f64(n) {
+                Float(constant_index)
+            } else {
+                return self.error(InternalError::ConstantPoolCapacityOverflow);
             }
         } else {
-            match f64::from_str(slice) {
-                Ok(n) => {
-                    let n = if negate { -n } else { n };
-                    match self.constants.add_f64(n) {
-                        Ok(constant_index) => self.push_node(Float(constant_index))?,
-                        Err(_) => return self.error(InternalError::ConstantPoolCapacityOverflow),
-                    }
-                }
-                Err(_) => {
-                    return self.error(InternalError::NumberParseFailure);
-                }
-            }
+            return self.error(InternalError::NumberParseFailure);
         };
 
-        self.check_for_chain_after_node(number_node, context)
+        let node = self.push_node(number_node)?;
+        self.check_for_chain_after_node(node, context)
     }
 
     // Parses expressions contained in round parentheses

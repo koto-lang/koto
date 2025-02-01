@@ -534,7 +534,12 @@ impl<'a> TokenLexer<'a> {
         use Token::*;
 
         let has_leading_zero = chars.peek() == Some(&'0');
-        let mut char_bytes = consume_and_count(&mut chars, is_digit);
+        let mut char_bytes = if matches!(chars.peek(), Some(c) if c.is_ascii_digit()) {
+            chars.next();
+            1 + consume_and_count(&mut chars, is_decimal_digit)
+        } else {
+            0
+        };
         let mut allow_exponent = true;
 
         match chars.peek() {
@@ -557,14 +562,14 @@ impl<'a> TokenLexer<'a> {
                 chars.next();
 
                 match chars.peek() {
-                    Some(c) if is_digit(*c) => {}
+                    Some(c) if c.is_ascii_digit() => {}
                     Some(&'e') => {
                         // lookahead to check that this isn't a function call starting with 'e'
                         // e.g. 1.exp()
                         let mut lookahead = chars.clone();
                         lookahead.next();
                         match lookahead.peek() {
-                            Some(c) if is_digit(*c) => {}
+                            Some(c) if is_decimal_digit(*c) => {}
                             Some(&'+' | &'-') => {}
                             _ => {
                                 self.advance_line(char_bytes);
@@ -578,7 +583,7 @@ impl<'a> TokenLexer<'a> {
                     }
                 }
 
-                char_bytes += 1 + consume_and_count(&mut chars, is_digit);
+                char_bytes += 1 + consume_and_count(&mut chars, is_decimal_digit);
             }
             _ => {}
         }
@@ -592,7 +597,7 @@ impl<'a> TokenLexer<'a> {
                 char_bytes += 1;
             }
 
-            char_bytes += consume_and_count(&mut chars, is_digit);
+            char_bytes += consume_and_count(&mut chars, is_decimal_digit);
         }
 
         self.advance_line(char_bytes);
@@ -858,20 +863,20 @@ impl Iterator for TokenLexer<'_> {
     }
 }
 
-fn is_digit(c: char) -> bool {
-    c.is_ascii_digit()
+fn is_decimal_digit(c: char) -> bool {
+    c.is_ascii_digit() || c == '_'
 }
 
 fn is_binary_digit(c: char) -> bool {
-    matches!(c, '0' | '1')
+    matches!(c, '0' | '1' | '_')
 }
 
 fn is_octal_digit(c: char) -> bool {
-    matches!(c, '0'..='7')
+    matches!(c, '0'..='7' | '_')
 }
 
 fn is_hex_digit(c: char) -> bool {
-    c.is_ascii_hexdigit()
+    c.is_ascii_hexdigit() || c == '_'
 }
 
 fn is_whitespace(c: char) -> bool {
@@ -1348,9 +1353,13 @@ r#''bar''#
 0.5e+9
 -8e8
 0xabadcafe
-0xABADCAFE
+0xABAD_CAFE
 0o707606
-0b1010101";
+0o_707_606_
+0b1010101
+1_000_000
+1_000e_001
+1.e9_9";
             check_lexer_output(
                 input,
                 &[
@@ -1368,11 +1377,19 @@ r#''bar''#
                     (NewLine, None, 4),
                     (Number, Some("0xabadcafe"), 5),
                     (NewLine, None, 5),
-                    (Number, Some("0xABADCAFE"), 6),
+                    (Number, Some("0xABAD_CAFE"), 6),
                     (NewLine, None, 6),
                     (Number, Some("0o707606"), 7),
                     (NewLine, None, 7),
-                    (Number, Some("0b1010101"), 8),
+                    (Number, Some("0o_707_606_"), 8),
+                    (NewLine, None, 8),
+                    (Number, Some("0b1010101"), 9),
+                    (NewLine, None, 9),
+                    (Number, Some("1_000_000"), 10),
+                    (NewLine, None, 10),
+                    (Number, Some("1_000e_001"), 11),
+                    (NewLine, None, 11),
+                    (Number, Some("1.e9_9"), 12),
                 ],
             );
         }

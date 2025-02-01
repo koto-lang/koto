@@ -212,11 +212,11 @@ null"#;
 1
 0x1
 0x100
-0xABADCAFE
+0xABAD_CAFE
 0o1
 0o100
 0b1
-0b100
+0b1_0_0
 ";
             check_ast(
                 source,

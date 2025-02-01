@@ -31,6 +31,13 @@ The Koto project adheres to
   f x...
   # -> 6
   ```
+- Number literals can now include underscores.
+  [#399](https://github.com/koto-lang/koto/issues/399)
+  - E.g.
+  ```koto
+  x = 1_000_000
+  y = 0xff_aa_bb
+  ```
 
 #### API
 
