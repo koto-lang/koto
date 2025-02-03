@@ -7,7 +7,9 @@ use crate::{
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
-use koto_parser::{ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions};
+use koto_parser::{
+    ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions, StringFormatRepresentation,
+};
 use rustc_hash::FxHasher;
 use smallvec::SmallVec;
 use std::{
@@ -3097,9 +3099,21 @@ impl KotoVm {
 
         // Render the value as a string, applying the precision option if specified
         let precision = format_options.and_then(|options| options.precision);
+        let representation = format_options.and_then(|options| options.representation);
         let rendered = match value {
-            KValue::Number(n) => match precision {
-                Some(precision) if n.is_f64() || n.is_i64_in_f64_range() => {
+            KValue::Number(n) => match (precision, representation) {
+                (_, Some(representation)) => {
+                    let n = i64::from(n);
+                    match representation {
+                        StringFormatRepresentation::HexLower => format!("{n:x}"),
+                        StringFormatRepresentation::HexUpper => format!("{n:X}"),
+                        StringFormatRepresentation::Binary => format!("{n:b}"),
+                        StringFormatRepresentation::Octal => format!("{n:o}"),
+                        StringFormatRepresentation::ExpLower => format!("{n:e}"),
+                        StringFormatRepresentation::ExpUpper => format!("{n:E}"),
+                    }
+                }
+                (Some(precision), None) if n.is_f64() || n.is_i64_in_f64_range() => {
                     format!("{:.*}", precision as usize, f64::from(n))
                 }
                 _ => n.to_string(),

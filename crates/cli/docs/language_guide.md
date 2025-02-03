@@ -1703,6 +1703,36 @@ print! '{x:.4}'
 check! 0.3333
 ```
 
+### Representation
+
+Values can be formatted with alternative representations, with representations chosen with a character at the end of the format options.
+
+The following representations are only supported for numbers:
+- `e` - exponential (lower-case)
+- `E` - exponential (upper-case)
+
+The following representations are only supported for integers:
+- `b` - binary
+- `o` - octal
+- `x` - hexadecimal (lower-case)
+- `X` - hexadecimal (upper-case)
+
+```koto
+z = 60
+print! '{z:x}'
+check! 3c
+print! '0x{z:X}'
+check! 0x3C
+print! '{z:o}'
+check! 74
+print! '0b{z:08b}'
+check! 0b00111100
+print! '{z * 1000:e}'
+check! 6e4
+print! '{z * 1_000_000:E}'
+check! 6E7
+```
+
 ## Advanced Functions
 
 Functions in Koto have some advanced features that are worth exploring.

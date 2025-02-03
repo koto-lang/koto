@@ -435,12 +435,14 @@ impl From<FunctionFlags> for u8 {
 pub struct StringFormatFlags(u8);
 
 impl StringFormatFlags {
-    /// Set to true when min_width is defined
+    /// Set to true when a minimum width is defined
     pub const MIN_WIDTH: u8 = 1 << 2; // The first two bits correspond to values of StringAlignment
     /// Set to true when precision is defined
     pub const PRECISION: u8 = 1 << 3;
-    /// Set to true when fill_character is defined
+    /// Set to true when a fill character is defined
     pub const FILL_CHARACTER: u8 = 1 << 4;
+    /// Set to true when a format style is defined
+    pub const REPRESENTATION: u8 = 1 << 5;
 
     /// Returns the flag's string alignment
     pub fn alignment(&self) -> StringAlignment {
@@ -471,6 +473,11 @@ impl StringFormatFlags {
     pub fn has_fill_character(&self) -> bool {
         self.0 & Self::FILL_CHARACTER != 0
     }
+
+    /// True if an alternative representation has been defined
+    pub fn has_representation(&self) -> bool {
+        self.0 & Self::REPRESENTATION != 0
+    }
 }
 
 impl From<StringFormatOptions> for StringFormatFlags {
@@ -486,6 +493,9 @@ impl From<StringFormatOptions> for StringFormatFlags {
         if value.fill_character.is_some() {
             flags |= Self::FILL_CHARACTER;
         }
+        if value.representation.is_some() {
+            flags |= Self::REPRESENTATION;
+        }
 
         Self(flags)
     }
@@ -495,7 +505,7 @@ impl TryFrom<u8> for StringFormatFlags {
     type Error = String;
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        if byte <= 0b111111 {
+        if byte <= 0b1111111 {
             Ok(Self(byte))
         } else {
             Err(format!("Invalid string format flags: {byte:#010b}"))

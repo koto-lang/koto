@@ -38,6 +38,12 @@ The Koto project adheres to
   x = 1_000_000
   y = 0xff_aa_bb
   ```
+- Interpolated values can now be formatted with alternative representations.
+  - E.g.
+  ```koto
+  print '{15:b}'
+  # -> 1111
+  ```
 
 #### API
 

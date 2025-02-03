@@ -3179,6 +3179,12 @@ x = ('foo', 'bar')
         #[test_case("'{'hello':.2}'", "he"; "precision with string")]
         #[test_case("'{'hello':10}'", "hello     "; "min width with string")]
         #[test_case("'{'hello':~>4.2}'", "~~he"; "right-aligned truncated string")]
+        #[test_case("'{51966:x}'", "cafe"; "hex lower")]
+        #[test_case("'{51966:X}'", "CAFE"; "hex upper")]
+        #[test_case("'{32:b}'", "100000"; "binary")]
+        #[test_case("'{64:o}'", "100"; "octal")]
+        #[test_case("'{1_000_000:e}'", "1e6"; "exp lower")]
+        #[test_case("'{123456:E}'", "1.23456E5"; "exp upper")]
         fn formatted_expression(input: &str, expected: &str) {
             check_script_output(input, expected);
         }

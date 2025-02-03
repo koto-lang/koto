@@ -18,7 +18,7 @@ pub use crate::{
     node::*,
     parser::Parser,
     string::KString,
-    string_format_options::{StringAlignment, StringFormatOptions},
+    string_format_options::{StringAlignment, StringFormatOptions, StringFormatRepresentation},
     string_slice::StringSlice,
 };
 pub use koto_lexer::{Position, RawStringDelimiter, Span, StringQuote, StringType};

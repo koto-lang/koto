@@ -157,7 +157,7 @@ pub enum Op {
     ///
     /// See [`StringFormatFlags`](crate::StringFormatFlags) for a description of the format flags.
     ///
-    /// `[*value, format_flags, ?@min_width, ?@precision, ?@fill_character]`
+    /// `[*value, format_flags, ?@min_width, ?@precision, ?@fill_character, ?style]`
     StringPush,
 
     /// Places the finished string in the target register

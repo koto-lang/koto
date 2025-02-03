@@ -381,7 +381,7 @@ null"#;
         #[test]
         fn string_with_formatted_expression() {
             let source = "
-'!{a:_>3.2}!'
+'!{a:_>3.2x}!'
 ";
             check_ast(
                 source,
@@ -398,6 +398,7 @@ null"#;
                                     min_width: Some(3),
                                     precision: Some(2),
                                     fill_character: Some(2.into()),
+                                    representation: Some(StringFormatRepresentation::HexLower),
                                 },
                             },
                             StringNode::Literal(0.into()),

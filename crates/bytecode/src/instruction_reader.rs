@@ -1,6 +1,6 @@
 use crate::{Chunk, FunctionFlags, Instruction, Op, StringFormatFlags};
 use koto_memory::Ptr;
-use koto_parser::StringFormatOptions;
+use koto_parser::{StringFormatOptions, StringFormatRepresentation};
 use std::mem::MaybeUninit;
 
 /// An iterator that converts bytecode into a series of [Instruction]s
@@ -665,6 +665,14 @@ impl Iterator for InstructionReader {
                             }
                             if flags.has_fill_character() {
                                 options.fill_character = Some(get_var_u32!().into());
+                            }
+                            if flags.has_representation() {
+                                match StringFormatRepresentation::try_from(get_u8!()) {
+                                    Ok(representation) => {
+                                        options.representation = Some(representation);
+                                    }
+                                    Err(e) => return Some(Error { message: e }),
+                                }
                             }
                             StringPush {
                                 value,

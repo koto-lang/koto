@@ -2187,6 +2187,9 @@ impl Compiler {
                                         if let Some(fill_constant) = format.fill_character {
                                             self.push_var_u32(fill_constant.into());
                                         }
+                                        if let Some(style) = format.representation {
+                                            self.bytes.push(style as u8);
+                                        }
 
                                         if expression_result.is_temporary {
                                             self.pop_register()?;
