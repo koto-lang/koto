@@ -38,7 +38,7 @@ comment.
 -#
 ```
 
-### Numbers
+### Numbers and Arithmetic
 
 Numbers and arithmetic are expressed in a familiar way.
 
@@ -58,8 +58,15 @@ check! 12
 print! 9 / 2
 check! 4.5
 
-print! 12 % 5
-check! 2
+print! 12.5 % 5
+check! 2.5
+```
+
+Underscores can be used as separators to aid readability in long numbers.
+
+```koto
+print! 1_000_000
+check! 1000000
 ```
 
 #### Parentheses
@@ -75,6 +82,24 @@ check! 11
 # With parentheses, the additions are performed first
 print! (1 + 2) * (3 + 4)
 check! 21
+```
+
+#### Non-decimal Numbers
+
+Numbers can be expressed with non-decimal bases.
+
+```koto
+# Hexadecimal numbers begin with 0x
+print! 0xcafe
+check! 51966
+
+# Octal numbers begin with 0o
+print! 0o7060
+check! 3632
+
+# Binary numbers begin with 0b
+print! 0b1001
+check! 9
 ```
 
 ### Booleans
