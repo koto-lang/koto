@@ -2162,7 +2162,7 @@ impl Compiler {
                                         );
                                         self.push_op_without_span(
                                             Op::StringPush,
-                                            &[node_register, 0],
+                                            &[node_register, StringFormatFlags::default().into()],
                                         );
 
                                         self.pop_register()?;
@@ -2176,10 +2176,7 @@ impl Compiler {
                                         let format_flags = StringFormatFlags::from(*format);
                                         self.push_op_without_span(
                                             Op::StringPush,
-                                            &[
-                                                expression_result.unwrap(self)?,
-                                                format_flags.as_byte(),
-                                            ],
+                                            &[expression_result.unwrap(self)?, format_flags.into()],
                                         );
                                         if let Some(min_width) = format.min_width {
                                             self.push_var_u32(min_width);

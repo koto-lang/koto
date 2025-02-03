@@ -650,32 +650,35 @@ impl Iterator for InstructionReader {
                 let value = byte_a;
                 let flags = get_u8!();
 
-                let format_options = if flags != 0 {
-                    let flags = StringFormatFlags::from_byte(flags);
-
-                    let mut options = StringFormatOptions {
-                        alignment: flags.alignment,
-                        ..Default::default()
-                    };
-                    if flags.min_width {
-                        options.min_width = Some(get_var_u32!());
+                if flags != 0 {
+                    match StringFormatFlags::try_from(flags) {
+                        Ok(flags) => {
+                            let mut options = StringFormatOptions {
+                                alignment: flags.alignment(),
+                                ..Default::default()
+                            };
+                            if flags.has_min_width() {
+                                options.min_width = Some(get_var_u32!());
+                            }
+                            if flags.has_precision() {
+                                options.precision = Some(get_var_u32!());
+                            }
+                            if flags.has_fill_character() {
+                                options.fill_character = Some(get_var_u32!().into());
+                            }
+                            Some(StringPush {
+                                value,
+                                format_options: Some(options),
+                            })
+                        }
+                        Err(e) => Some(Error { message: e }),
                     }
-                    if flags.precision {
-                        options.precision = Some(get_var_u32!());
-                    }
-                    if flags.fill_character {
-                        options.fill_character = Some(get_var_u32!().into());
-                    }
-
-                    Some(options)
                 } else {
-                    None
-                };
-
-                Some(StringPush {
-                    value,
-                    format_options,
-                })
+                    Some(StringPush {
+                        value,
+                        format_options: None,
+                    })
+                }
             }
             Op::StringFinish => Some(StringFinish { register: byte_a }),
             _ => Some(Error {

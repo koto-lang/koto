@@ -428,72 +428,84 @@ impl From<FunctionFlags> for u8 {
 }
 
 /// Format flags used by the [StringPush][crate::Op::StringPush] op
-pub struct StringFormatFlags {
-    /// The alignment of the string
-    pub alignment: StringAlignment,
-    /// True if a min width value is specified
-    pub min_width: bool,
-    /// True if a precision value is specified
-    pub precision: bool,
-    /// True if a fill character is specified
-    pub fill_character: bool,
-}
+///
+/// This is the bytecode counterpart to [koto_parser::StringFormatOptions].
+#[derive(Clone, Copy, Default)]
+#[repr(transparent)]
+pub struct StringFormatFlags(u8);
 
 impl StringFormatFlags {
     /// Set to true when min_width is defined
-    pub const MIN_WIDTH: u8 = 1 << 2; // The first two bits are taken up by the alignment enum
+    pub const MIN_WIDTH: u8 = 1 << 2; // The first two bits correspond to values of StringAlignment
     /// Set to true when precision is defined
     pub const PRECISION: u8 = 1 << 3;
     /// Set to true when fill_character is defined
     pub const FILL_CHARACTER: u8 = 1 << 4;
 
-    /// Decodes a byte into format flags
-    pub fn from_byte(byte: u8) -> Self {
-        use StringAlignment::*;
-        let alignment_bits = byte & 0b11;
-        let alignment = if alignment_bits == Default as u8 {
-            Default
-        } else if alignment_bits == Left as u8 {
-            Left
-        } else if alignment_bits == Center as u8 {
-            Center
+    /// Returns the flag's string alignment
+    pub fn alignment(&self) -> StringAlignment {
+        use StringAlignment as Align;
+        let bits = self.0 & 0b11;
+        if bits == Align::Default as u8 {
+            Align::Default
+        } else if bits == Align::Left as u8 {
+            Align::Left
+        } else if bits == Align::Center as u8 {
+            Align::Center
         } else {
-            Right
-        };
-        Self {
-            alignment,
-            min_width: byte & Self::MIN_WIDTH != 0,
-            precision: byte & Self::PRECISION != 0,
-            fill_character: byte & Self::FILL_CHARACTER != 0,
+            Align::Right
         }
     }
 
-    /// Returns a byte containing the packed flags
-    pub fn as_byte(&self) -> u8 {
-        let mut result = self.alignment as u8;
+    /// True if a minimum width has been defined
+    pub fn has_min_width(&self) -> bool {
+        self.0 & Self::MIN_WIDTH != 0
+    }
 
-        if self.min_width {
-            result |= Self::MIN_WIDTH;
-        }
-        if self.precision {
-            result |= Self::PRECISION;
-        }
-        if self.fill_character {
-            result |= Self::FILL_CHARACTER;
-        }
+    /// True if a precision has been defined
+    pub fn has_precision(&self) -> bool {
+        self.0 & Self::PRECISION != 0
+    }
 
-        result
+    /// True if a fill character has been defined
+    pub fn has_fill_character(&self) -> bool {
+        self.0 & Self::FILL_CHARACTER != 0
     }
 }
 
 impl From<StringFormatOptions> for StringFormatFlags {
-    fn from(options: StringFormatOptions) -> Self {
-        Self {
-            alignment: options.alignment,
-            min_width: options.min_width.is_some(),
-            precision: options.precision.is_some(),
-            fill_character: options.fill_character.is_some(),
+    fn from(value: StringFormatOptions) -> Self {
+        let mut flags = value.alignment as u8;
+
+        if value.min_width.is_some() {
+            flags |= Self::MIN_WIDTH;
         }
+        if value.precision.is_some() {
+            flags |= Self::PRECISION;
+        }
+        if value.fill_character.is_some() {
+            flags |= Self::FILL_CHARACTER;
+        }
+
+        Self(flags)
+    }
+}
+
+impl TryFrom<u8> for StringFormatFlags {
+    type Error = String;
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        if byte <= 0b111111 {
+            Ok(Self(byte))
+        } else {
+            Err(format!("Invalid string format flags: {byte:#010b}"))
+        }
+    }
+}
+
+impl From<StringFormatFlags> for u8 {
+    fn from(value: StringFormatFlags) -> Self {
+        value.0
     }
 }
 
