@@ -70,6 +70,10 @@ impl StringFormatOptions {
                     result.precision = Some(consume_u32(first_digit, &mut chars)?);
                     position = Type;
                 }
+                ('?', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::Debug);
+                    position = End;
+                }
                 ('b', _, Start | MinWidth | Precision | Type) => {
                     result.representation = Some(StringFormatRepresentation::Binary);
                     position = End;
@@ -163,6 +167,7 @@ pub enum StringAlignment {
 #[allow(missing_docs)]
 #[repr(u8)]
 pub enum StringFormatRepresentation {
+    Debug,
     HexLower,
     HexUpper,
     Binary,
@@ -175,7 +180,9 @@ impl TryFrom<u8> for StringFormatRepresentation {
     type Error = String;
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        if byte == Self::HexLower as u8 {
+        if byte == Self::Debug as u8 {
+            Ok(Self::Debug)
+        } else if byte == Self::HexLower as u8 {
             Ok(Self::HexLower)
         } else if byte == Self::HexUpper as u8 {
             Ok(Self::HexUpper)

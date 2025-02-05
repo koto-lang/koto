@@ -13,6 +13,8 @@ pub struct DisplayContext<'a> {
     // - Strings should be displayed with quotes when they're inside a container.
     // - Containers should check the parent list to avoid recursive display operations.
     parent_containers: Vec<Address>,
+    /// True when the resulting string is to be used in a debug context.
+    debug: bool,
 }
 
 impl<'a> DisplayContext<'a> {
@@ -22,6 +24,7 @@ impl<'a> DisplayContext<'a> {
             result: String::default(),
             vm: Some(vm),
             parent_containers: Vec::default(),
+            debug: false,
         }
     }
 
@@ -31,12 +34,14 @@ impl<'a> DisplayContext<'a> {
             result: String::with_capacity(capacity),
             vm: Some(vm),
             parent_containers: Vec::default(),
+            debug: false,
         }
     }
 
-    /// Appends to the end of the string
-    pub fn append<'b>(&mut self, s: impl Into<StringBuilderAppend<'b>>) {
-        s.into().append(&mut self.result);
+    /// Enables the debug flag on the display context
+    pub fn enable_debug(mut self) -> Self {
+        self.debug = true;
+        self
     }
 
     /// Returns the resulting string and consumes the context
@@ -44,9 +49,22 @@ impl<'a> DisplayContext<'a> {
         self.result
     }
 
+    /// Appends to the end of the string
+    pub fn append<'b>(&mut self, s: impl Into<StringBuilderAppend<'b>>) {
+        s.into().append(&mut self.result);
+    }
+
     /// Returns a reference to the context's VM
     pub fn vm(&self) -> &Option<&'a KotoVm> {
         &self.vm
+    }
+
+    /// True if the resulting string will be used in a debug context
+    ///
+    /// This is true when a `debug` expression is being used, or when using the `?` representation
+    /// in a formatted string.
+    pub fn debug_enabled(&self) -> bool {
+        self.debug
     }
 
     /// Returns true if the value that's being displayed is in a container

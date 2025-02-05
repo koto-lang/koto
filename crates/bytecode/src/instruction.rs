@@ -846,7 +846,8 @@ impl fmt::Debug for Instruction {
                 id,
             } => write!(
                 f,
-                "MetaInsert      map: {register:<10} id: {id:<11}value: {value}",
+                "MetaInsert      map: {register:<10} id: {:<11} value: {value}",
+                format!("{id}")
             ),
             MetaInsertNamed {
                 register,

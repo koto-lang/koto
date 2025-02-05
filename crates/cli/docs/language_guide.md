@@ -1707,6 +1707,8 @@ check! 0.3333
 
 Values can be formatted with alternative representations, with representations chosen with a character at the end of the format options.
 
+- `?` - The value will be formatted with additional debug information when available.
+
 The following representations are only supported for numbers:
 - `e` - exponential (lower-case)
 - `E` - exponential (upper-case)
@@ -1719,6 +1721,8 @@ The following representations are only supported for integers:
 
 ```koto
 z = 60
+print! '{z:?}'
+check! 60
 print! '{z:x}'
 check! 3c
 print! '0x{z:X}'
@@ -2213,6 +2217,24 @@ x = foo -1
 print! "The value of x is '{x}'"
 check! The value of x is 'Foo(-1)'
 ```
+
+#### `@debug`
+
+The `@debug` metakey defines how an object should be represented when
+displaying the object in a debug context, e.g. when using [`debug`](#debug-1),
+or when the [`?` representation](#representation) is used in an interpolated expression.
+
+```koto
+foo = |n|
+  data: n
+  @display: || 'Foo({self.data})'
+  @debug: || '!!{self}!!'
+
+print! "{foo(123):?}"
+check! !!Foo(123)!!
+```
+
+If `@debug` isn't defined, then `@display` will be used as a fallback.
 
 #### `@type`
 

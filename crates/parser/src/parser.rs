@@ -2100,6 +2100,7 @@ impl<'source> Parser<'source> {
             Some(Token::GreaterOrEqual) => MetaKeyId::GreaterOrEqual,
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
+            Some(Token::Debug) => MetaKeyId::Debug,
             Some(Token::Id) => match self.current_token.slice(self.source) {
                 "call" => MetaKeyId::Call,
                 "display" => MetaKeyId::Display,

@@ -424,6 +424,7 @@ impl KotoVm {
         self.registers.push(value); // `value_register`
 
         match op {
+            Debug => self.run_debug_op(result_register, value_register)?,
             Display => self.run_display(result_register, value_register)?,
             Negate => self.run_negate(result_register, value_register)?,
             Iterator => self.run_make_iterator(result_register, value_register, false)?,
@@ -969,7 +970,7 @@ impl KotoVm {
             TryEnd => {
                 self.frame_mut().catch_stack.pop();
             }
-            Debug { register, constant } => self.run_debug(register, constant)?,
+            Debug { register, constant } => self.run_debug_instruction(register, constant)?,
             CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
             CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
             AssertType {
@@ -1462,6 +1463,27 @@ impl KotoVm {
         self.set_register(result, result_bool.into());
 
         Ok(())
+    }
+
+    fn run_debug_op(&mut self, result: u8, value: u8) -> Result<()> {
+        use UnaryOp::Debug;
+
+        match self.clone_register(value) {
+            KValue::Map(m) if m.contains_meta_key(&Debug.into()) => {
+                let op = m.get_meta_value(&Debug.into()).unwrap();
+                self.call_overridden_unary_op(Some(result), value, op)
+            }
+            other => {
+                let mut display_context = DisplayContext::with_vm(self).enable_debug();
+                match other.display(&mut display_context) {
+                    Ok(_) => {
+                        self.set_register(result, display_context.result().into());
+                        Ok(())
+                    }
+                    Err(_) => runtime_error!("failed to get display value"),
+                }
+            }
+        }
     }
 
     fn run_display(&mut self, result: u8, value: u8) -> Result<()> {
@@ -2929,9 +2951,13 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> Result<()> {
+    fn run_debug_instruction(
+        &mut self,
+        register: u8,
+        expression_constant: ConstantIndex,
+    ) -> Result<()> {
         let value = self.clone_register(register);
-        let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
+        let value_string = match self.run_unary_op(UnaryOp::Debug, value)? {
             KValue::Str(s) => s,
             unexpected => return unexpected_type("a displayable value", &unexpected),
         };
@@ -3105,6 +3131,7 @@ impl KotoVm {
                 (_, Some(representation)) => {
                     let n = i64::from(n);
                     match representation {
+                        StringFormatRepresentation::Debug => format!("{n:?}"),
                         StringFormatRepresentation::HexLower => format!("{n:x}"),
                         StringFormatRepresentation::HexUpper => format!("{n:X}"),
                         StringFormatRepresentation::Binary => format!("{n:b}"),
@@ -3118,20 +3145,41 @@ impl KotoVm {
                 }
                 _ => n.to_string(),
             },
-            other => match self.run_unary_op(UnaryOp::Display, other)? {
-                KValue::Str(rendered) => match precision {
-                    Some(precision) => {
-                        // `precision` acts as a maximum width for non-number values
-                        let mut truncated =
-                            String::with_capacity((precision as usize).min(rendered.len()));
-                        for grapheme in rendered.graphemes(true).take(precision as usize) {
-                            truncated.push_str(grapheme);
-                        }
-                        truncated
+            other => match representation {
+                Some(StringFormatRepresentation::Debug) => {
+                    match self.run_unary_op(UnaryOp::Debug, other)? {
+                        KValue::Str(rendered) => match precision {
+                            Some(precision) => {
+                                // `precision` acts as a maximum width for non-number values
+                                let mut truncated =
+                                    String::with_capacity((precision as usize).min(rendered.len()));
+                                for grapheme in rendered.graphemes(true).take(precision as usize) {
+                                    truncated.push_str(grapheme);
+                                }
+                                truncated
+                            }
+                            None => rendered.to_string(),
+                        },
+                        other => return unexpected_type("String", &other),
                     }
-                    None => rendered.to_string(),
-                },
-                other => return unexpected_type("String", &other),
+                }
+                _ => {
+                    match self.run_unary_op(UnaryOp::Display, other)? {
+                        KValue::Str(rendered) => match precision {
+                            Some(precision) => {
+                                // `precision` acts as a maximum width for non-number values
+                                let mut truncated =
+                                    String::with_capacity((precision as usize).min(rendered.len()));
+                                for grapheme in rendered.graphemes(true).take(precision as usize) {
+                                    truncated.push_str(grapheme);
+                                }
+                                truncated
+                            }
+                            None => rendered.to_string(),
+                        },
+                        other => return unexpected_type("String", &other),
+                    }
+                }
             },
         };
 

@@ -44,11 +44,15 @@ The Koto project adheres to
   print '{15:b}'
   # -> 1111
   ```
+  - The `@debug` metakey has been added to allow for additional debug information
+    to be provided when formatting an object as a string.
 
 #### API
 
 - `Compiler::compile_ast` has been added, useful for tools that want to work with the AST
   after checking that it compiles correctly.
+- `DisplayContext::debug_enabled` has been added to allow native objects to provide
+  additional debug information when `KotoObject::display` is called.
 
 ### Changed
 
