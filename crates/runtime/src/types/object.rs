@@ -117,7 +117,8 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// By default, the object's type is used as the display string.
     ///
     /// The [`DisplayContext`] is used to append strings to the result, and provides information
-    /// about any parent containers.
+    /// about how the contents should be formatted,
+    /// e.g. the value is in a container, or the result should be displayed with debug information.
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.type_string());
         Ok(())

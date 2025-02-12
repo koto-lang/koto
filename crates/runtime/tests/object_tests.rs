@@ -115,7 +115,16 @@ mod objects {
 
     impl KotoObject for TestObject {
         fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+            if ctx.debug_enabled() {
+                ctx.append('{');
+            }
+
             ctx.append(format!("{}: {}", self.type_string(), self.x));
+
+            if ctx.debug_enabled() {
+                ctx.append('}');
+            }
+
             Ok(())
         }
 
@@ -443,6 +452,12 @@ else
         fn display() {
             let script = "'{make_object 42}'";
             test_object_script(script, "TestObject: 42");
+        }
+
+        #[test]
+        fn debug() {
+            let script = "'{make_object 42:?}'";
+            test_object_script(script, "{TestObject: 42}");
         }
 
         #[test]

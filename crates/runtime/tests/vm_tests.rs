@@ -3118,10 +3118,24 @@ m.'key{x}'
         #[test]
         fn value_with_overridden_display() {
             let script = "
-foo = {@display: || 'Foo'}
-'{foo}'
+foo =
+  @display: || 'Foo'
+
+'{foo} - {foo:?}' # Check that debug falls back to @display
 ";
-            check_script_output(script, "Foo");
+            check_script_output(script, "Foo - Foo");
+        }
+
+        #[test]
+        fn value_with_overridden_debug() {
+            let script = "
+foo =
+  @display: || 'Foo'
+  @debug: || '(Foo)'
+
+'{foo} - {foo:?}'
+";
+            check_script_output(script, "Foo - (Foo)");
         }
 
         #[test]
@@ -3179,6 +3193,14 @@ x = ('foo', 'bar')
         #[test_case("'{'hello':.2}'", "he"; "precision with string")]
         #[test_case("'{'hello':10}'", "hello     "; "min width with string")]
         #[test_case("'{'hello':~>4.2}'", "~~he"; "right-aligned truncated string")]
+        #[test_case("'{51966:x}'", "cafe"; "hex lower")]
+        #[test_case("'{51966:X}'", "CAFE"; "hex upper")]
+        #[test_case("'{51966:_^10x}'", "___cafe___"; "hex with padding")]
+        #[test_case("'{32:b}'", "100000"; "binary")]
+        #[test_case("'{64:o}'", "100"; "octal")]
+        #[test_case("'{1_000_000:e}'", "1e6"; "exp lower")]
+        #[test_case("'{123456:E}'", "1.23456E5"; "exp upper")]
+        #[test_case("'{'hello':?}'", "'hello'"; "debug representation")]
         fn formatted_expression(input: &str, expected: &str) {
             check_script_output(input, expected);
         }

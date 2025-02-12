@@ -155,9 +155,9 @@ pub enum Op {
     ///
     /// Values will be rendered and then formatted according to the specified format flags.
     ///
-    /// See [StringFormatFlags](crate::StringFormatFlags) for a description of the the format flags.
+    /// See [`StringFormatFlags`](crate::StringFormatFlags) for a description of the format flags.
     ///
-    /// `[*value, format_flags, ?@min_width, ?@precision, ?@fill_character]`
+    /// `[*value, format_flags, ?@min_width, ?@precision, ?@fill_character, ?style]`
     StringPush,
 
     /// Places the finished string in the target register
@@ -167,7 +167,7 @@ pub enum Op {
 
     /// Makes a Function
     ///
-    /// The flags are a bitfield constructed from [FunctionFlags](crate::FunctionFlags).
+    /// The flags are a bitfield constructed from [`FunctionFlags`](crate::FunctionFlags).
     /// The bytes following this instruction make up the body of the function.
     ///
     /// `[*target, arg count, optional arg count, capture count, flags, function size[2]]`

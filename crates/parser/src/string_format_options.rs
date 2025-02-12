@@ -16,6 +16,8 @@ pub struct StringFormatOptions {
     pub precision: Option<u32>,
     /// The character that padded strings should use to fill empty space
     pub fill_character: Option<ConstantIndex>,
+    /// An alternative representation that can be applied to the formatted string
+    pub representation: Option<StringFormatRepresentation>,
 }
 
 impl StringFormatOptions {
@@ -66,6 +68,34 @@ impl StringFormatOptions {
                 ('.', Some(_), Start | MinWidth | Precision) => {
                     let first_digit = chars.next().unwrap();
                     result.precision = Some(consume_u32(first_digit, &mut chars)?);
+                    position = Type;
+                }
+                ('?', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::Debug);
+                    position = End;
+                }
+                ('b', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::Binary);
+                    position = End;
+                }
+                ('o', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::Octal);
+                    position = End;
+                }
+                ('x', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::HexLower);
+                    position = End;
+                }
+                ('X', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::HexUpper);
+                    position = End;
+                }
+                ('e', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::ExpLower);
+                    position = End;
+                }
+                ('E', _, Start | MinWidth | Precision | Type) => {
+                    result.representation = Some(StringFormatRepresentation::ExpUpper);
                     position = End;
                 }
                 (_, _, Start) => {
@@ -93,6 +123,7 @@ enum FormatParsePosition {
     Alignment,
     MinWidth,
     Precision,
+    Type,
     End,
 }
 
@@ -129,6 +160,44 @@ pub enum StringAlignment {
     Left,
     Center,
     Right,
+}
+
+/// Alternative representations formatted strings
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
+#[repr(u8)]
+pub enum StringFormatRepresentation {
+    Debug,
+    HexLower,
+    HexUpper,
+    Binary,
+    Octal,
+    ExpLower,
+    ExpUpper,
+}
+
+impl TryFrom<u8> for StringFormatRepresentation {
+    type Error = String;
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        if byte == Self::Debug as u8 {
+            Ok(Self::Debug)
+        } else if byte == Self::HexLower as u8 {
+            Ok(Self::HexLower)
+        } else if byte == Self::HexUpper as u8 {
+            Ok(Self::HexUpper)
+        } else if byte == Self::Binary as u8 {
+            Ok(Self::Binary)
+        } else if byte == Self::Octal as u8 {
+            Ok(Self::Octal)
+        } else if byte == Self::ExpLower as u8 {
+            Ok(Self::ExpLower)
+        } else if byte == Self::ExpUpper as u8 {
+            Ok(Self::ExpUpper)
+        } else {
+            Err(format!("Invalid string format style: {byte:#010b}"))
+        }
+    }
 }
 
 /// An error that represents a problem with the Parser's internal logic, rather than a user error
@@ -222,6 +291,7 @@ mod tests {
                     fill_character: Some(0.into()),
                     min_width: Some(20),
                     precision: Some(10),
+                    ..Default::default()
                 },
             ),
             (
@@ -251,5 +321,39 @@ mod tests {
                 },
             ),
         ])
+    }
+
+    #[test]
+    fn style() {
+        test_parse_format_string(&[
+            (
+                "x",
+                StringFormatOptions {
+                    representation: Some(StringFormatRepresentation::HexLower),
+                    ..Default::default()
+                },
+            ),
+            (
+                "X",
+                StringFormatOptions {
+                    representation: Some(StringFormatRepresentation::HexUpper),
+                    ..Default::default()
+                },
+            ),
+            (
+                "o",
+                StringFormatOptions {
+                    representation: Some(StringFormatRepresentation::Octal),
+                    ..Default::default()
+                },
+            ),
+            (
+                "b",
+                StringFormatOptions {
+                    representation: Some(StringFormatRepresentation::Binary),
+                    ..Default::default()
+                },
+            ),
+        ]);
     }
 }

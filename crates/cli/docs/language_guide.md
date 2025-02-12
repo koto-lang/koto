@@ -38,7 +38,7 @@ comment.
 -#
 ```
 
-### Numbers
+### Numbers and Arithmetic
 
 Numbers and arithmetic are expressed in a familiar way.
 
@@ -58,8 +58,15 @@ check! 12
 print! 9 / 2
 check! 4.5
 
-print! 12 % 5
-check! 2
+print! 12.5 % 5
+check! 2.5
+```
+
+Underscores can be used as separators to aid readability in long numbers.
+
+```koto
+print! 1_000_000
+check! 1000000
 ```
 
 #### Parentheses
@@ -75,6 +82,24 @@ check! 11
 # With parentheses, the additions are performed first
 print! (1 + 2) * (3 + 4)
 check! 21
+```
+
+#### Non-decimal Numbers
+
+Numbers can be expressed with non-decimal bases.
+
+```koto
+# Hexadecimal numbers begin with 0x
+print! 0xcafe
+check! 51966
+
+# Octal numbers begin with 0o
+print! 0o7060
+check! 3632
+
+# Binary numbers begin with 0b
+print! 0b1001
+check! 9
 ```
 
 ### Booleans
@@ -1678,6 +1703,40 @@ print! '{x:.4}'
 check! 0.3333
 ```
 
+### Representation
+
+Values can be formatted with alternative representations, with representations chosen with a character at the end of the format options.
+
+- `?` - The value will be formatted with additional debug information when available.
+
+The following representations are only supported for numbers:
+- `e` - exponential (lower-case)
+- `E` - exponential (upper-case)
+
+The following representations are only supported for integers:
+- `b` - binary
+- `o` - octal
+- `x` - hexadecimal (lower-case)
+- `X` - hexadecimal (upper-case)
+
+```koto
+z = 60
+print! '{z:?}'
+check! 60
+print! '{z:x}'
+check! 3c
+print! '0x{z:X}'
+check! 0x3C
+print! '{z:o}'
+check! 74
+print! '0b{z:08b}'
+check! 0b00111100
+print! '{z * 1000:e}'
+check! 6e4
+print! '{z * 1_000_000:E}'
+check! 6E7
+```
+
 ## Advanced Functions
 
 Functions in Koto have some advanced features that are worth exploring.
@@ -2158,6 +2217,24 @@ x = foo -1
 print! "The value of x is '{x}'"
 check! The value of x is 'Foo(-1)'
 ```
+
+#### `@debug`
+
+The `@debug` metakey defines how an object should be represented when
+displaying the object in a debug context, e.g. when using [`debug`](#debug-1),
+or when the [`?` representation](#representation) is used in an interpolated expression.
+
+```koto
+foo = |n|
+  data: n
+  @display: || 'Foo({self.data})'
+  @debug: || '!!{self}!!'
+
+print! "{foo(123):?}"
+check! !!Foo(123)!!
+```
+
+If `@debug` isn't defined, then `@display` will be used as a fallback.
 
 #### `@type`
 

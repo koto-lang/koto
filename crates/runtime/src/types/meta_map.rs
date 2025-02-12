@@ -195,6 +195,8 @@ impl fmt::Display for BinaryOp {
 /// See [MetaKey::UnaryOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
+    /// `@debug`
+    Debug,
     /// `@display`
     Display,
     /// `@iterator`
@@ -237,6 +239,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Next => MetaKey::UnaryOp(Next),
         MetaKeyId::NextBack => MetaKey::UnaryOp(NextBack),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
+        MetaKeyId::Debug => MetaKey::UnaryOp(Debug),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Size => MetaKey::UnaryOp(Size),
         MetaKeyId::Call => MetaKey::Call,

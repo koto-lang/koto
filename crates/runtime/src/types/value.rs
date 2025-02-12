@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, KFunction, Result};
+use crate::{prelude::*, KFunction, Ptr, Result};
 use std::{
     fmt::{self, Write},
     result::Result as StdResult,
@@ -192,14 +192,26 @@ impl KValue {
             Bool(b) => write!(ctx, "{b}"),
             Number(n) => write!(ctx, "{n}"),
             Range(r) => write!(ctx, "{r}"),
-            Function(_) => write!(ctx, "||"),
-            NativeFunction(_) => write!(ctx, "||"),
+            Function(f) => {
+                if ctx.debug_enabled() {
+                    write!(ctx, "|| ({})", Ptr::address(&f.chunk))
+                } else {
+                    write!(ctx, "||")
+                }
+            }
+            NativeFunction(f) => {
+                if ctx.debug_enabled() {
+                    write!(ctx, "|| ({})", Ptr::address(&f.function))
+                } else {
+                    write!(ctx, "||")
+                }
+            }
             Iterator(_) => write!(ctx, "Iterator"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
             Str(s) => {
-                if ctx.is_contained() {
+                if ctx.is_contained() || ctx.debug_enabled() {
                     write!(ctx, "\'{s}\'")
                 } else {
                     write!(ctx, "{s}")
