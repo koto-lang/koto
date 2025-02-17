@@ -19,8 +19,12 @@ use thiserror::Error;
 pub enum ModuleLoaderErrorKind {
     #[error("{0}")]
     Compiler(#[from] CompilerError),
-    #[error(transparent)]
-    Io(#[from] io::Error),
+    #[error("failed to canonicalize path '{path}' ({error})")]
+    FailedToCanonicalizePath { path: PathBuf, error: io::Error },
+    #[error("failed to read '{path}' ({error})")]
+    FailedToReadScript { path: PathBuf, error: io::Error },
+    #[error("failed to get current dir ({0}))")]
+    FailedToGetCurrentDir(io::Error),
     #[error("failed to get parent of path ('{0}')")]
     FailedToGetPathParent(PathBuf),
     #[error("unable to find module '{0}'")]
@@ -89,12 +93,6 @@ impl fmt::Display for ModuleLoaderError {
 
 impl error::Error for ModuleLoaderError {}
 
-impl From<io::Error> for ModuleLoaderError {
-    fn from(error: io::Error) -> Self {
-        Self::from(ModuleLoaderErrorKind::Io(error))
-    }
-}
-
 impl From<ModuleLoaderErrorKind> for ModuleLoaderError {
     fn from(error: ModuleLoaderErrorKind) -> Self {
         Self {
@@ -138,7 +136,12 @@ impl ModuleLoader {
                 loaded_from_cache: true,
             }),
             None => {
-                let script = std::fs::read_to_string(&module_path)?;
+                let script = std::fs::read_to_string(&module_path).map_err(|error| {
+                    ModuleLoaderErrorKind::FailedToReadScript {
+                        path: module_path.clone(),
+                        error,
+                    }
+                })?;
 
                 let chunk = self.compile_script(
                     &script,
@@ -184,7 +187,12 @@ pub fn find_module(
     // Get the directory of the provided script path, or the current working directory
     let search_folder = match &current_script_path {
         Some(path) => {
-            let canonicalized = canonicalize(path)?;
+            let canonicalized = canonicalize(path).map_err(|error| {
+                ModuleLoaderErrorKind::FailedToCanonicalizePath {
+                    path: path.to_path_buf(),
+                    error,
+                }
+            })?;
             if canonicalized.is_file() {
                 match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
@@ -197,7 +205,7 @@ pub fn find_module(
                 canonicalized
             }
         }
-        None => std::env::current_dir()?,
+        None => std::env::current_dir().map_err(ModuleLoaderErrorKind::FailedToGetCurrentDir)?,
     };
 
     // First, check for a neighboring file with a matching name.
@@ -213,8 +221,13 @@ pub fn find_module(
             .join("main")
             .with_extension(extension);
         if result.exists() {
-            let result = canonicalize(result)?;
-            Ok(result)
+            canonicalize(&result).map_err(|error| {
+                ModuleLoaderErrorKind::FailedToCanonicalizePath {
+                    path: result,
+                    error,
+                }
+                .into()
+            })
         } else {
             Err(ModuleLoaderErrorKind::UnableToFindModule(module_name.into()).into())
         }
