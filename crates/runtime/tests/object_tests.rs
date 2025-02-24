@@ -1,6 +1,6 @@
 mod objects {
     use koto_derive::*;
-    use koto_runtime::{prelude::*, Result};
+    use koto_runtime::{Result, prelude::*};
     use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]

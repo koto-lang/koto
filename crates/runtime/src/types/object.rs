@@ -1,5 +1,5 @@
-use crate::{prelude::*, Borrow, BorrowMut, ErrorKind, PtrMut, Result};
-use downcast_rs::{impl_downcast, Downcast};
+use crate::{Borrow, BorrowMut, ErrorKind, PtrMut, Result, prelude::*};
+use downcast_rs::{Downcast, impl_downcast};
 use std::{fmt, marker::PhantomData};
 
 /// A trait for specifying a Koto object's type

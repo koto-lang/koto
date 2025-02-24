@@ -1,6 +1,6 @@
 use crate::script_instructions;
 use koto_bytecode::{CompilerSettings, ModuleLoader};
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 
 /// Runs a script using the provided Vm, optionally checking its output
 pub fn run_test_script(
@@ -30,7 +30,7 @@ pub fn run_test_script(
                             vm.value_to_string(&expected_output).unwrap(),
                             vm.value_to_string(&result).unwrap(),
                         )
-                        .into())
+                        .into());
                     }
                     Ok(other) => {
                         return Err(format!(
@@ -38,14 +38,14 @@ pub fn run_test_script(
                             script_instructions(script, vm.chunk()),
                             vm.value_to_string(&other).unwrap()
                         )
-                        .into())
+                        .into());
                     }
                     Err(e) => {
                         return Err(format!(
                             "{}\nError while comparing output value: ({e})",
                             script_instructions(script, vm.chunk()),
                         )
-                        .into())
+                        .into());
                     }
                 }
             }

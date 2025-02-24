@@ -1,6 +1,6 @@
 use crate::{
-    frame::{Arg, AssignedOrReserved, Frame, FrameError},
     Chunk, DebugInfo, FunctionFlags, Op, StringFormatFlags,
+    frame::{Arg, AssignedOrReserved, Frame, FrameError},
 };
 use circular_buffer::CircularBuffer;
 use derive_name::VariantName;
@@ -9,7 +9,7 @@ use koto_parser::{
     ConstantIndex, Function, ImportItem, KString, MatchArm, MetaKeyId, Node, Parser, Span,
     StringContents, StringFormatOptions, StringNode, SwitchArm,
 };
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use thiserror::Error;
 
 /// The different error types that can be thrown by the Koto runtime
@@ -655,7 +655,7 @@ impl Compiler {
                         return self.error(ErrorKind::UnexpectedNode {
                             expected: "ID for default value".into(),
                             unexpected: unexpected.clone(),
-                        })
+                        });
                     }
                 },
                 Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
@@ -676,7 +676,7 @@ impl Compiler {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID or Tuple as function arg".into(),
                         unexpected: unexpected.clone(),
-                    })
+                    });
                 }
             }
         }
@@ -845,7 +845,7 @@ impl Compiler {
                         return self.error(ErrorKind::UnexpectedNode {
                             expected: "ID for default value".into(),
                             unexpected: (*unexpected).clone(),
-                        })
+                        });
                     }
                 },
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
@@ -858,7 +858,7 @@ impl Compiler {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID in function args".into(),
                         unexpected: (*unexpected).clone(),
-                    })
+                    });
                 }
             }
         }
@@ -883,7 +883,7 @@ impl Compiler {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID in function args".into(),
                         unexpected: unexpected.clone(),
-                    })
+                    });
                 }
             }
         }
@@ -953,7 +953,7 @@ impl Compiler {
                 }
                 Node::PackedId(None) if is_last_arg => {}
                 Node::PackedId(_) => {
-                    return self.error(ErrorKind::InvalidPositionForArgWithEllipses)
+                    return self.error(ErrorKind::InvalidPositionForArgWithEllipses);
                 }
                 _ => {}
             }
@@ -1008,7 +1008,7 @@ impl Compiler {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
                     unexpected: unexpected.clone(),
-                })
+                });
             }
         };
 
@@ -1073,7 +1073,7 @@ impl Compiler {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID or Chain".into(),
                     unexpected: unexpected.clone(),
-                })
+                });
             }
         };
 
@@ -1219,7 +1219,7 @@ impl Compiler {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID or Chain".into(),
                         unexpected: unexpected.clone(),
-                    })
+                    });
                 }
             };
         }
@@ -1486,7 +1486,7 @@ impl Compiler {
                         return self.error(ErrorKind::UnexpectedNode {
                             expected: "import ID".into(),
                             unexpected: unexpected.clone(),
-                        })
+                        });
                     }
                 };
             }
@@ -1550,7 +1550,7 @@ impl Compiler {
                         return self.error(ErrorKind::UnexpectedNode {
                             expected: "import ID".into(),
                             unexpected: unexpected.clone(),
-                        })
+                        });
                     }
                 };
             }
@@ -1627,7 +1627,7 @@ impl Compiler {
                             return self.error(ErrorKind::UnexpectedNode {
                                 expected: "import ID".into(),
                                 unexpected: unexpected.clone(),
-                            })
+                            });
                         }
                     }
                 }
@@ -1760,7 +1760,7 @@ impl Compiler {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "ID or wildcard as catch arg".into(),
                         unexpected: unexpected.clone(),
-                    })
+                    });
                 }
             };
 
@@ -1871,7 +1871,7 @@ impl Compiler {
                 return self.error(ErrorKind::InvalidBinaryOp {
                     kind: "arithmetic".into(),
                     op,
-                })
+                });
             }
         };
 
@@ -1918,7 +1918,7 @@ impl Compiler {
                 return self.error(ErrorKind::InvalidBinaryOp {
                     kind: "compound assignment".into(),
                     op: ast_op,
-                })
+                });
             }
         };
 
@@ -1983,7 +1983,7 @@ impl Compiler {
                     return Err(ErrorKind::InvalidBinaryOp {
                         kind: "comparison".into(),
                         op: ast_op,
-                    })
+                    });
                 }
             })
         };
@@ -2554,7 +2554,7 @@ impl Compiler {
     // rhs_op - If present, then the op should be applied to the result of the chain.
     fn compile_chain(
         &mut self,
-        (root_node, mut next_node_index): &(ChainNode, Option<AstIndex>),
+        &(ref root_node, mut next_node_index): &(ChainNode, Option<AstIndex>),
         piped_arg_register: Option<u8>,
         rhs: Option<u8>,
         rhs_op: Option<Op>,
@@ -2614,7 +2614,7 @@ impl Compiler {
 
                     self.compile_access_id(node_register, instance_register, *id);
                 }
-                ChainNode::Str(ref access_string) => {
+                ChainNode::Str(access_string) => {
                     // Access by string
                     // e.g. x."123"()
                     //    - x = Root
@@ -3880,7 +3880,7 @@ impl Compiler {
                         return self.error(ErrorKind::UnexpectedNode {
                             expected: "ID or wildcard in for loop args".into(),
                             unexpected: unexpected.clone(),
-                        })
+                        });
                     }
                 }
             }
@@ -3933,7 +3933,7 @@ impl Compiler {
                             return self.error(ErrorKind::UnexpectedNode {
                                 expected: "ID or wildcard in for loop args".into(),
                                 unexpected: unexpected.clone(),
-                            })
+                            });
                         }
                     }
                 }

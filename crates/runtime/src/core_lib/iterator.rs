@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{derive::*, prelude::*, KIteratorOutput as Output, Result};
+use crate::{KIteratorOutput as Output, Result, derive::*, prelude::*};
 
 static MODULE_NAME: &str = "core.iterator";
 
@@ -39,7 +39,7 @@ pub fn make_module() -> KMap {
                             return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
-                            )
+                            );
                         }
                         error @ Err(_) => return error,
                     }
@@ -78,7 +78,7 @@ pub fn make_module() -> KMap {
                             return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
-                            )
+                            );
                         }
                         Err(error) => return Err(error),
                     }
@@ -244,7 +244,7 @@ pub fn make_module() -> KMap {
                                     return unexpected_type(
                                         "a Bool to be returned from the predicate",
                                         &unexpected,
-                                    )
+                                    );
                                 }
                                 Err(error) => return Err(error),
                             }
@@ -530,7 +530,7 @@ pub fn make_module() -> KMap {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
             (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args)
+                return unexpected_args_after_instance(expected_error, instance, args);
             }
         };
 
@@ -549,7 +549,7 @@ pub fn make_module() -> KMap {
             (KValue::Iterator(i), []) => i.clone(),
             (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
             (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args)
+                return unexpected_args_after_instance(expected_error, instance, args);
             }
         };
 
@@ -614,7 +614,7 @@ pub fn make_module() -> KMap {
                             return unexpected_type(
                                 "a Bool to be returned from the predicate",
                                 &unexpected,
-                            )
+                            );
                         }
                         Err(error) => return Err(error),
                     }
@@ -634,7 +634,7 @@ pub fn make_module() -> KMap {
                 (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };
@@ -733,7 +733,7 @@ pub fn make_module() -> KMap {
                 (iterable, []) => (iterable.clone(), KValue::Number(0.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };

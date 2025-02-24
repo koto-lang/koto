@@ -1,9 +1,9 @@
 use crate::{
+    DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
     core_lib::CoreLib,
     error::{Error, ErrorKind},
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
-    DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
@@ -441,7 +441,7 @@ impl KotoVm {
                     return unexpected_type(
                         "Value with an implementation of @next_back",
                         &unexpected,
-                    )
+                    );
                 }
             },
             Size => self.run_size(result_register, value_register, true)?,
@@ -1044,10 +1044,10 @@ impl KotoVm {
             (None, Some(Number(end))) => (None, Some((end.into(), inclusive))),
             (None, None) => (None, None),
             (None | Some(Number(_)), Some(unexpected)) => {
-                return unexpected_type("a Number for the range's end", unexpected)
+                return unexpected_type("a Number for the range's end", unexpected);
             }
             (Some(unexpected), _) => {
-                return unexpected_type("a Number for the range's start", unexpected)
+                return unexpected_type("a Number for the range's start", unexpected);
             }
         };
 
@@ -2442,7 +2442,7 @@ impl KotoVm {
                     "Unable to index '{}' with '{}'",
                     unexpected_value.type_as_string(),
                     unexpected_index.type_as_string(),
-                )
+                );
             }
         };
 
@@ -2601,7 +2601,7 @@ impl KotoVm {
                                     access_map = base;
                                 }
                                 Some(unexpected) => {
-                                    return unexpected_type("Map as base value", &unexpected)
+                                    return unexpected_type("Map as base value", &unexpected);
                                 }
                                 None => break,
                             },
@@ -3372,7 +3372,7 @@ impl KotoVm {
         while let Some(frame) = self.call_stack.last() {
             match frame.catch_stack.last() {
                 Some((error_register, catch_ip)) if allow_catch => {
-                    return Ok((*error_register, *catch_ip))
+                    return Ok((*error_register, *catch_ip));
                 }
                 _ => {
                     if frame.execution_barrier {
@@ -3600,7 +3600,7 @@ fn apply_captures_and_temp_tuple_values(
 pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
     let mut result = vm.clone();
     for value in result.registers.iter_mut() {
-        if let KValue::Iterator(ref mut i) = value {
+        if let KValue::Iterator(i) = value {
             *i = i.make_copy()?;
         }
     }

@@ -1,5 +1,5 @@
 use glam::DVec3;
-use koto_runtime::{derive::*, prelude::*, Result};
+use koto_runtime::{Result, derive::*, prelude::*};
 use std::{fmt, ops};
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]

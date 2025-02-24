@@ -1,4 +1,4 @@
-use koto_runtime::{derive::*, prelude::*, Ptr, Result};
+use koto_runtime::{Ptr, Result, derive::*, prelude::*};
 
 pub fn make_module() -> KMap {
     let result = KMap::with_type("regex");

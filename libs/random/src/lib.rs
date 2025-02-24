@@ -1,7 +1,7 @@
 //! A random number module for the Koto language
 
-use koto_runtime::{derive::*, prelude::*, Result};
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use koto_runtime::{Result, derive::*, prelude::*};
+use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_chacha::ChaCha8Rng;
 use std::cell::RefCell;
 
@@ -63,12 +63,12 @@ impl ChaChaRng {
 
     #[koto_method]
     fn bool(&mut self) -> Result<KValue> {
-        Ok(self.0.gen::<bool>().into())
+        Ok(self.0.r#gen::<bool>().into())
     }
 
     #[koto_method]
     fn number(&mut self) -> Result<KValue> {
-        Ok(self.0.gen::<f64>().into())
+        Ok(self.0.r#gen::<f64>().into())
     }
 
     #[koto_method]

@@ -1,6 +1,6 @@
 //! The `test` core library module
 
-use crate::{prelude::*, Result};
+use crate::{Result, prelude::*};
 
 /// Initializes the `test` core library module
 pub fn make_module() -> KMap {
@@ -66,9 +66,11 @@ pub fn make_module() -> KMap {
 
     result.add_fn("assert_near", |ctx| match ctx.args() {
         [KValue::Number(a), KValue::Number(b)] => number_near(*a, *b, 1.0e-12),
-        [KValue::Number(a), KValue::Number(b), KValue::Number(allowed_diff)] => {
-            number_near(*a, *b, allowed_diff.into())
-        }
+        [
+            KValue::Number(a),
+            KValue::Number(b),
+            KValue::Number(allowed_diff),
+        ] => number_near(*a, *b, allowed_diff.into()),
         unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 

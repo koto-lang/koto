@@ -41,7 +41,7 @@ pub fn make_module() -> KMap {
                             return runtime_error!(
                                 "list.contains: Expected Bool from comparison, found '{}'",
                                 unexpected.type_as_string()
-                            )
+                            );
                         }
                         Err(e) => return Err(e),
                     }
@@ -124,7 +124,7 @@ pub fn make_module() -> KMap {
                 (List(list), [Number(n)]) => (list, n, Null),
                 (List(list), [Number(n), default]) => (list, n, default.clone()),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };
@@ -333,7 +333,7 @@ pub fn make_module() -> KMap {
                     l
                 }
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };

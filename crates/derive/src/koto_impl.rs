@@ -1,9 +1,9 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    meta::ParseNestedMeta, parse::Result, parse_macro_input, parse_quote, Attribute, FnArg,
-    Generics, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType, Signature,
-    Type, TypePath,
+    Attribute, FnArg, Generics, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path,
+    ReturnType, Signature, Type, TypePath, meta::ParseNestedMeta, parse::Result, parse_macro_input,
+    parse_quote,
 };
 
 const PREFIX_FUNCTION: &str = "__koto_";

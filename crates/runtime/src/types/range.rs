@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Ptr};
+use crate::{Error, Ptr, prelude::*};
 use std::{
     cmp::Ordering,
     fmt,

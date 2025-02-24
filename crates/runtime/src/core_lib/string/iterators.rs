@@ -1,6 +1,6 @@
 //! A collection of string iterators
 
-use crate::{prelude::*, KIteratorOutput as Output, Result};
+use crate::{KIteratorOutput as Output, Result, prelude::*};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string

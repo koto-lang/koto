@@ -1,7 +1,7 @@
 //! The `koto` core library module
 
-use crate::prelude::*;
 use crate::Result;
+use crate::prelude::*;
 use koto_bytecode::CompilerSettings;
 use koto_derive::{KotoCopy, KotoType};
 use koto_memory::Ptr;

@@ -1,5 +1,5 @@
 use crate::Vec2;
-use koto_runtime::{derive::*, prelude::*, Result};
+use koto_runtime::{Result, derive::*, prelude::*};
 use std::{
     fmt,
     ops::{Add, Div, Sub},

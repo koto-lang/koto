@@ -1,6 +1,6 @@
 use itertools::join;
 use koto_bytecode::{Chunk, CompilerSettings, ModuleLoader};
-use koto_runtime::{prelude::*, Error, Ptr, Result};
+use koto_runtime::{Error, Ptr, Result, prelude::*};
 use std::ops::Deref;
 
 use crate::OutputCapture;

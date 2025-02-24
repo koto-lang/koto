@@ -1,4 +1,4 @@
-use crate::{prelude::*, Ptr, Result};
+use crate::{Ptr, Result, prelude::*};
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime

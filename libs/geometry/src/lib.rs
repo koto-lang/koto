@@ -32,7 +32,7 @@ pub fn make_module() -> KMap {
                 return unexpected_args(
                     "||, or |Vec2, Vec2|, or |Number, Number, Number, Number|",
                     unexpected,
-                )
+                );
             }
         };
 
@@ -45,13 +45,13 @@ pub fn make_module() -> KMap {
             [Number(x)] => (x.into(), 0.0),
             [Number(x), Number(y)] => (x.into(), y.into()),
             [Object(vec2)] if vec2.is_a::<Vec2>() => {
-                return Ok((*vec2.cast::<Vec2>().unwrap()).into())
+                return Ok((*vec2.cast::<Vec2>().unwrap()).into());
             }
             unexpected => {
                 return unexpected_args(
                     "||, or |Number|, or |Number, Number|, or |Vec2|",
                     unexpected,
-                )
+                );
             }
         };
 
@@ -78,7 +78,7 @@ pub fn make_module() -> KMap {
                     "||, or |Number|, or |Number, Number|, or |Number, Number, Number|,\
                      or |Vec2|, or |Vec2, Number|, or |Vec3|",
                     unexpected,
-                )
+                );
             }
         };
 

@@ -1,4 +1,4 @@
-use koto::{prelude::*, runtime::Result, PtrMut};
+use koto::{PtrMut, prelude::*, runtime::Result};
 use wasm_bindgen::prelude::*;
 
 // Captures output from Koto in a String

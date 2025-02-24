@@ -1,7 +1,7 @@
 use koto_lexer::Span;
 use std::{fmt, num::TryFromIntError};
 
-use crate::{error::*, ConstantPool, Node};
+use crate::{ConstantPool, Node, error::*};
 
 /// The index type used by nodes in the [Ast]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]

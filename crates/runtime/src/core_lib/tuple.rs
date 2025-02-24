@@ -25,7 +25,7 @@ pub fn make_module() -> KMap {
                             return unexpected_type(
                                 "a Bool from the equality comparison",
                                 &unexpected,
-                            )
+                            );
                         }
                         Err(e) => return Err(e),
                     }
@@ -56,7 +56,7 @@ pub fn make_module() -> KMap {
             (Tuple(tuple), [Number(n)]) => (tuple, n, Null),
             (Tuple(tuple), [Number(n), default]) => (tuple, n, default.clone()),
             (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args)
+                return unexpected_args_after_instance(expected_error, instance, args);
             }
         };
 

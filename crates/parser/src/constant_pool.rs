@@ -1,13 +1,13 @@
 use koto_memory::Ptr;
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{HashMap, hash_map::DefaultHasher},
     fmt,
     hash::{Hash, Hasher},
     num::TryFromIntError,
     ops::Range,
 };
 
-use crate::{error::InternalError, StringSlice};
+use crate::{StringSlice, error::InternalError};
 
 /// The type used to refer to constants in the [ConstantPool]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

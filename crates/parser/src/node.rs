@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, constant_pool::ConstantIndex, StringFormatOptions, StringQuote};
+use crate::{StringFormatOptions, StringQuote, ast::AstIndex, constant_pool::ConstantIndex};
 use smallvec::SmallVec;
 use std::fmt;
 

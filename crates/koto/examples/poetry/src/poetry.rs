@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::{Rng, seq::SliceRandom, thread_rng};
 use std::sync::Arc;
 
 /// A basic Markov chain,

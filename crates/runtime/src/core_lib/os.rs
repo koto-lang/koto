@@ -3,7 +3,7 @@
 mod command;
 
 use self::command::Command;
-use crate::{derive::*, prelude::*, Result};
+use crate::{Result, derive::*, prelude::*};
 use chrono::prelude::*;
 use instant::Instant;
 

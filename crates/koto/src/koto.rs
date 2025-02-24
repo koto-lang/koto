@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Ptr, Result};
+use crate::{Error, Ptr, Result, prelude::*};
 use koto_bytecode::CompilerSettings;
 use koto_runtime::ModuleImportedCallback;
 use std::time::Duration;

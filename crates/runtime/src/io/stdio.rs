@@ -1,4 +1,4 @@
-use crate::{core_lib::io::map_io_err, KString, KotoFile, KotoRead, KotoWrite, Result};
+use crate::{KString, KotoFile, KotoRead, KotoWrite, Result, core_lib::io::map_io_err};
 use std::io::{self, IsTerminal, Read, Write};
 
 /// The default stdin used in Koto
