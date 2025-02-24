@@ -1,7 +1,7 @@
 use crate::{Chunk, Compiler, CompilerError, CompilerSettings};
 use dunce::canonicalize;
 use koto_memory::Ptr;
-use koto_parser::{format_source_excerpt, KString, Span};
+use koto_parser::{KString, Span, format_source_excerpt};
 use rustc_hash::FxHasher;
 use std::{
     collections::HashMap,

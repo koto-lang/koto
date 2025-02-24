@@ -1,6 +1,6 @@
 //! A Koto language module for working with TOML data
 
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 use koto_serialize::SerializableValue;
 use toml::Value as Toml;
 

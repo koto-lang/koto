@@ -1,4 +1,4 @@
-use crate::{prelude::*, Ptr};
+use crate::{Ptr, prelude::*};
 use koto_bytecode::{Chunk, ModuleLoaderError};
 use koto_parser::format_source_excerpt;
 use std::{error, fmt, time::Duration};
@@ -68,7 +68,9 @@ pub enum ErrorKind {
     MissingStringBuilder,
     #[error("this operation is unsupported on this platform")]
     UnsupportedPlatform,
-    #[error("an unexpected error occurred, please report this as a bug at\nhttps://github.com/koto-lang/koto/issues")]
+    #[error(
+        "an unexpected error occurred, please report this as a bug at\nhttps://github.com/koto-lang/koto/issues"
+    )]
     UnexpectedError,
 }
 

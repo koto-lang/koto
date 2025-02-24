@@ -1,6 +1,6 @@
 mod timeout {
     use koto_bytecode::{CompilerSettings, ModuleLoader};
-    use koto_runtime::{prelude::*, Error, ErrorKind};
+    use koto_runtime::{Error, ErrorKind, prelude::*};
     use std::time::Duration;
 
     fn test_script_with_timeout(script: &str, should_timeout: bool) {

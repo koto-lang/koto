@@ -1,11 +1,11 @@
 #![cfg_attr(feature = "panic_on_parser_error", allow(unreachable_code))]
 
 use crate::{
+    StringFormatOptions,
     ast::{Ast, AstIndex},
     constant_pool::{ConstantIndex, ConstantPoolBuilder},
     error::{Error, ErrorKind, ExpectedIndentation, InternalError, Result, SyntaxError},
     node::*,
-    StringFormatOptions,
 };
 use koto_lexer::{LexedToken, Lexer, Span, StringType, Token};
 use std::{
@@ -2571,7 +2571,7 @@ impl<'source> Parser<'source> {
         let result = match self.peek_token_with_context(&pattern_context) {
             Some(peeked) => match peeked.token {
                 True | False | Null | Number | StringStart { .. } | Subtract => {
-                    return self.parse_term(&pattern_context)
+                    return self.parse_term(&pattern_context);
                 }
                 Id => match self.parse_id(&pattern_context)? {
                     Some((id, _)) => {

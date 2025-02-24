@@ -1,5 +1,5 @@
 use koto_derive::*;
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 use koto_test_utils::*;
 use std::{error::Error, fs, path::PathBuf, result::Result as StdResult};
 

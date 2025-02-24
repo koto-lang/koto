@@ -1,4 +1,4 @@
-use crate::{prelude::*, Borrow, BorrowMut, PtrMut, Result};
+use crate::{Borrow, BorrowMut, PtrMut, Result, prelude::*};
 
 /// The underlying `Vec` type used by [KList]
 pub type ValueVec = smallvec::SmallVec<[KValue; 4]>;

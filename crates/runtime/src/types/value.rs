@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{prelude::*, KFunction, Ptr, Result};
+use crate::{KFunction, Ptr, Result, prelude::*};
 use std::{
     fmt::{self, Write},
     result::Result as StdResult,

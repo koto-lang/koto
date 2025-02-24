@@ -5,7 +5,7 @@
 //! The exports map gets populated with any top-level assigned IDs, and is then made available to
 //! each subsequent chunk.
 
-use koto::{prelude::*, runtime::Result, PtrMut};
+use koto::{PtrMut, prelude::*, runtime::Result};
 use koto_bytecode::CompilerSettings;
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {

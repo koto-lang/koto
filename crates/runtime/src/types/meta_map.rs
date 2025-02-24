@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error, Result};
+use crate::{Error, Result, prelude::*};
 use indexmap::{Equivalent, IndexMap};
 use koto_parser::MetaKeyId;
 use std::{

@@ -1,7 +1,7 @@
 mod help;
 mod repl;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use crossterm::tty::IsTty;
 use koto::prelude::*;
 use repl::{Repl, ReplSettings};

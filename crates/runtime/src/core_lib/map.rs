@@ -1,7 +1,7 @@
 //! The `map` core library module
 
 use super::{iterator::adaptors, value_sort::compare_values};
-use crate::{prelude::*, Result};
+use crate::{Result, prelude::*};
 use std::cmp::Ordering;
 
 /// Initializes the `map` core library module
@@ -86,7 +86,7 @@ pub fn make_module() -> KMap {
                 (KValue::Map(map), [key]) => (map, key, &KValue::Null),
                 (KValue::Map(map), [key, default]) => (map, key, default),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };
@@ -106,7 +106,7 @@ pub fn make_module() -> KMap {
             (Map(map), [Number(n)]) => (map, n, Null),
             (Map(map), [Number(n), default]) => (map, n, default.clone()),
             (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args)
+                return unexpected_args_after_instance(expected_error, instance, args);
             }
         };
 

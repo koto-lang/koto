@@ -1,6 +1,6 @@
 //! A Koto language module for working with JSON data
 
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 use koto_serialize::SerializableValue;
 use serde_json::Value as JsonValue;
 

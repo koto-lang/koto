@@ -1,5 +1,5 @@
-use crate::{run_test_script, OutputCapture};
-use koto_runtime::{prelude::*, Result};
+use crate::{OutputCapture, run_test_script};
+use koto_runtime::{Result, prelude::*};
 
 /// Runs a script and validates its output
 pub fn check_script_output(script: &str, expected_output: impl Into<KValue>) {

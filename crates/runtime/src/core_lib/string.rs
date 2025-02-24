@@ -168,7 +168,7 @@ pub fn make_module() -> KMap {
                     KIterator::new(result)
                 }
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args)
+                    return unexpected_args_after_instance(expected_error, instance, args);
                 }
             }
         };

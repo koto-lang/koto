@@ -1,6 +1,6 @@
 //! A Koto language module for working with YAML data
 
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 use koto_serialize::SerializableValue;
 use serde_yaml_ng::Value as YamlValue;
 

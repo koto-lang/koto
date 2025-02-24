@@ -1,4 +1,4 @@
-use koto_runtime::{derive::*, prelude::*, Result};
+use koto_runtime::{Result, derive::*, prelude::*};
 use std::{fmt, ops};
 
 type Inner = glam::DVec2;

@@ -1,4 +1,4 @@
-use crate::{prelude::*, Result};
+use crate::{Result, prelude::*};
 
 /// A trait used for file-like-things in Koto
 pub trait KotoFile: KotoRead + KotoWrite + KotoSend + KotoSync {

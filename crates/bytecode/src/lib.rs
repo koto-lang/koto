@@ -15,6 +15,6 @@ pub use crate::{
     compiler::{Compiler, CompilerError, CompilerSettings},
     instruction::{FunctionFlags, Instruction, StringFormatFlags},
     instruction_reader::InstructionReader,
-    module_loader::{find_module, ModuleLoader, ModuleLoaderError},
+    module_loader::{ModuleLoader, ModuleLoaderError, find_module},
     op::Op,
 };

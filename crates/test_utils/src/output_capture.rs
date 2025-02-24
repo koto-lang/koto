@@ -1,4 +1,4 @@
-use koto_runtime::{prelude::*, Borrow, Ptr, PtrMut, Result};
+use koto_runtime::{Borrow, Ptr, PtrMut, Result, prelude::*};
 
 /// Captures output from Koto in a String
 ///

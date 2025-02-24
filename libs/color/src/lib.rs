@@ -3,7 +3,7 @@
 mod color;
 pub use color::{Color, Encoding};
 
-use koto_runtime::{prelude::*, Result};
+use koto_runtime::{Result, prelude::*};
 use palette::{Hsl, Hsla, Hsv, Hsva, Oklab, Oklaba, Oklch, Oklcha, Srgb, Srgba};
 
 pub fn make_module() -> KMap {

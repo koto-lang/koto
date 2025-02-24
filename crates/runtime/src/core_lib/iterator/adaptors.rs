@@ -1,7 +1,7 @@
 //! Adapators used by the `iterator` core library module
 
 use super::collect_pair;
-use crate::{prelude::*, Error, KIteratorOutput as Output, Result};
+use crate::{Error, KIteratorOutput as Output, Result, prelude::*};
 use std::{collections::VecDeque, result::Result as StdResult};
 use thiserror::Error;
 

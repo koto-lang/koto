@@ -1,6 +1,6 @@
 //! The `io` core library module
 
-use crate::{derive::*, prelude::*, BufferedFile, Error, Ptr, Result};
+use crate::{BufferedFile, Error, Ptr, Result, derive::*, prelude::*};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},

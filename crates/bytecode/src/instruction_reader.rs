@@ -64,29 +64,19 @@ impl Iterator for InstructionReader {
             }};
         }
         macro_rules! get_u8x2 {
-            () => {{
-                get_u8_array!(2)
-            }};
+            () => {{ get_u8_array!(2) }};
         }
         macro_rules! get_u8x3 {
-            () => {{
-                get_u8_array!(3)
-            }};
+            () => {{ get_u8_array!(3) }};
         }
         macro_rules! get_u8x4 {
-            () => {{
-                get_u8_array!(4)
-            }};
+            () => {{ get_u8_array!(4) }};
         }
         macro_rules! get_u8x5 {
-            () => {{
-                get_u8_array!(5)
-            }};
+            () => {{ get_u8_array!(5) }};
         }
         macro_rules! get_u8x6 {
-            () => {{
-                get_u8_array!(6)
-            }};
+            () => {{ get_u8_array!(6) }};
         }
 
         macro_rules! get_u16 {
@@ -259,8 +249,14 @@ impl Iterator for InstructionReader {
             },
             Op::Function => {
                 let register = byte_a;
-                let [arg_count, optional_arg_count, capture_count, flags, size_a, size_b] =
-                    get_u8x6!();
+                let [
+                    arg_count,
+                    optional_arg_count,
+                    capture_count,
+                    flags,
+                    size_a,
+                    size_b,
+                ] = get_u8x6!();
                 match FunctionFlags::try_from(flags) {
                     Ok(flags) => {
                         let size = u16::from_le_bytes([size_a, size_b]);
@@ -430,7 +426,13 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::CallInstance => {
-                let [function, instance, frame_base, arg_count, unpacked_arg_count] = get_u8x5!();
+                let [
+                    function,
+                    instance,
+                    frame_base,
+                    arg_count,
+                    unpacked_arg_count,
+                ] = get_u8x5!();
                 CallInstance {
                     result: byte_a,
                     function,

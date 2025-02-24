@@ -20,7 +20,7 @@ pub use self::{
     iterator::{KIterator, KIteratorOutput, KotoIterator},
     list::{KList, ValueVec},
     map::{KMap, KotoHasher, ValueMap},
-    meta_map::{meta_id_to_key, BinaryOp, MetaKey, MetaMap, UnaryOp},
+    meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp, meta_id_to_key},
     native_function::{CallContext, KNativeFunction, KotoFunction},
     number::KNumber,
     object::{

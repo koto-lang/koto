@@ -1,5 +1,5 @@
 use derive_more::From;
-use koto_runtime::{derive::*, prelude::*, Result};
+use koto_runtime::{Result, derive::*, prelude::*};
 use palette::FromColor;
 use std::fmt;
 
@@ -141,7 +141,7 @@ impl Color {
                     "mix only works with matching color spaces (found {}, {})",
                     a.color_space_str(),
                     b.color_space_str()
-                )
+                );
             }
         };
 

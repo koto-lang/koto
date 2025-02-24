@@ -1,6 +1,6 @@
 use koto_memory::Ptr;
 
-use crate::{prelude::*, vm::ReturnOrYield, Error, PtrMut, Result};
+use crate::{Error, PtrMut, Result, prelude::*, vm::ReturnOrYield};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto

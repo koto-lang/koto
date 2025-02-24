@@ -1,4 +1,4 @@
-use crate::{error::unexpected_args_after_instance, prelude::*, Ptr, Result};
+use crate::{Ptr, Result, error::unexpected_args_after_instance, prelude::*};
 use std::{
     fmt,
     hash::{Hash, Hasher},

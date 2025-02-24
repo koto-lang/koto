@@ -1,4 +1,4 @@
-use koto::{prelude::*, PtrMut};
+use koto::{PtrMut, prelude::*};
 use std::{
     fs::read_to_string,
     path::{Path, PathBuf},

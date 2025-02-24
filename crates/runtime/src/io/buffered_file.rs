@@ -1,4 +1,4 @@
-use std::io::{self, prelude::*, BufReader, BufWriter, Result, SeekFrom};
+use std::io::{self, BufReader, BufWriter, Result, SeekFrom, prelude::*};
 
 /// A combination of BufReader and BufWriter
 #[derive(Debug)]

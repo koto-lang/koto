@@ -1073,7 +1073,7 @@ x
                             return runtime_error!(
                                 "assert expects booleans as arguments, found '{}'",
                                 unexpected.type_as_string(),
-                            )
+                            );
                         }
                     }
                 }

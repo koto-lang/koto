@@ -1,10 +1,10 @@
 //! Support for `os.command`
 
 use crate::{
-    core_lib::io::{map_io_err, File},
+    Result,
+    core_lib::io::{File, map_io_err},
     derive::*,
     prelude::*,
-    Result,
 };
 use koto_memory::{Ptr, PtrMut};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -29,7 +29,7 @@ macro_rules! stdio_setter {
                 unexpected => {
                     return runtime_error!(
                         "Expected 'inherit', 'null', or 'piped', found '{unexpected}'"
-                    )
+                    );
                 }
             },
             unexpected => return unexpected_args("|String|", unexpected),

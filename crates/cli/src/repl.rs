@@ -11,7 +11,7 @@ use crossterm::{
     tty::IsTty,
 };
 use koto::prelude::*;
-use rustyline::{error::ReadlineError, Config, DefaultEditor, EditMode};
+use rustyline::{Config, DefaultEditor, EditMode, error::ReadlineError};
 
 use crate::help::Help;
 

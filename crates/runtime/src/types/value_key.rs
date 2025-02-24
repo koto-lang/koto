@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error};
+use crate::{Error, prelude::*};
 use indexmap::Equivalent;
 use std::{
     cmp::Ordering,

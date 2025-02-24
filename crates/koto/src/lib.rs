@@ -35,7 +35,7 @@ pub mod prelude;
 pub use koto_bytecode as bytecode;
 pub use koto_parser as parser;
 pub use koto_runtime as runtime;
-pub use koto_runtime::{derive, Borrow, BorrowMut, ErrorKind, Ptr, PtrMut};
+pub use koto_runtime::{Borrow, BorrowMut, ErrorKind, Ptr, PtrMut, derive};
 
 pub use crate::error::{Error, Result};
 pub use crate::koto::{CompileArgs, Koto, KotoSettings};

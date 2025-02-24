@@ -1,11 +1,11 @@
 mod koto_bindings;
 mod poetry;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use hotwatch::{
+    Event, EventKind,
     blocking::{Flow, Hotwatch},
     notify::event::ModifyKind,
-    Event, EventKind,
 };
 use koto::prelude::*;
 use poetry::*;

@@ -324,11 +324,7 @@ impl<'a> TokenLexer<'a> {
 
             self.advance_to_position(char_bytes, position);
 
-            if end_found {
-                CommentMulti
-            } else {
-                Error
-            }
+            if end_found { CommentMulti } else { Error }
         } else {
             // single-line comment
             let (comment_bytes, comment_width) =

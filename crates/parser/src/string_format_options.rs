@@ -3,7 +3,7 @@ use std::{iter::Peekable, str::Chars};
 use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{constant_pool::ConstantPoolBuilder, ConstantIndex};
+use crate::{ConstantIndex, constant_pool::ConstantPoolBuilder};
 
 /// The formatting options that are available for interpolated strings
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
