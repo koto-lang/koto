@@ -266,7 +266,7 @@ container, with some notable exceptions:
 ```koto
 from koto import size
 
-print! (size [1, 2, 3]), (size (,))
+print! (size [1, 2, 3]), (size ())
 check! (3, 0)
 
 print! (size 'hello'), (size 'héllø'), (size '')

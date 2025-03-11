@@ -46,6 +46,12 @@ The Koto project adheres to
   ```
   - The `@debug` metakey has been added to allow for additional debug information
     to be provided when formatting an object as a string.
+- Values in lists or tuples definitions can now be omitted, with `null` being used to fill the gaps.
+  - E.g.
+  ```koto
+  x = [1, , 3, , 5]
+  # -> [1, null, 3, null, 5]
+  ```
 
 #### API
 
@@ -58,6 +64,8 @@ The Koto project adheres to
 
 #### Language
 
+- Empty tuples are now created with `()`.
+  - The previous empty-tuple syntax `(,)` now evaluates as a single-element tuple that contains `null`.
 - Calls to Koto functions with the incorrect number of arguments will now throw an error.
   - Default values should be provided for optional arguments.
   - Variadic arguments should be used to capture additional arguments.

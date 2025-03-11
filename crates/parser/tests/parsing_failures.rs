@@ -358,13 +358,6 @@ x = {foo: 42, ?}
             use super::*;
 
             #[test]
-            fn double_comma() {
-                let source = "x = [1, 2, , 3]";
-
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn space_separated_function_call_in_list() {
                 let source = "x = [1, 2, f y, 4]";
 
@@ -395,13 +388,6 @@ x = [1, 2, ?]
 
         mod tuples {
             use super::*;
-
-            #[test]
-            fn double_comma() {
-                let source = "x = (1, 2, , 3)";
-
-                check_parsing_fails(source);
-            }
 
             #[test]
             fn unexpected_token_inside_tuple() {

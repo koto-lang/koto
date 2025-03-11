@@ -402,12 +402,16 @@ impl<'source> Parser<'source> {
 
         let mut expressions = astvec![first];
         let mut encountered_linebreak = false;
-        let mut encountered_comma = false;
+        let mut last_token_was_a_comma = false;
 
         while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
             self.consume_next_token_on_same_line();
 
-            encountered_comma = true;
+            if last_token_was_a_comma {
+                expressions.push(self.push_node(Node::Null)?);
+            }
+
+            last_token_was_a_comma = true;
 
             if !encountered_linebreak && self.current_line > start_line {
                 // e.g.
@@ -423,6 +427,8 @@ impl<'source> Parser<'source> {
             if let Some(next_expression) =
                 self.parse_expression_start(&expressions, 0, &expression_context)?
             {
+                last_token_was_a_comma = false;
+
                 match self.ast.node(next_expression).node {
                     Node::Assign { .. } | Node::MultiAssign { .. } => {
                         // Assignments will have consumed all of the comma-separated expressions
@@ -445,7 +451,7 @@ impl<'source> Parser<'source> {
 
         self.frame_mut()?.finalize_id_accesses();
 
-        if expressions.len() == 1 && !encountered_comma {
+        if expressions.len() == 1 && !last_token_was_a_comma {
             Ok(Some(first))
         } else {
             let result = match temp_result {
@@ -1841,7 +1847,6 @@ impl<'source> Parser<'source> {
         )?;
 
         let expressions_node = match entries.as_slice() {
-            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
             [single_expression] if !last_token_was_a_comma => {
                 self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
@@ -1908,8 +1913,8 @@ impl<'source> Parser<'source> {
             ) {
                 self.consume_token_with_context(&entry_context);
 
-                if last_token_was_a_comma {
-                    return self.error(SyntaxError::UnexpectedToken);
+                if entries.is_empty() || last_token_was_a_comma {
+                    entries.push(self.push_node(Node::Null)?);
                 }
 
                 last_token_was_a_comma = true;

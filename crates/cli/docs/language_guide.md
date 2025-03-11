@@ -276,6 +276,13 @@ print! x
 check! [10, 99, 30]
 ```
 
+If no value is given between commas then `null` is added to the list at that position.
+
+```koto
+print! [10, , 30, , 50]
+check! [10, null, 30, null, 50]
+```
+
 ### Joining Lists
 
 The `+` operator allows lists to be joined together, creating a new list that
@@ -327,6 +334,42 @@ print! x, y
 check! ((false, 10), (true, 20))
 ```
 
+If no value is given between commas then `null` is added to the tuple at that position.
+
+```koto
+x = 10, , 20, , 30
+print! x
+check! (10, null, 20, null, 30)
+```
+
+### Empty and Single Element Tuples
+
+An empty tuple (a tuple that contains zero elements) is created using empty parentheses.
+
+```koto
+x = ()
+print! x
+check! ()
+```
+
+To create a tuple that contains a single element, then a trailing comma must be included. 
+
+```koto
+# A value inside parentheses simply resolves to the value
+print! (1 + 2)
+check! 3
+
+# To place the value in a tuple, use a trailing comma 
+print! (1 + 2,)
+check! (3)
+
+# Single element tuples can also be created without parentheses
+x = 1 + 2,
+print! x
+check! (3)
+```
+
+
 ### Joining Tuples
 
 The `+` operator allows tuples to be joined together,
@@ -337,21 +380,6 @@ a = 1, 2, 3
 b = a + (4, 5, 6)
 print! b
 check! (1, 2, 3, 4, 5, 6)
-```
-
-### Creating Empty Tuples
-
-An empty pair of parentheses in Koto resolves to `null`.
-If an empty tuple is needed then use a single `,` inside parentheses.
-
-```koto
-# An empty pair of parentheses resolves to null
-print! ()
-check! null
-
-# A comma inside parentheses creates a tuple
-print! (,)
-check! ()
 ```
 
 ### Tuple Mutability
