@@ -155,6 +155,33 @@ impl KMap {
         self.data_mut().insert(key.into(), value.into());
     }
 
+    /// Remove an entry from KMap's data
+    ///
+    /// If a matching entry existed in the map then its value is returned.
+    ///
+    /// The order of entries in the map is preserved.
+    pub fn remove(&self, key: impl Into<ValueKey>) -> Option<KValue> {
+        self.data_mut().shift_remove(&key.into())
+    }
+
+    /// Removes a nested entry at the given `.` separated path
+    ///
+    /// If a matching entry existed in the map then its value is returned.
+    ///
+    /// The order of entries in the map is preserved.
+    pub fn remove_path(&self, path: &str) -> Option<KValue> {
+        if let Some((node, rest)) = path.split_once(".") {
+            self.get(node)
+                .and_then(|child| match child {
+                    KValue::Map(map) => Some(map),
+                    _ => None,
+                })
+                .and_then(|nested| nested.remove_path(rest))
+        } else {
+            self.remove(path)
+        }
+    }
+
     /// Inserts a value into the meta map, initializing the meta map if it doesn't yet exist
     pub fn insert_meta(&mut self, key: MetaKey, value: KValue) {
         self.meta
@@ -256,10 +283,26 @@ mod tests {
         assert!(m.get("test").is_none());
         m.insert("test", KValue::Null);
         assert!(m.get("test").is_some());
-        assert!(matches!(
-            m.data_mut().shift_remove("test"),
-            Some(KValue::Null)
-        ));
+        assert!(matches!(m.remove("test"), Some(KValue::Null)));
         assert!(m.get("test").is_none());
+    }
+
+    #[test]
+    fn remove_path() {
+        let b = KMap::default();
+        b.insert("c", KValue::Null);
+        b.insert("d", KValue::Null);
+
+        let a = KMap::default();
+        a.insert("b", b.clone());
+
+        let x = KMap::default();
+        x.insert("a", a);
+
+        x.remove_path("a.b.c");
+
+        // `b` should now have had it's `c` entry removed
+        assert!(b.get("c").is_none());
+        assert!(b.get("d").is_some());
     }
 }
