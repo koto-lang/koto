@@ -59,6 +59,8 @@ The Koto project adheres to
   after checking that it compiles correctly.
 - `DisplayContext::debug_enabled` has been added to allow native objects to provide
   additional debug information when `KotoObject::display` is called.
+- `KMap::remove` and `remove_path` have been added.
+  - See the `prelude_value_remove.rs` example for motivation.
 
 ### Changed
 

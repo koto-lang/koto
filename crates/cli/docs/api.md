@@ -49,7 +49,16 @@ that implements `Into<KValue>`. Basic types like strings and numbers are
 automatically converted to corresponding Koto types.
 
 ```rust_include
-prelude_value.rs
+prelude_value_insert.rs
+```
+
+## Removing Values from the Prelude
+
+Values can also be removed from the prelude, which can be useful if you want
+to restrict the capabilities of a script.
+
+```rust_include
+prelude_value_remove.rs
 ```
 
 ## Passing Arguments to Koto

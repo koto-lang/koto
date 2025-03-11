@@ -1,21 +1,27 @@
-use koto::{Result, prelude::*};
+use anyhow::{Result, bail};
+use koto::prelude::*;
 
 fn main() -> Result<()> {
     let script = "
 export
-  exported_a: '42'.to_number()
-  exported_b: 'Hello from Koto'
+  number: 42
+  string: 'Hello from Koto'
 ";
 
     let mut koto = Koto::default();
     koto.compile_and_run(script)?;
 
-    let exports = koto.exports();
-    let exported_a = exports.get("exported_a").unwrap();
-    let exported_b = exports.get("exported_b").unwrap();
+    let exported_number = match koto.exports().get("number") {
+        Some(KValue::Number(n)) => n,
+        _ => bail!("Expected an exported number"),
+    };
+    let exported_string = match koto.exports().get("string") {
+        Some(KValue::Str(s)) => s,
+        _ => bail!("Expected an exported string"),
+    };
 
-    println!("exported_a: {}", koto.value_to_string(exported_a)?,);
-    println!("exported_b: {}", koto.value_to_string(exported_b)?,);
+    println!("Exported number: {exported_number}");
+    println!("Exported string: '{exported_string}'",);
 
     Ok(())
 }
