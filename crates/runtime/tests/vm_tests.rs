@@ -8,7 +8,6 @@ mod vm {
         #[test]
         fn null() {
             check_script_output("null", KValue::Null);
-            check_script_output("()", KValue::Null);
         }
 
         #[test]
@@ -200,10 +199,11 @@ a, b, c
 
     mod tuples {
         use super::*;
+        use KValue::Null;
 
         #[test]
         fn empty() {
-            check_script_output("(,)", KTuple::default());
+            check_script_output("()", KTuple::default());
         }
 
         #[test]
@@ -224,6 +224,24 @@ a, b, c
         #[test]
         fn two_entries_in_parens() {
             check_script_output("(1, 2)", number_tuple(&[1, 2]));
+        }
+
+        #[test]
+        fn missing_entries_without_parens() {
+            check_script_output("1, , , 2", tuple(&[1.into(), Null, Null, 2.into()]));
+        }
+
+        #[test]
+        fn missing_entries_with_parens() {
+            check_script_output(
+                "(, 1, , , 2)",
+                tuple(&[Null, 1.into(), Null, Null, 2.into()]),
+            );
+        }
+
+        #[test]
+        fn only_missing_entries_in_parens() {
+            check_script_output("(,,)", tuple(&[Null, Null]));
         }
 
         #[test]
@@ -261,6 +279,15 @@ a, b, c
         #[test]
         fn literals() {
             check_script_output("[1, 2, 3, 4]", number_list(&[1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn missing_entries() {
+            use KValue::Null;
+            check_script_output(
+                "[, 1, , 2, , 3]",
+                list(&[Null, 1.into(), Null, 2.into(), Null, 3.into()]),
+            );
         }
 
         #[test]

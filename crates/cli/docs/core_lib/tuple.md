@@ -35,7 +35,7 @@ x = 99, -1, 42
 print! x.first()
 check! 99
 
-print! (,).first()
+print! ().first()
 check! null
 ```
 
@@ -78,7 +78,7 @@ Returns `true` if the tuple has a size of zero, and `false` otherwise.
 ### Example
 
 ```koto
-print! (,).is_empty()
+print! ().is_empty()
 check! true
 
 print! (1, 2, 3).is_empty()
