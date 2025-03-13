@@ -14,12 +14,15 @@ pub enum ErrorKind {
     ///
     /// The value will either be a String, or a value that implements @display, in which case the
     /// @display function will be evaluated by the included VM when displaying the error.
-    #[error("{}", display_thrown_value(thrown_value, vm))]
+    #[error("{}", display_thrown_value(thrown_value, vm.as_deref()))]
     KotoError {
         /// The thrown value
         thrown_value: KValue,
         /// A VM that should be used to format the thrown value
-        vm: KotoVm,
+        //
+        // This is None by default, and initialized to Some when errors aren't caught within a
+        // script and are being propagated outside of the runtime, see Vm::execute_instructions.
+        vm: Option<Box<KotoVm>>,
     },
     #[error("execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
@@ -74,14 +77,16 @@ pub enum ErrorKind {
     UnexpectedError,
 }
 
-fn display_thrown_value(value: &KValue, vm: &KotoVm) -> String {
-    let mut display_context = DisplayContext::with_vm(vm);
+fn display_thrown_value(value: &KValue, vm: Option<&KotoVm>) -> String {
+    if let Some(vm) = vm {
+        let mut display_context = DisplayContext::with_vm(vm);
 
-    if value.display(&mut display_context).is_ok() {
-        display_context.result()
-    } else {
-        "Unable to display error message".into()
+        if value.display(&mut display_context).is_ok() {
+            return display_context.result();
+        }
     }
+
+    "Unable to display error message".into()
 }
 
 impl fmt::Debug for ErrorKind {
@@ -109,8 +114,11 @@ impl Error {
     }
 
     /// Initializes an error from a thrown Koto value
-    pub(crate) fn from_koto_value(thrown_value: KValue, vm: KotoVm) -> Self {
-        Self::new(ErrorKind::KotoError { thrown_value, vm })
+    pub(crate) fn from_koto_value(thrown_value: KValue) -> Self {
+        Self::new(ErrorKind::KotoError {
+            thrown_value,
+            vm: None, // A vm will be spawned if the error propagates outside of the runtime
+        })
     }
 
     /// Extends the error stack with the given [Chunk] and instruction pointer

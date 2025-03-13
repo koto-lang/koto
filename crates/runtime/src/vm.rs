@@ -312,7 +312,7 @@ impl KotoVm {
         args: CallArgs,
     ) -> Result<KValue> {
         if !function.is_callable() {
-            return runtime_error!("run_function: the provided value isn't a function");
+            return unexpected_type("Function", &function);
         }
 
         let result_register = self.next_register();
@@ -701,7 +701,13 @@ impl KotoVm {
                         self.set_register(recover_register, catch_value);
                         self.set_ip(ip);
                     }
-                    Err(error) => {
+                    Err(mut error) => {
+                        // The error hasn't been caught, so is being propagated outside of this.
+                        // Koto errors need a VM to allow the error value to be displayed,
+                        // so spawn one now.
+                        if let ErrorKind::KotoError { vm, .. } = &mut error.error {
+                            *vm = Some(self.spawn_shared_vm().into());
+                        }
                         self.execution_state = ExecutionState::Inactive;
                         return Err(error);
                     }
@@ -889,10 +895,7 @@ impl KotoVm {
                     }
                 };
 
-                return Err(crate::Error::from_koto_value(
-                    thrown_value,
-                    self.spawn_shared_vm(),
-                ));
+                return Err(crate::Error::from_koto_value(thrown_value));
             }
             Size { register, value } => self.run_size(register, value, false)?,
             IterNext {
