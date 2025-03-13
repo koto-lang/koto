@@ -74,9 +74,7 @@ impl<'a> DisplayContext<'a> {
 
     /// Returns true if the given ID is present in the parent container list
     pub fn is_in_parents(&self, id: Address) -> bool {
-        self.parent_containers
-            .iter()
-            .any(|parent_id| *parent_id == id)
+        self.parent_containers.contains(&id)
     }
 
     /// Adds the given ID to the parents list
