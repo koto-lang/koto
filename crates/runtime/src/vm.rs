@@ -1,5 +1,5 @@
 use crate::{
-    DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
+    DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
     core_lib::CoreLib,
     error::{Error, ErrorKind},
     prelude::*,
@@ -2771,7 +2771,7 @@ impl KotoVm {
             expected_arg_count,
         )?;
 
-        // Captures and temp tuple values are placed in the registerst following the arguments
+        // Captures and temp tuple values are placed in the registers following the arguments
         apply_captures_and_temp_tuple_values(&mut generator_vm.registers, f, temp_tuple_values);
 
         // Move the generator vm into an iterator and then place it in the result register
@@ -3250,6 +3250,18 @@ impl KotoVm {
         self.reader.chunk.clone()
     }
 
+    /// The ip that produced the most recently executed instruction
+    ///
+    /// For native functions accessing the VM from [`CallContext`] or [`MethodContext`],
+    /// this will refer to the call instruction currently being executed,
+    /// which can be useful for building error messages with more informative stack traces.
+    pub fn instruction_frame(&self) -> InstructionFrame {
+        InstructionFrame {
+            chunk: self.chunk(),
+            instruction: self.instruction_ip,
+        }
+    }
+
     fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: u32) {
         self.reader = InstructionReader {
             chunk,
@@ -3369,7 +3381,7 @@ impl KotoVm {
         mut error: Error,
         allow_catch: bool,
     ) -> Result<(u8, u32)> {
-        error.extend_trace(self.chunk(), self.instruction_ip);
+        error.extend_trace(self.instruction_frame());
 
         while let Some(frame) = self.call_stack.last() {
             match frame.catch_stack.last() {
@@ -3384,7 +3396,7 @@ impl KotoVm {
                     self.pop_frame(KValue::Null)?;
 
                     if !self.call_stack.is_empty() {
-                        error.extend_trace(self.chunk(), self.instruction_ip);
+                        error.extend_trace(self.instruction_frame());
                     }
                 }
             }

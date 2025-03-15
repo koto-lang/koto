@@ -3,7 +3,7 @@
 mod runtime {
     use koto_bytecode::{CompilerSettings, ModuleLoader};
     use koto_lexer::{Position, Span};
-    use koto_runtime::{ErrorFrame, KotoVm};
+    use koto_runtime::{InstructionFrame, KotoVm};
     use koto_test_utils::script_instructions;
 
     fn check_script_fails(script: &str) {
@@ -36,7 +36,7 @@ mod runtime {
             }
             Err(e) => {
                 if let Some(expected_span) = span {
-                    let ErrorFrame { chunk, instruction } = e.trace.first().unwrap();
+                    let InstructionFrame { chunk, instruction } = e.trace.first().unwrap();
                     let error_span = chunk.debug_info.get_source_span(*instruction).unwrap();
                     if error_span != expected_span {
                         println!("{}", script_instructions(script, vm.chunk()));
@@ -421,7 +421,7 @@ x
             use super::*;
 
             #[test]
-            fn iterator_consume_should_propagate_error() {
+            fn consume_should_propagate_error() {
                 let script = "\
 (1..5)
   .each |_| assert false
@@ -444,7 +444,7 @@ x
             }
 
             #[test]
-            fn iterator_count_should_propagate_error() {
+            fn count_should_propagate_error() {
                 let script = "\
 (1..5)
   .each |_| assert false
@@ -467,7 +467,7 @@ x
             }
 
             #[test]
-            fn iterator_generate_used_as_instance_function() {
+            fn generate_used_as_instance_function() {
                 let script = "
 [].generate(|| true).take(3).to_list()
 ";
@@ -475,11 +475,83 @@ x
             }
 
             #[test]
-            fn iterator_repeat_used_as_instance_function() {
+            fn keep_function_missing_argument() {
+                let script = "\
+(1..10).keep(|| false).to_tuple()
+#       ^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 8 },
+                        end: Position {
+                            line: 0,
+                            column: 12,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn keep_function_returns_non_bool() {
+                let script = "\
+(1..10).keep(|x| null).to_tuple()
+#       ^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 8 },
+                        end: Position {
+                            line: 0,
+                            column: 12,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn repeat_used_as_instance_function() {
                 let script = "
 [1, 2, 3].repeat(3).to_list()
 ";
                 check_script_fails(script);
+            }
+
+            #[test]
+            fn string_split_function_missing_argument() {
+                let script = "\
+'abc'.split(|| false).to_tuple()
+#     ^^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 6 },
+                        end: Position {
+                            line: 0,
+                            column: 11,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn string_split_function_returns_non_bool() {
+                let script = "\
+'abc'.split(|c| null).to_tuple()
+#     ^^^^^
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 0, column: 6 },
+                        end: Position {
+                            line: 0,
+                            column: 11,
+                        },
+                    },
+                );
             }
 
             #[test]

@@ -1,6 +1,6 @@
 //! A collection of string iterators
 
-use crate::{ErrorKind, KIteratorOutput as Output, Result, prelude::*};
+use crate::{Error, ErrorKind, InstructionFrame, KIteratorOutput as Output, Result, prelude::*};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
@@ -198,16 +198,18 @@ pub struct SplitWith {
     input: KString,
     predicate: KValue,
     vm: KotoVm,
+    error_frame: InstructionFrame,
     start: usize,
 }
 
 impl SplitWith {
     /// Creates a new [SplitWith] iterator
-    pub fn new(input: KString, predicate: KValue, vm: KotoVm) -> Self {
+    pub fn new(input: KString, predicate: KValue, vm: &KotoVm) -> Self {
         Self {
             input,
             predicate,
-            vm,
+            vm: vm.spawn_shared_vm(),
+            error_frame: vm.instruction_frame(),
             start: 0,
         }
     }
@@ -219,6 +221,7 @@ impl KotoIterator for SplitWith {
             input: self.input.clone(),
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
+            error_frame: self.error_frame.clone(),
             start: self.start,
         };
         Ok(KIterator::new(result))
@@ -252,14 +255,17 @@ impl Iterator for SplitWith {
                         }
                     }
                     Ok(unexpected) => {
-                        let error = ErrorKind::UnexpectedType {
-                            expected: "a bool from the string.split match function".into(),
-                            unexpected,
-                        }
-                        .into();
+                        let error = Error::with_error_frame(
+                            ErrorKind::UnexpectedType {
+                                expected: "Bool from the match function".into(),
+                                unexpected,
+                            },
+                            self.error_frame.clone(),
+                        );
                         return Some(Output::Error(error));
                     }
-                    Err(error) => {
+                    Err(mut error) => {
+                        error.extend_trace(self.error_frame.clone());
                         return Some(Output::Error(error));
                     }
                 }

@@ -1,6 +1,6 @@
 //! Generators used by the `iterator` core library module
 
-use crate::{KIteratorOutput as Output, Result, prelude::*};
+use crate::{InstructionFrame, KIteratorOutput as Output, Result, prelude::*};
 
 /// An iterator that yields a value once
 #[derive(Clone)]
@@ -105,12 +105,17 @@ impl Iterator for RepeatN {
 pub struct Generate {
     function: KValue,
     vm: KotoVm,
+    error_frame: InstructionFrame,
 }
 
 impl Generate {
     /// Creates a new [Generate] generator
-    pub fn new(function: KValue, vm: KotoVm) -> Self {
-        Self { function, vm }
+    pub fn new(function: KValue, vm: &KotoVm) -> Self {
+        Self {
+            function,
+            vm: vm.spawn_shared_vm(),
+            error_frame: vm.instruction_frame(),
+        }
     }
 }
 
@@ -119,6 +124,7 @@ impl KotoIterator for Generate {
         let result = Self {
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
+            error_frame: self.error_frame.clone(),
         };
         Ok(KIterator::new(result))
     }
@@ -131,7 +137,10 @@ impl Iterator for Generate {
         let function = self.function.clone();
         let result = match self.vm.call_function(function, &[]) {
             Ok(result) => Output::Value(result),
-            Err(error) => Output::Error(error),
+            Err(mut error) => {
+                error.extend_trace(self.error_frame.clone());
+                Output::Error(error)
+            }
         };
         Some(result)
     }
@@ -142,15 +151,17 @@ pub struct GenerateN {
     remaining: usize,
     function: KValue,
     vm: KotoVm,
+    error_frame: InstructionFrame,
 }
 
 impl GenerateN {
     /// Creates a new [GenerateN] generator
-    pub fn new(n: usize, function: KValue, vm: KotoVm) -> Self {
+    pub fn new(n: usize, function: KValue, vm: &KotoVm) -> Self {
         Self {
             remaining: n,
             function,
-            vm,
+            vm: vm.spawn_shared_vm(),
+            error_frame: vm.instruction_frame(),
         }
     }
 }
@@ -161,6 +172,7 @@ impl KotoIterator for GenerateN {
             remaining: self.remaining,
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
+            error_frame: self.error_frame.clone(),
         };
         Ok(KIterator::new(result))
     }
@@ -175,7 +187,10 @@ impl Iterator for GenerateN {
             let function = self.function.clone();
             let result = match self.vm.call_function(function, &[]) {
                 Ok(result) => Output::Value(result),
-                Err(error) => Output::Error(error),
+                Err(mut error) => {
+                    error.extend_trace(self.error_frame.clone());
+                    Output::Error(error)
+                }
             };
             Some(result)
         } else {
