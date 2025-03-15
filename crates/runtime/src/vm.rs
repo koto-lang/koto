@@ -559,24 +559,19 @@ impl KotoVm {
             Tuple(t) => Ok(KIterator::with_tuple(t)),
             Str(s) => Ok(KIterator::with_string(s)),
             Map(m) => Ok(KIterator::with_map(m)),
-            Object(o) => {
+            Object(ref o) => {
                 use IsIterable::*;
 
                 let o_inner = o.try_borrow()?;
                 match o_inner.is_iterable() {
-                    NotIterable => runtime_error!("{} is not iterable", o_inner.type_string()),
+                    NotIterable => unexpected_type("Iterable", &value),
                     Iterable => o_inner.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())
                     }
                 }
             }
-            unexpected => {
-                runtime_error!(
-                    "expected iterable value, found '{}'",
-                    unexpected.type_as_string(),
-                )
-            }
+            unexpected => unexpected_type("Iterable", &unexpected),
         }
     }
 

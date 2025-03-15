@@ -36,16 +36,16 @@ pub enum ErrorKind {
         expected: String,
         unexpected: Vec<KValue>,
     },
-    #[error("insufficient arguments - expected {expected}, found {actual}")]
+    #[error("insufficient arguments ({actual}, expected {expected})")]
     InsufficientArguments { expected: u8, actual: u8 },
-    #[error("too many arguments - expected {expected}, found {actual}")]
+    #[error("too many arguments ({actual}, expected {expected})")]
     TooManyArguments { expected: u8, actual: u8 },
-    #[error("unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
+    #[error("expected {expected}, found {}", unexpected.type_as_string())]
     UnexpectedType {
         expected: String,
         unexpected: KValue,
     },
-    #[error("unexpected object type - expected: '{expected}', found: '{unexpected}'")]
+    #[error("expected {expected}, found {unexpected}")]
     UnexpectedObjectType {
         expected: &'static str,
         unexpected: KString,

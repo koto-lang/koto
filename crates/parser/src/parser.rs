@@ -1342,7 +1342,7 @@ impl<'source> Parser<'source> {
                         )),
                         id_span,
                     )?;
-                    self.push_node_with_span(
+                    self.push_node_with_start_span(
                         Node::Chain((ChainNode::Root(id_node), Some(call_node))),
                         id_span,
                     )
