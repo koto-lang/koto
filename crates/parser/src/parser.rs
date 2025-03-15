@@ -1652,8 +1652,19 @@ impl<'source> Parser<'source> {
                 .consume_until_token_with_context(&args_context)
                 .unwrap();
 
+            let arg_start_span = self.current_span();
             if let Some(expression) = self.parse_expression(&ExpressionContext::inline())? {
-                args.push(expression);
+                let arg_expression = if self.peek_token() == Some(Token::Ellipsis) {
+                    self.consume_token();
+                    self.push_node_with_start_span(
+                        Node::PackedExpression(expression),
+                        arg_start_span,
+                    )?
+                } else {
+                    expression
+                };
+
+                args.push(arg_expression);
             } else {
                 break;
             }
