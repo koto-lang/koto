@@ -615,7 +615,7 @@ impl KotoVm {
             }
 
             let make_test_error = |error: Error, message: &str| {
-                Err(error.with_prefix(&format!("{message} '{test_name}'")))
+                Err(error.with_context(format!("{message} '{test_name}'")))
             };
 
             if let Some(pre_test) = &pre_test {
@@ -624,7 +624,7 @@ impl KotoVm {
                         self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
 
                     if let Err(error) = pre_test_result {
-                        return make_test_error(error, "Error while preparing to run test");
+                        return make_test_error(error, "while preparing to run test");
                     }
                 }
             }
@@ -632,7 +632,7 @@ impl KotoVm {
             let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
 
             if let Err(error) = test_result {
-                return make_test_error(error, "Error while running test");
+                return make_test_error(error, "while running test");
             }
 
             if let Some(post_test) = &post_test {
@@ -641,7 +641,7 @@ impl KotoVm {
                         self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
 
                     if let Err(error) = post_test_result {
-                        return make_test_error(error, "Error after running test");
+                        return make_test_error(error, "after running test");
                     }
                 }
             }
@@ -2920,7 +2920,11 @@ impl KotoVm {
             let iterable = self.registers.swap_remove(unpack_index);
 
             // Convert the value into an iterator
-            let iterator = self.make_iterator(iterable)?;
+            let iterator = self.make_iterator(iterable).map_err(|error| {
+                error.with_context(format!(
+                    "while unpacking argument at index {packed_arg_register}"
+                ))
+            })?;
 
             // Process the iterator output, checking for errors and collecting `ValuePair`s
             let max_unpacked_args = (u8::MAX - info.arg_count - 1) as usize; // -1 for frame base

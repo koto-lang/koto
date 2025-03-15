@@ -29,7 +29,7 @@ setup:
   cargo install cargo-watch mlc wasm-pack
 
 temp *args:
-  cargo run {{args}} -- --tests -i temp.koto
+  cargo run {{args}} -- --tests -i -T temp.koto
 
 test *args:
   cargo test {{args}}

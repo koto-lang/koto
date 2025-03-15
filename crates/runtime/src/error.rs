@@ -100,6 +100,8 @@ impl fmt::Debug for ErrorKind {
 pub struct Error {
     /// The error that was thrown
     pub error: ErrorKind,
+    /// Additional context attached to the error
+    pub context: Vec<String>,
     /// The stack trace at the point when the error was thrown
     pub trace: Vec<ErrorFrame>,
 }
@@ -109,6 +111,7 @@ impl Error {
     pub(crate) fn new(error: ErrorKind) -> Self {
         Self {
             error,
+            context: Vec::new(),
             trace: Vec::new(),
         }
     }
@@ -126,16 +129,10 @@ impl Error {
         self.trace.push(ErrorFrame { chunk, instruction });
     }
 
-    /// Modifies string errors to include the given prefix
+    /// Adds additional context to the error
     #[must_use]
-    pub fn with_prefix(mut self, prefix: &str) -> Self {
-        use ErrorKind::StringError;
-
-        self.error = match self.error {
-            StringError(message) => StringError(format!("{prefix}: {message}")),
-            other => other,
-        };
-
+    pub fn with_context(mut self, prefix: String) -> Self {
+        self.context.push(prefix);
         self
     }
 
@@ -151,6 +148,9 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.error)?;
+        for context in self.context.iter() {
+            write!(f, " ({context})")?;
+        }
 
         for ErrorFrame { chunk, instruction } in self.trace.iter() {
             write!(f, "\n--- ")?;

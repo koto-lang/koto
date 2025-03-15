@@ -1,6 +1,6 @@
 //! A collection of string iterators
 
-use crate::{KIteratorOutput as Output, Result, prelude::*};
+use crate::{ErrorKind, KIteratorOutput as Output, Result, prelude::*};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
@@ -252,13 +252,16 @@ impl Iterator for SplitWith {
                         }
                     }
                     Ok(unexpected) => {
-                        let error = format!(
-                            "string.split: Expected a Bool from the match function, found '{}'",
-                            unexpected.type_as_string()
-                        );
-                        return Some(Output::Error(error.into()));
+                        let error = ErrorKind::UnexpectedType {
+                            expected: "a bool from the string.split match function".into(),
+                            unexpected,
+                        }
+                        .into();
+                        return Some(Output::Error(error));
                     }
-                    Err(error) => return Some(Output::Error(error.with_prefix("string.split"))),
+                    Err(error) => {
+                        return Some(Output::Error(error));
+                    }
                 }
             }
 
