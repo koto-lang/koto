@@ -2775,65 +2775,39 @@ f = |x|
         }
 
         #[test]
-        fn call_negative_arg() {
-            let source = "f x, -x";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    id(1),
-                    unary_op(AstUnaryOp::Negate, 2),
-                    chain_call(&[1, 3], false, None),
-                    chain_root(0, Some(4)), // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("x")]),
-            )
-        }
+        fn call_without_parentheses() {
+            let sources = [
+                "
+foo x, y
+",
+                "
+foo x,y
+",
+                "
+foo
+  x,
+  y
+",
+                "
+foo x,
+    y
+",
+            ];
 
-        #[test]
-        fn call_arithmetic_arg() {
-            let source = "f x - 1";
-            check_ast(
-                source,
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
-                    id(0), // f
+                    id(0), //foo
                     id(1), // x
-                    SmallInt(1),
-                    binary_op(AstBinaryOp::Subtract, 1, 2),
-                    chain_call(&[3], false, None),
-                    chain_root(0, Some(4)), // 5
+                    id(2), // y
+                    chain_call(&[1, 2], false, None),
+                    chain_root(0, Some(3)),
                     MainBlock {
-                        body: nodes(&[5]),
+                        body: nodes(&[4]),
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("f"), Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn call_unpacked_arg() {
-            let source = "f a..., b";
-            check_ast(
-                source,
-                &[
-                    id(0),                      // f
-                    id(1),                      // a
-                    PackedExpression(1.into()), // a
-                    id(2),                      // b
-                    chain_call(&[2, 3], false, None),
-                    chain_root(0, Some(4)), // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("a"), Constant::Str("b")]),
+                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -2882,39 +2856,85 @@ f(x,
         }
 
         #[test]
-        fn call_without_parentheses() {
-            let sources = [
-                "
-foo x, y
-",
-                "
-foo x,y
-",
-                "
-foo
-  x,
-  y
-",
-                "
-foo x,
-    y
-",
-            ];
-
-            check_ast_for_equivalent_sources(
-                &sources,
+        fn call_negative_arg() {
+            let source = "f x, -x";
+            check_ast(
+                source,
                 &[
-                    id(0), //foo
-                    id(1), // x
-                    id(2), // y
-                    chain_call(&[1, 2], false, None),
-                    chain_root(0, Some(3)),
+                    id(0),
+                    id(1),
+                    id(1),
+                    unary_op(AstUnaryOp::Negate, 2),
+                    chain_call(&[1, 3], false, None),
+                    chain_root(0, Some(4)), // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn call_arithmetic_arg() {
+            let source = "f x - 1";
+            check_ast(
+                source,
+                &[
+                    id(0), // f
+                    id(1), // x
+                    SmallInt(1),
+                    binary_op(AstBinaryOp::Subtract, 1, 2),
+                    chain_call(&[3], false, None),
+                    chain_root(0, Some(4)), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn call_packed_arg_without_parentheses() {
+            let source = "f a..., b";
+            check_ast(
+                source,
+                &[
+                    id(0),                      // f
+                    id(1),                      // a
+                    PackedExpression(1.into()), // a
+                    id(2),                      // b
+                    chain_call(&[2, 3], false, None),
+                    chain_root(0, Some(4)), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
+        #[test]
+        fn call_packed_arg_with_parentheses() {
+            let source = "f(a..., b)";
+            check_ast(
+                source,
+                &[
+                    id(0),                      // f
+                    id(1),                      // a
+                    PackedExpression(1.into()), // a
+                    id(2),                      // b
+                    chain_call(&[2, 3], true, None),
+                    chain_root(0, Some(4)), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("a"), Constant::Str("b")]),
             )
         }
 

@@ -36,16 +36,16 @@ pub enum ErrorKind {
         expected: String,
         unexpected: Vec<KValue>,
     },
-    #[error("insufficient arguments - expected {expected}, found {actual}")]
+    #[error("insufficient arguments ({actual}, expected {expected})")]
     InsufficientArguments { expected: u8, actual: u8 },
-    #[error("too many arguments - expected {expected}, found {actual}")]
+    #[error("too many arguments ({actual}, expected {expected})")]
     TooManyArguments { expected: u8, actual: u8 },
-    #[error("unexpected type - expected: '{expected}', found: '{}'", unexpected.type_as_string())]
+    #[error("expected {expected}, found {}", unexpected.type_as_string())]
     UnexpectedType {
         expected: String,
         unexpected: KValue,
     },
-    #[error("unexpected object type - expected: '{expected}', found: '{unexpected}'")]
+    #[error("expected {expected}, found {unexpected}")]
     UnexpectedObjectType {
         expected: &'static str,
         unexpected: KString,
@@ -100,16 +100,47 @@ impl fmt::Debug for ErrorKind {
 pub struct Error {
     /// The error that was thrown
     pub error: ErrorKind,
+    /// Additional context attached to the error
+    pub context: Vec<String>,
     /// The stack trace at the point when the error was thrown
-    pub trace: Vec<ErrorFrame>,
+    pub trace: Vec<InstructionFrame>,
 }
 
 impl Error {
-    /// Initializes an error with the given internal error type
-    pub(crate) fn new(error: ErrorKind) -> Self {
+    /// Initializes an error with the given [`ErrorKind`]
+    pub fn new(error: ErrorKind) -> Self {
         Self {
             error,
+            context: Vec::new(),
             trace: Vec::new(),
+        }
+    }
+
+    /// Initializes an error with the given [`ErrorKind`] and the top frame of the stack trace
+    ///
+    /// This is useful for errors thrown from native functions after they were initially called
+    /// from the runtime, e.g. iterator adaptors that can throw errors when the iterator is being
+    /// lazily consumed; it's helpful to highlight the adaptor itself at the top of the stack trace.
+    pub fn with_error_frame(error: ErrorKind, error_frame: InstructionFrame) -> Self {
+        Self {
+            error,
+            context: Vec::new(),
+            trace: vec![error_frame],
+        }
+    }
+
+    /// Adds additional context to the error
+    #[must_use]
+    pub fn with_context(mut self, prefix: String) -> Self {
+        self.context.push(prefix);
+        self
+    }
+
+    /// Returns true if the error was caused by the parser expecting indentation
+    pub fn is_indentation_error(&self) -> bool {
+        match &self.error {
+            ErrorKind::CompileError(error) => error.is_indentation_error(),
+            _ => false,
         }
     }
 
@@ -122,37 +153,19 @@ impl Error {
     }
 
     /// Extends the error stack with the given [Chunk] and instruction pointer
-    pub(crate) fn extend_trace(&mut self, chunk: Ptr<Chunk>, instruction: u32) {
-        self.trace.push(ErrorFrame { chunk, instruction });
-    }
-
-    /// Modifies string errors to include the given prefix
-    #[must_use]
-    pub fn with_prefix(mut self, prefix: &str) -> Self {
-        use ErrorKind::StringError;
-
-        self.error = match self.error {
-            StringError(message) => StringError(format!("{prefix}: {message}")),
-            other => other,
-        };
-
-        self
-    }
-
-    /// Returns true if the error was caused by the parser expecting indentation
-    pub fn is_indentation_error(&self) -> bool {
-        match &self.error {
-            ErrorKind::CompileError(error) => error.is_indentation_error(),
-            _ => false,
-        }
+    pub(crate) fn extend_trace(&mut self, instruction_frame: InstructionFrame) {
+        self.trace.push(instruction_frame);
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.error)?;
+        for context in self.context.iter() {
+            write!(f, " ({context})")?;
+        }
 
-        for ErrorFrame { chunk, instruction } in self.trace.iter() {
+        for InstructionFrame { chunk, instruction } in self.trace.iter() {
             write!(f, "\n--- ")?;
 
             if let Some(span) = chunk.debug_info.get_source_span(*instruction) {
@@ -202,7 +215,7 @@ where
 /// A chunk and instruction pointer in a call stack where an error was thrown
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
-pub struct ErrorFrame {
+pub struct InstructionFrame {
     pub chunk: Ptr<Chunk>,
     pub instruction: u32,
 }

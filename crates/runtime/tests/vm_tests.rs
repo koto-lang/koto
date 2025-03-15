@@ -1468,6 +1468,17 @@ f []..., (1, 2, 3, 4)...
 ";
                 check_script_output(script, number_tuple(&[1, 2, 3, 4]));
             }
+
+            #[test]
+            fn in_parentheses() {
+                let script = "
+f = |a, b, c, d| a, b, c, d
+x = 1, 2
+y = 3, 4
+f(x..., y...)
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+            }
         }
 
         #[test]

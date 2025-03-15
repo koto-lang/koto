@@ -198,11 +198,7 @@ pub fn make_module() -> KMap {
             (iterable, [f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let f = f.clone();
-                let result = adaptors::Each::new(
-                    ctx.vm.make_iterator(iterable)?,
-                    f,
-                    ctx.vm.spawn_shared_vm(),
-                );
+                let result = adaptors::Each::new(ctx.vm.make_iterator(iterable)?, f, ctx.vm);
 
                 Ok(KIterator::new(result).into())
             }
@@ -266,10 +262,7 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let result = adaptors::Flatten::new(
-                    ctx.vm.make_iterator(iterable)?,
-                    ctx.vm.spawn_shared_vm(),
-                );
+                let result = adaptors::Flatten::new(ctx.vm.make_iterator(iterable)?, ctx.vm);
 
                 Ok(KIterator::new(result).into())
             }
@@ -325,12 +318,11 @@ pub fn make_module() -> KMap {
 
         match ctx.args() {
             [f] if f.is_callable() => {
-                let result = generators::Generate::new(f.clone(), ctx.vm.spawn_shared_vm());
+                let result = generators::Generate::new(f.clone(), ctx.vm);
                 Ok(KIterator::new(result).into())
             }
             [KValue::Number(n), f] if f.is_callable() => {
-                let result =
-                    generators::GenerateN::new(n.into(), f.clone(), ctx.vm.spawn_shared_vm());
+                let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm);
                 Ok(KIterator::new(result).into())
             }
             unexpected => unexpected_args(
@@ -350,7 +342,7 @@ pub fn make_module() -> KMap {
                 let result = adaptors::IntersperseWith::new(
                     ctx.vm.make_iterator(iterable)?,
                     separator_fn,
-                    ctx.vm.spawn_shared_vm(),
+                    ctx.vm,
                 );
 
                 Ok(KIterator::new(result).into())
@@ -385,11 +377,8 @@ pub fn make_module() -> KMap {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
-                let result = adaptors::Keep::new(
-                    ctx.vm.make_iterator(iterable)?,
-                    predicate,
-                    ctx.vm.spawn_shared_vm(),
-                );
+                let result =
+                    adaptors::Keep::new(ctx.vm.make_iterator(iterable)?, predicate, ctx.vm);
                 Ok(KIterator::new(result).into())
             }
             (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
@@ -754,11 +743,8 @@ pub fn make_module() -> KMap {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
-                let result = adaptors::TakeWhile::new(
-                    ctx.vm.make_iterator(iterable)?,
-                    predicate,
-                    ctx.vm.spawn_shared_vm(),
-                );
+                let result =
+                    adaptors::TakeWhile::new(ctx.vm.make_iterator(iterable)?, predicate, ctx.vm);
                 Ok(KIterator::new(result).into())
             }
             (instance, args) => unexpected_args_after_instance(expected_error, instance, args),

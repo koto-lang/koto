@@ -1,5 +1,5 @@
 use crate::{
-    DefaultStderr, DefaultStdin, DefaultStdout, KFunction, Ptr, Result,
+    DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
     core_lib::CoreLib,
     error::{Error, ErrorKind},
     prelude::*,
@@ -559,24 +559,19 @@ impl KotoVm {
             Tuple(t) => Ok(KIterator::with_tuple(t)),
             Str(s) => Ok(KIterator::with_string(s)),
             Map(m) => Ok(KIterator::with_map(m)),
-            Object(o) => {
+            Object(ref o) => {
                 use IsIterable::*;
 
                 let o_inner = o.try_borrow()?;
                 match o_inner.is_iterable() {
-                    NotIterable => runtime_error!("{} is not iterable", o_inner.type_string()),
+                    NotIterable => unexpected_type("Iterable", &value),
                     Iterable => o_inner.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())
                     }
                 }
             }
-            unexpected => {
-                runtime_error!(
-                    "expected iterable value, found '{}'",
-                    unexpected.type_as_string(),
-                )
-            }
+            unexpected => unexpected_type("Iterable", &unexpected),
         }
     }
 
@@ -620,7 +615,7 @@ impl KotoVm {
             }
 
             let make_test_error = |error: Error, message: &str| {
-                Err(error.with_prefix(&format!("{message} '{test_name}'")))
+                Err(error.with_context(format!("{message} '{test_name}'")))
             };
 
             if let Some(pre_test) = &pre_test {
@@ -629,7 +624,7 @@ impl KotoVm {
                         self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
 
                     if let Err(error) = pre_test_result {
-                        return make_test_error(error, "Error while preparing to run test");
+                        return make_test_error(error, "while preparing to run test");
                     }
                 }
             }
@@ -637,7 +632,7 @@ impl KotoVm {
             let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
 
             if let Err(error) = test_result {
-                return make_test_error(error, "Error while running test");
+                return make_test_error(error, "while running test");
             }
 
             if let Some(post_test) = &post_test {
@@ -646,7 +641,7 @@ impl KotoVm {
                         self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
 
                     if let Err(error) = post_test_result {
-                        return make_test_error(error, "Error after running test");
+                        return make_test_error(error, "after running test");
                     }
                 }
             }
@@ -2776,7 +2771,7 @@ impl KotoVm {
             expected_arg_count,
         )?;
 
-        // Captures and temp tuple values are placed in the registerst following the arguments
+        // Captures and temp tuple values are placed in the registers following the arguments
         apply_captures_and_temp_tuple_values(&mut generator_vm.registers, f, temp_tuple_values);
 
         // Move the generator vm into an iterator and then place it in the result register
@@ -2925,7 +2920,11 @@ impl KotoVm {
             let iterable = self.registers.swap_remove(unpack_index);
 
             // Convert the value into an iterator
-            let iterator = self.make_iterator(iterable)?;
+            let iterator = self.make_iterator(iterable).map_err(|error| {
+                error.with_context(format!(
+                    "while unpacking argument at index {packed_arg_register}"
+                ))
+            })?;
 
             // Process the iterator output, checking for errors and collecting `ValuePair`s
             let max_unpacked_args = (u8::MAX - info.arg_count - 1) as usize; // -1 for frame base
@@ -3251,6 +3250,18 @@ impl KotoVm {
         self.reader.chunk.clone()
     }
 
+    /// The ip that produced the most recently executed instruction
+    ///
+    /// For native functions accessing the VM from [`CallContext`] or [`MethodContext`],
+    /// this will refer to the call instruction currently being executed,
+    /// which can be useful for building error messages with more informative stack traces.
+    pub fn instruction_frame(&self) -> InstructionFrame {
+        InstructionFrame {
+            chunk: self.chunk(),
+            instruction: self.instruction_ip,
+        }
+    }
+
     fn set_chunk_and_ip(&mut self, chunk: Ptr<Chunk>, ip: u32) {
         self.reader = InstructionReader {
             chunk,
@@ -3370,7 +3381,7 @@ impl KotoVm {
         mut error: Error,
         allow_catch: bool,
     ) -> Result<(u8, u32)> {
-        error.extend_trace(self.chunk(), self.instruction_ip);
+        error.extend_trace(self.instruction_frame());
 
         while let Some(frame) = self.call_stack.last() {
             match frame.catch_stack.last() {
@@ -3385,7 +3396,7 @@ impl KotoVm {
                     self.pop_frame(KValue::Null)?;
 
                     if !self.call_stack.is_empty() {
-                        error.extend_trace(self.chunk(), self.instruction_ip);
+                        error.extend_trace(self.instruction_frame());
                     }
                 }
             }

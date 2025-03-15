@@ -160,11 +160,8 @@ pub fn make_module() -> KMap {
                     KIterator::new(result)
                 }
                 (KValue::Str(input), [predicate]) if predicate.is_callable() => {
-                    let result = iterators::SplitWith::new(
-                        input.clone(),
-                        predicate.clone(),
-                        ctx.vm.spawn_shared_vm(),
-                    );
+                    let result =
+                        iterators::SplitWith::new(input.clone(), predicate.clone(), ctx.vm);
                     KIterator::new(result)
                 }
                 (instance, args) => {
