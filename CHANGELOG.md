@@ -62,6 +62,14 @@ The Koto project adheres to
 - `KMap::remove` and `remove_path` have been added.
   - See the `prelude_value_remove.rs` example for motivation.
 
+#### Core Library
+
+- New functions:
+  - `iterator.advance`
+  - `string.strip_prefix` / `string.strip_suffix`
+  - `string.trim_start` / `string.trim_end`
+    - `string.trim` now also accepts a pattern to match against.
+
 ### Changed
 
 #### Language
@@ -71,6 +79,10 @@ The Koto project adheres to
 - Calls to Koto functions with the incorrect number of arguments will now throw an error.
   - Default values should be provided for optional arguments.
   - Variadic arguments should be used to capture additional arguments.
+
+#### Core Library
+
+- `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
 
 #### CLI
 
