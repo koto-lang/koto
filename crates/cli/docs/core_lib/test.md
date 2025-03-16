@@ -17,7 +17,7 @@ Throws a runtime error if the argument if false.
 assert 1 < 2
 
 # This assertion will fail and throw an error
-try 
+try
   assert 1 > 2
 catch error
   print error
@@ -39,7 +39,7 @@ equal.
 assert_eq 1 + 1, 2
 
 # This assertion will fail and throw an error
-try 
+try
   assert_eq 2 + 2, 5
 catch error
   print error

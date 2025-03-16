@@ -120,10 +120,10 @@ check! Vec3{x: -1, y: -2, z: 5}
 
 ## Rect
 
-The `Rect` type represents a 2-dimensional rectangle, 
-with a defined position and size. 
+The `Rect` type represents a 2-dimensional rectangle,
+with a defined position and size.
 
-The position is interpreted as being at the center of the rectangle. 
+The position is interpreted as being at the center of the rectangle.
 
 Comparison operations are available, and the rect's components are iterable.
 

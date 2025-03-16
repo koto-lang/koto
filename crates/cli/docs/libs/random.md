@@ -90,8 +90,8 @@ Selects a random value from the input using the current thread's generator.
   randomly selected entry will be returned.
 - If the input is a range, then the result will be an integer within the given
   range.
-- If the input is some other indexable type (like a list or tuple), 
-  then a randomly selected element from the input will be returned. 
+- If the input is some other indexable type (like a list or tuple),
+  then a randomly selected element from the input will be returned.
 
 ### Example
 
@@ -171,7 +171,7 @@ check! {a: 1, c: 3, b: 2}
 `Rng` is the `random` module's core random generator.
 
 The ChaCha algorithm with 8 rounds from the `rand_chacha` crate is used to
-generate random values. 
+generate random values.
 See the [implementation's docs][chacha-docs] for more information.
 
 ## Rng.bool

@@ -64,7 +64,7 @@ check! 0
 ```
 
 Returns a copy of the input range which has been 'expanded' in both directions
-by the provided `amount`. 
+by the provided `amount`.
 
 For an ascending range this will mean that `start` will decrease by the provided
 amount, while `end` will increase.

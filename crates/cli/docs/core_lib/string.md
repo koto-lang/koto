@@ -28,7 +28,7 @@ check! (72, 195, 171, 121, 33)
 
 Returns an iterator that yields the string's characters as strings.
 
-A 'character' in Koto is defined as being a 
+A 'character' in Koto is defined as being a
 [unicode grapheme cluster][grapheme-cluster].
 
 ### Note
@@ -53,7 +53,7 @@ check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 |String| -> Iterator
 ```
 
-Returns an iterator that yields the indices of each 
+Returns an iterator that yields the indices of each
 [grapheme cluster][grapheme-cluster] in the string.
 
 Each cluster is represented as a range, which can then be used to extract the
@@ -241,7 +241,7 @@ string wherever the `match` string is encountered.
 ```
 
 Returns an iterator that yields strings resulting from splitting the input
-string based on the result of calling a `match` function. 
+string based on the result of calling a `match` function.
 
 The `match` function will be called for each grapheme in the input string, and
 splits will occur when the function returns true.
@@ -276,6 +276,54 @@ check! true
 print! 'xyz'.starts_with 'abc'
 check! false
 ```
+
+## strip_prefix
+
+```kototype
+|input: String, prefix: String| -> String?
+```
+
+Returns the input string with the given `prefix` removed,
+or `null` if the input string doesn't start with `prefix`.
+
+### Example
+
+```koto
+print! 'abc: xyz'.strip_prefix 'abc: '
+check! xyz
+
+print! 'xxxxx'.strip_prefix 'abc: '
+check! null
+```
+
+### See Also
+
+- [`string.strip_suffix`](#strip_suffix)
+- [`string.trim_start`](#trim_start)
+
+## strip_suffix
+
+```kototype
+|input: String, suffix: String| -> String?
+```
+
+Returns the input string with the given `suffix` removed,
+or `null` if the input string doesn't end with `suffix`.
+
+### Example
+
+```koto
+print! 'abc: xyz'.strip_suffix ' xyz'
+check! abc:
+
+print! 'xxxxx'.strip_suffix ' xyz'
+check! null
+```
+
+### See Also
+
+- [`string.strip_prefix`](#strip_prefix)
+- [`string.trim_end`](#trim_end)
 
 ## to_lowercase
 
@@ -315,7 +363,7 @@ If a number can't be produced then `null` is returned.
 
 Returns the string converted into a number given the specified `base`.
 
-The base must be an integer in the range `2..=36`, 
+The base must be an integer in the range `2..=36`,
 otherwise an error will be thrown.
 
 If the string contains non-numerical digits then `null` is returned.
@@ -360,19 +408,106 @@ check! O_O
 ## trim
 
 ```kototype
-|String| -> String
+|input: String| -> String
 ```
 
-Returns the string with whitespace at the start and end of the string trimmed.
+Returns a string with any whitespace removed from the start and end of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the start and end of the input.
 
 ### Example
 
 ```koto
-print! '   x    '.trim()
+print! '   x   '.trim()
 check! x
 
 print! '     !'.trim()
 check! !
+
+print! '----O_o----'.trim '-'
+check! O_o
+
+print! 'abcabc!!!abcabc'.trim 'abc'
+check! !!!
 ```
+
+### See Also
+
+- [`string.trim_start`](#trim_start)
+- [`string.trim_end`](#trim_end)
+
+## trim_start
+
+```kototype
+|input: String| -> String
+```
+
+Returns a string with any whitespace removed from the start of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the start of the input.
+
+### Example
+
+```koto
+trimmed = '   x   '.trim_start()
+print! (trimmed,)
+check! ('x   ')
+
+print! '----O_o----'.trim_start '-'
+check! O_o----
+
+print! 'abcabc!!!abcabc'.trim_start 'abc'
+check! !!!abcabc
+```
+
+### See Also
+
+- [`string.strip_prefix`](#strip_prefix)
+- [`string.trim`](#trim)
+- [`string.trim_end`](#trim_end)
+
+## trim_end
+
+```kototype
+|input: String| -> String
+```
+
+Returns a string with any whitespace removed from the end of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the end of the input.
+
+### Example
+
+```koto
+print! '   x   '.trim_end()
+check!    x
+
+print! '     !     '.trim_end()
+check!      !
+
+print! '----O_o----'.trim_end '-'
+check! ----O_o
+
+print! 'abcabc!!!abcabc'.trim_end 'abc'
+check! abcabc!!!
+```
+
+### See Also
+
+- [`string.strip_suffix`](#strip_suffix)
+- [`string.trim`](#trim)
+- [`string.trim_start`](#trim_start)
 
 [grapheme-cluster]: https://www.unicode.org/glossary/#grapheme_cluster

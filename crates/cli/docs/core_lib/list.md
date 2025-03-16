@@ -140,7 +140,7 @@ check! 123
 |List, position: Number, value: Any| -> List
 ```
 
-Inserts the value into the list at the given index position, 
+Inserts the value into the list at the given index position,
 and returns the list.
 
 Elements in the list at or after the given position will be shifted to make
@@ -389,7 +389,7 @@ Sorts the list in place, and returns the list.
 ```
 
 Sorts the list in place, based on the output of calling a `key` function for
-each of the list's elements, and returns the list. 
+each of the list's elements, and returns the list.
 
 The key function's result is cached, so it's only called once per element.
 
@@ -459,7 +459,7 @@ check! (1, 2, 3)
 |List, transformer: |Any| -> Any| -> List
 ```
 
-Transforms the list data in place by replacing each value with the result of 
+Transforms the list data in place by replacing each value with the result of
 calling the provided `transformer` function, and then returns the list.
 
 ### Example

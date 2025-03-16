@@ -3,7 +3,7 @@
 Utilities for working with color in Koto.
 
 At the core of the library is the [`Color`](#color-1) type, with various initializers
-available. 
+available.
 
 For convenience, the color module itself is callable as a shorthand for some standard initializers:
 
@@ -53,7 +53,7 @@ check! Color(RGB, r: 0, g: 0.5, b: 1, a: 0.5)
 
 Creates a color from the given [hex triplet][hex-triplet] string, e.g. `'#7fee80'`.
 
-The `#` prefix is optional, and the 3 digit shorthand version (e.g. `'#7e8'`) can also be used. 
+The `#` prefix is optional, and the 3 digit shorthand version (e.g. `'#7e8'`) can also be used.
 
 If the string can't be parsed as a hex triplet then `null` will be returned.
 
@@ -87,9 +87,9 @@ check! Color(RGB, r: 0, g: 1, b: 0, a: 1)
 Returns a color produced from [hue, saturation, lightness][hsl-hsv],
 and optional alpha components.
 
-The hue component is specified in degrees. 
+The hue component is specified in degrees.
 
-The saturation, lightness, and alpha components are specified as numbers between `0` 
+The saturation, lightness, and alpha components are specified as numbers between `0`
 and `1`.
 
 ### Example
@@ -111,7 +111,7 @@ check! Color(HSL, h: 180, s: 1, l: 0.25, a: 1)
 Returns a color produced from [hue, saturation, value][hsl-hsv],
 and optional alpha components.
 
-The hue component is specified in degrees. 
+The hue component is specified in degrees.
 
 The saturation, value, and alpha components are specified as numbers between `0` and `1`.
 
@@ -125,11 +125,11 @@ check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
 ## named
 
 ```kototype
-|name: String| -> Color? 
+|name: String| -> Color?
 ```
 
 Returns a color corresponding to one of the named colors listed in the
-[SVG color keywords][svg-colors] specification. 
+[SVG color keywords][svg-colors] specification.
 
 If no name is found then `null` will be returned.
 
@@ -179,7 +179,7 @@ The lightness and alpha components are specified as numbers between `0` and `1`.
 
 The hue component is specified in degrees.
 
-The chroma component is a number between `0` and a maximum that depends on the 
+The chroma component is a number between `0` and a maximum that depends on the
 hue and lightness components.
 
 ### Example
@@ -195,7 +195,7 @@ check! Color(Oklch, l: 0.6, c: 0.1, h: 180, a: 1)
 |r: Number, g: Number, b: Number| -> Color
 ```
 
-Returns a color produced from [red, green, blue][rgb], 
+Returns a color produced from [red, green, blue][rgb],
 and optional alpha components, using the [sRGB][srgb] color space.
 
 The color components are specified as numbers between `0` and `1`.
@@ -214,7 +214,7 @@ check! Color(RGB, r: 0.2, g: 0.4, b: 0.3, a: 0.5)
 
 The `color` module's core color type.
 
-The color may belong to various different color spaces, 
+The color may belong to various different color spaces,
 with the space's components available via iteration or indexing.
 
 The color's `alpha` value is always present as the color's fourth component.
@@ -297,7 +297,7 @@ An error is thrown if the colors do not belong to the same color space.
 |a: Color, b: Color, weight: Number| -> Color
 ```
 
-Returns a new color representing a weighted mix of the two input colors. 
+Returns a new color representing a weighted mix of the two input colors.
 
 The `weight` argument is a number between `0` and `1`, with values closer to
 `0` producing results closer to the first color, and values closer to `1`

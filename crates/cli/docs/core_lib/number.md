@@ -57,8 +57,8 @@ assert_near 2.acosh(), 1.3169578969248166
 |Number, Number| -> Number
 ```
 
-Returns the bitwise combination of the binary representations of two numbers, 
-where a `1` in both of the inputs produces a `1` in the corresponding output 
+Returns the bitwise combination of the binary representations of two numbers,
+where a `1` in both of the inputs produces a `1` in the corresponding output
 position.
 
 ### Note
@@ -523,8 +523,8 @@ Provides the `-∞` constant.
 |Number, Number| -> Number
 ```
 
-Returns the bitwise combination of the binary representations of two numbers, 
-where a `1` in either of the inputs produces a `1` in the corresponding output 
+Returns the bitwise combination of the binary representations of two numbers,
+where a `1` in either of the inputs produces a `1` in the corresponding output
 position.
 
 ### Note

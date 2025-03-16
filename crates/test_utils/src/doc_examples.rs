@@ -173,8 +173,12 @@ pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) 
                     if line.starts_with("print! ") {
                         script.push_str(&line.replacen("print! ", "print ", 1));
                         script.push('\n');
-                    } else if line.starts_with("check! ") {
-                        expected_output.push_str(line.trim_start_matches("check! "));
+                    } else if line.starts_with("check!") {
+                        // check! without any following content asserts that there should be an
+                        // empty line in the output.
+                        if let Some(expected) = line.strip_prefix("check! ") {
+                            expected_output.push_str(expected);
+                        }
                         expected_output.push('\n');
                     } else {
                         script.push_str(line);

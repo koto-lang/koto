@@ -48,7 +48,7 @@ Returns a string containing the input value serialized as TOML data.
 ### Example
 
 ```koto
-data = 
+data =
   string: '>_>'
   nested:
     number: 99
@@ -59,14 +59,14 @@ data =
 
 print! toml.to_string data
 check! string = ">_>"
-check! 
+check!
 check! [nested]
 check! number = 99
-check! 
+check!
 check! [[entries]]
 check! foo = "bar"
-check! 
+check!
 check! [[entries]]
 check! foo = "baz"
-check! 
+check!
 ```

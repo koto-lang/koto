@@ -41,7 +41,7 @@ Extends the map with the output of the iterator, and returns the map.
 x = {foo: 42, bar: 99}
 print! x.extend {baz: 123}
 check! {foo: 42, bar: 99, baz: 123}
-print! x.baz 
+print! x.baz
 check! 123
 
 x = {}
@@ -160,7 +160,7 @@ check! My Map
 |Map, key: Any, value: Any| -> Any
 ```
 
-Inserts an entry into the map with the given key and value. 
+Inserts an entry into the map with the given key and value.
 
 ```kototype
 |Map, key: Any| -> Any
@@ -171,7 +171,7 @@ Inserts an entry into the map with the given key, and `null` as its value.
 If the key already existed in the map, then the old value is returned.
 If the key didn't already exist, then `null` is returned.
 
-See the [language guide](../language_guide.md#map-key-types) for a description 
+See the [language guide](../language_guide.md#map-key-types) for a description
 of the types of values that can be used as map keys.
 
 ### Example
@@ -191,13 +191,13 @@ check! null
 print! x.goodbye
 check! 123
 
-print! x.insert 123, 'hi!' # Numbers can be used as map keys 
+print! x.insert 123, 'hi!' # Numbers can be used as map keys
 check! null
 
 print! x.get 123
 check! hi!
 
-print! x.insert ('a', 'b'), -1 # Tuples can be used as map keys 
+print! x.insert ('a', 'b'), -1 # Tuples can be used as map keys
 check! null
 
 print! x.get ('a', 'b')
@@ -303,16 +303,16 @@ Sorts the map's entries in place by key, and then returns the map.
 
 ```kototype
 |
-  Map, 
+  Map,
   sort_key: |key: Any, value: Any| -> Any
 | -> Null
 ```
 
-Sorts the map's entries in place based on the output of calling a 'sort' 
-function for each entry, and then returns the map. 
+Sorts the map's entries in place based on the output of calling a 'sort'
+function for each entry, and then returns the map.
 
-The entry's key and value are passed into the `sort_key` function as separate 
-arguments. 
+The entry's key and value are passed into the `sort_key` function as separate
+arguments.
 
 The function's result is cached, so it only gets called once per entry.
 
@@ -325,11 +325,11 @@ x =
   tschüss: 99
 
 # Sort the map by key
-print! x.sort() 
+print! x.sort()
 check! {bye: -1, hello: 123, tschüss: 99}
 
 # Sort the map by value
-print! x.sort |_, value| value 
+print! x.sort |_, value| value
 check! {bye: -1, tschüss: 99, hello: 123}
 
 # Sort the map by reversed key length
@@ -351,7 +351,7 @@ existing entry's value, and the result of the function will replace the existing
 value.
 
 If no entry exists with the given `key`, then `updater` will be called with
-`null`, and the result will be inserted into the map as a new entry. 
+`null`, and the result will be inserted into the map as a new entry.
 
 The return value is the result of calling the `updater` function.
 
@@ -421,7 +421,7 @@ check! null
 |data: Map, meta: Map| -> Map
 ```
 
-Returns a new Map that contains the data from the first argument, 
+Returns a new Map that contains the data from the first argument,
 along with the Meta Map from the second argument.
 
 ### Example
