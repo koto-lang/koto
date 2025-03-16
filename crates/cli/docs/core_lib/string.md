@@ -277,6 +277,54 @@ print! 'xyz'.starts_with 'abc'
 check! false
 ```
 
+## strip_prefix
+
+```kototype
+|input: String, prefix: String| -> String?
+```
+
+Returns the input string with the given `prefix` removed,
+or `null` if the input string doesn't start with `prefix`.
+
+### Example
+
+```koto
+print! 'abc: xyz'.strip_prefix 'abc: '
+check! xyz
+
+print! 'xxxxx'.strip_prefix 'abc: '
+check! null
+```
+
+### See Also
+
+- [`string.strip_suffix`](#strip_suffix)
+- [`string.trim_start`](#trim_start)
+
+## strip_suffix
+
+```kototype
+|input: String, suffix: String| -> String?
+```
+
+Returns the input string with the given `suffix` removed,
+or `null` if the input string doesn't end with `suffix`.
+
+### Example
+
+```koto
+print! 'abc: xyz'.strip_suffix ' xyz'
+check! abc:
+
+print! 'xxxxx'.strip_suffix ' xyz'
+check! null
+```
+
+### See Also
+
+- [`string.strip_prefix`](#strip_prefix)
+- [`string.trim_end`](#trim_end)
+
 ## to_lowercase
 
 ```kototype
@@ -422,6 +470,7 @@ check! !!!abcabc
 
 ### See Also
 
+- [`string.strip_prefix`](#strip_prefix)
 - [`string.trim`](#trim)
 - [`string.trim_end`](#trim_end)
 
@@ -457,6 +506,7 @@ check! abcabc!!!
 
 ### See Also
 
+- [`string.strip_suffix`](#strip_suffix)
 - [`string.trim`](#trim)
 - [`string.trim_start`](#trim_start)
 

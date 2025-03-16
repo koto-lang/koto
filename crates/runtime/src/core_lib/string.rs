@@ -184,6 +184,40 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("strip_prefix", |ctx| {
+        let expected_error = "|String, String|";
+
+        match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), [KValue::Str(prefix)]) => {
+                if let Some(stripped) = s.strip_prefix(prefix.as_str()) {
+                    Ok(s.with_bounds(s.len() - stripped.len()..s.len())
+                        .unwrap() // `stripped` is guaranteed to not be larger than `s`
+                        .into())
+                } else {
+                    Ok(KValue::Null)
+                }
+            }
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
+    result.add_fn("strip_suffix", |ctx| {
+        let expected_error = "|String, String|";
+
+        match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), [KValue::Str(prefix)]) => {
+                if let Some(stripped) = s.strip_suffix(prefix.as_str()) {
+                    Ok(s.with_bounds(0..stripped.len())
+                        .unwrap() // `stripped` is guaranteed to not be larger than `s`
+                        .into())
+                } else {
+                    Ok(KValue::Null)
+                }
+            }
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
     result.add_fn("to_lowercase", |ctx| {
         let expected_error = "|String|";
 
