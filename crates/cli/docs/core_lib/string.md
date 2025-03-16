@@ -28,7 +28,7 @@ check! (72, 195, 171, 121, 33)
 
 Returns an iterator that yields the string's characters as strings.
 
-A 'character' in Koto is defined as being a 
+A 'character' in Koto is defined as being a
 [unicode grapheme cluster][grapheme-cluster].
 
 ### Note
@@ -53,7 +53,7 @@ check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 |String| -> Iterator
 ```
 
-Returns an iterator that yields the indices of each 
+Returns an iterator that yields the indices of each
 [grapheme cluster][grapheme-cluster] in the string.
 
 Each cluster is represented as a range, which can then be used to extract the
@@ -241,7 +241,7 @@ string wherever the `match` string is encountered.
 ```
 
 Returns an iterator that yields strings resulting from splitting the input
-string based on the result of calling a `match` function. 
+string based on the result of calling a `match` function.
 
 The `match` function will be called for each grapheme in the input string, and
 splits will occur when the function returns true.
@@ -315,7 +315,7 @@ If a number can't be produced then `null` is returned.
 
 Returns the string converted into a number given the specified `base`.
 
-The base must be an integer in the range `2..=36`, 
+The base must be an integer in the range `2..=36`,
 otherwise an error will be thrown.
 
 If the string contains non-numerical digits then `null` is returned.

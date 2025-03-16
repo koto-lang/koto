@@ -51,7 +51,7 @@ Returns a string containing the input value serialized as JSON data.
 ### Example
 
 ```koto
-data = 
+data =
   string: '>_>'
   nested:
     number: 99

@@ -31,14 +31,14 @@ koto.args.last()
 |value: Any| -> Any
 ```
 
-Makes a copy of the provided value. 
+Makes a copy of the provided value.
 
 ### Shared mutable data
 
 For values that have shared mutable data (i.e., `List`, `Map`), unique copies of
 the data will be made. Note that this only applies to the first level of data,
 so nested containers will still share their data with their counterparts in the
-original data. To make a copy where any nested containers are also unique, 
+original data. To make a copy where any nested containers are also unique,
 use [`koto.deep_copy`](#deep-copy).
 
 ### Iterator copies
@@ -166,10 +166,10 @@ print! (hash 'hi') == (hash 'bye')
 check! false
 
 # Lists aren't hashable
-print! hash [1, 2] 
+print! hash [1, 2]
 check! null
 
-# Tuples are hashable if they only contain hashable values 
+# Tuples are hashable if they only contain hashable values
 print! (hash (1, 2)) == null
 check! false
 ```
@@ -253,10 +253,10 @@ The size of a value is typically defined as the number of elements in a
 container, with some notable exceptions:
 
 - For strings, the size is the number of bytes in the string data.
-- For ranges, the size is the number of integers in the range. 
-  - For non-inclusive ranges, this is equivalent to 
+- For ranges, the size is the number of integers in the range.
+  - For non-inclusive ranges, this is equivalent to
     `range.end() - range.start()`.
-  - For inclusive ranges, this is equivalent to 
+  - For inclusive ranges, this is equivalent to
     `range.end() + 1 - range.start()`.
   - If the range is unbounded then an error will be thrown.
 - An error will be thrown if the value doesn't have a defined size.

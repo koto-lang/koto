@@ -116,8 +116,8 @@ Returns a sorted copy of the tuple.
 |List, key: |Any| -> Any| -> List
 ```
 
-Returns a sorted copy of the tuple, based on the output of calling a `key` 
-function for each of the tuple's elements. 
+Returns a sorted copy of the tuple, based on the output of calling a `key`
+function for each of the tuple's elements.
 
 The key function's result is cached, so it's only called once per value.
 

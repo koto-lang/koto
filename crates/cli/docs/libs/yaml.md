@@ -46,7 +46,7 @@ Returns a string containing the input value serialized as YAML data.
 ### Example
 
 ```koto
-data = 
+data =
   string: '>_>'
   nested:
     number: 99
@@ -62,6 +62,5 @@ check!   number: 99
 check! entries:
 check! - foo: bar
 check! - foo: baz
-check! 
+check!
 ```
-

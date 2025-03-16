@@ -15,8 +15,8 @@ Creates a new [Regex](#regex-1) from the given string.
 
 The core regular expression type used by the `regex` module.
 
-The `regex` module is a wrapper for the [`regex`][regex-crate] crate, 
-please see [its documentation][regex-docs] for more information, 
+The `regex` module is a wrapper for the [`regex`][regex-crate] crate,
+please see [its documentation][regex-docs] for more information,
 including a guide to the [supported syntax][syntax-docs].
 
 ## Regex.is_match
@@ -94,7 +94,7 @@ If the given string matches the regular expression, then a map is returned
 containing the first match found, along with matches for any capture groups.
 If no matches are found then `null` is returned.
 
-Captured groups are entered in the map with their indices as the key, 
+Captured groups are entered in the map with their indices as the key,
 and if the group is named then it's also inserted with the name.
 The first entry in the map (index 0) contains the entire match, with subsequent
 captures starting at index 1.
@@ -146,14 +146,14 @@ check! !!! [AAABBB AAABBB] !!!
 
 ## Matches
 
-`Matches` is an iterator that outputs a [`Match`](#match) for each match 
+`Matches` is an iterator that outputs a [`Match`](#match) for each match
 resulting from a call to [`Regex.find_all`](#regex-find-all).
 
 ## Match
 
 `Match` is a type produced from calls to search functions like
-[`Regex.find`](#regex-find) or [`Regex.captures`](#regex-captures) that provides 
-access to the matched region of the input string, 
+[`Regex.find`](#regex-find) or [`Regex.captures`](#regex-captures) that provides
+access to the matched region of the input string,
 along with the matched region's indices.
 
 ## Match.text

@@ -352,14 +352,14 @@ print! x
 check! ()
 ```
 
-To create a tuple that contains a single element, then a trailing comma must be included. 
+To create a tuple that contains a single element, then a trailing comma must be included.
 
 ```koto
 # A value inside parentheses simply resolves to the value
 print! (1 + 2)
 check! 3
 
-# To place the value in a tuple, use a trailing comma 
+# To place the value in a tuple, use a trailing comma
 print! (1 + 2,)
 check! (3)
 

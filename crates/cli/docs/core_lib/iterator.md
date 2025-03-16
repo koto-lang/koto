@@ -9,7 +9,7 @@
 Checks the Iterable's values against a test function.
 
 The test function should return `true` if the value passes the test, otherwise
-it should return `false`. 
+it should return `false`.
 
 `all` will return `true` if _all_ values pass the test, otherwise it will return
 `false`.
@@ -44,9 +44,9 @@ check! true
 Checks the Iterable's values against a test function.
 
 The test function should return `true` if the value passes the test, otherwise
-it should return `false`. 
+it should return `false`.
 
-`any` will return `true` if _any_ of the values pass the test, 
+`any` will return `true` if _any_ of the values pass the test,
 otherwise it will return `false`.
 
 `any` stops running as soon as it finds a passing test.
@@ -191,7 +191,7 @@ check! [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
 |Iterable, function: |Any| -> Any| -> Iterator
 ```
 
-Creates a new iterator that yields the result of calling the provided `function` 
+Creates a new iterator that yields the result of calling the provided `function`
 with each value from the input iterator.
 
 ### Example
@@ -272,8 +272,8 @@ check! [2, 4, 6, 8, (10, 12)]
 
 ```kototype
 |
-  input: Iterable, 
-  initial_value: Any, 
+  input: Iterable,
+  initial_value: Any,
   accumulator: |accumulated: Any, next: Any| -> Any
 | -> Any
 ```
@@ -296,7 +296,7 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 
 ```koto
 print! ('a', 'b', 'c')
-  .fold [], |result, x| 
+  .fold [], |result, x|
     result.push x
     result.push '-'
 check! ['a', '-', 'b', '-', 'c', '-']
@@ -314,9 +314,9 @@ check! ['a', '-', 'b', '-', 'c', '-']
 ```
 
 Creates an iterator that yields the result of repeatedly calling the `generator`
-function. 
+function.
 
-_Warning_: This version of `generate` will iterate endlessly, so consider using 
+_Warning_: This version of `generate` will iterate endlessly, so consider using
 an adaptor like [`iterator.take`](#take) to produce an iterator that has an end.
 
 ```kototype
@@ -543,8 +543,8 @@ check! (-3, 99)
 |Iterable| -> IteratorOutput?
 ```
 
-Returns the next value from the iterator wrapped in an 
-[`IteratorOutput`](#iteratoroutput), 
+Returns the next value from the iterator wrapped in an
+[`IteratorOutput`](#iteratoroutput),
 or `null` if the iterator has been exhausted.
 
 ### Example
@@ -575,12 +575,12 @@ check! a
 |Iterable| -> IteratorOutput?
 ```
 
-Returns the next value from the end of the iterator wrapped in an 
-[`IteratorOutput`](#iteratoroutput), 
+Returns the next value from the end of the iterator wrapped in an
+[`IteratorOutput`](#iteratoroutput),
 or `null` if the iterator has been exhausted.
 
 This only works with iterators that have a defined end, so attempting to call
-`next_back` on endless iterators like [`iterator.generate`](#generate) will 
+`next_back` on endless iterators like [`iterator.generate`](#generate) will
 result in an error.
 
 ### Example
@@ -642,7 +642,7 @@ Wraps the given iterable value in a peekable iterator.
 
 ### Peekable.peek
 
-Returns the next value from the iterator without advancing it. 
+Returns the next value from the iterator without advancing it.
 The peeked value is cached until the iterator is advanced.
 
 #### Example
@@ -669,7 +669,7 @@ check! null
 
 ### Peekable.peek_back
 
-Returns the next value from the end of the iterator without advancing it. 
+Returns the next value from the end of the iterator without advancing it.
 The peeked value is cached until the iterator is advanced.
 
 #### Example
@@ -764,7 +764,7 @@ check! my_type(60)
 
 Creates an iterator that endlessly yields the provided `value`.
 
-_Warning_: This version of `repeat` will iterate endlessly, so consider using 
+_Warning_: This version of `repeat` will iterate endlessly, so consider using
 an adaptor like [`iterator.take`](#take) to produce an iterator with an end.
 
 ```kototype
@@ -1069,7 +1069,7 @@ check! [(1, 'a'), (2, 'b'), (3, 'c')]
 A wrapper for a single item of iterator output.
 
 This exists to allow functions like [`iterator.next`](#next) to return `null` to
-indicate that the iterator has been exhausted, 
+indicate that the iterator has been exhausted,
 while also allowing `null` to appear in the iterator's output.
 
 

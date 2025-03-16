@@ -101,7 +101,7 @@ f.exists()
 |Any| -> Null
 ```
 
-Prints a single value to the active output. 
+Prints a single value to the active output.
 
 ```kototype
 |Any, Any...| -> Null
@@ -266,7 +266,7 @@ Returns `true` if the file refers to a terminal/tty.
 next_line = if io.stdin().is_terminal()
   print 'Please provide some input'
   io.stdin().read_line()
-else 
+else
   io.stdin().read_line()
 ```
 

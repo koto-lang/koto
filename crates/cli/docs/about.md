@@ -145,7 +145,7 @@ As an embedded language that runs in a virtual machine within an application, ru
 [coffeescript]: https://coffeescript.org
 [discord]: https://discord.gg/JeV8RuK4CT
 [discussions]: https://github.com/koto-lang/koto/discussions
-[dyon]: https://github.com/PistonDevelopers/dyon 
+[dyon]: https://github.com/PistonDevelopers/dyon
 [helix]: https://helix-editor.com
 [helix-build]: https://docs.helix-editor.com/building-from-source.html
 [issues]: https://github.com/koto-lang/koto/issues
