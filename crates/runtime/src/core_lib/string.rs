@@ -248,22 +248,57 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("trim", |ctx| {
-        let expected_error = "|String|";
+        let expected_error = "|String|, or |String, String|";
 
-        match ctx.instance_and_args(is_string, expected_error)? {
-            (KValue::Str(s), []) => {
-                let result = match s.find(|c: char| !c.is_whitespace()) {
-                    Some(start) => {
-                        let end = s.rfind(|c: char| !c.is_whitespace()).unwrap();
-                        s.with_bounds(start..(end + 1)).unwrap()
-                    }
-                    None => s.with_bounds(0..0).unwrap(),
-                };
+        let (input, trimmed_start, trimmed_end) =
+            match ctx.instance_and_args(is_string, expected_error)? {
+                (KValue::Str(s), []) => {
+                    let trimmed_start = s.trim_start();
+                    let trimmed_end = trimmed_start.trim_end();
+                    (s, trimmed_start, trimmed_end)
+                }
+                (KValue::Str(s), [KValue::Str(pattern)]) => {
+                    let trimmed_start = s.trim_start_matches(pattern.as_str());
+                    let trimmed_end = trimmed_start.trim_end_matches(pattern.as_str());
+                    (s, trimmed_start, trimmed_end)
+                }
+                (instance, args) => {
+                    return unexpected_args_after_instance(expected_error, instance, args);
+                }
+            };
 
-                Ok(result.into())
+        let new_start = input.len() - trimmed_start.len();
+        let new_end = new_start + trimmed_end.len();
+        Ok(input.with_bounds(new_start..new_end).unwrap().into())
+    });
+
+    result.add_fn("trim_start", |ctx| {
+        let expected_error = "|String|, or |String, String|";
+
+        let (input, trimmed_start) = match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), []) => (s, s.trim_start()),
+            (KValue::Str(s), [KValue::Str(pattern)]) => (s, s.trim_start_matches(pattern.as_str())),
+            (instance, args) => {
+                return unexpected_args_after_instance(expected_error, instance, args);
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
+        };
+
+        let new_start = input.len() - trimmed_start.len();
+        Ok(input.with_bounds(new_start..input.len()).unwrap().into())
+    });
+
+    result.add_fn("trim_end", |ctx| {
+        let expected_error = "|String|, or |String, String|";
+
+        let (input, trimmed_end) = match ctx.instance_and_args(is_string, expected_error)? {
+            (KValue::Str(s), []) => (s, s.trim_end()),
+            (KValue::Str(s), [KValue::Str(pattern)]) => (s, s.trim_end_matches(pattern.as_str())),
+            (instance, args) => {
+                return unexpected_args_after_instance(expected_error, instance, args);
+            }
+        };
+
+        Ok(input.with_bounds(0..trimmed_end.len()).unwrap().into())
     });
 
     result

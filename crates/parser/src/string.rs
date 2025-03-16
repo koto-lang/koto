@@ -102,11 +102,6 @@ impl KString {
         }
     }
 
-    /// Returns the number of graphemes contained within the KString's bounds
-    pub fn grapheme_count(&self) -> usize {
-        self.graphemes(true).count()
-    }
-
     /// Returns the `&str` within the KString's bounds
     pub fn as_str(&self) -> &str {
         match &self.0 {

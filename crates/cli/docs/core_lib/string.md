@@ -360,19 +360,104 @@ check! O_O
 ## trim
 
 ```kototype
-|String| -> String
+|input: String| -> String
 ```
 
-Returns the string with whitespace at the start and end of the string trimmed.
+Returns a string with any whitespace removed from the start and end of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the start and end of the input.
 
 ### Example
 
 ```koto
-print! '   x    '.trim()
+print! '   x   '.trim()
 check! x
 
 print! '     !'.trim()
 check! !
+
+print! '----O_o----'.trim '-'
+check! O_o
+
+print! 'abcabc!!!abcabc'.trim 'abc'
+check! !!!
 ```
+
+### See Also
+
+- [`string.trim_start`](#trim_start)
+- [`string.trim_end`](#trim_end)
+
+## trim_start
+
+```kototype
+|input: String| -> String
+```
+
+Returns a string with any whitespace removed from the start of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the start of the input.
+
+### Example
+
+```koto
+trimmed = '   x   '.trim_start()
+print! (trimmed,)
+check! ('x   ')
+
+print! '----O_o----'.trim_start '-'
+check! O_o----
+
+print! 'abcabc!!!abcabc'.trim_start 'abc'
+check! !!!abcabc
+```
+
+### See Also
+
+- [`string.trim`](#trim)
+- [`string.trim_end`](#trim_end)
+
+## trim_end
+
+```kototype
+|input: String| -> String
+```
+
+Returns a string with any whitespace removed from the end of the input.
+
+```kototype
+|input: String, pattern: String| -> String
+```
+
+Returns a string with all occurrences of the pattern removed from the end of the input.
+
+### Example
+
+```koto
+print! '   x   '.trim_end()
+check!    x
+
+print! '     !     '.trim_end()
+check!      !
+
+print! '----O_o----'.trim_end '-'
+check! ----O_o
+
+print! 'abcabc!!!abcabc'.trim_end 'abc'
+check! abcabc!!!
+```
+
+### See Also
+
+- [`string.trim`](#trim)
+- [`string.trim_start`](#trim_start)
 
 [grapheme-cluster]: https://www.unicode.org/glossary/#grapheme_cluster
