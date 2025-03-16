@@ -12,6 +12,28 @@ static MODULE_NAME: &str = "core.iterator";
 pub fn make_module() -> KMap {
     let result = KMap::with_type(MODULE_NAME);
 
+    result.add_fn("advance", |ctx| {
+        let expected_error = "|Iterator, Number >= 0|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (KValue::Iterator(iterator), [KValue::Number(n)]) if *n >= 0.0 => {
+                let mut iterator = iterator.clone();
+                let mut remaining = usize::from(n);
+
+                while remaining > 0 {
+                    match iterator.next() {
+                        Some(Output::Error(error)) => return Err(error),
+                        Some(_) => remaining -= 1,
+                        None => break,
+                    }
+                }
+
+                Ok(remaining.into())
+            }
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
     result.add_fn("all", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
@@ -642,15 +664,11 @@ pub fn make_module() -> KMap {
                 let result = generators::Repeat::new(value.clone());
                 Ok(KIterator::new(result).into())
             }
-            [value, KValue::Number(n)] => {
-                if *n >= 0.0 {
-                    let result = generators::RepeatN::new(value.clone(), n.into());
-                    Ok(KIterator::new(result).into())
-                } else {
-                    runtime_error!("expected a non-negative number")
-                }
+            [value, KValue::Number(n)] if *n >= 0.0 => {
+                let result = generators::RepeatN::new(value.clone(), n.into());
+                Ok(KIterator::new(result).into())
             }
-            unexpected => unexpected_args("|Any|, or |Number, Any|", unexpected),
+            unexpected => unexpected_args("|Any|, or |Number >= 0, Any|", unexpected),
         }
     });
 
@@ -670,25 +688,14 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("skip", |ctx| {
-        let expected_error = "|Iterable, Number|";
+        let expected_error = "|Iterable, Number >= 0|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, [KValue::Number(n)]) => {
-                if *n >= 0.0 {
-                    let iterable = iterable.clone();
-                    let n = *n;
-                    let mut iter = ctx.vm.make_iterator(iterable)?;
-
-                    for _ in 0..n.into() {
-                        if let Some(Output::Error(error)) = iter.next() {
-                            return Err(error);
-                        }
-                    }
-
-                    Ok(KValue::Iterator(iter))
-                } else {
-                    runtime_error!("expected a non-negative number")
-                }
+            (iterable, [KValue::Number(n)]) if *n >= 0.0 => {
+                let iterable = iterable.clone();
+                let n = *n;
+                let result = adaptors::Skip::new(ctx.vm.make_iterator(iterable)?, n.into());
+                Ok(KIterator::new(result).into())
             }
             (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
         }
@@ -731,7 +738,7 @@ pub fn make_module() -> KMap {
     });
 
     result.add_fn("take", |ctx| {
-        let expected_error = "|Iterable, Number|, or |Iterable, |Any| -> Bool|";
+        let expected_error = "|Iterable, Number >= 0|, or |Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [KValue::Number(n)]) if *n >= 0.0 => {

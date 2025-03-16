@@ -2,7 +2,7 @@
 
 use super::collect_pair;
 use crate::{Error, ErrorKind, InstructionFrame, KIteratorOutput as Output, Result, prelude::*};
-use std::{collections::VecDeque, result::Result as StdResult};
+use std::{collections::VecDeque, mem::take, result::Result as StdResult};
 use thiserror::Error;
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -733,6 +733,66 @@ impl Iterator for Reversed {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+/// An iterator that skips N values from the adapted iterator before yielding all following values
+pub struct Skip {
+    iter: KIterator,
+    remaining: usize,
+}
+
+impl Skip {
+    /// Creates a new [Skip] adaptor
+    pub fn new(iter: KIterator, count: usize) -> Self {
+        Self {
+            iter,
+            remaining: count,
+        }
+    }
+}
+
+impl KotoIterator for Skip {
+    fn make_copy(&self) -> Result<KIterator> {
+        let result = Self {
+            iter: self.iter.make_copy()?,
+            remaining: self.remaining,
+        };
+        Ok(KIterator::new(result))
+    }
+
+    fn is_bidirectional(&self) -> bool {
+        self.iter.is_bidirectional()
+    }
+
+    fn next_back(&mut self) -> Option<Output> {
+        // Ensure the forward output has been skipped before yielding output from the back
+        if self.remaining > 0 {
+            self.iter.nth(self.remaining - 1);
+            self.remaining = 0;
+        }
+
+        self.iter.next_back()
+    }
+}
+
+impl Iterator for Skip {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining > 0 {
+            self.iter.nth(take(&mut self.remaining))
+        } else {
+            self.iter.next()
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iter.size_hint();
+        (
+            lower.saturating_sub(self.remaining),
+            upper.map(|upper| upper.saturating_sub(self.remaining)),
+        )
     }
 }
 

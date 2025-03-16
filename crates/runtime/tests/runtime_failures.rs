@@ -421,6 +421,28 @@ x
             use super::*;
 
             #[test]
+            fn advance_should_propagate_error() {
+                let script = "\
+g = ||
+  yield 1
+  assert false
+# ^^^^^^^^^^^^
+
+g().advance 2
+";
+                check_script_fails_with_span(
+                    script,
+                    Span {
+                        start: Position { line: 2, column: 2 },
+                        end: Position {
+                            line: 2,
+                            column: 14,
+                        },
+                    },
+                );
+            }
+
+            #[test]
             fn consume_should_propagate_error() {
                 let script = "\
 (1..5)
