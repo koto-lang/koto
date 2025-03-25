@@ -88,6 +88,7 @@ The Koto project adheres to
 
 - The CLI is now built with extra optimizations by default,
   resulting in a faster binary at the expense of longer build times.
+- Ctrl+C in the REPL now clears the line rather than exiting.
 
 ### Fixed
 

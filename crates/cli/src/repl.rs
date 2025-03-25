@@ -121,10 +121,11 @@ Run `help` for more information
                 }
                 Err(ReadlineError::Interrupted) => {
                     writeln!(self.stdout, "^C")?;
-                    break;
+                    self.stdout.flush()?;
+                    self.continued_lines.clear();
+                    self.indent = 0;
                 }
                 Err(ReadlineError::Eof) => {
-                    writeln!(self.stdout, "^D")?;
                     break;
                 }
                 Err(err) => {
