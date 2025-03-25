@@ -14,15 +14,15 @@ macro_rules! include_doc {
     };
 }
 
-struct HelpEntry {
+pub struct HelpEntry {
     // The entry's user-displayed name
-    name: Rc<str>,
+    pub name: Rc<str>,
     // The entry's contents
-    help: Rc<str>,
+    pub help: Rc<str>,
     // Additional keywords that should be checked when searching
-    keywords: Vec<Rc<str>>,
+    pub keywords: Vec<Rc<str>>,
     // Names of related topics to show in the 'See also' section
-    see_also: Vec<Rc<str>>,
+    pub see_also: Vec<Rc<str>>,
 }
 
 pub struct Help {
@@ -80,6 +80,18 @@ impl Help {
             result.extra_lib_names.push(module_name);
         }
         result
+    }
+
+    pub fn topics(&self) -> impl Iterator<Item = Rc<str>> {
+        self.core_lib_names
+            .iter()
+            .chain(self.extra_lib_names.iter())
+            .chain(self.guide_topics.iter())
+            .cloned()
+    }
+
+    pub fn all_entries(&self) -> impl Iterator<Item = (&Rc<str>, &HelpEntry)> {
+        self.help_map.iter()
     }
 
     pub fn get_help(&self, search: Option<&str>) -> String {

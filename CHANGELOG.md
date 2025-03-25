@@ -70,6 +70,10 @@ The Koto project adheres to
   - `string.trim_start` / `string.trim_end`
     - `string.trim` now also accepts a pattern to match against.
 
+#### CLI
+
+- The REPL now supports tab completion for variables and help searches.
+
 ### Changed
 
 #### Language
