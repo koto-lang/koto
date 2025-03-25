@@ -817,7 +817,7 @@ Map keys are typically strings, but any [_immutable_][immutable] value can be
 used as a map key by using the [`map.insert`][map-insert] and [`map.get`][map-get]
 functions.
 
-The immutable value types in Koto are [strings](#strings), [numbers](#numbers),
+The immutable value types in Koto are [strings](#strings), [numbers](#numbers_and_arithmetic),
 [booleans](#booleans), [ranges](#ranges), and [`null`](#null).
 
 A [tuple](#tuples) is also considered to be immutable when its contained
