@@ -98,6 +98,7 @@ impl Repl {
         )?;
         editor.set_helper(Some(ReplHelper {
             exports: koto.exports().clone(),
+            prelude: koto.prelude().clone(),
         }));
 
         if let Some(path) = history_path() {
@@ -333,6 +334,7 @@ Run `help` for more information
 #[derive(Default)]
 struct ReplHelper {
     exports: KMap,
+    prelude: KMap,
 }
 
 impl ReplHelper {
@@ -379,6 +381,7 @@ impl ReplHelper {
             .exports
             .data()
             .keys()
+            .chain(self.prelude.data().keys())
             .filter_map(|key| match key.value() {
                 KValue::Str(s) if s.starts_with(search) => Some(CompletionCandidate {
                     contents: s.as_str().into(),
