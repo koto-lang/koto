@@ -17,23 +17,23 @@ anyhow = "1.0.75"
 # Date and time library for Rust
 chrono = "0.4.31"
 # Efficient, fixed-size, overwriting circular buffer
-circular-buffer = "0.1.8"
+circular-buffer = "1.1.0"
 # Statistics-driven micro-benchmarking library
 criterion2 = "2.0.0"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = { version = "0.28.1", default-features = false }
 # Adds #[derive(x)] macros for more traits
-derive_more = "1.0.0"
+derive_more = "2.0.1"
 # Derive macro to get the name of a struct, enum or enum variant
 derive-name = "1.1.0"
 # Trait object downcasting support using only safe Rust.
-downcast-rs = "1.1.1"
+downcast-rs = { version = "2", default-features = false }
 # Normalize Windows paths to the most compatible format
 dunce = "1.0.2"
 # A small cross-platform library for retrieving random data from system source
 getrandom = "0.2.4"
 # A simple and fast 3D math library for games and graphics
-glam = "0.29.0"
+glam = "0.30.1"
 # Shared definitions of home directories.
 home = "0.5.5"
 # A Rust library for conveniently watching and handling file changes.
@@ -57,7 +57,7 @@ pico-args = { version = "0.5.0" }
 # A substitute implementation of the compiler's `proc_macro` API
 proc-macro2 = "1.0.70"
 # A pull parser for CommonMark
-pulldown-cmark = { version = "0.12.2", default-features = false }
+pulldown-cmark = { version = "0.13.0", default-features = false }
 # Quasi-quoting macro quote!(...)
 quote = "1.0.33"
 # Random number generators and other randomness functionality.
@@ -70,7 +70,7 @@ regex = "1.10.2"
 # v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
 rustc-hash = "1.1.0"
 # Rustyline, a readline implementation
-rustyline = { version = "14.0.0", default-features = false }
+rustyline = { version = "15.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework

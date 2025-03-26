@@ -2,25 +2,35 @@ use std::{
     fmt,
     io::{self, Stdout, Write},
     path::PathBuf,
+    rc::Rc,
 };
 
 use anyhow::Result;
-use crossterm::{
-    execute, style,
-    terminal::{self},
-    tty::IsTty,
-};
+use crossterm::{execute, style, tty::IsTty};
 use koto::prelude::*;
-use rustyline::{Config, DefaultEditor, EditMode, error::ReadlineError};
+use rustyline::{
+    CompletionType, Config, EditMode, Editor, error::ReadlineError, history::DefaultHistory,
+};
 
-use crate::help::Help;
+use crate::{
+    help::{HELP_INDENT, Help},
+    wrap_string_with_indent, wrap_string_with_prefix,
+};
 
+macro_rules! print_wrapped_indented {
+    ($stdout:expr, $indent:expr, $text:expr) => {
+        $stdout.write_all(wrap_string_with_indent(&format!($text), $indent).as_bytes())
+    };
+    ($stdout:expr, $indent:expr, $text:literal, $($y:expr),* $(,)?) => {
+        $stdout.write_all(wrap_string_with_indent(&format!($text,  $($y),*), $indent).as_bytes())
+    };
+}
 macro_rules! print_wrapped {
     ($stdout:expr, $text:expr) => {
-        $stdout.write_all(wrap_string(&format!($text)).as_bytes())
+        print_wrapped_indented!($stdout, "", $text)
     };
     ($stdout:expr, $text:literal, $($y:expr),* $(,)?) => {
-        $stdout.write_all(wrap_string(&format!($text, $($y),*)).as_bytes())
+        print_wrapped_indented!($stdout, "", $text, $($y),*)
     };
 }
 
@@ -39,11 +49,12 @@ pub struct ReplSettings {
     pub edit_mode: EditMode,
 }
 
+type ReplEditor = Editor<ReplHelper, DefaultHistory>;
+
 pub struct Repl {
     koto: Koto,
     settings: ReplSettings,
-    help: Option<Help>,
-    editor: DefaultEditor,
+    editor: ReplEditor,
     stdout: Stdout,
     // A buffer of lines for expressions that continue over multiple lines
     continued_lines: Vec<String>,
@@ -65,17 +76,29 @@ fn history_path() -> Option<PathBuf> {
     })
 }
 
+fn help() -> Rc<Help> {
+    thread_local! {
+        static HELP: Rc<Help> = Rc::new(Help::new());
+    }
+
+    HELP.with(|help| help.clone())
+}
+
 impl Repl {
     pub fn with_settings(repl_settings: ReplSettings, koto_settings: KotoSettings) -> Result<Self> {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
 
-        let mut editor = DefaultEditor::with_config(
+        let mut editor = ReplEditor::with_config(
             Config::builder()
                 .max_history_size(MAX_HISTORY_ENTRIES)?
                 .edit_mode(repl_settings.edit_mode)
+                .completion_type(CompletionType::List)
                 .build(),
         )?;
+        editor.set_helper(Some(ReplHelper {
+            exports: koto.exports().clone(),
+        }));
 
         if let Some(path) = history_path() {
             editor.load_history(&path).ok();
@@ -87,7 +110,6 @@ impl Repl {
         Ok(Self {
             koto,
             settings: repl_settings,
-            help: None,
             editor,
             stdout,
             continued_lines: Vec::new(),
@@ -98,7 +120,13 @@ impl Repl {
 
     pub fn run(&mut self) -> Result<()> {
         let version = env!("CARGO_PKG_VERSION");
-        writeln!(self.stdout, "Welcome to Koto v{version}")?;
+        writeln!(
+            self.stdout,
+            "\
+Welcome to Koto v{version}
+Run `help` for more information
+"
+        )?;
 
         loop {
             let result = if self.continued_lines.is_empty() {
@@ -115,10 +143,11 @@ impl Repl {
                 }
                 Err(ReadlineError::Interrupted) => {
                     writeln!(self.stdout, "^C")?;
-                    break;
+                    self.stdout.flush()?;
+                    self.continued_lines.clear();
+                    self.indent = 0;
                 }
                 Err(ReadlineError::Eof) => {
-                    writeln!(self.stdout, "^D")?;
                     break;
                 }
                 Err(err) => {
@@ -183,7 +212,7 @@ impl Repl {
                         },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
-                                print_wrapped!(self.stdout, "{}\n", help)?;
+                                print_wrapped_indented!(self.stdout, HELP_INDENT, "{help}\n")?;
                             } else {
                                 self.print_error(&error)?;
                             }
@@ -244,19 +273,12 @@ impl Repl {
     fn run_help(&mut self, input: &str) -> Option<String> {
         let input = input.trim();
         if input == "help" {
-            Some(self.get_help(None))
-        } else if input.starts_with("help") {
-            input
-                .split_once(char::is_whitespace)
-                .map(|(_, search_string)| format!("\n{}\n", self.get_help(Some(search_string))))
+            Some(help().get_help(None))
         } else {
-            None
+            input
+                .strip_prefix("help ")
+                .map(|search_string| format!("\n{}\n", help().get_help(Some(search_string))))
         }
-    }
-
-    fn get_help(&mut self, search: Option<&str>) -> String {
-        let help = self.help.get_or_insert_with(Help::new);
-        help.get_help(search)
     }
 
     fn print_result(&mut self, result: &str) -> Result<()> {
@@ -308,14 +330,92 @@ impl Repl {
     }
 }
 
-fn terminal_width() -> usize {
-    terminal::size().expect("Failed to get terminal width").0 as usize
+#[derive(Default)]
+struct ReplHelper {
+    exports: KMap,
 }
 
-fn wrap_string(input: &str) -> String {
-    textwrap::fill(input, terminal_width())
+impl rustyline::completion::Completer for ReplHelper {
+    type Candidate = CompletionCandidate;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &rustyline::Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
+        if let Some(search) = line.trim_start().strip_prefix("help ") {
+            let stripped_search = search.trim_start();
+            let offset = line.len() - stripped_search.len();
+            let candidates: Vec<_> = if stripped_search.is_empty() {
+                help()
+                    .topics()
+                    .map(|topic| CompletionCandidate {
+                        contents: topic.clone(),
+                    })
+                    .collect()
+            } else {
+                let lowercase_search = stripped_search.to_lowercase();
+                help()
+                    .all_entries()
+                    .filter(|(key, _entry)| key.starts_with(&lowercase_search))
+                    .map(|(key, _entry)| CompletionCandidate {
+                        contents: key.clone(),
+                    })
+                    .collect()
+            };
+            Ok((offset, candidates))
+        } else {
+            let offset = if let Some(whitespace) = line[..pos].rfind(char::is_whitespace) {
+                whitespace + 1
+            } else {
+                0
+            };
+            let search = &line[offset..pos];
+
+            let candidates: Vec<_> = self
+                .exports
+                .data()
+                .keys()
+                .filter_map(|key| match key.value() {
+                    KValue::Str(s) if s.starts_with(search) => Some(CompletionCandidate {
+                        contents: s.as_str().into(),
+                    }),
+                    _ => None,
+                })
+                .collect();
+
+            if candidates.is_empty() && "help".starts_with(search) {
+                Ok((
+                    offset,
+                    vec![CompletionCandidate {
+                        contents: "help".into(),
+                    }],
+                ))
+            } else {
+                Ok((offset, candidates))
+            }
+        }
+    }
 }
 
-fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
-    textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
+impl rustyline::hint::Hinter for ReplHelper {
+    type Hint = String;
+}
+impl rustyline::highlight::Highlighter for ReplHelper {}
+impl rustyline::validate::Validator for ReplHelper {}
+impl rustyline::Helper for ReplHelper {}
+
+struct CompletionCandidate {
+    contents: Rc<str>,
+}
+
+impl rustyline::completion::Candidate for CompletionCandidate {
+    fn display(&self) -> &str {
+        &self.contents
+    }
+
+    fn replacement(&self) -> &str {
+        &self.contents
+    }
 }

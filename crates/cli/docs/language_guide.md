@@ -1301,7 +1301,7 @@ check! ('foo', 42)
 check! ('bar', 99)
 ```
 
-#### Ignoring Unpacked Values
+### Ignoring Unpacked Values
 
 `_` can be used as a placeholder for unpacked values that aren't needed elsewhere
 in the code and can be ignored.

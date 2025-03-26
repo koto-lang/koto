@@ -70,6 +70,10 @@ The Koto project adheres to
   - `string.trim_start` / `string.trim_end`
     - `string.trim` now also accepts a pattern to match against.
 
+#### CLI
+
+- The REPL now supports tab completion for variables and help searches.
+
 ### Changed
 
 #### Language
@@ -88,6 +92,7 @@ The Koto project adheres to
 
 - The CLI is now built with extra optimizations by default,
   resulting in a faster binary at the expense of longer build times.
+- Ctrl+C in the REPL now clears the line rather than exiting.
 
 ### Fixed
 

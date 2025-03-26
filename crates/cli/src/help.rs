@@ -5,8 +5,10 @@ use std::{
     rc::Rc,
 };
 
+use crate::wrap_string_with_indent;
+
 const HELP_RESULT_STR: &str = "➝ ";
-const HELP_INDENT: usize = 2;
+pub const HELP_INDENT: &str = "  ";
 
 macro_rules! include_doc {
     ($doc:expr) => {
@@ -14,15 +16,15 @@ macro_rules! include_doc {
     };
 }
 
-struct HelpEntry {
+pub struct HelpEntry {
     // The entry's user-displayed name
-    name: Rc<str>,
+    pub name: Rc<str>,
     // The entry's contents
-    help: Rc<str>,
+    pub help: Rc<str>,
     // Additional keywords that should be checked when searching
-    keywords: Vec<Rc<str>>,
+    pub keywords: Vec<Rc<str>>,
     // Names of related topics to show in the 'See also' section
-    see_also: Vec<Rc<str>>,
+    pub see_also: Vec<Rc<str>>,
 }
 
 pub struct Help {
@@ -82,15 +84,26 @@ impl Help {
         result
     }
 
+    pub fn topics(&self) -> impl Iterator<Item = Rc<str>> {
+        self.core_lib_names
+            .iter()
+            .chain(self.extra_lib_names.iter())
+            .chain(self.guide_topics.iter())
+            .cloned()
+    }
+
+    pub fn all_entries(&self) -> impl Iterator<Item = (&Rc<str>, &HelpEntry)> {
+        self.help_map.iter()
+    }
+
     pub fn get_help(&self, search: Option<&str>) -> String {
-        match search {
+        let result = match search {
             Some(search) => {
                 let search_key = text_to_key(search);
                 match self.help_map.get(&search_key) {
                     Some(entry) => {
                         let mut help = format!(
-                            "{indent}{name}\n{indent}{underline}{help}",
-                            indent = " ".repeat(HELP_INDENT),
+                            "{name}\n{underline}{help}",
                             name = entry.name,
                             underline = "=".repeat(entry.name.len()),
                             help = entry.help
@@ -114,12 +127,13 @@ impl Help {
                         if !see_also.is_empty() {
                             help += "
 
-  --------
+--------
 
-  See also:";
+See also:";
 
+                            let item_prefix = format!("\n{HELP_INDENT}- ");
                             for see_also_entry in see_also.iter() {
-                                help.push_str("\n    - ");
+                                help.push_str(&item_prefix);
                                 help.push_str(see_also_entry);
                             }
                         }
@@ -140,13 +154,14 @@ impl Help {
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
-                            [] => format!("  No matches for '{search}' found."),
+                            [] => format!("No matches for '{search}' found."),
                             [(only_match, _)] => self.get_help(Some(only_match)),
                             _ => {
                                 let mut help = String::new();
-                                help.push_str("  More than one match found: ");
+                                help.push_str("More than one match found: ");
+                                let item_prefix = format!("\n{HELP_INDENT}- ");
                                 for (_, HelpEntry { name, .. }) in matches {
-                                    help.push_str("\n    - ");
+                                    help.push_str(&item_prefix);
                                     help.push_str(name);
                                 }
                                 help
@@ -156,48 +171,48 @@ impl Help {
                 }
             }
             None => {
-                let mut help = "
-  To get help for a topic, run `help <topic>` (e.g. `help strings`).
-
-  To look up the core library documentation, run `help <module>.<item>` (e.g. `help map.keys`)."
-                    .to_string();
+                let mut help = String::new();
 
                 help.push_str(
                     "
+To get help, run 'help <topic>', e.g. 'help strings', or 'help map.keys'.
 
-  Help is available for the following language guide topics:",
+Tab completion can be used to browse available topics, \
+e.g. pressing tab twice after 'help io.' will bring up a list of io module items.
+
+A rendered version of the help docs can also be found here: https://koto.dev/docs
+
+Help is available for the following topics:",
                 );
 
-                for guide_topic in self.guide_topics.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(guide_topic);
-                }
+                let topics_indent = HELP_INDENT.repeat(2);
+                let mut show_topics = |topic: &str, topics: &[Rc<str>]| {
+                    let mut topics_string = String::new();
+                    for (i, topic) in topics.iter().enumerate() {
+                        if i > 0 {
+                            topics_string.push_str(", ");
+                        }
+                        topics_string.push_str(topic);
+                    }
 
-                help.push_str(
-                    "
+                    help.push_str(&format!(
+                        "
+{HELP_INDENT}{topic}:
+{}
+",
+                        wrap_string_with_indent(&topics_string, &topics_indent)
+                    ));
+                };
 
-  Help is available for the following core library modules:",
-                );
-
-                for module_name in self.core_lib_names.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(module_name);
-                }
-
-                help.push_str(
-                    "
-
-  Help is available for the following additional modules:",
-                );
-
-                for module_name in self.extra_lib_names.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(module_name);
-                }
+                show_topics("core library modules", &self.core_lib_names);
+                show_topics("additional modules", &self.extra_lib_names);
+                show_topics("language guide", &self.guide_topics);
 
                 help
             }
-        }
+        };
+
+        result
     }
 
     fn add_help_from_guide(&mut self) {
@@ -315,6 +330,7 @@ struct HelpSection {
     sub_sections: Vec<Rc<str>>,
 }
 
+#[derive(Debug)]
 enum ParsingMode {
     WaitingForSectionStart,
     Any,
@@ -340,8 +356,7 @@ fn consume_help_section(
     let mut section_name = String::new();
     let mut sub_section_name = String::new();
     let mut sub_sections = Vec::new();
-    let indent = " ".repeat(HELP_INDENT);
-    let mut result = indent.clone();
+    let mut result = HELP_INDENT.to_string();
 
     let mut list_indent = 0;
     let mut parsing_mode = ParsingMode::WaitingForSectionStart;
@@ -452,6 +467,7 @@ fn consume_help_section(
                 }
                 ParsingMode::SubSection => {
                     sub_section_name.push_str(code);
+                    result.push_str(code);
                 }
                 _ => {
                     result.push('`');
@@ -470,11 +486,10 @@ fn consume_help_section(
     if let Some(module_name) = module_name {
         section_name = format!("{module_name}.{section_name}");
     }
-    let contents = result.replace('\n', &format!("\n{indent}"));
 
     HelpSection {
         name: section_name.into(),
-        contents: contents.into(),
+        contents: result.into(),
         sub_sections,
     }
 }
