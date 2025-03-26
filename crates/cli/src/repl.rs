@@ -213,7 +213,8 @@ Run `help` for more information
                         },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
-                                print_wrapped_indented!(self.stdout, HELP_INDENT, "{help}\n")?;
+                                print_wrapped_indented!(self.stdout, HELP_INDENT, "{help}")?;
+                                writeln!(self.stdout)?;
                             } else {
                                 self.print_error(&error)?;
                             }
