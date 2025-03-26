@@ -2,7 +2,7 @@ mod help;
 mod repl;
 
 use anyhow::{Context, Result, bail};
-use crossterm::tty::IsTty;
+use crossterm::{terminal, tty::IsTty};
 use koto::prelude::*;
 use repl::{Repl, ReplSettings};
 use rustyline::EditMode;
@@ -319,4 +319,25 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
     }
 
     Ok(config)
+}
+
+fn terminal_width() -> usize {
+    100.min(terminal::size().expect("Failed to get terminal width").0 as usize)
+}
+
+fn wrap_string(input: &str) -> String {
+    textwrap::fill(input, terminal_width())
+}
+
+fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
+    textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
+}
+
+fn wrap_string_with_indent(input: &str, indent: &str) -> String {
+    textwrap::fill(
+        input,
+        textwrap::Options::new(terminal_width())
+            .initial_indent(indent)
+            .subsequent_indent(indent),
+    )
 }

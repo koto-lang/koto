@@ -6,17 +6,13 @@ use std::{
 };
 
 use anyhow::Result;
-use crossterm::{
-    execute, style,
-    terminal::{self},
-    tty::IsTty,
-};
+use crossterm::{execute, style, tty::IsTty};
 use koto::prelude::*;
 use rustyline::{
     CompletionType, Config, EditMode, Editor, error::ReadlineError, history::DefaultHistory,
 };
 
-use crate::help::Help;
+use crate::{help::Help, wrap_string, wrap_string_with_prefix};
 
 macro_rules! print_wrapped {
     ($stdout:expr, $text:expr) => {
@@ -321,18 +317,6 @@ Run `help` for more information
 
         Ok(())
     }
-}
-
-fn terminal_width() -> usize {
-    terminal::size().expect("Failed to get terminal width").0 as usize
-}
-
-fn wrap_string(input: &str) -> String {
-    textwrap::fill(input, terminal_width())
-}
-
-fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
-    textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
 }
 
 #[derive(Default)]

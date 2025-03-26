@@ -5,6 +5,8 @@ use std::{
     rc::Rc,
 };
 
+use crate::{terminal_width, wrap_string_with_indent};
+
 const HELP_RESULT_STR: &str = "➝ ";
 const HELP_INDENT: usize = 2;
 
@@ -168,44 +170,64 @@ impl Help {
                 }
             }
             None => {
-                let mut help = "
-  To get help for a topic, run `help <topic>` (e.g. `help strings`).
+                let mut help = String::new();
+                let help_indent = "  ";
 
-  To look up the core library documentation, run `help <module>.<item>` (e.g. `help map.keys`)."
-                    .to_string();
-
-                help.push_str(
+                help.push_str(&wrap_string_with_indent(
                     "
+To get help, run 'help <topic>', e.g. 'help strings', or 'help map.keys'.
+",
+                    help_indent,
+                ));
 
-  Help is available for the following language guide topics:",
-                );
-
-                for guide_topic in self.guide_topics.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(guide_topic);
-                }
-
-                help.push_str(
+                help.push_str(&wrap_string_with_indent(
                     "
+Tab completion can be used to browse available topics, \
+e.g. pressing tab twice after 'help io.' will bring up a list of io module items.
+",
+                    help_indent,
+                ));
 
-  Help is available for the following core library modules:",
-                );
-
-                for module_name in self.core_lib_names.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(module_name);
-                }
-
-                help.push_str(
+                help.push_str(&wrap_string_with_indent(
                     "
+A rendered version of the help docs can also be found here: https://koto.dev/docs
+",
+                    help_indent,
+                ));
 
-  Help is available for the following additional modules:",
-                );
+                help.push_str(&wrap_string_with_indent(
+                    "
+Help is available for the following topics:",
+                    help_indent,
+                ));
 
-                for module_name in self.extra_lib_names.iter() {
-                    help.push_str("\n    - ");
-                    help.push_str(module_name);
-                }
+                let mut show_topics = |topic: &str, topics: &[Rc<str>]| {
+                    let mut topics_string = String::new();
+                    for (i, topic) in topics.iter().enumerate() {
+                        if i > 0 {
+                            topics_string.push_str(", ");
+                        }
+                        topics_string.push_str(topic);
+                    }
+
+                    let wrapped_topics = &textwrap::fill(
+                        &topics_string,
+                        textwrap::Options::new(terminal_width())
+                            .initial_indent("      ")
+                            .subsequent_indent("      "),
+                    );
+
+                    help.push_str(&format!(
+                        "
+    {topic}:
+{wrapped_topics}
+",
+                    ));
+                };
+
+                show_topics("core library modules", &self.core_lib_names);
+                show_topics("additional modules", &self.extra_lib_names);
+                show_topics("language guide", &self.guide_topics);
 
                 help
             }
