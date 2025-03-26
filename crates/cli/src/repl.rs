@@ -12,14 +12,25 @@ use rustyline::{
     CompletionType, Config, EditMode, Editor, error::ReadlineError, history::DefaultHistory,
 };
 
-use crate::{help::Help, wrap_string, wrap_string_with_prefix};
+use crate::{
+    help::{HELP_INDENT, Help},
+    wrap_string_with_indent, wrap_string_with_prefix,
+};
 
+macro_rules! print_wrapped_indented {
+    ($stdout:expr, $indent:expr, $text:expr) => {
+        $stdout.write_all(wrap_string_with_indent(&format!($text), $indent).as_bytes())
+    };
+    ($stdout:expr, $indent:expr, $text:literal, $($y:expr),* $(,)?) => {
+        $stdout.write_all(wrap_string_with_indent(&format!($text,  $($y),*), $indent).as_bytes())
+    };
+}
 macro_rules! print_wrapped {
     ($stdout:expr, $text:expr) => {
-        $stdout.write_all(wrap_string(&format!($text)).as_bytes())
+        print_wrapped_indented!($stdout, "", $text)
     };
     ($stdout:expr, $text:literal, $($y:expr),* $(,)?) => {
-        $stdout.write_all(wrap_string(&format!($text, $($y),*)).as_bytes())
+        print_wrapped_indented!($stdout, "", $text, $($y),*)
     };
 }
 
@@ -201,7 +212,7 @@ Run `help` for more information
                         },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
-                                print_wrapped!(self.stdout, "{}\n", help)?;
+                                print_wrapped_indented!(self.stdout, HELP_INDENT, "{help}\n")?;
                             } else {
                                 self.print_error(&error)?;
                             }

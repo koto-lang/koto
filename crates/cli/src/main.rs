@@ -325,10 +325,6 @@ fn terminal_width() -> usize {
     100.min(terminal::size().expect("Failed to get terminal width").0 as usize)
 }
 
-fn wrap_string(input: &str) -> String {
-    textwrap::fill(input, terminal_width())
-}
-
 fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
     textwrap::fill(input, terminal_width().saturating_sub(prefix.len()))
 }
