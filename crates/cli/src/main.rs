@@ -332,7 +332,7 @@ fn wrap_string_with_prefix(input: &str, prefix: &str) -> String {
 fn wrap_string_with_indent(input: &str, indent: &str) -> String {
     textwrap::fill(
         input,
-        textwrap::Options::new(terminal_width())
+        textwrap::Options::new(terminal_width().saturating_sub(indent.len()))
             .initial_indent(indent)
             .subsequent_indent(indent),
     )

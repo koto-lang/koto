@@ -35,17 +35,6 @@ impl CoreLib {
     /// The core lib items made available in each Koto script
     pub fn prelude(&self) -> KMap {
         let result = KMap::default();
-        result.insert("io", self.io.clone());
-        result.insert("iterator", self.iterator.clone());
-        result.insert("koto", self.koto.clone());
-        result.insert("list", self.list.clone());
-        result.insert("map", self.map.clone());
-        result.insert("os", self.os.clone());
-        result.insert("number", self.number.clone());
-        result.insert("range", self.range.clone());
-        result.insert("string", self.string.clone());
-        result.insert("test", self.test.clone());
-        result.insert("tuple", self.tuple.clone());
 
         macro_rules! default_import {
             ($name:expr, $module:ident) => {{
@@ -61,6 +50,18 @@ impl CoreLib {
         default_import!("copy", koto);
         default_import!("size", koto);
         default_import!("type", koto);
+
+        result.insert("io", self.io.clone());
+        result.insert("iterator", self.iterator.clone());
+        result.insert("koto", self.koto.clone());
+        result.insert("list", self.list.clone());
+        result.insert("map", self.map.clone());
+        result.insert("os", self.os.clone());
+        result.insert("number", self.number.clone());
+        result.insert("range", self.range.clone());
+        result.insert("string", self.string.clone());
+        result.insert("test", self.test.clone());
+        result.insert("tuple", self.tuple.clone());
 
         result
     }
