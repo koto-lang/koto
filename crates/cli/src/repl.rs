@@ -335,6 +335,71 @@ struct ReplHelper {
     exports: KMap,
 }
 
+impl ReplHelper {
+    fn candidates_from_help(
+        &self,
+        search: &str,
+        line: &str,
+    ) -> rustyline::Result<(usize, Vec<CompletionCandidate>)> {
+        let stripped_search = search.trim_start();
+        let offset = line.len() - stripped_search.len();
+        let candidates: Vec<_> = if stripped_search.is_empty() {
+            help()
+                .topics()
+                .map(|topic| CompletionCandidate {
+                    contents: topic.clone(),
+                })
+                .collect()
+        } else {
+            let lowercase_search = stripped_search.to_lowercase();
+            help()
+                .all_entries()
+                .filter(|(key, _entry)| key.starts_with(&lowercase_search))
+                .map(|(key, _entry)| CompletionCandidate {
+                    contents: key.clone(),
+                })
+                .collect()
+        };
+        Ok((offset, candidates))
+    }
+
+    fn candidates_from_koto_items(
+        &self,
+        line: &str,
+        pos: usize,
+    ) -> rustyline::Result<(usize, Vec<CompletionCandidate>)> {
+        let offset = if let Some(whitespace) = line[..pos].rfind(char::is_whitespace) {
+            whitespace + 1
+        } else {
+            0
+        };
+        let search = &line[offset..pos];
+
+        let candidates: Vec<_> = self
+            .exports
+            .data()
+            .keys()
+            .filter_map(|key| match key.value() {
+                KValue::Str(s) if s.starts_with(search) => Some(CompletionCandidate {
+                    contents: s.as_str().into(),
+                }),
+                _ => None,
+            })
+            .collect();
+
+        if candidates.is_empty() && "help".starts_with(search) {
+            Ok((
+                offset,
+                vec![CompletionCandidate {
+                    contents: "help".into(),
+                }],
+            ))
+        } else {
+            Ok((offset, candidates))
+        }
+    }
+}
+
 impl rustyline::completion::Completer for ReplHelper {
     type Candidate = CompletionCandidate;
 
@@ -345,56 +410,9 @@ impl rustyline::completion::Completer for ReplHelper {
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         if let Some(search) = line.trim_start().strip_prefix("help ") {
-            let stripped_search = search.trim_start();
-            let offset = line.len() - stripped_search.len();
-            let candidates: Vec<_> = if stripped_search.is_empty() {
-                help()
-                    .topics()
-                    .map(|topic| CompletionCandidate {
-                        contents: topic.clone(),
-                    })
-                    .collect()
-            } else {
-                let lowercase_search = stripped_search.to_lowercase();
-                help()
-                    .all_entries()
-                    .filter(|(key, _entry)| key.starts_with(&lowercase_search))
-                    .map(|(key, _entry)| CompletionCandidate {
-                        contents: key.clone(),
-                    })
-                    .collect()
-            };
-            Ok((offset, candidates))
+            self.candidates_from_help(search, line)
         } else {
-            let offset = if let Some(whitespace) = line[..pos].rfind(char::is_whitespace) {
-                whitespace + 1
-            } else {
-                0
-            };
-            let search = &line[offset..pos];
-
-            let candidates: Vec<_> = self
-                .exports
-                .data()
-                .keys()
-                .filter_map(|key| match key.value() {
-                    KValue::Str(s) if s.starts_with(search) => Some(CompletionCandidate {
-                        contents: s.as_str().into(),
-                    }),
-                    _ => None,
-                })
-                .collect();
-
-            if candidates.is_empty() && "help".starts_with(search) {
-                Ok((
-                    offset,
-                    vec![CompletionCandidate {
-                        contents: "help".into(),
-                    }],
-                ))
-            } else {
-                Ok((offset, candidates))
-            }
+            self.candidates_from_koto_items(line, pos)
         }
     }
 }
