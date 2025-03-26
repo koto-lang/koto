@@ -327,6 +327,7 @@ struct HelpSection {
     sub_sections: Vec<Rc<str>>,
 }
 
+#[derive(Debug)]
 enum ParsingMode {
     WaitingForSectionStart,
     Any,
@@ -464,6 +465,7 @@ fn consume_help_section(
                 }
                 ParsingMode::SubSection => {
                     sub_section_name.push_str(code);
+                    result.push_str(code);
                 }
                 _ => {
                     result.push('`');
