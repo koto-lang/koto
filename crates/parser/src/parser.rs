@@ -892,20 +892,21 @@ impl<'source> Parser<'source> {
 
         let span_start = self.current_span().start;
 
-        // Parse function's args
+        // Parse the function's args
         let mut arg_nodes = AstVec::new();
         let mut arg_ids = AstVec::new();
         let mut is_variadic = false;
         let mut default_value_expected = false;
-
         let args_context = ExpressionContext::braced_items_continued();
         while self.peek_token_with_context(&args_context).is_some() {
             self.consume_until_token_with_context(&args_context);
 
-            match self.parse_id_or_wildcard(&args_context)? {
+            let maybe_id_or_wildcard = self.parse_id_or_wildcard(&args_context)?;
+            let arg_span = self.current_span();
+
+            let arg_node = match maybe_id_or_wildcard {
                 Some(IdOrWildcard::Id(constant_index)) => {
                     arg_ids.push(constant_index);
-                    let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
                     let id_node =
                         self.push_node_with_span(Node::Id(constant_index, type_hint), arg_span)?;
@@ -921,40 +922,11 @@ impl<'source> Parser<'source> {
                         break;
                     }
 
-                    if matches!(
-                        self.peek_token_with_context(&args_context),
-                        Some(PeekInfo {
-                            token: Token::Assign,
-                            ..
-                        })
-                    ) {
-                        self.consume_token_with_context(&args_context); // =
-
-                        let Some(default_value) = self.parse_expression(&args_context)? else {
-                            return self.error(ExpectedIndentation::AssignmentExpression);
-                        };
-
-                        arg_nodes.push(self.push_node_with_start_span(
-                            Node::Assign {
-                                target: id_node,
-                                expression: default_value,
-                            },
-                            arg_span,
-                        )?);
-
-                        default_value_expected = true;
-                    } else if default_value_expected {
-                        return self.error(SyntaxError::ExpectedDefaultValue);
-                    } else {
-                        arg_nodes.push(id_node);
-                    }
+                    id_node
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
-                    let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    arg_nodes.push(
-                        self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?,
-                    );
+                    self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -972,13 +944,39 @@ impl<'source> Parser<'source> {
                             &args_context,
                         )?;
 
-                        arg_nodes.push(self.push_node_with_start_span(
-                            Node::Tuple(tuple_args),
-                            nested_span_start,
-                        )?);
+                        self.push_node_with_start_span(Node::Tuple(tuple_args), nested_span_start)?
                     }
                     _ => break,
                 },
+            };
+
+            // Default value?
+            if matches!(
+                self.peek_token_with_context(&args_context),
+                Some(PeekInfo {
+                    token: Token::Assign,
+                    ..
+                })
+            ) {
+                self.consume_token_with_context(&args_context); // =
+
+                let Some(default_value) = self.parse_expression(&args_context)? else {
+                    return self.error(ExpectedIndentation::AssignmentExpression);
+                };
+
+                arg_nodes.push(self.push_node_with_start_span(
+                    Node::Assign {
+                        target: arg_node,
+                        expression: default_value,
+                    },
+                    arg_span,
+                )?);
+
+                default_value_expected = true;
+            } else if default_value_expected {
+                return self.error(SyntaxError::ExpectedDefaultValue);
+            } else {
+                arg_nodes.push(arg_node);
             }
 
             if matches!(
