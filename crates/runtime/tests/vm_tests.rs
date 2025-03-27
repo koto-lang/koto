@@ -2653,6 +2653,34 @@ foo([42, 99]).to_tuple()
         }
 
         #[test]
+        fn default_arg_for_unpacked_arg() {
+            let script = "
+foo = |a = 10, (b, c) = (20, 30)|
+  a + b + c
+foo(100)
+";
+            check_script_output(script, 150);
+        }
+
+        #[test]
+        fn default_arg_for_wildcard() {
+            let script = "
+m = { default_call_made: false }
+
+f = ||
+  m.default_call_made = true
+  20
+
+foo = |a = 10, _b = f(), c = 30|
+  a + c
+
+assert m.default_call_made
+foo(1, 2)
+";
+            check_script_output(script, 31);
+        }
+
+        #[test]
         fn if_else_used_in_map_block() {
             let script = "
 foo =

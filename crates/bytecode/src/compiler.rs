@@ -644,20 +644,13 @@ impl Compiler {
             let arg_register = arg_index as u8 + 1; // self is in register 0, args start from 1
             let arg_node = ctx.node_with_span(*arg);
 
+            // Get the LHS node for default arguments
+            let arg_node = match &arg_node.node {
+                Node::Assign { target, .. } => ctx.node_with_span(*target),
+                _ => arg_node,
+            };
+
             match &arg_node.node {
-                Node::Assign { target, .. } => match &ctx.node_with_span(*target).node {
-                    Node::Id(_, maybe_type) => {
-                        if let Some(type_hint) = maybe_type {
-                            self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
-                        }
-                    }
-                    unexpected => {
-                        return self.error(ErrorKind::UnexpectedNode {
-                            expected: "ID for default value".into(),
-                            unexpected: unexpected.clone(),
-                        });
-                    }
-                },
                 Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
@@ -838,16 +831,13 @@ impl Compiler {
         let mut nested_args = Vec::new();
 
         for arg in args.iter() {
-            match &ctx.node(*arg) {
-                Node::Assign { target, .. } => match &ctx.node(*target) {
-                    Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
-                    unexpected => {
-                        return self.error(ErrorKind::UnexpectedNode {
-                            expected: "ID for default value".into(),
-                            unexpected: (*unexpected).clone(),
-                        });
-                    }
-                },
+            // Get the LHS node for default arguments
+            let node = match ctx.node(*arg) {
+                Node::Assign { target, .. } => ctx.node(*target),
+                other => other,
+            };
+
+            match node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(..) => result.push(Arg::Placeholder),
                 Node::Tuple(nested) => {
