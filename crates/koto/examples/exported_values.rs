@@ -21,7 +21,7 @@ export
     };
 
     println!("Exported number: {exported_number}");
-    println!("Exported string: '{exported_string}'",);
+    println!("Exported string: '{exported_string}'");
 
     Ok(())
 }
