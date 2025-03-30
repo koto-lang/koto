@@ -2291,22 +2291,32 @@ In the following example, two kinds of animals are created that share the
 
 ```koto
 animal = |name|
+  @type: 'Animal'
   name: name
   speak: || '{self.noise}! My name is {self.name}!'
 
 dog = |name|
   @base: animal name
+  @type: 'Dog'
   noise: 'Woof'
 
 cat = |name|
   @base: animal name
+  @type: 'Cat'
   noise: 'Meow'
 
-print! dog('Fido').speak()
+let fido: Dog = dog 'Fido'
+print! fido.speak()
 check! Woof! My name is Fido!
 
-print! cat('Smudge').speak()
+let smudge: Cat = cat 'Smudge'
+print! smudge.speak()
 check! Meow! My name is Smudge!
+
+# Type checks will refer to base class @type entries when needed
+let an_animal: Animal = if true then fido else smudge
+print! an_animal.name
+check! Fido
 ```
 
 #### `@meta`
