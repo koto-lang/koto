@@ -16,42 +16,43 @@ The Koto project adheres to
   - E.g. Instead of:
     ```koto
     f = |a, b|
-      a + b
+      a + (b or 42)
     ```
-    You can write
+    You can write:
     ```koto
-    f = |a, b = 42| a + b
+    f = |a, b = 42|
+      a + b
     ```
 - When calling a function, arguments can be now be unpacked at the call site.
   [#418](https://github.com/koto-lang/koto/issues/418)
   - E.g.
-  ```koto
-  f = |a, b, c| a + b + c
-  x = 1, 2, 3
-  f x...
-  # -> 6
-  ```
+    ```koto
+    f = |a, b, c| a + b + c
+    x = 1, 2, 3
+    f x...
+    # -> 6
+    ```
 - Number literals can now include underscores.
   [#399](https://github.com/koto-lang/koto/issues/399)
   - E.g.
-  ```koto
-  x = 1_000_000
-  y = 0xff_aa_bb
-  ```
+    ```koto
+    x = 1_000_000
+    y = 0xff_aa_bb
+    ```
 - Interpolated values can now be formatted with alternative representations.
   - E.g.
-  ```koto
-  print '{15:b}'
-  # -> 1111
-  ```
+    ```koto
+    print '{15:b}'
+    # -> 1111
+    ```
   - The `@debug` metakey has been added to allow for additional debug information
     to be provided when formatting an object as a string.
 - Values in lists or tuples definitions can now be omitted, with `null` being used to fill the gaps.
   - E.g.
-  ```koto
-  x = [1, , 3, , 5]
-  # -> [1, null, 3, null, 5]
-  ```
+    ```koto
+    x = [1, , 3, , 5]
+    # -> [1, null, 3, null, 5]
+    ```
 
 #### API
 
