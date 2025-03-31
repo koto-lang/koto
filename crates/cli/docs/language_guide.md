@@ -856,7 +856,7 @@ print! {apples: 42, pears: 99}.contains_key 'apples'
 check! true
 ```
 
-The [documentation][core] for the Core library (along with this guide) are
+The [documentation][core] for the Core library (along with this guide) is
 available in the `help` command of the [Koto CLI][cli].
 
 ### Prelude
@@ -1176,8 +1176,12 @@ check! null
 The output of an iterator can be modified using _adaptors_ from the
 [`iterator`][iterator] module.
 
+The `iterator` module is available to any value which is declared to be _iterable_
+(which includes Koto's containers like lists and strings),
+so it's not necessary to call `.iter()` before using an adaptor.
+
 ```koto
-# Create an iterator that keeps any value above 3
+# Create an iterator that outputs any value in the list above 3
 x = [1, 2, 3, 4, 5].keep |n| n > 3
 
 print! x.next()
@@ -2666,7 +2670,10 @@ check! An assertion failed
 
 Tests can be added to a module by exporting `@test` functions. A test function is considered to have failed if it throws an error (e.g. from an assertion).
 
-By default, tests will be run after a module has been successfully initialized. If the module also exports `@main` then it will be called after all tests have run successfully.
+If Koto is configured to run tests, then the tests will be run after a module has been successfully initialized.
+If the module also exports `@main` then it will be called after all tests have run successfully.
+
+The CLI doesn't enable tests by default when running scripts, but they can be enabled [via a flag][cli-tests].
 
 ```koto,skip_run
 ##################
@@ -2749,7 +2756,8 @@ test.run_tests my_tests
 [ascii]: https://en.wikipedia.org/wiki/ASCII
 [associated]: https://en.wikipedia.org/wiki/Associative_array
 [chars]: ./core_lib/string.md#chars
-[cli]: ..
+[cli]: ./cli.md
+[cli-tests]: ./cli.md#running_tests
 [compound-assignment]: https://en.wikipedia.org/wiki/Augmented_assignment
 [core]: ./core_lib
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
