@@ -23,7 +23,7 @@ language for [Rust][rust] applications, or as a standalone scripting language.
 ## Development
 
 The top-level [justfile](./justfile) contains some useful commands for working
-with the repo, for example `just checks` which runs all available checks and 
+with the repo, for example `just checks` which runs all available checks and
 tests.
 
 After installing [just][just], you can run `just setup` to install additional
