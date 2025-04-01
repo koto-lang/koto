@@ -61,12 +61,12 @@ macro_rules! impl_arithmetic_ops {
 
 #[macro_export]
 macro_rules! geometry_arithmetic_op {
-    ($self:ident, $rhs:expr, $op:tt) => {
+    ($self:ident, $other:expr, $op:tt) => {
         {
-            match $rhs {
-                KValue::Object(rhs) if rhs.is_a::<Self>() => {
-                    let rhs = rhs.cast::<Self>().unwrap();
-                    Ok((*$self $op *rhs).into())
+            match $other {
+                KValue::Object(other) if other.is_a::<Self>() => {
+                    let other = other.cast::<Self>().unwrap();
+                    Ok((*$self $op *other).into())
                 }
                 KValue::Number(n) => {
                     Ok((*$self $op f64::from(n)).into())
@@ -81,12 +81,12 @@ macro_rules! geometry_arithmetic_op {
 
 #[macro_export]
 macro_rules! geometry_compound_assign_op {
-    ($self:ident, $rhs:expr, $op:tt) => {
+    ($self:ident, $other:expr, $op:tt) => {
         {
-            match $rhs {
-                KValue::Object(rhs) if rhs.is_a::<Self>() => {
-                    let rhs = rhs.cast::<Self>().unwrap();
-                    *$self $op *rhs;
+            match $other {
+                KValue::Object(other) if other.is_a::<Self>() => {
+                    let other = other.cast::<Self>().unwrap();
+                    *$self $op *other;
                     Ok(())
                 }
                 KValue::Number(n) => {
@@ -103,12 +103,12 @@ macro_rules! geometry_compound_assign_op {
 
 #[macro_export]
 macro_rules! geometry_comparison_op {
-    ($self:ident, $rhs:expr, $op:tt) => {
+    ($self:ident, $other:expr, $op:tt) => {
         {
-            match $rhs {
-                KValue::Object(rhs) if rhs.is_a::<Self>() => {
-                    let rhs = rhs.cast::<Self>().unwrap();
-                    Ok(*$self $op *rhs)
+            match $other {
+                KValue::Object(other) if other.is_a::<Self>() => {
+                    let other = other.cast::<Self>().unwrap();
+                    Ok(*$self $op *other)
                 }
                 unexpected => {
                     unexpected_type(&format!("a {}", Self::type_static()), unexpected)

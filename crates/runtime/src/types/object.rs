@@ -127,14 +127,16 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// Called for indexing operations, e.g. `x[0]`
     ///
     /// See also: [KotoObject::size]
-    fn index(&self, _index: &KValue) -> Result<KValue> {
+    fn index(&self, index: &KValue) -> Result<KValue> {
+        let _ = index;
         unimplemented_error("@index", self.type_string())
     }
 
     /// Called when mutating an object via indexing, e.g. `x[0] = 99`
     ///
     /// See also: [KotoObject::size]
-    fn index_mut(&mut self, _index: &KValue, _value: &KValue) -> Result<()> {
+    fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+        let _ = (index, value);
         unimplemented_error("@index_mut", self.type_string())
     }
 
@@ -164,7 +166,8 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// Allows the object to behave as a function
     ///
     /// Objects that implement `call` should return `true` from [`KotoObject::call`].
-    fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
+    fn call(&mut self, ctx: &mut CallContext) -> Result<KValue> {
+        let _ = ctx;
         unimplemented_error("@||", self.type_string())
     }
 
@@ -173,83 +176,99 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@negate", self.type_string())
     }
 
-    /// The `+` addition operator ()
-    fn add(&self, _rhs: &KValue) -> Result<KValue> {
+    /// The `+` addition operator
+    fn add(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
         unimplemented_error("@+", self.type_string())
     }
 
     /// The `-` subtraction operator
-    fn subtract(&self, _rhs: &KValue) -> Result<KValue> {
+    fn subtract(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
         unimplemented_error("@-", self.type_string())
     }
 
     /// The `*` multiplication operator
-    fn multiply(&self, _rhs: &KValue) -> Result<KValue> {
+    fn multiply(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
         unimplemented_error("@*", self.type_string())
     }
 
     /// The `/` division operator
-    fn divide(&self, _rhs: &KValue) -> Result<KValue> {
+    fn divide(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
         unimplemented_error("@/", self.type_string())
     }
 
     /// The `%` remainder operator
-    fn remainder(&self, _rhs: &KValue) -> Result<KValue> {
+    fn remainder(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
         unimplemented_error("@%", self.type_string())
     }
 
     /// The `+=` in-place addition operator
-    fn add_assign(&mut self, _rhs: &KValue) -> Result<()> {
+    fn add_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
         unimplemented_error("@+=", self.type_string())
     }
 
     /// The `-=` in-place subtraction operator
-    fn subtract_assign(&mut self, _rhs: &KValue) -> Result<()> {
+    fn subtract_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
         unimplemented_error("@-=", self.type_string())
     }
 
     /// The `*=` in-place multiplication operator
-    fn multiply_assign(&mut self, _rhs: &KValue) -> Result<()> {
+    fn multiply_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
         unimplemented_error("@*=", self.type_string())
     }
 
     /// The `/=` in-place division operator
-    fn divide_assign(&mut self, _rhs: &KValue) -> Result<()> {
+    fn divide_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
         unimplemented_error("@/=", self.type_string())
     }
 
     /// The `%=` in-place remainder operator
-    fn remainder_assign(&mut self, _rhs: &KValue) -> Result<()> {
+    fn remainder_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
         unimplemented_error("@%=", self.type_string())
     }
 
     /// The `<` less-than operator
-    fn less(&self, _rhs: &KValue) -> Result<bool> {
+    fn less(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@<", self.type_string())
     }
 
     /// The `<=` less-than-or-equal operator
-    fn less_or_equal(&self, _rhs: &KValue) -> Result<bool> {
+    fn less_or_equal(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@<=", self.type_string())
     }
 
     /// The `>` greater-than operator
-    fn greater(&self, _rhs: &KValue) -> Result<bool> {
+    fn greater(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@>", self.type_string())
     }
 
     /// The `>=` greater-than-or-equal operator
-    fn greater_or_equal(&self, _rhs: &KValue) -> Result<bool> {
+    fn greater_or_equal(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@>=", self.type_string())
     }
 
     /// The `==` equality operator
-    fn equal(&self, _rhs: &KValue) -> Result<bool> {
+    fn equal(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@==", self.type_string())
     }
 
     /// The `!=` inequality operator
-    fn not_equal(&self, _rhs: &KValue) -> Result<bool> {
+    fn not_equal(&self, other: &KValue) -> Result<bool> {
+        let _ = other;
         unimplemented_error("@!=", self.type_string())
     }
 
@@ -266,7 +285,8 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// If [`IsIterable::Iterable`] is returned from [`is_iterable`](Self::is_iterable),
     /// then the runtime will call this function when the object is used in iterable contexts,
     /// expecting a [`KIterator`] to be returned.
-    fn make_iterator(&self, _vm: &mut KotoVm) -> Result<KIterator> {
+    fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
+        let _ = vm;
         unimplemented_error("@iterator", self.type_string())
     }
 
@@ -277,7 +297,8 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
     /// whenever it's used in an iterable context. This function will then be called each time
     /// [`KIterator::next`] is invoked.
-    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
+    fn iterator_next(&mut self, vm: &mut KotoVm) -> Option<KIteratorOutput> {
+        let _ = vm;
         None
     }
 
@@ -287,7 +308,8 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     /// [`is_iterable`](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
     /// whenever it's used in an iterable context. This function will then be called each time
     /// [`KIterator::next_back`] is invoked.
-    fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
+    fn iterator_next_back(&mut self, vm: &mut KotoVm) -> Option<KIteratorOutput> {
+        let _ = vm;
         None
     }
 }

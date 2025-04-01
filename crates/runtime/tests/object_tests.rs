@@ -50,13 +50,13 @@ mod objects {
     }
 
     macro_rules! arithmetic_op {
-        ($self:ident, $rhs:expr, $op:tt) => {
+        ($self:ident, $other:expr, $op:tt) => {
             {
                 use KValue::*;
-                match $rhs {
-                    Object(rhs) if rhs.is_a::<Self>() => {
-                        let rhs = rhs.cast::<Self>().unwrap();
-                        Ok(Self::make_value($self.x $op rhs.x))
+                match $other {
+                    Object(other) if other.is_a::<Self>() => {
+                        let other = other.cast::<Self>().unwrap();
+                        Ok(Self::make_value($self.x $op other.x))
                     }
                     Number(n) => {
                         Ok(Self::make_value($self.x $op i64::from(n)))
@@ -70,13 +70,13 @@ mod objects {
     }
 
     macro_rules! assignment_op {
-        ($self:ident, $rhs:expr, $op:tt) => {
+        ($self:ident, $other:expr, $op:tt) => {
             {
                 use KValue::*;
-                match $rhs {
-                    Object(rhs) if rhs.is_a::<Self>() => {
-                        let rhs = rhs.cast::<Self>().unwrap();
-                        $self.x $op rhs.x;
+                match $other {
+                    Object(other) if other.is_a::<Self>() => {
+                        let other = other.cast::<Self>().unwrap();
+                        $self.x $op other.x;
                         Ok(())
                     }
                     Number(n) => {
@@ -92,14 +92,14 @@ mod objects {
     }
 
     macro_rules! comparison_op {
-        ($self:ident, $rhs:expr, $op:tt) => {
+        ($self:ident, $other:expr, $op:tt) => {
             {
                 use KValue::*;
-                match $rhs {
-                    Object(rhs) if rhs.is_a::<Self>() => {
-                        let rhs = rhs.cast::<Self>().unwrap();
+                match $other {
+                    Object(other) if other.is_a::<Self>() => {
+                        let other = other.cast::<Self>().unwrap();
                         #[allow(clippy::float_cmp)]
-                        Ok($self.x $op rhs.x)
+                        Ok($self.x $op other.x)
                     }
                     Number(n) => {
                         #[allow(clippy::float_cmp)]
@@ -181,68 +181,68 @@ mod objects {
             Ok(Self::make_value(-self.x))
         }
 
-        fn add(&self, rhs: &KValue) -> Result<KValue> {
-            arithmetic_op!(self, rhs, +)
+        fn add(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op!(self, other, +)
         }
 
-        fn subtract(&self, rhs: &KValue) -> Result<KValue> {
-            arithmetic_op!(self, rhs, -)
+        fn subtract(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op!(self, other, -)
         }
 
-        fn multiply(&self, rhs: &KValue) -> Result<KValue> {
-            arithmetic_op!(self, rhs, *)
+        fn multiply(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op!(self, other, *)
         }
 
-        fn divide(&self, rhs: &KValue) -> Result<KValue> {
-            arithmetic_op!(self, rhs, /)
+        fn divide(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op!(self, other, /)
         }
 
-        fn remainder(&self, rhs: &KValue) -> Result<KValue> {
-            arithmetic_op!(self, rhs, %)
+        fn remainder(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op!(self, other, %)
         }
 
-        fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
-            assignment_op!(self, rhs, +=)
+        fn add_assign(&mut self, other: &KValue) -> Result<()> {
+            assignment_op!(self, other, +=)
         }
 
-        fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
-            assignment_op!(self, rhs, -=)
+        fn subtract_assign(&mut self, other: &KValue) -> Result<()> {
+            assignment_op!(self, other, -=)
         }
 
-        fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
-            assignment_op!(self, rhs, *=)
+        fn multiply_assign(&mut self, other: &KValue) -> Result<()> {
+            assignment_op!(self, other, *=)
         }
 
-        fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
-            assignment_op!(self, rhs, /=)
+        fn divide_assign(&mut self, other: &KValue) -> Result<()> {
+            assignment_op!(self, other, /=)
         }
 
-        fn remainder_assign(&mut self, rhs: &KValue) -> Result<()> {
-            assignment_op!(self, rhs, %=)
+        fn remainder_assign(&mut self, other: &KValue) -> Result<()> {
+            assignment_op!(self, other, %=)
         }
 
-        fn less(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, <)
+        fn less(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, <)
         }
 
-        fn less_or_equal(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, <=)
+        fn less_or_equal(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, <=)
         }
 
-        fn greater(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, >)
+        fn greater(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, >)
         }
 
-        fn greater_or_equal(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, >=)
+        fn greater_or_equal(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, >=)
         }
 
-        fn equal(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, ==)
+        fn equal(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, ==)
         }
 
-        fn not_equal(&self, rhs: &KValue) -> Result<bool> {
-            comparison_op!(self, rhs, !=)
+        fn not_equal(&self, other: &KValue) -> Result<bool> {
+            comparison_op!(self, other, !=)
         }
 
         fn is_iterable(&self) -> IsIterable {

@@ -43,44 +43,44 @@ impl KotoObject for Vec3 {
         Ok(Self(-self.0).into())
     }
 
-    fn add(&self, rhs: &KValue) -> Result<KValue> {
-        geometry_arithmetic_op!(self, rhs, +)
+    fn add(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op!(self, other, +)
     }
 
-    fn subtract(&self, rhs: &KValue) -> Result<KValue> {
-        geometry_arithmetic_op!(self, rhs, -)
+    fn subtract(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op!(self, other, -)
     }
 
-    fn multiply(&self, rhs: &KValue) -> Result<KValue> {
-        geometry_arithmetic_op!(self, rhs, *)
+    fn multiply(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op!(self, other, *)
     }
 
-    fn divide(&self, rhs: &KValue) -> Result<KValue> {
-        geometry_arithmetic_op!(self, rhs, /)
+    fn divide(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op!(self, other, /)
     }
 
-    fn add_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_compound_assign_op!(self, rhs, +=)
+    fn add_assign(&mut self, other: &KValue) -> Result<()> {
+        geometry_compound_assign_op!(self, other, +=)
     }
 
-    fn subtract_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_compound_assign_op!(self, rhs, -=)
+    fn subtract_assign(&mut self, other: &KValue) -> Result<()> {
+        geometry_compound_assign_op!(self, other, -=)
     }
 
-    fn multiply_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_compound_assign_op!(self, rhs, *=)
+    fn multiply_assign(&mut self, other: &KValue) -> Result<()> {
+        geometry_compound_assign_op!(self, other, *=)
     }
 
-    fn divide_assign(&mut self, rhs: &KValue) -> Result<()> {
-        geometry_compound_assign_op!(self, rhs, /=)
+    fn divide_assign(&mut self, other: &KValue) -> Result<()> {
+        geometry_compound_assign_op!(self, other, /=)
     }
 
-    fn equal(&self, rhs: &KValue) -> Result<bool> {
-        geometry_comparison_op!(self, rhs, ==)
+    fn equal(&self, other: &KValue) -> Result<bool> {
+        geometry_comparison_op!(self, other, ==)
     }
 
-    fn not_equal(&self, rhs: &KValue) -> Result<bool> {
-        geometry_comparison_op!(self, rhs, !=)
+    fn not_equal(&self, other: &KValue) -> Result<bool> {
+        geometry_comparison_op!(self, other, !=)
     }
 
     fn index(&self, index: &KValue) -> Result<KValue> {

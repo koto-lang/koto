@@ -180,21 +180,21 @@ impl KotoObject for Color {
         Ok(())
     }
 
-    fn equal(&self, rhs: &KValue) -> Result<bool> {
-        match rhs {
-            KValue::Object(rhs) if rhs.is_a::<Self>() => {
-                let rhs = rhs.cast::<Self>().unwrap();
-                Ok(*self == *rhs)
+    fn equal(&self, other: &KValue) -> Result<bool> {
+        match other {
+            KValue::Object(o) if o.is_a::<Self>() => {
+                let other = o.cast::<Self>().unwrap();
+                Ok(*self == *other)
             }
             unexpected => unexpected_type(Self::type_static(), unexpected),
         }
     }
 
-    fn not_equal(&self, rhs: &KValue) -> Result<bool> {
-        match rhs {
-            KValue::Object(rhs) if rhs.is_a::<Self>() => {
-                let rhs = rhs.cast::<Self>().unwrap();
-                Ok(*self != *rhs)
+    fn not_equal(&self, other: &KValue) -> Result<bool> {
+        match other {
+            KValue::Object(o) if o.is_a::<Self>() => {
+                let other = o.cast::<Self>().unwrap();
+                Ok(*self != *other)
             }
             unexpected => unexpected_type(Self::type_static(), unexpected),
         }
