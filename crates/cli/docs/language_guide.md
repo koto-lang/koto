@@ -2578,34 +2578,22 @@ print! y
 check! 42
 ```
 
-The exports map can be accessed and modified directly via [`koto.exports`][koto-exports].
-
-```koto
-export a, b = 1, 2
-
-# koto.exports() returns the current module's exports map
-print! exports = koto.exports()
-check! {a: 1, b: 2}
-
-# Values can be inserted directly into the exports map
-exports.insert 'c', 3
-print! c
-check! 3
-```
-
-Assigning a new value to a variable that was previously exported won't change
-the exported value. If you need to update the exported value, then use `export`
-(or update the exports map via [`koto.exports`][koto-exports]).
+Assigning a new value locally to a previously exported variable won't change
+the exported value. If you need to update the exported value,
+then it needs to be re-exported.
 
 ```koto
 export x = 99
 
-# Reassigning a new value to x doesn't affect the previously exported value
+# Reassigning a new value to x locally doesn't affect the previously exported value
 print! x = 123
 check! 123
 
-print! koto.exports().x
-check! 99
+# x has a local value of 123, but the exported value of x is still 99.
+export x = -1
+# x now has an exported and local value of -1
+print! x
+check! -1
 ```
 
 ### `@main`

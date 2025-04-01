@@ -102,6 +102,13 @@ The Koto project adheres to
   resulting in a faster binary at the expense of longer build times.
 - Ctrl+C in the REPL now clears the line rather than exiting.
 
+### Removed
+
+#### Core Library
+
+- `koto.exports` has been removed.
+  - `export` now accepts any iterable value which provides support for exporting generated keys.
+
 ### Fixed
 
 #### Core Library

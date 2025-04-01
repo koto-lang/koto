@@ -36,11 +36,6 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|Any|", unexpected),
     });
 
-    result.add_fn("exports", |ctx| match ctx.args() {
-        [] => Ok(KValue::Map(ctx.vm.exports().clone())),
-        unexpected => unexpected_args("||", unexpected),
-    });
-
     result.add_fn("hash", |ctx| match ctx.args() {
         [value] => match ValueKey::try_from(value.clone()) {
             Ok(key) => {

@@ -73,8 +73,3 @@ export
     # in the runtime.
     from test_module import tests_were_run
     assert tests_were_run
-
-  @test dynamic_exported_value: ||
-    x = "value_x"
-    map.insert koto.exports(), x, 99
-    assert_eq value_x, 99
