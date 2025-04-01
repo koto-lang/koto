@@ -3,11 +3,6 @@ use koto_runtime::{Result, derive::*, prelude::*};
 use palette::FromColor;
 use std::fmt;
 
-#[macro_export]
-macro_rules! color_comparison_op {
-    ($self:ident, $rhs:expr, $op:tt) => {{}};
-}
-
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(use_copy)]
 pub struct Color {
