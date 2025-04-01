@@ -3042,7 +3042,6 @@ impl Compiler {
                 if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
                     self.compile_call(function_register, &[], pipe_register, None, ctx)
                 } else {
-                    let result = self.assign_result_register(ctx)?;
                     let call_result_register = if let Some(result_register) = result.register {
                         ResultRegister::Fixed(result_register)
                     } else {
