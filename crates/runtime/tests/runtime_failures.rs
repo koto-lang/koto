@@ -791,6 +791,35 @@ x.reversed().next()
             }
         }
 
+        mod export {
+            use super::*;
+
+            #[test]
+            fn export_single_value() {
+                let script = "
+export 99
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn export_list() {
+                let script = "
+x = [1, 2, 3]
+export x
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn export_iterator_with_non_key_pair_output() {
+                let script = "
+export (1..=3).each |i| i, i, i
+";
+                check_script_fails(script);
+            }
+        }
+
         mod strings {
             use super::*;
 

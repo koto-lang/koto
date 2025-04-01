@@ -63,8 +63,10 @@ export
   @test import_item_exported_with_string_id: ||
     assert_eq test_module.exported_with_string_id, 99
 
-  @test import_item_exported_via_inserting_into_exports_map: ||
-    assert_eq test_module.exported_via_insert, -123
+  @test import_generated_items: ||
+    assert_eq test_module.generated_export_1, 1
+    assert_eq test_module.generated_export_2, 2
+    assert_eq test_module.generated_export_3, 3
 
   @test tests_should_be_run_when_importing_a_module: ||
     # Tests will be run when importing a module when the 'run import tests' setting is set

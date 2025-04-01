@@ -746,7 +746,8 @@ impl KotoVm {
                 self.set_register(register, string.into());
             }
             LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
-            ValueExport { name, value } => self.run_value_export(name, value)?,
+            ExportValue { key, value } => self.run_export_value(key, value)?,
+            ExportEntry { entry } => self.run_export_entry(entry)?,
             Import { register } => self.run_import(register)?,
             MakeTempTuple {
                 register,
@@ -1003,10 +1004,34 @@ impl KotoVm {
         }
     }
 
-    fn run_value_export(&mut self, name_register: u8, value_register: u8) -> Result<()> {
-        let name = ValueKey::try_from(self.clone_register(name_register))?;
+    fn run_export_value(&mut self, key_register: u8, value_register: u8) -> Result<()> {
+        let key = ValueKey::try_from(self.clone_register(key_register))?;
         let value = self.clone_register(value_register);
-        self.exports.data_mut().insert(name, value);
+        self.exports.data_mut().insert(key, value);
+        Ok(())
+    }
+
+    fn run_export_entry(&mut self, entry_register: u8) -> Result<()> {
+        let maybe_entry = self.clone_register(entry_register);
+        let maybe_key_value_pair = match &maybe_entry {
+            KValue::Tuple(tuple) => match tuple.data() {
+                [key, value] => Some((key.clone(), value.clone())),
+                _ => None,
+            },
+            KValue::TemporaryTuple(temp_tuple) => {
+                match self.register_slice(temp_tuple.start, temp_tuple.count) {
+                    [key, value] => Some((key.clone(), value.clone())),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        let Some((key, value)) = maybe_key_value_pair else {
+            return unexpected_type("Key/Value pair to export", &maybe_entry);
+        };
+        self.exports
+            .data_mut()
+            .insert(ValueKey::try_from(key)?, value);
         Ok(())
     }
 
@@ -1179,12 +1204,13 @@ impl KotoVm {
                     match iterator.next() {
                         Some(KIteratorOutput::Value(value)) => Some(value),
                         Some(KIteratorOutput::ValuePair(first, second)) => {
-                            if let Some(result) = result_register {
+                            if result_register.is_some() {
                                 if output_is_temporary {
-                                    self.set_register(result + 1, first);
-                                    self.set_register(result + 2, second);
+                                    let start_register = self.next_register();
+                                    self.registers.push(first);
+                                    self.registers.push(second);
                                     Some(TemporaryTuple(RegisterSlice {
-                                        start: result + 1,
+                                        start: start_register,
                                         count: 2,
                                     }))
                                 } else {
@@ -3419,6 +3445,7 @@ impl KotoVm {
         (self.registers.len() - self.register_base) as u8
     }
 
+    // Sets the register, which must already be available in the stack
     fn set_register(&mut self, register: u8, value: KValue) {
         let index = self.register_index(register);
         self.registers[index] = value;

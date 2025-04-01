@@ -2525,7 +2525,8 @@ To add a [type check](#type_checks) to an exported assignment, use a `let` expre
 export let foo: Number = -1
 ```
 
-`export` also supports map syntax, which can be convenient when exporting a lot of values:
+`export` also accepts maps, or any other iterable value that yields a series of key/value pairs.
+This is convenient when exporting a lot of values, or generating exports programatically.
 
 ```koto
 ##################
@@ -2542,6 +2543,9 @@ export { a, b, c, foo: 42 }
 export
   bar: 99
   baz: 'baz'
+
+# Any iterable value that yields key/value pairs can be used with export
+export (1..=3).each |i| 'generated_{i}', i
 ```
 
 Once a value has been exported, it becomes available anywhere in the module.

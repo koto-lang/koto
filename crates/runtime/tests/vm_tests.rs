@@ -4083,7 +4083,7 @@ x + y";
         }
 
         #[test]
-        fn map_export() {
+        fn map_literal() {
             let script = "
 export
   x: 1
@@ -4091,6 +4091,27 @@ export
 x + y
 ";
             check_script_output(script, 3);
+        }
+
+        #[test]
+        fn map_variable() {
+            let script = "
+m =
+  x: 1
+  y: 2
+export m
+x + y
+";
+            check_script_output(script, 3);
+        }
+
+        #[test]
+        fn iterator() {
+            let script = "
+export (1..=3).each |i| 'generated_{i}', i
+generated_1 + generated_2 + generated_3
+";
+            check_script_output(script, 6);
         }
 
         #[test]

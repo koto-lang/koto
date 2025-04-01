@@ -45,9 +45,12 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    ValueExport {
-        name: u8,
+    ExportValue {
+        key: u8,
         value: u8,
+    },
+    ExportEntry {
+        entry: u8,
     },
     Import {
         register: u8,
@@ -561,9 +564,10 @@ impl fmt::Debug for Instruction {
                     "LoadNonLocal    result: {register:<7} constant: {constant}"
                 )
             }
-            ValueExport { name, value } => {
-                write!(f, "ValueExport     name: {name:<7} value: {value}")
+            ExportValue { key, value } => {
+                write!(f, "ExportValue     key: {key:<10} value: {value}")
             }
+            ExportEntry { entry } => write!(f, "ExportEntry     entry: {entry}"),
             Import { register } => write!(f, "Import          register: {register}"),
             MakeTempTuple {
                 register,

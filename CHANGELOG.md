@@ -53,6 +53,13 @@ The Koto project adheres to
     x = [1, , 3, , 5]
     # -> [1, null, 3, null, 5]
     ```
+- `export` can now take any iterable that yields key/value pairs.
+  - E.g.
+    ```koto
+    export (1..=3).each |i| 'generated_i', i
+    generated_3
+    # -> 3
+    ```
 
 #### API
 

@@ -40,6 +40,11 @@ impl KTuple {
         }
     }
 
+    /// Returns the tuple's values as a slice
+    pub fn data(&self) -> &[KValue] {
+        self.deref()
+    }
+
     /// Returns true if the tuple contains only immutable values
     pub fn is_hashable(&self) -> bool {
         self.iter().all(KValue::is_hashable)
