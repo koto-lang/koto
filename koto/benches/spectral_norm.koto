@@ -47,11 +47,11 @@ spectral_norm = |n|
   (vBv / vv).sqrt()
 
 @main = ||
-  n = koto.args.first()?.to_number() or 4
+  n = os.args.first()?.to_number() or 4
 
   result = spectral_norm n
 
-  if (koto.args.get 1) != 'quiet'
+  if (os.args.get 1) != 'quiet'
     print result
 
 @test spectral_norm_5 = ||

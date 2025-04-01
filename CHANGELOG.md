@@ -95,6 +95,7 @@ The Koto project adheres to
 #### Core Library
 
 - `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
+- `koto.args` has been moved to `os.args`.
 
 #### API
 

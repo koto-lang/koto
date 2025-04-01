@@ -6,8 +6,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("{0}")]
     StringError(String),
-    #[error("missing koto module in the prelude")]
-    MissingPrelude,
+    #[error("missing os module in the prelude")]
+    MissingOsModule,
     #[error("nothing to run")]
     NothingToRun,
     #[error("{error}")]

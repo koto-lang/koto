@@ -2,7 +2,7 @@ use koto::{Result, prelude::*};
 
 fn main() -> Result<()> {
     let script = "
-from koto import args
+from os import args
 
 if (size args) > 1
   for i, arg in args.enumerate()

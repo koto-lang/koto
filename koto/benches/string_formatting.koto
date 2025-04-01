@@ -27,13 +27,13 @@ number_to_english = |n|
     else '???'
 
 @main = ||
-  n = koto.args.first()?.to_number() or 50
+  n = os.args.first()?.to_number() or 50
 
   result = -n..=n
     .each |x| number_to_english x
     .to_tuple()
 
-  if not (koto.args.get 1) == 'quiet'
+  if (os.args.get 1) != 'quiet'
     print result
 
 @test number_to_english = ||

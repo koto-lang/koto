@@ -2,29 +2,6 @@
 
 A collection of utilities for working with the Koto runtime.
 
-## args
-
-```kototype
-Tuple
-```
-
-Provides access to the arguments that were passed into the script when running
-the `koto` CLI application.
-
-If no arguments were provided then the list is empty.
-
-### Example
-
-```koto
-# Assuming that the script was run with `koto script.koto -- 1 2 "hello"`
-size koto.args
-# 3
-koto.args.first()
-# 1
-koto.args.last()
-# hello
-```
-
 ## copy
 
 ```kototype

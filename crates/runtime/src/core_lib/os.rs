@@ -13,6 +13,8 @@ pub fn make_module() -> KMap {
 
     let result = KMap::with_type("core.os");
 
+    result.insert("args", KValue::Tuple(KTuple::default()));
+
     result.add_fn("command", |ctx| match ctx.args() {
         [KValue::Str(command)] => Ok(Command::make_value(command)),
         unexpected => unexpected_args("|String|", unexpected),
