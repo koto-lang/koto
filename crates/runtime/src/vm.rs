@@ -1468,7 +1468,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&Negate.into()).unwrap();
                 return self.call_overridden_unary_op(Some(result), value, op);
             }
-            Object(o) => o.try_borrow()?.negate(self)?,
+            Object(o) => o.try_borrow()?.negate()?,
             unexpected => return unexpected_type("negatable value", &unexpected),
         };
         self.set_register(result, result_value);

@@ -96,6 +96,10 @@ The Koto project adheres to
 
 - `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
 
+#### API
+
+- The `vm` argument has been removed from `KotoObject::negate`.
+
 #### CLI
 
 - The CLI is now built with extra optimizations by default,
