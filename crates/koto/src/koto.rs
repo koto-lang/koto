@@ -151,12 +151,12 @@ impl Koto {
     pub fn set_args(&mut self, args: impl IntoIterator<Item = String>) -> Result<()> {
         let koto_args = args.into_iter().map(KValue::from).collect::<Vec<_>>();
 
-        match self.runtime.prelude().data_mut().get("koto") {
+        match self.runtime.prelude().data_mut().get("os") {
             Some(KValue::Map(map)) => {
                 map.insert("args", KValue::Tuple(koto_args.into()));
                 Ok(())
             }
-            _ => Err(Error::MissingPrelude),
+            _ => Err(Error::MissingOsModule),
         }
     }
 

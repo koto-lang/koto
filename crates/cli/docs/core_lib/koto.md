@@ -2,29 +2,6 @@
 
 A collection of utilities for working with the Koto runtime.
 
-## args
-
-```kototype
-Tuple
-```
-
-Provides access to the arguments that were passed into the script when running
-the `koto` CLI application.
-
-If no arguments were provided then the list is empty.
-
-### Example
-
-```koto
-# Assuming that the script was run with `koto script.koto -- 1 2 "hello"`
-size koto.args
-# 3
-koto.args.first()
-# 1
-koto.args.last()
-# hello
-```
-
 ## copy
 
 ```kototype
@@ -125,29 +102,6 @@ check! [[1, 2], [3, [4, 5]]]
 
 - [`koto.copy`](#copy)
 
-
-## exports
-
-```kototype
-|| -> Map
-```
-
-Returns the current module's `export` map.
-
-Although typically module items are exported with `export` expressions,
-it can be useful to export items programatically.
-
-### Example
-
-```koto
-export a, b, c = 1, 2, 3
-print! koto.exports()
-check! {a: 1, b: 2, c: 3}
-
-koto.exports().remove 'b'
-print! koto.exports()
-check! {a: 1, c: 3}
-```
 
 ## hash
 

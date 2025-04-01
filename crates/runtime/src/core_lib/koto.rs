@@ -14,8 +14,6 @@ use std::{
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.koto");
 
-    result.insert("args", KValue::Tuple(KTuple::default()));
-
     result.add_fn("copy", |ctx| match ctx.args() {
         [KValue::Iterator(iter)] => Ok(iter.make_copy()?.into()),
         [KValue::List(l)] => Ok(KList::with_data(l.data().clone()).into()),
@@ -34,11 +32,6 @@ pub fn make_module() -> KMap {
     result.add_fn("deep_copy", |ctx| match ctx.args() {
         [value] => value.deep_copy(),
         unexpected => unexpected_args("|Any|", unexpected),
-    });
-
-    result.add_fn("exports", |ctx| match ctx.args() {
-        [] => Ok(KValue::Map(ctx.vm.exports().clone())),
-        unexpected => unexpected_args("||", unexpected),
     });
 
     result.add_fn("hash", |ctx| match ctx.args() {

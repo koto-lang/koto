@@ -44,7 +44,7 @@ impl KotoObject for Vec2 {
         Ok(())
     }
 
-    fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
+    fn negate(&self) -> Result<KValue> {
         Ok(Self(-self.0).into())
     }
 

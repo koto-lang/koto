@@ -183,10 +183,11 @@ impl Iterator for InstructionReader {
                 register: byte_a,
                 constant: get_var_u32!().into(),
             },
-            Op::ValueExport => ValueExport {
-                name: byte_a,
+            Op::ExportValue => ExportValue {
+                key: byte_a,
                 value: get_u8!(),
             },
+            Op::ExportEntry => ExportEntry { entry: byte_a },
             Op::Import => Import { register: byte_a },
             Op::MakeTempTuple => {
                 let [byte_b, byte_c] = get_u8x2!();

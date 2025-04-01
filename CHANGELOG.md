@@ -6,7 +6,7 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.16.0] Unreleased 
+## [0.16.0] Unreleased
 
 ### Added
 
@@ -53,6 +53,13 @@ The Koto project adheres to
     x = [1, , 3, , 5]
     # -> [1, null, 3, null, 5]
     ```
+- `export` can now take any iterable that yields key/value pairs.
+  - E.g.
+    ```koto
+    export (1..=3).each |i| 'generated_i', i
+    generated_3
+    # -> 3
+    ```
 
 #### API
 
@@ -88,12 +95,24 @@ The Koto project adheres to
 #### Core Library
 
 - `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
+- `koto.args` has been moved to `os.args`.
+
+#### API
+
+- The `vm` argument has been removed from `KotoObject::negate`.
 
 #### CLI
 
 - The CLI is now built with extra optimizations by default,
   resulting in a faster binary at the expense of longer build times.
 - Ctrl+C in the REPL now clears the line rather than exiting.
+
+### Removed
+
+#### Core Library
+
+- `koto.exports` has been removed.
+  - `export` now accepts any iterable value which provides support for exporting generated keys.
 
 ### Fixed
 
@@ -104,13 +123,13 @@ The Koto project adheres to
 
 ## [0.15.0] 2025.01.07
 
-### Added 
+### Added
 
 #### Language
 
 - Type hints have been added, enabling runtime type checks.
   - `let` is used for type-checked assignments, e.g. `let x: String = 'abc'`.
-  - Other bindings (`for` values, function arguments, etc.) can be similarly 
+  - Other bindings (`for` values, function arguments, etc.) can be similarly
     annotated with a type hints.
   - Runtime checks can be optionally disabled via
     `KotoSettings::enable_type_checks`.
@@ -122,7 +141,7 @@ The Koto project adheres to
   - E.g. expressions like `export a, b, c = foo()` are now allowed.
 - Maps now support `[]` indexing, returning the Nth entry as a tuple.
   - Entries can also be replaced by index by assigning a key/value tuple.
-- The `@index_mut` metakey has been added to define custom behaviour for 
+- The `@index_mut` metakey has been added to define custom behaviour for
   index-assignment operations.
 - Objects that implement `KotoObject::call` can now be used in operations that
   expect functions.
@@ -140,7 +159,7 @@ The Koto project adheres to
   - `os.process_id`
   - `string.repeat`
   - `tuple.is_empty`
-- `tuple.sort_copy` now supports sorting with a key function, following the 
+- `tuple.sort_copy` now supports sorting with a key function, following the
   behaviour of `list.sort`.
 
 #### Extra Libs
@@ -165,7 +184,7 @@ The Koto project adheres to
 #### Language
 
 - The `>>` pipe operator has been replaced with `->`.
-  - This aligns it with the `->` function output type syntax, which avoids 
+  - This aligns it with the `->` function output type syntax, which avoids
     having two different special-case operators related to function output.
 - The type of a number is now always `Number`, rather than distinguishing
   between `Int` and `Float`.
@@ -175,7 +194,7 @@ The Koto project adheres to
 - `@||` has been renamed to `@call`, and `@[]` has been renamed to `@index`.
 - `:` placement following keys in maps is now more flexible.
   ([#368](https://github.com/koto-lang/koto/issues/368))
-- When a map is used with `export`, the map entries now get added to the 
+- When a map is used with `export`, the map entries now get added to the
   local scope. Local variables with names that match an exported map key
   will be updated.
 
@@ -188,28 +207,28 @@ The Koto project adheres to
 - The single-threaded runtime flavor (`rc`) is now the default.
   Applications that require a multi-threaded runtime should disable default
   features and use the `arc` feature.
-- The line and column numbers referred to in spans are now zero-based. 
+- The line and column numbers referred to in spans are now zero-based.
 - Functions that previously took `Option<PathBuf>` now take `Option<&Path>`.
 - `AstIndex` and `ConstantIndex` are now newtypes that wrap `u32`.
-- `Node::Lookup` has been renamed to `Node::Chain`, and `LookupNode` is now 
+- `Node::Lookup` has been renamed to `Node::Chain`, and `LookupNode` is now
   `ChainNode`.
-- `type_error` has been renamed to `unexpected_type`.  
+- `type_error` has been renamed to `unexpected_type`.
   - `type_error_with_slice` has been replaced by `unexpected_args` and
-    `unexpected_args_after_instance`. 
+    `unexpected_args_after_instance`.
 - `From` impls for `KNumber` now saturate integer values that are out of the
   target type's bounds, instead of wrapping.
 - `Koto::compile` and `compile_and_run` now take `CompileArgs` which include
-  compiler settings. The equivalent compiler settings have been removed from 
+  compiler settings. The equivalent compiler settings have been removed from
   `KotoSettings`.
 - `Compiler::compile` now takes a string rather than an `Ast`, and returns
-  a `Chunk` with prepared debug info.  
+  a `Chunk` with prepared debug info.
 - `Loader` has been renamed `ModuleLoader` to clarify its purpose.
 - `Koto::set_args` now accepts any value that implements
   `IntoIterator<Item = String>`, which includes the output of `std::env::args()`.
 
 #### Libs
 
-- The `color` module has been reworked to support working with alternative 
+- The `color` module has been reworked to support working with alternative
   color spaces.
   - `Oklab` and `Oklch` color spaces have been added.
   - `color.hex` has been added to support initializing colors with hex triples.
@@ -218,20 +237,20 @@ The Koto project adheres to
 
 #### Language
 
-- The `@tests` metakey has been removed, with `@test` functions now exported directly 
+- The `@tests` metakey has been removed, with `@test` functions now exported directly
   in the module.
   - Before:
     ```koto
     @tests =
       @test foo: || assert something()
       @test bar: || assert something_else()
-    ``` 
+    ```
     After:
     ```koto
     @test foo = || assert something()
     @test bar = || assert something_else()
     ```
-    - If you have a file with a lot of tests, you can replace `@tests =` with `export` 
+    - If you have a file with a lot of tests, you can replace `@tests =` with `export`
       to simplify the transition.
       ```koto
       export
@@ -241,7 +260,7 @@ The Koto project adheres to
 
 #### API
 
-- `koto_parser::MapKey` and `IdOrString` have been removed, map keys and import 
+- `koto_parser::MapKey` and `IdOrString` have been removed, map keys and import
   IDs are now represented as AST nodes.
 - `Node::NamedCall` has been removed, with all calls represented by expression
   chains.
@@ -257,11 +276,11 @@ The Koto project adheres to
 
 ## [0.14.0] 2024.04.17
 
-### Added 
+### Added
 
 #### API
 
-- `KMap::get` has been introduced as simpler alternative to 
+- `KMap::get` has been introduced as simpler alternative to
   `KMap::data().get().cloned()`.
 
 #### Libs
@@ -271,10 +290,10 @@ The Koto project adheres to
 
 ### Changed
 
-#### API 
+#### API
 
 - The use of `CallArgs` has been simplified with the introduction of `From`
-  implementations for single values, arrays, and slices. 
+  implementations for single values, arrays, and slices.
   - `CallArgs::None` has been removed, instead you can pass in `&[]`.
 - The `run_function`/`run_instance_function` methods in `Koto` and `KotoVm` have
   been renamed to `call_function` and `call_instance_function`.
@@ -295,7 +314,7 @@ The Koto project adheres to
 
 - `Koto::run_exported_function` has been removed. Functions can be accessed via
   `Koto::exports().get()` and then called with `Koto::call_function()`.
-- `Koto::run_with_args` has been removed. For equivalent behaviour, 
+- `Koto::run_with_args` has been removed. For equivalent behaviour,
   `Koto::set_args` can be called before calling `Koto::run`.
 
 ### Fixed
@@ -318,10 +337,10 @@ The Koto project adheres to
 - Formatting options have been added for interpolated strings.
 - `import` expressions can now use `as` for more ergonomic item renaming.
 - Assignments can now be used in `while`/`until` conditions.
-- Unpacked assignments with a single value on the RHS are now accepted, 
+- Unpacked assignments with a single value on the RHS are now accepted,
   with remaining values being set to `null`.
   - e.g. `a, b, c = 42` will assign `42` to `a`, and `null` to `b` and `c`.
-- The `@size` metakey (along with `KObject::size`) has been added to allow 
+- The `@size` metakey (along with `KObject::size`) has been added to allow
   custom value types to work with argument unpacking and pattern matching.
   - The general rule is now that matching works with any value that declares a
     size and supports indexing.
@@ -333,14 +352,14 @@ The Koto project adheres to
 - `Koto::run_instance_function` has been added.
 - `Ptr`/`PtrMut` now have an associated `ref_count` function.
 - `KMap::clear` has been added.
-- A maximum execution duration can now be defined in `KotoVmSettings`, 
+- A maximum execution duration can now be defined in `KotoVmSettings`,
   with a timeout error being returned when the deadline is reached.
 
 #### Core Library
 
-- Dynamic compilation and evaluation features (`koto.load` and `koto.run`) have 
+- Dynamic compilation and evaluation features (`koto.load` and `koto.run`) have
   been added, thanks to [@alisomay](https://github.com/alisomay).
-- `koto.size` has been added (and added to the prelude), 
+- `koto.size` has been added (and added to the prelude),
   replacing the various type-specific `.size()` functions.
 - `string.char_indices` has been added to support the switch to byte-based
   indexing.
@@ -361,17 +380,17 @@ The Koto project adheres to
     e.g. `'$foo` is now `{foo}`
   - The `\$` escape sequence has been replaced with `\{`.
 - Pattern matching and function argument unpacking now use parentheses for all
-  container types. 
+  container types.
   - Any uses of `[]` brackets to match against lists can be updated to use
     parentheses instead.
 - Indexing operations on strings now access bytes instead of grapheme clusters.
   - This is to avoid the non-linear performance cost of indexing by cluster.
   - To access clusters via indexing, `string.char_indices` can be called first to
-    retrieve valid indices. 
+    retrieve valid indices.
 
 #### Core Library
 
-- `io.print` no longer implicitly treats its first argument as a format string. 
+- `io.print` no longer implicitly treats its first argument as a format string.
   Interpolated strings should be used instead.
 - `iterator.next`/`next_back` and `Peekble.peek`/`peek_back` now return
   `IteratorOutput` for output values, and `null` when the iterator is exhausted.
@@ -392,7 +411,7 @@ The Koto project adheres to
   runtime value types, and to avoid polluting the prelude with a generic name.
 - The VM-specific parts of `KotoSettings` are now defined via `KotoVmSettings`.
 - The `KotoLookup` trait has been replaced with `KotoEntries`.
-- Objects can be compared with `null` on the LHS without having to implement 
+- Objects can be compared with `null` on the LHS without having to implement
   `KotoObject::equal` and/or `not_equal`.
 - `KRange` initialization has been revamped to support `From` for
   `RangeBounds<i64>`.
@@ -407,12 +426,12 @@ The Koto project adheres to
 #### CLI
 
 - The REPL `config.koto` settings have all been moved into a `repl` sub-map.
-  - e.g. 
+  - e.g.
     `export { edit_mode: 'vi' }` is now `export { repl: { edit_mode: 'vi' }}`
 - The `--import_tests`/`-T` CLI option will now run tests in the main script
   along with any tests from imported modules.
 
-### Removed 
+### Removed
 
 #### Core Library
 
@@ -433,7 +452,7 @@ The Koto project adheres to
 
 #### Language
 
-- Chained compound assignment operators are now right-associative and all share 
+- Chained compound assignment operators are now right-associative and all share
   the same precedence.
 
 
@@ -444,22 +463,22 @@ The Koto project adheres to
 #### Language
 
 - Ellipses can now be used when unpacking nested function args.
-  - e.g. 
+  - e.g.
     ```koto
     f = |(a, b, others...)| a * b + others.sum()
     f (10, 100, 1, 2, 3)
     # 1006
     ```
 - Meta map improvements
-  - Compound assignment operators (`@+=`, `@*=`, etc.) can now be implemented 
+  - Compound assignment operators (`@+=`, `@*=`, etc.) can now be implemented
     in meta maps and external values.
-  - The function call operator (`@||`) can be implemented to values that behave 
+  - The function call operator (`@||`) can be implemented to values that behave
     like functions.
   - Values that implement `@[]` can now be used in unpacking assignment
     expressions.
   - `@next` and `@next_back` meta keys have been added to enable custom iterators.
 - `export` can now be used with maps as well as single-value assignments.
-  - e.g. 
+  - e.g.
     ```koto
     a, b, c = 1, 2, 3
     export { a, b, c, foo: 42 }
@@ -467,14 +486,14 @@ The Koto project adheres to
 
 #### Libs
 
-- New `color` and `geometry` libs have been added, and are available by default 
+- New `color` and `geometry` libs have been added, and are available by default
   in the CLI.
 - `koto.hash` has been added to allow value hashes to be accessed.
-- The `copy`/`deep_copy` functions have been merged into the `koto` module, 
+- The `copy`/`deep_copy` functions have been merged into the `koto` module,
   and made available in the prelude.
 - `range` additions:
   - `range.contains` can now accept a range as an argument.
-    - e.g. 
+    - e.g.
       ```koto
       (10..30).contains 15..25
       # true
@@ -488,7 +507,7 @@ The Koto project adheres to
 
 #### Internals
 
-- The `KotoObject` trait has been introduced to simplify creating custom object 
+- The `KotoObject` trait has been introduced to simplify creating custom object
   types, replacing `ExternalValue`.
 - Preludes are now available in the `koto` and `koto_runtime` crates.
 - `Ptr<T>` and `PtrMut<T>` wrappers have been introduced as the core memory
@@ -498,7 +517,7 @@ The Koto project adheres to
 
 - Added support for disabling colored output with the `NO_COLOR` environment
   variable.
-- The REPL has been reimplemented with 
+- The REPL has been reimplemented with
   [rustyline](https://github.com/kkawakam/rustyline)
   - History is now maintained between sessions.
   - Emacs / VI key bindings have been added.
@@ -521,7 +540,7 @@ The Koto project adheres to
     # 10, 20, 30
     ```
   - Iteration is also used when unpacking for loop arguments.
-    - e.g. 
+    - e.g.
     ```koto
     for a, b, c in (1..10).windows 3
       debug a, b, c
@@ -531,14 +550,14 @@ The Koto project adheres to
     ```
 - Ranges now preserve whether or not they're inclusive.
 - `File`s now implement `@display`, showing their paths.
-- `Tuple`s now share data when sub-tuples are made via indexing or unpacking, 
-    avoiding unnecessary copies. 
+- `Tuple`s now share data when sub-tuples are made via indexing or unpacking,
+    avoiding unnecessary copies.
 - Import nested items directly is no longer allowed
   - e.g. `import foo.bar` now needs to be written as `from foo import bar`.
 
 ### Libs
 
-- The various `.copy`/`.deep_copy` module functions have been merged into 
+- The various `.copy`/`.deep_copy` module functions have been merged into
   `koto.copy`/`koto.deep_copy`, which have also been added to the prelude.
 - `iterator.chunks`, `.cycle`, and `.windows` now cache initial iterator output
   rather than relying on copying the adapted iterator.
@@ -552,12 +571,12 @@ The Koto project adheres to
   provides access to the VM and its arguments.
   - Functions that need access to the `self` instance can access it via
     `CallContext::instance`.
-- The core Koto runtime types have been renamed for consistency, 
-  and now use a `K` prefix to help disambiguate them in context 
+- The core Koto runtime types have been renamed for consistency,
+  and now use a `K` prefix to help disambiguate them in context
   (e.g. `KIterator` vs. `Iterator`).
 - `KTuple::data` has been removed, with a `Deref` impl to `&[Value]` taking
   its place.
-- Type strings and strings returned by `KotoFile` implementations are now 
+- Type strings and strings returned by `KotoFile` implementations are now
   expected to be `KString`s.
 - `unexpected_type_error_with_slice` has been renamed to
   `type_error_with_slice`, and has had the prefix argument removed.
@@ -574,7 +593,7 @@ The Koto project adheres to
 #### Packed number removal
 
 - The `Num2` and `Num4` types have been removed.
-  - Some of the use cases for these types are covered by the new `color` and 
+  - Some of the use cases for these types are covered by the new `color` and
     `geometry` libs.
   - See https://github.com/koto-lang/koto/issues/201 for removal rationale.
 
@@ -588,7 +607,7 @@ The Koto project adheres to
     # You can use:
     iterator.repeat('x', 5).to_list()
     ```
-- `string.slice` has been removed in favour of `[]` indexing. 
+- `string.slice` has been removed in favour of `[]` indexing.
   - e.g.
     ```koto
     # Instead of:
@@ -599,9 +618,9 @@ The Koto project adheres to
 
 ### Fixed
 
-- Ignored values (i.e. `_` or values with a `_` prefix) will now trigger a 
+- Ignored values (i.e. `_` or values with a `_` prefix) will now trigger a
   compilation error when they're accessed.
-  - e.g. 
+  - e.g.
     ```koto
     _x = 42
     debug _x
@@ -664,16 +683,16 @@ The Koto project adheres to
     ```
 - Loop improvements
   - The result of loop expressions (`for`, `while`, `until`, and `loop`) can now
-    be assigned to a value, with the default result being the final expression 
-    in the loop body. 
+    be assigned to a value, with the default result being the final expression
+    in the loop body.
     - If no loop iterations are performed then the result is `null`.
-  - The `break` keyword can now take an expression, which will be returned as 
+  - The `break` keyword can now take an expression, which will be returned as
     the result of the loop.
-    - e.g. 
+    - e.g.
       ```koto
       y = for x in 0..=10
         if x == 5
-          break x * x 
+          break x * x
       y
       # 25
       ```
@@ -776,7 +795,7 @@ The Koto project adheres to
     f = || x
     # Re-exporting x doesn't affect the value of x captured when f was created
     export x = 99
-    f() 
+    f()
     # 123
     ```
 - Arms in `match` and `switch` expressions that have indented blocks as their
@@ -793,7 +812,7 @@ The Koto project adheres to
         ]
     ```
 - Curly braces are now required when declaring a Map with inline syntax.
-  - This reverts a change made in 0.9 which created too many ambiguous parsing 
+  - This reverts a change made in 0.9 which created too many ambiguous parsing
     situations in practice.
 
 #### Core Library
@@ -861,7 +880,7 @@ The Koto project adheres to
   been removed. These value types should be treated as immutable; the `with`
   functions can be used to create new values with modified elements.
 - `list.sort_copy` has been removed in favour of `.copy().sort()`.
-  - e.g. 
+  - e.g.
     ```koto
     x = [3, 2, 1]
     y = x.copy().sort()
@@ -877,7 +896,7 @@ The Koto project adheres to
     print 'hello'
     #--#
     ```
-- The `+` operator is no longer implemented for Lists and Maps, 
+- The `+` operator is no longer implemented for Lists and Maps,
   `list.extend` and `map.extend` can be used as an alternative.
 
 ### Fixed

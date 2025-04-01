@@ -470,12 +470,21 @@ pub enum Op {
     /// `[*key, *name, *value]`
     MetaExportNamed,
 
-    /// Exports a value by adding it to the module's exports map
+    /// Exports a key/value pair by adding it to the module's exports map
     ///
     /// Used for expressions like `export foo = ...`
     ///
-    /// `[*name, *value]`
-    ValueExport,
+    /// `[*key, *value]`
+    ExportValue,
+
+    /// Exports an entry by adding it to the module's exports map
+    ///
+    /// - If the entry is a tuple, then it's assumed to be a key/value pair.
+    /// - If the entry is an iterator, then it's unpacked into a key/value pair.
+    /// - Otherwise an error will be thrown.
+    ///
+    /// `[*entry]`
+    ExportEntry,
 
     /// Accesses a contained value via a constant key
     ///
@@ -566,7 +575,6 @@ pub enum Op {
     CheckOptionalType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused89,
     Unused90,
     Unused91,
     Unused92,

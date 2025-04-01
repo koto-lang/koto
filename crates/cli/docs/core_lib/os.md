@@ -2,6 +2,29 @@
 
 A collection of utilities for working with the operating system.
 
+## args
+
+```kototype
+Tuple
+```
+
+Provides access to the arguments that were passed into the script when running
+the `koto` CLI application.
+
+If no arguments were provided then the list is empty.
+
+### Example
+
+```koto
+# Assuming that the script was run with `koto script.koto -- 1 2 "hello"`
+size os.args
+# 3
+os.args.first()
+# 1
+os.args.last()
+# hello
+```
+
 ## command
 
 ```kototype

@@ -177,7 +177,7 @@ mod objects {
             Ok(self.x.into())
         }
 
-        fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
+        fn negate(&self) -> Result<KValue> {
             Ok(Self::make_value(-self.x))
         }
 

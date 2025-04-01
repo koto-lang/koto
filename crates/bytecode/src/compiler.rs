@@ -158,6 +158,18 @@ impl<'a> CompileNodeContext<'a> {
         }
     }
 
+    fn with_fixed_register_or_any(self) -> Self {
+        let result_register = if matches!(self.result_register, ResultRegister::Fixed(_)) {
+            self.result_register
+        } else {
+            ResultRegister::Any
+        };
+        Self {
+            result_register,
+            ..self
+        }
+    }
+
     fn compile_for_side_effects(self) -> Self {
         Self {
             result_register: ResultRegister::None,
@@ -1344,7 +1356,7 @@ impl Compiler {
     fn compile_value_export(&mut self, id: ConstantIndex, value_register: u8) -> Result<()> {
         let id_register = self.push_register()?;
         self.compile_load_string_constant(id_register, id);
-        self.push_op(Op::ValueExport, &[id_register, value_register]);
+        self.push_op(Op::ExportValue, &[id_register, value_register]);
         self.pop_register()?;
         self.frame_mut().add_to_exported_ids(id);
         Ok(())
@@ -1580,11 +1592,34 @@ impl Compiler {
                 targets,
                 expression,
             } => self.compile_multi_assign(targets, *expression, true, ctx),
+            // Maps can be exported directly rather than relying on the iterator logic below
             Node::Map(entries) => self.compile_make_map(entries, true, ctx),
-            unexpected => self.error(ErrorKind::UnexpectedNode {
-                expected: "an assignment or a Map to export".into(),
-                unexpected: unexpected.clone(),
-            }),
+            // Other expressions can be evaluated and then assumed to be iterable
+            _ => {
+                // Evaluate the expression and convert the result into an iterator
+                let result = self.compile_node(expression, ctx.with_fixed_register_or_any())?;
+                let expression_register = result.unwrap(self)?;
+                let stack_count = self.stack_count();
+                let iterator_register = self.push_register()?;
+                self.push_op(Op::MakeIterator, &[iterator_register, expression_register]);
+
+                // Consume the expression iterator, exporting each output entry
+                let iter_start_ip = self.bytes.len();
+                let output_register = self.push_register()?;
+                self.push_op(Op::IterNextTemp, &[output_register, iterator_register]);
+                let iter_finished_offset = self.push_offset_placeholder();
+
+                self.push_op(Op::ExportEntry, &[output_register]);
+
+                // Jump back to get more iterator output
+                self.push_jump_back_op(Op::JumpBack, &[], iter_start_ip);
+
+                // Finished, update the IterNextTemp offset and clean up the temporary registers
+                self.update_offset_placeholder(iter_finished_offset)?;
+                self.truncate_register_stack(stack_count)?;
+
+                Ok(result)
+            }
         }
     }
 
@@ -2928,7 +2963,7 @@ impl Compiler {
                 }
 
                 if export_entry {
-                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                    self.push_op_without_span(ExportValue, &[key_register, value_register]);
                 }
 
                 self.pop_register()?;
@@ -2945,7 +2980,7 @@ impl Compiler {
                 }
 
                 if export_entry {
-                    self.push_op_without_span(ValueExport, &[key_register, value_register]);
+                    self.push_op_without_span(ExportValue, &[key_register, value_register]);
                 }
 
                 self.pop_register()?;
@@ -3042,7 +3077,6 @@ impl Compiler {
                 if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
                     self.compile_call(function_register, &[], pipe_register, None, ctx)
                 } else {
-                    let result = self.assign_result_register(ctx)?;
                     let call_result_register = if let Some(result_register) = result.register {
                         ResultRegister::Fixed(result_register)
                     } else {

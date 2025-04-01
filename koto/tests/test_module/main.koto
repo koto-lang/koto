@@ -14,8 +14,9 @@ export
   baz: import baz # Re-export the neighbouring baz module
   'exported_with_string_id': 99
 
-# Export by inserting an entry to koto.exports()
-koto.exports().insert 'exported_via_insert', -123
+# Export via an iterator that yields (name, value) tuples
+export (1..=3).each |i|
+  'generated_export_{i}', i
 
 # Metakeys can be assigned to directly
 @type = 'test_module'

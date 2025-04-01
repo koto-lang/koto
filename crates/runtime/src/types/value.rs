@@ -180,7 +180,7 @@ impl KValue {
                 |o| o.type_string(),
             ),
             Iterator(_) => "Iterator".into(),
-            TemporaryTuple { .. } => "Temporary_tuple".into(),
+            TemporaryTuple { .. } => "TemporaryTuple".into(),
         }
     }
 

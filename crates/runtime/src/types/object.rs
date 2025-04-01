@@ -169,7 +169,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     }
 
     /// Defines the behavior of negation (e.g. `-x`)
-    fn negate(&self, _vm: &mut KotoVm) -> Result<KValue> {
+    fn negate(&self) -> Result<KValue> {
         unimplemented_error("@negate", self.type_string())
     }
 
