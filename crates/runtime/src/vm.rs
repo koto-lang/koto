@@ -1,6 +1,6 @@
 use crate::{
     DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
-    core_lib::CoreLib,
+    core_lib::{CoreLib, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
     types::{meta_id_to_key, value::RegisterSlice},
@@ -478,11 +478,19 @@ impl KotoVm {
         self.registers.push(rhs);
 
         match op {
-            BinaryOp::Add => self.run_add(result_register, lhs_register, rhs_register)?,
-            BinaryOp::Subtract => self.run_subtract(result_register, lhs_register, rhs_register)?,
-            BinaryOp::Multiply => self.run_multiply(result_register, lhs_register, rhs_register)?,
-            BinaryOp::Divide => self.run_divide(result_register, lhs_register, rhs_register)?,
-            BinaryOp::Remainder => {
+            BinaryOp::Add | BinaryOp::AddRhs => {
+                self.run_add(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Subtract | BinaryOp::SubtractRhs => {
+                self.run_subtract(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Multiply | BinaryOp::MultiplyRhs => {
+                self.run_multiply(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Divide | BinaryOp::DivideRhs => {
+                self.run_divide(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Remainder | BinaryOp::RemainderRhs => {
                 self.run_remainder(result_register, lhs_register, rhs_register)?
             }
             BinaryOp::AddAssign => {
@@ -1273,8 +1281,9 @@ impl KotoVm {
         use KValue::*;
 
         let index_op = BinaryOp::Index.into();
+        let lhs = self.get_register(value);
 
-        let result_value = match self.get_register(value) {
+        let result_value = match lhs {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
                 list.data().get(index).cloned().unwrap_or(Null)
@@ -1298,7 +1307,8 @@ impl KotoVm {
             }
             Map(map) if map.contains_meta_key(&index_op) => {
                 let op = map.get_meta_value(&index_op).unwrap();
-                return self.call_overridden_binary_op(Some(result), value, index.into(), op);
+                let lhs = lhs.clone();
+                return self.call_overridden_binary_op(Some(result), lhs, index.into(), op);
             }
             Map(map) => {
                 let data = map.data();
@@ -1532,11 +1542,13 @@ impl KotoVm {
     }
 
     fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Add;
+        use BinaryOp::{Add, AddRhs};
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
+
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a + b),
             (Str(a), Str(b)) => {
@@ -1552,10 +1564,17 @@ impl KotoVm {
                 Tuple(result.into())
             }
             (Map(m), _) if m.contains_meta_key(&Add.into()) => {
-                let op = m.get_meta_value(&Add.into()).unwrap();
+                let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_arithmetic_op!(self, Add, add, m, lhs_value, rhs_value, result)
             }
+            (Object(o), _) => {
+                call_object_arithmetic_op!(self, Add, add, o, lhs_value, rhs_value, result)
+            }
+            (_, Map(m)) if m.contains_meta_key(&AddRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, AddRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => call_object_binary_op!(AddRhs, add_rhs, o, lhs_value, rhs_value),
             (Map(a), Map(b)) => {
                 let mut data = a.data().clone();
                 data.extend(b.data().iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -1571,7 +1590,6 @@ impl KotoVm {
                 };
                 Map(KMap::with_contents(data, meta))
             }
-            (Object(o), _) => o.try_borrow()?.add(rhs_value)?,
             _ => return binary_op_error(lhs_value, rhs_value, Add),
         };
 
@@ -1580,19 +1598,32 @@ impl KotoVm {
     }
 
     fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Subtract;
+        use BinaryOp::{Subtract, SubtractRhs};
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
             (Map(m), _) if m.contains_meta_key(&Subtract.into()) => {
-                let op = m.get_meta_value(&Subtract.into()).unwrap();
+                let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_arithmetic_op!(
+                    self, Subtract, subtract, m, lhs_value, rhs_value, result
+                )
             }
-            (Object(o), _) => o.try_borrow()?.subtract(rhs_value)?,
+            (Object(o), _) => {
+                call_object_arithmetic_op!(
+                    self, Subtract, subtract, o, lhs_value, rhs_value, result
+                )
+            }
+            (_, Map(m)) if m.contains_meta_key(&SubtractRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, SubtractRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => {
+                call_object_binary_op!(SubtractRhs, subtract_rhs, o, lhs_value, rhs_value)
+            }
             _ => return binary_op_error(lhs_value, rhs_value, Subtract),
         };
 
@@ -1601,8 +1632,9 @@ impl KotoVm {
     }
 
     fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Multiply;
+        use BinaryOp::{Multiply, MultiplyRhs};
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1610,11 +1642,23 @@ impl KotoVm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a * b),
             (Map(m), _) if m.contains_meta_key(&Multiply.into()) => {
-                let op = m.get_meta_value(&Multiply.into()).unwrap();
+                let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_arithmetic_op!(
+                    self, Multiply, multiply, m, lhs_value, rhs_value, result
+                )
             }
-            (Object(o), _) => o.try_borrow()?.multiply(rhs_value)?,
+            (Object(o), _) => {
+                call_object_arithmetic_op!(
+                    self, Multiply, multiply, o, lhs_value, rhs_value, result
+                )
+            }
+            (_, Map(m)) if m.contains_meta_key(&MultiplyRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, MultiplyRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => {
+                call_object_binary_op!(MultiplyRhs, multiply_rhs, o, lhs_value, rhs_value)
+            }
             _ => return binary_op_error(lhs_value, rhs_value, Multiply),
         };
 
@@ -1623,19 +1667,28 @@ impl KotoVm {
     }
 
     fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Divide;
+        use BinaryOp::{Divide, DivideRhs};
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
             (Map(m), _) if m.contains_meta_key(&Divide.into()) => {
-                let op = m.get_meta_value(&Divide.into()).unwrap();
+                let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_arithmetic_op!(self, Divide, divide, m, lhs_value, rhs_value, result)
             }
-            (Object(o), _) => o.try_borrow()?.divide(rhs_value)?,
+            (Object(o), _) => {
+                call_object_arithmetic_op!(self, Divide, divide, o, lhs_value, rhs_value, result)
+            }
+            (_, Map(m)) if m.contains_meta_key(&DivideRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, DivideRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => {
+                call_object_binary_op!(DivideRhs, divide_rhs, o, lhs_value, rhs_value)
+            }
             _ => return binary_op_error(lhs_value, rhs_value, Divide),
         };
 
@@ -1644,8 +1697,9 @@ impl KotoVm {
     }
 
     fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Remainder;
+        use BinaryOp::{Remainder, RemainderRhs};
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1657,11 +1711,23 @@ impl KotoVm {
             }
             (Number(a), Number(b)) => Number(a % b),
             (Map(m), _) if m.contains_meta_key(&Remainder.into()) => {
-                let op = m.get_meta_value(&Remainder.into()).unwrap();
+                let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_arithmetic_op!(
+                    self, Remainder, remainder, m, lhs_value, rhs_value, result
+                )
             }
-            (Object(o), _) => o.try_borrow()?.remainder(rhs_value)?,
+            (Object(o), _) => {
+                call_object_arithmetic_op!(
+                    self, Remainder, remainder, o, lhs_value, rhs_value, result
+                )
+            }
+            (_, Map(m)) if m.contains_meta_key(&RemainderRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, RemainderRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => {
+                call_object_binary_op!(RemainderRhs, remainder_rhs, o, lhs_value, rhs_value)
+            }
             _ => return binary_op_error(lhs_value, rhs_value, Remainder),
         };
         self.set_register(result, result_value);
@@ -1681,10 +1747,7 @@ impl KotoVm {
                 Ok(())
             }
             (Map(m), _) if m.contains_meta_key(&AddAssign.into()) => {
-                let op = m.get_meta_value(&AddAssign.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                // The call result can be discarded, the result is always the modified LHS
-                self.call_overridden_binary_op(None, lhs, rhs_value, op)
+                macros::call_metamap_binary_op!(self, AddAssign, m, lhs_value, rhs_value);
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1707,10 +1770,7 @@ impl KotoVm {
                 Ok(())
             }
             (Map(m), _) if m.contains_meta_key(&SubtractAssign.into()) => {
-                let op = m.get_meta_value(&SubtractAssign.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                // The call result can be discarded, the result is always the modified LHS
-                self.call_overridden_binary_op(None, lhs, rhs_value, op)
+                macros::call_metamap_binary_op!(self, SubtractAssign, m, lhs_value, rhs_value);
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1733,10 +1793,7 @@ impl KotoVm {
                 Ok(())
             }
             (Map(m), _) if m.contains_meta_key(&MultiplyAssign.into()) => {
-                let op = m.get_meta_value(&MultiplyAssign.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                // The call result can be discarded, the result is always the modified LHS
-                self.call_overridden_binary_op(None, lhs, rhs_value, op)
+                macros::call_metamap_binary_op!(self, MultiplyAssign, m, lhs_value, rhs_value);
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1759,10 +1816,7 @@ impl KotoVm {
                 Ok(())
             }
             (Map(m), _) if m.contains_meta_key(&DivideAssign.into()) => {
-                let op = m.get_meta_value(&DivideAssign.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                // The call result can be discarded, the result is always the modified LHS
-                self.call_overridden_binary_op(None, lhs, rhs_value, op)
+                macros::call_metamap_binary_op!(self, DivideAssign, m, lhs_value, rhs_value);
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1785,10 +1839,7 @@ impl KotoVm {
                 Ok(())
             }
             (Map(m), _) if m.contains_meta_key(&RemainderAssign.into()) => {
-                let op = m.get_meta_value(&RemainderAssign.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                // The call result can be discarded, the result is always the modified LHS
-                self.call_overridden_binary_op(None, lhs, rhs_value, op)
+                macros::call_metamap_binary_op!(self, RemainderAssign, m, lhs_value, rhs_value);
             }
             (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
                 let o2 = Object(o2.try_borrow()?.copy());
@@ -1809,9 +1860,7 @@ impl KotoVm {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
             (Map(m), _) if m.contains_meta_key(&Less.into()) => {
-                let op = m.get_meta_value(&Less.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                macros::call_metamap_binary_op!(self, Less, m, lhs_value, rhs_value, result);
             }
             (Object(o), _) => o.try_borrow()?.less(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Less),
@@ -1831,9 +1880,7 @@ impl KotoVm {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
             (Map(m), _) if m.contains_meta_key(&LessOrEqual.into()) => {
-                let op = m.get_meta_value(&LessOrEqual.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                macros::call_metamap_binary_op!(self, LessOrEqual, m, lhs_value, rhs_value, result);
             }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
@@ -1853,9 +1900,7 @@ impl KotoVm {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
             (Map(m), _) if m.contains_meta_key(&Greater.into()) => {
-                let op = m.get_meta_value(&Greater.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                macros::call_metamap_binary_op!(self, Greater, m, lhs_value, rhs_value, result);
             }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Greater),
@@ -1875,9 +1920,8 @@ impl KotoVm {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
             (Map(m), _) if m.contains_meta_key(&GreaterOrEqual.into()) => {
-                let op = m.get_meta_value(&GreaterOrEqual.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                use macros::call_metamap_binary_op;
+                call_metamap_binary_op!(self, GreaterOrEqual, m, lhs_value, rhs_value, result);
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
@@ -1890,6 +1934,7 @@ impl KotoVm {
     fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::Equal;
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1913,9 +1958,7 @@ impl KotoVm {
                 self.compare_value_ranges(&a, &b)?
             }
             (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
-                let op = m.get_meta_value(&Equal.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_binary_op!(self, Equal, m, lhs_value, rhs_value, result);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -1943,6 +1986,7 @@ impl KotoVm {
     fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::NotEqual;
         use KValue::*;
+        use macros::*;
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1966,9 +2010,7 @@ impl KotoVm {
                 !self.compare_value_ranges(&a, &b)?
             }
             (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
-                let op = m.get_meta_value(&NotEqual.into()).unwrap();
-                let rhs_value = rhs_value.clone();
-                return self.call_overridden_binary_op(Some(result), lhs, rhs_value, op);
+                call_metamap_binary_op!(self, NotEqual, m, lhs_value, rhs_value, result);
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -2082,14 +2124,14 @@ impl KotoVm {
     fn call_overridden_binary_op(
         &mut self,
         result_register: Option<u8>,
-        lhs_register: u8,
+        lhs: KValue,
         rhs: KValue,
         op: KValue,
     ) -> Result<()> {
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
 
-        self.registers.push(self.clone_register(lhs_register)); // Frame base
+        self.registers.push(lhs); // Frame base
         self.registers.push(rhs); // The rhs goes in the first arg register
         self.call_callable(
             CallInfo {
@@ -2443,12 +2485,7 @@ impl KotoVm {
             }
             (Map(m), index) if m.contains_meta_key(&BinaryOp::Index.into()) => {
                 let op = m.get_meta_value(&BinaryOp::Index.into()).unwrap();
-                return self.call_overridden_binary_op(
-                    Some(result_register),
-                    value_register,
-                    index,
-                    op,
-                );
+                return self.call_overridden_binary_op(Some(result_register), value, index, op);
             }
             (Map(m), Number(n)) => {
                 let entries = m.data();
@@ -3829,4 +3866,199 @@ impl ExecutionTimeout {
 pub enum ReturnOrYield {
     Return(KValue),
     Yield(KValue),
+}
+
+// A collection of macros that avoid duplicated boilerplate in the various operator functions
+mod macros {
+    macro_rules! call_metamap_binary_op_rhs {
+        ($self:expr, $op:ident, $map:expr, $lhs_value:expr, $rhs_value:expr, $result_register:expr) => {{
+            let op = $map.get_meta_value(&$op.into()).unwrap();
+            let lhs_value = $lhs_value.clone();
+            let rhs_value = $rhs_value.clone();
+            // Call the op, swapping the LHS and RHS
+            return $self.call_overridden_binary_op(
+                Some($result_register),
+                rhs_value,
+                lhs_value,
+                op,
+            );
+        }};
+    }
+
+    macro_rules! call_object_binary_op {
+        ($op:ident, $trait_fn:ident, $object:expr, $lhs_value:expr, $rhs_value:expr) => {{
+            match $object.try_borrow()?.$trait_fn($lhs_value) {
+                Ok(result) => result,
+                Err(error) => {
+                    if error.is_unimplemented_error() {
+                        return binary_op_error($lhs_value, $rhs_value, $op);
+                    } else {
+                        return Err(error);
+                    }
+                }
+            }
+        }};
+    }
+
+    macro_rules! call_metamap_binary_op {
+        // Used when the call result needs to be assigned to a register, (e.g. Add)
+        ($self:expr, $op:ident, $map:expr, $lhs_value:expr, $rhs_value:expr, $result_register:expr) => {{
+            let op = $map.get_meta_value(&$op.into()).unwrap();
+            let lhs_value = $lhs_value.clone();
+            let rhs_value = $rhs_value.clone();
+
+            return $self.call_overridden_binary_op(
+                Some($result_register),
+                lhs_value,
+                rhs_value,
+                op,
+            );
+        }};
+
+        // Used when the call result can be discarded, the result is always the modified LHS
+        // (e.g. AddAssign)
+        ($self:expr, $op:ident, $map:expr, $lhs_value:expr, $rhs_value:expr) => {{
+            let op = $map.get_meta_value(&$op.into()).unwrap();
+            let lhs_value = $lhs_value.clone();
+            let rhs_value = $rhs_value.clone();
+            return $self.call_overridden_binary_op(None, lhs_value, rhs_value, op);
+        }};
+    }
+
+    // Arithmetic ops fall back to the RHS when possible
+    macro_rules! call_metamap_arithmetic_op {
+        ($self:expr, $op:ident, $op_rhs:ident, $trait_fn:ident, $trait_fn_rhs:ident, $map:expr, $lhs:expr, $rhs:expr, $result_register:expr) => {{
+            let op = $map.get_meta_value(&$op.into()).unwrap();
+
+            // Call the map's op function
+            $self.call_overridden_binary_op(
+                Some($result_register),
+                $lhs.clone(),
+                $rhs.clone(),
+                op,
+            )?;
+
+            // Execute the function immediately so that we can check for `koto.unimplemented` errors
+            // - Enable the execution barrier on the function's frame so errors aren't propagated
+            $self.frame_mut().execution_barrier = true;
+            match $self.execute_instructions() {
+                Ok(result) => result,
+                Err(error) => {
+                    // Pop the frame given that an error has been thrown
+                    $self.pop_frame(KValue::Null)?;
+                    // Check for a `koto.unimplemented` error
+                    let ErrorKind::KotoError { thrown_value, .. } = &error.error else {
+                        // A non-unimplemented error was thrown, so propagate it
+                        return Err(error);
+                    };
+
+                    if !matches!(thrown_value, KValue::Object(o) if o.is_a::<Unimplemented>()) {
+                        // A non-unimplemented error was thrown, so propagate it
+                        return Err(error);
+                    }
+
+                    match &$rhs {
+                        Object(o_rhs) => {
+                            call_object_binary_op!($op_rhs, $trait_fn_rhs, o_rhs, &$lhs, &$rhs).into()
+                        }
+                        Map(m) if m.contains_meta_key(&$op_rhs.into()) => {
+                            call_metamap_binary_op_rhs!(
+                                $self,
+                                $op_rhs,
+                                m,
+                                $lhs,
+                                $rhs,
+                                $result_register
+                            );
+                        }
+                        _ => return binary_op_error(&$lhs, &$rhs, $op),
+                    }
+                }
+            }
+        }};
+
+        ($self:expr, $op:ident, $trait_fn:ident, $map:expr, $lhs:expr, $rhs:expr, $result_register:expr) => {
+            paste::paste! {
+                call_metamap_arithmetic_op!(
+                    $self,
+                    $op,
+                    [<$op Rhs>],
+                    $trait_fn,
+                    [<$trait_fn _rhs>],
+                    $map,
+                    $lhs,
+                    $rhs,
+                    $result_register
+                )
+            }
+        };
+    }
+
+    // Arithmetic ops fall back to the RHS when possible
+    macro_rules! call_object_arithmetic_op {
+        ($self:expr,
+         $op:ident,
+         $op_rhs:ident,
+         $trait_fn:ident,
+         $trait_fn_rhs:ident,
+         $object:expr,
+         $lhs_value:expr,
+         $rhs_value:expr,
+         $result_register:expr) => {{
+            let object = $object.clone();
+            match object.try_borrow()?.$trait_fn($rhs_value) {
+                Ok(result) => result,
+                Err(error) if error.is_unimplemented_error() => match $rhs_value {
+                    Object(o_rhs) => {
+                        call_object_binary_op!(
+                            $op_rhs,
+                            $trait_fn_rhs,
+                            o_rhs,
+                            $lhs_value,
+                            $rhs_value
+                        )
+                    }
+                    Map(m) if m.contains_meta_key(&$op_rhs.into()) => {
+                        call_metamap_binary_op_rhs!(
+                            $self,
+                            $op_rhs,
+                            m,
+                            $lhs_value,
+                            $rhs_value,
+                            $result_register
+                        );
+                    }
+                    _ => return binary_op_error($lhs_value, $rhs_value, $op),
+                },
+                Err(error) => return Err(error),
+            }
+        }};
+
+        ($self:expr,
+         $op:ident,
+         $trait_fn:ident,
+         $object:expr,
+         $lhs_value:expr,
+         $rhs_value:expr,
+         $result_register:expr) => {{
+            paste::paste! {
+                call_object_arithmetic_op!(
+                    $self,
+                    $op,
+                    [<$op Rhs>],
+                    $trait_fn,
+                    [<$trait_fn _rhs>],
+                    $object,
+                    $lhs_value,
+                    $rhs_value,
+                    $result_register
+                )
+            }
+        }};
+    }
+
+    pub(crate) use {
+        call_metamap_arithmetic_op, call_metamap_binary_op, call_metamap_binary_op_rhs,
+        call_object_arithmetic_op, call_object_binary_op,
+    };
 }

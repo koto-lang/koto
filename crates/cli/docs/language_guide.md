@@ -2026,15 +2026,14 @@ a custom `Foo` object:
 foo = |n|
   data: n
 
-  # Overriding the addition operator
+  # Declare the object's type
+  @type: 'Foo'
+
+  # Override the addition operator
   @+: |other|
     # A new Foo is made using the result
     # of adding the two data values together
     foo self.data + other.data
-
-  # Overriding the subtraction operator
-  @-: |other|
-    foo self.data - other.data
 
   # Overriding the multiply-assignment operator
   @*=: |other|
@@ -2042,23 +2041,63 @@ foo = |n|
     self
 
 a = foo 10
+
+print! type a
+check! Foo
+
 b = foo 20
 
 print! (a + b).data
 check! 30
-print! (a - b).data
-check! -10
+
 a *= b
 print! a.data
 check! 200
 ```
 
-### Meta Operators
+### Arithmetic Operators
 
-All of the binary arithmetic and logic operators (`*`, `<`, `>=`, etc) can be
-implemented following this pattern.
+Arithmetic operators used in binary expressions can all be implemented in an object's metamap
+by implementing functions for the appropriate metakeys.
 
-Additionally, the following metakeys can also be defined:
+When the object is on the left-hand side (_LHS_) of the expression the metakeys are
+`@+`, `@-`, `@*`, `@/`, and `@%`.
+
+If the value on the LHS of the expression doesn't support the operation and the object is on the
+right-hand side (_RHS_), then the metakeys are `@r+`, `@r-`, `@r*`, `@r/`, and `@r%`.
+
+If your type only supports an operation when the input has a certain type,
+then throw a [`koto.unimplemented`][koto-unimplemented] error to let the runtime know that
+the RHS value should be checked. The runtime will catch the error and then attempt the operation
+with the implementation provided by the RHS value.
+
+```koto
+foo = |n|
+  data: n
+
+  @type: 'Foo'
+
+  # The * operator when the object is on the LHS
+  @*: |rhs|
+    match type rhs
+      'Foo' then foo self.data * rhs.data
+      'Number' then foo self.data * rhs
+      else throw koto.unimplemented
+
+  # The * operator when the object is on the RHS
+  @r*: |lhs| foo lhs * self.data
+
+a = foo 2
+b = foo 3
+
+print! (a * b).data
+check! 6
+
+print! (10 * a).data
+check! 20
+```
+
+### Metakeys
 
 #### `@negate`
 
@@ -2373,6 +2412,9 @@ foo = |data|
 
 # Define some metakeys in foo_meta
 global.foo_meta =
+  # Declare the object's type
+  @type: 'Foo'
+
   # Override the + operator
   @+: |other| foo self.data + other.data
 
@@ -2759,6 +2801,7 @@ test.run_tests my_tests
 [iterator-sum]: ./core_lib/iterator.md#sum
 [koto-exports]: ./core_lib/koto.md#exports
 [koto-type]: ./core_lib/koto.md#type
+[koto-unimplemented]: ./core_lib/koto.md#unimplemented
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert
 [map-with_meta]: ./core_lib/map.md#with_meta

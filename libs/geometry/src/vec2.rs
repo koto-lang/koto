@@ -52,16 +52,32 @@ impl KotoObject for Vec2 {
         geometry_arithmetic_op!(self, other, +)
     }
 
+    fn add_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, +)
+    }
+
     fn subtract(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, -)
+    }
+
+    fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, -)
     }
 
     fn multiply(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, *)
     }
 
+    fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, *)
+    }
+
     fn divide(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, /)
+    }
+
+    fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, /)
     }
 
     fn add_assign(&mut self, other: &KValue) -> Result<()> {
@@ -128,6 +144,12 @@ impl From<Inner> for Vec2 {
 impl From<Vec2> for KValue {
     fn from(point: Vec2) -> Self {
         KObject::from(point).into()
+    }
+}
+
+impl From<f64> for Vec2 {
+    fn from(x: f64) -> Self {
+        Self::new(x, x)
     }
 }
 

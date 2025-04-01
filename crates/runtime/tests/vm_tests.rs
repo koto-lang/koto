@@ -3477,16 +3477,28 @@ catch _
 locals = {}
 foo = |x| {x}.with_meta locals.foo_meta
 locals.foo_meta =
+  @type: 'Foo'
   @+: |other| foo self.x + other.x
   @-: |other| foo self.x - other.x
   @*: |other| foo self.x * other.x
   @/: |other| foo self.x / other.x
   @%: |other| foo self.x % other.x
+  @r+: |other| foo other + self.x
+  @r-: |other| foo other - self.x
+  @r*: |other| foo other * self.x
+  @r/: |other| foo other / self.x
+  @r%: |other| foo other % self.x
 
-z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
+
+y = foo 2
+z = ((2 + y) + y) # (4) 6
+    * (2 * y)     # (12) 24
+    / (4 / y)     # (2) 12
+    % (5 % y)     # (2) 0
+    - (5 - y)     # (3) -3
 z.x
 ";
-            check_script_output(script, 1);
+            check_script_output(script, -3);
         }
 
         #[test]

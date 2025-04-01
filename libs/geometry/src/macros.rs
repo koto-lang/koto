@@ -80,6 +80,22 @@ macro_rules! geometry_arithmetic_op {
 }
 
 #[macro_export]
+macro_rules! geometry_arithmetic_op_rhs {
+    ($self:ident, $other:expr, $op:tt) => {
+        {
+            match $other {
+                KValue::Number(n) => {
+                    Ok((Self::from(f64::from(n)) $op *$self).into())
+                }
+                unexpected => {
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
 macro_rules! geometry_compound_assign_op {
     ($self:ident, $other:expr, $op:tt) => {
         {

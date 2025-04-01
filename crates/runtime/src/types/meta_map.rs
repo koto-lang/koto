@@ -134,6 +134,16 @@ pub enum BinaryOp {
     Divide,
     /// `@%`
     Remainder,
+    /// `@r+`
+    AddRhs,
+    /// `@r-`
+    SubtractRhs,
+    /// `@r*`
+    MultiplyRhs,
+    /// `@r/`
+    DivideRhs,
+    /// `@r%`
+    RemainderRhs,
     /// `@+=`
     AddAssign,
     /// `@-=`
@@ -168,11 +178,11 @@ impl fmt::Display for BinaryOp {
             f,
             "{}",
             match self {
-                Add => "+",
-                Subtract => "-",
-                Multiply => "*",
-                Divide => "/",
-                Remainder => "%",
+                Add | AddRhs => "+",
+                Subtract | SubtractRhs => "-",
+                Multiply | MultiplyRhs => "*",
+                Divide | DivideRhs => "/",
+                Remainder | RemainderRhs => "%",
                 AddAssign => "+=",
                 SubtractAssign => "-=",
                 MultiplyAssign => "*=",
@@ -222,6 +232,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Multiply => MetaKey::BinaryOp(Multiply),
         MetaKeyId::Divide => MetaKey::BinaryOp(Divide),
         MetaKeyId::Remainder => MetaKey::BinaryOp(Remainder),
+        MetaKeyId::AddRhs => MetaKey::BinaryOp(AddRhs),
+        MetaKeyId::SubtractRhs => MetaKey::BinaryOp(SubtractRhs),
+        MetaKeyId::MultiplyRhs => MetaKey::BinaryOp(MultiplyRhs),
+        MetaKeyId::DivideRhs => MetaKey::BinaryOp(DivideRhs),
+        MetaKeyId::RemainderRhs => MetaKey::BinaryOp(RemainderRhs),
         MetaKeyId::AddAssign => MetaKey::BinaryOp(AddAssign),
         MetaKeyId::SubtractAssign => MetaKey::BinaryOp(SubtractAssign),
         MetaKeyId::MultiplyAssign => MetaKey::BinaryOp(MultiplyAssign),

@@ -69,6 +69,21 @@ mod objects {
         }
     }
 
+    macro_rules! arithmetic_op_rhs {
+        ($self:ident, $other:expr, $op:tt) => {
+            {
+                match $other {
+                    KValue::Number(n) => {
+                        Ok(Self::make_value(i64::from(n) $op $self.x))
+                    }
+                    unexpected => {
+                        unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                    }
+                }
+            }
+        }
+    }
+
     macro_rules! assignment_op {
         ($self:ident, $other:expr, $op:tt) => {
             {
@@ -185,20 +200,40 @@ mod objects {
             arithmetic_op!(self, other, +)
         }
 
+        fn add_rhs(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op_rhs!(self, other, +)
+        }
+
         fn subtract(&self, other: &KValue) -> Result<KValue> {
             arithmetic_op!(self, other, -)
+        }
+
+        fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op_rhs!(self, other, -)
         }
 
         fn multiply(&self, other: &KValue) -> Result<KValue> {
             arithmetic_op!(self, other, *)
         }
 
+        fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op_rhs!(self, other, *)
+        }
+
         fn divide(&self, other: &KValue) -> Result<KValue> {
             arithmetic_op!(self, other, /)
         }
 
+        fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op_rhs!(self, other, /)
+        }
+
         fn remainder(&self, other: &KValue) -> Result<KValue> {
             arithmetic_op!(self, other, %)
+        }
+
+        fn remainder_rhs(&self, other: &KValue) -> Result<KValue> {
+            arithmetic_op_rhs!(self, other, %)
         }
 
         fn add_assign(&mut self, other: &KValue) -> Result<()> {
@@ -503,8 +538,9 @@ make_object(10)
         #[test]
         fn add() {
             let script = "
-x = (make_object 11) + (make_object 22) + 33
-x.as_number()
+x = (make_object 11) + (make_object 22)
+y = 33 + x
+y.as_number()
 ";
             test_object_script(script, 66);
         }
@@ -512,8 +548,9 @@ x.as_number()
         #[test]
         fn subtract() {
             let script = "
-x = (make_object 99) - (make_object 90) - 9
-x.as_number()
+x = (make_object 99) - (make_object 90) - 1
+y = 8 - x
+y.as_number()
 ";
             test_object_script(script, 0);
         }
@@ -522,27 +559,30 @@ x.as_number()
         fn multiply() {
             let script = "
 x = (make_object 3) * (make_object 11)
-x.as_number()
+y = 10 * x
+y.as_number()
 ";
-            test_object_script(script, 33);
+            test_object_script(script, 330);
         }
 
         #[test]
         fn divide() {
             let script = "
 x = (make_object 90) / (make_object 10)
-x.as_number()
+y = 9 / x
+y.as_number()
 ";
-            test_object_script(script, 9);
+            test_object_script(script, 1);
         }
 
         #[test]
         fn remainder() {
             let script = "
 x = (make_object 45) % (make_object 10)
-x.as_number()
+y = 12 % x
+y.as_number()
 ";
-            test_object_script(script, 5);
+            test_object_script(script, 2);
         }
 
         #[test]

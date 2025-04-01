@@ -47,16 +47,32 @@ impl KotoObject for Vec3 {
         geometry_arithmetic_op!(self, other, +)
     }
 
+    fn add_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, +)
+    }
+
     fn subtract(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, -)
+    }
+
+    fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, -)
     }
 
     fn multiply(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, *)
     }
 
+    fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, *)
+    }
+
     fn divide(&self, other: &KValue) -> Result<KValue> {
         geometry_arithmetic_op!(self, other, /)
+    }
+
+    fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
+        geometry_arithmetic_op_rhs!(self, other, /)
     }
 
     fn add_assign(&mut self, other: &KValue) -> Result<()> {
@@ -119,6 +135,12 @@ impl KotoObject for Vec3 {
 impl From<DVec3> for Vec3 {
     fn from(v: DVec3) -> Self {
         Self(v)
+    }
+}
+
+impl From<f64> for Vec3 {
+    fn from(x: f64) -> Self {
+        Self::new(x, x, x)
     }
 }
 
