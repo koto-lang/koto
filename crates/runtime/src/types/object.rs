@@ -1,6 +1,5 @@
 use crate::{Borrow, BorrowMut, ErrorKind, PtrMut, Result, prelude::*};
-use downcast_rs::{Downcast, impl_downcast};
-use std::{fmt, marker::PhantomData};
+use std::{any::Any, fmt, marker::PhantomData, ops::Deref};
 
 /// A trait for specifying a Koto object's type
 ///
@@ -111,7 +110,7 @@ pub trait KotoEntries {
 /// ```
 ///
 /// See also: [KObject].
-pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + Downcast {
+pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + Any {
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
     /// By default, the object's type is used as the display string.
@@ -409,8 +408,6 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     }
 }
 
-impl_downcast!(KotoObject);
-
 /// A [`KotoObject`] wrapper used in the Koto runtime
 #[derive(Clone)]
 pub struct KObject {
@@ -421,7 +418,7 @@ impl KObject {
     /// Checks if the object is of the given type
     pub fn is_a<T: KotoObject>(&self) -> bool {
         match self.object.try_borrow() {
-            Some(object) => object.downcast_ref::<T>().is_some(),
+            Some(object) => (object.deref() as &dyn Any).is::<T>(),
             None => false,
         }
     }
@@ -442,30 +439,32 @@ impl KObject {
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
     pub fn cast<T: KotoObject>(&self) -> Result<Borrow<T>> {
-        Borrow::filter_map(self.try_borrow()?, |object| object.downcast_ref::<T>()).map_err(|_| {
-            match self.try_borrow() {
-                Ok(object) => ErrorKind::UnexpectedObjectType {
-                    expected: T::type_static(),
-                    unexpected: object.type_string(),
-                }
-                .into(),
-                Err(e) => e,
+        Borrow::filter_map(self.try_borrow()?, |object| {
+            (object as &dyn Any).downcast_ref::<T>()
+        })
+        .map_err(|_| match self.try_borrow() {
+            Ok(object) => ErrorKind::UnexpectedObjectType {
+                expected: T::type_static(),
+                unexpected: object.type_string(),
             }
+            .into(),
+            Err(e) => e,
         })
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
     pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<T>> {
-        BorrowMut::filter_map(self.try_borrow_mut()?, |object| object.downcast_mut::<T>()).map_err(
-            |_| match self.try_borrow() {
-                Ok(object) => ErrorKind::UnexpectedObjectType {
-                    expected: T::type_static(),
-                    unexpected: object.type_string(),
-                }
-                .into(),
-                Err(e) => e,
-            },
-        )
+        BorrowMut::filter_map(self.try_borrow_mut()?, |object| {
+            (object as &mut dyn Any).downcast_mut::<T>()
+        })
+        .map_err(|_| match self.try_borrow() {
+            Ok(object) => ErrorKind::UnexpectedObjectType {
+                expected: T::type_static(),
+                unexpected: object.type_string(),
+            }
+            .into(),
+            Err(e) => e,
+        })
     }
 
     /// Returns true if the provided object occupies the same memory address

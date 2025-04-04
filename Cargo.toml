@@ -26,8 +26,6 @@ crossterm = { version = "0.28.1", default-features = false }
 derive_more = "2.0.1"
 # Derive macro to get the name of a struct, enum or enum variant
 derive-name = "1.1.0"
-# Trait object downcasting support using only safe Rust.
-downcast-rs = { version = "2", default-features = false }
 # Normalize Windows paths to the most compatible format
 dunce = "1.0.2"
 # A small cross-platform library for retrieving random data from system source
