@@ -52,6 +52,8 @@ mimalloc = { version = "0.1.39", default-features = false }
 palette = "0.7.6"
 # More compact and efficient implementations of the standard synchronization primitives.
 parking_lot = "0.12.1"
+# Macros for all your token pasting needs
+paste = "1.0.15"
 # An ultra simple CLI arguments parser.
 pico-args = { version = "0.5.0" }
 # A substitute implementation of the compiler's `proc_macro` API

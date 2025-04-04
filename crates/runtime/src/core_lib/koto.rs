@@ -76,6 +76,8 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|Any|", unexpected),
     });
 
+    result.insert("unimplemented", KObject::from(Unimplemented));
+
     result.add_fn("load", |ctx| match ctx.args() {
         [KValue::Str(s)] => Ok(try_load_koto_script(ctx, s)?.into()),
         unexpected => unexpected_args("|String|", unexpected),
@@ -140,3 +142,10 @@ impl From<Chunk> for KValue {
         KObject::from(chunk).into()
     }
 }
+
+/// A type error type used in the koto module
+#[derive(Clone, KotoCopy, KotoType)]
+pub struct Unimplemented;
+
+impl KotoEntries for Unimplemented {}
+impl KotoObject for Unimplemented {}

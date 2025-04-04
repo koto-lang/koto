@@ -144,6 +144,11 @@ impl Error {
         }
     }
 
+    /// Returns true if the error kind is [`ErrorKind::Unimplemented`]
+    pub fn is_unimplemented_error(&self) -> bool {
+        matches!(&self.error, ErrorKind::Unimplemented { .. })
+    }
+
     /// Initializes an error from a thrown Koto value
     pub(crate) fn from_koto_value(thrown_value: KValue) -> Self {
         Self::new(ErrorKind::KotoError {

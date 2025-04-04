@@ -2018,47 +2018,122 @@ An object is any map that includes one or more _metakeys_
 Whenever operations are performed on the object, the runtime checks its metamap
 for corresponding metakeys.
 
-In the following example, addition and subtraction operators are overridden for
-a custom `Foo` object:
+In the following example, the addition and multiply-assignment operators are
+implemented for a custom `Foo` object:
 
 ```koto
 # Declare a function that makes Foo objects
 foo = |n|
   data: n
 
-  # Overriding the addition operator
+  # Declare the object's type
+  @type: 'Foo'
+
+  # Implement the addition operator
   @+: |other|
     # A new Foo is made using the result
     # of adding the two data values together
     foo self.data + other.data
 
-  # Overriding the subtraction operator
-  @-: |other|
-    foo self.data - other.data
-
-  # Overriding the multiply-assignment operator
+  # Implement the multiply-assignment operator
   @*=: |other|
     self.data *= other.data
     self
 
 a = foo 10
+
+print! type a
+check! Foo
+
 b = foo 20
 
 print! (a + b).data
 check! 30
-print! (a - b).data
-check! -10
+
 a *= b
 print! a.data
 check! 200
 ```
 
-### Meta Operators
+### Arithmetic Operators
 
-All of the binary arithmetic and logic operators (`*`, `<`, `>=`, etc) can be
-implemented following this pattern.
+Arithmetic operators used in binary expressions can all be implemented in an object's metamap
+by implementing functions for the appropriate metakeys.
 
-Additionally, the following metakeys can also be defined:
+When the object is on the left-hand side (_LHS_) of the expression the metakeys are
+`@+`, `@-`, `@*`, `@/`, and `@%`.
+
+If the value on the LHS of the expression doesn't support the operation and the object is on the
+right-hand side (_RHS_), then the metakeys are `@r+`, `@r-`, `@r*`, `@r/`, and `@r%`.
+
+If your type only supports an operation when the input has a certain type,
+then throw a [`koto.unimplemented`][koto-unimplemented] error to let the runtime know that
+the RHS value should be checked. The runtime will catch the error and then attempt the operation
+with the implementation provided by the RHS value.
+
+```koto
+foo = |n|
+  data: n
+
+  @type: 'Foo'
+
+  # The * operator when the object is on the LHS
+  @*: |rhs|
+    match type rhs
+      'Foo' then foo self.data * rhs.data
+      'Number' then foo self.data * rhs
+      else throw koto.unimplemented
+
+  # The * operator when the object is on the RHS
+  @r*: |lhs| foo lhs * self.data
+
+a = foo 2
+b = foo 3
+
+print! (a * b).data
+check! 6
+
+print! (10 * a).data
+check! 20
+```
+
+### Comparison Operators
+
+Comparison operators can also be implemented in an object's metamap
+by using the metakeys `@==`, `@!=`, `@<`, `@<=`, `@>`, and `@>=`.
+
+By default, `@!=` will invert the result of calling `@==`,
+so it's only necessary to implement it for types with special equality properties.
+
+Types that represent a [total order][total-order] only need to implement `@<` and `@==`,
+and the runtime will automatically derive results for `@<=`, `@>`, and `@>=`.
+
+```koto
+foo = |n|
+  data: n
+
+  @==: |other| self.data == other.data
+  @<: |other| self.data < other.data
+
+a = foo 100
+b = foo 200
+
+print! a == a
+check! true
+
+# The result of != is derived by inverting the result of @==
+print! a != a
+check! false
+
+print! a < b
+check! true
+
+# The result of > is derived from the implementations of @< and @==
+print! a > b
+check! false
+```
+
+### Metakeys
 
 #### `@negate`
 
@@ -2373,6 +2448,9 @@ foo = |data|
 
 # Define some metakeys in foo_meta
 global.foo_meta =
+  # Declare the object's type
+  @type: 'Foo'
+
   # Override the + operator
   @+: |other| foo self.data + other.data
 
@@ -2759,6 +2837,7 @@ test.run_tests my_tests
 [iterator-sum]: ./core_lib/iterator.md#sum
 [koto-exports]: ./core_lib/koto.md#exports
 [koto-type]: ./core_lib/koto.md#type
+[koto-unimplemented]: ./core_lib/koto.md#unimplemented
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert
 [map-with_meta]: ./core_lib/map.md#with_meta
@@ -2774,5 +2853,6 @@ test.run_tests my_tests
 [to_map]: ./core_lib/iterator.md#to_map
 [to_string]: ./core_lib/iterator.md#to_string
 [to_tuple]: ./core_lib/iterator.md#to_tuple
+[total-order]: https://en.wikipedia.org/wiki/Total_order
 [utf-8]: https://en.wikipedia.org/wiki/UTF-8
 [variadic]: https://en.wikipedia.org/wiki/Variadic_function

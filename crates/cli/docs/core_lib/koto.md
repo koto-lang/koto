@@ -254,3 +254,46 @@ foo =
 print! koto.type foo
 check! Foo
 ```
+
+
+## unimplemented
+
+```kototype
+Unimplemented
+```
+
+An instance of `Unimplemented`, which should be thrown from [overridden arithmetic operators][guide-arithmetic] when the
+operation isn't supported with the given input type.
+
+### Example
+
+```koto
+foo = |n|
+  data: n
+  @type: 'Foo'
+  @display: || 'Foo({self.data})'
+  @+: |other|
+    # Throw an `unimplemented` error if the rhs isn't a Foo
+    match type other
+      'Foo' then foo self.data + other.data
+      else throw koto.unimplemented
+
+bar = |n|
+  data: n
+  @type: 'Bar'
+  @display: || 'Bar({self.data})'
+  @r+: |other|
+
+    match type other
+      'Foo' or 'Bar' then bar other.data + self.data
+      else throw koto.unimplemented
+
+print! (foo 10) + (foo 20)
+check! Foo(30)
+
+print! (foo 2) + (bar 3)
+check! Bar(5)
+```
+
+
+[guide-arithmetic]: ../language_guide.md#arithmetic-operators

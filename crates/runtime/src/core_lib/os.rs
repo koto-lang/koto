@@ -178,15 +178,15 @@ impl KotoObject for Timer {
         Ok(())
     }
 
-    fn subtract(&self, rhs: &KValue) -> Result<KValue> {
-        match rhs {
+    fn subtract(&self, other: &KValue) -> Result<KValue> {
+        match other {
             KValue::Object(o) if o.is_a::<Self>() => {
-                let rhs = o.cast::<Self>().unwrap();
+                let other_timer = o.cast::<Self>().unwrap();
 
-                let result = if self.0 >= rhs.0 {
-                    self.0.duration_since(rhs.0).as_secs_f64()
+                let result = if self.0 >= other_timer.0 {
+                    self.0.duration_since(other_timer.0).as_secs_f64()
                 } else {
-                    -(rhs.0.duration_since(self.0).as_secs_f64())
+                    -(other_timer.0.duration_since(self.0).as_secs_f64())
                 };
 
                 Ok(result.into())

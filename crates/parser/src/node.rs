@@ -530,6 +530,16 @@ pub enum MetaKeyId {
     Divide,
     /// @%
     Remainder,
+    /// @r+
+    AddRhs,
+    /// @r-
+    SubtractRhs,
+    /// @r*
+    MultiplyRhs,
+    /// @r/
+    DivideRhs,
+    /// @r%
+    RemainderRhs,
     /// @+=
     AddAssign,
     /// @-=
@@ -626,6 +636,11 @@ impl fmt::Display for MetaKeyId {
                 Multiply => "*",
                 Divide => "/",
                 Remainder => "%",
+                AddRhs => "r+",
+                SubtractRhs => "r-",
+                MultiplyRhs => "r*",
+                DivideRhs => "r/",
+                RemainderRhs => "r%",
                 AddAssign => "+=",
                 SubtractAssign => "-=",
                 MultiplyAssign => "*=",

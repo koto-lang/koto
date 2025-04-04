@@ -2116,6 +2116,14 @@ impl<'source> Parser<'source> {
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
             Some(Token::Debug) => MetaKeyId::Debug,
             Some(Token::Id) => match self.current_token.slice(self.source) {
+                "r" => match self.consume_next_token_on_same_line() {
+                    Some(Token::Add) => MetaKeyId::AddRhs,
+                    Some(Token::Subtract) => MetaKeyId::SubtractRhs,
+                    Some(Token::Multiply) => MetaKeyId::MultiplyRhs,
+                    Some(Token::Divide) => MetaKeyId::DivideRhs,
+                    Some(Token::Remainder) => MetaKeyId::RemainderRhs,
+                    _ => return self.error(SyntaxError::UnexpectedMetaKey),
+                },
                 "call" => MetaKeyId::Call,
                 "display" => MetaKeyId::Display,
                 "index" => MetaKeyId::Index,

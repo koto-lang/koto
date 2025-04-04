@@ -60,9 +60,19 @@ The Koto project adheres to
     generated_3
     # -> 3
     ```
+- Overridden operator improvements
+  - Objects can now implement arithmetic operations when the object is on the right-hand side of the
+    operation via the `@r+`, `@r-`, `@r*`, `@r/`, and `@r%` metakeys.
+    - If the LHS value doesn't implement the operation, then the RHS value is checked for an
+      available implementation.
+  - `!=` now derives its result by default from `@==`.
+  - If `@<` and `@==` are implemented, then the remaining comparison operators are now derived by
+    default.
 
 #### API
 
+- `KotoObject` has been extended with `_rhs` functions to support arithmetic operations
+  where the object can appear on the right-hand side of the expression.
 - `Compiler::compile_ast` has been added, useful for tools that want to work with the AST
   after checking that it compiles correctly.
 - `DisplayContext::debug_enabled` has been added to allow native objects to provide
@@ -77,6 +87,8 @@ The Koto project adheres to
   - `string.strip_prefix` / `string.strip_suffix`
   - `string.trim_start` / `string.trim_end`
     - `string.trim` now also accepts a pattern to match against.
+- `koto.unimplemented` has been added to allow overridden left-hand side arithmetic operators to
+   defer to right-hand side implementations.
 
 #### CLI
 

@@ -333,7 +333,7 @@ check! Rect{x: 0, y: 0, width: 200, height: 200}
 
 The `Vec2` type represents a 2-dimensional vector, with `x` and `y` coordinates.
 
-All operators are implemented, and the vector's coordinates are iterable.
+Arithmetic operations are supported, and the vector's coordinates are iterable.
 
 ### Example
 
@@ -344,12 +344,12 @@ print! (vec2 10, 20) + (vec2 30, 40)
 check! Vec2{x: 40, y: 60}
 
 v = vec2 50, 100
-v *= vec2 0.5, 2
+v *= 2 * vec2 0.5, 2
 x, y = v
 print! x, y
-check! (25.0, 200.0)
-print! v -= 50
-check! Vec2{x: -25, y: 150}
+check! (50.0, 400.0)
+print! v -= 100
+check! Vec2{x: -50, y: 300}
 ```
 
 ## Vec2.angle
@@ -438,7 +438,7 @@ check! 4.0
 
 The `Vec3` type represents a 3-dimensional vector, with `x`, `y`, and `z` coordinates.
 
-All operators are implemented, and the vector's coordinates are iterable.
+Arithmetic operations are supported, and the vector's coordinates are iterable.
 
 ### Example
 
@@ -448,7 +448,7 @@ from geometry import vec3
 print! (vec3 10, 20, 30) + (vec3 40, 50, 60)
 check! Vec3{x: 50, y: 70, z: 90}
 
-v = vec3 50, 100, 150
+v = 10 * vec3 5, 10, 15
 v *= vec3 0.5, 2, -1
 x, y, z = v
 print! x, y, z
