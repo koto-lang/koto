@@ -26,7 +26,6 @@ koto_lexer = { path = "../lexer", version = "^0.16.0" }
 koto_memory = { path = "../memory", version = "^0.16.0", default-features = false }
 koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
 
-downcast-rs = { workspace = true }
 indexmap = { workspace = true }
 paste = { workspace = true }
 rustc-hash = { workspace = true }
