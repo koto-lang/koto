@@ -100,10 +100,6 @@ impl KotoObject for Vec2 {
         geometry_comparison_op!(self, other, ==)
     }
 
-    fn not_equal(&self, other: &KValue) -> Result<bool> {
-        geometry_comparison_op!(self, other, !=)
-    }
-
     fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
             KValue::Number(n) => match usize::from(n) {

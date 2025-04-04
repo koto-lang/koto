@@ -56,11 +56,13 @@ globals.foo_meta =
 
   # Comparison operators
   @<: |other| self.x < other.x
-  @<=: |other| self.x <= other.x
-  @>: |other| self.x > other.x
-  @>=: |other| self.x >= other.x
   @==: |other| self.x == other.x
-  @!=: |other| not self == other
+
+  # The remaining comparison operators are derived from @< and @== by default. 
+  # @<=: |other| self.x <= other.x
+  # @>: |other| self.x > other.x
+  # @>=: |other| self.x >= other.x
+  # @!=: |other| not self == other
 
   # Negation (e.g. -foo)
   @negate: || foo -self.x

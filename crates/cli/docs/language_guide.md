@@ -2018,8 +2018,8 @@ An object is any map that includes one or more _metakeys_
 Whenever operations are performed on the object, the runtime checks its metamap
 for corresponding metakeys.
 
-In the following example, addition and subtraction operators are overridden for
-a custom `Foo` object:
+In the following example, the addition and multiply-assignment operators are
+implemented for a custom `Foo` object:
 
 ```koto
 # Declare a function that makes Foo objects
@@ -2029,13 +2029,13 @@ foo = |n|
   # Declare the object's type
   @type: 'Foo'
 
-  # Override the addition operator
+  # Implement the addition operator
   @+: |other|
     # A new Foo is made using the result
     # of adding the two data values together
     foo self.data + other.data
 
-  # Overriding the multiply-assignment operator
+  # Implement the multiply-assignment operator
   @*=: |other|
     self.data *= other.data
     self
@@ -2095,6 +2095,42 @@ check! 6
 
 print! (10 * a).data
 check! 20
+```
+
+### Comparison Operators
+
+Comparison operators can also be implemented in an object's metamap
+by using the metakeys `@==`, `@!=`, `@<`, `@<=`, `@>`, and `@>=`.
+
+By default, `@!=` will invert the result of calling `@==`,
+so it's only necessary to implement it for types with special equality properties.
+
+Types that represent a [total order][total-order] only need to implement `@<` and `@==`,
+and the runtime will automatically derive results for `@<=`, `@>`, and `@>=`.
+
+```koto
+foo = |n|
+  data: n
+
+  @==: |other| self.data == other.data
+  @<: |other| self.data < other.data
+
+a = foo 100
+b = foo 200
+
+print! a == a
+check! true
+
+# The result of != is derived by inverting the result of @==
+print! a != a
+check! false
+
+print! a < b
+check! true
+
+# The result of > is derived from the implementations of @< and @==
+print! a > b
+check! false
 ```
 
 ### Metakeys
@@ -2817,5 +2853,6 @@ test.run_tests my_tests
 [to_map]: ./core_lib/iterator.md#to_map
 [to_string]: ./core_lib/iterator.md#to_string
 [to_tuple]: ./core_lib/iterator.md#to_tuple
+[total-order]: https://en.wikipedia.org/wiki/Total_order
 [utf-8]: https://en.wikipedia.org/wiki/UTF-8
 [variadic]: https://en.wikipedia.org/wiki/Variadic_function

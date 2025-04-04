@@ -296,21 +296,56 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     }
 
     /// The `<=` less-than-or-equal operator
+    ///
+    /// The default implementation derives its result from [Self::less] and [Self::equal].
     fn less_or_equal(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@<=", self.type_string())
+        match self.less(other) {
+            Ok(true) => Ok(true),
+            Ok(false) => match self.equal(other) {
+                Ok(result) => Ok(result),
+                Err(error) if error.is_unimplemented_error() => {
+                    unimplemented_error("@<=", self.type_string())
+                }
+                error => error,
+            },
+            Err(error) if error.is_unimplemented_error() => {
+                unimplemented_error("@<=", self.type_string())
+            }
+            error => error,
+        }
     }
 
     /// The `>` greater-than operator
+    ///
+    /// The default implementation derives its result from [Self::less] and [Self::equal].
     fn greater(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@>", self.type_string())
+        match self.less(other) {
+            Ok(true) => Ok(false),
+            Ok(false) => match self.equal(other) {
+                Ok(result) => Ok(!result),
+                Err(error) if error.is_unimplemented_error() => {
+                    unimplemented_error("@>", self.type_string())
+                }
+                error => error,
+            },
+            Err(error) if error.is_unimplemented_error() => {
+                unimplemented_error("@>", self.type_string())
+            }
+            error => error,
+        }
     }
 
     /// The `>=` greater-than-or-equal operator
+    ///
+    /// The default implementation derives its result from [Self::less].
     fn greater_or_equal(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@>=", self.type_string())
+        match self.less(other) {
+            Ok(result) => Ok(!result),
+            Err(error) if error.is_unimplemented_error() => {
+                unimplemented_error("@>=", self.type_string())
+            }
+            error => error,
+        }
     }
 
     /// The `==` equality operator
@@ -320,9 +355,16 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     }
 
     /// The `!=` inequality operator
+    ///
+    /// The default implementation derives its result from [Self::equal].
     fn not_equal(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@!=", self.type_string())
+        match self.equal(other) {
+            Ok(result) => Ok(!result),
+            Err(error) if error.is_unimplemented_error() => {
+                unimplemented_error("@!=", self.type_string())
+            }
+            error => error,
+        }
     }
 
     /// Declares to the runtime whether or not the object is iterable

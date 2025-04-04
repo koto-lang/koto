@@ -120,10 +120,6 @@ impl KotoObject for Rect {
         geometry_comparison_op!(self, value, ==)
     }
 
-    fn not_equal(&self, value: &KValue) -> Result<bool> {
-        geometry_comparison_op!(self, value, !=)
-    }
-
     fn is_iterable(&self) -> IsIterable {
         IsIterable::Iterable
     }

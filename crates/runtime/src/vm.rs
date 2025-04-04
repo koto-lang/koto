@@ -1871,7 +1871,7 @@ impl KotoVm {
     }
 
     fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::LessOrEqual;
+        use BinaryOp::{Equal, Less, LessOrEqual};
         use KValue::*;
 
         let lhs_value = self.get_register(lhs);
@@ -1882,6 +1882,22 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&LessOrEqual.into()) => {
                 macros::call_metamap_binary_op!(self, LessOrEqual, m, lhs_value, rhs_value, result);
             }
+            (Map(m), _)
+                if m.contains_meta_key(&Less.into()) && m.contains_meta_key(&Equal.into()) =>
+            {
+                let lhs_value = lhs_value.clone();
+                let rhs_value = rhs_value.clone();
+                let less_op = m.get_meta_value(&Less.into()).unwrap();
+                let equal_op = m.get_meta_value(&Equal.into()).unwrap();
+                let less = self.run_overridden_comparison_op(
+                    lhs_value.clone(),
+                    rhs_value.clone(),
+                    less_op,
+                )?;
+                let result =
+                    less || self.run_overridden_comparison_op(lhs_value, rhs_value, equal_op)?;
+                result.into()
+            }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
         };
@@ -1891,7 +1907,7 @@ impl KotoVm {
     }
 
     fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::Greater;
+        use BinaryOp::{Equal, Greater, Less};
         use KValue::*;
 
         let lhs_value = self.get_register(lhs);
@@ -1902,6 +1918,22 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&Greater.into()) => {
                 macros::call_metamap_binary_op!(self, Greater, m, lhs_value, rhs_value, result);
             }
+            (Map(m), _)
+                if m.contains_meta_key(&Less.into()) && m.contains_meta_key(&Equal.into()) =>
+            {
+                let lhs_value = lhs_value.clone();
+                let rhs_value = rhs_value.clone();
+                let less_op = m.get_meta_value(&Less.into()).unwrap();
+                let equal_op = m.get_meta_value(&Equal.into()).unwrap();
+                let less = self.run_overridden_comparison_op(
+                    lhs_value.clone(),
+                    rhs_value.clone(),
+                    less_op,
+                )?;
+                let result =
+                    !(less || self.run_overridden_comparison_op(lhs_value, rhs_value, equal_op)?);
+                result.into()
+            }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Greater),
         };
@@ -1911,7 +1943,7 @@ impl KotoVm {
     }
 
     fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::GreaterOrEqual;
+        use BinaryOp::{GreaterOrEqual, Less};
         use KValue::*;
 
         let lhs_value = self.get_register(lhs);
@@ -1922,6 +1954,17 @@ impl KotoVm {
             (Map(m), _) if m.contains_meta_key(&GreaterOrEqual.into()) => {
                 use macros::call_metamap_binary_op;
                 call_metamap_binary_op!(self, GreaterOrEqual, m, lhs_value, rhs_value, result);
+            }
+            (Map(m), _) if m.contains_meta_key(&Less.into()) => {
+                let lhs_value = lhs_value.clone();
+                let rhs_value = rhs_value.clone();
+                let less_op = m.get_meta_value(&Less.into()).unwrap();
+                let result = !self.run_overridden_comparison_op(
+                    lhs_value.clone(),
+                    rhs_value.clone(),
+                    less_op,
+                )?;
+                result.into()
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
@@ -1984,7 +2027,7 @@ impl KotoVm {
     }
 
     fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::NotEqual;
+        use BinaryOp::{Equal, NotEqual};
         use KValue::*;
         use macros::*;
 
@@ -2011,6 +2054,12 @@ impl KotoVm {
             }
             (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
                 call_metamap_binary_op!(self, NotEqual, m, lhs_value, rhs_value, result);
+            }
+            (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
+                let op = m.get_meta_value(&Equal.into()).unwrap();
+                let equal =
+                    self.run_overridden_comparison_op(lhs_value.clone(), rhs_value.clone(), op)?;
+                !equal
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
@@ -2144,6 +2193,26 @@ impl KotoVm {
             op,
             None,
         )
+    }
+
+    fn run_overridden_comparison_op(
+        &mut self,
+        lhs: KValue,
+        rhs: KValue,
+        op: KValue,
+    ) -> Result<bool> {
+        self.call_overridden_binary_op(None, lhs, rhs, op)?;
+        self.frame_mut().execution_barrier = true;
+        match self.execute_instructions() {
+            Ok(result) => match result {
+                KValue::Bool(result) => Ok(result),
+                unexpected => unexpected_type("Bool", &unexpected),
+            },
+            Err(error) => {
+                self.pop_frame(KValue::Null)?;
+                Err(error)
+            }
+        }
     }
 
     fn run_jump_if_true(&mut self, register: u8, offset: u32) -> Result<()> {
