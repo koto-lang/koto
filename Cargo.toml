@@ -15,11 +15,11 @@ repository = "https://github.com/koto-lang/koto"
 # Flexible concrete Error type built on std::error::Error
 anyhow = "1.0.75"
 # Date and time library for Rust
-chrono = "0.4.31"
+chrono = { version = "0.4.31", default-features = false }
 # Efficient, fixed-size, overwriting circular buffer
 circular-buffer = "1.1.0"
 # Statistics-driven micro-benchmarking library
-criterion2 = "2.0.0"
+criterion2 = "3.0.0"
 # A crossplatform terminal library for manipulating terminals.
 crossterm = { version = "0.29", default-features = false }
 # Adds #[derive(x)] macros for more traits
