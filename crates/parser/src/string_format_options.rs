@@ -206,7 +206,7 @@ impl TryFrom<u8> for StringFormatRepresentation {
 pub enum StringFormatError {
     #[error("expected a number '{0}'")]
     ExpectedNumber(char),
-    #[error("{0} is larger than the maximum of {}", u32::MAX)]
+    #[error("{0} is larger than the maximum of {max}", max = u32::MAX)]
     FormatNumberIsTooLarge(u64),
     #[error("an unexpected internal error occurred")]
     InternalError,

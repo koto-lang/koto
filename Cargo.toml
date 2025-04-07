@@ -89,7 +89,7 @@ test_bin = "0.4.0"
 # Provides #[test_case(...)] macro
 test-case = "3.3.1"
 # derive(Error)
-thiserror = "1.0.44"
+thiserror = "2"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
 toml = { version = "0.8.19", features = ["preserve_order"] }
 # Powerful library for word wrapping, indenting, and dedenting strings
