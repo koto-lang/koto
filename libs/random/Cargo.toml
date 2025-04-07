@@ -21,8 +21,8 @@ rc = ["koto_runtime/rc"]
 
 [dependencies]
 lazy_static = { workspace = true }
-rand = { workspace = true }
-rand_chacha = { workspace = true }
+rand = { workspace = true, features = ["std", "os_rng"] }
+rand_xoshiro = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"

@@ -112,6 +112,12 @@ The Koto project adheres to
 - `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
 - `koto.args` has been moved to `os.args`.
 
+#### Extra Libs
+
+- The `random` library now uses xoshiro256++ as its default random generator.
+  - This is a faster and simpler algorithm than the previously used ChaCha8.
+  - Seeded sequences will now be stable in future updates.
+
 #### API
 
 - The `vm` argument has been removed from `KotoObject::negate`.
