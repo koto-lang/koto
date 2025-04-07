@@ -1212,15 +1212,22 @@ impl KotoVm {
                     match iterator.next() {
                         Some(KIteratorOutput::Value(value)) => Some(value),
                         Some(KIteratorOutput::ValuePair(first, second)) => {
-                            if result_register.is_some() {
+                            if let Some(result) = result_register {
                                 if output_is_temporary {
-                                    let start_register = self.next_register();
-                                    self.registers.push(first);
-                                    self.registers.push(second);
-                                    Some(TemporaryTuple(RegisterSlice {
-                                        start: start_register,
-                                        count: 2,
-                                    }))
+                                    // Place the value pair in a temporary tuple following the
+                                    // result register. The assumption here is that the values
+                                    // following the result register are available for re-use,
+                                    // if that turns out to not be true in all cases then a
+                                    // different approach will be needed.
+                                    let start = result + 1;
+                                    let first_index = self.register_index(start);
+                                    let second_index = first_index + 1;
+                                    if second_index >= self.registers.len() {
+                                        self.registers.resize(second_index + 1, KValue::Null);
+                                    }
+                                    self.registers[first_index] = first;
+                                    self.registers[second_index] = second;
+                                    Some(TemporaryTuple(RegisterSlice { start, count: 2 }))
                                 } else {
                                     Some(Tuple(vec![first, second].into()))
                                 }

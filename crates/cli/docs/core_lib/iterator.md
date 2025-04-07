@@ -370,7 +370,7 @@ print! generate(f)
   .to_list()
 check! [1, 2, 3, 4, 5]
 
-print! generate(3, f).to_tuple()
+print! generate(f, 3).to_tuple()
 check! (6, 7, 8)
 ```
 

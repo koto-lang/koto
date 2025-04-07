@@ -194,7 +194,7 @@ impl KValue {
             Range(r) => write!(ctx, "{r}"),
             Function(f) => {
                 if ctx.debug_enabled() {
-                    write!(ctx, "|| ({})", Ptr::address(&f.chunk))
+                    write!(ctx, "|| (chunk: {}, ip: {})", Ptr::address(&f.chunk), f.ip)
                 } else {
                     write!(ctx, "||")
                 }

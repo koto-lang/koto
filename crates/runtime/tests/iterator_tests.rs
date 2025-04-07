@@ -457,6 +457,19 @@ y.next().get()
 ";
             check_script_output(script, number_tuple(&[3, 13]));
         }
+
+        #[test]
+        fn for_loop_over_many_zipped_values() {
+            // This ensures that unpacking temporary value pairs in a for loop
+            // doesn't overflow the register stack.
+            let script = "
+r = 1..=128
+for a, b in r.zip r
+  () # no-op
+b
+";
+            check_script_output(script, 128);
+        }
     }
 }
 

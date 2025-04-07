@@ -343,12 +343,12 @@ pub fn make_module() -> KMap {
                 let result = generators::Generate::new(f.clone(), ctx.vm);
                 Ok(KIterator::new(result).into())
             }
-            [KValue::Number(n), f] if f.is_callable() => {
+            [f, KValue::Number(n)] if *n >= 0 && f.is_callable() => {
                 let result = generators::GenerateN::new(n.into(), f.clone(), ctx.vm);
                 Ok(KIterator::new(result).into())
             }
             unexpected => unexpected_args(
-                "|generator: || -> Any|, or |n: Number, generator: || -> Any|",
+                "|generator: || -> Any|, or |generator: || -> Any, n: Number >= 0|",
                 unexpected,
             ),
         }
@@ -668,7 +668,7 @@ pub fn make_module() -> KMap {
                 let result = generators::RepeatN::new(value.clone(), n.into());
                 Ok(KIterator::new(result).into())
             }
-            unexpected => unexpected_args("|Any|, or |Number >= 0, Any|", unexpected),
+            unexpected => unexpected_args("|Any|, or |Any, Number >= 0|", unexpected),
         }
     });
 

@@ -144,6 +144,13 @@ impl<'a> CompileNodeContext<'a> {
         }
     }
 
+    fn with_fixed_register_or_none(self, register: Option<u8>) -> Self {
+        Self {
+            result_register: register.map_or(ResultRegister::None, ResultRegister::Fixed),
+            ..self
+        }
+    }
+
     fn with_any_register(self) -> Self {
         Self {
             result_register: ResultRegister::Any,
@@ -1953,8 +1960,16 @@ impl Compiler {
         let rhs_register = rhs.unwrap(self)?;
 
         let lhs_node = ctx.node(lhs);
-        let result = if let Node::Chain(chain_node) = lhs_node {
-            self.compile_chain(chain_node, None, Some(rhs_register), Some(op), ctx)?
+        if let Node::Chain(chain_node) = lhs_node {
+            // Place the chain's result the result register
+            // e.g. `x[0] += 1` - The new value of x[0] should end up in the result register
+            self.compile_chain(
+                chain_node,
+                None,
+                Some(rhs_register),
+                Some(op),
+                ctx.with_fixed_register_or_none(result.register),
+            )?;
         } else {
             let lhs = self.compile_node(lhs, ctx.with_any_register())?;
             let lhs_register = lhs.unwrap(self)?;
@@ -1976,8 +1991,6 @@ impl Compiler {
             if lhs.is_temporary {
                 self.pop_register()?;
             }
-
-            result
         };
 
         if rhs.is_temporary {
@@ -2014,7 +2027,6 @@ impl Compiler {
         };
 
         let result = self.assign_result_register(ctx)?;
-
         let stack_count = self.stack_count();
 
         // Use the result register for comparisons, or a temporary
@@ -2038,13 +2050,13 @@ impl Compiler {
                 Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
                     // If the rhs is also a comparison, then chain the operations.
                     // e.g.
-                    //   `a < (b < c)`
+                    //   `a < b < c`
                     // needs to become equivalent to:
                     //   `(a < b) and (b < c)`
-                    // To achieve this,
-                    //   - use the lhs of the rhs as the rhs of the current operation
-                    //   - use the temp value as the lhs for the current operation
-                    //   - chain the two comparisons together with an And
+                    // To achieve this:
+                    //   1. Use the lhs of the rhs as the rhs of the current operation.
+                    //   2. Use the temp value as the lhs for the current operation.
+                    //   3. Chain the two comparisons together with an And.
 
                     let rhs_lhs_register = self
                         .compile_node(*rhs_lhs, ctx.with_any_register())?
