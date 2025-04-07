@@ -60,13 +60,13 @@ fannkuch = |n|
         p.insert (i + 1), t
 
 @main = ||
-  n = match koto.args.get 0
+  n = match os.args.get 0
     null then 4
     arg then arg.to_number()
 
   sum, flips = fannkuch n
 
-  if (koto.args.get 1) != 'quiet'
+  if (os.args.get 1) != 'quiet'
     print sum
     print 'Pfannkuchen({n}) = {flips}'
 

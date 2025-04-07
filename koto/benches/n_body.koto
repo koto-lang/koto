@@ -110,11 +110,11 @@ run_nbody = |n|
   initial_energy, end_energy
 
 @main = ||
-  n = koto.args.first()?.to_number() or 100
+  n = os.args.first()?.to_number() or 100
 
   initial_energy, end_energy = run_nbody n
 
-  quiet = (koto.args.get 1) == 'quiet'
+  quiet = (os.args.get 1) == 'quiet'
   if not quiet
     print '{initial_energy:.9}'
     print '{end_energy:.9}'

@@ -26,11 +26,11 @@ Hello!
 
 ### Command Arguments
 
-Arguments following the script are made available via [`koto.args`][koto-args].
+Arguments following the script are made available via [`os.args`][os-args].
 
 ```
 » cat print_args.koto
-for i, arg in koto.args.enumerate()
+for i, arg in os.args.enumerate()
   print '{i + 1}: {arg}'
 
 » koto print_args.koto a b c
@@ -106,7 +106,7 @@ Welcome to Koto
 
 [cli]: https://en.wikipedia.org/wiki/Command-line_interface
 [core]: ./core_lib/
-[koto-args]: ./core_lib/koto.md#args
+[os-args]: ./core_lib/os.md#args
 [guide]: ./language_guide.md
 [repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
 [rust]: https://rust-lang.org

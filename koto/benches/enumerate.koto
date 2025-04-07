@@ -1,5 +1,5 @@
 @main = ||
-  n = koto.args.first()?.to_number() or 4
+  n = os.args.first()?.to_number() or 4
 
   a = []
   for i in 0..n
