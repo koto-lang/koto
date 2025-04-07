@@ -668,7 +668,7 @@ pub fn make_module() -> KMap {
                 let result = generators::RepeatN::new(value.clone(), n.into());
                 Ok(KIterator::new(result).into())
             }
-            unexpected => unexpected_args("|Any|, or |Number >= 0, Any|", unexpected),
+            unexpected => unexpected_args("|Any|, or |Any, Number >= 0|", unexpected),
         }
     });
 
