@@ -124,7 +124,7 @@ from iterator import generate
 from random import pick, seed
 
 # Returns a tuple containing three numbers from 1 to 10
-pick_3 = || generate(3, || pick 1..=10).to_tuple()
+pick_3 = || generate((|| pick 1..=10), 3).to_tuple()
 
 seed 1
 print! pick_3()

@@ -106,6 +106,9 @@ The Koto project adheres to
 
 #### Core Library
 
+- The argument order for the bounded version of `iterator.generate` has been swapped to make it
+  consistent with the bounded version of `iterator.repeat`.
+  - E.g. Instead of `iterator.generate(3, f)` you should write `iterator.generate(f, 3)`.
 - `iterator.skip` now skips when the iterator is advanced instead of immediately when `skip` is called.
 - `koto.args` has been moved to `os.args`.
 
