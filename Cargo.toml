@@ -67,8 +67,7 @@ rand_xoshiro = "0.7.0"
 # A regular expression library
 regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
-# v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
-rustc-hash = "1.1.0"
+rustc-hash = "2.1.0"
 # Rustyline, a readline implementation
 rustyline = { version = "15.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
