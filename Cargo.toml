@@ -15,11 +15,11 @@ repository = "https://github.com/koto-lang/koto"
 # Flexible concrete Error type built on std::error::Error
 anyhow = "1.0.75"
 # Date and time library for Rust
-chrono = "0.4.31"
+chrono = { version = "0.4.31", default-features = false }
 # Efficient, fixed-size, overwriting circular buffer
 circular-buffer = "1.1.0"
 # Statistics-driven micro-benchmarking library
-criterion2 = "2.0.0"
+criterion = { version = "0.5.1", default-features = false }
 # A crossplatform terminal library for manipulating terminals.
 crossterm = { version = "0.29", default-features = false }
 # Adds #[derive(x)] macros for more traits
@@ -67,8 +67,7 @@ rand_xoshiro = "0.7.0"
 # A regular expression library
 regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
-# v2 is available but is slower in the benchmarks (up to ~10% in the fib_recursive benchmark)
-rustc-hash = "1.1.0"
+rustc-hash = "2.1.0"
 # Rustyline, a readline implementation
 rustyline = { version = "15.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
@@ -90,7 +89,7 @@ test_bin = "0.4.0"
 # Provides #[test_case(...)] macro
 test-case = "3.3.1"
 # derive(Error)
-thiserror = "1.0.44"
+thiserror = "2"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
 toml = { version = "0.8.19", features = ["preserve_order"] }
 # Powerful library for word wrapping, indenting, and dedenting strings

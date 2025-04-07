@@ -31,9 +31,9 @@ enum ErrorKind {
     #[error("args with ellipses are only allowed in first or last position")]
     InvalidPositionForArgWithEllipses,
     #[error(
-        "the jump offset here is too large. {0} bytes is larger than the maximum of {}.
+        "the jump offset here is too large. {0} bytes is larger than the maximum of {max}.
              Try breaking up this part of the program a bit",
-        u16::MAX
+        max = u16::MAX
     )]
     JumpOffsetIsTooLarge(usize),
     #[error("function has too many {property} ({amount})")]
@@ -71,8 +71,8 @@ enum ErrorKind {
     #[error("too many targets in assignment ({0})")]
     TooManyAssignmentTargets(usize),
     #[error(
-        "too many container entries, {0} is greater than the maximum of {}",
-        u32::MAX
+        "too many container entries, {0} is greater than the maximum of {max}",
+        max = u32::MAX
     )]
     TooManyContainerEntries(usize),
     #[error("a type check can't be used on the last catch block in a try expression")]

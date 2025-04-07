@@ -32,7 +32,7 @@ koto_geometry = { path = "../../libs/geometry", default-features = false }
 koto_test_utils = { path = "../test_utils", default-features = false }
 
 anyhow = { workspace = true }
-criterion2 = { workspace = true }
+criterion = { workspace = true }
 dunce = { workspace = true }
 mimalloc = { workspace = true }
 
