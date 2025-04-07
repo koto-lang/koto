@@ -6,12 +6,23 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.15.1] Unreleased
+## [0.15.3] Unreleased
+
+### Fixed
+
+#### Language
+
+- Compound assignments in parenthesized comparisons are now evaluated correctly.
+  - E.g. `x = [0]; (x[0] += 1) == 0` would previously evaluate to `true`.
+
+## [0.15.2] 2025.01.22
 
 #### CLI
 
 - The CLI is now built with extra optimizations by default,
   resulting in a faster binary at the expense of longer build times.
+
+## [0.15.1] 2025.01.08
 
 ### Fixed
 
