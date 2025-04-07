@@ -128,6 +128,11 @@ The Koto project adheres to
 
 ### Fixed
 
+#### Language
+
+- Compound assignments in parenthesized comparisons are now evaluated correctly.
+  - E.g. `x = [0]; (x[0] += 1) == 0` would previously evaluate to `true`.
+
 #### Core Library
 
 - Iterator adaptors can now be used as standalone functions.
