@@ -8,14 +8,14 @@
 
   random.seed 42
   random.shuffle my_container
-  assert_eq my_container.data, [50, 30, 10, 20, 40]
+  assert_eq my_container.data, [10, 40, 30, 20, 50]
   random.shuffle my_container
-  assert_eq my_container.data, [30, 50, 20, 40, 10]
+  assert_eq my_container.data, [50, 40, 10, 30, 20]
 
 @test shuffle_external_object = ||
   x = new_container 'a', 'b', 'c', 'd'
-  rng = random.generator 100
+  rng = random.generator 1
   rng.shuffle x
-  assert_eq x.to_tuple(), ('b', 'a', 'd', 'c')
+  assert_eq x.to_tuple(), ('b', 'a', 'c', 'd')
   rng.shuffle x
-  assert_eq x.to_tuple(), ('d', 'a', 'c', 'b')
+  assert_eq x.to_tuple(), ('d', 'a', 'b', 'c')

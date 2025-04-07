@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use rand::{Rng, seq::SliceRandom, thread_rng};
+use rand::{Rng, seq::IndexedRandom};
 use std::sync::Arc;
 
 /// A basic Markov chain,
@@ -40,7 +40,7 @@ impl Poetry {
                     .get(previous)
                     .map(|words| {
                         // Given some links, choose the next word
-                        let mut rng = thread_rng();
+                        let mut rng = rand::rng();
                         words.choose(&mut rng)
                     })
                     .unwrap_or(None)
@@ -51,7 +51,7 @@ impl Poetry {
             Some(result.clone())
         } else {
             // If no link was found, choose a new starting point
-            let start = thread_rng().gen_range(0..self.links.len());
+            let start = rand::rng().random_range(0..self.links.len());
             self.links
                 .get_index(start)
                 .map(|(key, _value)| key)

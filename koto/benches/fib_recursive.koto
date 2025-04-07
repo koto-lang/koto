@@ -5,7 +5,7 @@ fib = |n|
     else (fib n - 1) + (fib n - 2)
 
 @main = ||
-  n = koto.args.first()?.to_number() or 8
+  n = os.args.first()?.to_number() or 8
   fib n
 
 @test fib = ||

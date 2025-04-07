@@ -21,4 +21,4 @@ hotwatch = { workspace = true }
 indexmap = { workspace = true }
 lazy_static = { workspace = true }
 pico-args = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, features = ["std", "thread_rng"] }

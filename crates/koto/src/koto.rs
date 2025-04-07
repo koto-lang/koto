@@ -147,7 +147,7 @@ impl Koto {
         self.runtime.loader().borrow_mut().clear_cache();
     }
 
-    /// Sets the arguments that can be accessed from within the script via `koto.args()`
+    /// Sets the arguments that can be accessed from within the script via `os.args()`
     pub fn set_args(&mut self, args: impl IntoIterator<Item = String>) -> Result<()> {
         let koto_args = args.into_iter().map(KValue::from).collect::<Vec<_>>();
 

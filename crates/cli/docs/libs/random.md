@@ -6,13 +6,16 @@ At the core of the module is the `Rng` type, which is a seedable random
 number generator. Each thread has access to a generator with a randomly
 selected seed, or unique generators can be created with [`random.generator`](#generator).
 
+The [xoshiro256++][xoshiro] algorithm is used to generate random values,
+which is fast and portable, but _not_ cryptographically secure.
+
 ## bool
 
 ```kototype
 || -> Bool
 ```
 
-Generates a random bool using the current thread's generator.
+Generates a random boolean using the current thread's generator.
 
 ### Example
 
@@ -47,9 +50,9 @@ Creates an [`Rng`](#rng) with a specified seed.
 ```koto
 rng = random.generator 99
 print! rng.pick (1, 2, 3)
-check! 3
+check! 1
 print! rng.bool()
-check! false
+check! true
 ```
 
 
@@ -72,9 +75,9 @@ random.seed 123
 
 # Print random floats up to 3 decimal places
 print '{random.number():.3}'
-check! 0.853
+check! 0.646
 print '{random.number():.3}'
-check! 0.168
+check! 0.838
 ```
 
 ## pick
@@ -100,11 +103,11 @@ Selects a random value from the input using the current thread's generator.
 random.seed -1
 
 print! random.pick (123, -1, 99)
-check! 99
+check! -1
 print! random.pick 10..20
-check! 14
+check! 19
 print! random.pick {foo: 42, bar: 99, baz: 123}
-check! ('bar', 99)
+check! ('baz', 123)
 print! random.pick []
 check! null
 ```
@@ -128,15 +131,15 @@ pick_3 = || generate((|| pick 1..=10), 3).to_tuple()
 
 seed 1
 print! pick_3()
-check! (5, 3, 8)
+check! (9, 8, 2)
 
 seed 2
 print! pick_3()
-check! (6, 9, 3)
+check! (8, 6, 7)
 
 seed 1
 print! pick_3()
-check! (5, 3, 8)
+check! (9, 8, 2)
 ```
 
 ## shuffle
@@ -155,24 +158,23 @@ x = [1, 2, 3, 4, 5]
 
 seed 2
 print! shuffle x
-check! [4, 1, 2, 3, 5]
+check! [1, 5, 4, 3, 2]
 print! shuffle x
-check! [5, 2, 4, 3, 1]
+check! [3, 1, 4, 2, 5]
 
 y = {a: 1, b: 2, c: 3}
 print! shuffle y
-check! {b: 2, a: 1, c: 3}
+check! {c: 3, a: 1, b: 2}
 print! shuffle y
-check! {a: 1, c: 3, b: 2}
+check! {c: 3, b: 2, a: 1}
 ```
 
 ## Rng
 
 `Rng` is the `random` module's core random generator.
 
-The ChaCha algorithm with 8 rounds from the `rand_chacha` crate is used to
-generate random values.
-See the [implementation's docs][chacha-docs] for more information.
+The [xoshiro256++][xoshiro] algorithm is used to generate random values,
+which is fast and portable, but _not cryptographically secure_.
 
 ## Rng.bool
 
@@ -194,5 +196,4 @@ See [random.shuffle](#shuffle).
 
 See [random.seed](#seed).
 
-
-[chacha-docs]: https://docs.rs/rand_chacha/latest/rand_chacha/struct.ChaCha8Rng.html
+[xoshiro]: https://prng.di.unimi.it
