@@ -1,6 +1,6 @@
 [package]
 name = "koto_parser"
-version = "0.15.2"
+version = "0.15.3"
 description = "The parser used by the Koto programming language"
 
 authors.workspace = true
@@ -23,8 +23,8 @@ rc = ["koto_memory/rc"]
 panic_on_parser_error = []
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.15.2" }
-koto_memory = { path = "../memory", version = "^0.15.2", default-features = false }
+koto_lexer = { path = "../lexer", version = "^0.15.3" }
+koto_memory = { path = "../memory", version = "^0.15.3", default-features = false }
 
 derive-name = { workspace = true }
 smallvec = { workspace = true }

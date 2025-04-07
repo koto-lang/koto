@@ -1,6 +1,6 @@
 [package]
 name = "koto_color"
-version = "0.15.2"
+version = "0.15.3"
 description = "A Koto library containing simple color utilities"
 
 authors.workspace = true
@@ -25,7 +25,7 @@ palette = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.15.2"
+version = "^0.15.3"
 default-features = false
 
 [dev-dependencies]

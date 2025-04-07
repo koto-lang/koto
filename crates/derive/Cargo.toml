@@ -1,6 +1,6 @@
 [package]
 name = "koto_derive"
-version = "0.15.2"
+version = "0.15.3"
 description = "Macros for working with the Koto programming language"
 
 authors.workspace = true

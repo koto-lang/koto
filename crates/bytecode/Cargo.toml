@@ -1,6 +1,6 @@
 [package]
 name = "koto_bytecode"
-version = "0.15.2"
+version = "0.15.3"
 description = "The bytecode compiler used by the Koto programming language"
 
 authors.workspace = true
@@ -20,8 +20,8 @@ arc = ["koto_memory/arc"]
 rc = ["koto_memory/rc"]
 
 [dependencies]
-koto_memory = { path = "../memory", version = "^0.15.2", default-features = false }
-koto_parser = { path = "../parser", version = "^0.15.2", default-features = false }
+koto_memory = { path = "../memory", version = "^0.15.3", default-features = false }
+koto_parser = { path = "../parser", version = "^0.15.3", default-features = false }
 
 circular-buffer = { workspace = true }
 derive-name = { workspace = true }
