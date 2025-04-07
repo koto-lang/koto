@@ -661,7 +661,7 @@ pub fn make_module() -> KMap {
                     runtime_error!("expected a non-negative number")
                 }
             }
-            unexpected => unexpected_args("|Any|, or |Number, Any|", unexpected),
+            unexpected => unexpected_args("|Any|, or |Any, Number >= 0|", unexpected),
         }
     });
 
