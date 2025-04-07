@@ -2552,6 +2552,18 @@ f()(8)
             check_script_output(script, 64);
         }
 
+        #[test]
+        fn index_mut_in_if_condition() {
+            let script = "
+x = [0]
+if (x[0] += 1) == 0
+  1
+else
+  99
+";
+            check_script_output(script, 99);
+        }
+
         mod optional_chaining {
             use super::*;
 
