@@ -31,10 +31,8 @@ Returns an iterator that yields the string's characters as strings.
 A 'character' in Koto is defined as being a
 [unicode grapheme cluster][grapheme-cluster].
 
-### Note
-
-Note that this is the default iteration behaviour for a string, so calling
-`'hello'.chars()` is equivalent to calling `iterator.iter('hello')`.
+It's worth noting that is the default iteration behaviour for a string,
+so calling `'hello'.chars()` is equivalent to calling `iterator.iter('hello')`.
 
 ### Example
 
