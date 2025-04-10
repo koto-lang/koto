@@ -8,8 +8,6 @@ pub enum Error {
     StringError(String),
     #[error("missing os module in the prelude")]
     MissingOsModule,
-    #[error("nothing to run")]
-    NothingToRun,
     #[error("{error}")]
     CompileError {
         error: String,

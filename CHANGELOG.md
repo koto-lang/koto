@@ -120,6 +120,7 @@ The Koto project adheres to
 
 #### API
 
+- `Koto::run` now takes a `chunk` argument instead of caching the output of `Koto::compile`.
 - The `vm` argument has been removed from `KotoObject::negate`.
 
 #### CLI

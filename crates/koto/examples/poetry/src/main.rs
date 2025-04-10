@@ -122,12 +122,13 @@ fn main() -> Result<()> {
 
 fn compile_and_run(koto: &mut Koto, script_path: &KString) -> Result<()> {
     let script = fs::read_to_string(script_path.as_str())?;
-    koto.compile(CompileArgs {
-        script: &script,
-        script_path: Some(script_path.clone()),
-        compiler_settings: Default::default(),
-    })
-    .context("Error while compiling script")?;
-    koto.run().context("Error while running script")?;
+    let chunk = koto
+        .compile(CompileArgs {
+            script: &script,
+            script_path: Some(script_path.clone()),
+            compiler_settings: Default::default(),
+        })
+        .context("Error while compiling script")?;
+    koto.run(chunk).context("Error while running script")?;
     Ok(())
 }

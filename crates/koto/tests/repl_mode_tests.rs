@@ -24,7 +24,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
     let mut chunks = Vec::with_capacity(inputs_and_expected_outputs.len());
 
     for (input, expected_output) in inputs_and_expected_outputs {
-        match koto.compile(CompileArgs {
+        let chunk = match koto.compile(CompileArgs {
             script: input,
             script_path: None,
             compiler_settings: CompilerSettings {
@@ -32,11 +32,16 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
                 ..Default::default()
             },
         }) {
-            Ok(chunk) => chunks.push((input, chunk)),
-            Err(error) => panic!("{}", error),
-        }
+            Ok(chunk) => {
+                chunks.push((input, chunk.clone()));
+                chunk
+            }
+            Err(error) => {
+                panic!("{error}");
+            }
+        };
 
-        if let Err(error) = koto.run() {
+        if let Err(error) = koto.run(chunk) {
             for (input, chunk) in chunks.iter() {
                 println!("\n--------\n{input}\n--------\n");
                 println!("Constants\n---------\n{}\n", chunk.constants);

@@ -28,7 +28,6 @@ use std::time::Duration;
 pub struct Koto {
     runtime: KotoVm,
     run_tests: bool,
-    chunk: Option<Ptr<Chunk>>,
 }
 
 impl Default for Koto {
@@ -48,7 +47,6 @@ impl Koto {
         Self {
             runtime: KotoVm::with_settings(settings.vm_settings),
             run_tests: settings.run_tests,
-            chunk: None,
         }
     }
 
@@ -62,9 +60,22 @@ impl Koto {
         self.runtime.exports()
     }
 
-    /// Returns a reference to the runtime's exports
+    /// Returns a mutable reference to the runtime's exports
     pub fn exports_mut(&mut self) -> &mut KMap {
         self.runtime.exports_mut()
+    }
+
+    /// Compiles and runs a Koto script, and returns the script's result
+    ///
+    /// This is a convenience function, equivalent to calling [compile](Self::compile) followed by
+    /// [run](Self::run).
+    ///
+    /// Compilation arguments are provided via [`CompileArgs`].
+    /// `Into<CompileArgs>` is implemented for `&str` for convenience when
+    /// default settings are appropriate, e.g. `koto.compile_and_run("1 + 1")`.
+    pub fn compile_and_run<'a>(&mut self, script: impl Into<CompileArgs<'a>>) -> Result<KValue> {
+        let chunk = self.compile(script)?;
+        self.run(chunk)
     }
 
     /// Compiles a Koto script, returning the complied chunk if successful
@@ -76,36 +87,35 @@ impl Koto {
     /// default settings are appropriate, e.g. `koto.compile("1 + 1")`.
     pub fn compile<'a>(&mut self, args: impl Into<CompileArgs<'a>>) -> Result<Ptr<Chunk>> {
         let args = args.into();
-        let chunk = self
-            .runtime
+        self.runtime
             .loader()
             .borrow_mut()
             .compile_script(args.script, args.script_path, args.compiler_settings)
-            .map_err(Error::from)?;
-
-        self.chunk = Some(chunk.clone());
-        Ok(chunk)
+            .map_err(Error::from)
     }
 
-    /// Runs the chunk last compiled with [compile](Koto::compile)
-    pub fn run(&mut self) -> Result<KValue> {
-        let chunk = self.chunk.clone();
-        match chunk {
-            Some(chunk) => self.run_chunk(chunk),
-            None => Err(Error::NothingToRun),
+    /// Runs a compiled script as a [`Chunk`] and returns the script's result
+    ///
+    /// 1. The script is run. If a runtime error is encountered it will be returned as an error.
+    /// 2. If tests are enabled, the script's exported tests will be run.
+    ///    The first test failure will be returned as an error.
+    /// 3. If a @main function is exported, it will be called as the last step, with its return
+    ///    value being returned as the script's result
+    ///
+    /// Note that the runtime's exports are persistant between runs; if you want to initialize a new
+    /// script then first call `.exports_mut().clear()`.
+    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
+        let result = self.runtime.run(chunk)?;
+
+        if self.run_tests {
+            self.runtime.run_tests(self.runtime.exports().clone())?;
         }
-    }
 
-    /// Compiles and runs a Koto script, and returns the script's result
-    ///
-    /// This is equivalent to calling [compile](Self::compile) followed by [run](Self::run).
-    ///
-    /// Compilation arguments are provided via [`CompileArgs`].
-    /// `Into<CompileArgs>` is implemented for `&str` for convenience when
-    /// default settings are appropriate, e.g. `koto.compile_and_run("1 + 1")`.
-    pub fn compile_and_run<'a>(&mut self, script: impl Into<CompileArgs<'a>>) -> Result<KValue> {
-        self.compile(script)?;
-        self.run()
+        if let Some(main) = self.runtime.exports().get_meta_value(&MetaKey::Main) {
+            self.runtime.call_function(main, &[]).map_err(From::from)
+        } else {
+            Ok(result)
+        }
     }
 
     /// Calls a function with the given arguments
@@ -166,21 +176,6 @@ impl Koto {
     /// and then disabled for repeated runs.
     pub fn set_run_tests(&mut self, enabled: bool) {
         self.run_tests = enabled;
-    }
-
-    fn run_chunk(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
-        let result = self.runtime.run(chunk)?;
-
-        if self.run_tests {
-            self.runtime.run_tests(self.runtime.exports().clone())?;
-        }
-
-        let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
-        if let Some(main) = maybe_main {
-            self.runtime.call_function(main, &[]).map_err(From::from)
-        } else {
-            Ok(result)
-        }
     }
 }
 
