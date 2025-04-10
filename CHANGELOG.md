@@ -73,6 +73,7 @@ The Koto project adheres to
 
 - `KotoObject` has been extended with `_rhs` functions to support arithmetic operations
   where the object can appear on the right-hand side of the expression.
+- `Koto::call_exported_function` has been added.
 - `Compiler::compile_ast` has been added, useful for tools that want to work with the AST
   after checking that it compiles correctly.
 - `DisplayContext::debug_enabled` has been added to allow native objects to provide
@@ -120,6 +121,7 @@ The Koto project adheres to
 
 #### API
 
+- `Koto::run` now takes a `chunk` argument instead of caching the output of `Koto::compile`.
 - The `vm` argument has been removed from `KotoObject::negate`.
 
 #### CLI

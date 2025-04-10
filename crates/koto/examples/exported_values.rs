@@ -11,13 +11,13 @@ export
     let mut koto = Koto::default();
     koto.compile_and_run(script)?;
 
-    let exported_number = match koto.exports().get("number") {
-        Some(KValue::Number(n)) => n,
-        _ => bail!("Expected an exported number"),
+    let exports = koto.exports();
+
+    let Some(KValue::Number(exported_number)) = exports.get("number") else {
+        bail!("Expected an exported number");
     };
-    let exported_string = match koto.exports().get("string") {
-        Some(KValue::Str(s)) => s,
-        _ => bail!("Expected an exported string"),
+    let Some(KValue::Str(exported_string)) = exports.get("string") else {
+        bail!("Expected an exported string");
     };
 
     println!("Exported number: {exported_number}");

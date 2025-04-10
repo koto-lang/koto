@@ -72,7 +72,7 @@ pub fn compile_and_run(input: &str) -> String {
     );
 
     match koto.compile(input) {
-        Ok(_) => match koto.run() {
+        Ok(chunk) => match koto.run(chunk) {
             Ok(_) => std::mem::take(&mut output.borrow_mut()),
             Err(error) => format!("Runtime error: {error}"),
         },

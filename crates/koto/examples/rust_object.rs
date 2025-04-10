@@ -1,6 +1,6 @@
-use koto::{derive::*, prelude::*, runtime};
+use koto::{Result, derive::*, prelude::*, runtime};
 
-fn main() {
+fn main() -> Result<()> {
     let script = "
 my_type = make_my_type 41
 print my_type.get()
@@ -14,7 +14,9 @@ print my_type.set 99
             unexpected => unexpected_args("|Number|", unexpected),
         });
 
-    koto.compile_and_run(script).unwrap();
+    koto.compile_and_run(script)?;
+
+    Ok(())
 }
 
 // MyType is a type that we want to use in Koto

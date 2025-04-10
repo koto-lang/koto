@@ -179,11 +179,11 @@ fn main() -> Result<()> {
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
                         "Instructions\n------------\n{}",
-                        Chunk::instructions_as_string(chunk, &script_lines)
+                        Chunk::instructions_as_string(chunk.clone(), &script_lines)
                     );
                 }
                 koto.set_args(args.script_args)?;
-                match koto.run() {
+                match koto.run(chunk) {
                     Ok(_) => {}
                     Err(error) if error.source().is_some() => {
                         bail!("{error}\n{}", error.source().unwrap())

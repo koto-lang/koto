@@ -195,10 +195,10 @@ Run `help` for more information
                         print_wrapped!(
                             self.stdout,
                             "Instructions\n------------\n{}",
-                            Chunk::instructions_as_string(chunk, &script_lines)
+                            Chunk::instructions_as_string(chunk.clone(), &script_lines)
                         )?;
                     }
-                    match self.koto.run() {
+                    match self.koto.run(chunk) {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
                             Ok(result_string) => {
                                 self.print_result(&result_string)?;
