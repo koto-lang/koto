@@ -1,6 +1,6 @@
-use koto::{prelude::*, runtime};
+use koto::{Result, prelude::*, runtime};
 
-fn main() {
+fn main() -> Result<()> {
     let script = "
 say_hello()
 say_hello 'Alice'
@@ -18,7 +18,9 @@ print plus 10, 20
         unexpected => unexpected_args("|Number, Number|", unexpected),
     });
 
-    koto.compile_and_run(script).unwrap();
+    koto.compile_and_run(script)?;
+
+    Ok(())
 }
 
 fn say_hello(ctx: &mut CallContext) -> runtime::Result<KValue> {
