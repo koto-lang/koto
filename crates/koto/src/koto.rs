@@ -145,6 +145,21 @@ impl Koto {
             .map_err(From::from)
     }
 
+    /// Calls an exported function with the given arguments
+    ///
+    /// If the requested function isn't present, or if it isn't [callable](KValue::is_callable),
+    /// then an error will be returned.
+    pub fn call_exported_function<'a>(
+        &mut self,
+        function_name: &str,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KValue> {
+        match self.exports().get(function_name) {
+            Some(f) => self.runtime.call_function(f, args).map_err(From::from),
+            None => Err(Error::MissingFunction(function_name.into())),
+        }
+    }
+
     /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: KValue) -> Result<String> {
         self.runtime.value_to_string(&value).map_err(From::from)
