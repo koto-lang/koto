@@ -5,34 +5,36 @@ mod parser {
         println!("{source}");
 
         match Parser::parse(source) {
-            Ok(ast) => {
-                for (i, (ast_node, expected_node)) in
-                    ast.nodes().iter().zip(expected_ast.iter()).enumerate()
-                {
-                    assert_eq!(*expected_node, ast_node.node, "Mismatch at position {i}");
-                }
-                assert_eq!(
-                    expected_ast.len(),
-                    ast.nodes().len(),
-                    "Node list length mismatch"
-                );
-
-                if let Some(expected_constants) = expected_constants {
-                    for (constant, expected_constant) in
-                        ast.constants().iter().zip(expected_constants.iter())
-                    {
-                        assert_eq!(*expected_constant, constant);
-                    }
-                    assert_eq!(
-                        expected_constants.len(),
-                        ast.constants().size(),
-                        "Constant pool size mismatch"
-                    );
-                } else {
-                    assert_eq!(0, ast.constants().size());
-                }
-            }
+            Ok(ast) => compare_ast(expected_ast, expected_constants, &ast),
             Err(error) => panic!("{error} - {:?}", error.span.start),
+        }
+    }
+
+    fn compare_ast(expected_ast: &[Node], expected_constants: Option<&[Constant<'_>]>, ast: &Ast) {
+        for (i, (ast_node, expected_node)) in
+            ast.nodes().iter().zip(expected_ast.iter()).enumerate()
+        {
+            assert_eq!(*expected_node, ast_node.node, "Mismatch at position {i}");
+        }
+        assert_eq!(
+            expected_ast.len(),
+            ast.nodes().len(),
+            "Node list length mismatch"
+        );
+
+        if let Some(expected_constants) = expected_constants {
+            for (constant, expected_constant) in
+                ast.constants().iter().zip(expected_constants.iter())
+            {
+                assert_eq!(*expected_constant, constant);
+            }
+            assert_eq!(
+                expected_constants.len(),
+                ast.constants().size(),
+                "Constant pool size mismatch"
+            );
+        } else {
+            assert_eq!(0, ast.constants().size());
         }
     }
 
@@ -5722,6 +5724,119 @@ switch
                     },
                 ],
                 Some(&[Constant::Str("x")]),
+            )
+        }
+    }
+
+    #[cfg(feature = "error_ast")]
+    mod partial_ast_after_error {
+        use super::*;
+
+        fn check_error_ast(
+            source: &str,
+            expected_ast: &[Node],
+            expected_constants: Option<&[Constant]>,
+        ) {
+            println!("{source}");
+
+            match Parser::parse(source) {
+                Ok(_) => panic!("Expected parsing to fail"),
+                Err(error) => {
+                    if let Some(ast) = error.ast {
+                        compare_ast(expected_ast, expected_constants, &ast);
+                    } else {
+                        panic!("Missing AST after error ({error})");
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn after_assign() {
+            let source = "
+a = 1
+!
+123
+";
+            check_error_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    assign(0, 1),
+                    MainBlock {
+                        body: nodes(&[2]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn mid_assignment_on_second_line() {
+            let source = "
+a = 1
+b = !
+x()
+";
+            check_error_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    assign(0, 1),
+                    id(1),
+                    MainBlock {
+                        body: nodes(&[2, 3]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
+
+        #[test]
+        fn error_in_function() {
+            let source = "\
+f = |x|
+  y = x
+  z = y
+  !
+f 99
+";
+            check_error_ast(
+                source,
+                &[
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    id(1), // x
+                    assign(2, 3),
+                    id(3), // z - 5
+                    id(2), // y
+                    assign(5, 6),
+                    Block(nodes(&[4, 7])),
+                    Function(koto_parser::Function {
+                        args: nodes(&[1]),
+                        local_count: 3,
+                        accessed_non_locals: constants(&[]),
+                        body: 8.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: None,
+                    }),
+                    MainBlock {
+                        body: nodes(&[9]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                ]),
             )
         }
     }

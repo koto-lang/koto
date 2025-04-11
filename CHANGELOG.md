@@ -80,6 +80,8 @@ The Koto project adheres to
   additional debug information when `KotoObject::display` is called.
 - `KMap::remove` and `remove_path` have been added.
   - See the `prelude_value_remove.rs` example for motivation.
+- `koto_parser` now has an `error_ast` feature, which causes the parser to include the
+  incomplete AST in `koto_parser::Error` when an error is an encountered.
 
 #### Core Library
 
