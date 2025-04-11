@@ -258,10 +258,25 @@ impl<'source> Parser<'source> {
             frame_stack: Vec::new(),
         };
 
-        parser.consume_main_block()?;
-        parser.ast.set_constants(parser.constants.build());
-
-        Ok(parser.ast)
+        match parser.consume_main_block() {
+            Ok(_) => {
+                parser.ast.set_constants(parser.constants.build());
+                Ok(parser.ast)
+            }
+            Err(error) => {
+                #[cfg(feature = "error_ast")]
+                {
+                    parser.ast.set_constants(parser.constants.build());
+                    let mut error = error;
+                    error.ast = Some(Box::new(parser.ast));
+                    Err(error)
+                }
+                #[cfg(not(feature = "error_ast"))]
+                {
+                    Err(error)
+                }
+            }
+        }
     }
 
     // Parses the main 'top-level' block
@@ -277,11 +292,19 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(&context).is_some() {
             self.consume_until_token_with_context(&context);
 
-            let Some(expression) = self.parse_line(&ExpressionContext::permissive())? else {
-                return self.consume_token_and_error(SyntaxError::ExpectedExpression);
-            };
-
-            body.push(expression);
+            match self.parse_line(&ExpressionContext::permissive()) {
+                Ok(Some(expression)) => {
+                    body.push(expression);
+                }
+                Ok(None) => {
+                    self.push_main_block_node_on_error(body, start_span);
+                    return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+                }
+                Err(error) => {
+                    self.push_main_block_node_on_error(body, start_span);
+                    return Err(error);
+                }
+            }
 
             match self.peek_next_token_on_same_line() {
                 Some(Token::Semicolon) => {
@@ -289,26 +312,51 @@ impl<'source> Parser<'source> {
                 }
                 Some(Token::NewLine) => {}
                 None => break,
-                _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
+                _ => {
+                    self.push_main_block_node_on_error(body, start_span);
+                    return self.consume_token_and_error(SyntaxError::UnexpectedToken);
+                }
             }
         }
 
         // Check that all tokens were consumed
         self.consume_until_token_with_context(&ExpressionContext::permissive());
         if self.peek_token().is_some() {
+            self.push_main_block_node_on_error(body, start_span);
             return self.consume_token_and_error(SyntaxError::UnexpectedToken);
         }
 
-        let result = self.push_node_with_start_span(
+        let result = self.push_main_block_node(body, start_span)?;
+
+        self.frame_stack.pop();
+        Ok(result)
+    }
+
+    fn push_main_block_node_on_error(&mut self, mut body: AstVec<AstIndex>, start_span: Span) {
+        if cfg!(feature = "error_ast") {
+            match (body.last(), self.ast.entry_point()) {
+                (Some(last_successful), Some(last_errored)) if *last_successful != last_errored => {
+                    body.push(last_errored)
+                }
+                (None, Some(last_errored)) => body.push(last_errored),
+                _ => {}
+            }
+            self.push_main_block_node(body, start_span).ok();
+        }
+    }
+
+    fn push_main_block_node(
+        &mut self,
+        body: AstVec<AstIndex>,
+        start_span: Span,
+    ) -> Result<AstIndex> {
+        self.push_node_with_start_span(
             Node::MainBlock {
                 body,
                 local_count: self.frame()?.local_count(),
             },
             start_span,
-        )?;
-
-        self.frame_stack.pop();
-        Ok(result)
+        )
     }
 
     // Attempts to parse an indented block after the current position
@@ -331,20 +379,28 @@ impl<'source> Parser<'source> {
             .unwrap(); // Safe to unwrap here given that we've just peeked
         let start_span = self.current_span();
 
-        let mut block = AstVec::new();
+        let mut body = AstVec::new();
         loop {
             let line_context = ExpressionContext {
-                allow_map_block: block.is_empty(),
+                allow_map_block: body.is_empty(),
                 ..ExpressionContext::permissive()
             };
 
-            let Some(expression) = self.parse_line(&line_context)? else {
-                // At this point we've peeked to check that the line is either the start of the
-                // block, or a continuation with the same indentation as the block.
-                return self.consume_token_and_error(SyntaxError::UnexpectedToken);
-            };
-
-            block.push(expression);
+            match self.parse_line(&line_context) {
+                Ok(Some(expression)) => {
+                    body.push(expression);
+                }
+                Ok(None) => {
+                    // At this point we've peeked to check that the line is either the start of the
+                    // block, or a continuation with the same indentation as the block.
+                    self.push_block_node_on_error(body, start_span);
+                    return self.consume_token_and_error(SyntaxError::UnexpectedToken);
+                }
+                Err(error) => {
+                    self.push_block_node_on_error(body, start_span);
+                    return Err(error);
+                }
+            }
 
             match self.peek_next_token_on_same_line() {
                 None => break,
@@ -352,7 +408,10 @@ impl<'source> Parser<'source> {
                 Some(Token::Semicolon) => {
                     self.consume_next_token_on_same_line();
                 }
-                _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
+                _ => {
+                    self.push_block_node_on_error(body, start_span);
+                    return self.consume_token_and_error(SyntaxError::UnexpectedToken);
+                }
             }
 
             // Peek ahead to see if the indented block continues after this line
@@ -363,11 +422,32 @@ impl<'source> Parser<'source> {
             self.consume_until_token_with_context(&block_context);
         }
 
+        self.push_block_node(body, start_span)
+    }
+
+    fn push_block_node_on_error(&mut self, mut body: AstVec<AstIndex>, start_span: Span) {
+        if cfg!(feature = "error_ast") {
+            match (body.last(), self.ast.entry_point()) {
+                (Some(last_successful), Some(last_errored)) if *last_successful != last_errored => {
+                    body.push(last_errored)
+                }
+                (None, Some(last_errored)) => body.push(last_errored),
+                _ => {}
+            }
+            self.push_block_node(body, start_span).ok();
+        }
+    }
+
+    fn push_block_node(
+        &mut self,
+        body: AstVec<AstIndex>,
+        start_span: Span,
+    ) -> Result<Option<AstIndex>> {
         // If the block is a single expression then it doesn't need to be wrapped in a Block node
-        if block.len() == 1 {
-            Ok(Some(*block.first().unwrap()))
+        if body.len() == 1 {
+            Ok(Some(*body.first().unwrap()))
         } else {
-            self.push_node_with_start_span(Node::Block(block), start_span)
+            self.push_node_with_start_span(Node::Block(body), start_span)
                 .map(Some)
         }
     }
@@ -890,7 +970,7 @@ impl<'source> Parser<'source> {
     fn consume_function(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Function
 
-        let span_start = self.current_span().start;
+        let start_span = self.current_span();
 
         // Parse the function's args
         let mut arg_nodes = AstVec::new();
@@ -1012,17 +1092,44 @@ impl<'source> Parser<'source> {
         function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
         self.frame_stack.push(function_frame);
 
-        let body = if let Some(block) = self.parse_indented_block()? {
-            block
-        } else {
-            self.consume_until_next_token_on_same_line();
-            if let Some(body) = self.parse_line(&ExpressionContext::permissive())? {
-                body
-            } else {
-                return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
+        let body = match self.parse_indented_block() {
+            Ok(Some(block)) => block,
+            Ok(None) => {
+                self.consume_until_next_token_on_same_line();
+                if let Some(body) = self.parse_line(&ExpressionContext::permissive())? {
+                    body
+                } else {
+                    return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
+                }
+            }
+            Err(error) => {
+                if cfg!(feature = "error_ast") {
+                    if let Some(block) = self.ast.entry_point() {
+                        self.push_function_node(
+                            start_span,
+                            arg_nodes,
+                            is_variadic,
+                            output_type,
+                            block,
+                        )
+                        .ok();
+                    }
+                }
+                return Err(error);
             }
         };
 
+        self.push_function_node(start_span, arg_nodes, is_variadic, output_type, body)
+    }
+
+    fn push_function_node(
+        &mut self,
+        start_span: Span,
+        arg_nodes: AstVec<AstIndex>,
+        is_variadic: bool,
+        output_type: Option<AstIndex>,
+        body: AstIndex,
+    ) -> std::result::Result<AstIndex, Error> {
         let function_frame = self
             .frame_stack
             .pop()
@@ -1033,9 +1140,7 @@ impl<'source> Parser<'source> {
 
         let local_count = function_frame.local_count();
 
-        let span_end = self.current_span().end;
-
-        self.ast.push(
+        self.push_node_with_start_span(
             Node::Function(Function {
                 args: arg_nodes,
                 local_count,
@@ -1045,10 +1150,7 @@ impl<'source> Parser<'source> {
                 is_generator: function_frame.contains_yield,
                 output_type,
             }),
-            Span {
-                start: span_start,
-                end: span_end,
-            },
+            start_span,
         )
     }
 

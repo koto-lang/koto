@@ -22,6 +22,9 @@ rc = ["koto_memory/rc"]
 # Panicking be useful during development, e.g. to see the backtrace that led to the error
 panic_on_parser_error = []
 
+# When enabled, the parser will return the partially constructed AST in the error
+error_ast = []
+
 [dependencies]
 koto_lexer = { path = "../lexer", version = "^0.16.0" }
 koto_memory = { path = "../memory", version = "^0.16.0", default-features = false }

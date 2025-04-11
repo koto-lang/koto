@@ -225,14 +225,24 @@ pub enum ErrorKind {
 pub struct Error {
     /// The error itself
     pub error: ErrorKind,
+
     /// The span in the source string where the error occurred
     pub span: Span,
+
+    /// The partially parsed AST up to the point where the error occurred
+    #[cfg(feature = "error_ast")]
+    pub ast: Option<Box<crate::Ast>>,
 }
 
 impl Error {
     /// Initializes a parser error with the specific error type and its associated span
     pub fn new(error: ErrorKind, span: Span) -> Self {
-        Self { error, span }
+        Self {
+            error,
+            span,
+            #[cfg(feature = "error_ast")]
+            ast: None,
+        }
     }
 
     /// Returns true if the error was caused by the expectation of indentation
