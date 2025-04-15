@@ -212,6 +212,15 @@ pub fn make_module() -> KMap {
         }
     });
 
+    result.add_fn("is_int", |ctx| {
+        let expected_error = "|Number|";
+
+        match ctx.instance_and_args(is_number, expected_error)? {
+            (Number(n), []) => Ok(n.is_i64().into()),
+            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+        }
+    });
+
     bitwise_fn!(xor, ^);
 
     result
