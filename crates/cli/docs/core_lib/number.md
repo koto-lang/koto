@@ -358,6 +358,29 @@ Number
 
 Provides the `∞` constant.
 
+## is_int
+
+```kototype
+|Number| -> Bool
+```
+
+Returns true if the number is an integer.
+
+### Example
+
+```koto
+print! 1.is_int()
+check! true
+
+print! 1.5.is_int()
+check! false
+```
+
+### See Also
+
+- [`number.is_nan`](#is-nan)
+- [`number.to_int`](#to-int)
+
 ## is_nan
 
 ```kototype
@@ -375,6 +398,10 @@ check! false
 print! (0 / 0).is_nan()
 check! true
 ```
+
+### See Also
+
+- [`number.is_int`](#is-int)
 
 ## lerp
 
@@ -805,6 +832,7 @@ check! -1
 
 - [`number.ceil`](#ceil)
 - [`number.floor`](#floor)
+- [`number.is_int`](#is-int)
 - [`number.round`](#round)
 
 ## xor
