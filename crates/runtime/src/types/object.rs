@@ -164,7 +164,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
 
     /// Allows the object to behave as a function
     ///
-    /// Objects that implement `call` should return `true` from [`KotoObject::call`].
+    /// Objects that implement `call` should return `true` from [`KotoObject::is_callable`].
     fn call(&mut self, ctx: &mut CallContext) -> Result<KValue> {
         let _ = ctx;
         unimplemented_error("@||", self.type_string())
