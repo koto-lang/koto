@@ -1870,12 +1870,11 @@ impl Compiler {
         use AstBinaryOp::*;
 
         match op {
-            Add | Subtract | Multiply | Divide | Remainder => {
+            Add | Subtract | Multiply | Divide | Remainder | Power => {
                 self.compile_arithmetic_op(op, lhs, rhs, ctx)
             }
-            AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
-                self.compile_compound_assignment_op(op, lhs, rhs, ctx)
-            }
+            AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign
+            | PowerAssign => self.compile_compound_assignment_op(op, lhs, rhs, ctx),
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
                 self.compile_comparison_op(op, lhs, rhs, ctx)
             }
@@ -1899,6 +1898,7 @@ impl Compiler {
             Multiply => Op::Multiply,
             Divide => Op::Divide,
             Remainder => Op::Remainder,
+            Power => Op::Power,
             _ => {
                 return self.error(ErrorKind::InvalidBinaryOp {
                     kind: "arithmetic".into(),
@@ -1946,6 +1946,7 @@ impl Compiler {
             MultiplyAssign => Op::MultiplyAssign,
             DivideAssign => Op::DivideAssign,
             RemainderAssign => Op::RemainderAssign,
+            PowerAssign => Op::PowerAssign,
             _ => {
                 return self.error(ErrorKind::InvalidBinaryOp {
                     kind: "compound assignment".into(),

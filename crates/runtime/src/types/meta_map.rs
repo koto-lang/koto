@@ -134,6 +134,8 @@ pub enum BinaryOp {
     Divide,
     /// `@%`
     Remainder,
+    /// `@^`
+    Power,
     /// `@r+`
     AddRhs,
     /// `@r-`
@@ -144,6 +146,8 @@ pub enum BinaryOp {
     DivideRhs,
     /// `@r%`
     RemainderRhs,
+    /// `@r^`
+    PowerRhs,
     /// `@+=`
     AddAssign,
     /// `@-=`
@@ -154,6 +158,8 @@ pub enum BinaryOp {
     DivideAssign,
     /// `@%=`
     RemainderAssign,
+    /// `@^=`
+    PowerAssign,
     /// `@<`
     Less,
     /// `@<=`
@@ -183,11 +189,13 @@ impl fmt::Display for BinaryOp {
                 Multiply | MultiplyRhs => "*",
                 Divide | DivideRhs => "/",
                 Remainder | RemainderRhs => "%",
+                Power | PowerRhs => "^",
                 AddAssign => "+=",
                 SubtractAssign => "-=",
                 MultiplyAssign => "*=",
                 DivideAssign => "/=",
                 RemainderAssign => "%=",
+                PowerAssign => "^=",
                 Less => "<",
                 LessOrEqual => "<=",
                 Greater => ">",
@@ -232,16 +240,19 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
         MetaKeyId::Multiply => MetaKey::BinaryOp(Multiply),
         MetaKeyId::Divide => MetaKey::BinaryOp(Divide),
         MetaKeyId::Remainder => MetaKey::BinaryOp(Remainder),
+        MetaKeyId::Power => MetaKey::BinaryOp(Power),
         MetaKeyId::AddRhs => MetaKey::BinaryOp(AddRhs),
         MetaKeyId::SubtractRhs => MetaKey::BinaryOp(SubtractRhs),
         MetaKeyId::MultiplyRhs => MetaKey::BinaryOp(MultiplyRhs),
         MetaKeyId::DivideRhs => MetaKey::BinaryOp(DivideRhs),
         MetaKeyId::RemainderRhs => MetaKey::BinaryOp(RemainderRhs),
+        MetaKeyId::PowerRhs => MetaKey::BinaryOp(PowerRhs),
         MetaKeyId::AddAssign => MetaKey::BinaryOp(AddAssign),
         MetaKeyId::SubtractAssign => MetaKey::BinaryOp(SubtractAssign),
         MetaKeyId::MultiplyAssign => MetaKey::BinaryOp(MultiplyAssign),
         MetaKeyId::DivideAssign => MetaKey::BinaryOp(DivideAssign),
         MetaKeyId::RemainderAssign => MetaKey::BinaryOp(RemainderAssign),
+        MetaKeyId::PowerAssign => MetaKey::BinaryOp(PowerAssign),
         MetaKeyId::Less => MetaKey::BinaryOp(Less),
         MetaKeyId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
         MetaKeyId::Greater => MetaKey::BinaryOp(Greater),

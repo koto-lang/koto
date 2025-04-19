@@ -45,8 +45,8 @@ mod vm {
         }
 
         #[test]
-        fn subtract_divide_remainder() {
-            check_script_output("(20 - 2) / 3 % 4", 2);
+        fn subtract_divide_remainder_power() {
+            check_script_output("(20 - 2) / 3 % 2 ^ 2", 2); // ((20 - 2) / 3) % (2 ^ 2)
         }
 
         #[test]

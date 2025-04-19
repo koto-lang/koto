@@ -396,11 +396,13 @@ pub enum AstBinaryOp {
     Multiply,
     Divide,
     Remainder,
+    Power,
     AddAssign,
     SubtractAssign,
     MultiplyAssign,
     DivideAssign,
     RemainderAssign,
+    PowerAssign,
     Equal,
     NotEqual,
     Less,
@@ -530,6 +532,8 @@ pub enum MetaKeyId {
     Divide,
     /// @%
     Remainder,
+    /// @^
+    Power,
     /// @r+
     AddRhs,
     /// @r-
@@ -540,6 +544,8 @@ pub enum MetaKeyId {
     DivideRhs,
     /// @r%
     RemainderRhs,
+    /// @r^
+    PowerRhs,
     /// @+=
     AddAssign,
     /// @-=
@@ -550,6 +556,8 @@ pub enum MetaKeyId {
     DivideAssign,
     /// @%=
     RemainderAssign,
+    /// @^=
+    PowerAssign,
     /// @<
     Less,
     /// @<=
@@ -636,16 +644,19 @@ impl fmt::Display for MetaKeyId {
                 Multiply => "*",
                 Divide => "/",
                 Remainder => "%",
+                Power => "^",
                 AddRhs => "r+",
                 SubtractRhs => "r-",
                 MultiplyRhs => "r*",
                 DivideRhs => "r/",
                 RemainderRhs => "r%",
+                PowerRhs => "r^",
                 AddAssign => "+=",
                 SubtractAssign => "-=",
                 MultiplyAssign => "*=",
                 DivideAssign => "/=",
                 RemainderAssign => "%=",
+                PowerAssign => "^=",
                 Less => "<",
                 LessOrEqual => "<=",
                 Greater => ">",

@@ -45,6 +45,7 @@ pub enum Token {
     Multiply,
     Divide,
     Remainder,
+    Power,
 
     Assign,
     AddAssign,
@@ -52,6 +53,7 @@ pub enum Token {
     MultiplyAssign,
     DivideAssign,
     RemainderAssign,
+    PowerAssign,
 
     Equal,
     NotEqual,
@@ -728,12 +730,14 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("*=", MultiplyAssign);
         check_symbol!("/=", DivideAssign);
         check_symbol!("%=", RemainderAssign);
+        check_symbol!("^=", PowerAssign);
 
         check_symbol!("+", Add);
         check_symbol!("-", Subtract);
         check_symbol!("*", Multiply);
         check_symbol!("/", Divide);
         check_symbol!("%", Remainder);
+        check_symbol!("^", Power);
 
         check_symbol!("@", At);
         check_symbol!(":", Colon);

@@ -493,6 +493,9 @@ impl KotoVm {
             BinaryOp::Remainder | BinaryOp::RemainderRhs => {
                 self.run_remainder(result_register, lhs_register, rhs_register)?
             }
+            BinaryOp::Power | BinaryOp::PowerRhs => {
+                self.run_power(result_register, lhs_register, rhs_register)?
+            }
             BinaryOp::AddAssign => {
                 self.run_add_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
@@ -511,6 +514,10 @@ impl KotoVm {
             }
             BinaryOp::RemainderAssign => {
                 self.run_remainder_assign(lhs_register, rhs_register)?;
+                self.set_register(result_register, self.clone_register(lhs_register));
+            }
+            BinaryOp::PowerAssign => {
+                self.run_power_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
             }
             BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register)?,
@@ -825,11 +832,13 @@ impl KotoVm {
             Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs)?,
             Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs)?,
             Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs)?,
+            Power { register, lhs, rhs } => self.run_power(register, lhs, rhs)?,
             AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs)?,
             SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs)?,
             MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs)?,
             DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs)?,
             RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs)?,
+            PowerAssign { lhs, rhs } => self.run_power_assign(lhs, rhs)?,
             Less { register, lhs, rhs } => self.run_less(register, lhs, rhs)?,
             LessOrEqual { register, lhs, rhs } => self.run_less_or_equal(register, lhs, rhs)?,
             Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs)?,
@@ -1742,6 +1751,36 @@ impl KotoVm {
         Ok(())
     }
 
+    fn run_power(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
+        use BinaryOp::{Power, PowerRhs};
+        use KValue::*;
+        use macros::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a.pow(*b)),
+            (Map(m), _) if m.contains_meta_key(&Power.into()) => {
+                let lhs_value = lhs_value.clone();
+                let rhs_value = rhs_value.clone();
+                call_metamap_arithmetic_op!(self, Power, power, m, lhs_value, rhs_value, result)
+            }
+            (Object(o), _) => {
+                call_object_arithmetic_op!(self, Power, power, o, lhs_value, rhs_value, result)
+            }
+            (_, Map(m)) if m.contains_meta_key(&PowerRhs.into()) => {
+                call_metamap_binary_op_rhs!(self, PowerRhs, m, lhs_value, rhs_value, result);
+            }
+            (_, Object(o)) => {
+                call_object_binary_op!(PowerRhs, power_rhs, o, lhs_value, rhs_value)
+            }
+            _ => return binary_op_error(lhs_value, rhs_value, Power),
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
+    }
+
     fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
         use BinaryOp::AddAssign;
         use KValue::*;
@@ -1854,6 +1893,29 @@ impl KotoVm {
             }
             (Object(o), _) => o.try_borrow_mut()?.remainder_assign(rhs_value),
             _ => binary_op_error(lhs_value, rhs_value, RemainderAssign),
+        }
+    }
+
+    fn run_power_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
+        use BinaryOp::PowerAssign;
+        use KValue::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => {
+                self.set_register(lhs, Number(a.pow(*b)));
+                Ok(())
+            }
+            (Map(m), _) if m.contains_meta_key(&PowerAssign.into()) => {
+                macros::call_metamap_binary_op!(self, PowerAssign, m, lhs_value, rhs_value);
+            }
+            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                let o2 = Object(o2.try_borrow()?.copy());
+                o.try_borrow_mut()?.power_assign(&o2)
+            }
+            (Object(o), _) => o.try_borrow_mut()?.power_assign(rhs_value),
+            _ => binary_op_error(lhs_value, rhs_value, PowerAssign),
         }
     }
 

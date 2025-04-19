@@ -46,20 +46,29 @@ Numbers and arithmetic are expressed in a familiar way.
 print! 1
 check! 1
 
+# Addition
 print! 1 + 1
 check! 2
 
+# Negation and Subtraction
 print! -1 - 10
 check! -11
 
+# Multiplication
 print! 3 * 4
 check! 12
 
+# Division
 print! 9 / 2
 check! 4.5
 
+# Remainder
 print! 12.5 % 5
 check! 2.5
+
+# Power / Exponentiation
+print! 2 ^ 3
+check! 8
 ```
 
 Underscores can be used as separators to aid readability in long numbers.
@@ -2073,10 +2082,10 @@ Arithmetic operators used in binary expressions can all be implemented in an obj
 by implementing functions for the appropriate metakeys.
 
 When the object is on the left-hand side (_LHS_) of the expression the metakeys are
-`@+`, `@-`, `@*`, `@/`, and `@%`.
+`@+`, `@-`, `@*`, `@/`, `@%`, and `@^`.
 
 If the value on the LHS of the expression doesn't support the operation and the object is on the
-right-hand side (_RHS_), then the metakeys are `@r+`, `@r-`, `@r*`, `@r/`, and `@r%`.
+right-hand side (_RHS_), then the metakeys are `@r+`, `@r-`, `@r*`, `@r/`, `@r%`, and `@r^`.
 
 If your type only supports an operation when the input has a certain type,
 then throw a [`koto.unimplemented`][koto-unimplemented] error to let the runtime know that

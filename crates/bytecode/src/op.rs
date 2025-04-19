@@ -247,30 +247,40 @@ pub enum Op {
     /// `[*result, *lhs, *rhs]`
     Remainder,
 
-    /// Add-assign rhs -> lhs
+    /// Performs the power operation with lhs and rhs
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Power,
+
+    /// lhs += rhs
     ///
     /// `[*lhs, *rhs]`
     AddAssign,
 
-    /// Subtract-assign rhs -> lhs
+    /// lhs -= rhs
     ///
     /// `[*lhs, *rhs]`
     SubtractAssign,
 
-    /// Multiply-assign rhs -> lhs
+    /// lhs *= rhs
     ///
     /// `[*lhs, *rhs]`
     MultiplyAssign,
 
-    /// Divide-assign rhs -> lhs
+    /// lhs /= rhs
     ///
     /// `[*lhs, *rhs]`
     DivideAssign,
 
-    /// Remainder-assign rhs -> lhs
+    /// lhs %= rhs
     ///
     /// `[*lhs, *rhs]`
     RemainderAssign,
+
+    /// lhs ^= rhs
+    ///
+    /// `[*lhs, *rhs]`
+    PowerAssign,
 
     /// Compares lhs and rhs using the '<' operator
     ///
@@ -575,8 +585,6 @@ pub enum Op {
     CheckOptionalType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused90,
-    Unused91,
     Unused92,
     Unused93,
     Unused94,
