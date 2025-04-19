@@ -1614,102 +1614,39 @@ impl KotoVm {
     }
 
     fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::{Subtract, SubtractRhs};
-        use KValue::*;
-        use macros::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a - b),
-            (Map(m), _) if m.contains_meta_key(&Subtract.into()) => {
-                let lhs_value = lhs_value.clone();
-                let rhs_value = rhs_value.clone();
-                call_metamap_arithmetic_op!(
-                    self, Subtract, subtract, m, lhs_value, rhs_value, result
-                )
-            }
-            (Object(o), _) => {
-                call_object_arithmetic_op!(
-                    self, Subtract, subtract, o, lhs_value, rhs_value, result
-                )
-            }
-            (_, Map(m)) if m.contains_meta_key(&SubtractRhs.into()) => {
-                call_metamap_binary_op_rhs!(self, SubtractRhs, m, lhs_value, rhs_value, result);
-            }
-            (_, Object(o)) => {
-                call_object_binary_op!(SubtractRhs, subtract_rhs, o, lhs_value, rhs_value)
-            }
-            _ => return binary_op_error(lhs_value, rhs_value, Subtract),
-        };
-
-        self.set_register(result, result_value);
-        Ok(())
+        macros::run_arithmetic_op!(
+            self,
+            Subtract,
+            subtract,
+            |a: &KNumber, b: &KNumber| a - b,
+            result,
+            lhs,
+            rhs
+        )
     }
 
     fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::{Multiply, MultiplyRhs};
-        use KValue::*;
-        use macros::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a * b),
-            (Map(m), _) if m.contains_meta_key(&Multiply.into()) => {
-                let lhs_value = lhs_value.clone();
-                let rhs_value = rhs_value.clone();
-                call_metamap_arithmetic_op!(
-                    self, Multiply, multiply, m, lhs_value, rhs_value, result
-                )
-            }
-            (Object(o), _) => {
-                call_object_arithmetic_op!(
-                    self, Multiply, multiply, o, lhs_value, rhs_value, result
-                )
-            }
-            (_, Map(m)) if m.contains_meta_key(&MultiplyRhs.into()) => {
-                call_metamap_binary_op_rhs!(self, MultiplyRhs, m, lhs_value, rhs_value, result);
-            }
-            (_, Object(o)) => {
-                call_object_binary_op!(MultiplyRhs, multiply_rhs, o, lhs_value, rhs_value)
-            }
-            _ => return binary_op_error(lhs_value, rhs_value, Multiply),
-        };
-
-        self.set_register(result, result_value);
-        Ok(())
+        macros::run_arithmetic_op!(
+            self,
+            Multiply,
+            multiply,
+            |a: &KNumber, b: &KNumber| a * b,
+            result,
+            lhs,
+            rhs
+        )
     }
 
     fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::{Divide, DivideRhs};
-        use KValue::*;
-        use macros::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a / b),
-            (Map(m), _) if m.contains_meta_key(&Divide.into()) => {
-                let lhs_value = lhs_value.clone();
-                let rhs_value = rhs_value.clone();
-                call_metamap_arithmetic_op!(self, Divide, divide, m, lhs_value, rhs_value, result)
-            }
-            (Object(o), _) => {
-                call_object_arithmetic_op!(self, Divide, divide, o, lhs_value, rhs_value, result)
-            }
-            (_, Map(m)) if m.contains_meta_key(&DivideRhs.into()) => {
-                call_metamap_binary_op_rhs!(self, DivideRhs, m, lhs_value, rhs_value, result);
-            }
-            (_, Object(o)) => {
-                call_object_binary_op!(DivideRhs, divide_rhs, o, lhs_value, rhs_value)
-            }
-            _ => return binary_op_error(lhs_value, rhs_value, Divide),
-        };
-
-        self.set_register(result, result_value);
-        Ok(())
+        macros::run_arithmetic_op!(
+            self,
+            Divide,
+            divide,
+            |a: &KNumber, b: &KNumber| a / b,
+            result,
+            lhs,
+            rhs
+        )
     }
 
     fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
@@ -1752,171 +1689,81 @@ impl KotoVm {
     }
 
     fn run_power(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::{Power, PowerRhs};
-        use KValue::*;
-        use macros::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        let result_value = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a.pow(*b)),
-            (Map(m), _) if m.contains_meta_key(&Power.into()) => {
-                let lhs_value = lhs_value.clone();
-                let rhs_value = rhs_value.clone();
-                call_metamap_arithmetic_op!(self, Power, power, m, lhs_value, rhs_value, result)
-            }
-            (Object(o), _) => {
-                call_object_arithmetic_op!(self, Power, power, o, lhs_value, rhs_value, result)
-            }
-            (_, Map(m)) if m.contains_meta_key(&PowerRhs.into()) => {
-                call_metamap_binary_op_rhs!(self, PowerRhs, m, lhs_value, rhs_value, result);
-            }
-            (_, Object(o)) => {
-                call_object_binary_op!(PowerRhs, power_rhs, o, lhs_value, rhs_value)
-            }
-            _ => return binary_op_error(lhs_value, rhs_value, Power),
-        };
-        self.set_register(result, result_value);
-
-        Ok(())
+        macros::run_arithmetic_op!(
+            self,
+            Power,
+            power,
+            |a: &KNumber, b: &KNumber| a.pow(*b),
+            result,
+            lhs,
+            rhs
+        )
     }
 
     fn run_add_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::AddAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a + b));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&AddAssign.into()) => {
-                macros::call_metamap_binary_op!(self, AddAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.add_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.add_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, AddAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            AddAssign,
+            add_assign,
+            |a: &KNumber, b: &KNumber| a + b,
+            lhs,
+            rhs
+        )
     }
 
     fn run_subtract_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::SubtractAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a - b));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&SubtractAssign.into()) => {
-                macros::call_metamap_binary_op!(self, SubtractAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.subtract_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.subtract_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, SubtractAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            SubtractAssign,
+            subtract_assign,
+            |a: &KNumber, b: &KNumber| a - b,
+            lhs,
+            rhs
+        )
     }
 
     fn run_multiply_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::MultiplyAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a * b));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&MultiplyAssign.into()) => {
-                macros::call_metamap_binary_op!(self, MultiplyAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.multiply_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.multiply_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, MultiplyAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            MultiplyAssign,
+            multiply_assign,
+            |a: &KNumber, b: &KNumber| a * b,
+            lhs,
+            rhs
+        )
     }
 
     fn run_divide_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::DivideAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a / b));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&DivideAssign.into()) => {
-                macros::call_metamap_binary_op!(self, DivideAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.divide_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.divide_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, DivideAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            DivideAssign,
+            divide_assign,
+            |a: &KNumber, b: &KNumber| a / b,
+            lhs,
+            rhs
+        )
     }
 
     fn run_remainder_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::RemainderAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a % b));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&RemainderAssign.into()) => {
-                macros::call_metamap_binary_op!(self, RemainderAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.remainder_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.remainder_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, RemainderAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            RemainderAssign,
+            remainder_assign,
+            |a: &KNumber, b: &KNumber| a % b,
+            lhs,
+            rhs
+        )
     }
 
     fn run_power_assign(&mut self, lhs: u8, rhs: u8) -> Result<()> {
-        use BinaryOp::PowerAssign;
-        use KValue::*;
-
-        let lhs_value = self.get_register(lhs);
-        let rhs_value = self.get_register(rhs);
-        match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => {
-                self.set_register(lhs, Number(a.pow(*b)));
-                Ok(())
-            }
-            (Map(m), _) if m.contains_meta_key(&PowerAssign.into()) => {
-                macros::call_metamap_binary_op!(self, PowerAssign, m, lhs_value, rhs_value);
-            }
-            (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
-                let o2 = Object(o2.try_borrow()?.copy());
-                o.try_borrow_mut()?.power_assign(&o2)
-            }
-            (Object(o), _) => o.try_borrow_mut()?.power_assign(rhs_value),
-            _ => binary_op_error(lhs_value, rhs_value, PowerAssign),
-        }
+        macros::run_compound_assign_op!(
+            self,
+            PowerAssign,
+            power_assign,
+            |a: &KNumber, b: &KNumber| a.pow(*b),
+            lhs,
+            rhs
+        )
     }
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> Result<()> {
@@ -4195,8 +4042,81 @@ mod macros {
         }};
     }
 
+    macro_rules! run_arithmetic_op {
+        ($self:expr,
+         $op:ident,
+         $trait_fn:ident,
+         $op_expr:expr,
+         $result:expr,
+         $lhs:expr,
+         $rhs:expr) => {{
+             paste::paste! {
+                use BinaryOp::{$op, [<$op Rhs>]};
+                use KValue::{Map, Number, Object};
+                use macros::*;
+
+                let lhs_value = $self.get_register($lhs);
+                let rhs_value = $self.get_register($rhs);
+                let result_value = match (lhs_value, rhs_value) {
+                    (Number(a), Number(b)) => Number($op_expr(a, b)),
+                    (Map(m), _) if m.contains_meta_key(&$op.into()) => {
+                        let lhs_value = lhs_value.clone();
+                        let rhs_value = rhs_value.clone();
+                        call_metamap_arithmetic_op!($self, $op, $trait_fn, m, lhs_value, rhs_value, $result)
+                    }
+                    (Object(o), _) => {
+                        call_object_arithmetic_op!($self, $op, $trait_fn, o, lhs_value, rhs_value, $result)
+                    }
+                    (_, Map(m)) if m.contains_meta_key(&[<$op Rhs>].into()) => {
+                        call_metamap_binary_op_rhs!($self, [<$op Rhs>], m, lhs_value, rhs_value, $result);
+                    }
+                    (_, Object(o)) => {
+                        call_object_binary_op!([<$op Rhs>], [<$trait_fn _rhs>], o, lhs_value, rhs_value)
+                    }
+                    _ => return binary_op_error(lhs_value, rhs_value, $op),
+                };
+                $self.set_register($result, result_value);
+
+                Ok(())
+            }
+        }};
+    }
+
+    macro_rules! run_compound_assign_op {
+        ($self:expr,
+         $op:ident,
+         $trait_fn:ident,
+         $op_expr:expr,
+         $lhs:expr,
+         $rhs:expr) => {{
+            paste::paste! {
+                use BinaryOp::$op;
+                use KValue::{Map, Number, Object};
+
+                let lhs_value = $self.get_register($lhs);
+                let rhs_value = $self.get_register($rhs);
+                match (lhs_value, rhs_value) {
+                    (Number(a), Number(b)) => {
+                        $self.set_register($lhs, Number($op_expr(a, b)));
+                        Ok(())
+                    }
+                    (Map(m), _) if m.contains_meta_key(&$op.into()) => {
+                        macros::call_metamap_binary_op!($self, $op, m, lhs_value, rhs_value);
+                    }
+                    (Object(o), Object(o2)) if o2.is_same_instance(o2) => {
+                        let o2 = Object(o2.try_borrow()?.copy());
+                        o.try_borrow_mut()?.$trait_fn(&o2)
+                    }
+                    (Object(o), _) => o.try_borrow_mut()?.$trait_fn(rhs_value),
+                    _ => binary_op_error(lhs_value, rhs_value, $op),
+                }
+            }
+        }};
+    }
+
     pub(crate) use {
         call_metamap_arithmetic_op, call_metamap_binary_op, call_metamap_binary_op_rhs,
-        call_object_arithmetic_op, call_object_binary_op,
+        call_object_arithmetic_op, call_object_binary_op, run_arithmetic_op,
+        run_compound_assign_op,
     };
 }
