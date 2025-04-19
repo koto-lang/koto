@@ -179,15 +179,6 @@ pub fn make_module() -> KMap {
     result.insert("pi_2", std::f64::consts::FRAC_PI_2);
     result.insert("pi_4", std::f64::consts::FRAC_PI_4);
 
-    result.add_fn("pow", |ctx| {
-        let expected_error = "|Number, Number|";
-
-        match ctx.instance_and_args(is_number, expected_error)? {
-            (Number(a), [Number(b)]) => Ok(Number(a.pow(*b))),
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
     number_f64_fn!("radians", to_radians);
     number_f64_fn!(recip);
     number_fn!(round);
