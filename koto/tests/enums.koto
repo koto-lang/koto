@@ -1,7 +1,7 @@
 make_enum = |entries...|
   entries
     .enumerate()
-    .each |(index, id)| id, index
+    .each |(index, id)| (id, index)
     .to_map()
 
 make_bidirectional_enum = |entries...|

@@ -32,7 +32,7 @@ check! Rect{x: 0, y: 0, width: 0, height: 0}
 print! rect 10, 20, 30, 40
 check! Rect{x: 10, y: 20, width: 30, height: 40}
 
-print! rect (vec2 -1, 2), (vec2 99, 100)
+print! rect vec2(-1, 2), vec2(99, 100)
 check! Rect{x: -1, y: 2, width: 99, height: 100}
 ```
 
@@ -114,7 +114,7 @@ check! Vec3{x: -1, y: 3, z: 0}
 print! vec3 10, 20, 30
 check! Vec3{x: 10, y: 20, z: 30}
 
-print! vec3 (vec2 -1, -2), 5
+print! vec3 vec2(-1, -2), 5
 check! Vec3{x: -1, y: -2, z: 5}
 ```
 
@@ -340,7 +340,7 @@ Arithmetic operations are supported, and the vector's coordinates are iterable.
 ```koto
 from geometry import vec2
 
-print! (vec2 10, 20) + (vec2 30, 40)
+print! vec2(10, 20) + vec2(30, 40)
 check! Vec2{x: 40, y: 60}
 
 v = vec2 50, 100
@@ -365,13 +365,13 @@ Returns the angle of the vector, expressed in radians.
 ```koto
 from geometry import vec2
 
-print! (vec2 1, 0).angle()
+print! vec2(1, 0).angle()
 check! 0.0
-print '{(vec2 0, 1).angle():.3}'
+print '{vec2(0, 1).angle():.3}'
 check! 1.571
-print '{(vec2 -1, 0).angle():.3}'
+print '{vec2(-1, 0).angle():.3}'
 check! 3.142
-print '{(vec2 0, -1).angle():.3}'
+print '{vec2(0, -1).angle():.3}'
 check! -1.571
 ```
 
@@ -388,11 +388,11 @@ Returns the length of the vector.
 ```koto
 from geometry import vec2
 
-print! (vec2 0, 0).length()
+print! vec2(0, 0).length()
 check! 0.0
-print! (vec2 3, 4).length()
+print! vec2(3, 4).length()
 check! 5.0
-print! (vec2 -4, -3).length()
+print! vec2(-4, -3).length()
 check! 5.0
 ```
 
@@ -409,9 +409,9 @@ Returns the `x` coordinate of the vector.
 ```koto
 from geometry import vec2
 
-print! (vec2 -1, 0).x()
+print! vec2(-1, 0).x()
 check! -1.0
-print! (vec2 3, 4).x()
+print! vec2(3, 4).x()
 check! 3.0
 ```
 
@@ -428,9 +428,9 @@ Returns the `y` coordinate of the vector.
 ```koto
 from geometry import vec2
 
-print! (vec2 0, -2).y()
+print! vec2(0, -2).y()
 check! -2.0
-print! (vec2 3, 4).y()
+print! vec2(3, 4).y()
 check! 4.0
 ```
 
@@ -445,7 +445,7 @@ Arithmetic operations are supported, and the vector's coordinates are iterable.
 ```koto
 from geometry import vec3
 
-print! (vec3 10, 20, 30) + (vec3 40, 50, 60)
+print! vec3(10, 20, 30) + vec3(40, 50, 60)
 check! Vec3{x: 50, y: 70, z: 90}
 
 v = 10 * vec3 5, 10, 15
@@ -468,7 +468,7 @@ Returns the `x` coordinate of the vector.
 ```koto
 from geometry import vec3
 
-print! (vec3 -1, 0, 1).x()
+print! vec3(-1, 0, 1).x()
 check! -1.0
 ```
 
@@ -486,7 +486,7 @@ Returns the `y` coordinate of the vector.
 ```koto
 from geometry import vec3
 
-print! (vec3 -1, -2, -3).y()
+print! vec3(-1, -2, -3).y()
 check! -2.0
 ```
 
@@ -503,7 +503,7 @@ Returns the `z` coordinate of the vector.
 ```koto
 from geometry import vec3
 
-print! (vec3 10, 20, 30).z()
+print! vec3(10, 20, 30).z()
 check! 30.0
 ```
 
@@ -520,8 +520,8 @@ Returns the length of the vector.
 ```koto
 from geometry import vec3
 
-print! (vec3 0, 0, 10).length()
+print! vec3(0, 0, 10).length()
 check! 10.0
-print! (vec3 1, 2, 2).length()
+print! vec3(1, 2, 2).length()
 check! 3.0
 ```

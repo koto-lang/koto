@@ -17,7 +17,7 @@ Av = |x, y, n|
     i2 = i + 1
     y[i] = x
       .enumerate()
-      .each |(j, n)| n * (A i2, (j + 1))
+      .each |(j, n)| n * A(i2, (j + 1))
       .sum()
 
 Atv = |x, y, n|
@@ -25,7 +25,7 @@ Atv = |x, y, n|
     i2 = i + 1
     y[i] = x
       .enumerate()
-      .each |(j, n)| n * (A (j + 1), i2)
+      .each |(j, n)| n * A((j + 1), i2)
       .sum()
 
 AtAv = |x, y, t, n|

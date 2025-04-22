@@ -1192,11 +1192,11 @@ add 2, add 3, 4";
         }
 
         #[test]
-        fn nested_call_in_parens() {
+        fn nested_call_with_parens() {
             let script = "
 add = |a, b|
   a + b
-add(5, add 6, 7)";
+add(5, add(6, 7))";
             check_script_output(script, 18);
         }
 
@@ -1393,7 +1393,7 @@ f 42";
                 let script = "
 f = |a, b, c...|
   a + b + c.fold 0, |x, y| x + y
-f (f 5, 10, 20, 30), 40, 50";
+f f(5, 10, 20, 30), 40, 50";
                 check_script_output(script, 155);
             }
 
@@ -1500,7 +1500,7 @@ add 10, 20";
         fn nested_calls() {
             let script = "
 add = |a, b| a + b
-add 10, (add 20, 30)";
+add 10, add(20, 30)";
             check_script_output(script, 60);
         }
 
@@ -1526,7 +1526,7 @@ fib = |n|
   else if n == 1
     1
   else
-    (fib n - 1) + (fib n - 2)
+    fib(n - 1) + fib(n - 2)
 fib 4
 ";
             check_script_output(script, 3);
@@ -1538,7 +1538,7 @@ fib 4
 f, g =
   (|n| if n == 0 then 1 else f n - 1),
   (|n| if n == 0 then 2 else g n - 1)
-(f 4), (g 4)
+f(4), g(4)
 ";
             check_script_output(script, number_tuple(&[1, 2]));
         }
@@ -2472,6 +2472,14 @@ m =
 m.foo 1, 2, 3
 ";
             check_script_output(script, 6);
+        }
+
+        #[test]
+        fn functions_in_braced_map() {
+            let script = "
+m = {square: |x| x ^ 2, cube: |x| x ^ 3}
+m.square(2) + m.cube(2)";
+            check_script_output(script, 12);
         }
 
         #[test]
