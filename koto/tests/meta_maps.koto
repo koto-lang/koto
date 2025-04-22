@@ -29,6 +29,10 @@ globals.foo_meta =
     match other
       _: Foo then foo self.x % other.x
       _: Number then foo self.x % other
+  @^: |other|
+    match other
+      _: Foo then foo self.x ^ other.x
+      _: Number then foo self.x ^ other
 
   # Arithmetic operators for when self is on the RHS
   @r+: |other| foo other + self.x
@@ -36,6 +40,7 @@ globals.foo_meta =
   @r*: |other| foo other * self.x
   @r/: |other| foo other / self.x
   @r%: |other| foo other % self.x
+  @r^: |other| foo other ^ self.x
 
   # Compound assignment operators
   @+=: |other|
@@ -52,6 +57,9 @@ globals.foo_meta =
     self
   @%=: |other|
     self.x %= other
+    self
+  @^=: |other|
+    self.x ^= other
     self
 
   # Comparison operators
@@ -136,6 +144,10 @@ export
     assert_eq (foo(42) % foo(10)), foo 2
     assert_eq (10 % foo(3)), foo 1
 
+  @test power: ||
+    assert_eq (foo(2) ^ foo(4)), foo 16
+    assert_eq (10 ^ foo(2)), foo 100
+
   @test add_assign: ||
     assert_eq (foo(10) += 20), foo 30
 
@@ -150,6 +162,9 @@ export
 
   @test remainder_assign: ||
     assert_eq (foo(42) %= 10), foo 2
+
+  @test power_assign: ||
+    assert_eq (foo(4) ^= 3), foo 64
 
   @test less: ||
     assert foo(5) < foo(6)
