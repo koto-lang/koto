@@ -32,6 +32,14 @@ The Koto project adheres to
     f x...
     # -> 6
     ```
+- A power operator `^` has been added for exponentiaton operations, replacing `number.pow`.
+  - E.g.
+    ```koto
+    x = 2 ^ 3
+    # -> 8
+    x ^= 2
+    # -> 64
+    ```
 - Number literals can now include underscores.
   [#399](https://github.com/koto-lang/koto/issues/399)
   - E.g.
@@ -138,6 +146,7 @@ The Koto project adheres to
 
 - `koto.exports` has been removed.
   - `export` now accepts any iterable value which provides support for exporting generated keys.
+- `number.pow` has been removed in favour of the `^` operator.
 
 ### Fixed
 
