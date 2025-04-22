@@ -686,12 +686,14 @@ impl<'source> Parser<'source> {
                         Multiply => AstBinaryOp::Multiply,
                         Divide => AstBinaryOp::Divide,
                         Remainder => AstBinaryOp::Remainder,
+                        Power => AstBinaryOp::Power,
 
                         AddAssign => AstBinaryOp::AddAssign,
                         SubtractAssign => AstBinaryOp::SubtractAssign,
                         MultiplyAssign => AstBinaryOp::MultiplyAssign,
                         DivideAssign => AstBinaryOp::DivideAssign,
                         RemainderAssign => AstBinaryOp::RemainderAssign,
+                        PowerAssign => AstBinaryOp::PowerAssign,
 
                         Equal => AstBinaryOp::Equal,
                         NotEqual => AstBinaryOp::NotEqual,
@@ -2205,11 +2207,13 @@ impl<'source> Parser<'source> {
             Some(Token::Multiply) => MetaKeyId::Multiply,
             Some(Token::Divide) => MetaKeyId::Divide,
             Some(Token::Remainder) => MetaKeyId::Remainder,
+            Some(Token::Power) => MetaKeyId::Power,
             Some(Token::AddAssign) => MetaKeyId::AddAssign,
             Some(Token::SubtractAssign) => MetaKeyId::SubtractAssign,
             Some(Token::MultiplyAssign) => MetaKeyId::MultiplyAssign,
             Some(Token::DivideAssign) => MetaKeyId::DivideAssign,
             Some(Token::RemainderAssign) => MetaKeyId::RemainderAssign,
+            Some(Token::PowerAssign) => MetaKeyId::PowerAssign,
             Some(Token::Less) => MetaKeyId::Less,
             Some(Token::LessOrEqual) => MetaKeyId::LessOrEqual,
             Some(Token::Greater) => MetaKeyId::Greater,
@@ -2224,6 +2228,7 @@ impl<'source> Parser<'source> {
                     Some(Token::Multiply) => MetaKeyId::MultiplyRhs,
                     Some(Token::Divide) => MetaKeyId::DivideRhs,
                     Some(Token::Remainder) => MetaKeyId::RemainderRhs,
+                    Some(Token::Power) => MetaKeyId::PowerRhs,
                     _ => return self.error(SyntaxError::UnexpectedMetaKey),
                 },
                 "call" => MetaKeyId::Call,
@@ -3559,7 +3564,7 @@ enum TempResult {
     Yes,
 }
 
-// The first operator that's above the pipe operator >> in precedence.
+// The first operator that's above the pipe operator -> in precedence.
 // Q: Why is this needed?
 // A: Function calls without parentheses aren't currently treated as operators (a Call operator
 //    with higher precedence than Pipe would allow this to go away, but would likely take quite a
@@ -3571,17 +3576,21 @@ const MIN_PRECEDENCE_AFTER_PIPE: u8 = 3;
 fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
+        // Pipe operator, left-associative
         Arrow => (1, 2),
-        AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign => {
-            (4, MIN_PRECEDENCE_AFTER_PIPE)
-        }
+        // Compound assignments, right-associative
+        AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign
+        | PowerAssign => (4, MIN_PRECEDENCE_AFTER_PIPE),
+        // Logical operators, left-associative
         Or => (7, 8),
         And => (9, 10),
-        // Chained comparisons require right-associativity
+        // Comparisons, right-associative
         Equal | NotEqual => (12, 11),
         Greater | GreaterOrEqual | Less | LessOrEqual => (14, 13),
+        // Arithmetic operators, left-associative
         Add | Subtract => (15, 16),
         Multiply | Divide | Remainder => (17, 18),
+        Power => (19, 20),
         _ => return None,
     };
     Some(priority)

@@ -1388,7 +1388,8 @@ x += 0
 x -= 1
 x *= 2
 x /= 3
-x %= 4";
+x %= 4
+x ^= 5";
             check_ast(
                 source,
                 &[
@@ -1407,8 +1408,11 @@ x %= 4";
                     id(0),
                     SmallInt(4),
                     binary_op(AstBinaryOp::RemainderAssign, 12, 13),
+                    id(0), // 15
+                    SmallInt(5),
+                    binary_op(AstBinaryOp::PowerAssign, 15, 16),
                     MainBlock {
-                        body: nodes(&[2, 5, 8, 11, 14]),
+                        body: nodes(&[2, 5, 8, 11, 14, 17]),
                         local_count: 0,
                     }, // 15
                 ],
@@ -1829,8 +1833,8 @@ export
         }
 
         #[test]
-        fn divide_then_remainder() {
-            let source = "18 / 3 % 4";
+        fn divide_then_remainder_with_power() {
+            let source = "18 / 3 % 4 ^ 2"; // (18 / 3) % (4 ^ 2)
             check_ast(
                 source,
                 &[
@@ -1838,9 +1842,11 @@ export
                     SmallInt(3),
                     binary_op(AstBinaryOp::Divide, 0, 1),
                     SmallInt(4),
-                    binary_op(AstBinaryOp::Remainder, 2, 3),
+                    SmallInt(2),
+                    binary_op(AstBinaryOp::Power, 3, 4), // 5
+                    binary_op(AstBinaryOp::Remainder, 2, 5),
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],

@@ -159,6 +159,11 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
+    Power {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
     AddAssign {
         lhs: u8,
         rhs: u8,
@@ -176,6 +181,10 @@ pub enum Instruction {
         rhs: u8,
     },
     RemainderAssign {
+        lhs: u8,
+        rhs: u8,
+    },
+    PowerAssign {
         lhs: u8,
         rhs: u8,
     },
@@ -685,6 +694,12 @@ impl fmt::Debug for Instruction {
                     "Remainder       result: {register:<7} lhs: {lhs:<10} rhs: {rhs}"
                 )
             }
+            Power { register, lhs, rhs } => {
+                write!(
+                    f,
+                    "Power           result: {register:<7} lhs: {lhs:<10} rhs: {rhs}"
+                )
+            }
             AddAssign { lhs, rhs } => {
                 write!(f, "AddAssign       lhs: {lhs:<10} rhs: {rhs}")
             }
@@ -699,6 +714,9 @@ impl fmt::Debug for Instruction {
             }
             RemainderAssign { lhs, rhs } => {
                 write!(f, "RemAssign       lhs: {lhs:<10} rhs: {rhs}")
+            }
+            PowerAssign { lhs, rhs } => {
+                write!(f, "PowAssign       lhs: {lhs:<10} rhs: {rhs}")
             }
             Less { register, lhs, rhs } => {
                 write!(

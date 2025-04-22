@@ -280,7 +280,7 @@ Provides the `e` constant.
 ```
 
 Returns the result of applying the exponential function,
-equivalent to calling `e.pow x`.
+equivalent to calling `e ^ x`.
 
 ### Example
 
@@ -296,7 +296,7 @@ assert_eq 1.exp(), number.e
 ```
 
 Returns the result of applying the base-2 exponential function,
-equivalent to calling `2.pow x`.
+equivalent to calling `2 ^ x`.
 
 ### Example
 
@@ -589,21 +589,6 @@ Number
 ```
 
 Provides the `π` constant divided by `4`.
-
-## pow
-
-```kototype
-|Number, Number| -> Number
-```
-
-Returns the result of raising the first number to the power of the second.
-
-### Example
-
-```koto
-print! 2.pow 3
-check! 8
-```
 
 ## radians
 

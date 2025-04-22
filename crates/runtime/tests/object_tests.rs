@@ -236,6 +236,28 @@ mod objects {
             arithmetic_op_rhs!(self, other, %)
         }
 
+        fn power(&self, other: &KValue) -> Result<KValue> {
+            match other {
+                KValue::Object(other) if other.is_a::<Self>() => {
+                    let other = other.cast::<Self>().unwrap();
+                    Ok(Self::make_value(self.x.pow(other.x as u32)))
+                }
+                KValue::Number(n) => Ok(Self::make_value(self.x.pow(u32::from(n)))),
+                unexpected => {
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                }
+            }
+        }
+
+        fn power_rhs(&self, other: &KValue) -> Result<KValue> {
+            match other {
+                KValue::Number(n) => Ok(Self::make_value(i64::from(n).pow(self.x as u32))),
+                unexpected => {
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                }
+            }
+        }
+
         fn add_assign(&mut self, other: &KValue) -> Result<()> {
             assignment_op!(self, other, +=)
         }
@@ -254,6 +276,24 @@ mod objects {
 
         fn remainder_assign(&mut self, other: &KValue) -> Result<()> {
             assignment_op!(self, other, %=)
+        }
+
+        fn power_assign(&mut self, other: &KValue) -> Result<()> {
+            use KValue::*;
+            match other {
+                Object(other) if other.is_a::<Self>() => {
+                    let other = other.cast::<Self>().unwrap();
+                    self.x = self.x.pow(other.x as u32);
+                    Ok(())
+                }
+                Number(n) => {
+                    self.x = self.x.pow(u32::from(n));
+                    Ok(())
+                }
+                unexpected => {
+                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                }
+            }
         }
 
         fn less(&self, other: &KValue) -> Result<bool> {
@@ -586,6 +626,16 @@ y.as_number()
         }
 
         #[test]
+        fn power() {
+            let script = "
+x = (make_object 2) ^ (make_object 3)
+y = 2 ^ x
+y.as_number()
+";
+            test_object_script(script, 256);
+        }
+
+        #[test]
         fn add_assign() {
             let script = "
 x = make_object 11
@@ -684,10 +734,31 @@ x.as_number()
         fn remainder_assign_to_self() {
             let script = "
 x = make_object 11
-x /= x
+x %= x
 x.as_number()
 ";
-            test_object_script(script, 1);
+            test_object_script(script, 0);
+        }
+
+        #[test]
+        fn power_assign() {
+            let script = "
+x = make_object 2
+x ^= make_object 3
+x ^= 2
+x.as_number()
+";
+            test_object_script(script, 64);
+        }
+
+        #[test]
+        fn power_assign_to_self() {
+            let script = "
+x = make_object 3
+x ^= x
+x.as_number()
+";
+            test_object_script(script, 27);
         }
 
         #[test]

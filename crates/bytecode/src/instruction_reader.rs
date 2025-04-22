@@ -330,6 +330,14 @@ impl Iterator for InstructionReader {
                     rhs: byte_c,
                 }
             }
+            Op::Power => {
+                let [byte_b, byte_c] = get_u8x2!();
+                Power {
+                    register: byte_a,
+                    lhs: byte_b,
+                    rhs: byte_c,
+                }
+            }
             Op::AddAssign => AddAssign {
                 lhs: byte_a,
                 rhs: get_u8!(),
@@ -347,6 +355,10 @@ impl Iterator for InstructionReader {
                 rhs: get_u8!(),
             },
             Op::RemainderAssign => RemainderAssign {
+                lhs: byte_a,
+                rhs: get_u8!(),
+            },
+            Op::PowerAssign => PowerAssign {
                 lhs: byte_a,
                 rhs: get_u8!(),
             },

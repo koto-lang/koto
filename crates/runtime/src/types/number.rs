@@ -102,7 +102,13 @@ impl KNumber {
             (F64(a), F64(b)) => F64(a.powf(b)),
             (F64(a), I64(b)) => F64(a.powf(b as f64)),
             (I64(a), F64(b)) => F64((a as f64).powf(b)),
-            (I64(a), I64(b)) => I64(a.pow(b as u32)),
+            (I64(a), I64(b)) => {
+                if b < 0 {
+                    F64((a as f64).powf(b as f64))
+                } else {
+                    I64(a.pow(b as u32))
+                }
+            }
         }
     }
 

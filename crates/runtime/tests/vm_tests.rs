@@ -45,8 +45,8 @@ mod vm {
         }
 
         #[test]
-        fn subtract_divide_remainder() {
-            check_script_output("(20 - 2) / 3 % 4", 2);
+        fn subtract_divide_remainder_power() {
+            check_script_output("(20 - 2) / 3 % 2 ^ 2", 2); // ((20 - 2) / 3) % (2 ^ 2)
         }
 
         #[test]
@@ -65,6 +65,11 @@ a = 99
         #[test]
         fn remainder_with_a_divisor_of_zero() {
             check_script_output("(1 % 0).is_nan()", true);
+        }
+
+        #[test]
+        fn power_negative() {
+            check_script_output("2 ^ -1", 0.5);
         }
     }
 

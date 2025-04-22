@@ -204,7 +204,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@-", self.type_string())
     }
 
-    /// The `-` addition operator when the object is on the RHS
+    /// The `-` subtraction operator when the object is on the RHS
     ///
     /// This will be called when the value on the LHS doesn't implement the operation.
     fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
@@ -222,7 +222,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@*", self.type_string())
     }
 
-    /// The `*` addition operator when the object is on the RHS
+    /// The `*` multiplication operator when the object is on the RHS
     ///
     /// This will be called when the value on the LHS doesn't implement the operation.
     fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
@@ -236,7 +236,7 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@/", self.type_string())
     }
 
-    /// The `/` addition operator when the object is on the RHS
+    /// The `/` division operator when the object is on the RHS
     ///
     /// This will be called when the value on the LHS doesn't implement the operation.
     fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
@@ -250,12 +250,26 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@%", self.type_string())
     }
 
-    /// The `%` addition operator when the object is on the RHS
+    /// The `%` remainder operator when the object is on the RHS
     ///
     /// This will be called when the value on the LHS doesn't implement the operation.
     fn remainder_rhs(&self, other: &KValue) -> Result<KValue> {
         let _ = other;
         unimplemented_error("@%", self.type_string())
+    }
+
+    /// The `^` power operator
+    fn power(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
+        unimplemented_error("@^", self.type_string())
+    }
+
+    /// The `^` power operator when the object is on the RHS
+    ///
+    /// This will be called when the value on the LHS doesn't implement the operation.
+    fn power_rhs(&self, other: &KValue) -> Result<KValue> {
+        let _ = other;
+        unimplemented_error("@^", self.type_string())
     }
 
     /// The `+=` in-place addition operator
@@ -286,6 +300,12 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
     fn remainder_assign(&mut self, other: &KValue) -> Result<()> {
         let _ = other;
         unimplemented_error("@%=", self.type_string())
+    }
+
+    /// The `^=` in-place remainder operator
+    fn power_assign(&mut self, other: &KValue) -> Result<()> {
+        let _ = other;
+        unimplemented_error("@^=", self.type_string())
     }
 
     /// The `<` less-than operator
