@@ -235,6 +235,19 @@ y.next().get()
         }
     }
 
+    mod generate {
+        use super::*;
+
+        #[test]
+        fn with_inline_function() {
+            let script = "
+add = |a, b| a + b
+iterator.generate(|| add(2, 3), 5).to_tuple()
+";
+            check_script_output(script, number_tuple(&[5, 5, 5, 5, 5]));
+        }
+    }
+
     mod keep {
         use super::*;
 

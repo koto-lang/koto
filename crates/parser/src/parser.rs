@@ -115,6 +115,8 @@ struct ExpressionContext {
     //      ^~~ The first line in an indented block will have the flag set to true to allow the
     //          block to be parsed as a map, see parse_indented_block().
     allow_map_block: bool,
+    // True when at the top-level inside braces, e.g. inside a tuple, list, or braced map
+    inside_braces: bool,
     // The indentation rules for the current context
     expected_indentation: Indentation,
     // When true, map entries should be exported, with the keys assigned to local variables.
@@ -145,6 +147,7 @@ impl ExpressionContext {
             allow_space_separated_call: false,
             allow_linebreaks: false,
             allow_map_block: false,
+            inside_braces: false,
             expected_indentation: Indentation::Greater,
             export_map_entries: false,
         }
@@ -174,25 +177,15 @@ impl ExpressionContext {
         }
     }
 
-    // At the start of a braced expression
-    // e.g.
-    //   x = [f x, y] # A single entry list is created with the result of calling `f(x, y)`
-    fn braced_items_start() -> Self {
+    // Inside a braced expression
+    //
+    // - Space separated calls are only allowed with a single argument
+    // - Inline function bodies can't return paren-free tuples
+    fn inside_braces() -> Self {
         Self {
             expected_indentation: Indentation::Flexible,
+            inside_braces: true,
             ..Self::permissive()
-        }
-    }
-
-    // After the first item in a braced expression
-    // Space-separated calls aren't allowed after the first entry,
-    // otherwise confusing expressions like the following would be accepted:
-    //   x = [1, 2, foo 3, 4, 5]
-    //   # This would be parsed as [1, 2, foo(3, 4, 5)]
-    fn braced_items_continued() -> Self {
-        Self {
-            allow_space_separated_call: false,
-            ..Self::braced_items_start()
         }
     }
 
@@ -484,48 +477,54 @@ impl<'source> Parser<'source> {
         let mut encountered_linebreak = false;
         let mut last_token_was_a_comma = false;
 
-        while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
-            self.consume_next_token_on_same_line();
+        // If comma-separated expressions are allowed then parse them now
+        //
+        // When inside braces we don't
+        if !context.inside_braces {
+            while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
+                self.consume_next_token_on_same_line();
 
-            if last_token_was_a_comma {
-                expressions.push(self.push_node(Node::Null)?);
-            }
-
-            last_token_was_a_comma = true;
-
-            if !encountered_linebreak && self.current_line > start_line {
-                // e.g.
-                //   x, y =
-                //     1, # <- We're here,
-                //        #    following values should have at least this level of indentation.
-                //     0,
-                expression_context = expression_context
-                    .with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()));
-                encountered_linebreak = true;
-            }
-
-            if let Some(next_expression) =
-                self.parse_expression_start(&expressions, 0, &expression_context)?
-            {
-                last_token_was_a_comma = false;
-
-                match self.ast.node(next_expression).node {
-                    Node::Assign { .. } | Node::MultiAssign { .. } => {
-                        // Assignments will have consumed all of the comma-separated expressions
-                        // encountered so far as the LHS of the assignment, so we can exit here.
-                        return Ok(Some(next_expression));
-                    }
-                    _ => {}
+                if last_token_was_a_comma {
+                    expressions.push(self.push_node(Node::Null)?);
                 }
 
-                let next_expression = match self.peek_next_token_on_same_line() {
-                    Some(Token::Range | Token::RangeInclusive) => {
-                        self.consume_range(Some(next_expression), context)?
-                    }
-                    _ => next_expression,
-                };
+                last_token_was_a_comma = true;
 
-                expressions.push(next_expression);
+                if !encountered_linebreak && self.current_line > start_line {
+                    // e.g.
+                    //   x, y =
+                    //     1, # <- We're here,
+                    //        #    following values should have at least this level of indentation.
+                    //     0,
+                    expression_context = expression_context.with_expected_indentation(
+                        Indentation::GreaterOrEqual(self.current_indent()),
+                    );
+                    encountered_linebreak = true;
+                }
+
+                if let Some(next_expression) =
+                    self.parse_expression_start(&expressions, 0, &expression_context)?
+                {
+                    last_token_was_a_comma = false;
+
+                    match self.ast.node(next_expression).node {
+                        Node::Assign { .. } | Node::MultiAssign { .. } => {
+                            // Assignments will have consumed all of the comma-separated expressions
+                            // encountered so far as the LHS of the assignment, so we can exit here.
+                            return Ok(Some(next_expression));
+                        }
+                        _ => {}
+                    }
+
+                    let next_expression = match self.peek_next_token_on_same_line() {
+                        Some(Token::Range | Token::RangeInclusive) => {
+                            self.consume_range(Some(next_expression), context)?
+                        }
+                        _ => next_expression,
+                    };
+
+                    expressions.push(next_expression);
+                }
             }
         }
 
@@ -979,7 +978,7 @@ impl<'source> Parser<'source> {
         let mut arg_ids = AstVec::new();
         let mut is_variadic = false;
         let mut default_value_expected = false;
-        let args_context = ExpressionContext::braced_items_continued();
+        let args_context = ExpressionContext::inside_braces();
         while self.peek_token_with_context(&args_context).is_some() {
             self.consume_until_token_with_context(&args_context);
 
@@ -1097,8 +1096,20 @@ impl<'source> Parser<'source> {
         let body = match self.parse_indented_block() {
             Ok(Some(block)) => block,
             Ok(None) => {
+                // No indented block, so an inline body is expected
                 self.consume_until_next_token_on_same_line();
-                if let Some(body) = self.parse_line(&ExpressionContext::permissive())? {
+                // If the function is being defined inside braces then the inline body should reflect
+                // that, in particular a paren-free comma belongs to the containing braces.
+                // E.g., `[|x| x, |y| y]` should be parsed as:
+                //   `[(|x| x), (|y| y)]`,
+                // and not
+                //   `[|x| (x, |y| y)]`.
+                let body_context = if context.inside_braces {
+                    ExpressionContext::inside_braces()
+                } else {
+                    ExpressionContext::permissive()
+                };
+                if let Some(body) = self.parse_line(&body_context)? {
                     body
                 } else {
                     return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
@@ -1208,7 +1219,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstVec<AstIndex>> {
         let mut nested_args = AstVec::new();
 
-        let args_context = ExpressionContext::braced_items_continued();
+        let args_context = ExpressionContext::inside_braces();
         while self.peek_token_with_context(&args_context).is_some() {
             self.consume_until_token_with_context(&args_context);
             match self.parse_id_or_wildcard(&args_context)? {
@@ -1316,7 +1327,9 @@ impl<'source> Parser<'source> {
                     break;
                 }
 
-                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                if self.peek_next_token_on_same_line() == Some(Token::Comma)
+                    && !context.inside_braces
+                {
                     self.consume_next_token_on_same_line();
                 } else {
                     break;
@@ -1755,7 +1768,7 @@ impl<'source> Parser<'source> {
                 .unwrap();
 
             let arg_start_span = self.current_span();
-            if let Some(expression) = self.parse_expression(&ExpressionContext::inline())? {
+            if let Some(expression) = self.parse_expression(&ExpressionContext::inside_braces())? {
                 let arg_expression = if self.peek_token() == Some(Token::Ellipsis) {
                     self.consume_token();
                     self.push_node_with_start_span(
@@ -1956,7 +1969,7 @@ impl<'source> Parser<'source> {
         self.expect_and_consume_token(
             Token::RoundClose,
             SyntaxError::ExpectedCloseParen.into(),
-            &ExpressionContext::braced_items_continued(),
+            &ExpressionContext::inside_braces(),
         )?;
 
         let expressions_node = match entries.as_slice() {
@@ -1983,7 +1996,7 @@ impl<'source> Parser<'source> {
         self.expect_and_consume_token(
             Token::SquareClose,
             SyntaxError::ExpectedListEnd.into(),
-            &ExpressionContext::braced_items_continued(),
+            &ExpressionContext::inside_braces(),
         )?;
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
@@ -2003,7 +2016,7 @@ impl<'source> Parser<'source> {
         end_token: Token,
     ) -> Result<(AstVec<AstIndex>, bool)> {
         let mut entries = AstVec::new();
-        let mut entry_context = ExpressionContext::braced_items_start();
+        let entry_context = ExpressionContext::inside_braces();
         let mut last_token_was_a_comma = false;
 
         while matches!(
@@ -2031,8 +2044,6 @@ impl<'source> Parser<'source> {
                 }
 
                 last_token_was_a_comma = true;
-
-                entry_context = ExpressionContext::braced_items_continued();
             } else {
                 break;
             }
@@ -2101,7 +2112,7 @@ impl<'source> Parser<'source> {
         self.expect_and_consume_token(
             Token::CurlyClose,
             SyntaxError::ExpectedMapEnd.into(),
-            &ExpressionContext::braced_items_continued(),
+            &ExpressionContext::inside_braces(),
         )?;
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
@@ -2116,7 +2127,7 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Result<AstVec<(AstIndex, Option<AstIndex>)>> {
         let mut entries = AstVec::new();
-        let mut entry_context = ExpressionContext::braced_items_start();
+        let mut entry_context = ExpressionContext::inside_braces();
 
         while self.peek_token_with_context(&entry_context).is_some() {
             self.consume_until_token_with_context(&entry_context);
@@ -2128,13 +2139,12 @@ impl<'source> Parser<'source> {
             if self.peek_next_token_on_same_line() == Some(Token::Colon) {
                 self.consume_next_token_on_same_line();
 
-                let value_context = ExpressionContext::permissive();
-                if self.peek_token_with_context(&value_context).is_none() {
+                if self.peek_token_with_context(&entry_context).is_none() {
                     return self.error(SyntaxError::ExpectedMapValue);
                 }
-                self.consume_until_token_with_context(&value_context);
+                self.consume_until_token_with_context(&entry_context);
 
-                if let Some(value) = self.parse_expression(&value_context)? {
+                if let Some(value) = self.parse_expression(&entry_context)? {
                     entries.push((key, Some(value)));
                 } else {
                     return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
@@ -2159,7 +2169,7 @@ impl<'source> Parser<'source> {
                 })
             ) {
                 self.consume_token_with_context(&entry_context);
-                entry_context = ExpressionContext::braced_items_continued();
+                entry_context = ExpressionContext::inside_braces();
             } else {
                 break;
             }

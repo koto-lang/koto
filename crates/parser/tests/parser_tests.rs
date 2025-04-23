@@ -3038,7 +3038,7 @@ f x";
 
         #[test]
         fn recursive_calls_multi_assign() {
-            let source = "f, g = (|x| f x), (|x| g x)";
+            let source = "f, g = (|x| f x, |x| g x)";
             check_ast(
                 source,
                 &[
@@ -3058,29 +3058,27 @@ f x";
                         is_generator: false,
                         output_type: None,
                     }),
-                    Nested(7.into()),
                     id(2), // x
-                    id(1), // 10 - g
-                    id(2), // x
-                    chain_call(&[11], false, None),
-                    chain_root(10, Some(12)),
+                    id(1), // g
+                    id(2), // 10 -x
+                    chain_call(&[10], false, None),
+                    chain_root(9, Some(11)),
                     Function(koto_parser::Function {
-                        args: nodes(&[9]),
+                        args: nodes(&[8]),
                         local_count: 1,
                         accessed_non_locals: constants(&[1]),
-                        body: 13.into(),
+                        body: 12.into(),
                         is_variadic: false,
                         is_generator: false,
                         output_type: None,
                     }),
-                    Nested(14.into()), // 15
-                    TempTuple(nodes(&[8, 15])),
+                    Tuple(nodes(&[7, 13])),
                     MultiAssign {
                         targets: nodes(&[0, 1]),
-                        expression: 16.into(),
-                    },
+                        expression: 14.into(),
+                    }, // 15
                     MainBlock {
-                        body: nodes(&[17]),
+                        body: nodes(&[15]),
                         local_count: 2,
                     },
                 ],

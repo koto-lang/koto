@@ -593,8 +593,7 @@ check! 234
 
 ### Optional Call Parentheses
 
-The parentheses for arguments when calling a function are optional and can be
-omitted in simple expressions.
+In simple expressions the parentheses for function call arguments are optional and can be omitted.
 
 ```koto
 square = |x| x * x
@@ -605,15 +604,13 @@ add = |x, y| x + y
 print! add 2, 3
 check! 5
 
-# Equivalent to square(add(2, 3))
-print! square add 2, 3
+print! square add 2, 3 # Equivalent to square(add(2, 3))
 check! 25
-```
 
-Something to watch out for is that whitespace is important in Koto, and because
-of optional parentheses, `f(1, 2)` is _not the same_ as `f (1, 2)`. The former
-is parsed as a call to `f` with two arguments, whereas the latter is a call to
-`f` with a tuple as the single argument.
+first = |x| x[0]
+print! first ('a', 'b') # Equivalent to first(('a', 'b'))
+check! a
+```
 
 ### Return
 

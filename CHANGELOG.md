@@ -13,7 +13,7 @@ The Koto project adheres to
 #### Language
 
 - Default argument values have been introduced to make it easier to implement optional arguments.
-  - E.g. Instead of:
+  - For example, instead of:
     ```koto
     f = |a, b|
       a + (b or 42)
@@ -25,16 +25,14 @@ The Koto project adheres to
     ```
 - When calling a function, arguments can be now be unpacked at the call site.
   [#418](https://github.com/koto-lang/koto/issues/418)
-  - E.g.
-    ```koto
+  - ```koto
     f = |a, b, c| a + b + c
     x = 1, 2, 3
     f x...
     # -> 6
     ```
-- A power operator `^` has been added for exponentiaton operations, replacing `number.pow`.
-  - E.g.
-    ```koto
+- A power operator `^` has been added for exponentiation operations, replacing `number.pow`.
+  - ```koto
     x = 2 ^ 3
     # -> 8
     x ^= 2
@@ -42,28 +40,24 @@ The Koto project adheres to
     ```
 - Number literals can now include underscores.
   [#399](https://github.com/koto-lang/koto/issues/399)
-  - E.g.
-    ```koto
+  - ```koto
     x = 1_000_000
     y = 0xff_aa_bb
     ```
 - Interpolated values can now be formatted with alternative representations.
-  - E.g.
-    ```koto
+  - ```koto
     print '{15:b}'
     # -> 1111
     ```
   - The `@debug` metakey has been added to allow for additional debug information
     to be provided when formatting an object as a string.
 - Values in lists or tuples definitions can now be omitted, with `null` being used to fill the gaps.
-  - E.g.
-    ```koto
+  - ```koto
     x = [1, , 3, , 5]
     # -> [1, null, 3, null, 5]
     ```
 - `export` can now take any iterable that yields key/value pairs.
-  - E.g.
-    ```koto
+  - ```koto
     export (1..=3).each |i| 'generated_i', i
     generated_3
     # -> 3
@@ -114,6 +108,15 @@ The Koto project adheres to
 - Calls to Koto functions with the incorrect number of arguments will now throw an error.
   - Default values should be provided for optional arguments.
   - Variadic arguments should be used to capture additional arguments.
+- Commas inside container definitions that were previously parsed as call arguments or inline function bodies
+  are now more consistently parsed as entry separators.
+  - `[foo x, bar y]` is now parsed as `[foo(x), bar(y)]`, not `[foo(x, bar(y))]`.
+  - This allows functions to be more easily defined inside containers.
+    - `{square: |x| x ^ 2, cube: |x| x ^ 3}` would have previously triggered a parsing error.
+  - Inline function bodies that return tuples now require parentheses.
+    - `{swap: |a, b| b, a}` should now written as `{swap: |a, b| (b, a)}`
+  - Parentheses-free calls with multiple arguments that were wrapped in parentheses will need to be adjusted.
+    - `(foo 1, 2, 3)` will now be parsed as `(foo(1), 2, 3)` and should be rewritten as `foo(1, 2, 3)`.
 
 #### Core Library
 
