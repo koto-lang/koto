@@ -21,3 +21,5 @@ rc = ["koto_parser/rc"]
 [dependencies]
 koto_lexer = { path = "../lexer", version = "^0.16.0" }
 koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
+
+unicode-width = { workspace = true }
