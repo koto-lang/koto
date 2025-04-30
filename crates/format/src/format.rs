@@ -8,7 +8,7 @@ use crate::{
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstFor, AstIndex, AstNode, AstUnaryOp, AstVec, ConstantIndex, KString, Node, Span,
+    Ast, AstFor, AstIf, AstIndex, AstNode, AstUnaryOp, AstVec, ConstantIndex, KString, Node, Span,
     StringSlice,
 };
 
@@ -102,7 +102,7 @@ fn format_node<'source>(
             for block_node in body {
                 group = group.node(*block_node).line_break()
             }
-            group.build_block()
+            group.build_block(true)
         }
         Node::Function(function) => todo!(),
         Node::Import { from, items } => todo!(),
@@ -144,7 +144,45 @@ fn format_node<'source>(
                     .build()
             })
             .build(),
-        Node::If(ast_if) => todo!(),
+        Node::If(AstIf {
+            condition,
+            then_node,
+            else_if_blocks,
+            else_node,
+        }) => {
+            // TODO: Support for single-line if expressions
+
+            let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(|trivia| {
+                GroupBuilder::new(3, node, ctx, trivia)
+                    .string("if")
+                    .soft_break()
+                    .node(*condition)
+                    .node(*then_node)
+                    .build()
+            });
+
+            for (else_if_condition, else_if_block) in else_if_blocks {
+                group = group.line_break().nested(|trivia| {
+                    GroupBuilder::new(3, node, ctx, trivia)
+                        .string("else if")
+                        .soft_break()
+                        .node(*else_if_condition)
+                        .node(*else_if_block)
+                        .build()
+                });
+            }
+
+            if let Some(else_block) = else_node {
+                group = group.line_break().nested(|trivia| {
+                    GroupBuilder::new(3, node, ctx, trivia)
+                        .string("else")
+                        .node(*else_block)
+                        .build()
+                });
+            }
+
+            group.build_block(false)
+        }
         Node::Match { expression, arms } => todo!(),
         Node::Switch(small_vec) => todo!(),
         Node::Wildcard(constant_index, ast_index) => todo!(),
@@ -285,10 +323,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         }
     }
 
-    fn build_block(mut self) -> FormatItem<'source> {
+    fn build_block(mut self, indented: bool) -> FormatItem<'source> {
         self.add_trivia(self.group_span.end);
         self.strip_trailing_whitespace();
-        FormatItem::Block(self.items)
+        FormatItem::Block {
+            items: self.items,
+            indented,
+        }
     }
 
     fn build_main_block(mut self) -> FormatItem<'source> {
@@ -330,7 +371,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn line_break(mut self) -> Self {
         // Add any trailing comments for the current line
-        self.add_trivia(self.next_line());
+        self.add_trivia(if self.items.is_empty() {
+            self.current_line()
+        } else {
+            self.next_line()
+        });
         self.items.push(FormatItem::LineBreak);
         self
     }
@@ -410,6 +455,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         }
     }
 
+    fn current_line(&self) -> Position {
+        Position {
+            line: self.current_line,
+            column: 0,
+        }
+    }
+
     fn next_line(&self) -> Position {
         Position {
             line: self.current_line + 1,
@@ -451,8 +503,11 @@ enum FormatItem<'source> {
     },
     // A sequence of expressions, each on a separate line.
     MainBlock(Vec<FormatItem<'source>>),
-    // An indented sequence of expressions, each on a separate line.
-    Block(Vec<FormatItem<'source>>),
+    // A sequence of expressions, each on a separate line.
+    Block {
+        items: Vec<FormatItem<'source>>,
+        indented: bool,
+    },
 }
 
 impl FormatItem<'_> {
@@ -467,7 +522,6 @@ impl FormatItem<'_> {
             Self::SoftBreak => output.push(' '),
             Self::ForceBreak => {} // Forced breaks are handled by group rendering
             Self::Group { items, .. } => {
-                dbg!(items);
                 let columns_remaining = (options.line_length as usize).saturating_sub(column);
                 let too_long = self.line_length() > columns_remaining;
 
@@ -485,8 +539,8 @@ impl FormatItem<'_> {
                             Self::ForceBreak => {
                                 insert_linebreak = true;
                             }
-                            Self::Block(_) => {
-                                // Blocks are already indented, so no indentation required
+                            Self::Block { .. } => {
+                                // Blocks are already indented, so no additional indentation required
                                 item.render(output, options, column);
                                 insert_linebreak = false;
                             }
@@ -518,18 +572,24 @@ impl FormatItem<'_> {
                     output.push('\n');
                 }
             }
-            Self::Block(items) => {
-                let block_column = column + options.indent_width as usize;
+            Self::Block { items, indented } => {
+                let block_column = if *indented {
+                    (column + options.indent_width as usize)
+                } else {
+                    column
+                };
                 let indent = " ".repeat(block_column);
                 let mut last_item_was_linebreak = false;
                 for item in items {
-                    last_item_was_linebreak =
-                        if !matches!(item, FormatItem::LineBreak) && last_item_was_linebreak {
+                    last_item_was_linebreak = if !matches!(item, FormatItem::LineBreak) {
+                        if last_item_was_linebreak {
                             output.push_str(&indent);
-                            false
-                        } else {
-                            true
-                        };
+                        }
+                        false
+                    } else {
+                        true
+                    };
+
                     item.render(output, options, block_column);
                 }
             }
@@ -551,7 +611,7 @@ impl FormatItem<'_> {
                 line_length, items, ..
             } => *line_length.get_or_init(|| items.iter().map(Self::line_length).sum()),
             // Don't bother calculating lengths of items that are broken over lines
-            Self::MainBlock(_) | Self::Block(_) | Self::LineBreak | Self::ForceBreak => 0,
+            Self::MainBlock(_) | Self::Block { .. } | Self::LineBreak | Self::ForceBreak => 0,
         }
     }
 
