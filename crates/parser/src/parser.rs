@@ -1907,8 +1907,6 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_number(&mut self, negate: bool, context: &ExpressionContext) -> Result<AstIndex> {
-        use Node::*;
-
         self.consume_token_with_context(context); // Token::Number
 
         let slice = self.current_token.slice(self.source);
@@ -1933,11 +1931,11 @@ impl<'source> Parser<'source> {
             // Should we store the number as a SmallInt or as a stored constant?
             if u8::try_from(n).is_ok() {
                 let n = if negate { -n } else { n };
-                SmallInt(n as i16)
+                Node::SmallInt(n as i16)
             } else {
                 let n = if negate { -n } else { n };
                 if let Ok(constant_index) = self.constants.add_i64(n) {
-                    Int(constant_index)
+                    Node::Int(constant_index)
                 } else {
                     return self.error(InternalError::ConstantPoolCapacityOverflow);
                 }
@@ -1945,7 +1943,7 @@ impl<'source> Parser<'source> {
         } else if let Ok(n) = f64::from_str(&slice) {
             let n = if negate { -n } else { n };
             if let Ok(constant_index) = self.constants.add_f64(n) {
-                Float(constant_index)
+                Node::Float(constant_index)
             } else {
                 return self.error(InternalError::ConstantPoolCapacityOverflow);
             }
