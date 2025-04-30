@@ -36,21 +36,24 @@ Output:
         }
     }
 
-    #[test]
-    fn comments_and_keywords() {
-        check_format_output(
-            &[
-                "
+    mod keywords {
+        use super::*;
+
+        #[test]
+        fn null_true_and_false() {
+            check_format_output(
+                &[
+                    "
 null# null
 true
 
 false",
-                "
+                    "
 null    # null
 true
 
 false",
-                "\
+                    "\
 null      # null
 true
 
@@ -63,75 +66,76 @@ false
 
 
 ",
-            ],
-            "\
+                ],
+                "\
 null # null
 true
 
 false
 ",
-        );
-    }
+            );
+        }
 
-    #[test]
-    fn return_with_inline_comment() {
-        check_format_output(
-            &[
-                "\
+        #[test]
+        fn return_with_inline_comment() {
+            check_format_output(
+                &[
+                    "\
 return #- abc -#foo",
-                "\
+                    "\
 return  #- abc -#     foo",
-                "\
+                    "\
   return  #- abc -#   foo",
-                "
+                    "
 return  #- abc -#
   foo",
-            ],
-            "\
+                ],
+                "\
 return #- abc -# foo
 ",
-        );
-    }
+            );
+        }
 
-    #[test]
-    fn return_with_line_comment() {
-        check_format_output(
-            &[
-                "\
+        #[test]
+        fn return_with_line_comment() {
+            check_format_output(
+                &[
+                    "\
 return      # abc
        foo",
-                "\
+                    "\
 return  # abc
   foo",
-            ],
-            "\
+                ],
+                "\
 return # abc
   foo
 ",
-        );
-    }
+            );
+        }
 
-    #[test]
-    fn return_with_long_value() {
-        check_format_output_with_options(
-            &[
-                "\
+        #[test]
+        fn return_with_long_value() {
+            check_format_output_with_options(
+                &[
+                    "\
 return #- abc -# xxxxxxxxxxxxxxxxxxxx
 ",
-                "\
+                    "\
 return  #- abc -#    xxxxxxxxxxxxxxxxxxxx
 ",
-            ],
-            "\
+                ],
+                "\
 return
   #- abc -#
   xxxxxxxxxxxxxxxxxxxx
 ",
-            FormatOptions {
-                line_length: 20,
-                ..Default::default()
-            },
-        );
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     #[test]
@@ -168,108 +172,181 @@ return
         );
     }
 
-    #[test]
-    fn arithmetic_with_line_comment() {
-        check_format_output(
-            &[
-                "\
+    mod arithmetic {
+        use super::*;
+
+        #[test]
+        fn with_line_comment() {
+            check_format_output(
+                &[
+                    "\
 1   +  # abc
  2 * 3",
-                "\
+                    "\
 1 + # abc
     2
       * 3",
-            ],
-            "\
+                ],
+                "\
 1 + # abc
   2 * 3
 ",
-        );
-    }
+            );
+        }
 
-    #[test]
-    fn arithmetic_with_inline_comment() {
-        check_format_output(
-            &[
-                "\
+        #[test]
+        fn with_inline_comment() {
+            check_format_output(
+                &[
+                    "\
 1   +  #- abc -#  x- -3*2   ",
-                "\
+                    "\
 1+#- abc -#x    - -3 *2",
-            ],
-            "\
+                ],
+                "\
 1 + #- abc -# x - -3 * 2
 ",
-        );
-    }
+            );
+        }
 
-    #[test]
-    fn arithmetic_expression_longer_than_line_length() {
-        check_format_output_with_options(
-            &["\
+        #[test]
+        fn expression_longer_than_line_length() {
+            check_format_output_with_options(
+                &["\
 1 + 2 * 3 - 4 / 5 % 6 + #- xyz -# 7 ^ 8 - (9 + a)
 "],
-            "\
+                "\
 1
   + 2 * 3
   - 4 / 5 % 6
   + #- xyz -# 7 ^ 8
   - (9 + a)
 ",
-            FormatOptions {
-                line_length: 20,
-                ..Default::default()
-            },
-        );
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
-    #[test]
-    fn tuple_and_list() {
-        check_format_output(
-            &[
+    mod containers {
+        use super::*;
+
+        #[test]
+        fn tuple_single_line() {
+            check_format_output(
+                &[
+                    "\
+(1  ,
+    #- foo -#    2,3,    4
+)
+",
+                    "\
+(1,#- foo -#2,3,4)
+",
+                ],
                 "\
-(1  ,   #- foo -#    2,3,    4)
+(1, #- foo -# 2, 3, 4)
+",
+            );
+        }
+
+        #[test]
+        fn list_single_line() {
+            check_format_output(
+                &[
+                    "\
 [  #- bar -#   a
     ,
         b
             , c
 ]
 ",
-                "\
-(1,#- foo -#2,3,4)
+                    "\
 [#- bar -#a,b,c]
 ",
-            ],
-            "\
-(1, #- foo -# 2, 3, 4)
+                ],
+                "\
 [#- bar -# a, b, c]
 ",
-        );
+            );
+        }
     }
 
-    #[test]
-    fn loop_block() {
-        check_format_output(
-            &[
-                "\
+    mod loops {
+        use super::*;
+
+        #[test]
+        fn loop_() {
+            check_format_output(
+                &[
+                    "\
 loop     # abc
     x =   1
     break  not    #- foo -#    true
     continue
 
 ",
-                "\
+                    "\
 loop# abc
  x =   1
  break not#- foo -#true
  continue
 ",
-            ],
-            "\
+                ],
+                "\
 loop # abc
   x = 1
   break not #- foo -# true
   continue
 ",
-        );
+            );
+        }
+
+        #[test]
+        fn while_() {
+            check_format_output(
+                &[
+                    "\
+while   x < 10     # abc
+    # xyz
+    x += 1
+
+",
+                    "\
+while   x  <     10# abc
+ # xyz
+ x += 1
+
+",
+                ],
+                "\
+while x < 10 # abc
+  # xyz
+  x += 1
+",
+            );
+        }
+
+        #[test]
+        fn for_single_arg() {
+            check_format_output(
+                &[
+                    "\
+for #- abc -#      x     in y      # xyz
+  x     +=   99
+",
+                    "\
+for     #- abc -#x in   y# xyz
+  x     +=   99
+",
+                ],
+                "\
+for #- abc -# x in y # xyz
+  x += 99
+",
+            );
+        }
     }
 }
