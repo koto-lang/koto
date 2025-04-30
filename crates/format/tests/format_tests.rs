@@ -412,4 +412,50 @@ else # baz
             );
         }
     }
+
+    mod chains {
+        use super::*;
+
+        #[test]
+        fn call_without_parens() {
+            check_format_output(
+                &["\
+f   1,   2,  3
+"],
+                "\
+f 1, 2, 3
+",
+            );
+        }
+
+        #[test]
+        fn single_line_with_parens() {
+            check_format_output(
+                &["\
+foo.bar[  #- foo -# 0  ]?.'baz'( 1 ,  2 ,  3  )
+"],
+                "\
+foo.bar[#- foo -# 0]?.'baz'(1, 2, 3)
+",
+            );
+        }
+
+        #[test]
+        fn long_chain() {
+            check_format_output_with_options(
+                &["\
+foo.bar[  #- foo -# 0  ]?.baz( 1 ,  2 ,  3  )
+"],
+                "\
+foo
+  .bar[#- foo -# 0]?
+  .baz(1, 2, 3)
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+    }
 }
