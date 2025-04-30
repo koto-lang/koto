@@ -8,7 +8,8 @@ use crate::{
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstIndex, AstNode, AstUnaryOp, AstVec, ConstantIndex, KString, Node, Span, StringSlice,
+    Ast, AstFor, AstIndex, AstNode, AstUnaryOp, AstVec, ConstantIndex, KString, Node, Span,
+    StringSlice,
 };
 
 /// Returns the input source formatted according to the provided options
@@ -149,13 +150,44 @@ fn format_node<'source>(
         Node::Wildcard(constant_index, ast_index) => todo!(),
         Node::PackedId(constant_index) => todo!(),
         Node::PackedExpression(ast_index) => todo!(),
-        Node::For(ast_for) => todo!(),
+        Node::For(AstFor {
+            args,
+            iterable,
+            body,
+        }) => {
+            let mut group = GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia)
+                .string("for")
+                .soft_break();
+            for (i, arg) in args.iter().enumerate() {
+                group = group.node(*arg);
+                if i < args.len() - 1 {
+                    group = group.char(',');
+                }
+                group = group.soft_break()
+            }
+            group
+                .string("in")
+                .soft_break()
+                .node(*iterable)
+                .node(*body)
+                .build()
+        }
         Node::Loop { body } => GroupBuilder::new(2, node, ctx, trivia)
             .string("loop")
             .node(*body)
             .build(),
-        Node::While { condition, body } => todo!(),
-        Node::Until { condition, body } => todo!(),
+        Node::While { condition, body } | Node::Until { condition, body } => {
+            GroupBuilder::new(4, node, ctx, trivia)
+                .string(if matches!(&node.node, Node::While { .. }) {
+                    "while"
+                } else {
+                    "until"
+                })
+                .soft_break()
+                .node(*condition)
+                .node(*body)
+                .build()
+        }
         Node::Break(value) => match value {
             Some(value) => GroupBuilder::new(3, node, ctx, trivia)
                 .string("break")
@@ -357,9 +389,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                         self.items.push(FormatItem::LineBreak);
                     }
                     TriviaToken::CommentSingle(text) => {
-                        if !matches!(self.items.last(), Some(FormatItem::SoftBreak)) {
-                            self.items.push(FormatItem::SoftBreak);
+                        // Add a softbreak before the comment if necessary
+                        if let Some(last_item) = self.items.last() {
+                            if !last_item.is_break() {
+                                self.items.push(FormatItem::SoftBreak);
+                            }
                         }
+
                         self.items.push(text.into());
                         self.items.push(FormatItem::ForceBreak);
                     }
@@ -429,10 +465,9 @@ impl FormatItem<'_> {
             Self::Float(n) => output.push_str(&n.to_string()),
             Self::LineBreak => output.push('\n'),
             Self::SoftBreak => output.push(' '),
-            Self::ForceBreak => {
-                // Nothing to do here, forced breaks are handled by group rendering
-            }
+            Self::ForceBreak => {} // Forced breaks are handled by group rendering
             Self::Group { items, .. } => {
+                dbg!(items);
                 let columns_remaining = (options.line_length as usize).saturating_sub(column);
                 let too_long = self.line_length() > columns_remaining;
 
@@ -526,6 +561,13 @@ impl FormatItem<'_> {
             Self::Group {
                 items, force_break, ..
             } => *force_break.get_or_init(|| items.iter().any(Self::force_break)),
+            _ => false,
+        }
+    }
+
+    fn is_break(&self) -> bool {
+        match self {
+            Self::LineBreak | Self::SoftBreak | Self::ForceBreak => true,
             _ => false,
         }
     }
