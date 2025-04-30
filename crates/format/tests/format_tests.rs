@@ -3,8 +3,12 @@ mod format {
     use std::iter::once;
 
     fn check_format_output(inputs: &[&str], expected: &str) {
+        check_format_output_with_options(inputs, expected, FormatOptions::default());
+    }
+
+    fn check_format_output_with_options(inputs: &[&str], expected: &str, options: FormatOptions) {
         for input in inputs.iter().chain(once(&expected)) {
-            match format(input, FormatOptions::default()) {
+            match format(input, options) {
                 Ok(output) => {
                     if expected != output {
                         panic!(
@@ -70,22 +74,45 @@ false
     }
 
     #[test]
-    fn return_foo() {
+    fn return_with_inline_comment() {
         check_format_output(
             &[
                 "\
-return foo",
+return #- abc -#foo",
                 "\
-return   foo",
+return  #- abc -#     foo",
                 "\
-  return     foo",
+  return  #- abc -#   foo",
                 "
-return
+return  #- abc -#
   foo",
             ],
             "\
-return foo
+return #- abc -# foo
 ",
+        );
+    }
+
+    #[test]
+    fn return_with_long_value() {
+        check_format_output_with_options(
+            &[
+                "\
+return #- abc -# xxxxxxxxxxxxxxxxxxxx
+",
+                "\
+return  #- abc -#    xxxxxxxxxxxxxxxxxxxx
+",
+            ],
+            "\
+return
+  #- abc -#
+  xxxxxxxxxxxxxxxxxxxx
+",
+            FormatOptions {
+                line_length: 20,
+                ..Default::default()
+            },
         );
     }
 
@@ -124,7 +151,7 @@ return foo
     }
 
     #[test]
-    fn binary_op_single_line() {
+    fn arithmetic_with_inline_comment() {
         check_format_output(
             &[
                 "\
@@ -135,6 +162,26 @@ return foo
             "\
 1 + #- abc -# x - -3 * 2
 ",
+        );
+    }
+
+    #[test]
+    fn arithmetic_expression_longer_than_line_length() {
+        check_format_output_with_options(
+            &["\
+1 + 2 * 3 - 4 / 5 % 6 + #- xyz -# 7 ^ 8 - (9 + a)
+"],
+            "\
+1
+  + 2 * 3
+  - 4 / 5 % 6
+  + #- xyz -# 7 ^ 8
+  - (9 + a)
+",
+            FormatOptions {
+                line_length: 20,
+                ..Default::default()
+            },
         );
     }
 

@@ -1,6 +1,6 @@
 #![expect(unused)]
 
-use std::{iter::Peekable, thread::LocalKey};
+use std::{cell::OnceCell, iter::Peekable, thread::LocalKey};
 
 use crate::{
     FormatOptions, Result, Trivia,
@@ -133,7 +133,7 @@ fn format_node<'source>(
                 .build(),
         },
         Node::BinaryOp { op, lhs, rhs } => GroupBuilder::new(3, node, ctx, trivia)
-            .node(*lhs)
+            .node_flattened(*lhs)
             .soft_break()
             .nested(|trivia| {
                 GroupBuilder::new(3, node, ctx, trivia)
@@ -186,7 +186,10 @@ fn format_node<'source>(
         } => {
             let type_string = ctx.string_constant(*type_index).into();
             if *allow_null {
-                FormatItem::Group(vec![type_string, "?".into()])
+                GroupBuilder::new(2, node, ctx, trivia)
+                    .string_constant(*type_index)
+                    .char('?')
+                    .build()
             } else {
                 type_string
             }
@@ -242,7 +245,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn build(mut self) -> FormatItem<'source> {
         self.add_trivia(self.group_span.end);
-        FormatItem::Group(self.items)
+
+        FormatItem::Group {
+            items: self.items,
+            line_length: OnceCell::new(),
+        }
     }
 
     fn build_block(mut self) -> FormatItem<'source> {
@@ -297,6 +304,18 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self.items
             .push(format_node(node_index, self.ctx, self.trivia));
         self.current_line = node_end_line;
+        self
+    }
+
+    // Adds the node, and then if it's a group, flattens its contents into this group
+    fn node_flattened(mut self, node_index: AstIndex) -> Self {
+        self = self.node(node_index);
+        if let Some(FormatItem::Group { items, .. }) = self
+            .items
+            .pop_if(|item| matches!(item, FormatItem::Group { .. }))
+        {
+            self.items.extend(items);
+        }
         self
     }
 
@@ -375,9 +394,15 @@ enum FormatItem<'source> {
     // A space or indented linebreak
     SoftBreak,
     // A grouped sequence of items
-    // Ideally the group will be rendered on a single line, or with softbreaks replace with indents
-    Group(Vec<FormatItem<'source>>),
-    // Asequence of expressions, each on a separate line.
+    // The group will be rendered on a single line, or if the group doesn't fit in the remaining
+    // space then it will be rendered with softbreaks replaced by indented newlines
+    Group {
+        items: Vec<FormatItem<'source>>,
+        // The group's length if it was rendered on a single line
+        // This gets calculated and cached during rendering to avoid nested group recalculations
+        line_length: OnceCell<usize>,
+    },
+    // A sequence of expressions, each on a separate line.
     MainBlock(Vec<FormatItem<'source>>),
     // An indented sequence of expressions, each on a separate line.
     Block(Vec<FormatItem<'source>>),
@@ -393,9 +418,26 @@ impl FormatItem<'_> {
             Self::Float(n) => output.push_str(&n.to_string()),
             Self::LineBreak => output.push('\n'),
             Self::SoftBreak => output.push(' '),
-            Self::Group(items) => {
-                for item in items {
-                    item.render(output, options, column);
+            Self::Group { items, .. } => {
+                let columns_remaining = (options.line_length as usize).saturating_sub(column);
+                if self.line_length() <= columns_remaining {
+                    for item in items {
+                        item.render(output, options, column);
+                    }
+                } else {
+                    let indented_column = column + options.indent_width as usize;
+                    let indent = " ".repeat(indented_column);
+                    for item in items {
+                        match item {
+                            Self::SoftBreak => {
+                                output.push('\n');
+                                output.push_str(&indent);
+                            }
+                            _ => {
+                                item.render(output, options, indented_column);
+                            }
+                        }
+                    }
                 }
             }
             Self::MainBlock(items) => {
@@ -424,6 +466,26 @@ impl FormatItem<'_> {
             }
         }
     }
+
+    // Gets the length of the format item
+    fn line_length(&self) -> usize {
+        use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+        match self {
+            Self::Char(c) => c.width().unwrap_or(0),
+            Self::Str(s) => s.width(),
+            Self::SmallInt(n) => integer_length(*n as i64),
+            Self::Int(i) => integer_length(*i),
+            Self::Float(f) => todo!(),
+            Self::LineBreak => 0,
+            Self::SoftBreak => 1, // Rendered as a space when used in a line
+            Self::Group { line_length, items } => {
+                *line_length.get_or_init(|| items.iter().map(Self::line_length).sum())
+            }
+            // Don't bother calculating lengths of items that are broken over lines
+            Self::MainBlock(_) | Self::Block(_) | Self::LineBreak => 0,
+        }
+    }
 }
 
 impl From<char> for FormatItem<'_> {
@@ -436,4 +498,8 @@ impl<'source> From<&'source str> for FormatItem<'source> {
     fn from(s: &'source str) -> Self {
         Self::Str(s)
     }
+}
+
+fn integer_length(i: i64) -> usize {
+    (i / 10 + if i >= 0 { 1 } else { 2 }) as usize
 }

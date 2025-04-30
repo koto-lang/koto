@@ -662,6 +662,7 @@ version = "0.16.0"
 dependencies = [
  "koto_lexer",
  "koto_parser",
+ "unicode-width",
 ]
 
 [[package]]
