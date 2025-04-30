@@ -31,7 +31,10 @@ Output:
                         )
                     }
                 }
-                Err(error) => panic!("error while formatting: {error}\ninput:\n{input}"),
+                Err(error) => panic!(
+                    "error while formatting (line: {}, column: {}): {error}\ninput:\n{input}",
+                    error.span.start.line, error.span.start.column
+                ),
             }
         }
     }
@@ -345,6 +348,44 @@ for     #- abc -#x in   y# xyz
                 "\
 for #- abc -# x in y # xyz
   x += 99
+",
+            );
+        }
+    }
+
+    mod conditionals {
+        use super::*;
+
+        #[test]
+        fn if_block() {
+            check_format_output(
+                &["\
+if   #- abc -#   x >   10 # foo
+   x = 1
+   return x
+else if   x   < 5
+    x = 0
+    return x     # bar
+else if     x ==   0 # xyz
+     x = -1
+     return x
+else # baz
+ x     =    42      # 42
+ return x
+"],
+                "\
+if #- abc -# x > 10 # foo
+  x = 1
+  return x
+else if x < 5
+  x = 0
+  return x # bar
+else if x == 0 # xyz
+  x = -1
+  return x
+else # baz
+  x = 42 # 42
+  return x
 ",
             );
         }
