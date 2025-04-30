@@ -94,6 +94,24 @@ return #- abc -# foo
     }
 
     #[test]
+    fn return_with_line_comment() {
+        check_format_output(
+            &[
+                "\
+return      # abc
+       foo",
+                "\
+return  # abc
+  foo",
+            ],
+            "\
+return # abc
+  foo
+",
+        );
+    }
+
+    #[test]
     fn return_with_long_value() {
         check_format_output_with_options(
             &[
@@ -146,6 +164,25 @@ return
             ],
             "\
 (#- xyz -# null)
+",
+        );
+    }
+
+    #[test]
+    fn arithmetic_with_line_comment() {
+        check_format_output(
+            &[
+                "\
+1   +  # abc
+ 2 * 3",
+                "\
+1 + # abc
+    2
+      * 3",
+            ],
+            "\
+1 + # abc
+  2 * 3
 ",
         );
     }
