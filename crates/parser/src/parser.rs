@@ -900,15 +900,20 @@ impl<'source> Parser<'source> {
             },
             Token::Not => {
                 self.consume_token_with_context(context);
+                let start_span = self.current_span();
+
                 if let Some(expression) = self.parse_expression(&ExpressionContext {
                     allow_space_separated_call: true,
                     expected_indentation: Indentation::Greater,
                     ..*context
                 })? {
-                    self.push_node(Node::UnaryOp {
-                        op: AstUnaryOp::Not,
-                        value: expression,
-                    })
+                    self.push_node_with_start_span(
+                        Node::UnaryOp {
+                            op: AstUnaryOp::Not,
+                            value: expression,
+                        },
+                        start_span,
+                    )
                 } else {
                     self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
@@ -916,6 +921,7 @@ impl<'source> Parser<'source> {
             Token::Yield => {
                 self.consume_token_with_context(context);
                 let start_span = self.current_span();
+
                 if let Some(expression) =
                     self.parse_expressions(&context.start_new_expression(), TempResult::No)?
                 {
@@ -931,9 +937,10 @@ impl<'source> Parser<'source> {
             Token::Until => self.consume_until_loop(context),
             Token::Break => {
                 self.consume_token_with_context(context);
+                let start_span = self.current_span();
                 let break_value =
                     self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
-                self.push_node(Node::Break(break_value))
+                self.push_node_with_start_span(Node::Break(break_value), start_span)
             }
             Token::Continue => {
                 self.consume_token_with_context(context);
@@ -2341,9 +2348,10 @@ impl<'source> Parser<'source> {
     // Parses a loop declared with the `loop` keyword
     fn consume_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Loop
+        let start_span = self.current_span();
 
         if let Some(body) = self.parse_indented_block()? {
-            self.push_node(Node::Loop { body })
+            self.push_node_with_start_span(Node::Loop { body }, start_span)
         } else {
             self.consume_token_and_error(ExpectedIndentation::LoopBody)
         }
@@ -2351,26 +2359,32 @@ impl<'source> Parser<'source> {
 
     fn consume_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::While
+        let start_span = self.current_span();
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
             return self.consume_token_and_error(SyntaxError::ExpectedWhileCondition);
         };
 
         match self.parse_indented_block()? {
-            Some(body) => self.push_node(Node::While { condition, body }),
+            Some(body) => {
+                self.push_node_with_start_span(Node::While { condition, body }, start_span)
+            }
             None => self.consume_token_and_error(ExpectedIndentation::WhileBody),
         }
     }
 
     fn consume_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Until
+        let start_span = self.current_span();
 
         let Some(condition) = self.parse_expression(&ExpressionContext::inline())? else {
             return self.consume_token_and_error(SyntaxError::ExpectedUntilCondition);
         };
 
         match self.parse_indented_block()? {
-            Some(body) => self.push_node(Node::Until { condition, body }),
+            Some(body) => {
+                self.push_node_with_start_span(Node::Until { condition, body }, start_span)
+            }
             None => self.consume_token_and_error(ExpectedIndentation::UntilBody),
         }
     }
@@ -2379,7 +2393,6 @@ impl<'source> Parser<'source> {
         use SyntaxError::*;
 
         self.consume_token_with_context(context); // Token::If
-
         let if_span = self.current_span();
 
         // Define the expected indentation of 'else if' / 'else' blocks
