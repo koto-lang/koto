@@ -65,9 +65,10 @@ pub enum Node {
 
     /// A temporary tuple
     ///
-    /// Used in contexts where the result won't be exposed directly to the use, e.g.
-    /// `x, y = 1, 2` - here `x` and `y` are indexed from the temporary tuple.
-    /// `match foo, bar...` - foo and bar will be stored in a temporary tuple for comparison.
+    /// Used in contexts where the result won't be exposed directly to the user,
+    /// e.g.
+    /// - `x, y = 1, 2`: x and y are indexed from the temporary tuple.
+    /// - `match foo, bar...`: foo and bar will be stored in a temporary tuple for comparison.
     TempTuple(AstVec<AstIndex>),
 
     /// A range with a defined start and end

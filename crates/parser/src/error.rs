@@ -69,7 +69,7 @@ pub enum ExpectedIndentation {
     WhileBody,
 }
 
-/// A syntax error encountered by the [Parser]
+/// A syntax error encountered by the [Parser][crate::Parser]
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum SyntaxError {
@@ -205,7 +205,7 @@ pub enum SyntaxError {
     UnterminatedString,
 }
 
-/// See [`ParserError`]
+/// See [`Error`][crate::Error]
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ErrorKind {
