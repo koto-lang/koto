@@ -175,6 +175,28 @@ return
         );
     }
 
+    mod strings {
+        use super::*;
+
+        #[test]
+        fn with_line_comment() {
+            check_format_output(
+                &["
+'foo'    # abc
+\"bar\"     # xyz
+r###'raw!'###
+'baz - { 1 +   #- hi -#     1:_^3.3}!'
+"],
+                "\
+'foo' # abc
+\"bar\" # xyz
+r###'raw!'###
+'baz - {1 + #- hi -# 1:_^3.3}!'
+",
+            );
+        }
+    }
+
     mod arithmetic {
         use super::*;
 

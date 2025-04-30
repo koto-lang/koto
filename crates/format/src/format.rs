@@ -8,8 +8,9 @@ use crate::{
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstFor, AstIf, AstIndex, AstNode, AstUnaryOp, AstVec, ConstantIndex, KString, Node, Span,
-    StringSlice,
+    Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ConstantIndex,
+    ConstantPool, KString, Node, Span, StringAlignment, StringContents, StringFormatOptions,
+    StringNode, StringSlice,
 };
 
 /// Returns the input source formatted according to the provided options
@@ -52,7 +53,7 @@ fn format_node<'source>(
         Node::Meta(meta_key_id, maybe_name) => {
             if let Some(name) = maybe_name {
                 GroupBuilder::new(3, node, ctx, trivia)
-                    .string(meta_key_id.as_str())
+                    .str(meta_key_id.as_str())
                     .soft_break()
                     .string_constant(*name)
                     .build()
@@ -66,7 +67,57 @@ fn format_node<'source>(
         Node::SmallInt(n) => FormatItem::SmallInt(*n),
         Node::Int(index) => FormatItem::Int(ctx.ast.constants().get_i64(*index)),
         Node::Float(index) => FormatItem::Float(ctx.ast.constants().get_f64(*index)),
-        Node::Str(ast_string) => todo!(),
+        Node::Str(AstString { quote, contents }) => {
+            let quote = quote.as_char();
+
+            match contents {
+                StringContents::Literal(constant) => GroupBuilder::new(3, node, ctx, trivia)
+                    .char(quote)
+                    .string_constant(*constant)
+                    .char(quote)
+                    .build(),
+                StringContents::Raw {
+                    constant,
+                    hash_count,
+                } => {
+                    let hashes: KString = "#".repeat(*hash_count as usize).into();
+
+                    GroupBuilder::new(5, node, ctx, trivia)
+                        .char('r')
+                        .kstring(hashes.clone())
+                        .char(quote)
+                        .string_constant(*constant)
+                        .char(quote)
+                        .kstring(hashes)
+                        .build()
+                }
+                StringContents::Interpolated(nodes) => {
+                    let mut group = GroupBuilder::new(nodes.len(), node, ctx, trivia).char(quote);
+                    for node in nodes {
+                        match node {
+                            StringNode::Literal(constant) => {
+                                group = group.string_constant(*constant)
+                            }
+                            StringNode::Expression { expression, format } => {
+                                let format_string =
+                                    render_format_options(format, ctx.ast.constants());
+                                if format_string.is_empty() {
+                                    group = group.char('{').node(*expression).char('}')
+                                } else {
+                                    group = group
+                                        .char('{')
+                                        .node(*expression)
+                                        .char(':')
+                                        .kstring(format_string.into())
+                                        .char('}')
+                                }
+                            }
+                        }
+                    }
+                    group.char(quote).build()
+                }
+            }
+        }
         Node::List(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
             .char('[')
             .elements(elements)
@@ -124,11 +175,11 @@ fn format_node<'source>(
         } => todo!(),
         Node::UnaryOp { op, value } => match op {
             AstUnaryOp::Negate => GroupBuilder::new(2, node, ctx, trivia)
-                .string(op.as_str())
+                .str(op.as_str())
                 .node(*value)
                 .build(),
             AstUnaryOp::Not => GroupBuilder::new(3, node, ctx, trivia)
-                .string(op.as_str())
+                .str(op.as_str())
                 .soft_break()
                 .node(*value)
                 .build(),
@@ -138,7 +189,7 @@ fn format_node<'source>(
             .soft_break()
             .nested(|trivia| {
                 GroupBuilder::new(3, node, ctx, trivia)
-                    .string(op.as_str())
+                    .str(op.as_str())
                     .soft_break()
                     .node(*rhs)
                     .build()
@@ -154,7 +205,7 @@ fn format_node<'source>(
 
             let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(|trivia| {
                 GroupBuilder::new(3, node, ctx, trivia)
-                    .string("if")
+                    .str("if")
                     .soft_break()
                     .node(*condition)
                     .node(*then_node)
@@ -164,7 +215,7 @@ fn format_node<'source>(
             for (else_if_condition, else_if_block) in else_if_blocks {
                 group = group.line_break().nested(|trivia| {
                     GroupBuilder::new(3, node, ctx, trivia)
-                        .string("else if")
+                        .str("else if")
                         .soft_break()
                         .node(*else_if_condition)
                         .node(*else_if_block)
@@ -175,7 +226,7 @@ fn format_node<'source>(
             if let Some(else_block) = else_node {
                 group = group.line_break().nested(|trivia| {
                     GroupBuilder::new(3, node, ctx, trivia)
-                        .string("else")
+                        .str("else")
                         .node(*else_block)
                         .build()
                 });
@@ -194,7 +245,7 @@ fn format_node<'source>(
             body,
         }) => {
             let mut group = GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia)
-                .string("for")
+                .str("for")
                 .soft_break();
             for (i, arg) in args.iter().enumerate() {
                 group = group.node(*arg);
@@ -204,19 +255,19 @@ fn format_node<'source>(
                 group = group.soft_break()
             }
             group
-                .string("in")
+                .str("in")
                 .soft_break()
                 .node(*iterable)
                 .node(*body)
                 .build()
         }
         Node::Loop { body } => GroupBuilder::new(2, node, ctx, trivia)
-            .string("loop")
+            .str("loop")
             .node(*body)
             .build(),
         Node::While { condition, body } | Node::Until { condition, body } => {
             GroupBuilder::new(4, node, ctx, trivia)
-                .string(if matches!(&node.node, Node::While { .. }) {
+                .str(if matches!(&node.node, Node::While { .. }) {
                     "while"
                 } else {
                     "until"
@@ -228,7 +279,7 @@ fn format_node<'source>(
         }
         Node::Break(value) => match value {
             Some(value) => GroupBuilder::new(3, node, ctx, trivia)
-                .string("break")
+                .str("break")
                 .soft_break()
                 .node(*value)
                 .build(),
@@ -237,7 +288,7 @@ fn format_node<'source>(
         Node::Continue => "continue".into(),
         Node::Return(value) => match value {
             Some(value) => GroupBuilder::new(3, node, ctx, trivia)
-                .string("return")
+                .str("return")
                 .soft_break()
                 .node(*value)
                 .build(),
@@ -354,8 +405,18 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
-    fn string(mut self, s: &'source str) -> Self {
+    fn str(mut self, s: &'source str) -> Self {
         self.items.push(s.into());
+        self
+    }
+
+    fn string(mut self, s: String) -> Self {
+        self.items.push(FormatItem::String(s));
+        self
+    }
+
+    fn kstring(mut self, s: KString) -> Self {
+        self.items.push(FormatItem::KString(s));
         self
     }
 
@@ -476,6 +537,10 @@ enum FormatItem<'source> {
     Char(char),
     // A `&str`, either static or from the source file
     Str(&'source str),
+    // A String
+    String(String),
+    // A KString
+    KString(KString),
     // A small int
     SmallInt(i16),
     /// An integer outside of the range -255..=255
@@ -515,6 +580,8 @@ impl FormatItem<'_> {
         match self {
             Self::Char(c) => output.push(*c),
             Self::Str(s) => output.push_str(s),
+            Self::String(s) => output.push_str(&s),
+            Self::KString(s) => output.push_str(&s),
             Self::SmallInt(n) => output.push_str(&n.to_string()),
             Self::Int(n) => output.push_str(&n.to_string()),
             Self::Float(n) => output.push_str(&n.to_string()),
@@ -603,6 +670,8 @@ impl FormatItem<'_> {
         match self {
             Self::Char(c) => c.width().unwrap_or(0),
             Self::Str(s) => s.width(),
+            Self::String(s) => s.width(),
+            Self::KString(s) => s.width(),
             Self::SmallInt(n) => integer_length(*n as i64),
             Self::Int(i) => integer_length(*i),
             Self::Float(f) => todo!(),
@@ -647,4 +716,34 @@ impl<'source> From<&'source str> for FormatItem<'source> {
 
 fn integer_length(i: i64) -> usize {
     (i / 10 + if i >= 0 { 1 } else { 2 }) as usize
+}
+
+fn render_format_options(options: &StringFormatOptions, constants: &ConstantPool) -> String {
+    let mut result = String::new();
+
+    if let Some(constant_index) = options.fill_character {
+        result.push_str(constants.get_str(constant_index));
+    }
+
+    match options.alignment {
+        StringAlignment::Default => {}
+        StringAlignment::Left => {
+            result.push('<');
+        }
+        StringAlignment::Center => {
+            result.push('^');
+        }
+        StringAlignment::Right => {
+            result.push('>');
+        }
+    }
+
+    if let Some(min_width) = options.min_width {
+        result.push_str(&min_width.to_string());
+    }
+    if let Some(precision) = options.precision {
+        result.push_str(&format!(".{precision}"));
+    }
+
+    result
 }

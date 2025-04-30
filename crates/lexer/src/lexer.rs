@@ -142,6 +142,16 @@ pub enum StringQuote {
     Single,
 }
 
+impl StringQuote {
+    /// Returns a char representing the quote
+    pub fn as_char(&self) -> char {
+        match self {
+            Self::Double => '"',
+            Self::Single => '\'',
+        }
+    }
+}
+
 impl TryFrom<char> for StringQuote {
     type Error = ();
 
