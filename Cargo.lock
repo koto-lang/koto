@@ -657,6 +657,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "koto_format"
+version = "0.16.0"
+dependencies = [
+ "koto_lexer",
+ "koto_parser",
+]
+
+[[package]]
 name = "koto_geometry"
 version = "0.16.0"
 dependencies = [
