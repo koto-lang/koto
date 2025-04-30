@@ -8,7 +8,7 @@ use crate::{
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ConstantIndex,
+    Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ChainNode, ConstantIndex,
     ConstantPool, KString, Node, Span, StringAlignment, StringContents, StringFormatOptions,
     StringNode, StringSlice,
 };
@@ -61,63 +61,86 @@ fn format_node<'source>(
                 meta_key_id.as_str().into()
             }
         }
-        Node::Chain(_) => todo!(),
+        Node::Chain((root_node, next)) => {
+            let mut group = GroupBuilder::new(2, node, ctx, trivia);
+            let mut node = node;
+            let mut chain_node = root_node;
+            let mut chain_next = next;
+
+            loop {
+                match chain_node {
+                    ChainNode::Root(root) => {
+                        group = group.node(*root);
+                    }
+                    ChainNode::Id(id) => {
+                        group = group.optional_break().char('.').string_constant(*id);
+                    }
+                    ChainNode::Str(s) => {
+                        group = group
+                            .optional_break()
+                            .char('.')
+                            .nested(|trivia| format_string(s, node, ctx, trivia));
+                    }
+                    ChainNode::Index(index) => {
+                        group = group.nested(|trivia| {
+                            GroupBuilder::new(3, node, ctx, trivia)
+                                .char('[')
+                                .node(*index)
+                                .char(']')
+                                .build()
+                        })
+                    }
+                    ChainNode::Call { args, with_parens } => {
+                        group = group.nested(|trivia| {
+                            let mut group = GroupBuilder::new(args.len() * 3, node, ctx, trivia);
+
+                            if *with_parens {
+                                group = group.char('(');
+                            } else {
+                                group = group.soft_break();
+                            }
+
+                            for (i, arg) in args.iter().enumerate() {
+                                group = group.node(*arg);
+
+                                if i < args.len() - 1 {
+                                    group = group.char(',').soft_break();
+                                }
+                            }
+
+                            if *with_parens {
+                                group = group.char(')');
+                            }
+                            group.build()
+                        })
+                    }
+                    ChainNode::NullCheck => {
+                        group = group.char('?');
+                    }
+                }
+
+                if let Some(next) = chain_next {
+                    node = ctx.node(*next);
+                    match &node.node {
+                        Node::Chain((next_chain_node, next_next)) => {
+                            chain_node = next_chain_node;
+                            chain_next = next_next;
+                        }
+                        _other => todo!("Expected chain node"),
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            group.build()
+        }
         Node::BoolTrue => "true".into(),
         Node::BoolFalse => "false".into(),
         Node::SmallInt(n) => FormatItem::SmallInt(*n),
         Node::Int(index) => FormatItem::Int(ctx.ast.constants().get_i64(*index)),
         Node::Float(index) => FormatItem::Float(ctx.ast.constants().get_f64(*index)),
-        Node::Str(AstString { quote, contents }) => {
-            let quote = quote.as_char();
-
-            match contents {
-                StringContents::Literal(constant) => GroupBuilder::new(3, node, ctx, trivia)
-                    .char(quote)
-                    .string_constant(*constant)
-                    .char(quote)
-                    .build(),
-                StringContents::Raw {
-                    constant,
-                    hash_count,
-                } => {
-                    let hashes: KString = "#".repeat(*hash_count as usize).into();
-
-                    GroupBuilder::new(5, node, ctx, trivia)
-                        .char('r')
-                        .kstring(hashes.clone())
-                        .char(quote)
-                        .string_constant(*constant)
-                        .char(quote)
-                        .kstring(hashes)
-                        .build()
-                }
-                StringContents::Interpolated(nodes) => {
-                    let mut group = GroupBuilder::new(nodes.len(), node, ctx, trivia).char(quote);
-                    for node in nodes {
-                        match node {
-                            StringNode::Literal(constant) => {
-                                group = group.string_constant(*constant)
-                            }
-                            StringNode::Expression { expression, format } => {
-                                let format_string =
-                                    render_format_options(format, ctx.ast.constants());
-                                if format_string.is_empty() {
-                                    group = group.char('{').node(*expression).char('}')
-                                } else {
-                                    group = group
-                                        .char('{')
-                                        .node(*expression)
-                                        .char(':')
-                                        .kstring(format_string.into())
-                                        .char('}')
-                                }
-                            }
-                        }
-                    }
-                    group.char(quote).build()
-                }
-            }
-        }
+        Node::Str(s) => format_string(s, node, ctx, trivia),
         Node::List(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
             .char('[')
             .elements(elements)
@@ -318,6 +341,60 @@ fn format_node<'source>(
     }
 }
 
+fn format_string<'source>(
+    string: &AstString,
+    node: &AstNode,
+    ctx: FormatContext<'source>,
+    trivia: &mut TriviaIterator<'source>,
+) -> FormatItem<'source> {
+    let quote = string.quote.as_char();
+
+    match &string.contents {
+        StringContents::Literal(constant) => GroupBuilder::new(3, node, ctx, trivia)
+            .char(quote)
+            .string_constant(*constant)
+            .char(quote)
+            .build(),
+        StringContents::Raw {
+            constant,
+            hash_count,
+        } => {
+            let hashes: KString = "#".repeat(*hash_count as usize).into();
+
+            GroupBuilder::new(5, node, ctx, trivia)
+                .char('r')
+                .kstring(hashes.clone())
+                .char(quote)
+                .string_constant(*constant)
+                .char(quote)
+                .kstring(hashes)
+                .build()
+        }
+        StringContents::Interpolated(nodes) => {
+            let mut group = GroupBuilder::new(nodes.len(), node, ctx, trivia).char(quote);
+            for node in nodes {
+                match node {
+                    StringNode::Literal(constant) => group = group.string_constant(*constant),
+                    StringNode::Expression { expression, format } => {
+                        let format_string = render_format_options(format, ctx.ast.constants());
+                        if format_string.is_empty() {
+                            group = group.char('{').node(*expression).char('}')
+                        } else {
+                            group = group
+                                .char('{')
+                                .node(*expression)
+                                .char(':')
+                                .kstring(format_string.into())
+                                .char('}')
+                        }
+                    }
+                }
+            }
+            group.char(quote).build()
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct FormatContext<'source> {
     source: &'source str,
@@ -427,6 +504,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn soft_break(mut self) -> Self {
         self.items.push(FormatItem::SoftBreak);
+        self
+    }
+
+    fn optional_break(mut self) -> Self {
+        self.items.push(FormatItem::OptionalBreak);
         self
     }
 
@@ -551,6 +633,8 @@ enum FormatItem<'source> {
     LineBreak,
     // A space or indented linebreak
     SoftBreak,
+    // A point where a indented linebreak can be used to break a long expression
+    OptionalBreak,
     // Forces a group to be broken onto multiple lines if followed by anything other than
     // an indented block.
     ForceBreak,
@@ -587,7 +671,7 @@ impl FormatItem<'_> {
             Self::Float(n) => output.push_str(&n.to_string()),
             Self::LineBreak => output.push('\n'),
             Self::SoftBreak => output.push(' '),
-            Self::ForceBreak => {} // Forced breaks are handled by group rendering
+            Self::ForceBreak | Self::OptionalBreak => {} // Forced breaks are handled by group rendering
             Self::Group { items, .. } => {
                 let columns_remaining = (options.line_length as usize).saturating_sub(column);
                 let too_long = self.line_length() > columns_remaining;
@@ -600,7 +684,7 @@ impl FormatItem<'_> {
                     let mut insert_linebreak = false;
                     for item in items {
                         match item {
-                            Self::SoftBreak if too_long => {
+                            Self::SoftBreak | Self::OptionalBreak if too_long => {
                                 insert_linebreak = true;
                             }
                             Self::ForceBreak => {
@@ -680,7 +764,11 @@ impl FormatItem<'_> {
                 line_length, items, ..
             } => *line_length.get_or_init(|| items.iter().map(Self::line_length).sum()),
             // Don't bother calculating lengths of items that are broken over lines
-            Self::MainBlock(_) | Self::Block { .. } | Self::LineBreak | Self::ForceBreak => 0,
+            Self::MainBlock(_)
+            | Self::Block { .. }
+            | Self::LineBreak
+            | Self::ForceBreak
+            | Self::OptionalBreak => 0,
         }
     }
 
@@ -696,7 +784,7 @@ impl FormatItem<'_> {
 
     fn is_break(&self) -> bool {
         match self {
-            Self::LineBreak | Self::SoftBreak | Self::ForceBreak => true,
+            Self::LineBreak | Self::SoftBreak | Self::ForceBreak | Self::OptionalBreak => true,
             _ => false,
         }
     }
