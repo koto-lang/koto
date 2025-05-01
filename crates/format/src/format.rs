@@ -158,10 +158,20 @@ fn format_node<'source>(
             start,
             end,
             inclusive,
-        } => todo!(),
-        Node::RangeFrom { start } => todo!(),
-        Node::RangeTo { end, inclusive } => todo!(),
-        Node::RangeFull => todo!(),
+        } => GroupBuilder::new(3, node, ctx, trivia)
+            .node(*start)
+            .str(if *inclusive { "..=" } else { ".." })
+            .node(*end)
+            .build(),
+        Node::RangeFrom { start } => GroupBuilder::new(2, node, ctx, trivia)
+            .node(*start)
+            .str("..")
+            .build(),
+        Node::RangeTo { end, inclusive } => GroupBuilder::new(2, node, ctx, trivia)
+            .str(if *inclusive { "..=" } else { ".." })
+            .node(*end)
+            .build(),
+        Node::RangeFull => "..".into(),
         Node::Map(small_vec) => todo!(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
