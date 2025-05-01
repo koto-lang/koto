@@ -432,10 +432,10 @@ f 1, 2, 3
         fn single_line_with_parens() {
             check_format_output(
                 &["\
-foo.bar[  #- foo -# 0  ]?.'baz'( 1 ,  2 ,  3  )
+foo.bar[  #- foo -# 1..  ]?.'baz'( x[..] ,  2 ,  3  )
 "],
                 "\
-foo.bar[#- foo -# 0]?.'baz'(1, 2, 3)
+foo.bar[#- foo -# 1..]?.'baz'(x[..], 2, 3)
 ",
             );
         }
@@ -444,12 +444,12 @@ foo.bar[#- foo -# 0]?.'baz'(1, 2, 3)
         fn long_chain() {
             check_format_output_with_options(
                 &["\
-foo.bar[  #- foo -# 0  ]?.baz( 1 ,  2 ,  3  )
+foo.bar[  #- foo -# ..9  ]?.baz( 1 ,  2 ,  3..=4  )
 "],
                 "\
 foo
-  .bar[#- foo -# 0]?
-  .baz(1, 2, 3)
+  .bar[#- foo -# ..9]?
+  .baz(1, 2, 3..=4)
 ",
                 FormatOptions {
                     line_length: 20,
