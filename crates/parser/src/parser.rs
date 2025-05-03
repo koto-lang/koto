@@ -2817,7 +2817,7 @@ impl<'source> Parser<'source> {
         };
 
         let start_span = self.current_span();
-        let from_context = ExpressionContext::restricted();
+        let from_context = ExpressionContext::permissive();
 
         let from = if importing_from {
             // Parse the from module path: a nested path is allowed, but only a single path

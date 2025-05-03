@@ -458,4 +458,52 @@ foo
             );
         }
     }
+
+    mod import_and_export {
+        use super::*;
+
+        #[test]
+        fn export() {
+            check_format_output(
+                &["\
+export   #- abc -#   foo     # xyz
+"],
+                "\
+export #- abc -# foo # xyz
+",
+            );
+        }
+
+        #[test]
+        fn import_single_line() {
+            check_format_output(
+                &["\
+from    foo   import #- abc -#   bar     # xyz
+"],
+                "\
+from foo import #- abc -# bar # xyz
+",
+            );
+        }
+
+        #[test]
+        fn import_multiline() {
+            check_format_output_with_options(
+                &["\
+from foo.bar.baz import     #- abc -#   bar as   aaa  , baz   as   bbb       # xyz
+"],
+                "\
+from
+  foo.bar.baz
+import
+  #- abc -# bar as aaa,
+  baz as bbb # xyz
+",
+                FormatOptions {
+                    line_length: 25,
+                    ..Default::default()
+                },
+            );
+        }
+    }
 }
