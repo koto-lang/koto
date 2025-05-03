@@ -9,8 +9,8 @@ use crate::{
 use koto_lexer::Position;
 use koto_parser::{
     Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ChainNode, ConstantIndex,
-    ConstantPool, KString, Node, Span, StringAlignment, StringContents, StringFormatOptions,
-    StringNode, StringSlice,
+    ConstantPool, ImportItem, KString, Node, Span, StringAlignment, StringContents,
+    StringFormatOptions, StringNode, StringSlice,
 };
 
 /// Returns the input source formatted according to the provided options
@@ -189,8 +189,47 @@ fn format_node<'source>(
             group.build_block(true)
         }
         Node::Function(function) => todo!(),
-        Node::Import { from, items } => todo!(),
-        Node::Export(ast_index) => todo!(),
+        Node::Import { from, items } => {
+            let mut group =
+                GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia)
+                    .str("from")
+                    .soft_break();
+
+            for (i, from_node) in from.iter().enumerate() {
+                group = group.node(*from_node);
+                if i < from.len() - 1 {
+                    group = group.char('.');
+                }
+            }
+
+            group = group.return_break().str("import").soft_break();
+
+            for (i, ImportItem { item, name }) in items.iter().enumerate() {
+                group = group.nested(|trivia| {
+                    let mut group = GroupBuilder::new(0, node, ctx, trivia).node(*item);
+                    if let Some(name) = name {
+                        group = group.str(" as ").node(*name);
+                    }
+
+                    if i < items.len() - 1 {
+                        group = group.char(',');
+                    }
+
+                    group.build()
+                });
+
+                if i < items.len() - 1 {
+                    group = group.soft_break();
+                }
+            }
+
+            group.build()
+        }
+        Node::Export(ast_index) => GroupBuilder::new(3, node, ctx, trivia)
+            .str("export")
+            .soft_break()
+            .node(*ast_index)
+            .build(),
         Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
             .node(*target)
             .soft_break()
@@ -522,6 +561,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    fn return_break(mut self) -> Self {
+        self.items.push(FormatItem::ReturnBreak);
+        self
+    }
+
     fn line_break(mut self) -> Self {
         // Add any trailing comments for the current line
         self.add_trivia(if self.items.is_empty() {
@@ -643,8 +687,10 @@ enum FormatItem<'source> {
     LineBreak,
     // A space or indented linebreak
     SoftBreak,
-    // A point where a indented linebreak can be used to break a long expression
+    // A point where a long line can be broken with an indent
     OptionalBreak,
+    // A point where a long line can be broken with a return to the start column
+    ReturnBreak,
     // Forces a group to be broken onto multiple lines if followed by anything other than
     // an indented block.
     ForceBreak,
@@ -680,7 +726,7 @@ impl FormatItem<'_> {
             Self::Int(n) => output.push_str(&n.to_string()),
             Self::Float(n) => output.push_str(&n.to_string()),
             Self::LineBreak => output.push('\n'),
-            Self::SoftBreak => output.push(' '),
+            Self::SoftBreak | Self::ReturnBreak => output.push(' '),
             Self::ForceBreak | Self::OptionalBreak => {} // Forced breaks are handled by group rendering
             Self::Group { items, .. } => {
                 let columns_remaining = (options.line_length as usize).saturating_sub(column);
@@ -688,17 +734,24 @@ impl FormatItem<'_> {
 
                 // Use indent logic if the line is too long, or if the group contains a forced break
                 if too_long || self.force_break() {
-                    let mut group_column = column;
                     let indented_column = column + options.indent_width as usize;
                     let indent = " ".repeat(indented_column);
+                    let mut group_column = column;
                     let mut insert_linebreak = false;
+                    let mut insert_indent = false;
                     for item in items {
                         match item {
                             Self::SoftBreak | Self::OptionalBreak if too_long => {
                                 insert_linebreak = true;
+                                insert_indent = true;
+                            }
+                            Self::ReturnBreak if too_long => {
+                                insert_linebreak = true;
+                                insert_indent = false;
                             }
                             Self::ForceBreak => {
                                 insert_linebreak = true;
+                                insert_indent = true;
                             }
                             Self::Block { .. } => {
                                 // Blocks are already indented, so no additional indentation required
@@ -708,10 +761,15 @@ impl FormatItem<'_> {
                             _ => {
                                 if insert_linebreak {
                                     output.push('\n');
-                                    output.push_str(&indent);
-
                                     insert_linebreak = false;
+                                }
+
+                                if insert_indent {
+                                    output.push_str(&indent);
                                     group_column = indented_column;
+                                    insert_indent = false;
+                                } else {
+                                    group_column = column;
                                 }
 
                                 item.render(output, options, group_column);
@@ -778,6 +836,7 @@ impl FormatItem<'_> {
             | Self::Block { .. }
             | Self::LineBreak
             | Self::ForceBreak
+            | Self::ReturnBreak
             | Self::OptionalBreak => 0,
         }
     }
