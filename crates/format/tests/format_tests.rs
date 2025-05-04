@@ -26,8 +26,9 @@ Expected:
 
 Output:
 ---
-{output}
----"
+{}
+---",
+                            output.replace("\n", "⏎\n")
                         )
                     }
                 }
@@ -297,6 +298,28 @@ r###'raw!'###
 ",
             );
         }
+
+        #[test]
+        fn tuple_multi_line() {
+            check_format_output_with_options(
+                &["\
+(11111  ,
+    22222,33333,   #- foo -#     44444
+)
+"],
+                "\
+(
+  11111, 22222,
+  33333, #- foo -#
+  44444
+)
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     mod loops {
@@ -496,11 +519,10 @@ from foo.bar.baz import     #- abc -#   bar as   aaa  , baz   as   bbb       # x
 from
   foo.bar.baz
 import
-  #- abc -# bar as aaa,
-  baz as bbb # xyz
+  #- abc -# bar as aaa, baz as bbb # xyz
 ",
                 FormatOptions {
-                    line_length: 25,
+                    line_length: 40,
                     ..Default::default()
                 },
             );
