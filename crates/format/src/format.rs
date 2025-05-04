@@ -46,7 +46,12 @@ fn format_node<'source>(
             .build(),
         Node::Id(index, type_hint) => {
             if let Some(type_hint) = type_hint {
-                todo!()
+                GroupBuilder::new(4, node, ctx, trivia)
+                    .string_constant(*index)
+                    .char(':')
+                    .space_or_indent()
+                    .node(*type_hint)
+                    .build()
             } else {
                 ctx.string_constant(*index).into()
             }
@@ -311,7 +316,16 @@ fn format_node<'source>(
         }
         Node::Match { expression, arms } => todo!(),
         Node::Switch(small_vec) => todo!(),
-        Node::Wildcard(constant_index, ast_index) => todo!(),
+        Node::Wildcard(id, type_hint) => {
+            let mut group = GroupBuilder::new(1, node, ctx, trivia).char('_');
+            if let Some(id) = id {
+                group = group.string_constant(*id);
+            }
+            if let Some(type_hint) = type_hint {
+                group = group.char(':').space_or_indent().node(*type_hint);
+            }
+            group.build()
+        }
         Node::PackedId(constant_index) => todo!(),
         Node::PackedExpression(ast_index) => todo!(),
         Node::For(AstFor {
