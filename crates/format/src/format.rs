@@ -9,7 +9,7 @@ use crate::{
 use koto_lexer::Position;
 use koto_parser::{
     Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ChainNode, ConstantIndex,
-    ConstantPool, ImportItem, KString, Node, Span, StringAlignment, StringContents,
+    ConstantPool, Function, ImportItem, KString, Node, Span, StringAlignment, StringContents,
     StringFormatOptions, StringNode, StringSlice,
 };
 use unicode_width::UnicodeWidthStr;
@@ -198,7 +198,45 @@ fn format_node<'source>(
             }
             group.build_block(true)
         }
-        Node::Function(function) => todo!(),
+        Node::Function(Function {
+            args,
+            body,
+            is_variadic,
+            output_type,
+            ..
+        }) => {
+            let mut group = GroupBuilder::new(3, node, ctx, trivia);
+
+            // Args
+            group = group.nested(|trivia| {
+                let mut group = GroupBuilder::new(3 + args.len() * 2, node, ctx, trivia);
+
+                group = group.char('|').maybe_indent();
+                for (i, arg) in args.iter().enumerate() {
+                    group = group.node(*arg);
+                    if i < args.len() - 1 {
+                        group = group.char(',').space_or_indent_if_necessary();
+                    } else if *is_variadic {
+                        group = group.str("...");
+                    }
+                }
+                group = group.maybe_return().char('|');
+
+                // Output type
+                if let Some(output_type) = output_type {
+                    group = group
+                        .space_or_indent_if_necessary()
+                        .str("->")
+                        .space_or_indent_if_necessary()
+                        .node(*output_type);
+                }
+
+                group.build()
+            });
+
+            // Body
+            group.space_or_indent().node(*body).build()
+        }
         Node::Import { from, items } => {
             let mut group =
                 GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia)
@@ -240,11 +278,11 @@ fn format_node<'source>(
         }
         Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
             .node(*target)
-            .space_or_indent()
+            .space_or_indent_if_necessary()
             .nested(|trivia| {
                 GroupBuilder::new(3, node, ctx, trivia)
                     .char('=')
-                    .space_or_indent()
+                    .space_or_indent_if_necessary()
                     .node(*expression)
                     .build()
             })
@@ -326,8 +364,20 @@ fn format_node<'source>(
             }
             group.build()
         }
-        Node::PackedId(constant_index) => todo!(),
-        Node::PackedExpression(ast_index) => todo!(),
+        Node::PackedId(id) => {
+            if let Some(id) = id {
+                GroupBuilder::new(2, node, ctx, trivia)
+                    .string_constant(*id)
+                    .str("...")
+                    .build()
+            } else {
+                "...".into()
+            }
+        }
+        Node::PackedExpression(expression) => GroupBuilder::new(2, node, ctx, trivia)
+            .node(*expression)
+            .str("...")
+            .build(),
         Node::For(AstFor {
             args,
             iterable,
@@ -652,7 +702,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                         // Add a softbreak before the comment if necessary
                         if let Some(last_item) = self.items.last() {
                             if !last_item.is_break() {
-                                self.items.push(FormatItem::SpaceOrIndent);
+                                self.items.push(FormatItem::SpaceOrIndentIfNecessary);
                             }
                         }
 
@@ -844,38 +894,59 @@ impl<'source> FormatItem<'source> {
                         return;
                     }
                     _ => {
+                        // Adjust the column for the item to be rendered
+                        if group_break.needs_linebreak() {
+                            group_column = column;
+                            if group_break.needs_indent() {
+                                group_column += extra_indent.len();
+                            }
+                        }
+
                         // Render the item into a temporary buffer
                         item.render(&mut item_buffer, options, group_column);
-                        let mut item_width = item_buffer.width();
+
+                        // Get the width of the item's first line
+                        // (multiline items are possible, and we only need the first line's width
+                        // to decide if a linebreak is necessary).
+                        let mut item_first_line_width = item_buffer
+                            .split_once('\n')
+                            .map(|(first, _rest)| first)
+                            .unwrap_or(&item_buffer)
+                            .width();
 
                         // Check for 'indented break if necessary' items
                         if matches!(group_break, GroupBreak::IndentedBreakIfNecessary) {
-                            let line_width_with_item = line_width + item_width + 1; // +1 for a space
+                            // +1 for a space
+                            let line_width_with_item = line_width + item_first_line_width + 1;
                             if line_width_with_item > options.line_length as usize {
                                 group_break = GroupBreak::IndentedBreak;
                             } else {
                                 output.push(' ');
-                                item_width += 1;
+                                item_first_line_width += 1;
                             }
                         }
 
-                        // Handle linebreaks if needed
+                        // Emit linebreaks if necessary
                         if group_break.needs_linebreak() {
                             output.push('\n');
                             output.push_str(&group_start_indent);
-                            line_width = group_start_indent.len();
                             group_column = column;
+                            line_width = group_start_indent.len();
                             if group_break.needs_indent() {
-                                output.push_str(&extra_indent);
                                 group_column += extra_indent.len();
+                                output.push_str(&extra_indent);
                                 line_width = group_column;
                             }
                         }
                         group_break = GroupBreak::None;
 
                         // Add the item to the output
+                        let item_last_line_width = item_buffer
+                            .rsplit_once('\n')
+                            .map(|(_rest, last)| last.width())
+                            .unwrap_or(item_first_line_width);
                         output.extend(item_buffer.drain(..));
-                        line_width += item_width;
+                        line_width += item_last_line_width;
                     }
                 }
             }
