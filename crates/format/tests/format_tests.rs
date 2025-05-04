@@ -528,4 +528,48 @@ import
             );
         }
     }
+
+    mod functions {
+        use super::*;
+
+        #[test]
+        fn inline() {
+            check_format_output(
+                &["\
+f   =   |  a : Number ,  b: Number, c...  |   g(a  +  b, c...)
+"],
+                "\
+f = |a: Number, b: Number, c...| g(a + b, c...)
+",
+            );
+        }
+
+        #[test]
+        fn block_with_long_lines() {
+            check_format_output_with_options(
+                &["\
+f   =   |  (aaaa,  bbbb, ( ..., c, d  ))  |   ->   Number   # abc
+    x =   aaaa +  bbbb  +c+   d
+    yield   x   *   2
+"],
+                "\
+f = |
+  (
+    aaaa, bbbb,
+    (..., c, d)
+  )
+| -> Number # abc
+  x = aaaa
+    + bbbb
+    + c
+    + d
+  yield x * 2
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+    }
 }
