@@ -209,7 +209,8 @@ pub enum Node {
     /// Used as a placeholder for unused function arguments or unpacked values, or as a wildcard
     /// in match expressions.
     ///
-    /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
+    /// Comes with an optional name (e.g. `_foo` will have `foo` stored as a constant),
+    /// and an optional type hint.
     Wildcard(Option<ConstantIndex>, Option<AstIndex>),
 
     /// Used when capturing variadic arguments, and when unpacking list or tuple arguments.
