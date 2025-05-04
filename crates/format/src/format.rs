@@ -225,11 +225,9 @@ fn format_node<'source>(
 
             group.build()
         }
-        Node::Export(ast_index) => GroupBuilder::new(3, node, ctx, trivia)
-            .str("export")
-            .soft_break()
-            .node(*ast_index)
-            .build(),
+        Node::Export(value) => {
+            FormatItem::from_keyword_and_value("export", value, node, ctx, trivia)
+        }
         Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
             .node(*target)
             .soft_break()
@@ -350,29 +348,20 @@ fn format_node<'source>(
                 .build()
         }
         Node::Break(value) => match value {
-            Some(value) => GroupBuilder::new(3, node, ctx, trivia)
-                .str("break")
-                .soft_break()
-                .node(*value)
-                .build(),
+            Some(value) => FormatItem::from_keyword_and_value("break", value, node, ctx, trivia),
             None => "break".into(),
         },
         Node::Continue => "continue".into(),
         Node::Return(value) => match value {
-            Some(value) => GroupBuilder::new(3, node, ctx, trivia)
-                .str("return")
-                .soft_break()
-                .node(*value)
-                .build(),
+            Some(value) => FormatItem::from_keyword_and_value("return", value, node, ctx, trivia),
             None => "return".into(),
         },
         Node::Try(ast_try) => todo!(),
-        Node::Throw(ast_index) => todo!(),
-        Node::Yield(ast_index) => todo!(),
-        Node::Debug {
-            expression_string,
-            expression,
-        } => todo!(),
+        Node::Throw(value) => FormatItem::from_keyword_and_value("throw", value, node, ctx, trivia),
+        Node::Yield(value) => FormatItem::from_keyword_and_value("yield", value, node, ctx, trivia),
+        Node::Debug { expression, .. } => {
+            FormatItem::from_keyword_and_value("debug", expression, node, ctx, trivia)
+        }
         Node::Type {
             type_index,
             allow_null,
@@ -715,7 +704,21 @@ enum FormatItem<'source> {
     },
 }
 
-impl FormatItem<'_> {
+impl<'source> FormatItem<'source> {
+    fn from_keyword_and_value<'trivia>(
+        keyword: &'source str,
+        value: &AstIndex,
+        group_node: &AstNode,
+        ctx: FormatContext<'source>,
+        trivia: &'trivia mut TriviaIterator<'source>,
+    ) -> Self {
+        GroupBuilder::new(3, group_node, ctx, trivia)
+            .str(keyword)
+            .soft_break()
+            .node(*value)
+            .build()
+    }
+
     fn render(&self, output: &mut String, options: &FormatOptions, column: usize) {
         match self {
             Self::Char(c) => output.push(*c),
