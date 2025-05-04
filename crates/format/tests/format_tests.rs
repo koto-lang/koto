@@ -434,6 +434,115 @@ else # baz
 ",
             );
         }
+
+        #[test]
+        fn switch() {
+            check_format_output(
+                &["\
+switch
+  x   ==   0   then x # abc
+  y   ==0    then
+    debug y
+    f(y)
+  else # xyz
+    42
+"],
+                "\
+switch
+  x == 0 then x # abc
+  y == 0 then
+    debug y
+    f(y)
+  else # xyz
+    42
+",
+            );
+        }
+
+        #[test]
+        fn switch_always_break() {
+            check_format_output_with_options(
+                &["\
+switch
+  x   ==   0   then x # abc
+  y   ==0    then
+    debug y
+    f(y)
+  else  42 # xyz
+"],
+                "\
+switch
+  x == 0 then # abc
+    x
+  y == 0 then
+    debug y
+    f(y)
+  else
+    42 # xyz
+",
+                FormatOptions {
+                    match_and_switch_always_indent_arm_bodies: true,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn match_expression() {
+            check_format_output_with_options(
+                &["
+match   foo()    # abc
+  'hello'   then
+                  'xyz'
+  1   or   2   or 3   or   4 then   -1
+  ('a', 'b'  )or(   'c', 'd')if bar()then baz()      # xyz
+  else
+    0
+"],
+                "\
+match foo() # abc
+  'hello' then 'xyz'
+  1 or 2 or 3 or 4 then -1
+  ('a', 'b') or ('c', 'd') if bar() then
+    baz() # xyz
+  else 0
+",
+                FormatOptions {
+                    line_length: 50,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn match_expression_always_break() {
+            check_format_output_with_options(
+                &["
+match   foo()    # abc
+  'hello'   then
+                  'xyz'
+  1   or   2   or 3   or   4 then   -1
+  ('a', 'b'  )or(   'c', 'd')if bar()then baz()      # xyz
+  else
+    0
+"],
+                "\
+match foo() # abc
+  'hello' then
+    'xyz'
+  1 or 2 or 3 or 4 then
+    -1
+  ('a', 'b') or ('c', 'd') if bar() then # xyz
+    baz()
+  else
+    0
+",
+                FormatOptions {
+                    match_and_switch_always_indent_arm_bodies: true,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     mod chains {
