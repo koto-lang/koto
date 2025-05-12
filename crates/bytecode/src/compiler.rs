@@ -395,7 +395,12 @@ impl Compiler {
             Node::List(elements) => {
                 self.compile_make_sequence(elements, Op::SequenceToList, ctx)?
             }
-            Node::Map(entries) => self.compile_make_map(entries, false, ctx)?,
+            Node::Map { entries, .. } => self.compile_make_map(entries, false, ctx)?,
+            Node::MapEntry(_, value) => {
+                // We only get here when evaluating map entries for side-effects,
+                // so we only need to compile the value here.
+                self.compile_node(*value, ctx)?
+            }
             Node::Self_ => {
                 // self is always in register 0
                 match ctx.result_register {
@@ -1600,7 +1605,7 @@ impl Compiler {
                 expression,
             } => self.compile_multi_assign(targets, *expression, true, ctx),
             // Maps can be exported directly rather than relying on the iterator logic below
-            Node::Map(entries) => self.compile_make_map(entries, true, ctx),
+            Node::Map { entries, .. } => self.compile_make_map(entries, true, ctx),
             // Other expressions can be evaluated and then assumed to be iterable
             _ => {
                 // Evaluate the expression and convert the result into an iterator
@@ -2353,7 +2358,7 @@ impl Compiler {
 
     fn compile_make_map(
         &mut self,
-        entries: &[(AstIndex, Option<AstIndex>)],
+        entries: &[AstIndex],
         export_entries: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
@@ -2370,40 +2375,46 @@ impl Compiler {
 
         // Process the map's entries
         if result.register.is_some() || export_entries {
-            for (key, maybe_value_node) in entries.iter() {
-                let key_node = ctx.node(*key);
-                let value = match (key_node, maybe_value_node) {
-                    // An ID key with a value, and we're in an export expression
-                    (Node::Id(id, ..), Some(value_node)) if export_entries => {
-                        // The value is being exported, and should be made available in scope
-                        let value_register = self.reserve_local_register(*id)?;
-                        let value_node = *value_node;
-                        let result =
-                            self.compile_node(value_node, ctx.with_fixed_register(value_register))?;
-                        // Commit the register now that the value has been compiled.
-                        self.commit_local_register(value_register)?;
-                        result
+            for entry in entries.iter() {
+                let (key, value) = match ctx.node(*entry) {
+                    Node::MapEntry(key, value) => {
+                        let result = match ctx.node(*key) {
+                            Node::Id(id, _) if export_entries => {
+                                // The value is being exported, and should be made available in scope
+                                let value_register = self.reserve_local_register(*id)?;
+                                let value = *value;
+                                let result = self
+                                    .compile_node(value, ctx.with_fixed_register(value_register))?;
+                                // Commit the register now that the value has been compiled.
+                                self.commit_local_register(value_register)?;
+                                result
+                            }
+                            _ => {
+                                // A regular entry
+                                let value_node = *value;
+                                self.compile_node(value_node, ctx.with_any_register())?
+                            }
+                        };
+                        (*key, result)
                     }
-                    // A key with a value
-                    (_, Some(value_node)) => {
-                        let value_node = *value_node;
-                        self.compile_node(value_node, ctx.with_any_register())?
+                    Node::Id(key, _) => {
+                        // An ID key without a value, a value with matching ID should be available
+                        let value = match self.frame().get_local_assigned_register(*key) {
+                            Some(register) => CompileNodeOutput::with_assigned(register),
+                            None => {
+                                let register = self.push_register()?;
+                                self.compile_load_non_local(register, *key);
+                                CompileNodeOutput::with_temporary(register)
+                            }
+                        };
+                        (*entry, value)
                     }
-                    // An ID key without a value, a value with matching ID should be available
-                    (Node::Id(id, ..), None) => match self.frame().get_local_assigned_register(*id)
-                    {
-                        Some(register) => CompileNodeOutput::with_assigned(register),
-                        None => {
-                            let register = self.push_register()?;
-                            self.compile_load_non_local(register, *id);
-                            CompileNodeOutput::with_temporary(register)
-                        }
-                    },
-                    // No value provided for a string or meta key
-                    (_, None) => return self.error(ErrorKind::MissingValueForMapEntry),
+                    _ => return self.error(ErrorKind::MissingValueForMapEntry), // todo - update error
                 };
+
                 let value_register = value.unwrap(self)?;
 
+                let key_node = ctx.node(key);
                 self.compile_map_insert(
                     value_register,
                     key_node,
@@ -2418,10 +2429,8 @@ impl Compiler {
             }
         } else {
             // The map is unused, but the entry values should be compiled for side-effects
-            for (_key, value_node) in entries.iter() {
-                if let Some(value_node) = value_node {
-                    self.compile_node(*value_node, ctx.compile_for_side_effects())?;
-                }
+            for entry in entries.iter() {
+                self.compile_node(*entry, ctx.compile_for_side_effects())?;
             }
         }
 

@@ -1,0 +1,25 @@
+[package]
+name = "koto_format"
+version = "0.16.0"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_parser/arc"]
+rc = ["koto_parser/rc"]
+
+[dependencies]
+koto_lexer = { path = "../lexer", version = "^0.16.0" }
+koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
+
+unicode-width = { workspace = true }

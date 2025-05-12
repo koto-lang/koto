@@ -14,7 +14,7 @@ mod string_slice;
 pub use crate::{
     ast::*,
     constant_pool::{Constant, ConstantIndex, ConstantPool},
-    error::{Error, Result, format_source_excerpt},
+    error::{Error, ErrorKind, ExpectedIndentation, Result, SyntaxError, format_source_excerpt},
     node::*,
     parser::Parser,
     string::KString,

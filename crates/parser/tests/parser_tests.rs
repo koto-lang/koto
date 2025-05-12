@@ -119,20 +119,22 @@ mod parser {
         }
     }
 
-    fn map_inline(entries: &[(u32, Option<u32>)]) -> Node {
-        let entries = entries
-            .iter()
-            .map(|(key, maybe_value)| (AstIndex::from(*key), maybe_value.map(AstIndex::from)))
-            .collect();
-        Node::Map(entries)
+    fn map_with_braces(entries: &[u32]) -> Node {
+        Node::Map {
+            entries: nodes(entries),
+            braces: true,
+        }
     }
 
-    fn map_block(entries: &[(u32, u32)]) -> Node {
-        let entries = entries
-            .iter()
-            .map(|(key, value)| (AstIndex::from(*key), Some(AstIndex::from(*value))))
-            .collect();
-        Node::Map(entries)
+    fn map_block(entries: &[u32]) -> Node {
+        Node::Map {
+            entries: nodes(entries),
+            braces: false,
+        }
+    }
+
+    fn map_entry(key: u32, value: u32) -> Node {
+        Node::MapEntry(key.into(), value.into())
     }
 
     fn range(start: u32, end: u32, inclusive: bool) -> Node {
@@ -615,7 +617,7 @@ x = [
         use super::*;
 
         #[test]
-        fn map_inline_syntax() {
+        fn maps_with_braces() {
             let sources = [
                 "
 {}
@@ -651,19 +653,22 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    map_inline(&[]),
+                    map_with_braces(&[]),
                     id(0),                                  // x
                     string_literal(1, StringQuote::Single), // 'foo'
                     SmallInt(42),
-                    id(2),                                  // bar
-                    id(3),                                  // 5 - baz
+                    map_entry(2, 3),
+                    id(2),                                  // 5 - bar
+                    id(3),                                  // baz
                     string_literal(4, StringQuote::Single), // 'hello'
+                    map_entry(6, 7),
                     Meta(MetaKeyId::Add, None),
-                    SmallInt(99),
-                    map_inline(&[(2, Some(3)), (4, None), (5, Some(6)), (7, Some(8))]),
-                    assign(1, 9), // 10
+                    SmallInt(99), // 10
+                    map_entry(9, 10),
+                    map_with_braces(&[4, 5, 8, 11]),
+                    assign(1, 12),
                     MainBlock {
-                        body: nodes(&[0, 10]),
+                        body: nodes(&[0, 13]),
                         local_count: 1,
                     },
                 ],
@@ -673,55 +678,6 @@ x =
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn map_block_syntax() {
-            let sources = [
-                r#"
-x =
-  foo: 42
-  "baz":
-    foo: 0
-  @-: -1
-x
-"#,
-                r#"
-x   =
-    foo: 42
-    "baz" :
-          foo   : 0
-    @-  : -1
-x
-"#,
-            ];
-
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    id(0), // x
-                    id(1), // foo
-                    SmallInt(42),
-                    string_literal(2, StringQuote::Double), // baz
-                    id(1),                                  // foo
-                    SmallInt(0),                            // 5
-                    map_block(&[(4, 5)]),
-                    Meta(MetaKeyId::Subtract, None),
-                    SmallInt(-1),
-                    map_block(&[(1, 2), (3, 6), (7, 8)]),
-                    assign(0, 9), //10
-                    id(0),
-                    MainBlock {
-                        body: nodes(&[10, 11]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("foo"),
-                    Constant::Str("baz"),
                 ]),
             )
         }
@@ -738,10 +694,11 @@ x =
                     id(0), // x
                     string_literal(1, StringQuote::Double),
                     SmallInt(42),
-                    map_block(&[(1, 2)]),
-                    assign(0, 3),
+                    map_entry(1, 2),
+                    map_block(&[3]),
+                    assign(0, 4), // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -763,11 +720,13 @@ x =
                     id(1), // foo
                     id(2), // bar
                     SmallInt(42),
-                    map_block(&[(2, 3)]),
-                    map_block(&[(1, 4)]), // 5
-                    assign(0, 5),
+                    map_entry(2, 3),
+                    map_block(&[4]), // 5
+                    map_entry(1, 5),
+                    map_block(&[6]),
+                    assign(0, 7),
                     MainBlock {
-                        body: nodes(&[6]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -806,11 +765,12 @@ x =
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
-                    Tuple(nodes(&[2, 3, 4])), //5
-                    map_block(&[(1, 5)]),
-                    assign(0, 6),
+                    Tuple(nodes(&[2, 3, 4])), // 5
+                    map_entry(1, 5),
+                    map_block(&[6]),
+                    assign(0, 7),
                     MainBlock {
-                        body: nodes(&[7]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -845,15 +805,17 @@ x =
                     id(0), // x
                     id(1), // foo
                     SmallInt(1),
-                    id(2),        // bar
-                    id(3),        // baz
-                    SmallInt(42), // 5
-                    chain_call(&[5], false, None),
-                    chain_root(4, Some(6)),
-                    map_block(&[(1, 2), (3, 7)]),
-                    assign(0, 8),
+                    map_entry(1, 2),
+                    id(2), // bar
+                    id(3), // 5 - baz
+                    SmallInt(42),
+                    chain_call(&[6], false, None),
+                    chain_root(5, Some(7)),
+                    map_entry(4, 8),
+                    map_block(&[3, 9]), // 10
+                    assign(0, 10),
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[11]),
                         local_count: 1,
                     },
                 ],
@@ -880,14 +842,17 @@ x =
                     id(0), // x
                     Meta(MetaKeyId::Add, None),
                     SmallInt(0),
+                    map_entry(1, 2),
                     Meta(MetaKeyId::Subtract, None),
-                    SmallInt(1),
-                    Meta(MetaKeyId::Named, Some(1.into())), // 5
+                    SmallInt(1), // 5
+                    map_entry(4, 5),
+                    Meta(MetaKeyId::Named, Some(1.into())),
                     SmallInt(0),
-                    map_block(&[(1, 2), (3, 4), (5, 6)]),
-                    assign(0, 7),
+                    map_entry(7, 8),
+                    map_block(&[3, 6, 9]),
+                    assign(0, 10),
                     MainBlock {
-                        body: nodes(&[8]),
+                        body: nodes(&[11]),
                         local_count: 1,
                     },
                 ],
@@ -1736,12 +1701,14 @@ export
                 &[
                     id(0), // a
                     SmallInt(123),
+                    map_entry(0, 1),
                     id(1), // b
                     SmallInt(99),
-                    map_block(&[(0, 1), (2, 3)]),
-                    Export(4.into()), //  5
+                    map_entry(3, 4), // 5
+                    map_block(&[2, 5]),
+                    Export(6.into()),
                     MainBlock {
-                        body: nodes(&[5]),
+                        body: nodes(&[7]),
                         local_count: 2,
                     },
                 ],
@@ -3155,167 +3122,43 @@ foo.bar x
         }
 
         #[test]
-        fn instance_function() {
-            let source = "{foo: 42, bar: |x| self.foo = x}";
-            check_ast(
-                source,
-                &[
-                    id(0), // foo
-                    SmallInt(42),
-                    id(1),             // bar
-                    id(2),             // x
-                    Self_,             // self
-                    chain_id(0, None), // 5
-                    chain_root(4, Some(5)),
-                    id(2),
-                    assign(6, 7),
-                    Function(koto_parser::Function {
-                        args: nodes(&[3]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 8.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    map_inline(&[(0, Some(1)), (2, Some(9))]), // 10
-                    MainBlock {
-                        body: nodes(&[10]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Str("x"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn function_map_block() {
-            let source = "
-f = ||
-  foo: x
-  bar: 0
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // f
-                    id(1), // foo
-                    id(2), // x
-                    id(3), // bar
-                    SmallInt(0),
-                    map_block(&[(1, 2), (3, 4)]), // 5
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[2]),
-                        body: 5.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(0, 6),
-                    MainBlock {
-                        body: nodes(&[7]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("foo"),
-                    Constant::Str("x"),
-                    Constant::Str("bar"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn function_map_block_with_nested_map_as_first_entry() {
-            let source = "
-f = ||
-  foo:
-    bar: x
-  baz: 0
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // f
-                    id(1), // foo
-                    id(2), // bar
-                    id(3), // x
-                    map_block(&[(2, 3)]),
-                    id(4), // 5 - baz
-                    SmallInt(0),
-                    map_block(&[(1, 4), (5, 6)]),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[3]),
-                        body: 7.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(0, 8),
-                    MainBlock {
-                        body: nodes(&[9]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Str("x"),
-                    Constant::Str("baz"),
-                ]),
-            )
-        }
-
-        #[test]
         fn instance_function_block() {
             let source = "
 f = ||
-  foo: 42
   bar: |x| self.foo = x
 f()";
             check_ast(
                 source,
                 &[
                     id(0), // f
-                    id(1), // foo
-                    SmallInt(42),
-                    id(2),             // bar
-                    id(3),             // x
-                    Self_,             // 5
-                    chain_id(1, None), // foo
-                    chain_root(5, Some(6)),
-                    id(3), // x
-                    assign(7, 8),
+                    id(1), // bar
+                    id(2), // x
+                    Self_,
+                    chain_id(3, None),      // foo
+                    chain_root(3, Some(4)), // 5
+                    id(2),                  // x
+                    assign(5, 6),
                     Function(koto_parser::Function {
-                        args: nodes(&[4]),
+                        args: nodes(&[2]),
                         local_count: 1,
                         accessed_non_locals: constants(&[]),
-                        body: 9.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // 10
-                    map_block(&[(1, 2), (3, 10)]),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[]),
-                        body: 11.into(),
+                        body: 7.into(),
                         is_variadic: false,
                         is_generator: false,
                         output_type: None,
                     }),
-                    assign(0, 12),
+                    map_entry(1, 8),
+                    map_block(&[9]), // 10
+                    Function(koto_parser::Function {
+                        args: nodes(&[]),
+                        local_count: 0,
+                        accessed_non_locals: constants(&[]),
+                        body: 10.into(),
+                        is_variadic: false,
+                        is_generator: false,
+                        output_type: None,
+                    }),
+                    assign(0, 11),
                     id(0), // f
                     Chain((
                         ChainNode::Call {
@@ -3323,18 +3166,18 @@ f()";
                             with_parens: true,
                         },
                         None,
-                    )), // 15
-                    chain_root(14, Some(15)),
+                    )),
+                    chain_root(13, Some(14)), // 15
                     MainBlock {
-                        body: nodes(&[13, 16]),
+                        body: nodes(&[12, 15]),
                         local_count: 1,
                     },
                 ],
                 Some(&[
                     Constant::Str("f"),
-                    Constant::Str("foo"),
                     Constant::Str("bar"),
                     Constant::Str("x"),
+                    Constant::Str("foo"),
                 ]),
             )
         }
@@ -3616,19 +3459,20 @@ z = y [0..20], |x| x > 1
                 &[
                     id(0),
                     SmallInt(42),
-                    map_block(&[(0, 1)]),
-                    Yield(2.into()),
+                    map_entry(0, 1),
+                    map_block(&[2]),
+                    Yield(3.into()),
                     Function(koto_parser::Function {
                         args: nodes(&[]),
                         local_count: 0,
                         accessed_non_locals: constants(&[]),
-                        body: 3.into(),
+                        body: 4.into(),
                         is_variadic: false,
                         is_generator: true,
                         output_type: None,
-                    }),
+                    }), // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -3972,18 +3816,19 @@ x.takes_a_map
                     id(0), // x
                     id(2), // foo
                     SmallInt(42),
-                    map_block(&[(1, 2)]),
+                    map_entry(1, 2),
+                    map_block(&[3]),
                     Chain((
                         ChainNode::Call {
-                            args: nodes(&[3]),
+                            args: nodes(&[4]),
                             with_parens: false,
                         },
                         None,
-                    )),
-                    chain_id(1, Some(4)), // 5 - takes_a_map
-                    chain_root(0, Some(5)),
+                    )), // 5
+                    chain_id(1, Some(5)), // takes_a_map
+                    chain_root(0, Some(6)),
                     MainBlock {
-                        body: nodes(&[6]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],
@@ -4281,7 +4126,7 @@ x = { y
                     id(0),
                     id(1),
                     id(2),
-                    map_inline(&[(1, None), (2, None)]),
+                    map_with_braces(&[1, 2]),
                     Chain((
                         ChainNode::Call {
                             args: nodes(&[]),
@@ -5123,14 +4968,16 @@ throw
             check_ast(
                 source,
                 &[
-                    id(0),                                  // data
-                    id(1),                                  // x
+                    id(0), // data
+                    id(1), // x
+                    map_entry(0, 1),
                     id(2),                                  // message
                     string_literal(3, StringQuote::Double), // error!
-                    map_block(&[(0, 1), (2, 3)]),
-                    Throw(4.into()), // 5
+                    map_entry(3, 4),                        // 5
+                    map_block(&[2, 5]),
+                    Throw(6.into()),
                     MainBlock {
-                        body: nodes(&[5]),
+                        body: nodes(&[7]),
                         local_count: 0,
                     },
                 ],

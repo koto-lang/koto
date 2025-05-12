@@ -65,9 +65,10 @@ pub enum Node {
 
     /// A temporary tuple
     ///
-    /// Used in contexts where the result won't be exposed directly to the use, e.g.
-    /// `x, y = 1, 2` - here `x` and `y` are indexed from the temporary tuple.
-    /// `match foo, bar...` - foo and bar will be stored in a temporary tuple for comparison.
+    /// Used in contexts where the result won't be exposed directly to the user,
+    /// e.g.
+    /// - `x, y = 1, 2`: x and y are indexed from the temporary tuple.
+    /// - `match foo, bar...`: foo and bar will be stored in a temporary tuple for comparison.
     TempTuple(AstVec<AstIndex>),
 
     /// A range with a defined start and end
@@ -102,12 +103,21 @@ pub enum Node {
     /// Used when indexing a list or tuple, and the full contents are to be returned.
     RangeFull,
 
-    /// A map literal, with a series of keys and values
+    /// A map literal, containing a series of key/value entries
+    Map {
+        /// The map's entries.
+        ///
+        /// If the map has braces, then values are optional and the valueless keys will point
+        /// directly to an Id instead of a MapEntry.
+        entries: AstVec<AstIndex>,
+        /// Whether or not the map was defined using braces.
+        braces: bool,
+    },
+
+    /// A key/value pair representing a Map entry.
     ///
     /// Keys will either be Id, String, or Meta nodes.
-    ///
-    /// Values are optional for inline maps.
-    Map(AstVec<(AstIndex, Option<AstIndex>)>),
+    MapEntry(AstIndex, AstIndex),
 
     /// The `self` keyword
     Self_,
@@ -208,7 +218,8 @@ pub enum Node {
     /// Used as a placeholder for unused function arguments or unpacked values, or as a wildcard
     /// in match expressions.
     ///
-    /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
+    /// Comes with an optional name (e.g. `_foo` will have `foo` stored as a constant),
+    /// and an optional type hint.
     Wildcard(Option<ConstantIndex>, Option<AstIndex>),
 
     /// Used when capturing variadic arguments, and when unpacking list or tuple arguments.
@@ -387,6 +398,22 @@ pub enum AstUnaryOp {
     Not,
 }
 
+impl AstUnaryOp {
+    /// The binary op as a str
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AstUnaryOp::Negate => "-",
+            AstUnaryOp::Not => "not",
+        }
+    }
+}
+
+impl fmt::Display for AstUnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// An operation used in BinaryOp expressions
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -412,6 +439,41 @@ pub enum AstBinaryOp {
     And,
     Or,
     Pipe,
+}
+
+impl AstBinaryOp {
+    /// The binary op as a str
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AstBinaryOp::Add => "+",
+            AstBinaryOp::Subtract => "-",
+            AstBinaryOp::Multiply => "*",
+            AstBinaryOp::Divide => "/",
+            AstBinaryOp::Remainder => "%",
+            AstBinaryOp::Power => "^",
+            AstBinaryOp::AddAssign => "+=",
+            AstBinaryOp::SubtractAssign => "-=",
+            AstBinaryOp::MultiplyAssign => "*=",
+            AstBinaryOp::DivideAssign => "/=",
+            AstBinaryOp::RemainderAssign => "%=",
+            AstBinaryOp::PowerAssign => "^=",
+            AstBinaryOp::Equal => "==",
+            AstBinaryOp::NotEqual => "!=",
+            AstBinaryOp::Less => "<",
+            AstBinaryOp::LessOrEqual => "<=",
+            AstBinaryOp::Greater => ">",
+            AstBinaryOp::GreaterOrEqual => ">=",
+            AstBinaryOp::And => "and",
+            AstBinaryOp::Or => "or",
+            AstBinaryOp::Pipe => "->",
+        }
+    }
+}
+
+impl fmt::Display for AstBinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 /// A try expression definition
@@ -617,6 +679,57 @@ pub enum MetaKeyId {
     Invalid,
 }
 
+impl MetaKeyId {
+    /// Returns the key id as a static str
+    pub fn as_str(&self) -> &'static str {
+        use MetaKeyId::*;
+        match self {
+            Add => "@+",
+            Subtract => "@-",
+            Multiply => "@*",
+            Divide => "@/",
+            Remainder => "@%",
+            Power => "@^",
+            AddRhs => "@r+",
+            SubtractRhs => "@r-",
+            MultiplyRhs => "@r*",
+            DivideRhs => "@r/",
+            RemainderRhs => "@r%",
+            PowerRhs => "@r^",
+            AddAssign => "@+=",
+            SubtractAssign => "@-=",
+            MultiplyAssign => "@*=",
+            DivideAssign => "@/=",
+            RemainderAssign => "@%=",
+            PowerAssign => "@^=",
+            Less => "@<",
+            LessOrEqual => "@<=",
+            Greater => "@>",
+            GreaterOrEqual => "@>=",
+            Equal => "@==",
+            NotEqual => "@!=",
+            Index => "@index",
+            IndexMut => "@index_mut",
+            Debug => "@debug",
+            Display => "@display",
+            Iterator => "@iterator",
+            Next => "@next",
+            NextBack => "@next_back",
+            Negate => "@negate",
+            Size => "@size",
+            Type => "@type",
+            Base => "@base",
+            Call => "@call",
+            Test => "@test",
+            PreTest => "@pre_test",
+            PostTest => "@post_test",
+            Main => "@main",
+            Named => "@meta",
+            Invalid => unreachable!(),
+        }
+    }
+}
+
 impl TryFrom<u8> for MetaKeyId {
     type Error = u8;
 
@@ -633,56 +746,7 @@ impl TryFrom<u8> for MetaKeyId {
 // Display impl used by koto-ls
 impl fmt::Display for MetaKeyId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use MetaKeyId::*;
-
-        write!(
-            f,
-            "@{}",
-            match self {
-                Add => "+",
-                Subtract => "-",
-                Multiply => "*",
-                Divide => "/",
-                Remainder => "%",
-                Power => "^",
-                AddRhs => "r+",
-                SubtractRhs => "r-",
-                MultiplyRhs => "r*",
-                DivideRhs => "r/",
-                RemainderRhs => "r%",
-                PowerRhs => "r^",
-                AddAssign => "+=",
-                SubtractAssign => "-=",
-                MultiplyAssign => "*=",
-                DivideAssign => "/=",
-                RemainderAssign => "%=",
-                PowerAssign => "^=",
-                Less => "<",
-                LessOrEqual => "<=",
-                Greater => ">",
-                GreaterOrEqual => ">=",
-                Equal => "==",
-                NotEqual => "!=",
-                Index => "index",
-                IndexMut => "index_mut",
-                Debug => "debug",
-                Display => "display",
-                Iterator => "iterator",
-                Next => "next",
-                NextBack => "next_back",
-                Negate => "negate",
-                Size => "size",
-                Type => "type",
-                Base => "base",
-                Call => "call",
-                Test => "test",
-                PreTest => "pre_test",
-                PostTest => "post_test",
-                Main => "main",
-                Named => "meta",
-                Invalid => unreachable!(),
-            }
-        )
+        f.write_str(self.as_str())
     }
 }
 
