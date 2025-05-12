@@ -1,21 +1,14 @@
-#![expect(unused)]
-
-use std::{
-    cell::OnceCell,
-    iter::{self, Peekable},
-    thread::LocalKey,
-};
-
 use crate::{
     FormatOptions, Result, Trivia,
-    trivia::{TriviaItem, TriviaIterator, TriviaToken},
+    trivia::{TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstCatch, AstFor, AstIf, AstIndex, AstNode, AstString, AstTry, AstUnaryOp, AstVec,
-    ChainNode, ConstantIndex, ConstantPool, Function, ImportItem, KString, MatchArm, Node, Span,
-    StringAlignment, StringContents, StringFormatOptions, StringNode, StringSlice,
+    Ast, AstCatch, AstFor, AstIf, AstIndex, AstNode, AstString, AstTry, AstUnaryOp, ChainNode,
+    ConstantIndex, ConstantPool, Function, ImportItem, KString, Node, Span, StringAlignment,
+    StringContents, StringFormatOptions, StringNode,
 };
+use std::{cell::OnceCell, iter};
 use unicode_width::UnicodeWidthStr;
 
 /// Returns the input source formatted according to the provided options
@@ -404,7 +397,7 @@ fn format_node<'source>(
                 })
                 .add_trailing_trivia();
 
-            for (i, arm) in arms.iter().enumerate() {
+            for arm in arms.iter() {
                 group = group.indented_break().nested(
                     arm.patterns.len() * 2 + 4,
                     node,
@@ -770,11 +763,6 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
-    fn string(mut self, s: String) -> Self {
-        self.items.push(FormatItem::String(s));
-        self
-    }
-
     fn kstring(mut self, s: KString) -> Self {
         self.items.push(FormatItem::KString(s));
         self
@@ -865,7 +853,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             capacity,
             nested_node,
             self.ctx,
-            &mut self.trivia,
+            self.trivia,
         )));
         self.current_line = self.ctx.span(nested_node).end.line;
         self
@@ -937,8 +925,6 @@ enum FormatItem<'source> {
     Char(char),
     // A `&str`, either static or from the source file
     Str(&'source str),
-    // A String
-    String(String),
     // A KString
     KString(KString),
     // A grouped sequence of items
@@ -998,7 +984,6 @@ impl<'source> FormatItem<'source> {
         match self {
             Self::Char(c) => output.push(*c),
             Self::Str(s) => output.push_str(s),
-            Self::String(s) => output.push_str(s),
             Self::KString(s) => output.push_str(s),
             Self::Group { items, .. } => self.render_group(items, output, options, column),
             Self::MainBlock(items) => {
@@ -1012,7 +997,7 @@ impl<'source> FormatItem<'source> {
             }
             Self::Block { items, indented } => {
                 let block_column = if *indented {
-                    (column + options.indent_width as usize)
+                    column + options.indent_width as usize
                 } else {
                     column
                 };
@@ -1057,7 +1042,6 @@ impl<'source> FormatItem<'source> {
             let extra_indent = " ".repeat(options.indent_width as usize);
             let mut group_column = column;
             let mut group_break = GroupBreak::None;
-            let mut current_line_width = 0;
             let mut item_buffer = String::new();
             let mut line_width = group_column;
 
@@ -1159,7 +1143,6 @@ impl<'source> FormatItem<'source> {
         match self {
             Self::Char(c) => c.width().unwrap_or(0),
             Self::Str(s) => s.width(),
-            Self::String(s) => s.width(),
             Self::KString(s) => s.width(),
             Self::Group {
                 line_length, items, ..
