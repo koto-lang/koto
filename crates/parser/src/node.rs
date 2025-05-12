@@ -105,15 +105,19 @@ pub enum Node {
 
     /// A map literal, containing a series of key/value entries
     Map {
-        /// The map's entries as key/value pairs.
+        /// The map's entries.
         ///
-        /// Keys will either be Id, String, or Meta nodes.
-        ///
-        /// If the map has braces, then values are optional.
-        entries: AstVec<(AstIndex, Option<AstIndex>)>,
+        /// If the map has braces, then values are optional and the valueless keys will point
+        /// directly to an Id instead of a MapEntry.
+        entries: AstVec<AstIndex>,
         /// Whether or not the map was defined using braces.
         braces: bool,
     },
+
+    /// A key/value pair representing a Map entry.
+    ///
+    /// Keys will either be Id, String, or Meta nodes.
+    MapEntry(AstIndex, AstIndex),
 
     /// The `self` keyword
     Self_,

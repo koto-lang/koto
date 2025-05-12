@@ -365,16 +365,19 @@ a, b, c =
                 &["\
 x =
   foo  :
-    99
+    99     # abc
+
   bar: some_long_function()
-  'baz'  : 1 + 1
+  'baz'  : #- xyz -# 1 + 1
 "],
                 "\
 x =
-  foo: 99
+  foo: 99 # abc
+
   bar:
     some_long_function()
-  'baz': 1 + 1
+  'baz':
+    #- xyz -# 1 + 1
 ",
                 FormatOptions {
                     line_length: 20,

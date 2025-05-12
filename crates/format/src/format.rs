@@ -193,16 +193,8 @@ fn format_node<'source>(
                     .char('{')
                     .maybe_indent();
 
-                for (i, (key, value)) in entries.iter().enumerate() {
-                    group = group.nested(|trivia| {
-                        let mut group = GroupBuilder::new(4, node, ctx, trivia).node(*key);
-
-                        if let Some(value) = value {
-                            group = group.char(':').space_or_indent_if_necessary().node(*value);
-                        }
-
-                        group.build()
-                    });
+                for (i, entry) in entries.iter().enumerate() {
+                    group = group.node(*entry);
                     if i < entries.len() - 1 {
                         group = group.char(',').space_or_indent_if_necessary();
                     }
@@ -211,28 +203,21 @@ fn format_node<'source>(
                 group.maybe_return().char('}').build()
             } else {
                 let mut group =
-                    GroupBuilder::new(entries.len() * 2 + 4, node, ctx, trivia).indented_break();
+                    GroupBuilder::new(entries.len() * 2 + 1, node, ctx, trivia).indented_break();
 
-                for (key, value) in entries.iter() {
-                    let Some(value) = value else {
-                        panic!("Expected entry value in map block"); // TODO - error
-                    };
-
-                    group = group
-                        .nested(|trivia| {
-                            GroupBuilder::new(4, node, ctx, trivia)
-                                .node(*key)
-                                .char(':')
-                                .space_or_indent()
-                                .node(*value)
-                                .build()
-                        })
-                        .indented_break();
+                for entry in entries.iter() {
+                    group = group.node(*entry).indented_break();
                 }
 
                 group.build()
             }
         }
+        Node::MapEntry(key, value) => GroupBuilder::new(4, node, ctx, trivia)
+            .node(*key)
+            .char(':')
+            .space_or_indent()
+            .node(*value)
+            .build(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
             let mut group = GroupBuilder::new(body.len(), node, ctx, trivia);
@@ -1051,6 +1036,10 @@ impl<'source> FormatItem<'source> {
                         group_break = GroupBreak::ReturnBreak;
                     }
                     Self::ForceBreak => {
+                        group_break = GroupBreak::IndentedBreak;
+                    }
+                    Self::LineBreak => {
+                        output.push('\n');
                         group_break = GroupBreak::IndentedBreak;
                     }
                     Self::Block { .. } => {
