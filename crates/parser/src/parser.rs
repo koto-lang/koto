@@ -827,7 +827,7 @@ impl<'source> Parser<'source> {
                 self.push_node(BoolFalse)
             }
             Token::RoundOpen => self.consume_tuple(context),
-            Token::Number => self.consume_number(false, context),
+            Token::Number => self.consume_number(false, context, None),
             Token::StringStart { .. } => {
                 let string = self.parse_string(context)?.unwrap();
                 let string_node = self.push_node_with_span(Str(string.string), string.span)?;
@@ -883,7 +883,8 @@ impl<'source> Parser<'source> {
                 Some(token) if token.is_whitespace_including_newline() => return Ok(None),
                 Some(Token::Number) => {
                     self.consume_token_with_context(context); // Token::Subtract
-                    self.consume_number(true, context)
+                    let start_span = self.current_span();
+                    self.consume_number(true, context, Some(start_span))
                 }
                 Some(_) => {
                     self.consume_token_with_context(context); // Token::Subtract
@@ -1906,8 +1907,14 @@ impl<'source> Parser<'source> {
         )
     }
 
-    fn consume_number(&mut self, negate: bool, context: &ExpressionContext) -> Result<AstIndex> {
+    fn consume_number(
+        &mut self,
+        negate: bool,
+        context: &ExpressionContext,
+        start_span: Option<Span>,
+    ) -> Result<AstIndex> {
         self.consume_token_with_context(context); // Token::Number
+        let start_span = start_span.unwrap_or_else(|| self.current_span());
 
         let slice = self.current_token.slice(self.source);
         // Strip underscores if necessary
@@ -1951,7 +1958,7 @@ impl<'source> Parser<'source> {
             return self.error(InternalError::NumberParseFailure);
         };
 
-        let node = self.push_node(number_node)?;
+        let node = self.push_node_with_start_span(number_node, start_span)?;
         self.check_for_chain_after_node(node, context)
     }
 

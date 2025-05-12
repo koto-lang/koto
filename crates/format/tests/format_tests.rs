@@ -278,6 +278,39 @@ a, b, c =
                 },
             );
         }
+
+        #[test]
+        fn integers_with_alt_bases() {
+            check_format_output_with_options(
+                &["\
+0b101   +     0xabad_cafe *   0o707
+"],
+                "\
+0b101
+  + 0xabad_cafe * 0o707
+",
+                FormatOptions {
+                    line_length: 25,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn floats() {
+            check_format_output_with_options(
+                &["\
+1.0e-3    * 2e99
+"],
+                "\
+1.0e-3 * 2e99
+",
+                FormatOptions {
+                    line_length: 25,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     mod containers {

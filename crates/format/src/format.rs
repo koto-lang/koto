@@ -1,6 +1,10 @@
 #![expect(unused)]
 
-use std::{cell::OnceCell, iter::Peekable, thread::LocalKey};
+use std::{
+    cell::OnceCell,
+    iter::{self, Peekable},
+    thread::LocalKey,
+};
 
 use crate::{
     FormatOptions, Result, Trivia,
@@ -20,12 +24,8 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
     let ast = koto_parser::Parser::parse(source)?;
 
     if let Some(entry_point) = ast.entry_point() {
-        let context = FormatContext {
-            source,
-            ast: &ast,
-            options: &options,
-        };
-        let output = format_node(entry_point, context, &mut trivia.iter());
+        let context = FormatContext::new(source, &ast, &options);
+        let output = format_node(entry_point, &context, &mut trivia.iter());
         let mut result = String::new();
         output.render(&mut result, &options, 0);
         Ok(result)
@@ -36,7 +36,7 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
 
 fn format_node<'source>(
     node_index: AstIndex,
-    ctx: FormatContext<'source>,
+    ctx: &'source FormatContext<'source>,
     trivia: &mut TriviaIterator<'source>,
 ) -> FormatItem<'source> {
     let node = ctx.node(node_index);
@@ -147,9 +147,10 @@ fn format_node<'source>(
         }
         Node::BoolTrue => "true".into(),
         Node::BoolFalse => "false".into(),
-        Node::SmallInt(n) => FormatItem::SmallInt(*n),
-        Node::Int(index) => FormatItem::Int(ctx.ast.constants().get_i64(*index)),
-        Node::Float(index) => FormatItem::Float(ctx.ast.constants().get_f64(*index)),
+        Node::SmallInt(_) | Node::Int(_) | Node::Float(_) => {
+            // Take the number's representation directly from the source
+            FormatItem::Str(ctx.source_slice(ctx.span(node)))
+        }
         Node::Str(s) => format_string(s, node, ctx, trivia),
         Node::List(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
             .char('[')
@@ -620,7 +621,7 @@ fn format_node<'source>(
 fn format_string<'source>(
     string: &AstString,
     node: &AstNode,
-    ctx: FormatContext<'source>,
+    ctx: &'source FormatContext<'source>,
     trivia: &mut TriviaIterator<'source>,
 ) -> FormatItem<'source> {
     let quote = string.quote.as_char();
@@ -671,14 +672,33 @@ fn format_string<'source>(
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct FormatContext<'source> {
     source: &'source str,
     ast: &'source Ast,
     options: &'source FormatOptions,
+    // The byte offset of each line's start
+    line_offsets: Vec<u32>,
 }
 
 impl<'source> FormatContext<'source> {
+    fn new(source: &'source str, ast: &'source Ast, options: &'source FormatOptions) -> Self {
+        let line_offsets = iter::once(0)
+            .chain(
+                source
+                    .char_indices()
+                    .filter_map(|(i, c)| if c == '\n' { Some(i as u32 + 1) } else { None }),
+            )
+            .collect();
+
+        Self {
+            source,
+            ast,
+            options,
+            line_offsets,
+        }
+    }
+
     fn node(&self, ast_index: AstIndex) -> &AstNode {
         self.ast.node(ast_index)
     }
@@ -690,12 +710,18 @@ impl<'source> FormatContext<'source> {
     fn string_constant(&self, constant: ConstantIndex) -> &'source str {
         self.ast.constants().get_str(constant)
     }
+
+    fn source_slice(&self, span: &Span) -> &'source str {
+        let start = self.line_offsets[span.start.line as usize] + span.start.column;
+        let end = self.line_offsets[span.end.line as usize] + span.end.column;
+        &self.source[start as usize..end as usize]
+    }
 }
 
 struct GroupBuilder<'source, 'trivia> {
     items: Vec<FormatItem<'source>>,
     group_span: Span,
-    ctx: FormatContext<'source>,
+    ctx: &'source FormatContext<'source>,
     trivia: &'trivia mut TriviaIterator<'source>,
     current_line: u32,
 }
@@ -704,7 +730,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     fn new(
         capacity: usize,
         group_node: &AstNode,
-        ctx: FormatContext<'source>,
+        ctx: &'source FormatContext<'source>,
         trivia: &'trivia mut TriviaIterator<'source>,
     ) -> Self {
         let group_span = *ctx.span(group_node);
@@ -880,7 +906,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                     TriviaToken::EmptyLine => {
                         self.items.push(FormatItem::LineBreak);
                     }
-                    TriviaToken::CommentSingle(text) => {
+                    TriviaToken::CommentSingle => {
                         // Add a softbreak before the comment if necessary
                         if let Some(last_item) = self.items.last() {
                             if !last_item.is_break() {
@@ -888,11 +914,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                             }
                         }
 
-                        self.items.push(text.into());
+                        self.items.push(self.ctx.source_slice(&item.span).into());
                         self.items.push(FormatItem::ForceBreak);
                     }
-                    TriviaToken::CommentMulti(text) => {
-                        self.items.push(text.into());
+                    TriviaToken::CommentMulti => {
+                        self.items.push(self.ctx.source_slice(&item.span).into());
                         self.items.push(FormatItem::SpaceOrIndentIfNecessary);
                     }
                 }
@@ -927,12 +953,6 @@ enum FormatItem<'source> {
     String(String),
     // A KString
     KString(KString),
-    // A small int
-    SmallInt(i16),
-    /// An integer outside of the range -255..=255
-    Int(i64),
-    /// A float literal
-    Float(f64),
     // A grouped sequence of items
     // The group will be rendered on a single line, or if the group doesn't fit in the remaining
     // space then it will be rendered with softbreaks replaced by indented newlines
@@ -975,7 +995,7 @@ impl<'source> FormatItem<'source> {
         keyword: &'source str,
         value: &AstIndex,
         group_node: &AstNode,
-        ctx: FormatContext<'source>,
+        ctx: &'source FormatContext<'source>,
         trivia: &'trivia mut TriviaIterator<'source>,
     ) -> Self {
         GroupBuilder::new(3, group_node, ctx, trivia)
@@ -992,9 +1012,6 @@ impl<'source> FormatItem<'source> {
             Self::Str(s) => output.push_str(s),
             Self::String(s) => output.push_str(s),
             Self::KString(s) => output.push_str(s),
-            Self::SmallInt(n) => output.push_str(&n.to_string()),
-            Self::Int(n) => output.push_str(&n.to_string()),
-            Self::Float(n) => output.push_str(&n.to_string()),
             Self::Group { items, .. } => self.render_group(items, output, options, column),
             Self::MainBlock(items) => {
                 for item in items {
@@ -1156,9 +1173,6 @@ impl<'source> FormatItem<'source> {
             Self::Str(s) => s.width(),
             Self::String(s) => s.width(),
             Self::KString(s) => s.width(),
-            Self::SmallInt(n) => integer_length(*n as i64),
-            Self::Int(i) => integer_length(*i),
-            Self::Float(f) => todo!(),
             Self::Group {
                 line_length, items, ..
             } => *line_length.get_or_init(|| items.iter().map(Self::line_length).sum()),
@@ -1199,10 +1213,6 @@ impl<'source> From<&'source str> for FormatItem<'source> {
     fn from(s: &'source str) -> Self {
         Self::Str(s)
     }
-}
-
-fn integer_length(i: i64) -> usize {
-    (i / 10 + if i >= 0 { 1 } else { 2 }) as usize
 }
 
 fn render_format_options(options: &StringFormatOptions, constants: &ConstantPool) -> String {

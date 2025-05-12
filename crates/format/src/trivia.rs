@@ -4,13 +4,13 @@ use koto_parser::{Span, SyntaxError};
 
 /// Captures non-AST 'trivia' items that are needed for formatting, like comments and newlines
 #[derive(Default)]
-pub struct Trivia<'source> {
+pub struct Trivia {
     // Captured trivia items
-    items: Vec<TriviaItem<'source>>,
+    items: Vec<TriviaItem>,
 }
 
-impl<'source> Trivia<'source> {
-    pub fn parse(source: &'source str) -> Result<Self> {
+impl Trivia {
+    pub fn parse(source: &str) -> Result<Self> {
         let mut items = Vec::default();
 
         // Used to keep track of the how many newlines in a row are found in the input
@@ -23,10 +23,8 @@ impl<'source> Trivia<'source> {
             }
 
             let maybe_trivia = match token.token {
-                Token::CommentSingle => {
-                    Some(TriviaToken::CommentSingle(&source[token.source_bytes]))
-                }
-                Token::CommentMulti => Some(TriviaToken::CommentMulti(&source[token.source_bytes])),
+                Token::CommentSingle => Some(TriviaToken::CommentSingle),
+                Token::CommentMulti => Some(TriviaToken::CommentMulti),
                 Token::NewLine => {
                     newline_count += 1;
                     // Capture an `EmptyLine` item if 2 newlines after each other are encountered
@@ -63,25 +61,24 @@ impl<'source> Trivia<'source> {
     }
 }
 
-pub type TriviaIterator<'source> =
-    std::iter::Peekable<std::slice::Iter<'source, TriviaItem<'source>>>;
+pub type TriviaIterator<'a> = std::iter::Peekable<std::slice::Iter<'a, TriviaItem>>;
 
 #[derive(Clone, Copy, Debug)]
-pub struct TriviaItem<'source> {
-    pub token: TriviaToken<'source>,
+pub struct TriviaItem {
+    pub token: TriviaToken,
     pub span: Span,
 }
 
 /// Tokens that are captured as [Trivia] for formatting a Koto source file
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum TriviaToken<'source> {
+pub enum TriviaToken {
     /// Empty lines are captured once
     /// (i.e two empty lines in a row are capture as a single empty line)
     EmptyLine,
     /// A single-line comment
-    CommentSingle(&'source str),
+    CommentSingle,
     /// A multi-line comment
-    CommentMulti(&'source str),
+    CommentMulti,
 }
 
 #[cfg(test)]
@@ -127,14 +124,14 @@ return x
             source,
             &[
                 (
-                    CommentSingle("# Hello"),
+                    CommentSingle,
                     Span {
                         start: Position { line: 0, column: 0 },
                         end: Position { line: 0, column: 7 },
                     },
                 ),
                 (
-                    CommentSingle("# abcdef"),
+                    CommentSingle,
                     Span {
                         start: Position { line: 1, column: 6 },
                         end: Position {
@@ -151,12 +148,7 @@ return x
                     },
                 ),
                 (
-                    CommentMulti(
-                        "\
-#-
-Multiline comment
--#",
-                    ),
+                    CommentMulti,
                     Span {
                         start: Position { line: 3, column: 0 },
                         end: Position { line: 5, column: 2 },
@@ -170,7 +162,7 @@ Multiline comment
                     },
                 ),
                 (
-                    CommentMulti("#- Inline comment -#"),
+                    CommentMulti,
                     Span {
                         start: Position { line: 7, column: 4 },
                         end: Position {
