@@ -225,12 +225,12 @@ r###'raw!'###
             check_format_output(
                 &[
                     "\
-1   +  #- abc -#  x- -3*2   ",
+x   =   1   +  #- abc -#  x- -3*2   ",
                     "\
-1+#- abc -#x    - -3 *2",
+x =   1+#- abc -#x    - -3 *2",
                 ],
                 "\
-1 + #- abc -# x - -3 * 2
+x = 1 + #- abc -# x - -3 * 2
 ",
             );
         }
@@ -247,6 +247,25 @@ r###'raw!'###
   - 4 / 5 % 6
   + #- xyz -# 7 ^ 8
   - (9 + a)
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn multi_assignment() {
+            check_format_output_with_options(
+                &["\
+a,   b,   c =
+    11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c =
+  11 + 11, 22 + 22,
+  33 + 33
 ",
                 FormatOptions {
                     line_length: 20,

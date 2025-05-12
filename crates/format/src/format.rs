@@ -166,6 +166,7 @@ fn format_node<'source>(
             .char(')')
             .build(),
         Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 2, node, ctx, trivia)
+            .maybe_indent()
             .elements(elements)
             .build(),
         Node::Range {
@@ -294,7 +295,28 @@ fn format_node<'source>(
         Node::MultiAssign {
             targets,
             expression,
-        } => todo!(),
+        } => {
+            let mut group = GroupBuilder::new(targets.len() * 3, node, ctx, trivia);
+
+            for (i, target) in targets.iter().enumerate() {
+                group = group.node(*target);
+                if i < targets.len() - 1 {
+                    group = group.char(',');
+                }
+
+                group = group.space_or_indent_if_necessary();
+            }
+
+            group
+                .nested(|trivia| {
+                    GroupBuilder::new(3, node, ctx, trivia)
+                        .char('=')
+                        .space_or_indent_if_necessary()
+                        .node(*expression)
+                        .build()
+                })
+                .build()
+        }
         Node::UnaryOp { op, value } => match op {
             AstUnaryOp::Negate => GroupBuilder::new(2, node, ctx, trivia)
                 .str(op.as_str())
