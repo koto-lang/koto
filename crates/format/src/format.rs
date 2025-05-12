@@ -807,6 +807,9 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn line_break(mut self) -> Self {
         self = self.add_trailing_trivia();
+        // We don't need a ForceBreak if a LineBreak is being explicitly added
+        self.items
+            .pop_if(|item| matches!(item, FormatItem::ForceBreak));
         self.items.push(FormatItem::LineBreak);
         self
     }
@@ -1016,13 +1019,13 @@ impl<'source> FormatItem<'source> {
                     item.render(output, options, block_column);
                 }
             }
-            Self::LineBreak => output.push('\n'),
+            Self::ForceBreak | Self::LineBreak => output.push('\n'),
             // Optional breaks are rendered as a space when the group fits within the remaining width
             Self::SpaceOrIndent | Self::SpaceOrIndentIfNecessary | Self::SpaceOrReturn => {
                 output.push(' ')
             }
-            // Forced or optional breaks are handled by group rendering
-            Self::ForceBreak | Self::MaybeIndent | Self::MaybeReturn => {}
+            // Optional breaks are handled by group rendering
+            Self::MaybeIndent | Self::MaybeReturn => {}
         }
     }
 

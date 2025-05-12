@@ -45,6 +45,26 @@ Output:
         }
     }
 
+    mod comments {
+        use super::*;
+
+        #[test]
+        fn several_comments() {
+            check_format_output(
+                &["
+# one
+# two
+# three
+"],
+                "\
+# one
+# two
+# three
+",
+            );
+        }
+    }
+
     mod keywords {
         use super::*;
 
