@@ -25,6 +25,8 @@ path = "src/main.rs"
 
 [dependencies]
 koto = { path = "../koto", version = "^0.16.0", default-features = false }
+koto_format = { path = "../format", version = "^0.16.0", default-features = false }
+
 koto_color = { path = "../../libs/color", version = "^0.16.0", default-features = false }
 koto_geometry = { path = "../../libs/geometry", version = "^0.16.0", default-features = false }
 koto_json = { path = "../../libs/json", version = "^0.16.0", default-features = false }

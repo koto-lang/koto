@@ -621,6 +621,7 @@ dependencies = [
  "indexmap",
  "koto",
  "koto_color",
+ "koto_format",
  "koto_geometry",
  "koto_json",
  "koto_random",

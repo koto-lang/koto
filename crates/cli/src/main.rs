@@ -24,6 +24,7 @@ FLAGS:
     -b, --show_bytecode      Show the script's compiled bytecode
     -t, --tests              Run the script's tests before running the script
     -T, --import_tests       Run the script's tests, along with any tests in imported modules
+    -f, --format             Formats the input, reading from the script path if given, or from stdin
     -c, --config PATH        Config file to load when using the REPL
     -v, --version            Prints version information
     -h, --help               Prints help information
@@ -67,6 +68,7 @@ struct KotoArgs {
     run_import_tests: bool,
     show_bytecode: bool,
     show_instructions: bool,
+    format: bool,
     script: Option<String>,
     script_args: Vec<String>,
     config_file: Option<String>,
@@ -80,9 +82,10 @@ fn parse_arguments() -> Result<KotoArgs> {
     let show_bytecode = args.contains(["-b", "--show_bytecode"]);
     let run_tests = args.contains(["-t", "--tests"]);
     let run_import_tests = args.contains(["-T", "--import_tests"]);
+    let format = args.contains(["-f", "--format"]);
+    let config_file = args.opt_value_from_str(["-c", "--config"])?;
     let help = args.contains(["-h", "--help"]);
     let version = args.contains(["-v", "--version"]);
-    let config_file = args.opt_value_from_str(["-c", "--config"])?;
 
     let script = args.subcommand()?;
 
@@ -104,6 +107,7 @@ fn parse_arguments() -> Result<KotoArgs> {
         run_import_tests,
         show_bytecode,
         show_instructions,
+        format,
         script,
         script_args,
         config_file,
@@ -160,45 +164,55 @@ fn main() -> Result<()> {
     };
 
     if let Some(script) = script {
-        let mut koto = Koto::with_settings(koto_settings);
+        if args.format {
+            let formatted = koto_format::format(&script, koto_format::FormatOptions::default())?;
+            if let Some(path) = script_path {
+                fs::write(path, formatted)?;
+            } else {
+                print!("{formatted}");
+            }
+            Ok(())
+        } else {
+            let mut koto = Koto::with_settings(koto_settings);
 
-        add_modules(&koto);
+            add_modules(&koto);
 
-        match koto.compile(CompileArgs {
-            script: &script,
-            script_path: script_path.map(KString::from),
-            compiler_settings: Default::default(),
-        }) {
-            Ok(chunk) => {
-                if args.show_bytecode {
-                    println!("{}\n", &Chunk::bytes_as_string(&chunk));
-                }
-                if args.show_instructions {
-                    println!("Constants\n---------\n{}\n", chunk.constants);
-
-                    let script_lines = script.lines().collect::<Vec<_>>();
-                    println!(
-                        "Instructions\n------------\n{}",
-                        Chunk::instructions_as_string(chunk.clone(), &script_lines)
-                    );
-                }
-                koto.set_args(args.script_args)?;
-                match koto.run(chunk) {
-                    Ok(_) => {}
-                    Err(error) if error.source().is_some() => {
-                        bail!("{error}\n{}", error.source().unwrap())
+            match koto.compile(CompileArgs {
+                script: &script,
+                script_path: script_path.map(KString::from),
+                compiler_settings: Default::default(),
+            }) {
+                Ok(chunk) => {
+                    if args.show_bytecode {
+                        println!("{}\n", &Chunk::bytes_as_string(&chunk));
                     }
-                    Err(error) => {
-                        bail!("{error}")
+                    if args.show_instructions {
+                        println!("Constants\n---------\n{}\n", chunk.constants);
+
+                        let script_lines = script.lines().collect::<Vec<_>>();
+                        println!(
+                            "Instructions\n------------\n{}",
+                            Chunk::instructions_as_string(chunk.clone(), &script_lines)
+                        );
                     }
+                    koto.set_args(args.script_args)?;
+                    match koto.run(chunk) {
+                        Ok(_) => {}
+                        Err(error) if error.source().is_some() => {
+                            bail!("{error}\n{}", error.source().unwrap())
+                        }
+                        Err(error) => {
+                            bail!("{error}")
+                        }
+                    }
+                }
+                Err(error) => {
+                    bail!("{error}")
                 }
             }
-            Err(error) => {
-                bail!("{error}")
-            }
+
+            Ok(())
         }
-
-        Ok(())
     } else {
         let config = load_config(args.config_file.as_ref())?;
 
