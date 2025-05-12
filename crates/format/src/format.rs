@@ -8,9 +8,9 @@ use crate::{
 };
 use koto_lexer::Position;
 use koto_parser::{
-    Ast, AstFor, AstIf, AstIndex, AstNode, AstString, AstUnaryOp, AstVec, ChainNode, ConstantIndex,
-    ConstantPool, Function, ImportItem, KString, MatchArm, Node, Span, StringAlignment,
-    StringContents, StringFormatOptions, StringNode, StringSlice,
+    Ast, AstCatch, AstFor, AstIf, AstIndex, AstNode, AstString, AstTry, AstUnaryOp, AstVec,
+    ChainNode, ConstantIndex, ConstantPool, Function, ImportItem, KString, MatchArm, Node, Span,
+    StringAlignment, StringContents, StringFormatOptions, StringNode, StringSlice,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -558,7 +558,43 @@ fn format_node<'source>(
             Some(value) => FormatItem::from_keyword_and_value("return", value, node, ctx, trivia),
             None => "return".into(),
         },
-        Node::Try(ast_try) => todo!(),
+        Node::Try(AstTry {
+            try_block,
+            catch_blocks,
+            finally_block,
+        }) => {
+            let mut group = GroupBuilder::new(2 + 2 * catch_blocks.len() + 2, node, ctx, trivia)
+                .nested(|trivia| {
+                    GroupBuilder::new(3, node, ctx, trivia)
+                        .str("try")
+                        .indented_break()
+                        .node(*try_block)
+                        .build()
+                });
+
+            for AstCatch { arg, block } in catch_blocks.iter() {
+                group = group.line_break().nested(|trivia| {
+                    GroupBuilder::new(3, node, ctx, trivia)
+                        .str("catch ")
+                        .node(*arg)
+                        .indented_break()
+                        .node(*block)
+                        .build()
+                })
+            }
+
+            if let Some(finally) = finally_block {
+                group = group.line_break().nested(|trivia| {
+                    GroupBuilder::new(2, node, ctx, trivia)
+                        .str("finally")
+                        .indented_break()
+                        .node(*finally)
+                        .build()
+                })
+            }
+
+            group.build_block(false)
+        }
         Node::Throw(value) => FormatItem::from_keyword_and_value("throw", value, node, ctx, trivia),
         Node::Yield(value) => FormatItem::from_keyword_and_value("yield", value, node, ctx, trivia),
         Node::Debug { expression, .. } => {

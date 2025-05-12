@@ -13,7 +13,7 @@ mod format {
                     if expected != output {
                         panic!(
                             "\
-Mismatch in format output.
+Mismatch in format output at char {}.
 Input:
 ---
 {input}
@@ -28,6 +28,11 @@ Output:
 ---
 {}
 ---",
+                            expected
+                                .chars()
+                                .zip(output.chars())
+                                .take_while(|(a, b)| a == b)
+                                .count(),
                             output.replace("\n", "⏎\n")
                         )
                     }
@@ -601,6 +606,39 @@ match foo() # abc
     baz()
   else
     0
+",
+                FormatOptions {
+                    match_and_switch_always_indent_arm_bodies: true,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn try_catch_finally() {
+            check_format_output_with_options(
+                &["
+try     # abc
+  foo()
+  bar()
+catch i  :   Int
+    debug i
+    throw   '{i}'
+catch    other
+  throw other
+finally
+    print 'bye'"],
+                "\
+try # abc
+  foo()
+  bar()
+catch i: Int
+  debug i
+  throw '{i}'
+catch other
+  throw other
+finally
+  print 'bye'
 ",
                 FormatOptions {
                     match_and_switch_always_indent_arm_bodies: true,
