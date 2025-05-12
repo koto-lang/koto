@@ -395,7 +395,7 @@ impl Compiler {
             Node::List(elements) => {
                 self.compile_make_sequence(elements, Op::SequenceToList, ctx)?
             }
-            Node::Map(entries) => self.compile_make_map(entries, false, ctx)?,
+            Node::Map { entries, .. } => self.compile_make_map(entries, false, ctx)?,
             Node::Self_ => {
                 // self is always in register 0
                 match ctx.result_register {
@@ -1600,7 +1600,7 @@ impl Compiler {
                 expression,
             } => self.compile_multi_assign(targets, *expression, true, ctx),
             // Maps can be exported directly rather than relying on the iterator logic below
-            Node::Map(entries) => self.compile_make_map(entries, true, ctx),
+            Node::Map { entries, .. } => self.compile_make_map(entries, true, ctx),
             // Other expressions can be evaluated and then assumed to be iterable
             _ => {
                 // Evaluate the expression and convert the result into an iterator

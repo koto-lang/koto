@@ -2094,7 +2094,13 @@ impl<'source> Parser<'source> {
             entries.push((key, Some(self.consume_map_block_value()?)));
         }
 
-        self.push_node_with_start_span(Node::Map(entries), start_span)
+        self.push_node_with_start_span(
+            Node::Map {
+                entries,
+                braces: false,
+            },
+            start_span,
+        )
     }
 
     fn consume_map_block_value(&mut self) -> Result<AstIndex> {
@@ -2120,7 +2126,13 @@ impl<'source> Parser<'source> {
             &ExpressionContext::inside_braces(),
         )?;
 
-        let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
+        let map_node = self.push_node_with_start_span(
+            Node::Map {
+                entries,
+                braces: true,
+            },
+            start_span,
+        )?;
         self.check_for_chain_after_node(
             map_node,
             &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),

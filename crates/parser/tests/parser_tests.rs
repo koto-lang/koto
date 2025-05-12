@@ -119,12 +119,15 @@ mod parser {
         }
     }
 
-    fn map_inline(entries: &[(u32, Option<u32>)]) -> Node {
+    fn map_with_braces(entries: &[(u32, Option<u32>)]) -> Node {
         let entries = entries
             .iter()
             .map(|(key, maybe_value)| (AstIndex::from(*key), maybe_value.map(AstIndex::from)))
             .collect();
-        Node::Map(entries)
+        Node::Map {
+            entries,
+            braces: true,
+        }
     }
 
     fn map_block(entries: &[(u32, u32)]) -> Node {
@@ -132,7 +135,10 @@ mod parser {
             .iter()
             .map(|(key, value)| (AstIndex::from(*key), Some(AstIndex::from(*value))))
             .collect();
-        Node::Map(entries)
+        Node::Map {
+            entries,
+            braces: false,
+        }
     }
 
     fn range(start: u32, end: u32, inclusive: bool) -> Node {
@@ -615,7 +621,7 @@ x = [
         use super::*;
 
         #[test]
-        fn map_inline_syntax() {
+        fn maps_with_braces() {
             let sources = [
                 "
 {}
@@ -651,7 +657,7 @@ x =
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    map_inline(&[]),
+                    map_with_braces(&[]),
                     id(0),                                  // x
                     string_literal(1, StringQuote::Single), // 'foo'
                     SmallInt(42),
@@ -660,7 +666,7 @@ x =
                     string_literal(4, StringQuote::Single), // 'hello'
                     Meta(MetaKeyId::Add, None),
                     SmallInt(99),
-                    map_inline(&[(2, Some(3)), (4, None), (5, Some(6)), (7, Some(8))]),
+                    map_with_braces(&[(2, Some(3)), (4, None), (5, Some(6)), (7, Some(8))]),
                     assign(1, 9), // 10
                     MainBlock {
                         body: nodes(&[0, 10]),
@@ -3178,7 +3184,7 @@ foo.bar x
                         is_generator: false,
                         output_type: None,
                     }),
-                    map_inline(&[(0, Some(1)), (2, Some(9))]), // 10
+                    map_with_braces(&[(0, Some(1)), (2, Some(9))]), // 10
                     MainBlock {
                         body: nodes(&[10]),
                         local_count: 0,
@@ -4281,7 +4287,7 @@ x = { y
                     id(0),
                     id(1),
                     id(2),
-                    map_inline(&[(1, None), (2, None)]),
+                    map_with_braces(&[(1, None), (2, None)]),
                     Chain((
                         ChainNode::Call {
                             args: nodes(&[]),

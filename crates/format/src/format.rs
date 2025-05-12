@@ -187,7 +187,52 @@ fn format_node<'source>(
             .node(*end)
             .build(),
         Node::RangeFull => "..".into(),
-        Node::Map(small_vec) => todo!(),
+        Node::Map { entries, braces } => {
+            if *braces {
+                let mut group = GroupBuilder::new(entries.len() * 2 + 4, node, ctx, trivia)
+                    .char('{')
+                    .maybe_indent();
+
+                for (i, (key, value)) in entries.iter().enumerate() {
+                    group = group.nested(|trivia| {
+                        let mut group = GroupBuilder::new(4, node, ctx, trivia).node(*key);
+
+                        if let Some(value) = value {
+                            group = group.char(':').space_or_indent_if_necessary().node(*value);
+                        }
+
+                        group.build()
+                    });
+                    if i < entries.len() - 1 {
+                        group = group.char(',').space_or_indent_if_necessary();
+                    }
+                }
+
+                group.maybe_return().char('}').build()
+            } else {
+                let mut group =
+                    GroupBuilder::new(entries.len() * 2 + 4, node, ctx, trivia).indented_break();
+
+                for (key, value) in entries.iter() {
+                    let Some(value) = value else {
+                        panic!("Expected entry value in map block"); // TODO - error
+                    };
+
+                    group = group
+                        .nested(|trivia| {
+                            GroupBuilder::new(4, node, ctx, trivia)
+                                .node(*key)
+                                .char(':')
+                                .space_or_indent()
+                                .node(*value)
+                                .build()
+                        })
+                        .indented_break();
+                }
+
+                group.build()
+            }
+        }
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
             let mut group = GroupBuilder::new(body.len(), node, ctx, trivia);

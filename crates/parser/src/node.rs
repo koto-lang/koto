@@ -103,12 +103,17 @@ pub enum Node {
     /// Used when indexing a list or tuple, and the full contents are to be returned.
     RangeFull,
 
-    /// A map literal, with a series of keys and values
-    ///
-    /// Keys will either be Id, String, or Meta nodes.
-    ///
-    /// Values are optional for inline maps.
-    Map(AstVec<(AstIndex, Option<AstIndex>)>),
+    /// A map literal, containing a series of key/value entries
+    Map {
+        /// The map's entries as key/value pairs.
+        ///
+        /// Keys will either be Id, String, or Meta nodes.
+        ///
+        /// If the map has braces, then values are optional.
+        entries: AstVec<(AstIndex, Option<AstIndex>)>,
+        /// Whether or not the map was defined using braces.
+        braces: bool,
+    },
 
     /// The `self` keyword
     Self_,

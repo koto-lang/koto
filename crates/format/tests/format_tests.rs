@@ -339,6 +339,49 @@ a, b, c =
                 },
             );
         }
+
+        #[test]
+        fn map_with_braces() {
+            check_format_output_with_options(
+                &["\
+{ foo:42,bar,      baz: 99    }
+"],
+                "\
+{
+  foo: 42, bar,
+  baz: 99
+}
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn map_blocks() {
+            check_format_output_with_options(
+                &["\
+x =
+  foo  :
+    99
+  bar: some_long_function()
+  'baz'  : 1 + 1
+"],
+                "\
+x =
+  foo: 99
+  bar:
+    some_long_function()
+  'baz': 1 + 1
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     mod loops {
