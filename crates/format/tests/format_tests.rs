@@ -509,13 +509,10 @@ for #- abc -# x in y # xyz
             check_format_output(
                 &["\
 if   #- abc -#   x >   10 # foo
-   x = 1
    return x
-else if   x   < 5
-    x = 0
+else if   x   < 5 # ---
     return x     # bar
 else if     x ==   0 # xyz
-     x = -1
      return x
 else # baz
  x     =    42      # 42
@@ -523,13 +520,10 @@ else # baz
 "],
                 "\
 if #- abc -# x > 10 # foo
-  x = 1
   return x
-else if x < 5
-  x = 0
+else if x < 5 # ---
   return x # bar
 else if x == 0 # xyz
-  x = -1
   return x
 else # baz
   x = 42 # 42

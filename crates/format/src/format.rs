@@ -89,39 +89,33 @@ fn format_node<'source>(
                         group = group
                             .maybe_indent()
                             .char('.')
-                            .nested(|trivia| format_string(s, node, ctx, trivia));
+                            .nested(3, node, |nested| format_string(s, nested));
                     }
                     ChainNode::Index(index) => {
-                        group = group.nested(|trivia| {
-                            GroupBuilder::new(3, node, ctx, trivia)
-                                .char('[')
-                                .node(*index)
-                                .char(']')
-                                .build()
+                        group = group.nested(3, node, |nested| {
+                            nested.char('[').node(*index).char(']').build()
                         })
                     }
                     ChainNode::Call { args, with_parens } => {
-                        group = group.nested(|trivia| {
-                            let mut group = GroupBuilder::new(args.len() * 3, node, ctx, trivia);
-
+                        group = group.nested(args.len() * 3, node, |mut nested| {
                             if *with_parens {
-                                group = group.char('(');
+                                nested = nested.char('(');
                             } else {
-                                group = group.space_or_indent();
+                                nested = nested.space_or_indent();
                             }
 
                             for (i, arg) in args.iter().enumerate() {
-                                group = group.node(*arg);
+                                nested = nested.node(*arg);
 
                                 if i < args.len() - 1 {
-                                    group = group.char(',').space_or_indent();
+                                    nested = nested.char(',').space_or_indent();
                                 }
                             }
 
                             if *with_parens {
-                                group = group.char(')');
+                                nested = nested.char(')');
                             }
-                            group.build()
+                            nested.build()
                         })
                     }
                     ChainNode::NullCheck => {
@@ -151,7 +145,7 @@ fn format_node<'source>(
             // Take the number's representation directly from the source
             FormatItem::Str(ctx.source_slice(ctx.span(node)))
         }
-        Node::Str(s) => format_string(s, node, ctx, trivia),
+        Node::Str(s) => format_string(s, GroupBuilder::new(3, node, ctx, trivia)),
         Node::List(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
             .char('[')
             .maybe_indent()
@@ -244,30 +238,28 @@ fn format_node<'source>(
             let mut group = GroupBuilder::new(3, node, ctx, trivia);
 
             // Args
-            group = group.nested(|trivia| {
-                let mut group = GroupBuilder::new(3 + args.len() * 2, node, ctx, trivia);
-
-                group = group.char('|').maybe_indent();
+            group = group.nested(3 + args.len() * 2, node, |mut nested| {
+                nested = nested.char('|').maybe_indent();
                 for (i, arg) in args.iter().enumerate() {
-                    group = group.node(*arg);
+                    nested = nested.node(*arg);
                     if i < args.len() - 1 {
-                        group = group.char(',').space_or_indent_if_necessary();
+                        nested = nested.char(',').space_or_indent_if_necessary();
                     } else if *is_variadic {
-                        group = group.str("...");
+                        nested = nested.str("...");
                     }
                 }
-                group = group.maybe_return().char('|');
+                nested = nested.maybe_return().char('|');
 
                 // Output type
                 if let Some(output_type) = output_type {
-                    group = group
+                    nested = nested
                         .space_or_indent_if_necessary()
                         .str("->")
                         .space_or_indent_if_necessary()
                         .node(*output_type);
                 }
 
-                group.build()
+                nested.build()
             });
 
             // Body
@@ -289,17 +281,17 @@ fn format_node<'source>(
             group = group.space_or_return().str("import").space_or_indent();
 
             for (i, ImportItem { item, name }) in items.iter().enumerate() {
-                group = group.nested(|trivia| {
-                    let mut group = GroupBuilder::new(0, node, ctx, trivia).node(*item);
+                group = group.nested(0, node, |mut nested| {
+                    nested = nested.node(*item);
                     if let Some(name) = name {
-                        group = group.str(" as ").node(*name);
+                        nested = nested.str(" as ").node(*name);
                     }
 
                     if i < items.len() - 1 {
-                        group = group.char(',');
+                        nested = nested.char(',');
                     }
 
-                    group.build()
+                    nested.build()
                 });
 
                 if i < items.len() - 1 {
@@ -315,8 +307,8 @@ fn format_node<'source>(
         Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
             .node(*target)
             .space_or_indent_if_necessary()
-            .nested(|trivia| {
-                GroupBuilder::new(3, node, ctx, trivia)
+            .nested(3, node, |nested| {
+                nested
                     .char('=')
                     .space_or_indent_if_necessary()
                     .node(*expression)
@@ -339,8 +331,8 @@ fn format_node<'source>(
             }
 
             group
-                .nested(|trivia| {
-                    GroupBuilder::new(3, node, ctx, trivia)
+                .nested(3, node, |nested| {
+                    nested
                         .char('=')
                         .space_or_indent_if_necessary()
                         .node(*expression)
@@ -362,12 +354,8 @@ fn format_node<'source>(
         Node::BinaryOp { op, lhs, rhs } => GroupBuilder::new(3, node, ctx, trivia)
             .node_flattened(*lhs)
             .space_or_indent()
-            .nested(|trivia| {
-                GroupBuilder::new(3, node, ctx, trivia)
-                    .str(op.as_str())
-                    .space_or_indent()
-                    .node(*rhs)
-                    .build()
+            .nested(3, node, |nested| {
+                nested.str(op.as_str()).space_or_indent().node(*rhs).build()
             })
             .build(),
         Node::If(AstIf {
@@ -378,8 +366,8 @@ fn format_node<'source>(
         }) => {
             // TODO: Support for single-line if expressions
 
-            let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(|trivia| {
-                GroupBuilder::new(3, node, ctx, trivia)
+            let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(4, node, |nested| {
+                nested
                     .str("if")
                     .space_or_indent()
                     .node(*condition)
@@ -388,22 +376,22 @@ fn format_node<'source>(
             });
 
             for (else_if_condition, else_if_block) in else_if_blocks {
-                group = group.line_break().nested(|trivia| {
-                    GroupBuilder::new(3, node, ctx, trivia)
+                let else_if_node = ctx.node(*else_if_block);
+                group = group.line_break().nested(5, else_if_node, |nested| {
+                    nested
                         .str("else if")
                         .space_or_indent()
                         .node(*else_if_condition)
+                        .indented_break()
                         .node(*else_if_block)
                         .build()
                 });
             }
 
             if let Some(else_block) = else_node {
-                group = group.line_break().nested(|trivia| {
-                    GroupBuilder::new(3, node, ctx, trivia)
-                        .str("else")
-                        .node(*else_block)
-                        .build()
+                let else_node = ctx.node(*else_block);
+                group = group.line_break().nested(2, else_node, |nested| {
+                    nested.str("else").node(*else_block).build()
                 });
             }
 
@@ -411,49 +399,47 @@ fn format_node<'source>(
         }
         Node::Match { expression, arms } => {
             let mut group = GroupBuilder::new(3 + arms.len() * 2, node, ctx, trivia)
-                .nested(|trivia| {
-                    GroupBuilder::new(2, node, ctx, trivia)
-                        .str("match ")
-                        .node(*expression)
-                        .build()
+                .nested(2, node, |nested| {
+                    nested.str("match ").node(*expression).build()
                 })
                 .add_trailing_trivia();
 
             for (i, arm) in arms.iter().enumerate() {
-                group = group.indented_break().nested(|trivia| {
-                    let mut group =
-                        GroupBuilder::new(arm.patterns.len() * 2 + 4, node, ctx, trivia);
-
-                    if arm.is_else() {
-                        group = group.str("else");
-                    } else {
-                        for (i, pattern) in arm.patterns.iter().enumerate() {
-                            group = group.node(*pattern);
-                            if i < arm.patterns.len() - 1 {
-                                group = group
-                                    .space_or_indent_if_necessary()
-                                    .str("or")
-                                    .space_or_indent_if_necessary();
+                group = group.indented_break().nested(
+                    arm.patterns.len() * 2 + 4,
+                    node,
+                    |mut nested| {
+                        if arm.is_else() {
+                            nested = nested.str("else");
+                        } else {
+                            for (i, pattern) in arm.patterns.iter().enumerate() {
+                                nested = nested.node(*pattern);
+                                if i < arm.patterns.len() - 1 {
+                                    nested = nested
+                                        .space_or_indent_if_necessary()
+                                        .str("or")
+                                        .space_or_indent_if_necessary();
+                                }
                             }
+                            if let Some(condition) = arm.condition {
+                                nested = nested
+                                    .space_or_indent_if_necessary()
+                                    .str("if")
+                                    .space_or_indent_if_necessary()
+                                    .node(condition);
+                            }
+                            nested = nested.space_or_indent_if_necessary().str("then");
                         }
-                        if let Some(condition) = arm.condition {
-                            group = group
-                                .space_or_indent_if_necessary()
-                                .str("if")
-                                .space_or_indent_if_necessary()
-                                .node(condition);
+
+                        if ctx.options.match_and_switch_always_indent_arm_bodies {
+                            nested = nested.indented_break();
+                        } else {
+                            nested = nested.space_or_indent();
                         }
-                        group = group.space_or_indent_if_necessary().str("then");
-                    }
 
-                    if ctx.options.match_and_switch_always_indent_arm_bodies {
-                        group = group.indented_break();
-                    } else {
-                        group = group.space_or_indent();
-                    }
-
-                    group.node(arm.expression).add_trailing_trivia().build()
-                });
+                        nested.node(arm.expression).add_trailing_trivia().build()
+                    },
+                );
             }
 
             group.build()
@@ -464,21 +450,20 @@ fn format_node<'source>(
                 .indented_break();
 
             for (i, arm) in arms.iter().enumerate() {
-                group = group.nested(|trivia| {
-                    let mut group = GroupBuilder::new(3, node, ctx, trivia);
-                    group = if let Some(condition) = arm.condition {
-                        group.node(condition).str(" then")
+                group = group.nested(3, node, |mut nested| {
+                    nested = if let Some(condition) = arm.condition {
+                        nested.node(condition).str(" then")
                     } else {
-                        group.str("else")
+                        nested.str("else")
                     };
 
                     if ctx.options.match_and_switch_always_indent_arm_bodies {
-                        group = group.indented_break();
+                        nested = nested.indented_break();
                     } else {
-                        group = group.space_or_indent();
+                        nested = nested.space_or_indent();
                     }
 
-                    group.node(arm.expression).add_trailing_trivia().build()
+                    nested.node(arm.expression).add_trailing_trivia().build()
                 });
 
                 if i < arms.len() - 1 {
@@ -565,17 +550,13 @@ fn format_node<'source>(
             finally_block,
         }) => {
             let mut group = GroupBuilder::new(2 + 2 * catch_blocks.len() + 2, node, ctx, trivia)
-                .nested(|trivia| {
-                    GroupBuilder::new(3, node, ctx, trivia)
-                        .str("try")
-                        .indented_break()
-                        .node(*try_block)
-                        .build()
+                .nested(3, node, |nested| {
+                    nested.str("try").indented_break().node(*try_block).build()
                 });
 
             for AstCatch { arg, block } in catch_blocks.iter() {
-                group = group.line_break().nested(|trivia| {
-                    GroupBuilder::new(3, node, ctx, trivia)
+                group = group.line_break().nested(3, node, |nested| {
+                    nested
                         .str("catch ")
                         .node(*arg)
                         .indented_break()
@@ -585,8 +566,8 @@ fn format_node<'source>(
             }
 
             if let Some(finally) = finally_block {
-                group = group.line_break().nested(|trivia| {
-                    GroupBuilder::new(2, node, ctx, trivia)
+                group = group.line_break().nested(2, node, |nested| {
+                    nested
                         .str("finally")
                         .indented_break()
                         .node(*finally)
@@ -620,14 +601,12 @@ fn format_node<'source>(
 
 fn format_string<'source>(
     string: &AstString,
-    node: &AstNode,
-    ctx: &'source FormatContext<'source>,
-    trivia: &mut TriviaIterator<'source>,
+    group: GroupBuilder<'source, '_>,
 ) -> FormatItem<'source> {
     let quote = string.quote.as_char();
 
     match &string.contents {
-        StringContents::Literal(constant) => GroupBuilder::new(3, node, ctx, trivia)
+        StringContents::Literal(constant) => group
             .char(quote)
             .string_constant(*constant)
             .char(quote)
@@ -638,7 +617,7 @@ fn format_string<'source>(
         } => {
             let hashes: KString = "#".repeat(*hash_count as usize).into();
 
-            GroupBuilder::new(5, node, ctx, trivia)
+            group
                 .char('r')
                 .kstring(hashes.clone())
                 .char(quote)
@@ -648,12 +627,13 @@ fn format_string<'source>(
                 .build()
         }
         StringContents::Interpolated(nodes) => {
-            let mut group = GroupBuilder::new(nodes.len(), node, ctx, trivia).char(quote);
+            let mut group = group.char(quote);
             for node in nodes {
                 match node {
                     StringNode::Literal(constant) => group = group.string_constant(*constant),
                     StringNode::Expression { expression, format } => {
-                        let format_string = render_format_options(format, ctx.ast.constants());
+                        let format_string =
+                            render_format_options(format, group.ctx.ast.constants());
                         if format_string.is_empty() {
                             group = group.char('{').node(*expression).char('}')
                         } else {
@@ -877,9 +857,17 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn nested(
         mut self,
-        nested_fn: impl Fn(&mut TriviaIterator<'source>) -> FormatItem<'source>,
+        capacity: usize,
+        nested_node: &AstNode,
+        nested_fn: impl Fn(GroupBuilder<'source, '_>) -> FormatItem<'source>,
     ) -> Self {
-        self.items.push(nested_fn(self.trivia));
+        self.items.push(nested_fn(GroupBuilder::new(
+            capacity,
+            nested_node,
+            self.ctx,
+            &mut self.trivia,
+        )));
+        self.current_line = self.ctx.span(nested_node).end.line;
         self
     }
 
