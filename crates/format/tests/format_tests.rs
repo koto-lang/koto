@@ -786,6 +786,21 @@ import
                 },
             );
         }
+
+        #[test]
+        fn metakey_assignment() {
+            check_format_output(
+                &["\
+@main =
+    ||
+        print
+            'hello'
+"],
+                "\
+@main = || print 'hello'
+",
+            );
+        }
     }
 
     mod functions {

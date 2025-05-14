@@ -863,7 +863,7 @@ impl<'source> Parser<'source> {
                     self.consume_map_block(meta_key, start_span, &meta_context)
                 } else {
                     match self.parse_assign_expression(meta_key, &[], &meta_context)? {
-                        Some(result) => self.push_node(Node::Export(result)),
+                        Some(result) => Ok(result),
                         None => self
                             .consume_token_and_error(SyntaxError::ExpectedAssignmentAfterMetaKey),
                     }
