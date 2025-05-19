@@ -114,6 +114,7 @@ Koto was influenced by and is indebted to many other languages.
 
 Plugins that provide Koto support are available for the following editors:
 - [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
+- [Zed](https://github.com/koto-lang/koto-zed)
 - [Vim / Neovim](https://github.com/koto-lang/koto.vim)
 - [Sublime Text](https://github.com/koto-lang/koto-sublime)
 
