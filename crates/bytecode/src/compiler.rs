@@ -622,6 +622,10 @@ impl Compiler {
                 // Type hints are only compiled in the context of typed identifiers.
                 unreachable!();
             }
+            Node::FunctionArgs { .. } => {
+                // FunctionArgs are only compiled in compile_function.
+                unreachable!();
+            }
         };
 
         self.pop_span();
@@ -2446,10 +2450,22 @@ impl Compiler {
 
         let result = self.assign_result_register(ctx)?;
 
-        let Ok(arg_count) = u8::try_from(function.args.len()) else {
+        let Node::FunctionArgs {
+            args,
+            variadic,
+            output_type,
+        } = &ctx.node(function.args)
+        else {
+            return self.error(ErrorKind::UnexpectedNode {
+                expected: "FunctionArgs".into(),
+                unexpected: ctx.node(function.args).clone(),
+            });
+        };
+
+        let Ok(arg_count) = u8::try_from(args.len()) else {
             return self.error(ErrorKind::FunctionPropertyLimit {
                 property: "args".into(),
-                amount: function.args.len(),
+                amount: args.len(),
             });
         };
 
@@ -2457,14 +2473,14 @@ impl Compiler {
         // The number of optional args is needed now, although the expressions get compiled
         // below, after the function itself is compiled.
         let mut optional_args = AstVec::new();
-        for (i, arg) in function.args.iter().enumerate() {
-            let is_last_arg = i == function.args.len() - 1;
+        for (i, arg) in args.iter().enumerate() {
+            let is_last_arg = i == args.len() - 1;
             match ctx.node(*arg) {
                 Node::Assign { expression, .. } => {
                     optional_args.push(*expression);
                 }
                 _ => {
-                    if !(optional_args.is_empty() || function.is_variadic && is_last_arg) {
+                    if !(optional_args.is_empty() || *variadic && is_last_arg) {
                         return self.error(ErrorKind::ExpectedOptionalArgumentValue);
                     }
                 }
@@ -2482,15 +2498,11 @@ impl Compiler {
         }
 
         let arg_is_unpacked_tuple = matches!(
-            function.args.as_slice(),
+            args.as_slice(),
             &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
         );
 
-        let flags = FunctionFlags::new(
-            function.is_variadic,
-            function.is_generator,
-            arg_is_unpacked_tuple,
-        );
+        let flags = FunctionFlags::new(*variadic, function.is_generator, arg_is_unpacked_tuple);
 
         let function_size_ip = if let Some(result_register) = result.register {
             self.push_op(
@@ -2513,7 +2525,7 @@ impl Compiler {
             Err(_) => {
                 return self.error(ErrorKind::FunctionPropertyLimit {
                     property: "locals".into(),
-                    amount: function.args.len(),
+                    amount: args.len(),
                 });
             }
         };
@@ -2528,10 +2540,10 @@ impl Compiler {
             FrameParameters {
                 local_count,
                 expressions: function_body,
-                args: &function.args,
+                args,
                 captures: &captures,
                 allow_implicit_return,
-                output_type: function.output_type,
+                output_type: *output_type,
                 is_generator: function.is_generator,
             },
             ctx,

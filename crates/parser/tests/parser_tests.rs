@@ -722,11 +722,12 @@ x =
                     SmallInt(42),
                     map_entry(2, 3),
                     map_block(&[4]), // 5
-                    map_entry(1, 5),
-                    map_block(&[6]),
-                    assign(0, 7),
+                    Block(nodes(&[5])),
+                    map_entry(1, 6),
+                    map_block(&[7]),
+                    assign(0, 8),
                     MainBlock {
-                        body: nodes(&[8]),
+                        body: nodes(&[9]),
                         local_count: 1,
                     },
                 ],
@@ -753,8 +754,8 @@ x =
 ",
                 "
 x =
-    foo:
-      10, 20, 30,
+    foo: 10, 20,
+         30,
 ",
             ];
             check_ast_for_equivalent_sources(
@@ -784,19 +785,15 @@ x =
                 "
 x =
   foo: 1
-  bar: baz 42
-",
-                "
-x =
-  foo: 1
   bar:
     baz 42
 ",
                 "
 x =
   foo: 1
-  bar: baz
-    42
+  bar:
+    baz
+      42
 ",
             ];
             check_ast_for_equivalent_sources(
@@ -811,11 +808,12 @@ x =
                     SmallInt(42),
                     chain_call(&[6], false, None),
                     chain_root(5, Some(7)),
-                    map_entry(4, 8),
-                    map_block(&[3, 9]), // 10
-                    assign(0, 10),
+                    Block(nodes(&[8])),
+                    map_entry(4, 9), // 10
+                    map_block(&[3, 10]),
+                    assign(0, 11),
                     MainBlock {
-                        body: nodes(&[11]),
+                        body: nodes(&[12]),
                         local_count: 1,
                     },
                 ],
@@ -2069,23 +2067,27 @@ a",
                     id(0),
                     BoolFalse,
                     SmallInt(0),
+                    Block(nodes(&[2])),
                     BoolTrue,
-                    SmallInt(1),
-                    BoolFalse, // 5
+                    SmallInt(1), // 5
+                    Block(nodes(&[5])),
+                    BoolFalse,
                     SmallInt(0),
-                    SmallInt(1),
+                    Block(nodes(&[8])),
+                    SmallInt(1), // 10
+                    Block(nodes(&[10])),
                     If(AstIf {
                         condition: 1.into(),
-                        then_node: 2.into(),
-                        else_if_blocks: astvec![(3.into(), 4.into()), (5.into(), 6.into())],
-                        else_node: Some(7.into()),
+                        then_node: 3.into(),
+                        else_if_blocks: astvec![(4.into(), 6.into()), (7.into(), 9.into())],
+                        else_node: Some(11.into()),
                     }),
-                    assign(0, 8),
+                    assign(0, 12),
                     id(0),
                     MainBlock {
-                        body: nodes(&[9, 10]),
+                        body: nodes(&[13, 14]),
                         local_count: 1,
-                    }, // 10
+                    }, // 15
                 ],
                 Some(&[Constant::Str("a")]),
             )
@@ -2124,46 +2126,6 @@ a",
                 Some(&[Constant::Str("a"), Constant::Str("b")]),
             )
         }
-
-        #[test]
-        fn if_block_in_function_followed_by_id() {
-            let source = "
-||
-  if true
-    return
-  x
-";
-
-            check_ast(
-                source,
-                &[
-                    BoolTrue,
-                    Return(None),
-                    If(AstIf {
-                        condition: 0.into(),
-                        then_node: 1.into(),
-                        else_if_blocks: astvec![],
-                        else_node: None,
-                    }),
-                    id(0),
-                    Block(nodes(&[2, 3])),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[0]),
-                        body: 4.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
     }
 
     mod loops {
@@ -2185,15 +2147,16 @@ for x: String, _: Number, _y, z in foo
                     id(4),                          // z - 5
                     id(5),                          // foo
                     id(0),                          // x
+                    Block(nodes(&[7])),
                     For(AstFor {
                         args: nodes(&[1, 3, 4, 5]),
                         iterable: 6.into(),
-                        body: 7.into(),
+                        body: 8.into(),
                     }),
                     MainBlock {
-                        body: nodes(&[8]),
+                        body: nodes(&[9]),
                         local_count: 2, // x, z
-                    },
+                    }, // 10
                 ],
                 Some(&[
                     Constant::Str("x"),
@@ -2218,12 +2181,13 @@ while x > y
                     id(1), // y
                     binary_op(AstBinaryOp::Greater, 0, 1),
                     id(0), // x
+                    Block(nodes(&[3])),
                     While {
                         condition: 2.into(),
-                        body: 3.into(),
-                    },
+                        body: 4.into(),
+                    }, // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2243,12 +2207,13 @@ until x < y
                     id(1), // y
                     binary_op(AstBinaryOp::Less, 0, 1),
                     id(0), // x
+                    Block(nodes(&[3])),
                     Until {
                         condition: 2.into(),
-                        body: 3.into(),
-                    },
+                        body: 4.into(),
+                    }, // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 0,
                     },
                 ],
@@ -2271,13 +2236,14 @@ for x in y
                     id(0), // x
                     id(1), // y
                     id(0), // x
+                    Block(nodes(&[3])),
                     For(AstFor {
                         args: nodes(&[1]),
                         iterable: 2.into(),
-                        body: 3.into(),
-                    }),
+                        body: 4.into(),
+                    }), // 5
                     MainBlock {
-                        body: nodes(&[0, 4]),
+                        body: nodes(&[0, 5]),
                         local_count: 1,
                     },
                 ],
@@ -2307,13 +2273,14 @@ for a in x.zip y
                     chain_id(2, Some(3)),
                     chain_root(1, Some(4)), // ast 5
                     id(0),                  // a
+                    Block(nodes(&[6])),
                     For(AstFor {
                         args: nodes(&[0]),
                         iterable: 5.into(),
-                        body: 6.into(),
+                        body: 7.into(),
                     }),
                     MainBlock {
-                        body: nodes(&[7]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
@@ -2331,144 +2298,11 @@ for a in x.zip y
         use super::*;
 
         #[test]
-        fn inline_no_args() {
-            let source = "
-a = || 42
-a()";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    SmallInt(42),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[]),
-                        body: 1.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(0, 2),
-                    id(0),
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[]),
-                            with_parens: true,
-                        },
-                        None,
-                    )), // 5
-                    chain_root(4, Some(5)),
-                    MainBlock {
-                        body: nodes(&[3, 6]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("a")]),
-            )
-        }
-
-        #[test]
-        fn two_args_basic() {
-            let sources = [
-                "
-|x, y| x + y
-",
-                "
-| x,
-  y,
-|
-  x + y
-",
-                "
-|
-  x,
-  y,
-  | x + y
-",
-            ];
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    id(0),
-                    id(1),
-                    id(0),
-                    id(1),
-                    binary_op(AstBinaryOp::Add, 2, 3),
-                    Function(koto_parser::Function {
-                        args: nodes(&[0, 1]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 4.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn two_args_with_default_values() {
-            let sources = [
-                "
-|x = 1, y = 2| x + y
-",
-                "
-| x = 1,
-  y=2,
-|
-  x + y
-",
-                "
-|
-  x =
-    1,
-  y =
-      2,
-  | x + y
-",
-            ];
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    id(0), // x
-                    SmallInt(1),
-                    assign(0, 1),
-                    id(1), // y
-                    SmallInt(2),
-                    assign(3, 4), // - 5
-                    id(0),        // x
-                    id(1),        // y
-                    binary_op(AstBinaryOp::Add, 6, 7),
-                    Function(koto_parser::Function {
-                        args: nodes(&[2, 5]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 8.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[9]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
         fn two_args_with_type_hints() {
             let sources = [
                 "
-|x: String, y: Number = 42| x + y
+|x: String, y: Number = 42|
+ x + y
 ",
                 "
 | x: String,
@@ -2492,20 +2326,24 @@ a()";
                     id_with_type_hint(2, 2), // y
                     SmallInt(42),
                     assign(3, 4), // - 5
-                    id(0),        // x
-                    id(2),        // y
-                    binary_op(AstBinaryOp::Add, 6, 7),
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[1, 5]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(0), // x
+                    id(2), // y
+                    binary_op(AstBinaryOp::Add, 7, 8),
+                    Block(nodes(&[9])), // 10
+                    Function(koto_parser::Function {
+                        args: 6.into(),
                         local_count: 2,
                         accessed_non_locals: constants(&[]),
-                        body: 8.into(),
-                        is_variadic: false,
+                        body: 10.into(),
                         is_generator: false,
-                        output_type: None,
                     }),
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[11]),
                         local_count: 0,
                     },
                 ],
@@ -2522,54 +2360,8 @@ a()";
         fn output_type_hint() {
             let sources = [
                 "
-|x: String| -> String x
-",
-                "
-|x: String| -> String
-  x
-",
-                "
-|x: String
-| -> String
-  x
-",
-                "
-|
-  x: String
-| -> String
-  x
-",
-            ];
-            check_ast_for_equivalent_sources(
-                &sources,
-                &[
-                    type_hint(1),            // String
-                    id_with_type_hint(0, 0), // x
-                    type_hint(1),            // String
-                    id(0),                   // x
-                    Function(koto_parser::Function {
-                        args: nodes(&[1]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 3.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: Some(2.into()),
-                    }),
-                    MainBlock {
-                        body: nodes(&[4]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("String")]),
-            )
-        }
-
-        #[test]
-        fn output_optional_type_hint() {
-            let sources = [
-                "
-|x: String| -> String? x
+|x: String| -> String?
+    x
 ",
                 "
 |x: String| -> String?
@@ -2593,64 +2385,26 @@ a()";
                     type_hint(1),            // String
                     id_with_type_hint(0, 0), // x
                     optional_type_hint(1),   // String
-                    id(0),                   // x
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[1]),
+                        variadic: false,
+                        output_type: Some(2.into()),
+                    },
+                    id(0),              // x
+                    Block(nodes(&[4])), // 5
+                    Function(koto_parser::Function {
+                        args: 3.into(),
                         local_count: 1,
                         accessed_non_locals: constants(&[]),
-                        body: 3.into(),
-                        is_variadic: false,
+                        body: 5.into(),
                         is_generator: false,
-                        output_type: Some(2.into()),
                     }),
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("String")]),
-            )
-        }
-
-        #[test]
-        fn inline_var_args() {
-            let source = "|x, y...| x + y.size()";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    id(0),
-                    id(1),
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[]),
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    chain_id(2, Some(4)), // 5
-                    chain_root(3, Some(5)),
-                    binary_op(AstBinaryOp::Add, 2, 6),
-                    Function(koto_parser::Function {
-                        args: nodes(&[0, 1]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 7.into(),
-                        is_variadic: true,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[8]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Str("size"),
-                ]),
             )
         }
 
@@ -2666,86 +2420,34 @@ f 42";
                 &[
                     id(0), // f
                     id(1), // x
-                    id(2), // y
-                    id(1), // x
-                    assign(2, 3),
-                    id(2), // 5
-                    Block(nodes(&[4, 5])),
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[1]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(2),        // y
+                    id(1),        // x
+                    assign(3, 4), // 5
+                    id(2),
+                    Block(nodes(&[5, 6])),
+                    Function(koto_parser::Function {
+                        args: 2.into(),
                         local_count: 2,
                         accessed_non_locals: constants(&[]),
-                        body: 6.into(),
-                        is_variadic: false,
+                        body: 7.into(),
                         is_generator: false,
-                        output_type: None,
                     }),
-                    assign(0, 7),
-                    id(0),        // f
-                    SmallInt(42), // 10
-                    chain_call(&[10], false, None),
-                    chain_root(9, Some(11)),
+                    assign(0, 8),
+                    id(0), // 10 - f
+                    SmallInt(42),
+                    chain_call(&[11], false, None),
+                    chain_root(10, Some(12)),
                     MainBlock {
-                        body: nodes(&[8, 12]),
+                        body: nodes(&[9, 13]),
                         local_count: 1,
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn with_body_nested() {
-            let source = "\
-f = |x|
-  y = |z|
-    z
-  y x
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // f
-                    id(1), // x
-                    id(2), // y
-                    id(3), // z
-                    id(3), // z
-                    Function(koto_parser::Function {
-                        args: nodes(&[3]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 4.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(2, 5),
-                    id(2), // y
-                    id(1), // x
-                    chain_call(&[8], false, None),
-                    chain_root(7, Some(9)), // 10
-                    Block(nodes(&[6, 10])),
-                    Function(koto_parser::Function {
-                        args: nodes(&[1]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 11.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // 10
-                    assign(0, 12),
-                    MainBlock {
-                        body: nodes(&[13]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Str("z"),
-                ]),
             )
         }
 
@@ -2914,65 +2616,6 @@ f(x,
         }
 
         #[test]
-        fn call_with_indented_function_arg() {
-            let source = "
-foo
-  x,
-  |y| y";
-            check_ast(
-                source,
-                &[
-                    id(0), // foo
-                    id(1), // x
-                    id(2), // y
-                    id(2), // y
-                    Function(koto_parser::Function {
-                        args: nodes(&[2]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 3.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    chain_call(&[1, 4], false, None), // 5
-                    chain_root(0, Some(5)),
-                    MainBlock {
-                        body: nodes(&[6]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn calls_with_comment_between() {
-            let source = "
-f x
-  # Indented comment shouldn't break parsing
-f x";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    chain_call(&[1], false, None),
-                    chain_root(0, Some(2)),
-                    id(0),
-                    id(1), // 5
-                    chain_call(&[5], false, None),
-                    chain_root(4, Some(6)),
-                    MainBlock {
-                        body: nodes(&[3, 7]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("x")]),
-            )
-        }
-
-        #[test]
         fn recursive_call() {
             let source = "f = |x| f x";
             check_ast(
@@ -2980,76 +2623,29 @@ f x";
                 &[
                     id(0), // f
                     id(1), // x
-                    id(0), // f
-                    id(1), // x
-                    chain_call(&[3], false, None),
-                    chain_root(2, Some(4)), // 5
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[1]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(0),                         // f
+                    id(1),                         // x
+                    chain_call(&[4], false, None), // 5
+                    chain_root(3, Some(5)),
+                    Function(koto_parser::Function {
+                        args: 2.into(),
                         local_count: 1,
                         accessed_non_locals: constants(&[0]),
-                        body: 5.into(),
-                        is_variadic: false,
+                        body: 6.into(),
                         is_generator: false,
-                        output_type: None,
                     }),
-                    assign(0, 6),
+                    assign(0, 7),
                     MainBlock {
-                        body: nodes(&[7]),
+                        body: nodes(&[8]),
                         local_count: 1,
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn recursive_calls_multi_assign() {
-            let source = "f, g = (|x| f x, |x| g x)";
-            check_ast(
-                source,
-                &[
-                    id(0),                         // f
-                    id(1),                         // g
-                    id(2),                         // x
-                    id(0),                         // f
-                    id(2),                         // x
-                    chain_call(&[4], false, None), // 5
-                    chain_root(3, Some(5)),
-                    Function(koto_parser::Function {
-                        args: nodes(&[2]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[0]),
-                        body: 6.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    id(2), // x
-                    id(1), // g
-                    id(2), // 10 -x
-                    chain_call(&[10], false, None),
-                    chain_root(9, Some(11)),
-                    Function(koto_parser::Function {
-                        args: nodes(&[8]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[1]),
-                        body: 12.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    Tuple(nodes(&[7, 13])),
-                    MultiAssign {
-                        targets: nodes(&[0, 1]),
-                        expression: 14.into(),
-                    }, // 15
-                    MainBlock {
-                        body: nodes(&[15]),
-                        local_count: 2,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("g"), Constant::Str("x")]),
             )
         }
 
@@ -3122,361 +2718,31 @@ foo.bar x
         }
 
         #[test]
-        fn instance_function_block() {
-            let source = "
-f = ||
-  bar: |x| self.foo = x
-f()";
+        fn generator_function() {
+            let source = "|| yield 1";
             check_ast(
                 source,
                 &[
-                    id(0), // f
-                    id(1), // bar
-                    id(2), // x
-                    Self_,
-                    chain_id(3, None),      // foo
-                    chain_root(3, Some(4)), // 5
-                    id(2),                  // x
-                    assign(5, 6),
-                    Function(koto_parser::Function {
-                        args: nodes(&[2]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 7.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    map_entry(1, 8),
-                    map_block(&[9]), // 10
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    SmallInt(1),
+                    Yield(1.into()),
+                    Function(koto_parser::Function {
+                        args: 0.into(),
                         local_count: 0,
                         accessed_non_locals: constants(&[]),
-                        body: 10.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(0, 11),
-                    id(0), // f
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[]),
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    chain_root(13, Some(14)), // 15
-                    MainBlock {
-                        body: nodes(&[12, 15]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("bar"),
-                    Constant::Str("x"),
-                    Constant::Str("foo"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn nested_function_with_loops_and_ifs() {
-            let source = "\
-f = |n|
-  f2 = |n|
-    for i in 0..1
-      if i == n
-        return i
-  f2
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // f
-                    id(1), // n
-                    id(2), // f2
-                    id(1),
-                    id(3),       // i
-                    SmallInt(0), // ast 5
-                    SmallInt(1),
-                    range(5, 6, false),
-                    id(3), // i
-                    id(1),
-                    binary_op(AstBinaryOp::Equal, 8, 9), // ast 10
-                    id(3),
-                    Return(Some(11.into())),
-                    If(AstIf {
-                        condition: 10.into(),
-                        then_node: 12.into(),
-                        else_if_blocks: astvec![],
-                        else_node: None,
-                    }),
-                    For(AstFor {
-                        args: nodes(&[4]),
-                        iterable: 7.into(),
-                        body: 13.into(),
-                    }),
-                    Function(koto_parser::Function {
-                        args: nodes(&[3]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 14.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // ast 15
-                    assign(2, 15),
-                    id(2),
-                    Block(nodes(&[16, 17])),
-                    Function(koto_parser::Function {
-                        args: nodes(&[1]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]),
-                        body: 18.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    assign(0, 19), // ast 20
-                    MainBlock {
-                        body: nodes(&[20]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("n"),
-                    Constant::Str("f2"),
-                    Constant::Str("i"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn non_local_access() {
-            let source = "
-||
-  x = x + 1
-  x
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(0),
-                    SmallInt(1),
-                    binary_op(AstBinaryOp::Add, 1, 2),
-                    assign(0, 3),
-                    id(0), // 5
-                    Block(nodes(&[4, 5])),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[0]), // initial read of x via capture
-                        body: 6.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[7]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn access_after_previous_assignment() {
-            // In this example, b should not be counted as a non-local
-            let source = "
-|| a = (b = 1), b 
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    SmallInt(1),
-                    assign(1, 2),
-                    Nested(3.into()),
-                    id(1), // 5
-                    Tuple(nodes(&[4, 5])),
-                    assign(0, 6),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 2,
-                        accessed_non_locals: constants(&[]), // b is locally assigned when accessed
-                        body: 7.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[8]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("a"), Constant::Str("b")]),
-            )
-        }
-
-        #[test]
-        fn non_local_update_assignment() {
-            let source = "
-|| x += 1
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    SmallInt(1),
-                    binary_op(AstBinaryOp::AddAssign, 0, 1),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[0]), // initial read of x via capture
                         body: 2.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
+                        is_generator: true,
                     }),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn call_with_function() {
-            let source = "\
-z = y [0..20], |x| x > 1
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // z
-                    id(1), // y
-                    SmallInt(0),
-                    SmallInt(20),
-                    range(2, 3, false),
-                    List(nodes(&[4])), // 5
-                    id(2),             // x
-                    id(2),             // x
-                    SmallInt(1),
-                    binary_op(AstBinaryOp::Greater, 7, 8),
-                    Function(koto_parser::Function {
-                        args: nodes(&[6]),
-                        local_count: 1,
-                        accessed_non_locals: constants(&[]),
-                        body: 9.into(),
-                        is_variadic: false,
-                        is_generator: false,
-                        output_type: None,
-                    }), // 10
-                    chain_call(&[5, 10], false, None),
-                    chain_root(1, Some(11)),
-                    assign(0, 12),
-                    MainBlock {
-                        body: nodes(&[13]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("z"), Constant::Str("y"), Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn generator_function() {
-            let source = "|| yield 1";
-            check_ast(
-                source,
-                &[
-                    SmallInt(1),
-                    Yield(0.into()),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[]),
-                        body: 1.into(),
-                        is_variadic: false,
-                        is_generator: true,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[2]),
-                        local_count: 0,
-                    },
-                ],
                 None,
-            )
-        }
-
-        #[test]
-        fn generator_multiple_values() {
-            let source = "|| yield 1, 0";
-            check_ast(
-                source,
-                &[
-                    SmallInt(1),
-                    SmallInt(0),
-                    Tuple(nodes(&[0, 1])),
-                    Yield(2.into()),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[]),
-                        body: 3.into(),
-                        is_variadic: false,
-                        is_generator: true,
-                        output_type: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[4]),
-                        local_count: 0,
-                    },
-                ],
-                None,
-            )
-        }
-
-        #[test]
-        fn generator_yielding_a_map() {
-            let source = "
-||
-  yield
-    foo: 42
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    SmallInt(42),
-                    map_entry(0, 1),
-                    map_block(&[2]),
-                    Yield(3.into()),
-                    Function(koto_parser::Function {
-                        args: nodes(&[]),
-                        local_count: 0,
-                        accessed_non_locals: constants(&[]),
-                        body: 4.into(),
-                        is_variadic: false,
-                        is_generator: true,
-                        output_type: None,
-                    }), // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("foo")]),
             )
         }
 
@@ -3507,7 +2773,8 @@ z = y [0..20], |x| x > 1
     ),
   ),
   _e,
-| a
+|
+ a
 ",
             ];
             check_ast_for_equivalent_sources(
@@ -3521,18 +2788,22 @@ z = y [0..20], |x| x > 1
                     Tuple(nodes(&[2, 3, 4])),       // ast index 5
                     Tuple(nodes(&[1, 5])),
                     Wildcard(Some(4.into()), None), // e
-                    id(0),
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[0, 6, 7]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(0),              // a
+                    Block(nodes(&[9])), // 10
+                    Function(koto_parser::Function {
+                        args: 8.into(),
                         local_count: 3,
                         accessed_non_locals: constants(&[]),
-                        body: 8.into(),
-                        is_variadic: false,
+                        body: 10.into(),
                         is_generator: false,
-                        output_type: None,
                     }),
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[11]),
                         local_count: 0,
                     },
                 ],
@@ -4715,161 +3986,6 @@ from foo import bar,
         use super::*;
 
         #[test]
-        fn try_catch() {
-            let source = "\
-try
-  f()
-catch e
-  debug e
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // f
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[]),
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    chain_root(0, Some(1)),
-                    id(1), // e
-                    id(1),
-                    Debug {
-                        expression_string: 1.into(),
-                        expression: 4.into(),
-                    }, // ast 5
-                    Try(AstTry {
-                        try_block: 2.into(),
-                        catch_blocks: astvec![AstCatch {
-                            arg: 3.into(),
-                            block: 5.into()
-                        }],
-                        finally_block: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[6]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("e")]),
-            )
-        }
-
-        #[test]
-        fn try_catch_ignored_catch_arg() {
-            let source = "\
-try
-  x
-catch _
-  y
-";
-            check_ast(
-                source,
-                &[
-                    id(0), // x
-                    Wildcard(None, None),
-                    id(1), // y
-                    Try(AstTry {
-                        try_block: 0.into(),
-                        catch_blocks: astvec![AstCatch {
-                            arg: 1.into(),
-                            block: 2.into()
-                        }],
-                        finally_block: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[3]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn try_catch_ignored_catch_arg_with_name() {
-            let source = "\
-try
-  x
-catch _error
-  y
-";
-            check_ast(
-                source,
-                &[
-                    id(0),                          // x
-                    Wildcard(Some(1.into()), None), // error
-                    id(2),                          // y
-                    Try(AstTry {
-                        try_block: 0.into(),
-                        catch_blocks: astvec![AstCatch {
-                            arg: 1.into(),
-                            block: 2.into()
-                        }],
-                        finally_block: None,
-                    }),
-                    MainBlock {
-                        body: nodes(&[3]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("error"),
-                    Constant::Str("y"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn try_catch_finally() {
-            let source = "\
-try
-  f()
-catch e
-  debug e
-finally
-  0
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[]),
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    chain_root(0, Some(1)),
-                    id(1), // e
-                    id(1),
-                    Debug {
-                        expression_string: 1.into(),
-                        expression: 4.into(),
-                    }, // ast 5
-                    SmallInt(0),
-                    Try(AstTry {
-                        try_block: 2.into(),
-                        catch_blocks: astvec![AstCatch {
-                            arg: 3.into(),
-                            block: 5.into()
-                        }],
-                        finally_block: Some(6.into()),
-                    }),
-                    MainBlock {
-                        body: nodes(&[7]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("e")]),
-            )
-        }
-
-        #[test]
         fn try_catch_with_type_hints() {
             let source = "\
 try
@@ -4890,28 +4006,31 @@ catch x
                         },
                         None,
                     )),
-                    chain_root(0, Some(1)),  // f
+                    chain_root(0, Some(1)), // f
+                    Block(nodes(&[2])),
                     type_hint(2),            // String
-                    id_with_type_hint(1, 3), // e: String
-                    id(1),                   // e - 5
-                    id(3),                   // x
-                    id(3),                   // x
+                    id_with_type_hint(1, 4), // 5 - e: String
+                    id(1),                   // e
+                    Block(nodes(&[6])),
+                    id(3),              // x
+                    id(3),              // x
+                    Block(nodes(&[9])), // 10
                     Try(AstTry {
-                        try_block: 2.into(),
+                        try_block: 3.into(),
                         catch_blocks: astvec![
                             AstCatch {
-                                arg: 4.into(),
-                                block: 5.into()
+                                arg: 5.into(),
+                                block: 7.into()
                             },
                             AstCatch {
-                                arg: 6.into(),
-                                block: 7.into()
+                                arg: 8.into(),
+                                block: 10.into()
                             }
                         ],
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: nodes(&[8]),
+                        body: nodes(&[11]),
                         local_count: 2,
                     },
                 ],
@@ -5288,8 +4407,10 @@ match x
                     SmallInt(10),
                     binary_op(AstBinaryOp::Less, 7, 8),
                     SmallInt(1), // 10
+                    Block(nodes(&[10])),
                     id(1),
                     SmallInt(-1),
+                    Block(nodes(&[13])),
                     Match {
                         expression: 0.into(),
                         arms: vec![
@@ -5301,17 +4422,17 @@ match x
                             MatchArm {
                                 patterns: nodes(&[6]),
                                 condition: Some(9.into()),
-                                expression: 10.into(),
+                                expression: 11.into(),
                             },
                             MatchArm {
-                                patterns: nodes(&[11]),
+                                patterns: nodes(&[12]),
                                 condition: None,
-                                expression: 12.into(),
+                                expression: 14.into(),
                             },
                         ],
-                    },
+                    }, // 15
                     MainBlock {
-                        body: nodes(&[13]),
+                        body: nodes(&[15]),
                         local_count: 1,
                     },
                 ],
@@ -5342,11 +4463,12 @@ match x, y
                     TempTuple(nodes(&[6, 7])),
                     id(2),
                     SmallInt(0), // 10
-                    id(3),
+                    id(3),       // a
                     Null,
                     TempTuple(nodes(&[11, 12])),
-                    id(3),
-                    SmallInt(0), // 15
+                    id(3),               // a
+                    Block(nodes(&[14])), // 15
+                    SmallInt(0),
                     Match {
                         expression: 2.into(),
                         arms: vec![
@@ -5358,17 +4480,17 @@ match x, y
                             MatchArm {
                                 patterns: nodes(&[13]),
                                 condition: None,
-                                expression: 14.into(),
+                                expression: 15.into(),
                             },
                             MatchArm {
                                 patterns: nodes(&[]),
                                 condition: None,
-                                expression: 15.into(),
+                                expression: 16.into(),
                             },
                         ],
                     },
                     MainBlock {
-                        body: nodes(&[16]),
+                        body: nodes(&[17]),
                         local_count: 1,
                     },
                 ],
@@ -5661,24 +4783,27 @@ f 99
                 &[
                     id(0), // f
                     id(1), // x
-                    id(2), // y
-                    id(1), // x
-                    assign(2, 3),
-                    id(3), // z - 5
-                    id(2), // y
-                    assign(5, 6),
-                    Block(nodes(&[4, 7])),
-                    Function(koto_parser::Function {
+                    FunctionArgs {
                         args: nodes(&[1]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(2),        // y
+                    id(1),        // x
+                    assign(3, 4), // 5
+                    id(3),        // z
+                    id(2),        // y
+                    assign(6, 7),
+                    Block(nodes(&[5, 8])),
+                    Function(koto_parser::Function {
+                        args: 2.into(),
                         local_count: 3,
                         accessed_non_locals: constants(&[]),
-                        body: 8.into(),
-                        is_variadic: false,
+                        body: 9.into(),
                         is_generator: false,
-                        output_type: None,
-                    }),
+                    }), // 10
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[10]),
                         local_count: 0,
                     },
                 ],

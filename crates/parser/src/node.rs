@@ -144,6 +144,16 @@ pub enum Node {
     /// A function node
     Function(Function),
 
+    /// A function's arguments
+    FunctionArgs {
+        /// The arguments
+        args: AstVec<AstIndex>,
+        /// A flag that indicates if the function arguments end with a variadic `...` argument
+        variadic: bool,
+        /// The optional output type of the function
+        output_type: Option<AstIndex>,
+    },
+
     /// An import expression
     ///
     /// E.g. `from foo.bar import baz, 'qux'`
@@ -301,7 +311,9 @@ pub enum Node {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
     /// The function's arguments
-    pub args: AstVec<AstIndex>,
+    ///
+    /// See [Node::FunctionArgs].
+    pub args: AstIndex,
     /// The number of locally assigned values
     ///
     /// Used by the compiler when reserving registers for local values at the start of the frame.
@@ -314,14 +326,10 @@ pub struct Function {
     pub accessed_non_locals: AstVec<ConstantIndex>,
     /// The function's body
     pub body: AstIndex,
-    /// A flag that indicates if the function arguments end with a variadic `...` argument
-    pub is_variadic: bool,
     /// A flag that indicates if the function is a generator or not
     ///
     /// The presence of a `yield` expression in the function body will set this to true.
     pub is_generator: bool,
-    /// The optional output type of the function
-    pub output_type: Option<AstIndex>,
 }
 
 /// A string definition

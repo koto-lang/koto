@@ -361,15 +361,17 @@ impl<'source> Parser<'source> {
     fn parse_indented_block(&mut self) -> Result<Option<AstIndex>> {
         let block_context = ExpressionContext::permissive();
 
+        let start_line = self.current_line;
         let start_indent = self.current_indent();
         match self.peek_token_with_context(&block_context) {
             Some(peeked) if peeked.info.indent > start_indent => {}
             _ => return Ok(None), // No indented block found
         }
 
-        let (block_context, start_span) = self
+        let (block_context, _) = self
             .consume_until_token_with_context(&block_context)
             .unwrap(); // Safe to unwrap here given that we've just peeked
+        let start_span = Span::line_start(start_line + 1);
 
         let mut body = AstVec::new();
         loop {
@@ -435,13 +437,8 @@ impl<'source> Parser<'source> {
         body: AstVec<AstIndex>,
         start_span: Span,
     ) -> Result<Option<AstIndex>> {
-        // If the block is a single expression then it doesn't need to be wrapped in a Block node
-        if body.len() == 1 {
-            Ok(Some(*body.first().unwrap()))
-        } else {
-            self.push_node_with_start_span(Node::Block(body), start_span)
-                .map(Some)
-        }
+        self.push_node_with_start_span(Node::Block(body), start_span)
+            .map(Some)
     }
 
     // Parses expressions from the start of a line
@@ -977,14 +974,57 @@ impl<'source> Parser<'source> {
     //   f = |x, y| x + y
     //   #   ^ You are here
     fn consume_function(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+        let mut function_frame = Frame::default();
+        let (args, start_span) = self.consume_function_args(&mut function_frame, context)?;
+        self.frame_stack.push(function_frame);
+
+        let body = match self.parse_indented_block() {
+            Ok(Some(block)) => block,
+            Ok(None) => {
+                // No indented block, so an inline body is expected
+                self.consume_until_next_token_on_same_line();
+                // If the function is being defined inside braces then the inline body should reflect
+                // that, in particular a paren-free comma belongs to the containing braces.
+                // E.g., `[|x| x, |y| y]` should be parsed as:
+                //   `[(|x| x), (|y| y)]`,
+                // and not
+                //   `[|x| (x, |y| y)]`.
+                let body_context = if context.inside_braces {
+                    ExpressionContext::inside_braces()
+                } else {
+                    ExpressionContext::permissive()
+                };
+                if let Some(body) = self.parse_line(&body_context)? {
+                    body
+                } else {
+                    return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
+                }
+            }
+            Err(error) => {
+                if cfg!(feature = "error_ast") {
+                    if let Some(block) = self.ast.entry_point() {
+                        self.push_function_node(start_span, args, block).ok();
+                    }
+                }
+                return Err(error);
+            }
+        };
+
+        self.push_function_node(start_span, args, body)
+    }
+
+    fn consume_function_args(
+        &mut self,
+        function_frame: &mut Frame,
+        context: &ExpressionContext,
+    ) -> Result<(AstIndex, Span)> {
         self.consume_token_with_context(context); // Token::Function
 
         let start_span = self.current_span();
 
         // Parse the function's args
         let mut arg_nodes = AstVec::new();
-        let mut arg_ids = AstVec::new();
-        let mut is_variadic = false;
+        let mut variadic = false;
         let mut default_value_expected = false;
         let args_context = ExpressionContext::inside_braces();
         while self.peek_token_with_context(&args_context).is_some() {
@@ -995,7 +1035,7 @@ impl<'source> Parser<'source> {
 
             let arg_node = match maybe_id_or_wildcard {
                 Some(IdOrWildcard::Id(constant_index)) => {
-                    arg_ids.push(constant_index);
+                    function_frame.ids_assigned_in_frame.insert(constant_index);
                     let type_hint = self.parse_type_hint(&args_context)?;
                     let id_node =
                         self.push_node_with_span(Node::Id(constant_index, type_hint), arg_span)?;
@@ -1005,7 +1045,7 @@ impl<'source> Parser<'source> {
                             return self.consume_token_and_error(SyntaxError::UnexpectedToken);
                         }
                         self.consume_token();
-                        is_variadic = true;
+                        variadic = true;
                         arg_nodes.push(id_node);
                         // The variadic argument must be last
                         break;
@@ -1026,7 +1066,7 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         let nested_span_start = self.current_span();
 
-                        let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
+                        let tuple_args = self.parse_nested_function_args(function_frame)?;
                         self.expect_and_consume_token(
                             Token::RoundClose,
                             SyntaxError::ExpectedCloseParen.into(),
@@ -1096,59 +1136,22 @@ impl<'source> Parser<'source> {
             None
         };
 
-        // Function body
-        let mut function_frame = Frame::default();
-        function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
-        self.frame_stack.push(function_frame);
+        let args_node = self.push_node_with_start_span(
+            Node::FunctionArgs {
+                args: arg_nodes,
+                variadic,
+                output_type,
+            },
+            start_span,
+        )?;
 
-        let body = match self.parse_indented_block() {
-            Ok(Some(block)) => block,
-            Ok(None) => {
-                // No indented block, so an inline body is expected
-                self.consume_until_next_token_on_same_line();
-                // If the function is being defined inside braces then the inline body should reflect
-                // that, in particular a paren-free comma belongs to the containing braces.
-                // E.g., `[|x| x, |y| y]` should be parsed as:
-                //   `[(|x| x), (|y| y)]`,
-                // and not
-                //   `[|x| (x, |y| y)]`.
-                let body_context = if context.inside_braces {
-                    ExpressionContext::inside_braces()
-                } else {
-                    ExpressionContext::permissive()
-                };
-                if let Some(body) = self.parse_line(&body_context)? {
-                    body
-                } else {
-                    return self.consume_token_and_error(ExpectedIndentation::FunctionBody);
-                }
-            }
-            Err(error) => {
-                if cfg!(feature = "error_ast") {
-                    if let Some(block) = self.ast.entry_point() {
-                        self.push_function_node(
-                            start_span,
-                            arg_nodes,
-                            is_variadic,
-                            output_type,
-                            block,
-                        )
-                        .ok();
-                    }
-                }
-                return Err(error);
-            }
-        };
-
-        self.push_function_node(start_span, arg_nodes, is_variadic, output_type, body)
+        Ok((args_node, start_span))
     }
 
     fn push_function_node(
         &mut self,
         start_span: Span,
-        arg_nodes: AstVec<AstIndex>,
-        is_variadic: bool,
-        output_type: Option<AstIndex>,
+        args: AstIndex,
         body: AstIndex,
     ) -> std::result::Result<AstIndex, Error> {
         let function_frame = self
@@ -1163,13 +1166,11 @@ impl<'source> Parser<'source> {
 
         self.push_node_with_start_span(
             Node::Function(Function {
-                args: arg_nodes,
+                args,
                 local_count,
                 accessed_non_locals: AstVec::from_iter(function_frame.accessed_non_locals),
                 body,
-                is_variadic,
                 is_generator: function_frame.contains_yield,
-                output_type,
             }),
             start_span,
         )
@@ -1223,7 +1224,7 @@ impl<'source> Parser<'source> {
     //   #                ^ ...or here
     fn parse_nested_function_args(
         &mut self,
-        arg_ids: &mut AstVec<ConstantIndex>,
+        function_frame: &mut Frame,
     ) -> Result<AstVec<AstIndex>> {
         let mut nested_args = AstVec::new();
 
@@ -1245,7 +1246,7 @@ impl<'source> Parser<'source> {
                     };
 
                     nested_args.push(self.push_node_with_span(arg_node, arg_span)?);
-                    arg_ids.push(constant_index);
+                    function_frame.ids_assigned_in_frame.insert(constant_index);
                 }
                 Some(IdOrWildcard::Wildcard(maybe_id)) => {
                     let arg_span = self.current_span();
@@ -1259,7 +1260,7 @@ impl<'source> Parser<'source> {
                         self.consume_token();
                         let span_start = self.current_span();
 
-                        let tuple_args = self.parse_nested_function_args(arg_ids)?;
+                        let tuple_args = self.parse_nested_function_args(function_frame)?;
                         if !matches!(
                             self.consume_token_with_context(&args_context),
                             Some((Token::RoundClose, _))

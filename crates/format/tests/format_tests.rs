@@ -27,13 +27,14 @@ Expected:
 Output:
 ---
 {}
+
 ---",
                             expected
                                 .chars()
                                 .zip(output.chars())
                                 .take_while(|(a, b)| a == b)
                                 .count(),
-                            output.replace("\n", "⏎\n")
+                            output.replace("\n", "⏎\n"),
                         )
                     }
                 }
@@ -60,6 +61,44 @@ Output:
 # one
 # two
 # three
+",
+            );
+        }
+
+        #[test]
+        fn multiline_comment_before_expression() {
+            check_format_output(
+                &["
+#-
+xyz
+-#
+print    'hello'
+"],
+                "\
+#-
+xyz
+-#
+print 'hello'
+",
+            );
+        }
+
+        #[test]
+        fn multiline_comment_at_start_of_function_block() {
+            check_format_output(
+                &["
+f   = ||
+  #-
+    abc
+  -#
+  return 42
+"],
+                "\
+f = ||
+  #-
+    abc
+  -#
+  return 42
 ",
             );
         }
@@ -418,7 +457,7 @@ a, b, c =
         }
 
         #[test]
-        fn map_blocks() {
+        fn map_block_assignment() {
             check_format_output_with_options(
                 &["\
 x =
@@ -427,15 +466,18 @@ x =
 
   bar: some_long_function()
   'baz'  : #- xyz -# 1 + 1
+x
 "],
                 "\
 x =
-  foo: 99 # abc
+  foo:
+    99 # abc
 
   bar:
     some_long_function()
   'baz':
     #- xyz -# 1 + 1
+x
 ",
                 FormatOptions {
                     line_length: 20,
@@ -531,7 +573,7 @@ for #- abc -# x in y # xyz
 if   #- abc -#   x >   10 # foo
    return x
 else if   x   < 5 # ---
-    return x     # bar
+    return x     #- bar -#
 else if     x ==   0 # xyz
      return x
 else # baz
@@ -542,7 +584,7 @@ else # baz
 if #- abc -# x > 10 # foo
   return x
 else if x < 5 # ---
-  return x # bar
+  return x #- bar -#
 else if x == 0 # xyz
   return x
 else # baz
@@ -618,11 +660,13 @@ match   foo()    # abc
 "],
                 "\
 match foo() # abc
-  'hello' then 'xyz'
+  'hello' then
+    'xyz'
   1 or 2 or 3 or 4 then -1
   ('a', 'b') or ('c', 'd') if bar() then
     baz() # xyz
-  else 0
+  else
+    0
 ",
                 FormatOptions {
                     line_length: 50,
@@ -797,7 +841,8 @@ import
             'hello'
 "],
                 "\
-@main = || print 'hello'
+@main = ||
+  print 'hello'
 ",
             );
         }
