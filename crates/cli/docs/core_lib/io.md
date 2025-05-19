@@ -97,7 +97,6 @@ f.exists()
 ## print
 
 ```kototype
-```kototype
 |Any| -> Null
 ```
 
