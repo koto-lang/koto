@@ -97,7 +97,7 @@ impl Help {
     }
 
     pub fn get_help(&self, search: Option<&str>) -> String {
-        let result = match search {
+        match search {
             Some(search) => {
                 let search_key = text_to_key(search);
                 match self.help_map.get(&search_key) {
@@ -210,9 +210,7 @@ Help is available for the following topics:",
 
                 help
             }
-        };
-
-        result
+        }
     }
 
     fn add_help_from_guide(&mut self) {
