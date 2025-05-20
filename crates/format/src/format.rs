@@ -317,18 +317,22 @@ fn format_node<'source>(
         }
         Node::Import { from, items } => {
             let mut group =
-                GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia)
-                    .str("from")
-                    .space_or_indent();
+                GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia);
 
-            for (i, from_node) in from.iter().enumerate() {
-                group = group.node(*from_node);
-                if i < from.len() - 1 {
-                    group = group.char('.');
+            if !from.is_empty() {
+                group = group.str("from").space_or_indent();
+
+                for (i, from_node) in from.iter().enumerate() {
+                    group = group.node(*from_node);
+                    if i < from.len() - 1 {
+                        group = group.char('.');
+                    }
                 }
+
+                group = group.space_or_return();
             }
 
-            group = group.space_or_return().str("import").space_or_indent();
+            group = group.str("import").space_or_indent();
 
             for (i, ImportItem { item, name }) in items.iter().enumerate() {
                 group = group.nested(0, node, |mut nested| {

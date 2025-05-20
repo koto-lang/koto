@@ -915,6 +915,18 @@ from foo import #- abc -# bar # xyz
         }
 
         #[test]
+        fn import_without_from() {
+            check_format_output(
+                &["\
+import #- abc -#   bar     # xyz
+"],
+                "\
+import #- abc -# bar # xyz
+",
+            );
+        }
+
+        #[test]
         fn import_multiline() {
             check_format_output_with_options(
                 &["\
