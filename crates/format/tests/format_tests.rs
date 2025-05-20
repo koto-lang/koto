@@ -760,7 +760,7 @@ catch i  :   Int
 catch    other
   throw other
 finally
-    print 'bye'"],
+    print 'bye' # xyz"],
                 "\
 try # abc
   foo()
@@ -771,7 +771,7 @@ catch i: Int
 catch other
   throw other
 finally
-  print 'bye'
+  print 'bye' # xyz
 ",
                 FormatOptions {
                     match_and_switch_always_indent_arm_bodies: true,

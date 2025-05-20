@@ -606,10 +606,12 @@ fn format_node<'source>(
             finally_block,
         }) => {
             let mut group = GroupBuilder::new(2 + 2 * catch_blocks.len() + 2, node, ctx, trivia)
-                .nested(2, node, |nested| nested.str("try").node(*try_block).build());
+                .nested(2, ctx.node(*try_block), |nested| {
+                    nested.str("try").node(*try_block).build()
+                });
 
             for AstCatch { arg, block } in catch_blocks.iter() {
-                group = group.line_break().nested(4, node, |nested| {
+                group = group.line_break().nested(4, ctx.node(*block), |nested| {
                     nested
                         .line_start(*arg)
                         .str("catch ")
@@ -620,7 +622,7 @@ fn format_node<'source>(
             }
 
             if let Some(finally) = finally_block {
-                group = group.line_break().nested(3, node, |nested| {
+                group = group.line_break().nested(3, ctx.node(*finally), |nested| {
                     nested
                         .line_start(*finally)
                         .str("finally")
