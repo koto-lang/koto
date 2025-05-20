@@ -364,38 +364,51 @@ fn format_node<'source>(
             then_node,
             else_if_blocks,
             else_node,
+            inline,
         }) => {
-            // TODO: Support for single-line if expressions
-
-            let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(4, node, |nested| {
-                nested
-                    .str("if")
-                    .space_or_indent()
+            if *inline {
+                let mut group = GroupBuilder::new(6, node, ctx, trivia)
+                    .str("if ")
                     .node(*condition)
-                    .node(*then_node)
-                    .build()
-            });
+                    .str(" then ")
+                    .node(*then_node);
 
-            for (else_if_condition, else_if_block) in else_if_blocks {
-                let else_if_node = ctx.node(*else_if_block);
-                group = group.line_break().nested(5, else_if_node, |nested| {
+                if let Some(else_block) = else_node {
+                    group = group.str(" else ").node(*else_block);
+                }
+
+                group.build()
+            } else {
+                let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(4, node, |nested| {
                     nested
-                        .str("else if")
+                        .str("if")
                         .space_or_indent()
-                        .node(*else_if_condition)
-                        .node(*else_if_block)
+                        .node(*condition)
+                        .node(*then_node)
                         .build()
                 });
-            }
 
-            if let Some(else_block) = else_node {
-                let else_node = ctx.node(*else_block);
-                group = group.line_break().nested(2, else_node, |nested| {
-                    nested.str("else").node(*else_block).build()
-                });
-            }
+                for (else_if_condition, else_if_block) in else_if_blocks {
+                    let else_if_node = ctx.node(*else_if_block);
+                    group = group.line_break().nested(5, else_if_node, |nested| {
+                        nested
+                            .str("else if")
+                            .space_or_indent()
+                            .node(*else_if_condition)
+                            .node(*else_if_block)
+                            .build()
+                    });
+                }
 
-            group.build_block()
+                if let Some(else_block) = else_node {
+                    let else_node = ctx.node(*else_block);
+                    group = group.line_break().nested(2, else_node, |nested| {
+                        nested.str("else").node(*else_block).build()
+                    });
+                }
+
+                group.build_block()
+            }
         }
         Node::Match { expression, arms } => {
             let mut group = GroupBuilder::new(3 + arms.len() * 2, node, ctx, trivia)

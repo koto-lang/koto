@@ -567,6 +567,18 @@ for #- abc -# x in y # xyz
         use super::*;
 
         #[test]
+        fn if_inline() {
+            check_format_output(
+                &["\
+if   #- abc -#   x>   10 then x else y*y# bar
+"],
+                "\
+if #- abc -# x > 10 then x else y * y # bar
+",
+            );
+        }
+
+        #[test]
         fn if_block() {
             check_format_output(
                 &["\

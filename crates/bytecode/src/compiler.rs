@@ -3253,6 +3253,7 @@ impl Compiler {
             then_node,
             else_if_blocks,
             else_node,
+            ..
         } = ast_if;
 
         let result = self.assign_result_register(ctx)?;

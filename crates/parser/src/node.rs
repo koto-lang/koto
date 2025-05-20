@@ -396,6 +396,8 @@ pub struct AstIf {
     pub else_if_blocks: AstVec<(AstIndex, AstIndex)>,
     /// An optional `else` branch
     pub else_node: Option<AstIndex>,
+    /// Whether or not the if expression was defined using inline syntax
+    pub inline: bool,
 }
 
 /// An operation used in UnaryOp expressions

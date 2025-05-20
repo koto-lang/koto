@@ -2458,6 +2458,7 @@ impl<'source> Parser<'source> {
                     then_node,
                     else_if_blocks: astvec![],
                     else_node,
+                    inline: true,
                 }),
                 if_span,
             )
@@ -2517,6 +2518,7 @@ impl<'source> Parser<'source> {
                         then_node,
                         else_if_blocks,
                         else_node,
+                        inline: false,
                     }),
                     if_span,
                 )
