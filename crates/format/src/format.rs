@@ -1,6 +1,6 @@
 use crate::{
-    FormatOptions, Result, Trivia,
     trivia::{TriviaIterator, TriviaToken},
+    FormatOptions, Result, Trivia,
 };
 use koto_lexer::Position;
 use koto_parser::{
@@ -367,7 +367,7 @@ fn format_node<'source>(
             inline,
         }) => {
             if *inline {
-                let mut group = GroupBuilder::new(6, node, ctx, trivia)
+                let mut group = GroupBuilder::new(4, node, ctx, trivia)
                     .str("if ")
                     .node(*condition)
                     .str(" then ")
@@ -379,21 +379,15 @@ fn format_node<'source>(
 
                 group.build()
             } else {
-                let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(4, node, |nested| {
-                    nested
-                        .str("if")
-                        .space_or_indent()
-                        .node(*condition)
-                        .node(*then_node)
-                        .build()
+                let mut group = GroupBuilder::new(3, node, ctx, trivia).nested(4, node, |nested| {
+                    nested.str("if ").node(*condition).node(*then_node).build()
                 });
 
                 for (else_if_condition, else_if_block) in else_if_blocks {
                     let else_if_node = ctx.node(*else_if_block);
-                    group = group.line_break().nested(5, else_if_node, |nested| {
+                    group = group.line_break().nested(4, else_if_node, |nested| {
                         nested
-                            .str("else if")
-                            .space_or_indent()
+                            .str("else if ")
                             .node(*else_if_condition)
                             .node(*else_if_block)
                             .build()
@@ -515,22 +509,15 @@ fn format_node<'source>(
             iterable,
             body,
         }) => {
-            let mut group = GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia)
-                .str("for")
-                .space_or_indent();
+            let mut group =
+                GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia).str("for ");
             for (i, arg) in args.iter().enumerate() {
                 group = group.node(*arg);
                 if i < args.len() - 1 {
-                    group = group.char(',');
+                    group = group.char(',').space_or_indent();
                 }
-                group = group.space_or_indent()
             }
-            group
-                .str("in")
-                .space_or_indent()
-                .node(*iterable)
-                .node(*body)
-                .build()
+            group.str(" in ").node(*iterable).node(*body).build()
         }
         Node::Loop { body } => GroupBuilder::new(2, node, ctx, trivia)
             .str("loop")
@@ -539,11 +526,10 @@ fn format_node<'source>(
         Node::While { condition, body } | Node::Until { condition, body } => {
             GroupBuilder::new(4, node, ctx, trivia)
                 .str(if matches!(&node.node, Node::While { .. }) {
-                    "while"
+                    "while "
                 } else {
-                    "until"
+                    "until "
                 })
-                .space_or_indent()
                 .node(*condition)
                 .node(*body)
                 .build()
@@ -675,11 +661,13 @@ struct FormatContext<'source> {
 impl<'source> FormatContext<'source> {
     fn new(source: &'source str, ast: &'source Ast, options: &'source FormatOptions) -> Self {
         let line_offsets = iter::once(0)
-            .chain(
-                source
-                    .char_indices()
-                    .filter_map(|(i, c)| if c == '\n' { Some(i as u32 + 1) } else { None }),
-            )
+            .chain(source.char_indices().filter_map(|(i, c)| {
+                if c == '\n' {
+                    Some(i as u32 + 1)
+                } else {
+                    None
+                }
+            }))
             .collect();
 
         Self {
