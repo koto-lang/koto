@@ -27,13 +27,14 @@ Expected:
 Output:
 ---
 {}
+
 ---",
                             expected
                                 .chars()
                                 .zip(output.chars())
                                 .take_while(|(a, b)| a == b)
                                 .count(),
-                            output.replace("\n", "⏎\n")
+                            output.replace("\n", "⏎\n"),
                         )
                     }
                 }
@@ -42,6 +43,64 @@ Output:
                     error.span.start.line, error.span.start.column
                 ),
             }
+        }
+    }
+
+    mod comments {
+        use super::*;
+
+        #[test]
+        fn several_comments() {
+            check_format_output(
+                &["
+# one
+# two
+# three
+"],
+                "\
+# one
+# two
+# three
+",
+            );
+        }
+
+        #[test]
+        fn multiline_comment_before_expression() {
+            check_format_output(
+                &["
+#-
+xyz
+-#
+print    'hello'
+"],
+                "\
+#-
+xyz
+-#
+print 'hello'
+",
+            );
+        }
+
+        #[test]
+        fn multiline_comment_at_start_of_function_block() {
+            check_format_output(
+                &["
+f   = ||
+  #-
+    abc
+  -#
+  return 42
+"],
+                "\
+f = ||
+  #-
+    abc
+  -#
+  return 42
+",
+            );
         }
     }
 
@@ -357,6 +416,24 @@ a, b, c =
         }
 
         #[test]
+        fn list_broken_by_comment() {
+            check_format_output(
+                &["\
+[  a , b ,# xyz
+       c,
+       d
+]
+"],
+                "\
+[
+  a, b, # xyz
+  c, d
+]
+",
+            );
+        }
+
+        #[test]
         fn tuple_multi_line() {
             check_format_output_with_options(
                 &["\
@@ -398,24 +475,31 @@ a, b, c =
         }
 
         #[test]
-        fn map_blocks() {
+        fn map_block_assignment() {
             check_format_output_with_options(
                 &["\
 x =
+  # foo
   foo  :
     99     # abc
 
+    # bar
   bar: some_long_function()
   'baz'  : #- xyz -# 1 + 1
+x
 "],
                 "\
 x =
-  foo: 99 # abc
+  # foo
+  foo:
+    99 # abc
 
+  # bar
   bar:
     some_long_function()
   'baz':
     #- xyz -# 1 + 1
+x
 ",
                 FormatOptions {
                     line_length: 20,
@@ -505,14 +589,27 @@ for #- abc -# x in y # xyz
         use super::*;
 
         #[test]
-        fn if_block() {
+        fn if_inline() {
+            check_format_output(
+                &["\
+if   #- abc -#   x>   10 then x else y*y# bar
+"],
+                "\
+if #- abc -# x > 10 then x else y * y # bar
+",
+            );
+        }
+
+        #[test]
+        fn if_block_with_else_ifs() {
             check_format_output(
                 &["\
 if   #- abc -#   x >   10 # foo
    return x
 else if   x   < 5 # ---
-    return x     # bar
+    return x     #- bar -#
 else if     x ==   0 # xyz
+      # x
      return x
 else # baz
  x     =    42      # 42
@@ -522,12 +619,37 @@ else # baz
 if #- abc -# x > 10 # foo
   return x
 else if x < 5 # ---
-  return x # bar
+  return x #- bar -#
 else if x == 0 # xyz
+  # x
   return x
 else # baz
   x = 42 # 42
   return x
+",
+            );
+        }
+
+        #[test]
+        fn if_block_nested() {
+            check_format_output(
+                &["\
+f = ||
+  if    true
+      x + y
+  else if    x > 100
+    x
+  else
+        x * y
+"],
+                "\
+f = ||
+  if true
+    x + y
+  else if x > 100
+    x
+  else
+    x * y
 ",
             );
         }
@@ -598,11 +720,13 @@ match   foo()    # abc
 "],
                 "\
 match foo() # abc
-  'hello' then 'xyz'
+  'hello' then
+    'xyz'
   1 or 2 or 3 or 4 then -1
   ('a', 'b') or ('c', 'd') if bar() then
     baz() # xyz
-  else 0
+  else
+    0
 ",
                 FormatOptions {
                     line_length: 50,
@@ -654,7 +778,7 @@ catch i  :   Int
 catch    other
   throw other
 finally
-    print 'bye'"],
+    print 'bye' # xyz"],
                 "\
 try # abc
   foo()
@@ -665,7 +789,7 @@ catch i: Int
 catch other
   throw other
 finally
-  print 'bye'
+  print 'bye' # xyz
 ",
                 FormatOptions {
                     match_and_switch_always_indent_arm_bodies: true,
@@ -703,7 +827,36 @@ foo.bar[#- foo -# 1..]?.'baz'(x[..], 2, 3)
         }
 
         #[test]
-        fn long_chain() {
+        fn multi_line_that_gets_collapsed() {
+            check_format_output(
+                &["\
+foo
+  .bar(
+  )?[0]
+"],
+                "\
+foo.bar()?[0]
+",
+            );
+        }
+
+        #[test]
+        fn single_line_that_gets_broken() {
+            check_format_output(
+                &["\
+foo.bar()?.'baz'().xyz[0]?
+"],
+                "\
+foo
+  .bar()?
+  .'baz'()
+  .xyz[0]?
+",
+            );
+        }
+
+        #[test]
+        fn broken_by_line_length() {
             check_format_output_with_options(
                 &["\
 foo.bar[  #- foo -# ..9  ]?.baz( 1 ,  2 ,  3..=4  )
@@ -717,6 +870,37 @@ foo
                     line_length: 20,
                     ..Default::default()
                 },
+            );
+        }
+
+        #[test]
+        fn paren_free_call_before_end() {
+            // The paren-free call prevents collaps
+            check_format_output(
+                &["\
+foo
+      .bar     |x| x+10
+      .baz()
+"],
+                "\
+foo
+  .bar |x| x + 10
+  .baz()
+",
+            );
+        }
+
+        #[test]
+        fn paren_free_call_at_end() {
+            // Paren-free calls at the end of the chain can be collapsed
+            check_format_output(
+                &["\
+foo
+      .bar     |x| x+10
+"],
+                "\
+foo.bar |x| x + 10
+",
             );
         }
     }
@@ -749,6 +933,18 @@ from foo import #- abc -# bar # xyz
         }
 
         #[test]
+        fn import_without_from() {
+            check_format_output(
+                &["\
+import #- abc -#   bar     # xyz
+"],
+                "\
+import #- abc -# bar # xyz
+",
+            );
+        }
+
+        #[test]
         fn import_multiline() {
             check_format_output_with_options(
                 &["\
@@ -766,6 +962,22 @@ import
                 },
             );
         }
+
+        #[test]
+        fn metakey_assignment() {
+            check_format_output(
+                &["\
+@main =
+    ||
+        print
+            'hello'
+"],
+                "\
+@main = ||
+  print 'hello'
+",
+            );
+        }
     }
 
     mod functions {
@@ -779,6 +991,23 @@ f   =   |  a : Number ,  b: Number, c...  |   g(a  +  b, c...)
 "],
                 "\
 f = |a: Number, b: Number, c...| g(a + b, c...)
+",
+            );
+        }
+
+        #[test]
+        fn broken_args() {
+            check_format_output(
+                &["\
+f   =   |  a,
+b, # xyz
+ c  | x a, b, c
+"],
+                "\
+f = |
+  a, b, # xyz
+  c
+| x a, b, c
 ",
             );
         }
@@ -808,6 +1037,36 @@ f = |
                     line_length: 20,
                     ..Default::default()
                 },
+            );
+        }
+
+        #[test]
+        fn return_tuple() {
+            check_format_output(
+                &["\
+f   =   |a,b,c|a,b,c
+"],
+                "\
+f = |a, b, c| a, b, c
+",
+            );
+        }
+
+        #[test]
+        fn return_map_block() {
+            check_format_output(
+                &["\
+f   =  ||
+  # foo
+  foo:   42
+  bar:     99
+"],
+                "\
+f = ||
+  # foo
+  foo: 42
+  bar: 99
+",
             );
         }
     }

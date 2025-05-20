@@ -1,6 +1,6 @@
-use crate::Result;
+use crate::{Error, ErrorKind, Result};
 use koto_lexer::{Lexer, Token};
-use koto_parser::{Span, SyntaxError};
+use koto_parser::Span;
 
 /// Captures non-AST 'trivia' items that are needed for formatting, like comments and newlines
 #[derive(Default)]
@@ -35,12 +35,7 @@ impl Trivia {
                     }
                 }
                 Token::Whitespace => None,
-                Token::Error => {
-                    return Err(koto_parser::Error::new(
-                        SyntaxError::UnexpectedToken.into(),
-                        token.span,
-                    ));
-                }
+                Token::Error => return Err(Error::new(ErrorKind::TokenError, token.span)),
                 // Other tokens can be skipped
                 _ => None,
             };

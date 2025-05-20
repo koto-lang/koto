@@ -1,5 +1,5 @@
 use crate::{
-    FormatOptions, Result, Trivia,
+    Error, ErrorKind, FormatOptions, Result, Trivia,
     trivia::{TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
@@ -20,7 +20,10 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
         let context = FormatContext::new(source, &ast, &options);
         let output = format_node(entry_point, &context, &mut trivia.iter());
         let mut result = String::new();
-        output.render(&mut result, &options, 0);
+        output.render(&mut result, &options, 0)?;
+        if !result.ends_with('\n') {
+            result.push('\n');
+        }
         Ok(result)
     } else {
         Ok(String::new())
@@ -70,19 +73,25 @@ fn format_node<'source>(
             let mut chain_node = root_node;
             let mut chain_next = next;
 
+            let force_break = should_chain_be_broken(root_node, next, ctx);
+
             loop {
                 match chain_node {
                     ChainNode::Root(root) => {
                         group = group.node(*root);
                     }
                     ChainNode::Id(id) => {
-                        group = group.maybe_indent().char('.').string_constant(*id);
+                        group = group
+                            .maybe_force_indent(force_break)
+                            .char('.')
+                            .string_constant(*id);
                     }
                     ChainNode::Str(s) => {
-                        group = group
-                            .maybe_indent()
-                            .char('.')
-                            .nested(3, node, |nested| format_string(s, nested));
+                        group = group.maybe_force_indent(force_break).char('.').nested(
+                            3,
+                            node,
+                            |nested| format_string(s, nested),
+                        );
                     }
                     ChainNode::Index(index) => {
                         group = group.nested(3, node, |nested| {
@@ -123,7 +132,16 @@ fn format_node<'source>(
                             chain_node = next_chain_node;
                             chain_next = next_next;
                         }
-                        _other => todo!("Expected chain node"),
+                        other => {
+                            return Error::new(
+                                ErrorKind::UnexpectedNode {
+                                    expected: "ChainNode".into(),
+                                    unexpected: other.clone(),
+                                },
+                                *ctx.span(node),
+                            )
+                            .into();
+                        }
                     }
                 } else {
                     break;
@@ -146,13 +164,26 @@ fn format_node<'source>(
             .maybe_return()
             .char(']')
             .build(),
-        Node::Tuple(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
-            .char('(')
-            .maybe_indent()
-            .elements(elements)
-            .maybe_return()
-            .char(')')
-            .build(),
+        Node::Tuple {
+            elements,
+            parentheses,
+        } => {
+            if *parentheses {
+                GroupBuilder::new(elements.len() * 3 + 4, node, ctx, trivia)
+                    .char('(')
+                    .maybe_indent()
+                    .elements(elements)
+                    .maybe_return()
+                    .char(')')
+                    .build()
+            } else {
+                GroupBuilder::new(elements.len() * 3 + 2, node, ctx, trivia)
+                    .maybe_indent()
+                    .elements(elements)
+                    .maybe_return()
+                    .build()
+            }
+        }
         Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 2, node, ctx, trivia)
             .maybe_indent()
             .elements(elements)
@@ -191,13 +222,28 @@ fn format_node<'source>(
                 group.maybe_return().char('}').build()
             } else {
                 let mut group =
-                    GroupBuilder::new(entries.len() * 2 + 1, node, ctx, trivia).indented_break();
+                    GroupBuilder::new(entries.len() * 4 + 1, node, ctx, trivia).start_block();
 
                 for entry in entries.iter() {
-                    group = group.node(*entry).indented_break();
+                    // Use the entry's key as the line start node to collect the entry's
+                    // leading trivia before rendering the entry as a sub-group.
+                    let key = match &ctx.node(*entry).node {
+                        Node::MapEntry(key, _) => key,
+                        other => {
+                            return Error::new(
+                                ErrorKind::UnexpectedNode {
+                                    expected: "MapEntry".into(),
+                                    unexpected: other.clone(),
+                                },
+                                *ctx.span(node),
+                            )
+                            .into();
+                        }
+                    };
+                    group = group.line_start(*key).node(*entry).line_break();
                 }
 
-                group.build()
+                group.build_block()
             }
         }
         Node::MapEntry(key, value) => GroupBuilder::new(4, node, ctx, trivia)
@@ -208,70 +254,85 @@ fn format_node<'source>(
             .build(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
-            let mut group = GroupBuilder::new(body.len(), node, ctx, trivia);
+            let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia);
             for block_node in body {
-                group = group.node(*block_node).line_break()
+                group = group.line_start(*block_node).node(*block_node).line_break()
             }
-            group.build_main_block()
+            group.build_block()
         }
-        Node::Block(body) => {
-            let mut group = GroupBuilder::new(body.len(), node, ctx, trivia).line_break();
-            for block_node in body {
-                group = group.node(*block_node).line_break()
+        Node::Block(body) => match body.as_slice() {
+            [single] if matches!(ctx.node(*single).node, Node::Map { braces: false, .. }) => {
+                format_node(*single, ctx, trivia)
             }
-            group.build_block(true)
+            _ => {
+                let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia).start_block();
+                for block_node in body {
+                    group = group.line_start(*block_node).node(*block_node).line_break()
+                }
+                group.build_block()
+            }
+        },
+        Node::Function(Function { args, body, .. }) => {
+            if matches!(ctx.node(*body).node, Node::Block(..)) {
+                GroupBuilder::new(3, node, ctx, trivia)
+                    .node(*args)
+                    .node(*body)
+                    .build()
+            } else {
+                GroupBuilder::new(3, node, ctx, trivia)
+                    .node(*args)
+                    .space_or_indent()
+                    .node(*body)
+                    .build()
+            }
         }
-        Node::Function(Function {
+        Node::FunctionArgs {
             args,
-            body,
-            is_variadic,
+            variadic,
             output_type,
-            ..
-        }) => {
-            let mut group = GroupBuilder::new(3, node, ctx, trivia);
-
-            // Args
-            group = group.nested(3 + args.len() * 2, node, |mut nested| {
-                nested = nested.char('|').maybe_indent();
-                for (i, arg) in args.iter().enumerate() {
-                    nested = nested.node(*arg);
-                    if i < args.len() - 1 {
-                        nested = nested.char(',').space_or_indent_if_necessary();
-                    } else if *is_variadic {
-                        nested = nested.str("...");
-                    }
+        } => {
+            let mut group = GroupBuilder::new(4 + args.len() * 2, node, ctx, trivia)
+                .char('|')
+                .maybe_indent();
+            for (i, arg) in args.iter().enumerate() {
+                group = group.node(*arg);
+                if i < args.len() - 1 {
+                    group = group.char(',').space_or_indent_if_necessary();
+                } else if *variadic {
+                    group = group.str("...");
                 }
-                nested = nested.maybe_return().char('|');
+            }
+            group = group.maybe_return().char('|');
 
-                // Output type
-                if let Some(output_type) = output_type {
-                    nested = nested
-                        .space_or_indent_if_necessary()
-                        .str("->")
-                        .space_or_indent_if_necessary()
-                        .node(*output_type);
-                }
+            // Output type
+            if let Some(output_type) = output_type {
+                group = group
+                    .space_or_indent_if_necessary()
+                    .str("->")
+                    .space_or_indent_if_necessary()
+                    .node(*output_type);
+            }
 
-                nested.build()
-            });
-
-            // Body
-            group.space_or_indent().node(*body).build()
+            group.build()
         }
         Node::Import { from, items } => {
             let mut group =
-                GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia)
-                    .str("from")
-                    .space_or_indent();
+                GroupBuilder::new(5 + from.len() * 2 - 1 + items.len() * 2, node, ctx, trivia);
 
-            for (i, from_node) in from.iter().enumerate() {
-                group = group.node(*from_node);
-                if i < from.len() - 1 {
-                    group = group.char('.');
+            if !from.is_empty() {
+                group = group.str("from").space_or_indent();
+
+                for (i, from_node) in from.iter().enumerate() {
+                    group = group.node(*from_node);
+                    if i < from.len() - 1 {
+                        group = group.char('.');
+                    }
                 }
+
+                group = group.space_or_return();
             }
 
-            group = group.space_or_return().str("import").space_or_indent();
+            group = group.str("import").space_or_indent();
 
             for (i, ImportItem { item, name }) in items.iter().enumerate() {
                 group = group.nested(0, node, |mut nested| {
@@ -356,39 +417,53 @@ fn format_node<'source>(
             then_node,
             else_if_blocks,
             else_node,
+            inline,
         }) => {
-            // TODO: Support for single-line if expressions
-
-            let mut group = GroupBuilder::new(4, node, ctx, trivia).nested(4, node, |nested| {
-                nested
-                    .str("if")
-                    .space_or_indent()
+            if *inline {
+                let mut group = GroupBuilder::new(4, node, ctx, trivia)
+                    .str("if ")
                     .node(*condition)
-                    .node(*then_node)
-                    .build()
-            });
+                    .str(" then ")
+                    .node(*then_node);
 
-            for (else_if_condition, else_if_block) in else_if_blocks {
-                let else_if_node = ctx.node(*else_if_block);
-                group = group.line_break().nested(5, else_if_node, |nested| {
-                    nested
-                        .str("else if")
-                        .space_or_indent()
-                        .node(*else_if_condition)
-                        .indented_break()
-                        .node(*else_if_block)
-                        .build()
+                if let Some(else_block) = else_node {
+                    group = group.str(" else ").node(*else_block);
+                }
+
+                group.build()
+            } else {
+                let mut group = GroupBuilder::new(3, node, ctx, trivia).nested(4, node, |nested| {
+                    nested.str("if ").node(*condition).node(*then_node).build()
                 });
-            }
 
-            if let Some(else_block) = else_node {
-                let else_node = ctx.node(*else_block);
-                group = group.line_break().nested(2, else_node, |nested| {
-                    nested.str("else").node(*else_block).build()
-                });
-            }
+                for (else_if_condition, else_if_block) in else_if_blocks {
+                    let else_if_node = ctx.node(*else_if_block);
+                    group = group.line_break().line_start(*else_if_condition).nested(
+                        4,
+                        else_if_node,
+                        |nested| {
+                            nested
+                                .str("else if ")
+                                .node(*else_if_condition)
+                                .node(*else_if_block)
+                                .build()
+                        },
+                    );
+                }
 
-            group.build_block(false)
+                if let Some(else_block) = else_node {
+                    let else_node = ctx.node(*else_block);
+                    group =
+                        group
+                            .line_break()
+                            .line_start(*condition)
+                            .nested(2, else_node, |nested| {
+                                nested.str("else").node(*else_block).build()
+                            });
+                }
+
+                group.build_block()
+            }
         }
         Node::Match { expression, arms } => {
             let mut group = GroupBuilder::new(3 + arms.len() * 2, node, ctx, trivia)
@@ -495,22 +570,15 @@ fn format_node<'source>(
             iterable,
             body,
         }) => {
-            let mut group = GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia)
-                .str("for")
-                .space_or_indent();
+            let mut group =
+                GroupBuilder::new((args.len() * 3 - 1) + 6, node, ctx, trivia).str("for ");
             for (i, arg) in args.iter().enumerate() {
                 group = group.node(*arg);
                 if i < args.len() - 1 {
-                    group = group.char(',');
+                    group = group.char(',').space_or_indent();
                 }
-                group = group.space_or_indent()
             }
-            group
-                .str("in")
-                .space_or_indent()
-                .node(*iterable)
-                .node(*body)
-                .build()
+            group.str(" in ").node(*iterable).node(*body).build()
         }
         Node::Loop { body } => GroupBuilder::new(2, node, ctx, trivia)
             .str("loop")
@@ -519,11 +587,10 @@ fn format_node<'source>(
         Node::While { condition, body } | Node::Until { condition, body } => {
             GroupBuilder::new(4, node, ctx, trivia)
                 .str(if matches!(&node.node, Node::While { .. }) {
-                    "while"
+                    "while "
                 } else {
-                    "until"
+                    "until "
                 })
-                .space_or_indent()
                 .node(*condition)
                 .node(*body)
                 .build()
@@ -543,32 +610,32 @@ fn format_node<'source>(
             finally_block,
         }) => {
             let mut group = GroupBuilder::new(2 + 2 * catch_blocks.len() + 2, node, ctx, trivia)
-                .nested(3, node, |nested| {
-                    nested.str("try").indented_break().node(*try_block).build()
+                .nested(2, ctx.node(*try_block), |nested| {
+                    nested.str("try").node(*try_block).build()
                 });
 
             for AstCatch { arg, block } in catch_blocks.iter() {
-                group = group.line_break().nested(3, node, |nested| {
+                group = group.line_break().nested(4, ctx.node(*block), |nested| {
                     nested
+                        .line_start(*arg)
                         .str("catch ")
                         .node(*arg)
-                        .indented_break()
                         .node(*block)
                         .build()
                 })
             }
 
             if let Some(finally) = finally_block {
-                group = group.line_break().nested(2, node, |nested| {
+                group = group.line_break().nested(3, ctx.node(*finally), |nested| {
                     nested
+                        .line_start(*finally)
                         .str("finally")
-                        .indented_break()
                         .node(*finally)
                         .build()
                 })
             }
 
-            group.build_block(false)
+            group.build_block()
         }
         Node::Throw(value) => FormatItem::from_keyword_and_value("throw", value, node, ctx, trivia),
         Node::Yield(value) => FormatItem::from_keyword_and_value("yield", value, node, ctx, trivia),
@@ -718,7 +785,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     }
 
     fn build(mut self) -> FormatItem<'source> {
-        self.add_trivia(self.group_span.end);
+        self.add_trivia(self.group_span.end, TriviaPosition::Any);
 
         FormatItem::Group {
             items: self.items,
@@ -727,28 +794,28 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         }
     }
 
-    fn build_block(mut self, indented: bool) -> FormatItem<'source> {
-        self.add_trivia(self.group_span.end);
+    fn build_block(mut self) -> FormatItem<'source> {
+        self.add_trivia(self.group_span.end, TriviaPosition::LineStart);
+        // Remove any trailing whitespace
         self.strip_trailing_whitespace();
-        FormatItem::Block {
+        FormatItem::Group {
             items: self.items,
-            indented,
+            line_length: OnceCell::new(),
+            force_break: OnceCell::new(),
         }
     }
 
-    fn build_main_block(mut self) -> FormatItem<'source> {
-        self.add_trivia(self.group_span.end);
-        self.strip_trailing_whitespace();
-        FormatItem::MainBlock(self.items)
+    fn strip_trailing_whitespace(&mut self) {
+        while self.items.last().is_some_and(|item| item.is_break()) {
+            self.items.pop();
+        }
     }
 
-    fn strip_trailing_whitespace(&mut self) {
-        // Remove trailing linebreaks
-        while self
-            .items
-            .last()
-            .is_some_and(|item| matches!(item, FormatItem::LineBreak | FormatItem::SpaceOrIndent))
-        {
+    fn strip_trailing_breaks(&mut self) {
+        while self.items.last().is_some_and(|item| match item {
+            FormatItem::GroupBreak(group_break) => group_break.needs_linebreak(false, false),
+            _ => false,
+        }) {
             self.items.pop();
         }
     }
@@ -773,58 +840,90 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    fn group_break(&mut self, group_break: GroupBreak) {
+        self.items.push(FormatItem::GroupBreak(group_break));
+    }
+
     fn space_or_indent(mut self) -> Self {
-        self.items.push(FormatItem::SpaceOrIndent);
+        self.group_break(GroupBreak::SpaceOrIndent);
         self
     }
 
     fn space_or_return(mut self) -> Self {
-        self.items.push(FormatItem::SpaceOrReturn);
+        self.group_break(GroupBreak::SpaceOrReturn);
         self
     }
 
     fn space_or_indent_if_necessary(mut self) -> Self {
-        self.items.push(FormatItem::SpaceOrIndentIfNecessary);
+        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
         self
     }
 
     fn maybe_indent(mut self) -> Self {
-        self.items.push(FormatItem::MaybeIndent);
+        self.group_break(GroupBreak::MaybeIndent);
+        self
+    }
+
+    fn maybe_force_indent(mut self, force: bool) -> Self {
+        if force {
+            self.group_break(GroupBreak::IndentedBreak);
+        } else {
+            self.group_break(GroupBreak::MaybeIndent);
+        }
         self
     }
 
     fn maybe_return(mut self) -> Self {
-        self.items.push(FormatItem::MaybeReturn);
+        self.group_break(GroupBreak::MaybeReturn);
         self
     }
 
     fn indented_break(mut self) -> Self {
-        // Add any trailing comments for the current line
+        // Add any trailing comments for the current line;
         self = self.add_trailing_trivia();
-        self.items.push(FormatItem::ForceBreak);
+        self.group_break(GroupBreak::IndentedBreak);
         self
     }
 
     fn line_break(mut self) -> Self {
         self = self.add_trailing_trivia();
+        self.strip_trailing_breaks();
         self.items.push(FormatItem::LineBreak);
+        self
+    }
+
+    fn line_start(mut self, node_index: AstIndex) -> Self {
+        let node = self.ctx.node(node_index);
+        let node_span = self.ctx.span(node);
+        self.add_trivia(node_span.start, TriviaPosition::LineStart);
+        self.group_break(GroupBreak::LineStart);
+        self
+    }
+
+    fn start_block(mut self) -> Self {
+        self.strip_trailing_breaks();
+        self.group_break(GroupBreak::StartBlock);
         self
     }
 
     fn add_trailing_trivia(mut self) -> Self {
         // Add any trailing comments for the current line
-        self.add_trivia(if self.items.is_empty() {
-            self.current_line()
-        } else {
-            self.next_line()
-        });
+        self.add_trivia(
+            if self.items.is_empty() {
+                self.current_line()
+            } else {
+                self.next_line()
+            },
+            TriviaPosition::LineEnd,
+        );
         self
     }
 
     fn node(mut self, node_index: AstIndex) -> Self {
-        let node_span = self.ctx.span(self.ctx.node(node_index));
+        let node = self.ctx.node(node_index);
+        let node_span = self.ctx.span(node);
         let node_end_line = node_span.end.line;
-        self.add_trivia(node_span.start);
+        self.add_trivia(node_span.start, TriviaPosition::Any);
         self.items
             .push(format_node(node_index, self.ctx, self.trivia));
         self.current_line = node_end_line;
@@ -869,37 +968,73 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
-    fn add_trivia(&mut self, position: Position) {
+    fn add_trivia(&mut self, position: Position, position_info: TriviaPosition) {
         // Add any trivia items that belong before the format item to the group
         while let Some(item) = self.trivia.peek() {
             let item_start = item.span.start;
-            if item_start < position {
-                // Advance the trivia iterator
-                let item = *item;
-                self.trivia.next();
+            let item_end = item.span.end;
 
-                match item.token {
-                    TriviaToken::EmptyLine => {
-                        self.items.push(FormatItem::LineBreak);
-                    }
-                    TriviaToken::CommentSingle => {
-                        // Add a softbreak before the comment if necessary
-                        if let Some(last_item) = self.items.last() {
-                            if !last_item.is_break() {
-                                self.items.push(FormatItem::SpaceOrIndentIfNecessary);
+            let consume_item = match position_info {
+                TriviaPosition::LineStart => item_start.line < position.line,
+                TriviaPosition::Any | TriviaPosition::LineEnd => item_start < position,
+            };
+            if !consume_item {
+                break;
+            }
+
+            // Advance the trivia iterator
+            let item = *item;
+            self.trivia.next();
+
+            match item.token {
+                TriviaToken::EmptyLine => {
+                    self.strip_trailing_breaks();
+                    self.items.push(FormatItem::LineBreak);
+                }
+                TriviaToken::CommentSingle => {
+                    match position_info {
+                        TriviaPosition::LineStart => {
+                            if item_end.line < position.line {
+                                self.group_break(GroupBreak::LineStart);
                             }
                         }
-
-                        self.items.push(self.ctx.source_slice(&item.span).into());
-                        self.items.push(FormatItem::ForceBreak);
+                        _ if self.items.last().is_some_and(|item| !item.is_break()) => {
+                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                        }
+                        _ => {}
                     }
-                    TriviaToken::CommentMulti => {
-                        self.items.push(self.ctx.source_slice(&item.span).into());
-                        self.items.push(FormatItem::SpaceOrIndentIfNecessary);
+
+                    self.items.push(self.ctx.source_slice(&item.span).into());
+
+                    match position_info {
+                        TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
+                        _ => self.group_break(GroupBreak::IndentedBreak),
                     }
                 }
-            } else {
-                break;
+                TriviaToken::CommentMulti => {
+                    match position_info {
+                        TriviaPosition::LineStart if item_end.line < position.line => {
+                            self.group_break(GroupBreak::LineStart);
+                        }
+                        TriviaPosition::LineEnd
+                            if self.items.last().is_some_and(|item| !item.is_break()) =>
+                        {
+                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                        }
+                        _ => {}
+                    }
+
+                    self.items.push(self.ctx.source_slice(&item.span).into());
+
+                    match position_info {
+                        TriviaPosition::LineStart if item_end.line < position.line => {
+                            self.items.push(FormatItem::LineBreak);
+                        }
+                        _ => {
+                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                        }
+                    }
+                }
             }
         }
     }
@@ -928,40 +1063,29 @@ enum FormatItem<'source> {
     // A KString
     KString(KString),
     // A grouped sequence of items
-    // The group will be rendered on a single line, or if the group doesn't fit in the remaining
-    // space then it will be rendered with softbreaks replaced by indented newlines
+    // The group will be rendered on a single line by default, or if the group doesn't fit in the
+    // remaining space then it will be rendered with breaks replaced with appropriate indentation.
     Group {
         items: Vec<FormatItem<'source>>,
-        // The group's length if it was rendered on a single line
-        // This gets calculated and cached during rendering to avoid nested group recalculations
+        // The group's length if it was rendered on a single line.
+        // This gets calculated and cached during rendering to avoid nested group recalculations.
         line_length: OnceCell<usize>,
         // True if the group contains a single-line comment that requires the group to be broken
         // across indented lines.
         force_break: OnceCell<bool>,
     },
-    // A sequence of expressions, each on a separate line.
-    MainBlock(Vec<FormatItem<'source>>),
-    // A sequence of expressions, each on a separate line.
-    Block {
-        items: Vec<FormatItem<'source>>,
-        indented: bool,
-    },
-    // A linebreak
+    // An explicit linebreak
     LineBreak,
-    // A space or indented linebreak, always breaking when the line is too long
-    SpaceOrIndent,
-    // A space or indented linebreak, only breaking if necessary
-    SpaceOrIndentIfNecessary,
-    // A space, or a point where a long line can be broken with a return to the start column
-    SpaceOrReturn,
-    // A point where a long line can be broken with an indent
-    MaybeIndent,
-    // A point where a long line can be broken with a return to the start column
-    MaybeReturn,
-    // Forces a group to be broken onto multiple lines if followed by anything other than
-    // an indented block.
-    ForceBreak,
+    // A group break
+    GroupBreak(GroupBreak),
+    // An error that occurred while preparing the item tree
+    //
+    // Errors will be very rare (only occurring with a malformed AST), so rather than checking for
+    // errors everywhere in `format_node` the error gets propagated during rendering.
+    Error(Error),
 }
+
+type Type = Result<()>;
 
 impl<'source> FormatItem<'source> {
     // Used for keyword/value expressions like `return true`
@@ -980,49 +1104,32 @@ impl<'source> FormatItem<'source> {
     }
 
     // Renders the format item, appending to the provided output string
-    fn render(&self, output: &mut String, options: &FormatOptions, column: usize) {
+    fn render(&self, output: &mut String, options: &FormatOptions, column: usize) -> Type {
         match self {
             Self::Char(c) => output.push(*c),
             Self::Str(s) => output.push_str(s),
             Self::KString(s) => output.push_str(s),
-            Self::Group { items, .. } => self.render_group(items, output, options, column),
-            Self::MainBlock(items) => {
-                for item in items {
-                    item.render(output, options, column);
-                }
-                // A newline may already be present at the end of the output, if not add one now.
-                if !output.ends_with('\n') {
-                    output.push('\n');
-                }
-            }
-            Self::Block { items, indented } => {
-                let block_column = if *indented {
-                    column + options.indent_width as usize
-                } else {
-                    column
-                };
-                let indent = " ".repeat(block_column);
-                let mut last_item_was_linebreak = false;
-                for item in items {
-                    last_item_was_linebreak = if !matches!(item, FormatItem::LineBreak) {
-                        if last_item_was_linebreak {
-                            output.push_str(&indent);
-                        }
-                        false
-                    } else {
-                        true
-                    };
-
-                    item.render(output, options, block_column);
-                }
-            }
+            Self::Group { items, .. } => self.render_group(items, output, options, column)?,
             Self::LineBreak => output.push('\n'),
-            // Optional breaks are rendered as a space when the group fits within the remaining width
-            Self::SpaceOrIndent | Self::SpaceOrIndentIfNecessary | Self::SpaceOrReturn => {
-                output.push(' ')
-            }
-            // Forced or optional breaks are handled by group rendering
-            Self::ForceBreak | Self::MaybeIndent | Self::MaybeReturn => {}
+            Self::GroupBreak(group_break) => match group_break {
+                GroupBreak::SpaceOrIndent
+                | GroupBreak::SpaceOrIndentIfNecessary
+                | GroupBreak::SpaceOrReturn => output.push(' '),
+                _ => {}
+            },
+            Self::Error(error) => return Err(error.clone()),
+        }
+
+        Ok(())
+    }
+
+    fn is_indented_block(&self) -> bool {
+        match self {
+            Self::Group { items, .. } => matches!(
+                items.first(),
+                Some(Self::GroupBreak(GroupBreak::StartBlock))
+            ),
+            _ => false,
         }
     }
 
@@ -1031,14 +1138,15 @@ impl<'source> FormatItem<'source> {
         items: &[FormatItem<'source>],
         output: &mut String,
         options: &FormatOptions,
-        column: usize,
-    ) {
+        mut column: usize,
+    ) -> Result<()> {
         let columns_remaining = (options.line_length as usize).saturating_sub(column);
         let too_long = self.line_length() > columns_remaining;
+        let force_break = self.force_break();
 
         // Use indent logic if the line is too long, or if the group contains a forced break
         if too_long || self.force_break() {
-            let group_start_indent = " ".repeat(column);
+            let mut group_start_indent = " ".repeat(column);
             let extra_indent = " ".repeat(options.indent_width as usize);
             let mut group_column = column;
             let mut group_break = GroupBreak::None;
@@ -1047,42 +1155,40 @@ impl<'source> FormatItem<'source> {
 
             for item in items {
                 match item {
-                    Self::SpaceOrIndent | Self::MaybeIndent => {
-                        if too_long {
-                            group_break = GroupBreak::IndentedBreak;
-                        } else {
-                            item.render(&mut item_buffer, options, group_column);
+                    Self::GroupBreak(new_break) => {
+                        group_break = *new_break;
+                        if matches!(new_break, GroupBreak::StartBlock) {
+                            // Reinitialize the group's start indent
+                            column += extra_indent.len();
+                            group_column = column;
+                            group_start_indent = " ".repeat(column);
+                            output.push('\n');
+                            group_break = GroupBreak::None;
                         }
-                    }
-                    Self::SpaceOrIndentIfNecessary if too_long => {
-                        group_break = GroupBreak::IndentedBreakIfNecessary;
-                    }
-                    Self::SpaceOrReturn | Self::MaybeReturn if too_long => {
-                        group_break = GroupBreak::ReturnBreak;
-                    }
-                    Self::ForceBreak => {
-                        group_break = GroupBreak::IndentedBreak;
                     }
                     Self::LineBreak => {
                         output.push('\n');
-                        group_break = GroupBreak::IndentedBreak;
+                        group_break = GroupBreak::None;
                     }
-                    Self::Block { .. } => {
-                        // A block can only be the last item in a group and renders its own linebreak
-                        item.render(output, options, column);
-                        return;
+                    _ if item.is_indented_block() => {
+                        // No need to worry about adjusting the line width here,
+                        // an indented block is always the last item in a group.
+                        item.render(&mut item_buffer, options, group_column)?;
+                        output.extend(item_buffer.drain(..));
+                        group_break = GroupBreak::None;
                     }
                     _ => {
                         // Adjust the column for the item to be rendered
-                        if group_break.needs_linebreak() {
+                        if group_break.needs_linebreak(too_long, force_break) {
                             group_column = column;
-                            if group_break.needs_indent() {
+
+                            if group_break.needs_indent(too_long, force_break) {
                                 group_column += extra_indent.len();
                             }
                         }
 
                         // Render the item into a temporary buffer
-                        item.render(&mut item_buffer, options, group_column);
+                        item.render(&mut item_buffer, options, group_column)?;
 
                         // Get the width of the item's first line
                         // (multiline items are possible, and we only need the first line's width
@@ -1094,29 +1200,40 @@ impl<'source> FormatItem<'source> {
                             .width();
 
                         // Check for 'indented break if necessary' items
-                        if matches!(group_break, GroupBreak::IndentedBreakIfNecessary) {
+                        if matches!(group_break, GroupBreak::SpaceOrIndentIfNecessary) {
                             // +1 for a space
                             let line_width_with_item = line_width + item_first_line_width + 1;
                             if line_width_with_item > options.line_length as usize {
                                 group_break = GroupBreak::IndentedBreak;
-                            } else if item_first_line_width > 0 {
-                                output.push(' ');
-                                item_first_line_width += 1;
+                            } else {
+                                if item_first_line_width > 0 {
+                                    output.push(' ');
+                                    item_first_line_width += 1;
+                                }
+                                group_break = GroupBreak::None;
                             }
                         }
 
                         // Emit linebreaks if necessary
-                        if group_break.needs_linebreak() {
+                        if group_break.needs_linebreak(too_long, force_break) {
                             output.push('\n');
                             output.push_str(&group_start_indent);
                             group_column = column;
                             line_width = group_start_indent.len();
-                            if group_break.needs_indent() {
-                                group_column += extra_indent.len();
+
+                            if group_break.needs_indent(too_long, force_break) {
+                                group_column = column + extra_indent.len();
                                 output.push_str(&extra_indent);
                                 line_width = group_column;
                             }
+                        } else if group_break.needs_return(too_long, force_break) {
+                            output.push_str(&group_start_indent);
+                            group_column = column;
+                            line_width = group_start_indent.len();
+                        } else if group_break.needs_space(too_long) {
+                            output.push(' ');
                         }
+
                         group_break = GroupBreak::None;
 
                         // Add the item to the output
@@ -1131,9 +1248,11 @@ impl<'source> FormatItem<'source> {
             }
         } else {
             for item in items {
-                item.render(output, options, column);
+                item.render(output, options, column)?;
             }
         }
+
+        Ok(())
     }
 
     // Gets the length of the format item
@@ -1146,19 +1265,25 @@ impl<'source> FormatItem<'source> {
             Self::KString(s) => s.width(),
             Self::Group {
                 line_length, items, ..
-            } => *line_length.get_or_init(|| items.iter().map(Self::line_length).sum()),
-            // Rendered in single lines as space
-            Self::SpaceOrIndent | Self::SpaceOrIndentIfNecessary => 1,
-            // Optional linebreaks that don't take up space in a single line
-            Self::SpaceOrReturn | Self::MaybeIndent | Self::MaybeReturn => 0,
-            // Don't bother calculating lengths of items that are broken over lines
-            Self::MainBlock(_) | Self::Block { .. } | Self::LineBreak | Self::ForceBreak => 0,
+            } => *line_length.get_or_init(|| {
+                items
+                    .iter()
+                    .take_while(|item| match item {
+                        Self::GroupBreak(group_break) => !group_break.needs_linebreak(false, false),
+                        _ => true,
+                    })
+                    .map(Self::line_length)
+                    .sum()
+            }),
+            Self::GroupBreak(group_break) => group_break.line_length(),
+            Self::LineBreak | Self::Error(_) => 0,
         }
     }
 
     fn force_break(&self) -> bool {
         match self {
-            Self::LineBreak | Self::ForceBreak | Self::Block { .. } => true,
+            Self::LineBreak => true,
+            Self::GroupBreak(group_break) => group_break.needs_linebreak(false, false),
             Self::Group {
                 items, force_break, ..
             } => *force_break.get_or_init(|| items.iter().any(Self::force_break)),
@@ -1167,10 +1292,7 @@ impl<'source> FormatItem<'source> {
     }
 
     fn is_break(&self) -> bool {
-        matches!(
-            self,
-            Self::LineBreak | Self::SpaceOrIndent | Self::ForceBreak | Self::MaybeIndent
-        )
+        matches!(self, Self::LineBreak | Self::GroupBreak(_))
     }
 }
 
@@ -1183,6 +1305,12 @@ impl From<char> for FormatItem<'_> {
 impl<'source> From<&'source str> for FormatItem<'source> {
     fn from(s: &'source str) -> Self {
         Self::Str(s)
+    }
+}
+
+impl From<Error> for FormatItem<'_> {
+    fn from(error: Error) -> Self {
+        Self::Error(error)
     }
 }
 
@@ -1216,19 +1344,145 @@ fn render_format_options(options: &StringFormatOptions, constants: &ConstantPool
     result
 }
 
+#[derive(Copy, Clone, Debug)]
 enum GroupBreak {
+    // No break necessary
     None,
+    // A space or indented linebreak, always breaking when the line is too long
+    SpaceOrIndent,
+    // A space or indented linebreak, only breaking if necessary
+    SpaceOrIndentIfNecessary,
+    // A space, or a point where a long line can be broken with a return to the start column
+    SpaceOrReturn,
+    // A point where a long line can be broken with an indent
+    MaybeIndent,
+    // A point where a long line can be broken with a return to the start column
+    MaybeReturn,
+    // Forces a group to be broken onto multiple lines if followed by anything other than
+    // an indented block.
     IndentedBreak,
-    ReturnBreak,
-    IndentedBreakIfNecessary,
+    // Forces the start of a new line, indented to the group's column
+    LineStart,
+    // The start of an indented block
+    StartBlock,
 }
 
 impl GroupBreak {
-    fn needs_linebreak(&self) -> bool {
-        matches!(self, Self::IndentedBreak | Self::ReturnBreak)
+    fn needs_space(&self, line_is_too_long: bool) -> bool {
+        match self {
+            Self::SpaceOrIndent | Self::SpaceOrIndentIfNecessary | Self::SpaceOrReturn => {
+                !line_is_too_long
+            }
+            Self::None
+            | Self::MaybeIndent
+            | Self::MaybeReturn
+            | Self::IndentedBreak
+            | Self::LineStart
+            | Self::StartBlock => false,
+        }
     }
 
-    fn needs_indent(&self) -> bool {
-        matches!(self, Self::IndentedBreak)
+    fn needs_linebreak(&self, line_is_too_long: bool, force_break: bool) -> bool {
+        match self {
+            Self::None => false,
+            // Handled separately in render_group
+            Self::SpaceOrIndentIfNecessary | Self::LineStart => false,
+            Self::IndentedBreak | Self::StartBlock => true,
+            Self::SpaceOrIndent | Self::SpaceOrReturn => line_is_too_long,
+            Self::MaybeReturn | Self::MaybeIndent => line_is_too_long || force_break,
+        }
     }
+
+    fn needs_indent(&self, line_is_too_long: bool, force_break: bool) -> bool {
+        match self {
+            Self::IndentedBreak | Self::LineStart => true,
+            Self::SpaceOrIndent => line_is_too_long,
+            Self::MaybeIndent => line_is_too_long || force_break,
+            Self::None
+            | Self::StartBlock
+            | Self::SpaceOrReturn
+            | Self::MaybeReturn
+            | Self::SpaceOrIndentIfNecessary => false,
+        }
+    }
+
+    fn needs_return(&self, line_is_too_long: bool, force_break: bool) -> bool {
+        match self {
+            Self::LineStart | Self::SpaceOrReturn => true,
+            Self::MaybeReturn => line_is_too_long || force_break,
+            Self::None
+            | Self::IndentedBreak
+            | Self::SpaceOrIndent
+            | Self::SpaceOrIndentIfNecessary
+            | Self::MaybeIndent
+            | Self::StartBlock => false,
+        }
+    }
+
+    fn line_length(&self) -> usize {
+        match self {
+            // Rendered in single lines as a space
+            Self::SpaceOrIndent | Self::SpaceOrIndentIfNecessary => 1,
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum TriviaPosition {
+    Any,
+    LineStart,
+    LineEnd,
+}
+
+fn should_chain_be_broken<'source>(
+    root_node: &ChainNode,
+    mut chain_next: &'source Option<AstIndex>,
+    ctx: &'source FormatContext<'source>,
+) -> bool {
+    let mut chain_node = root_node;
+    let mut dot_access_count = 0;
+    let mut last_node_was_access = false;
+
+    loop {
+        match chain_node {
+            ChainNode::Call { with_parens, .. } => {
+                if !with_parens && chain_next.is_some() {
+                    return true;
+                }
+                if last_node_was_access {
+                    dot_access_count += 1;
+                }
+                last_node_was_access = false;
+            }
+            ChainNode::Id(_) | ChainNode::Str(_) => {
+                last_node_was_access = true;
+            }
+            ChainNode::Index(_) => {
+                if last_node_was_access {
+                    dot_access_count += 1;
+                }
+                last_node_was_access = false;
+            }
+            _ => last_node_was_access = false,
+        }
+
+        if dot_access_count >= ctx.options.chain_break_threshold {
+            return true;
+        }
+
+        if let Some(next) = chain_next {
+            match &ctx.node(*next).node {
+                Node::Chain((next_chain_node, next_next)) => {
+                    chain_node = next_chain_node;
+                    chain_next = next_next;
+                }
+                _other => panic!("Expected chain node"),
+            }
+        } else {
+            break;
+        }
+    }
+
+    false
 }

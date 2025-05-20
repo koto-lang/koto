@@ -15,3 +15,14 @@ pub struct Span {
     /// The span's end position
     pub end: Position,
 }
+
+impl Span {
+    /// Returns a span with zero size at the start of the given line
+    pub fn line_start(line: u32) -> Self {
+        let position = Position { line, column: 0 };
+        Self {
+            start: position,
+            end: position,
+        }
+    }
+}

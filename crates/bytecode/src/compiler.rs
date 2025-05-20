@@ -508,7 +508,7 @@ impl Compiler {
                 CompileNodeOutput::none()
             }
             Node::Block(expressions) => self.compile_block(expressions, ctx)?,
-            Node::Tuple(elements) => {
+            Node::Tuple { elements, .. } => {
                 self.compile_make_sequence(elements, Op::SequenceToTuple, ctx)?
             }
             Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
@@ -622,6 +622,10 @@ impl Compiler {
                 // Type hints are only compiled in the context of typed identifiers.
                 unreachable!();
             }
+            Node::FunctionArgs { .. } => {
+                // FunctionArgs are only compiled in compile_function.
+                unreachable!();
+            }
         };
 
         self.pop_span();
@@ -680,7 +684,10 @@ impl Compiler {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     self.push_span(arg_node, ctx.ast);
 
                     let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
@@ -864,7 +871,9 @@ impl Compiler {
             match node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(..) => result.push(Arg::Placeholder),
-                Node::Tuple(nested) => {
+                Node::Tuple {
+                    elements: nested, ..
+                } => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
                 }
@@ -888,7 +897,10 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(..) => {}
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
                 Node::PackedId(Some(id)) => result.push(Arg::Unpacked(*id)),
@@ -938,7 +950,10 @@ impl Compiler {
                         self.compile_assert_type(local_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     let tuple_register = self.push_register()?;
                     self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
                     let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
@@ -2446,10 +2461,22 @@ impl Compiler {
 
         let result = self.assign_result_register(ctx)?;
 
-        let Ok(arg_count) = u8::try_from(function.args.len()) else {
+        let Node::FunctionArgs {
+            args,
+            variadic,
+            output_type,
+        } = &ctx.node(function.args)
+        else {
+            return self.error(ErrorKind::UnexpectedNode {
+                expected: "FunctionArgs".into(),
+                unexpected: ctx.node(function.args).clone(),
+            });
+        };
+
+        let Ok(arg_count) = u8::try_from(args.len()) else {
             return self.error(ErrorKind::FunctionPropertyLimit {
                 property: "args".into(),
-                amount: function.args.len(),
+                amount: args.len(),
             });
         };
 
@@ -2457,14 +2484,14 @@ impl Compiler {
         // The number of optional args is needed now, although the expressions get compiled
         // below, after the function itself is compiled.
         let mut optional_args = AstVec::new();
-        for (i, arg) in function.args.iter().enumerate() {
-            let is_last_arg = i == function.args.len() - 1;
+        for (i, arg) in args.iter().enumerate() {
+            let is_last_arg = i == args.len() - 1;
             match ctx.node(*arg) {
                 Node::Assign { expression, .. } => {
                     optional_args.push(*expression);
                 }
                 _ => {
-                    if !(optional_args.is_empty() || function.is_variadic && is_last_arg) {
+                    if !(optional_args.is_empty() || *variadic && is_last_arg) {
                         return self.error(ErrorKind::ExpectedOptionalArgumentValue);
                     }
                 }
@@ -2481,16 +2508,12 @@ impl Compiler {
             });
         }
 
-        let arg_is_unpacked_tuple = matches!(
-            function.args.as_slice(),
-            &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
-        );
+        let arg_is_unpacked_tuple = match args.as_slice() {
+            &[single_arg] => matches!(ctx.node(single_arg), Node::Tuple { .. }),
+            _ => false,
+        };
 
-        let flags = FunctionFlags::new(
-            function.is_variadic,
-            function.is_generator,
-            arg_is_unpacked_tuple,
-        );
+        let flags = FunctionFlags::new(*variadic, function.is_generator, arg_is_unpacked_tuple);
 
         let function_size_ip = if let Some(result_register) = result.register {
             self.push_op(
@@ -2513,7 +2536,7 @@ impl Compiler {
             Err(_) => {
                 return self.error(ErrorKind::FunctionPropertyLimit {
                     property: "locals".into(),
-                    amount: function.args.len(),
+                    amount: args.len(),
                 });
             }
         };
@@ -2528,10 +2551,10 @@ impl Compiler {
             FrameParameters {
                 local_count,
                 expressions: function_body,
-                args: &function.args,
+                args,
                 captures: &captures,
                 allow_implicit_return,
-                output_type: function.output_type,
+                output_type: *output_type,
                 is_generator: function.is_generator,
             },
             ctx,
@@ -3241,6 +3264,7 @@ impl Compiler {
             then_node,
             else_if_blocks,
             else_node,
+            ..
         } = ast_if;
 
         let result = self.assign_result_register(ctx)?;
@@ -3449,7 +3473,9 @@ impl Compiler {
 
                     Some(patterns.clone())
                 }
-                Node::Tuple(patterns) => {
+                Node::Tuple {
+                    elements: patterns, ..
+                } => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
                             expected: match_len,
@@ -3680,7 +3706,9 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Tuple(patterns) => {
+                Node::Tuple {
+                    elements: patterns, ..
+                } => {
                     self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register: params.match_register,

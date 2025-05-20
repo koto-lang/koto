@@ -621,6 +621,7 @@ dependencies = [
  "indexmap",
  "koto",
  "koto_color",
+ "koto_format",
  "koto_geometry",
  "koto_json",
  "koto_random",
@@ -660,8 +661,10 @@ dependencies = [
 name = "koto_format"
 version = "0.16.0"
 dependencies = [
+ "derive-name",
  "koto_lexer",
  "koto_parser",
+ "thiserror",
  "unicode-width",
 ]
 

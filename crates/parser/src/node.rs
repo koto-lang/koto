@@ -59,9 +59,12 @@ pub enum Node {
     /// A tuple literal
     ///
     /// E.g. `(foo, bar, 42)`
-    ///
-    /// Note that this is also used for implicit tuples, e.g. in `x = 1, 2, 3`
-    Tuple(AstVec<AstIndex>),
+    Tuple {
+        /// The tuple's elements
+        elements: AstVec<AstIndex>,
+        /// Whether or not parentheses were used for the tuple
+        parentheses: bool,
+    },
 
     /// A temporary tuple
     ///
@@ -143,6 +146,16 @@ pub enum Node {
 
     /// A function node
     Function(Function),
+
+    /// A function's arguments
+    FunctionArgs {
+        /// The arguments
+        args: AstVec<AstIndex>,
+        /// A flag that indicates if the function arguments end with a variadic `...` argument
+        variadic: bool,
+        /// The optional output type of the function
+        output_type: Option<AstIndex>,
+    },
 
     /// An import expression
     ///
@@ -301,7 +314,9 @@ pub enum Node {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
     /// The function's arguments
-    pub args: AstVec<AstIndex>,
+    ///
+    /// See [Node::FunctionArgs].
+    pub args: AstIndex,
     /// The number of locally assigned values
     ///
     /// Used by the compiler when reserving registers for local values at the start of the frame.
@@ -314,14 +329,10 @@ pub struct Function {
     pub accessed_non_locals: AstVec<ConstantIndex>,
     /// The function's body
     pub body: AstIndex,
-    /// A flag that indicates if the function arguments end with a variadic `...` argument
-    pub is_variadic: bool,
     /// A flag that indicates if the function is a generator or not
     ///
     /// The presence of a `yield` expression in the function body will set this to true.
     pub is_generator: bool,
-    /// The optional output type of the function
-    pub output_type: Option<AstIndex>,
 }
 
 /// A string definition
@@ -388,6 +399,8 @@ pub struct AstIf {
     pub else_if_blocks: AstVec<(AstIndex, AstIndex)>,
     /// An optional `else` branch
     pub else_node: Option<AstIndex>,
+    /// Whether or not the if expression was defined using inline syntax
+    pub inline: bool,
 }
 
 /// An operation used in UnaryOp expressions
