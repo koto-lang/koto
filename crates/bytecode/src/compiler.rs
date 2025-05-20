@@ -508,7 +508,7 @@ impl Compiler {
                 CompileNodeOutput::none()
             }
             Node::Block(expressions) => self.compile_block(expressions, ctx)?,
-            Node::Tuple(elements) => {
+            Node::Tuple { elements, .. } => {
                 self.compile_make_sequence(elements, Op::SequenceToTuple, ctx)?
             }
             Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
@@ -684,7 +684,10 @@ impl Compiler {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     self.push_span(arg_node, ctx.ast);
 
                     let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
@@ -868,7 +871,9 @@ impl Compiler {
             match node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
                 Node::Wildcard(..) => result.push(Arg::Placeholder),
-                Node::Tuple(nested) => {
+                Node::Tuple {
+                    elements: nested, ..
+                } => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
                 }
@@ -892,7 +897,10 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
                 Node::Wildcard(..) => {}
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
                 Node::PackedId(Some(id)) => result.push(Arg::Unpacked(*id)),
@@ -942,7 +950,10 @@ impl Compiler {
                         self.compile_assert_type(local_register, *type_hint, Some(*arg), ctx)?;
                     }
                 }
-                Node::Tuple(nested_args) => {
+                Node::Tuple {
+                    elements: nested_args,
+                    ..
+                } => {
                     let tuple_register = self.push_register()?;
                     self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
                     let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
@@ -2497,10 +2508,10 @@ impl Compiler {
             });
         }
 
-        let arg_is_unpacked_tuple = matches!(
-            args.as_slice(),
-            &[single_arg] if matches!(ctx.node(single_arg), Node::Tuple(_))
-        );
+        let arg_is_unpacked_tuple = match args.as_slice() {
+            &[single_arg] => matches!(ctx.node(single_arg), Node::Tuple { .. }),
+            _ => false,
+        };
 
         let flags = FunctionFlags::new(*variadic, function.is_generator, arg_is_unpacked_tuple);
 
@@ -3462,7 +3473,9 @@ impl Compiler {
 
                     Some(patterns.clone())
                 }
-                Node::Tuple(patterns) => {
+                Node::Tuple {
+                    elements: patterns, ..
+                } => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
                             expected: match_len,
@@ -3693,7 +3706,9 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Tuple(patterns) => {
+                Node::Tuple {
+                    elements: patterns, ..
+                } => {
                     self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register: params.match_register,

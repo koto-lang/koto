@@ -926,5 +926,17 @@ f = |
                 },
             );
         }
+
+        #[test]
+        fn return_tuple() {
+            check_format_output(
+                &["\
+f   =   |a,b,c|a,b,c
+"],
+                "\
+f = |a, b, c| a, b, c
+",
+            );
+        }
     }
 }

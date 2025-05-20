@@ -530,7 +530,10 @@ impl<'source> Parser<'source> {
             Ok(Some(first))
         } else {
             let result = match temp_result {
-                TempResult::No => Node::Tuple(expressions),
+                TempResult::No => Node::Tuple {
+                    elements: expressions,
+                    parentheses: false,
+                },
                 TempResult::Yes => Node::TempTuple(expressions),
             };
             Ok(Some(self.push_node(result)?))
@@ -1073,7 +1076,13 @@ impl<'source> Parser<'source> {
                             &args_context,
                         )?;
 
-                        self.push_node_with_start_span(Node::Tuple(tuple_args), nested_span_start)?
+                        self.push_node_with_start_span(
+                            Node::Tuple {
+                                elements: tuple_args,
+                                parentheses: true,
+                            },
+                            nested_span_start,
+                        )?
                     }
                     _ => break,
                 },
@@ -1267,9 +1276,13 @@ impl<'source> Parser<'source> {
                         ) {
                             return self.error(SyntaxError::ExpectedCloseParen);
                         }
-                        nested_args.push(
-                            self.push_node_with_start_span(Node::Tuple(tuple_args), span_start)?,
-                        );
+                        nested_args.push(self.push_node_with_start_span(
+                            Node::Tuple {
+                                elements: tuple_args,
+                                parentheses: true,
+                            },
+                            span_start,
+                        )?);
                     }
                     Some(Token::Ellipsis) => {
                         self.consume_token();
@@ -1989,7 +2002,13 @@ impl<'source> Parser<'source> {
             [single_expression] if !last_token_was_a_comma => {
                 self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
-            _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
+            _ => self.push_node_with_start_span(
+                Node::Tuple {
+                    elements: entries,
+                    parentheses: true,
+                },
+                start_span,
+            )?,
         };
 
         self.check_for_chain_after_node(
@@ -2807,7 +2826,10 @@ impl<'source> Parser<'source> {
                             return self.error(SyntaxError::ExpectedCloseParen);
                         }
 
-                        Some(self.push_node(Node::Tuple(tuple_patterns))?)
+                        Some(self.push_node(Node::Tuple {
+                            elements: tuple_patterns,
+                            parentheses: true,
+                        })?)
                     }
                 }
                 Ellipsis if in_nested_patterns => {

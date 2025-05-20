@@ -1,6 +1,6 @@
 use crate::{
-    trivia::{TriviaIterator, TriviaToken},
     FormatOptions, Result, Trivia,
+    trivia::{TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
 use koto_parser::{
@@ -149,13 +149,26 @@ fn format_node<'source>(
             .maybe_return()
             .char(']')
             .build(),
-        Node::Tuple(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
-            .char('(')
-            .maybe_indent()
-            .elements(elements)
-            .maybe_return()
-            .char(')')
-            .build(),
+        Node::Tuple {
+            elements,
+            parentheses,
+        } => {
+            if *parentheses {
+                GroupBuilder::new(elements.len() * 3 + 4, node, ctx, trivia)
+                    .char('(')
+                    .maybe_indent()
+                    .elements(elements)
+                    .maybe_return()
+                    .char(')')
+                    .build()
+            } else {
+                GroupBuilder::new(elements.len() * 3 + 2, node, ctx, trivia)
+                    .maybe_indent()
+                    .elements(elements)
+                    .maybe_return()
+                    .build()
+            }
+        }
         Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 2, node, ctx, trivia)
             .maybe_indent()
             .elements(elements)
@@ -669,13 +682,11 @@ struct FormatContext<'source> {
 impl<'source> FormatContext<'source> {
     fn new(source: &'source str, ast: &'source Ast, options: &'source FormatOptions) -> Self {
         let line_offsets = iter::once(0)
-            .chain(source.char_indices().filter_map(|(i, c)| {
-                if c == '\n' {
-                    Some(i as u32 + 1)
-                } else {
-                    None
-                }
-            }))
+            .chain(
+                source
+                    .char_indices()
+                    .filter_map(|(i, c)| if c == '\n' { Some(i as u32 + 1) } else { None }),
+            )
             .collect();
 
         Self {

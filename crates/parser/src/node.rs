@@ -59,9 +59,12 @@ pub enum Node {
     /// A tuple literal
     ///
     /// E.g. `(foo, bar, 42)`
-    ///
-    /// Note that this is also used for implicit tuples, e.g. in `x = 1, 2, 3`
-    Tuple(AstVec<AstIndex>),
+    Tuple {
+        /// The tuple's elements
+        elements: AstVec<AstIndex>,
+        /// Whether or not parentheses were used for the tuple
+        parentheses: bool,
+    },
 
     /// A temporary tuple
     ///

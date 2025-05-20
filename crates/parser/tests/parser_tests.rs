@@ -93,6 +93,20 @@ mod parser {
         indices.iter().map(|i| AstIndex::from(*i)).collect()
     }
 
+    fn tuple_with_parens(elements: &[u32]) -> Node {
+        Node::Tuple {
+            elements: nodes(elements),
+            parentheses: true,
+        }
+    }
+
+    fn tuple_no_parens(elements: &[u32]) -> Node {
+        Node::Tuple {
+            elements: nodes(elements),
+            parentheses: false,
+        }
+    }
+
     fn constants(indices: &[u32]) -> AstVec<ConstantIndex> {
         indices.iter().map(|i| ConstantIndex::from(*i)).collect()
     }
@@ -766,7 +780,7 @@ x =
                     SmallInt(10),
                     SmallInt(20),
                     SmallInt(30),
-                    Tuple(nodes(&[2, 3, 4])), // 5
+                    tuple_no_parens(&[2, 3, 4]), // 5
                     map_entry(1, 5),
                     map_block(&[6]),
                     assign(0, 7),
@@ -1003,7 +1017,7 @@ min..max
                     SmallInt(3),
                     SmallInt(4),
                     range(3, 4, false), // 5
-                    Tuple(nodes(&[2, 5])),
+                    tuple_no_parens(&[2, 5]),
                     MainBlock {
                         body: nodes(&[6]),
                         local_count: 0,
@@ -1026,7 +1040,7 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(nodes(&[0, 1, 2])),
+                    tuple_no_parens(&[0, 1, 2]),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
@@ -1045,7 +1059,7 @@ min..max
                     SmallInt(8),
                     Null,
                     SmallInt(5),
-                    Tuple(nodes(&[0, 1, 2])),
+                    tuple_no_parens(&[0, 1, 2]),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
@@ -1061,7 +1075,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Tuple(nodes(&[])),
+                    tuple_with_parens(&[]),
                     MainBlock {
                         body: nodes(&[0]),
                         local_count: 0,
@@ -1078,7 +1092,7 @@ min..max
                 source,
                 &[
                     Null,
-                    Tuple(nodes(&[0])),
+                    tuple_with_parens(&[0]),
                     MainBlock {
                         body: nodes(&[1]),
                         local_count: 0,
@@ -1096,7 +1110,7 @@ min..max
                 &[
                     Null,
                     Null,
-                    Tuple(nodes(&[0, 1])),
+                    tuple_with_parens(&[0, 1]),
                     MainBlock {
                         body: nodes(&[2]),
                         local_count: 0,
@@ -1112,7 +1126,7 @@ min..max
             check_ast(
                 source,
                 &[
-                    Tuple(nodes(&[])),
+                    tuple_with_parens(&[]),
                     Nested(0.into()),
                     MainBlock {
                         body: nodes(&[1]),
@@ -1129,8 +1143,8 @@ min..max
             check_ast(
                 source,
                 &[
-                    Tuple(nodes(&[])),
-                    Tuple(nodes(&[0])),
+                    tuple_with_parens(&[]),
+                    tuple_with_parens(&[0]),
                     MainBlock {
                         body: nodes(&[1]),
                         local_count: 0,
@@ -1147,7 +1161,7 @@ min..max
                 source,
                 &[
                     SmallInt(1),
-                    Tuple(nodes(&[0])),
+                    tuple_with_parens(&[0]),
                     MainBlock {
                         body: nodes(&[1]),
                         local_count: 0,
@@ -1181,7 +1195,7 @@ min..max
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(nodes(&[0, 1, 2])),
+                    tuple_with_parens(&[0, 1, 2]),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
@@ -1222,7 +1236,7 @@ min..max
                     id(0),
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(nodes(&[1, 2])),
+                    tuple_no_parens(&[1, 2]),
                     assign(0, 3),
                     MainBlock {
                         body: nodes(&[4]),
@@ -1242,11 +1256,11 @@ min..max
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(nodes(&[1, 2])),
+                    tuple_with_parens(&[1, 2]),
                     SmallInt(2),
                     SmallInt(3), // 5
-                    Tuple(nodes(&[4, 5])),
-                    Tuple(nodes(&[3, 6])),
+                    tuple_with_parens(&[4, 5]),
+                    tuple_no_parens(&[3, 6]),
                     assign(0, 7),
                     MainBlock {
                         body: nodes(&[8]),
@@ -2106,10 +2120,10 @@ a",
                     BoolTrue,
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(nodes(&[3, 4])), // 5
+                    tuple_no_parens(&[3, 4]), // 5
                     SmallInt(1),
                     SmallInt(0),
-                    Tuple(nodes(&[6, 7])),
+                    tuple_no_parens(&[6, 7]),
                     If(AstIf {
                         condition: 2.into(),
                         then_node: 5.into(),
@@ -2788,8 +2802,8 @@ foo.bar x
                     PackedId(Some(1.into())),       // others
                     id(2),                          // c
                     Wildcard(Some(3.into()), None), // d
-                    Tuple(nodes(&[2, 3, 4])),       // ast index 5
-                    Tuple(nodes(&[1, 5])),
+                    tuple_with_parens(&[2, 3, 4]),  // ast index 5
+                    tuple_with_parens(&[1, 5]),
                     Wildcard(Some(4.into()), None), // e
                     FunctionArgs {
                         args: nodes(&[0, 6, 7]),
@@ -3302,7 +3316,7 @@ x = ( 0
                     id(0),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(nodes(&[1, 2])),
+                    tuple_with_parens(&[1, 2]),
                     id(2),
                     Chain((
                         ChainNode::Call {
@@ -4250,18 +4264,18 @@ match (x, y, z)
                     id(0),
                     id(1),
                     id(2),
-                    Tuple(nodes(&[0, 1, 2])),
+                    tuple_with_parens(&[0, 1, 2]),
                     SmallInt(0),
                     id(3), // 5
                     Wildcard(None, None),
-                    Tuple(nodes(&[4, 5, 6])),
+                    tuple_with_parens(&[4, 5, 6]),
                     id(3),
                     Wildcard(None, None),
                     SmallInt(0), // 10
                     id(4),
-                    Tuple(nodes(&[10, 11])),
+                    tuple_with_parens(&[10, 11]),
                     Wildcard(Some(5.into()), None),
-                    Tuple(nodes(&[9, 12, 13])),
+                    tuple_with_parens(&[9, 12, 13]),
                     SmallInt(0), // 15
                     Match {
                         expression: 3.into(),
@@ -4307,11 +4321,11 @@ match x
                     id(0),
                     PackedId(None),
                     SmallInt(0),
-                    Tuple(nodes(&[1, 2])),
+                    tuple_with_parens(&[1, 2]),
                     SmallInt(0),
                     SmallInt(1), // 5
                     PackedId(None),
-                    Tuple(nodes(&[5, 6])),
+                    tuple_with_parens(&[5, 6]),
                     SmallInt(1),
                     Match {
                         expression: 0.into(),
@@ -4351,12 +4365,12 @@ match y
                     PackedId(Some(1.into())),
                     SmallInt(0),
                     SmallInt(1),
-                    Tuple(nodes(&[1, 2, 3])),
+                    tuple_with_parens(&[1, 2, 3]),
                     SmallInt(0), // 5
                     SmallInt(1),
                     SmallInt(0),
                     PackedId(Some(2.into())),
-                    Tuple(nodes(&[6, 7, 8])),
+                    tuple_with_parens(&[6, 7, 8]),
                     SmallInt(1), // 10
                     Match {
                         expression: 0.into(),
