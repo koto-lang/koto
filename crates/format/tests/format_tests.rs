@@ -998,5 +998,21 @@ f = |a, b, c| a, b, c
 ",
             );
         }
+
+        #[test]
+        fn return_map_block() {
+            check_format_output(
+                &["\
+f   =  ||
+  foo:   42
+  bar:     99
+"],
+                "\
+f = ||
+  foo: 42
+  bar: 99
+",
+            );
+        }
     }
 }

@@ -382,6 +382,13 @@ impl<'source> Parser<'source> {
 
             match self.parse_line(&line_context) {
                 Ok(Some(expression)) => {
+                    // If we've consumed a map block then return it as the indented block
+                    if matches!(
+                        self.ast.node(expression).node,
+                        Node::Map { braces: false, .. }
+                    ) {
+                        return Ok(Some(expression));
+                    }
                     body.push(expression);
                 }
                 Ok(None) => {
