@@ -132,7 +132,7 @@ fn format_node<'source>(
                             chain_node = next_chain_node;
                             chain_next = next_next;
                         }
-                        _other => todo!("Expected chain node"),
+                        _other => panic!("Expected chain node"),
                     }
                 } else {
                     break;
@@ -213,10 +213,15 @@ fn format_node<'source>(
                 group.maybe_return().char('}').build()
             } else {
                 let mut group =
-                    GroupBuilder::new(entries.len() * 2 + 1, node, ctx, trivia).start_block();
+                    GroupBuilder::new(entries.len() * 4 + 1, node, ctx, trivia).start_block();
 
                 for entry in entries.iter() {
-                    group = group.line_start(*entry).node(*entry).line_break();
+                    // Use the entry's key as the line start node to collect the entry's
+                    // leading trivia before rendering the entry as a sub-group.
+                    let Node::MapEntry(key, _) = ctx.node(*entry).node else {
+                        panic!("Expected a MapEntry");
+                    };
+                    group = group.line_start(key).node(*entry).line_break();
                 }
 
                 group.build_block()
@@ -230,19 +235,24 @@ fn format_node<'source>(
             .build(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
-            let mut group = GroupBuilder::new(body.len(), node, ctx, trivia);
+            let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia);
             for block_node in body {
                 group = group.line_start(*block_node).node(*block_node).line_break()
             }
             group.build_block()
         }
-        Node::Block(body) => {
-            let mut group = GroupBuilder::new(body.len(), node, ctx, trivia).start_block();
-            for block_node in body {
-                group = group.line_start(*block_node).node(*block_node).line_break()
+        Node::Block(body) => match body.as_slice() {
+            [single] if matches!(ctx.node(*single).node, Node::Map { braces: false, .. }) => {
+                format_node(*single, ctx, trivia)
             }
-            group.build_block()
-        }
+            _ => {
+                let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia).start_block();
+                for block_node in body {
+                    group = group.line_start(*block_node).node(*block_node).line_break()
+                }
+                group.build_block()
+            }
+        },
         Node::Function(Function { args, body, .. }) => {
             if matches!(ctx.node(*body).node, Node::Block(..)) {
                 GroupBuilder::new(3, node, ctx, trivia)
@@ -262,8 +272,9 @@ fn format_node<'source>(
             variadic,
             output_type,
         } => {
-            let mut group = GroupBuilder::new(4 + args.len() * 2, node, ctx, trivia);
-            group = group.char('|').maybe_indent();
+            let mut group = GroupBuilder::new(4 + args.len() * 2, node, ctx, trivia)
+                .char('|')
+                .maybe_indent();
             for (i, arg) in args.iter().enumerate() {
                 group = group.node(*arg);
                 if i < args.len() - 1 {
@@ -1372,6 +1383,7 @@ impl GroupBreak {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 enum TriviaPosition {
     Any,
     LineStart,

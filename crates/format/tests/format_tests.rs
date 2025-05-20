@@ -461,18 +461,22 @@ a, b, c =
             check_format_output_with_options(
                 &["\
 x =
+  # foo
   foo  :
     99     # abc
 
+    # bar
   bar: some_long_function()
   'baz'  : #- xyz -# 1 + 1
 x
 "],
                 "\
 x =
+  # foo
   foo:
     99 # abc
 
+  # bar
   bar:
     some_long_function()
   'baz':
@@ -587,6 +591,7 @@ if   #- abc -#   x >   10 # foo
 else if   x   < 5 # ---
     return x     #- bar -#
 else if     x ==   0 # xyz
+      # x
      return x
 else # baz
  x     =    42      # 42
@@ -598,6 +603,7 @@ if #- abc -# x > 10 # foo
 else if x < 5 # ---
   return x #- bar -#
 else if x == 0 # xyz
+  # x
   return x
 else # baz
   x = 42 # 42
@@ -1004,11 +1010,13 @@ f = |a, b, c| a, b, c
             check_format_output(
                 &["\
 f   =  ||
+  # foo
   foo:   42
   bar:     99
 "],
                 "\
 f = ||
+  # foo
   foo: 42
   bar: 99
 ",

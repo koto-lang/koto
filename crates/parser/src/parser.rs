@@ -368,7 +368,7 @@ impl<'source> Parser<'source> {
             _ => return Ok(None), // No indented block found
         }
 
-        let (block_context, _) = self
+        let block_context = self
             .consume_until_token_with_context(&block_context)
             .unwrap(); // Safe to unwrap here given that we've just peeked
         let start_span = Span::line_start(start_line + 1);
@@ -383,12 +383,6 @@ impl<'source> Parser<'source> {
             match self.parse_line(&line_context) {
                 Ok(Some(expression)) => {
                     // If we've consumed a map block then return it as the indented block
-                    if matches!(
-                        self.ast.node(expression).node,
-                        Node::Map { braces: false, .. }
-                    ) {
-                        return Ok(Some(expression));
-                    }
                     body.push(expression);
                 }
                 Ok(None) => {
@@ -813,7 +807,7 @@ impl<'source> Parser<'source> {
     fn parse_term(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         use Node::*;
 
-        let start_span = self.current_span();
+        let start_line = self.current_line;
         let start_indent = self.current_indent();
 
         let Some(peeked) = self.peek_token_with_context(context) else {
@@ -842,7 +836,7 @@ impl<'source> Parser<'source> {
                 if string.context.allow_map_block
                     && self.peek_next_token_on_same_line() == Some(Token::Colon)
                 {
-                    self.consume_map_block(string_node, start_span, &string.context)
+                    self.consume_map_block(string_node, start_line, &string.context)
                 } else {
                     self.check_for_chain_after_node(string_node, &string.context)
                 }
@@ -853,8 +847,7 @@ impl<'source> Parser<'source> {
                 let map_block_allowed =
                     context.allow_map_block || peeked.info.indent > start_indent;
 
-                let (meta_context, start_span) =
-                    self.consume_until_token_with_context(context).unwrap();
+                let meta_context = self.consume_until_token_with_context(context).unwrap();
                 // Safe to unwrap here, parse_meta_key would error on invalid key
                 let meta_key = self.parse_meta_key()?.unwrap();
 
@@ -867,7 +860,7 @@ impl<'source> Parser<'source> {
                         })
                     )
                 {
-                    self.consume_map_block(meta_key, start_span, &meta_context)
+                    self.consume_map_block(meta_key, start_line, &meta_context)
                 } else {
                     match self.parse_assign_expression(meta_key, &[], &meta_context)? {
                         Some(result) => Ok(result),
@@ -1037,7 +1030,11 @@ impl<'source> Parser<'source> {
         let mut variadic = false;
         let mut default_value_expected = false;
         let args_context = ExpressionContext::inside_braces();
-        while self.peek_token_with_context(&args_context).is_some() {
+        while let Some(next) = self.peek_token_with_context(&args_context) {
+            if next.token == Token::Function {
+                break;
+            }
+
             self.consume_until_token_with_context(&args_context);
 
             let maybe_id_or_wildcard = self.parse_id_or_wildcard(&args_context)?;
@@ -1446,6 +1443,7 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_id_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
+        let start_line = self.current_line;
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
@@ -1459,7 +1457,7 @@ impl<'source> Parser<'source> {
             if context.export_map_entries {
                 self.frame_mut()?.add_local_id_assignment(constant_index);
             }
-            self.consume_map_block(id_node, id_span, &id_context)
+            self.consume_map_block(id_node, start_line, &id_context)
         } else {
             self.frame_mut()?.add_id_access(constant_index);
 
@@ -1638,7 +1636,7 @@ impl<'source> Parser<'source> {
 
                         // Consume up until the Dot,
                         // which will be picked up on the next iteration
-                        (node_context, _) = self
+                        node_context = self
                             .consume_until_token_with_context(&node_context)
                             .unwrap();
 
@@ -1792,7 +1790,7 @@ impl<'source> Parser<'source> {
         let mut args_context = ExpressionContext::permissive();
 
         while self.peek_token_with_context(&args_context).is_some() {
-            (args_context, _) = self
+            args_context = self
                 .consume_until_token_with_context(&args_context)
                 .unwrap();
 
@@ -2094,13 +2092,14 @@ impl<'source> Parser<'source> {
     fn consume_map_block(
         &mut self,
         first_key: AstIndex,
-        start_span: Span,
+        start_line: u32, // The line that was current before the first key was consumed
         context: &ExpressionContext,
     ) -> Result<AstIndex> {
         if !context.allow_map_block {
             return self.error(SyntaxError::ExpectedLineBreakBeforeMapBlock);
         }
 
+        let start_span = Span::line_start((start_line + 1).min(self.current_line));
         let start_indent = self.current_indent();
 
         if self.consume_next_token_on_same_line() != Some(Token::Colon) {
@@ -2116,8 +2115,11 @@ impl<'source> Parser<'source> {
             .with_expected_indentation(Indentation::Equal(start_indent));
 
         while self.peek_token_with_context(&block_context).is_some() {
-            let Some((_, start_span)) = self.consume_until_token_with_context(&block_context)
-            else {
+            let entry_start_line = self.current_line + 1;
+            if self
+                .consume_until_token_with_context(&block_context)
+                .is_none()
+            {
                 return self.consume_token_and_error(SyntaxError::ExpectedMapEntry);
             };
             let Some(key) = self.parse_map_key(context.export_map_entries)? else {
@@ -2131,7 +2133,10 @@ impl<'source> Parser<'source> {
             self.consume_next_token_on_same_line(); // ':'
 
             let value = self.consume_map_block_value()?;
-            let entry = self.push_node_with_start_span(Node::MapEntry(key, value), start_span)?;
+            let entry = self.push_node_with_start_span(
+                Node::MapEntry(key, value),
+                Span::line_start(entry_start_line),
+            )?;
             entries.push(entry);
         }
 
@@ -2566,7 +2571,7 @@ impl<'source> Parser<'source> {
         let switch_span = self.current_span();
 
         let arm_context = match self.consume_until_token_with_context(switch_context) {
-            Some((arm_context, _)) if self.current_indent() > current_indent => arm_context,
+            Some(arm_context) if self.current_indent() > current_indent => arm_context,
             _ => return self.consume_token_on_same_line_and_error(ExpectedIndentation::SwitchArm),
         };
 
@@ -2650,7 +2655,7 @@ impl<'source> Parser<'source> {
             };
 
         let arm_context = match self.consume_until_token_with_context(match_context) {
-            Some((arm_context, _)) if self.current_indent() > current_indent => arm_context,
+            Some(arm_context) if self.current_indent() > current_indent => arm_context,
             _ => return self.consume_token_on_same_line_and_error(ExpectedIndentation::MatchArm),
         };
 
@@ -3553,7 +3558,7 @@ impl<'source> Parser<'source> {
     fn consume_until_token_with_context(
         &mut self,
         context: &ExpressionContext,
-    ) -> Option<(ExpressionContext, Span)> {
+    ) -> Option<ExpressionContext> {
         let start_line = self.current_line;
         let start_indent = self.current_indent();
 
@@ -3576,7 +3581,7 @@ impl<'source> Parser<'source> {
                     *context
                 };
 
-                return Some((new_context, peeked.span));
+                return Some(new_context);
             }
         }
 
