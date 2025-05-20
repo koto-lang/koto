@@ -813,7 +813,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn strip_trailing_breaks(&mut self) {
         while self.items.last().is_some_and(|item| match item {
-            FormatItem::GroupBreak(group_break) => group_break.needs_linebreak(false),
+            FormatItem::GroupBreak(group_break) => group_break.needs_linebreak(false, false),
             _ => false,
         }) {
             self.items.pop();
@@ -1142,6 +1142,7 @@ impl<'source> FormatItem<'source> {
     ) -> Result<()> {
         let columns_remaining = (options.line_length as usize).saturating_sub(column);
         let too_long = self.line_length() > columns_remaining;
+        let force_break = self.force_break();
 
         // Use indent logic if the line is too long, or if the group contains a forced break
         if too_long || self.force_break() {
@@ -1178,10 +1179,10 @@ impl<'source> FormatItem<'source> {
                     }
                     _ => {
                         // Adjust the column for the item to be rendered
-                        if group_break.needs_linebreak(too_long) {
+                        if group_break.needs_linebreak(too_long, force_break) {
                             group_column = column;
 
-                            if group_break.needs_indent(too_long) {
+                            if group_break.needs_indent(too_long, force_break) {
                                 group_column += extra_indent.len();
                             }
                         }
@@ -1214,18 +1215,18 @@ impl<'source> FormatItem<'source> {
                         }
 
                         // Emit linebreaks if necessary
-                        if group_break.needs_linebreak(too_long) {
+                        if group_break.needs_linebreak(too_long, force_break) {
                             output.push('\n');
                             output.push_str(&group_start_indent);
                             group_column = column;
                             line_width = group_start_indent.len();
 
-                            if group_break.needs_indent(too_long) {
+                            if group_break.needs_indent(too_long, force_break) {
                                 group_column = column + extra_indent.len();
                                 output.push_str(&extra_indent);
                                 line_width = group_column;
                             }
-                        } else if group_break.needs_return(too_long) {
+                        } else if group_break.needs_return(too_long, force_break) {
                             output.push_str(&group_start_indent);
                             group_column = column;
                             line_width = group_start_indent.len();
@@ -1268,7 +1269,7 @@ impl<'source> FormatItem<'source> {
                 items
                     .iter()
                     .take_while(|item| match item {
-                        Self::GroupBreak(group_break) => !group_break.needs_linebreak(false),
+                        Self::GroupBreak(group_break) => !group_break.needs_linebreak(false, false),
                         _ => true,
                     })
                     .map(Self::line_length)
@@ -1282,7 +1283,7 @@ impl<'source> FormatItem<'source> {
     fn force_break(&self) -> bool {
         match self {
             Self::LineBreak => true,
-            Self::GroupBreak(group_break) => group_break.needs_linebreak(false),
+            Self::GroupBreak(group_break) => group_break.needs_linebreak(false, false),
             Self::Group {
                 items, force_break, ..
             } => *force_break.get_or_init(|| items.iter().any(Self::force_break)),
@@ -1381,22 +1382,22 @@ impl GroupBreak {
         }
     }
 
-    fn needs_linebreak(&self, line_is_too_long: bool) -> bool {
+    fn needs_linebreak(&self, line_is_too_long: bool, force_break: bool) -> bool {
         match self {
             Self::None => false,
             // Handled separately in render_group
             Self::SpaceOrIndentIfNecessary | Self::LineStart => false,
             Self::IndentedBreak | Self::StartBlock => true,
-            Self::SpaceOrIndent | Self::SpaceOrReturn | Self::MaybeIndent | Self::MaybeReturn => {
-                line_is_too_long
-            }
+            Self::SpaceOrIndent | Self::SpaceOrReturn => line_is_too_long,
+            Self::MaybeReturn | Self::MaybeIndent => line_is_too_long || force_break,
         }
     }
 
-    fn needs_indent(&self, line_is_too_long: bool) -> bool {
+    fn needs_indent(&self, line_is_too_long: bool, force_break: bool) -> bool {
         match self {
             Self::IndentedBreak | Self::LineStart => true,
-            Self::SpaceOrIndent | Self::MaybeIndent => line_is_too_long,
+            Self::SpaceOrIndent => line_is_too_long,
+            Self::MaybeIndent => line_is_too_long || force_break,
             Self::None
             | Self::StartBlock
             | Self::SpaceOrReturn
@@ -1405,14 +1406,15 @@ impl GroupBreak {
         }
     }
 
-    fn needs_return(&self, line_is_too_long: bool) -> bool {
+    fn needs_return(&self, line_is_too_long: bool, force_break: bool) -> bool {
         match self {
             Self::LineStart | Self::SpaceOrReturn => true,
-            Self::MaybeReturn | Self::MaybeIndent => line_is_too_long,
+            Self::MaybeReturn => line_is_too_long || force_break,
             Self::None
             | Self::IndentedBreak
             | Self::SpaceOrIndent
             | Self::SpaceOrIndentIfNecessary
+            | Self::MaybeIndent
             | Self::StartBlock => false,
         }
     }

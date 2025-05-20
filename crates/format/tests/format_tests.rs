@@ -416,6 +416,24 @@ a, b, c =
         }
 
         #[test]
+        fn list_broken_by_comment() {
+            check_format_output(
+                &["\
+[  a , b ,# xyz
+       c,
+       d
+]
+"],
+                "\
+[
+  a, b, # xyz
+  c, d
+]
+",
+            );
+        }
+
+        #[test]
         fn tuple_multi_line() {
             check_format_output_with_options(
                 &["\
@@ -973,6 +991,23 @@ f   =   |  a : Number ,  b: Number, c...  |   g(a  +  b, c...)
 "],
                 "\
 f = |a: Number, b: Number, c...| g(a + b, c...)
+",
+            );
+        }
+
+        #[test]
+        fn broken_args() {
+            check_format_output(
+                &["\
+f   =   |  a,
+b, # xyz
+ c  | x a, b, c
+"],
+                "\
+f = |
+  a, b, # xyz
+  c
+| x a, b, c
 ",
             );
         }
