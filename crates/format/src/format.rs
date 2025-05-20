@@ -1,5 +1,5 @@
 use crate::{
-    FormatOptions, Result, Trivia,
+    Error, ErrorKind, FormatOptions, Result, Trivia,
     trivia::{TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
@@ -20,7 +20,7 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
         let context = FormatContext::new(source, &ast, &options);
         let output = format_node(entry_point, &context, &mut trivia.iter());
         let mut result = String::new();
-        output.render(&mut result, &options, 0);
+        output.render(&mut result, &options, 0)?;
         if !result.ends_with('\n') {
             result.push('\n');
         }
@@ -132,7 +132,16 @@ fn format_node<'source>(
                             chain_node = next_chain_node;
                             chain_next = next_next;
                         }
-                        _other => panic!("Expected chain node"),
+                        other => {
+                            return Error::new(
+                                ErrorKind::UnexpectedNode {
+                                    expected: "ChainNode".into(),
+                                    unexpected: other.clone(),
+                                },
+                                *ctx.span(node),
+                            )
+                            .into();
+                        }
                     }
                 } else {
                     break;
@@ -218,10 +227,20 @@ fn format_node<'source>(
                 for entry in entries.iter() {
                     // Use the entry's key as the line start node to collect the entry's
                     // leading trivia before rendering the entry as a sub-group.
-                    let Node::MapEntry(key, _) = ctx.node(*entry).node else {
-                        panic!("Expected a MapEntry");
+                    let key = match &ctx.node(*entry).node {
+                        Node::MapEntry(key, _) => key,
+                        other => {
+                            return Error::new(
+                                ErrorKind::UnexpectedNode {
+                                    expected: "MapEntry".into(),
+                                    unexpected: other.clone(),
+                                },
+                                *ctx.span(node),
+                            )
+                            .into();
+                        }
                     };
-                    group = group.line_start(key).node(*entry).line_break();
+                    group = group.line_start(*key).node(*entry).line_break();
                 }
 
                 group.build_block()
@@ -1038,12 +1057,12 @@ enum FormatItem<'source> {
     // A KString
     KString(KString),
     // A grouped sequence of items
-    // The group will be rendered on a single line, or if the group doesn't fit in the remaining
-    // space then it will be rendered with softbreaks replaced by indented newlines
+    // The group will be rendered on a single line by default, or if the group doesn't fit in the
+    // remaining space then it will be rendered with breaks replaced with appropriate indentation.
     Group {
         items: Vec<FormatItem<'source>>,
-        // The group's length if it was rendered on a single line
-        // This gets calculated and cached during rendering to avoid nested group recalculations
+        // The group's length if it was rendered on a single line.
+        // This gets calculated and cached during rendering to avoid nested group recalculations.
         line_length: OnceCell<usize>,
         // True if the group contains a single-line comment that requires the group to be broken
         // across indented lines.
@@ -1053,7 +1072,14 @@ enum FormatItem<'source> {
     LineBreak,
     // A group break
     GroupBreak(GroupBreak),
+    // An error that occurred while preparing the item tree
+    //
+    // Errors will be very rare (only occurring with a malformed AST), so rather than checking for
+    // errors everywhere in `format_node` the error gets propagated during rendering.
+    Error(Error),
 }
+
+type Type = Result<()>;
 
 impl<'source> FormatItem<'source> {
     // Used for keyword/value expressions like `return true`
@@ -1072,12 +1098,12 @@ impl<'source> FormatItem<'source> {
     }
 
     // Renders the format item, appending to the provided output string
-    fn render(&self, output: &mut String, options: &FormatOptions, column: usize) {
+    fn render(&self, output: &mut String, options: &FormatOptions, column: usize) -> Type {
         match self {
             Self::Char(c) => output.push(*c),
             Self::Str(s) => output.push_str(s),
             Self::KString(s) => output.push_str(s),
-            Self::Group { items, .. } => self.render_group(items, output, options, column),
+            Self::Group { items, .. } => self.render_group(items, output, options, column)?,
             Self::LineBreak => output.push('\n'),
             Self::GroupBreak(group_break) => match group_break {
                 GroupBreak::SpaceOrIndent
@@ -1085,7 +1111,10 @@ impl<'source> FormatItem<'source> {
                 | GroupBreak::SpaceOrReturn => output.push(' '),
                 _ => {}
             },
+            Self::Error(error) => return Err(error.clone()),
         }
+
+        Ok(())
     }
 
     fn is_indented_block(&self) -> bool {
@@ -1104,7 +1133,7 @@ impl<'source> FormatItem<'source> {
         output: &mut String,
         options: &FormatOptions,
         mut column: usize,
-    ) {
+    ) -> Result<()> {
         let columns_remaining = (options.line_length as usize).saturating_sub(column);
         let too_long = self.line_length() > columns_remaining;
 
@@ -1137,7 +1166,7 @@ impl<'source> FormatItem<'source> {
                     _ if item.is_indented_block() => {
                         // No need to worry about adjusting the line width here,
                         // an indented block is always the last item in a group.
-                        item.render(&mut item_buffer, options, group_column);
+                        item.render(&mut item_buffer, options, group_column)?;
                         output.extend(item_buffer.drain(..));
                         group_break = GroupBreak::None;
                     }
@@ -1152,7 +1181,7 @@ impl<'source> FormatItem<'source> {
                         }
 
                         // Render the item into a temporary buffer
-                        item.render(&mut item_buffer, options, group_column);
+                        item.render(&mut item_buffer, options, group_column)?;
 
                         // Get the width of the item's first line
                         // (multiline items are possible, and we only need the first line's width
@@ -1212,9 +1241,11 @@ impl<'source> FormatItem<'source> {
             }
         } else {
             for item in items {
-                item.render(output, options, column);
+                item.render(output, options, column)?;
             }
         }
+
+        Ok(())
     }
 
     // Gets the length of the format item
@@ -1238,7 +1269,7 @@ impl<'source> FormatItem<'source> {
                     .sum()
             }),
             Self::GroupBreak(group_break) => group_break.line_length(),
-            Self::LineBreak => 0,
+            Self::LineBreak | Self::Error(_) => 0,
         }
     }
 
@@ -1267,6 +1298,12 @@ impl From<char> for FormatItem<'_> {
 impl<'source> From<&'source str> for FormatItem<'source> {
     fn from(s: &'source str) -> Self {
         Self::Str(s)
+    }
+}
+
+impl From<Error> for FormatItem<'_> {
+    fn from(error: Error) -> Self {
+        Self::Error(error)
     }
 }
 

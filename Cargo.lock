@@ -661,8 +661,10 @@ dependencies = [
 name = "koto_format"
 version = "0.16.0"
 dependencies = [
+ "derive-name",
  "koto_lexer",
  "koto_parser",
+ "thiserror",
  "unicode-width",
 ]
 
