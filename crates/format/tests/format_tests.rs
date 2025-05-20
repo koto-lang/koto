@@ -803,7 +803,36 @@ foo.bar[#- foo -# 1..]?.'baz'(x[..], 2, 3)
         }
 
         #[test]
-        fn long_chain() {
+        fn multi_line_that_gets_collapsed() {
+            check_format_output(
+                &["\
+foo
+  .bar(
+  )?[0]
+"],
+                "\
+foo.bar()?[0]
+",
+            );
+        }
+
+        #[test]
+        fn single_line_that_gets_broken() {
+            check_format_output(
+                &["\
+foo.bar()?.'baz'().xyz[0]?
+"],
+                "\
+foo
+  .bar()?
+  .'baz'()
+  .xyz[0]?
+",
+            );
+        }
+
+        #[test]
+        fn broken_by_line_length() {
             check_format_output_with_options(
                 &["\
 foo.bar[  #- foo -# ..9  ]?.baz( 1 ,  2 ,  3..=4  )
@@ -817,6 +846,37 @@ foo
                     line_length: 20,
                     ..Default::default()
                 },
+            );
+        }
+
+        #[test]
+        fn paren_free_call_before_end() {
+            // The paren-free call prevents collaps
+            check_format_output(
+                &["\
+foo
+      .bar     |x| x+10
+      .baz()
+"],
+                "\
+foo
+  .bar |x| x + 10
+  .baz()
+",
+            );
+        }
+
+        #[test]
+        fn paren_free_call_at_end() {
+            // Paren-free calls at the end of the chain can be collapsed
+            check_format_output(
+                &["\
+foo
+      .bar     |x| x+10
+"],
+                "\
+foo.bar |x| x + 10
+",
             );
         }
     }

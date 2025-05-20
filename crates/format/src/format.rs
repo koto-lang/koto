@@ -73,19 +73,25 @@ fn format_node<'source>(
             let mut chain_node = root_node;
             let mut chain_next = next;
 
+            let force_break = should_chain_be_broken(root_node, next, ctx);
+
             loop {
                 match chain_node {
                     ChainNode::Root(root) => {
                         group = group.node(*root);
                     }
                     ChainNode::Id(id) => {
-                        group = group.maybe_indent().char('.').string_constant(*id);
+                        group = group
+                            .maybe_force_indent(force_break)
+                            .char('.')
+                            .string_constant(*id);
                     }
                     ChainNode::Str(s) => {
-                        group = group
-                            .maybe_indent()
-                            .char('.')
-                            .nested(3, node, |nested| format_string(s, nested));
+                        group = group.maybe_force_indent(force_break).char('.').nested(
+                            3,
+                            node,
+                            |nested| format_string(s, nested),
+                        );
                     }
                     ChainNode::Index(index) => {
                         group = group.nested(3, node, |nested| {
@@ -822,6 +828,15 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    fn maybe_force_indent(mut self, force: bool) -> Self {
+        if force {
+            self.group_break(GroupBreak::IndentedBreak);
+        } else {
+            self.group_break(GroupBreak::MaybeIndent);
+        }
+        self
+    }
+
     fn maybe_return(mut self) -> Self {
         self.group_break(GroupBreak::MaybeReturn);
         self
@@ -1361,4 +1376,56 @@ enum TriviaPosition {
     Any,
     LineStart,
     LineEnd,
+}
+
+fn should_chain_be_broken<'source>(
+    root_node: &ChainNode,
+    mut chain_next: &'source Option<AstIndex>,
+    ctx: &'source FormatContext<'source>,
+) -> bool {
+    let mut chain_node = root_node;
+    let mut dot_access_count = 0;
+    let mut last_node_was_access = false;
+
+    loop {
+        match chain_node {
+            ChainNode::Call { with_parens, .. } => {
+                if !with_parens && chain_next.is_some() {
+                    return true;
+                }
+                if last_node_was_access {
+                    dot_access_count += 1;
+                }
+                last_node_was_access = false;
+            }
+            ChainNode::Id(_) | ChainNode::Str(_) => {
+                last_node_was_access = true;
+            }
+            ChainNode::Index(_) => {
+                if last_node_was_access {
+                    dot_access_count += 1;
+                }
+                last_node_was_access = false;
+            }
+            _ => last_node_was_access = false,
+        }
+
+        if dot_access_count >= ctx.options.chain_break_threshold {
+            return true;
+        }
+
+        if let Some(next) = chain_next {
+            match &ctx.node(*next).node {
+                Node::Chain((next_chain_node, next_next)) => {
+                    chain_node = next_chain_node;
+                    chain_next = next_next;
+                }
+                _other => panic!("Expected chain node"),
+            }
+        } else {
+            break;
+        }
+    }
+
+    false
 }
