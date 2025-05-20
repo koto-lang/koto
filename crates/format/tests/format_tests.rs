@@ -579,7 +579,7 @@ if #- abc -# x > 10 then x else y * y # bar
         }
 
         #[test]
-        fn if_block() {
+        fn if_block_with_else_ifs() {
             check_format_output(
                 &["\
 if   #- abc -#   x >   10 # foo
@@ -602,6 +602,30 @@ else if x == 0 # xyz
 else # baz
   x = 42 # 42
   return x
+",
+            );
+        }
+
+        #[test]
+        fn if_block_nested() {
+            check_format_output(
+                &["\
+f = ||
+  if    true
+      x + y
+  else if    x > 100
+    x
+  else
+        x * y
+"],
+                "\
+f = ||
+  if true
+    x + y
+  else if x > 100
+    x
+  else
+    x * y
 ",
             );
         }

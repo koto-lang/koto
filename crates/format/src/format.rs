@@ -385,20 +385,28 @@ fn format_node<'source>(
 
                 for (else_if_condition, else_if_block) in else_if_blocks {
                     let else_if_node = ctx.node(*else_if_block);
-                    group = group.line_break().nested(4, else_if_node, |nested| {
-                        nested
-                            .str("else if ")
-                            .node(*else_if_condition)
-                            .node(*else_if_block)
-                            .build()
-                    });
+                    group = group.line_break().line_start(*else_if_condition).nested(
+                        4,
+                        else_if_node,
+                        |nested| {
+                            nested
+                                .str("else if ")
+                                .node(*else_if_condition)
+                                .node(*else_if_block)
+                                .build()
+                        },
+                    );
                 }
 
                 if let Some(else_block) = else_node {
                     let else_node = ctx.node(*else_block);
-                    group = group.line_break().nested(2, else_node, |nested| {
-                        nested.str("else").node(*else_block).build()
-                    });
+                    group =
+                        group
+                            .line_break()
+                            .line_start(*condition)
+                            .nested(2, else_node, |nested| {
+                                nested.str("else").node(*else_block).build()
+                            });
                 }
 
                 group.build_block()
