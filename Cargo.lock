@@ -682,7 +682,7 @@ name = "koto_json"
 version = "0.16.0"
 dependencies = [
  "koto_runtime",
- "koto_serialize",
+ "koto_serde",
  "koto_test_utils",
  "serde_json",
 ]
@@ -774,11 +774,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "koto_serialize"
+name = "koto_serde"
 version = "0.16.0"
 dependencies = [
  "koto_runtime",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -805,7 +806,7 @@ name = "koto_toml"
 version = "0.16.0"
 dependencies = [
  "koto_runtime",
- "koto_serialize",
+ "koto_serde",
  "koto_test_utils",
  "toml",
 ]
@@ -824,7 +825,7 @@ name = "koto_yaml"
 version = "0.16.0"
 dependencies = [
  "koto_runtime",
- "koto_serialize",
+ "koto_serde",
  "koto_test_utils",
  "serde_yaml_ng",
 ]

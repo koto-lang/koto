@@ -1,7 +1,7 @@
 [package]
-name = "koto_serialize"
+name = "koto_serde"
 version = "0.16.0"
-description = "Serde serialization support for the Koto programming language"
+description = "Serde support for the Koto programming language"
 
 authors.workspace = true
 edition.workspace = true
@@ -21,6 +21,7 @@ rc = ["koto_runtime/rc"]
 
 [dependencies]
 serde = { workspace = true }
+thiserror = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
