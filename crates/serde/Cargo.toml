@@ -27,3 +27,6 @@ thiserror = { workspace = true }
 path = "../../crates/runtime"
 version = "^0.16.0"
 default-features = false
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }

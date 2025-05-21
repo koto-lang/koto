@@ -1,3 +1,4 @@
+use koto_runtime::KNumber;
 use std::fmt;
 use thiserror::Error;
 
@@ -12,12 +13,18 @@ pub enum Error {
 
     #[error("missing map key for value")]
     MissingMapKey,
+    #[error("number out of i64 range {0}")]
+    OutOfI64RangeNumber(KNumber),
+    #[error("number out of u8 range {0}")]
+    OutOfU8RangeNumber(KNumber),
     #[error("i128 out of i64 range {0}")]
     OutOfRangeI128(i128),
     #[error("u64 out of i64 range {0}")]
     OutOfRangeU64(u64),
     #[error("u128 out of i64 range {0}")]
     OutOfRangeU128(u128),
+    #[error("expected char, found string containing {} chars", .0.chars().count())]
+    StringDoesntContainSingleChar(String),
     #[error("{0} is unsupported")]
     Unsupported(String),
 }
