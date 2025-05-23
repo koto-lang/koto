@@ -103,6 +103,10 @@ The Koto project adheres to
 
 #### CLI
 
+- The CLI now has a `--format` argument that formats Koto scripts.
+  - If a script path is provided then the file will be formatted in place,
+    otherwise the script will be read from `stdin` and the formatted version
+    will be written to `stdout`.
 - The REPL now supports tab completion for variables and help searches.
 
 ### Changed
