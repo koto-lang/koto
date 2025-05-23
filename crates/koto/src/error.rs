@@ -15,6 +15,9 @@ pub enum Error {
         error: String,
         is_indentation_error: bool,
     },
+    #[cfg(feature = "serde")]
+    #[error(transparent)]
+    SerdeError(#[from] koto_serde::Error),
 }
 
 impl Error {

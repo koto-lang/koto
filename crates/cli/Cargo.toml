@@ -26,6 +26,7 @@ path = "src/main.rs"
 [dependencies]
 koto = { path = "../koto", version = "^0.16.0", default-features = false }
 koto_format = { path = "../format", version = "^0.16.0", default-features = false }
+koto_serde = { path = "..//serde", version = "^0.16.0", default-features = false }
 
 koto_color = { path = "../../libs/color", version = "^0.16.0", default-features = false }
 koto_geometry = { path = "../../libs/geometry", version = "^0.16.0", default-features = false }
@@ -46,6 +47,7 @@ pico-args = { workspace = true, features = [
 ] }
 pulldown-cmark = { workspace = true }
 rustyline = { workspace = true, features = ["with-file-history"] }
+serde = { workspace = true, features = ["derive"] }
 textwrap = { workspace = true }
 unicode-width = { workspace = true }
 

@@ -73,6 +73,12 @@ The Koto project adheres to
 
 #### API
 
+- `koto_serialize` has been replaced by `koto_serde`, which provides more complete
+  support for converting between Koto values and types that implement `serde::Deserialize`
+  and `Serialize`.
+  - Types that implement `Deserialize` can be built from a `KValue` using `from_koto_value`.
+  - Types that implement `Serialize` can be converted into a `KValue` using `to_koto_value`.
+  - `koto_serde` is exported from `koto` as `koto::serde` when the `serde` feature is enabled.
 - `KotoObject` has been extended with `_rhs` functions to support arithmetic operations
   where the object can appear on the right-hand side of the expression.
 - `Koto::call_exported_function` has been added.

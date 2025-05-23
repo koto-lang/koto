@@ -40,6 +40,15 @@ which can be accessed by calling `Koto::exports()`.
 exported_values.rs
 ```
 
+## Using Serde for Value Conversions
+
+Types that implement `serde::Deserialize` and `Serialize` can be converted
+to and from Koto values via `koto::serde::to_koto_value` and `from_koto_value`.
+
+```rust_include
+serde.rs
+```
+
 ## Adding Values to the Prelude
 
 The runtime's prelude is a `KMap`, which is Koto's standard hashmap type.

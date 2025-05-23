@@ -26,8 +26,8 @@ path = "../../crates/runtime"
 version = "^0.16.0"
 default-features = false
 
-[dependencies.koto_serialize]
-path = "../../crates/serialize"
+[dependencies.koto_serde]
+path = "../../crates/serde"
 version = "^0.16.0"
 default-features = false
 
