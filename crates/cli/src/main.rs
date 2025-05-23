@@ -34,7 +34,7 @@ ARGS:
     <args>...    Arguments to pass into the script
 
 REPL CONFIGURATION:
-    Koto will read configuration settings from $HOME/.koto/repl_config.koto,
+    Koto will read configuration settings from $HOME/.koto/config.koto,
     or from a file provided with the --config flag.
 
     The default configuration settings are:
@@ -222,6 +222,7 @@ fn main() -> Result<()> {
                 show_bytecode: args.show_bytecode,
                 colored_output: config.colored_output,
                 edit_mode: config.edit_mode,
+                max_history_size: config.max_history,
             },
             koto_settings,
         )?

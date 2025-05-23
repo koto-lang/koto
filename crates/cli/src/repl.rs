@@ -40,13 +40,13 @@ const RESULT_PROMPT: &str = "➝ ";
 const INDENT_SIZE: usize = 2;
 const HISTORY_DIR: &str = ".koto";
 const HISTORY_FILE: &str = "repl_history.txt";
-const MAX_HISTORY_ENTRIES: usize = 500;
 
 pub struct ReplSettings {
     pub show_bytecode: bool,
     pub show_instructions: bool,
     pub colored_output: bool,
     pub edit_mode: EditMode,
+    pub max_history_size: usize,
 }
 
 type ReplEditor = Editor<ReplHelper, DefaultHistory>;
@@ -85,14 +85,14 @@ fn help() -> Rc<Help> {
 }
 
 impl Repl {
-    pub fn with_settings(repl_settings: ReplSettings, koto_settings: KotoSettings) -> Result<Self> {
+    pub fn with_settings(settings: ReplSettings, koto_settings: KotoSettings) -> Result<Self> {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
 
         let mut editor = ReplEditor::with_config(
             Config::builder()
-                .max_history_size(MAX_HISTORY_ENTRIES)?
-                .edit_mode(repl_settings.edit_mode)
+                .max_history_size(settings.max_history_size)?
+                .edit_mode(settings.edit_mode)
                 .completion_type(CompletionType::List)
                 .build(),
         )?;
@@ -106,11 +106,11 @@ impl Repl {
         }
 
         let stdout = io::stdout();
-        let colored_output = repl_settings.colored_output && stdout.is_tty();
+        let colored_output = settings.colored_output && stdout.is_tty();
 
         Ok(Self {
             koto,
-            settings: repl_settings,
+            settings,
             editor,
             stdout,
             continued_lines: Vec::new(),
