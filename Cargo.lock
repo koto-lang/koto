@@ -667,6 +667,7 @@ dependencies = [
  "derive-name",
  "koto_lexer",
  "koto_parser",
+ "serde",
  "thiserror",
  "unicode-width",
 ]

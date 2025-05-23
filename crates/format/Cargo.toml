@@ -23,5 +23,6 @@ koto_lexer = { path = "../lexer", version = "^0.16.0" }
 koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
 
 derive-name = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 unicode-width = { workspace = true }

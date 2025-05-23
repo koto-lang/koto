@@ -1,5 +1,8 @@
+use serde::Deserialize;
+
 /// Formatting options provided to [`format`]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(default)]
 pub struct FormatOptions {
     /// The width in characters to use when inserting indents. (default: 2)
     pub indent_width: u8,

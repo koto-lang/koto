@@ -4,6 +4,7 @@ mod repl;
 use anyhow::{Context, Result, bail};
 use crossterm::{terminal, tty::IsTty};
 use koto::{prelude::*, serde::from_koto_value};
+use koto_format::FormatOptions;
 use repl::{EditMode, Repl, ReplSettings};
 use serde::Deserialize;
 use std::{env, error::Error, fs, io, path::PathBuf};
@@ -25,7 +26,8 @@ FLAGS:
     -t, --tests              Run the script's tests before running the script
     -T, --import_tests       Run the script's tests, along with any tests in imported modules
     -f, --format             Formats the input, reading from the script path if given, or from stdin
-    -c, --config PATH        Config file to load when using the REPL
+    -c, --config PATH        Config file to load
+    -C, --print_config       Prints the default config
     -v, --version            Prints version information
     -h, --help               Prints help information
 
@@ -33,18 +35,12 @@ ARGS:
     <script>     The koto script to run, as a file path, or as a string when --eval is set
     <args>...    Arguments to pass into the script
 
-REPL CONFIGURATION:
+CONFIGURATION:
     Koto will read configuration settings from $HOME/.koto/config.koto,
     or from a file provided with the --config flag.
 
-    The default configuration settings are:
-
-    ```
-    export
-      colored_output: true
-      edit_mode: 'emacs'
-      max_history: 100
-    ```
+    Configuration settings are available for the REPL and for formatting options.
+    The default configuration can be displayed with the --print_config flag.
 
 ENV VARS:
     KOTO_EDIT_MODE_VI   Enables the VI editing mode (Emacs bindings are enabled by default)
@@ -72,6 +68,7 @@ struct KotoArgs {
     script: Option<String>,
     script_args: Vec<String>,
     config_file: Option<String>,
+    print_config: bool,
 }
 
 fn parse_arguments() -> Result<KotoArgs> {
@@ -84,6 +81,7 @@ fn parse_arguments() -> Result<KotoArgs> {
     let run_import_tests = args.contains(["-T", "--import_tests"]);
     let format = args.contains(["-f", "--format"]);
     let config_file = args.opt_value_from_str(["-c", "--config"])?;
+    let print_config = args.contains(["-C", "--print_config"]);
     let help = args.contains(["-h", "--help"]);
     let version = args.contains(["-v", "--version"]);
 
@@ -111,6 +109,7 @@ fn parse_arguments() -> Result<KotoArgs> {
         script,
         script_args,
         config_file,
+        print_config,
     })
 }
 
@@ -129,6 +128,11 @@ fn main() -> Result<()> {
 
     if args.version {
         println!("{}", version_string());
+        return Ok(());
+    }
+
+    if args.print_config {
+        Config::print_default();
         return Ok(());
     }
 
@@ -242,13 +246,20 @@ fn add_modules(koto: &Koto) {
     prelude.insert("yaml", koto_yaml::make_module());
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Debug)]
 #[serde(default)]
 struct Config {
+    format: FormatOptions,
     repl: ReplConfig,
 }
 
-#[derive(Deserialize)]
+impl Config {
+    fn print_default() {
+        todo!()
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 struct ReplConfig {
     edit_mode: EditMode,
