@@ -8,9 +8,8 @@ use std::{
 use anyhow::Result;
 use crossterm::{execute, style, tty::IsTty};
 use koto::prelude::*;
-use rustyline::{
-    CompletionType, Config, EditMode, Editor, error::ReadlineError, history::DefaultHistory,
-};
+use rustyline::{CompletionType, Config, Editor, error::ReadlineError, history::DefaultHistory};
+use serde::Deserialize;
 
 use crate::{
     help::{HELP_INDENT, Help},
@@ -47,6 +46,23 @@ pub struct ReplSettings {
     pub colored_output: bool,
     pub edit_mode: EditMode,
     pub max_history_size: usize,
+}
+
+#[derive(Deserialize, Copy, Clone, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum EditMode {
+    #[default]
+    Emacs,
+    Vi,
+}
+
+impl From<EditMode> for rustyline::EditMode {
+    fn from(mode: EditMode) -> Self {
+        match mode {
+            EditMode::Emacs => rustyline::EditMode::Emacs,
+            EditMode::Vi => rustyline::EditMode::Vi,
+        }
+    }
 }
 
 type ReplEditor = Editor<ReplHelper, DefaultHistory>;
@@ -92,7 +108,7 @@ impl Repl {
         let mut editor = ReplEditor::with_config(
             Config::builder()
                 .max_history_size(settings.max_history_size)?
-                .edit_mode(settings.edit_mode)
+                .edit_mode(settings.edit_mode.into())
                 .completion_type(CompletionType::List)
                 .build(),
         )?;

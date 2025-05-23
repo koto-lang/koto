@@ -3,9 +3,9 @@ mod repl;
 
 use anyhow::{Context, Result, bail};
 use crossterm::{terminal, tty::IsTty};
-use koto::prelude::*;
-use repl::{Repl, ReplSettings};
-use rustyline::EditMode;
+use koto::{prelude::*, serde::from_koto_value};
+use repl::{EditMode, Repl, ReplSettings};
+use serde::Deserialize;
 use std::{env, error::Error, fs, io, path::PathBuf};
 
 #[global_allocator]
@@ -220,9 +220,9 @@ fn main() -> Result<()> {
             ReplSettings {
                 show_instructions: args.show_instructions,
                 show_bytecode: args.show_bytecode,
-                colored_output: config.colored_output,
-                edit_mode: config.edit_mode,
-                max_history_size: config.max_history,
+                colored_output: config.repl.colored_output,
+                edit_mode: config.repl.edit_mode,
+                max_history_size: config.repl.max_history,
             },
             koto_settings,
         )?
@@ -242,13 +242,21 @@ fn add_modules(koto: &Koto) {
     prelude.insert("yaml", koto_yaml::make_module());
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
 struct Config {
+    repl: ReplConfig,
+}
+
+#[derive(Deserialize)]
+#[serde(default)]
+struct ReplConfig {
     edit_mode: EditMode,
     colored_output: bool,
     max_history: usize,
 }
 
-impl Default for Config {
+impl Default for ReplConfig {
     fn default() -> Self {
         Self {
             edit_mode: EditMode::Emacs,
@@ -259,8 +267,6 @@ impl Default for Config {
 }
 
 fn load_config(config_path: Option<&String>) -> Result<Config> {
-    let mut config = Config::default();
-
     let config_path = config_path.map_or_else(
         || {
             home::home_dir()
@@ -275,7 +281,7 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
     );
 
     // Load the config file if it exists
-    if let Some(config_path) = config_path {
+    let mut config = if let Some(config_path) = config_path {
         let script = fs::read_to_string(&config_path).context("Failed to load the config file")?;
 
         let mut koto = Koto::new();
@@ -283,51 +289,19 @@ fn load_config(config_path: Option<&String>) -> Result<Config> {
             bail!("error while loading config: {e}");
         }
 
-        let exports = koto.exports().data();
-        match exports.get("repl") {
-            Some(KValue::Map(repl_config)) => {
-                let repl_config = repl_config.data();
-                match repl_config.get("colored_output") {
-                    Some(KValue::Bool(value)) => config.colored_output = *value,
-                    Some(_) => bail!("expected bool for colored_output setting"),
-                    None => {}
-                }
-                match repl_config.get("edit_mode") {
-                    Some(KValue::Str(value)) => match value.as_str() {
-                        "emacs" => config.edit_mode = EditMode::Emacs,
-                        "vi" => config.edit_mode = EditMode::Vi,
-                        other => {
-                            bail!(
-                                "invalid edit mode '{other}',
-                                         valid options are 'emacs' or 'vi'"
-                            )
-                        }
-                    },
-                    Some(_) => bail!("expected string for edit_mode setting"),
-                    None => {}
-                }
-                match repl_config.get("max_history") {
-                    Some(KValue::Number(value)) => match i64::from(value) {
-                        value if value > 0 => config.max_history = value as usize,
-                        _ => bail!("expected positive number for max_history setting"),
-                    },
-                    Some(_) => bail!("expected positive number for max_history setting"),
-                    None => {}
-                }
-            }
-            Some(_) => bail!("expected map for repl settings"),
-            None => {}
-        }
-    }
+        from_koto_value(koto.exports().clone()).context("error while loading config file")?
+    } else {
+        Config::default()
+    };
 
     // Apply environment variables
     if env::var("KOTO_EDIT_MODE_VI").is_ok() {
-        config.edit_mode = EditMode::Vi
+        config.repl.edit_mode = EditMode::Vi
     };
 
     if let Ok(value) = env::var("KOTO_MAX_HISTORY") {
         if let Ok(value) = value.parse::<usize>() {
-            config.max_history = value;
+            config.repl.max_history = value;
         } else {
             bail!("expected integer for KOTO_MAX_HISTORY environment variable");
         }

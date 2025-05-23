@@ -16,8 +16,8 @@ default = ["rc"]
 
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
-arc = ["koto/arc"]
-rc = ["koto/rc"]
+arc = ["koto/arc", "koto/serde"]
+rc = ["koto/rc", "koto/serde"]
 
 [[bin]]
 name = "koto"
@@ -26,7 +26,6 @@ path = "src/main.rs"
 [dependencies]
 koto = { path = "../koto", version = "^0.16.0", default-features = false }
 koto_format = { path = "../format", version = "^0.16.0", default-features = false }
-koto_serde = { path = "..//serde", version = "^0.16.0", default-features = false }
 
 koto_color = { path = "../../libs/color", version = "^0.16.0", default-features = false }
 koto_geometry = { path = "../../libs/geometry", version = "^0.16.0", default-features = false }
