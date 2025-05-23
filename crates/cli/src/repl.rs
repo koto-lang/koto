@@ -9,7 +9,7 @@ use anyhow::Result;
 use crossterm::{execute, style, tty::IsTty};
 use koto::prelude::*;
 use rustyline::{CompletionType, Config, Editor, error::ReadlineError, history::DefaultHistory};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     help::{HELP_INDENT, Help},
@@ -48,7 +48,7 @@ pub struct ReplSettings {
     pub max_history_size: usize,
 }
 
-#[derive(Deserialize, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EditMode {
     #[default]
