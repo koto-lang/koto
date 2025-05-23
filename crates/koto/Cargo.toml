@@ -12,18 +12,21 @@ readme.workspace = true
 repository.workspace = true
 
 [features]
-default = ["rc"]
+default = ["rc", "serde"]
 
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
+# Enable serde support
+serde = ["koto_serde"]
 
 [dependencies]
 koto_bytecode = { path = "../bytecode", version = "^0.16.0", default-features = false }
 koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
 koto_runtime = { path = "../runtime", version = "^0.16.0", default-features = false }
+koto_serde = { path = "../serde", version = "^0.16.0", default-features = false, optional = true }
 
 thiserror = { workspace = true }
 
@@ -35,6 +38,7 @@ anyhow = { workspace = true }
 criterion = { workspace = true }
 dunce = { workspace = true }
 mimalloc = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 [[bench]]
 name = "koto_benchmark"

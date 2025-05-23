@@ -37,5 +37,8 @@ pub use koto_parser as parser;
 pub use koto_runtime as runtime;
 pub use koto_runtime::{Borrow, BorrowMut, ErrorKind, Ptr, PtrMut, derive};
 
+#[cfg(feature = "serde")]
+pub use koto_serde as serde;
+
 pub use crate::error::{Error, Result};
 pub use crate::koto::{CompileArgs, Koto, KotoSettings};

@@ -592,8 +592,10 @@ dependencies = [
  "koto_geometry",
  "koto_parser",
  "koto_runtime",
+ "koto_serde",
  "koto_test_utils",
  "mimalloc",
+ "serde",
  "thiserror",
 ]
 

@@ -5,8 +5,8 @@ use thiserror::Error;
 /// The result type used when serializing to or from [KValue][koto_runtime::KValue]s
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The error type used when serializing to or from [KValue][crate::KValue]s
-#[derive(Error, Debug)]
+/// The error type used when serializing to or from [KValue][koto_runtime::KValue]s
+#[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("{0}")]
     Message(String),
