@@ -499,7 +499,7 @@ fn format_node<'source>(
                             nested = nested.space_or_indent_if_necessary().str("then");
                         }
 
-                        if ctx.options.match_and_switch_always_indent_arm_bodies {
+                        if ctx.options.always_indent_arms {
                             nested = nested.indented_break();
                         } else {
                             nested = nested.space_or_indent();
@@ -525,7 +525,7 @@ fn format_node<'source>(
                         nested.str("else")
                     };
 
-                    if ctx.options.match_and_switch_always_indent_arm_bodies {
+                    if ctx.options.always_indent_arms {
                         nested = nested.indented_break();
                     } else {
                         nested = nested.space_or_indent();

@@ -700,7 +700,7 @@ switch
     42 # xyz
 ",
                 FormatOptions {
-                    match_and_switch_always_indent_arm_bodies: true,
+                    always_indent_arms: true,
                     ..Default::default()
                 },
             );
@@ -759,7 +759,7 @@ match foo() # abc
     0
 ",
                 FormatOptions {
-                    match_and_switch_always_indent_arm_bodies: true,
+                    always_indent_arms: true,
                     ..Default::default()
                 },
             );
@@ -792,7 +792,7 @@ finally
   print 'bye' # xyz
 ",
                 FormatOptions {
-                    match_and_switch_always_indent_arm_bodies: true,
+                    always_indent_arms: true,
                     ..Default::default()
                 },
             );

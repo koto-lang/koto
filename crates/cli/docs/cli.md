@@ -104,6 +104,37 @@ Welcome to Koto
   ...
 ```
 
+## Formatting
+
+The `koto` CLI can format scripts with the `--format` flag.
+If a script path is provided then the file will be formatted in place,
+otherwise the script will be read from `stdin` and written to `stdout`.
+
+## Configuration
+
+Options for formatting and the REPL can be chosen by exporting them from a `config.koto` file, which is expected to be placed in `~/.koto/config.koto`.
+
+The default configuration can be displayed with the `--print_config` flag.
+
+### Format Options
+
+- `always_indent_arms`: Whether or not `match` and `switch` arms should always be indented. (default: `false`)
+- `chain_break_threshold`: The threshold that causes chain expressions to be broken onto multiple lines. (default: `3`)
+  - The threshold counts against the number of `.` accesses that are followed by a call or index.
+    - `a.b.c().d()` - 2 `.` accesses that count against the threshold.
+    - `a[0].b[1].c().d` - 3 `.` accesses that count against the threshold.
+  - A value of `0` disables the threshold.
+- `indent_width`: The width in characters to use when inserting indents. (default: `2`)
+- `line_length`: The maximum line length. (default: `100`)
+
+### REPL Options
+
+- `edit_mode`: The editing keybindings that should be enabled in the REPL. (`emacs` or `vim`, default: `emacs`)
+- `colored_output`: Whether or not the REPL should use colored output. (default: `true`)
+- `max_history`: The maximum number of entries to keep in its persistent history (default: `100`)
+  - The history is stored in `~/.koto/repl_history.txt`
+
+
 [cli]: https://en.wikipedia.org/wiki/Command-line_interface
 [core]: ./core_lib/
 [os-args]: ./core_lib/os.md#args
