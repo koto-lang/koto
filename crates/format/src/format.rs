@@ -24,6 +24,7 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
     if let Some(entry_point) = ast.entry_point() {
         let context = FormatContext::new(source, &ast, &options);
         let output = format_node(entry_point, &context, &mut trivia.iter());
+        // dbg!(&output);
 
         let mut result = String::new();
         output.render(&mut result, &options, 0)?;
@@ -812,7 +813,6 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         FormatItem::Group {
             items: self.items,
             line_length: OnceCell::new(),
-            force_break: OnceCell::new(),
         }
     }
 
@@ -823,7 +823,6 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         FormatItem::Group {
             items: self.items,
             line_length: OnceCell::new(),
-            force_break: OnceCell::new(),
         }
     }
 
@@ -1092,9 +1091,6 @@ enum FormatItem<'source> {
         // The group's length if it was rendered on a single line.
         // This gets calculated and cached during rendering to avoid nested group recalculations.
         line_length: OnceCell<usize>,
-        // True if the group contains a single-line comment that requires the group to be broken
-        // across indented lines.
-        force_break: OnceCell<bool>,
     },
     // An explicit linebreak
     LineBreak,
@@ -1164,10 +1160,11 @@ impl<'source> FormatItem<'source> {
     ) -> Result<()> {
         let columns_remaining = (options.line_length as usize).saturating_sub(column);
         let too_long = self.line_length() > columns_remaining;
-        let force_break = self.force_break();
+        let force_break = items.iter().any(FormatItem::force_break);
 
-        // Use indent logic if the line is too long, or if the group contains a forced break
-        if too_long || self.force_break() {
+        // Use indent logic if the line is too long, if one of the group contains a forced break,
+        // or if the last item is an indented block.
+        if too_long || force_break || items.last().is_some_and(FormatItem::is_indented_block) {
             let mut group_start_indent = " ".repeat(column);
             let extra_indent = " ".repeat(options.indent_width as usize);
             let mut group_column = column;
@@ -1306,9 +1303,6 @@ impl<'source> FormatItem<'source> {
         match self {
             Self::LineBreak => true,
             Self::GroupBreak(group_break) => group_break.needs_linebreak(false, false),
-            Self::Group {
-                items, force_break, ..
-            } => *force_break.get_or_init(|| items.iter().any(Self::force_break)),
             _ => false,
         }
     }

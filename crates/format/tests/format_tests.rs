@@ -937,6 +937,20 @@ some.chained().expression()
 ",
             );
         }
+
+        #[test]
+        fn dont_break_trailing_paren_free_call() {
+            check_format_output(
+                &["
+foo.bar   ||
+  baz
+"],
+                "\
+foo.bar ||
+  baz
+",
+            );
+        }
     }
 
     mod import_and_export {
