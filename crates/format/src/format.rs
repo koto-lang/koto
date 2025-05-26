@@ -372,13 +372,9 @@ fn format_node<'source>(
         Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
             .node(*target)
             .space_or_indent_if_necessary()
-            .nested(3, node, |nested| {
-                nested
-                    .char('=')
-                    .space_or_indent_respecting_existing_break(target, expression)
-                    .node(*expression)
-                    .build()
-            })
+            .char('=')
+            .space_or_indent_respecting_existing_break(target, expression)
+            .node_flattened(*expression)
             .build(),
         Node::MultiAssign {
             targets,
@@ -425,9 +421,13 @@ fn format_node<'source>(
             if lhs_span.end.line == rhs_span.start.line {
                 GroupBuilder::new(3, node, ctx, trivia)
                     .node_flattened(*lhs)
-                    .space_or_indent()
+                    .space_or_indent_if_necessary()
                     .nested(3, node, |nested| {
-                        nested.str(op.as_str()).space_or_indent().node(*rhs).build()
+                        nested
+                            .str(op.as_str())
+                            .space_or_indent_if_necessary()
+                            .node(*rhs)
+                            .build()
                     })
                     .build()
             } else {
@@ -435,7 +435,11 @@ fn format_node<'source>(
                     .node(*lhs)
                     .indented_break()
                     .nested(3, node, |nested| {
-                        nested.str(op.as_str()).space_or_indent().node(*rhs).build()
+                        nested
+                            .str(op.as_str())
+                            .space_or_indent_if_necessary()
+                            .node(*rhs)
+                            .build()
                     })
                     .build()
             }

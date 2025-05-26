@@ -384,8 +384,7 @@ x = 1 + #- abc -# x - -3 * 2
 1 + 2 * 3 - 4 / 5 % 6 + #- xyz -# 7 ^ 8 - (9 + a)
 "],
                 "\
-1
-  + 2 * 3
+1 + 2 * 3
   - 4 / 5 % 6
   + #- xyz -# 7 ^ 8
   - (9 + a)
@@ -501,6 +500,28 @@ x = 1 + #- abc -# x - -3 * 2
 "],
                 "\
 (
+  11111, 22222,
+  33333, #- foo -#
+  44444
+)
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn dont_rebreak_assignment_of_already_broken_tuple() {
+            check_format_output_with_options(
+                &["\
+x = y + (
+  11111, 22222,33333,   #- foo -#     44444
+)
+"],
+                "\
+x = y + (
   11111, 22222,
   33333, #- foo -#
   44444
@@ -1141,10 +1162,8 @@ f = |
     (..., c, d)
   )
 | -> Number # abc
-  x = aaaa
-    + bbbb
-    + c
-    + d
+  x = aaaa + bbbb
+    + c + d
   yield x * 2
 ",
                 FormatOptions {
