@@ -11,6 +11,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum ErrorKind {
     #[error("expected {expected}, found '{}'", unexpected.variant_name())]
     UnexpectedNode { expected: String, unexpected: Node },
+    #[error("Multi-assign node is missing targets")]
+    MissingMultiAssignTargets,
     #[error("An error occurred during lexing")]
     TokenError,
     #[error(transparent)]

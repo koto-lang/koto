@@ -206,6 +206,68 @@ return
         }
     }
 
+    mod assignment {
+        use super::*;
+
+        #[test]
+        fn dont_collapse_broken_assignment() {
+            check_format_output(
+                &["
+xyz    =
+    foo
+"],
+                "\
+xyz =
+  foo
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_not_broken_by_line_length() {
+            check_format_output(
+                &["\
+a,   b,   c = 11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c = 11 + 11, 22 + 22, 33 + 33
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_with_indented_rhs_not_collapsed() {
+            check_format_output(
+                &["\
+a,   b,   c =
+  11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c =
+  11 + 11, 22 + 22, 33 + 33
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_broken_by_line_length() {
+            check_format_output_with_options(
+                &["\
+a,   b,   c = 11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c =
+  11 + 11, 22 + 22,
+  33 + 33
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
     #[test]
     fn nested() {
         check_format_output(
@@ -334,26 +396,6 @@ x = 1 + #- abc -# x - -3 * 2
                 },
             );
         }
-
-        #[test]
-        fn multi_assignment() {
-            check_format_output_with_options(
-                &["\
-a,   b,   c =
-    11+11, 22   + 22,    33   + 33
-"],
-                "\
-a, b, c =
-  11 + 11, 22 + 22,
-  33 + 33
-",
-                FormatOptions {
-                    line_length: 20,
-                    ..Default::default()
-                },
-            );
-        }
-
         #[test]
         fn integers_with_alt_bases() {
             check_format_output_with_options(
@@ -1036,8 +1078,7 @@ import
         fn metakey_assignment() {
             check_format_output(
                 &["\
-@main =
-    ||
+@main =    ||
         print
             'hello'
 "],
