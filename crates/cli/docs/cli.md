@@ -119,10 +119,10 @@ The default configuration can be displayed with the `--print_config` flag.
 ### Format Options
 
 - `always_indent_arms`: Whether or not `match` and `switch` arms should always be indented. (default: `false`)
-- `chain_break_threshold`: The threshold that causes chain expressions to be broken onto multiple lines. (default: `3`)
+- `chain_break_threshold`: The threshold that causes chain expressions to be broken onto multiple lines. (default: `4`)
   - The threshold counts against the number of `.` accesses that are followed by a call or index.
     - `a.b.c().d()` - 2 `.` accesses that count against the threshold.
-    - `a[0].b[1].c().d` - 3 `.` accesses that count against the threshold.
+    - `a[0].b[1].c().d().e()` - 4 `.` accesses that count against the threshold.
   - A value of `0` disables the threshold.
 - `indent_width`: The width in characters to use when inserting indents. (default: `2`)
 - `line_length`: The maximum line length. (default: `100`)

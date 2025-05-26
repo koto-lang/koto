@@ -860,13 +860,14 @@ foo.bar()?[0]
         fn single_line_that_gets_broken() {
             check_format_output(
                 &["\
-foo.bar()?.'baz'().xyz[0]?
+foo.bar()?.'baz'().xyz[0]?.abc()
 "],
                 "\
 foo
   .bar()?
   .'baz'()
   .xyz[0]?
+  .abc()
 ",
             );
         }
