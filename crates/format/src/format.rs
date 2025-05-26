@@ -24,11 +24,14 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
     if let Some(entry_point) = ast.entry_point() {
         let context = FormatContext::new(source, &ast, &options);
         let output = format_node(entry_point, &context, &mut trivia.iter());
+
         let mut result = String::new();
         output.render(&mut result, &options, 0)?;
+
         if !result.ends_with('\n') {
             result.push('\n');
         }
+
         Ok(result)
     } else {
         Ok(String::new())
@@ -410,13 +413,27 @@ fn format_node<'source>(
                 .node(*value)
                 .build(),
         },
-        Node::BinaryOp { op, lhs, rhs } => GroupBuilder::new(3, node, ctx, trivia)
-            .node_flattened(*lhs)
-            .space_or_indent()
-            .nested(3, node, |nested| {
-                nested.str(op.as_str()).space_or_indent().node(*rhs).build()
-            })
-            .build(),
+        Node::BinaryOp { op, lhs, rhs } => {
+            let lhs_span = ctx.span(ctx.node(*lhs));
+            let rhs_span = ctx.span(ctx.node(*rhs));
+            if lhs_span.end.line == rhs_span.start.line {
+                GroupBuilder::new(3, node, ctx, trivia)
+                    .node_flattened(*lhs)
+                    .space_or_indent()
+                    .nested(3, node, |nested| {
+                        nested.str(op.as_str()).space_or_indent().node(*rhs).build()
+                    })
+                    .build()
+            } else {
+                GroupBuilder::new(3, node, ctx, trivia)
+                    .node(*lhs)
+                    .indented_break()
+                    .nested(3, node, |nested| {
+                        nested.str(op.as_str()).space_or_indent().node(*rhs).build()
+                    })
+                    .build()
+            }
+        }
         Node::If(AstIf {
             condition,
             then_node,

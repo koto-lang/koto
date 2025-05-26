@@ -290,13 +290,12 @@ x =   '\
 1   +  # abc
  2 * 3",
                     "\
-1 + # abc
-    2
-      * 3",
+1 +     # abc
+    2    *    3",
                 ],
                 "\
-1 + # abc
-  2 * 3
+1 # abc
+  + 2 * 3
 ",
             );
         }
@@ -917,6 +916,24 @@ foo
 "],
                 "\
 foo.bar |x| x + 10
+",
+            );
+        }
+
+        #[test]
+        fn dont_collapse_pipe_operator() {
+            check_format_output(
+                &["
+some
+    .chained()
+    .expression()
+  -> piped_1
+      -> piped_2
+"],
+                "\
+some.chained().expression()
+  -> piped_1
+  -> piped_2
 ",
             );
         }
