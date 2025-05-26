@@ -90,10 +90,12 @@ fn format_node<'source>(
                         group = group.node(*root);
                     }
                     ChainNode::Id(id) => {
-                        group = group
-                            .maybe_force_indent(force_break)
-                            .char('.')
-                            .string_constant(*id);
+                        if force_break {
+                            group = group.add_trailing_trivia().indented_break();
+                        } else {
+                            group = group.maybe_indent();
+                        }
+                        group = group.char('.').string_constant(*id);
                     }
                     ChainNode::Str(s) => {
                         group = group.maybe_force_indent(force_break).char('.').nested(
@@ -146,6 +148,8 @@ fn format_node<'source>(
                                     nested = nested.maybe_return();
                                 }
                                 nested = nested.char(')');
+                            } else {
+                                nested = nested.add_trailing_trivia();
                             }
                             nested.build()
                         })

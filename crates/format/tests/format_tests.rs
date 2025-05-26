@@ -1126,6 +1126,24 @@ x = {
 ",
             );
         }
+
+        #[test]
+        fn chained_calls_with_trailing_comments() {
+            check_format_output(
+                &["
+foo
+  .bar   x     # abc
+  .foo() # 123
+  .baz    y    # xyz
+"],
+                "\
+foo
+  .bar x # abc
+  .foo() # 123
+  .baz y # xyz
+",
+            );
+        }
     }
 
     mod import_and_export {
