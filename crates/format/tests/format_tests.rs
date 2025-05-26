@@ -535,7 +535,35 @@ x = y + (
         }
 
         #[test]
-        fn map_with_braces() {
+        fn map_with_braces_single_line() {
+            check_format_output(
+                &["\
+{ foo:42,bar,      baz: 99    }
+"],
+                "\
+{foo: 42, bar, baz: 99}
+",
+            );
+        }
+
+        #[test]
+        fn map_with_braces_multi_line() {
+            check_format_output(
+                &["\
+{ foo:42,
+  bar,      baz: 99    }
+"],
+                "\
+{
+  foo: 42,
+  bar, baz: 99
+}
+",
+            );
+        }
+
+        #[test]
+        fn map_with_braces_broken_by_line_length() {
             check_format_output_with_options(
                 &["\
 { foo:42,bar,      baz: 99    }

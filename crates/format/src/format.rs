@@ -245,10 +245,23 @@ fn format_node<'source>(
                     .char('{')
                     .maybe_indent();
 
+                let mut previous_line = ctx.span(node).start.line;
                 for (i, entry) in entries.iter().enumerate() {
+                    let entry_start_line = ctx.span(ctx.node(*entry)).start.line;
+
+                    // Space or indent following the previous entry?
+                    if i > 0 {
+                        if entry_start_line > previous_line {
+                            group = group.indented_break();
+                        } else {
+                            group = group.space_or_indent_if_necessary();
+                        }
+                    }
+                    previous_line = entry_start_line;
+
                     group = group.node(*entry);
                     if i < entries.len() - 1 {
-                        group = group.char(',').space_or_indent_if_necessary();
+                        group = group.char(',');
                     }
                 }
 
