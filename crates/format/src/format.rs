@@ -27,7 +27,7 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
         // dbg!(&output);
 
         let mut result = String::new();
-        output.render(&mut result, false, &options, 0)?;
+        output.render(&mut result, false, false, &options, 0)?;
 
         if !result.ends_with('\n') {
             result.push('\n');
@@ -266,6 +266,8 @@ fn format_node<'source>(
                     group = group.node(*entry);
                     if i < entries.len() - 1 {
                         group = group.char(',');
+                    } else {
+                        group = group.maybe_char(',');
                     }
                 }
 
@@ -902,7 +904,12 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     }
 
     fn char(mut self, c: char) -> Self {
-        self.items.push(c.into());
+        self.items.push(FormatItem::Char(c));
+        self
+    }
+
+    fn maybe_char(mut self, c: char) -> Self {
+        self.items.push(FormatItem::OptionalChar(c));
         self
     }
 
@@ -1060,6 +1067,8 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             self = self.node(*element);
             if i < elements.len() - 1 {
                 self = self.char(',').space_or_indent_if_necessary();
+            } else {
+                self = self.maybe_char(',');
             }
         }
         self
@@ -1155,6 +1164,8 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 enum FormatItem<'source> {
     // A single character
     Char(char),
+    // A single character that's only included in the output when the line is being broken up
+    OptionalChar(char),
     // A `&str`, either static or from the source file
     Str(&'source str),
     // A KString
@@ -1202,11 +1213,17 @@ impl<'source> FormatItem<'source> {
         &self,
         output: &mut String,
         indented: bool,
+        render_optional: bool,
         options: &FormatOptions,
         column: usize,
     ) -> Type {
         match self {
             Self::Char(c) => output.push(*c),
+            Self::OptionalChar(c) => {
+                if render_optional {
+                    output.push(*c)
+                }
+            }
             Self::Str(s) => output.push_str(s),
             Self::KString(s) => output.push_str(s),
             Self::Group { items, .. } => {
@@ -1289,7 +1306,7 @@ impl<'source> FormatItem<'source> {
                     _ if item.is_indented_block() => {
                         // No need to worry about adjusting the line width here,
                         // an indented block is always the last item in a group.
-                        item.render(&mut item_buffer, false, options, group_column)?;
+                        item.render(&mut item_buffer, false, false, options, group_column)?;
                         output.extend(item_buffer.drain(..));
                         group_break = GroupBreak::None;
                     }
@@ -1309,7 +1326,14 @@ impl<'source> FormatItem<'source> {
                         }
 
                         // Render the item into a temporary buffer
-                        item.render(&mut item_buffer, child_is_indented, options, group_column)?;
+                        let render_optional = too_long || child_is_indented;
+                        item.render(
+                            &mut item_buffer,
+                            child_is_indented,
+                            render_optional,
+                            options,
+                            group_column,
+                        )?;
 
                         // Get the width of the item's first line
                         // (multiline items are possible, and we only need the first line's width
@@ -1376,7 +1400,7 @@ impl<'source> FormatItem<'source> {
             }
         } else {
             for item in items {
-                item.render(output, false, options, column)?;
+                item.render(output, false, false, options, column)?;
             }
         }
 
@@ -1386,7 +1410,7 @@ impl<'source> FormatItem<'source> {
     // Gets the length of the format item
     fn line_length(&self) -> usize {
         match self {
-            Self::Char(c) => c.width().unwrap_or(0),
+            Self::Char(c) | Self::OptionalChar(c) => c.width().unwrap_or(0),
             Self::Str(s) => first_line_length(s),
             Self::KString(s) => first_line_length(s),
             Self::Group {
@@ -1418,12 +1442,6 @@ impl<'source> FormatItem<'source> {
 
     fn is_break(&self) -> bool {
         matches!(self, Self::LineBreak | Self::GroupBreak(_))
-    }
-}
-
-impl From<char> for FormatItem<'_> {
-    fn from(c: char) -> Self {
-        Self::Char(c)
     }
 }
 
