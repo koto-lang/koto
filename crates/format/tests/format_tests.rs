@@ -910,15 +910,17 @@ foo.bar[#- foo -# 1..]?.'baz'(x[..], 2, 3)
         }
 
         #[test]
-        fn multi_line_that_gets_collapsed() {
+        fn multi_line_with_existing_break() {
             check_format_output(
                 &["\
 foo
   .bar(
-  )?[0]
+  )?[0].baz()
 "],
                 "\
-foo.bar()?[0]
+foo
+  .bar()?[0]
+  .baz()
 ",
             );
         }
@@ -983,7 +985,8 @@ foo
       .bar     |x| x+10
 "],
                 "\
-foo.bar |x| x + 10
+foo
+  .bar |x| x + 10
 ",
             );
         }
@@ -999,7 +1002,9 @@ some
       -> piped_2
 "],
                 "\
-some.chained().expression()
+some
+  .chained()
+  .expression()
   -> piped_1
   -> piped_2
 ",

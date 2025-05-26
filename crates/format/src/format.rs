@@ -82,7 +82,8 @@ fn format_node<'source>(
             let mut chain_node = root_node;
             let mut chain_next = next;
 
-            let force_break = should_chain_be_broken(root_node, next, ctx);
+            let force_break =
+                should_chain_be_broken(root_node, next, ctx.span(node).start.line, ctx);
 
             loop {
                 match chain_node {
@@ -1506,6 +1507,7 @@ enum TriviaPosition {
 fn should_chain_be_broken<'source>(
     root_node: &ChainNode,
     mut chain_next: &'source Option<AstIndex>,
+    start_line: u32,
     ctx: &'source FormatContext<'source>,
 ) -> bool {
     let mut chain_node = root_node;
@@ -1540,12 +1542,16 @@ fn should_chain_be_broken<'source>(
         }
 
         if let Some(next) = chain_next {
-            match &ctx.node(*next).node {
+            let next_node = ctx.node(*next);
+            match &next_node.node {
                 Node::Chain((next_chain_node, next_next)) => {
                     chain_node = next_chain_node;
                     chain_next = next_next;
                 }
                 _other => panic!("Expected chain node"),
+            }
+            if ctx.span(&next_node).start.line > start_line {
+                return true;
             }
         } else {
             break;
