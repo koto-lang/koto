@@ -19,7 +19,7 @@ pub enum ErrorKind {
 
 /// An error that can be produced during formatting
 #[derive(Error, Clone, Debug)]
-#[error("{error}")]
+#[error("{error} (line: {}, column:{})", span.start.line, span.start.column)]
 pub struct Error {
     /// The error itself
     pub error: ErrorKind,

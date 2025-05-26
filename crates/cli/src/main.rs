@@ -170,7 +170,13 @@ fn main() -> Result<()> {
     if let Some(script) = script {
         if args.format {
             let config = load_config(args.config_file.as_ref())?;
-            let formatted = koto_format::format(&script, config.format)?;
+            let formatted = koto_format::format(&script, config.format).with_context(|| {
+                if let Some(path) = &script_path {
+                    format!("failed to format '{path}'")
+                } else {
+                    "failed to format input from stdin".to_string()
+                }
+            })?;
             if let Some(path) = script_path {
                 fs::write(path, formatted)?;
             } else {
