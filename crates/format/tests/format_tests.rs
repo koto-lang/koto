@@ -260,6 +260,23 @@ r###'raw!'###
 ",
             );
         }
+
+        #[test]
+        fn with_escaped_characters() {
+            check_format_output(
+                &[r#"
+x =   '\
+\n
+\u{1F44B}
+'
+"#],
+                r#"x = '\
+\n
+\u{1F44B}
+'
+"#,
+            );
+        }
     }
 
     mod arithmetic {

@@ -16,7 +16,7 @@ pub use crate::{
     constant_pool::{Constant, ConstantIndex, ConstantPool},
     error::{Error, ErrorKind, ExpectedIndentation, Result, SyntaxError, format_source_excerpt},
     node::*,
-    parser::Parser,
+    parser::{Parser, ParserOptions},
     string::KString,
     string_format_options::{StringAlignment, StringFormatOptions, StringFormatRepresentation},
     string_slice::StringSlice,

@@ -5,8 +5,8 @@ use crate::{
 use koto_lexer::Position;
 use koto_parser::{
     Ast, AstCatch, AstFor, AstIf, AstIndex, AstNode, AstString, AstTry, AstUnaryOp, ChainNode,
-    ConstantIndex, ConstantPool, Function, ImportItem, KString, Node, Span, StringAlignment,
-    StringContents, StringFormatOptions, StringNode,
+    ConstantIndex, ConstantPool, Function, ImportItem, KString, Node, ParserOptions, Span,
+    StringAlignment, StringContents, StringFormatOptions, StringNode,
 };
 use std::{cell::OnceCell, iter};
 use unicode_width::UnicodeWidthStr;
@@ -14,7 +14,12 @@ use unicode_width::UnicodeWidthStr;
 /// Returns the input source formatted according to the provided options
 pub fn format(source: &str, options: FormatOptions) -> Result<String> {
     let trivia = Trivia::parse(source)?;
-    let ast = koto_parser::Parser::parse(source)?;
+    let ast = koto_parser::Parser::parse_with_options(
+        source,
+        ParserOptions {
+            process_escape_codes: false,
+        },
+    )?;
 
     if let Some(entry_point) = ast.entry_point() {
         let context = FormatContext::new(source, &ast, &options);

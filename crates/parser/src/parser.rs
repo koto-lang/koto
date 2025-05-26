@@ -226,6 +226,27 @@ impl ExpressionContext {
     }
 }
 
+/// Options that are passed into [`Parser::parse`]
+pub struct ParserOptions {
+    /// Whether or not string escape codes should be processed. (default: `true`)
+    ///
+    /// When true, escape codes will be processed, with the processed string stored in the constant
+    /// pool. When false, the string contents will be stored in the constant pool exactly as defined
+    /// in the source file.
+    ///
+    /// The runtime expects this to be `true`, while some development tools like `koto_format` will
+    /// set this to `false`.
+    pub process_escape_codes: bool,
+}
+
+impl Default for ParserOptions {
+    fn default() -> Self {
+        Self {
+            process_escape_codes: true,
+        }
+    }
+}
+
 /// Koto's parser
 pub struct Parser<'source> {
     source: &'source str,
@@ -235,11 +256,17 @@ pub struct Parser<'source> {
     current_token: LexedToken,
     current_line: u32,
     frame_stack: Vec<Frame>,
+    options: ParserOptions,
 }
 
 impl<'source> Parser<'source> {
     /// Takes in a source script, and produces an Ast
     pub fn parse(source: &'source str) -> Result<Ast> {
+        Self::parse_with_options(source, ParserOptions::default())
+    }
+
+    /// Takes in a source script, and produces an Ast
+    pub fn parse_with_options(source: &'source str, options: ParserOptions) -> Result<Ast> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             source,
@@ -249,6 +276,7 @@ impl<'source> Parser<'source> {
             current_token: LexedToken::default(),
             current_line: 0,
             frame_stack: Vec::new(),
+            options,
         };
 
         match parser.consume_main_block() {
@@ -3147,20 +3175,26 @@ impl<'source> Parser<'source> {
                 StringLiteral => {
                     let string_literal = self.current_token.slice(self.source);
 
-                    let mut contents = String::with_capacity(string_literal.len());
-                    let mut chars = string_literal.chars().peekable();
+                    let literal_constant = if self.options.process_escape_codes {
+                        let mut contents = String::with_capacity(string_literal.len());
+                        let mut chars = string_literal.chars().peekable();
 
-                    while let Some(c) = chars.next() {
-                        if c == '\\' {
-                            if let Some(escaped) = self.escape_string_character(&mut chars)? {
-                                contents.push(escaped);
+                        while let Some(c) = chars.next() {
+                            if c == '\\' {
+                                if let Some(escaped) = self.escape_string_character(&mut chars)? {
+                                    contents.push(escaped);
+                                }
+                            } else {
+                                contents.push(c);
                             }
-                        } else {
-                            contents.push(c);
                         }
-                    }
 
-                    nodes.push(StringNode::Literal(self.add_string_constant(&contents)?));
+                        self.add_string_constant(&contents)?
+                    } else {
+                        self.add_string_constant(string_literal)?
+                    };
+
+                    nodes.push(StringNode::Literal(literal_constant));
                 }
                 CurlyOpen => {
                     let Some(expression) =
