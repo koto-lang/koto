@@ -1,0 +1,16 @@
+# Given a map as the first argument, prints a Koto script that exports the map
+
+indent = '  '
+
+render_map = |map_to_render: Map, map_indent: String = indent| -> String
+  '\n' + map_to_render
+    .each |(key, value)|
+      rendered_value = match value
+        _: Map then render_map value, map_indent + indent
+        else '{value}'
+      '{map_indent}{key}: {rendered_value}'
+    .intersperse '\n'
+    .to_string()
+
+export render_export_map = |map|
+  'export{render_map map}'

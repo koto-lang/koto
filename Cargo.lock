@@ -628,7 +628,6 @@ dependencies = [
  "koto_json",
  "koto_random",
  "koto_regex",
- "koto_serde",
  "koto_tempfile",
  "koto_toml",
  "koto_yaml",
@@ -668,6 +667,7 @@ dependencies = [
  "derive-name",
  "koto_lexer",
  "koto_parser",
+ "serde",
  "thiserror",
  "unicode-width",
 ]
