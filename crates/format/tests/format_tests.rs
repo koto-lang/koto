@@ -718,6 +718,7 @@ f = ||
                 &["\
 switch
   x   ==   0   then x # abc
+  # 123
   y   ==0    then
     debug y
     f(y)
@@ -727,6 +728,7 @@ switch
                 "\
 switch
   x == 0 then x # abc
+  # 123
   y == 0 then
     debug y
     f(y)
@@ -772,6 +774,7 @@ match   foo()    # abc
   'hello'   then
                   'xyz'
   1   or   2   or 3   or   4 then   -1
+  # 123
   ('a', 'b'  )or(   'c', 'd')if bar()then baz()      # xyz
   else
     0
@@ -781,6 +784,7 @@ match foo() # abc
   'hello' then
     'xyz'
   1 or 2 or 3 or 4 then -1
+  # 123
   ('a', 'b') or ('c', 'd') if bar() then
     baz() # xyz
   else
