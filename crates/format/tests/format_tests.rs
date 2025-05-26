@@ -1040,6 +1040,24 @@ some
         }
 
         #[test]
+        fn two_pipes_in_assignment() {
+            check_format_output(
+                &["
+x =
+  foo.bar()   # xyz
+      -> piped_1
+          -> piped_2
+"],
+                "\
+x =
+  foo.bar() # xyz
+  -> piped_1
+  -> piped_2
+",
+            );
+        }
+
+        #[test]
         fn dont_break_trailing_paren_free_call() {
             check_format_output(
                 &["

@@ -467,9 +467,10 @@ fn format_node<'source>(
         Node::BinaryOp { op, lhs, rhs } => {
             let lhs_span = ctx.span(ctx.node(*lhs));
             let rhs_span = ctx.span(ctx.node(*rhs));
+            let chained_op = matches!(ctx.node(*lhs).node, Node::BinaryOp { .. });
             if lhs_span.end.line == rhs_span.start.line {
                 GroupBuilder::new(3, node, ctx, trivia)
-                    .node_flattened(*lhs)
+                    .node_maybe_flattened(*lhs, chained_op)
                     .space_or_indent_if_necessary()
                     .nested(3, node, |nested| {
                         nested
@@ -482,7 +483,7 @@ fn format_node<'source>(
             } else {
                 // An explicit break is in the op, so insert an indented break
                 GroupBuilder::new(3, node, ctx, trivia)
-                    .node(*lhs)
+                    .node_maybe_flattened(*lhs, chained_op)
                     .add_trailing_trivia()
                     .return_or_indent()
                     .nested(3, node, |nested| {
@@ -1035,15 +1036,19 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     }
 
     // Adds the node, and then if it's a group, flattens its contents into this group
-    fn node_flattened(mut self, node_index: AstIndex) -> Self {
-        self = self.node(node_index);
-        if let Some(FormatItem::Group { items, .. }) = self
-            .items
-            .pop_if(|item| matches!(item, FormatItem::Group { .. }))
-        {
-            self.items.extend(items);
+    fn node_maybe_flattened(mut self, node_index: AstIndex, flatten: bool) -> Self {
+        if flatten {
+            self = self.node(node_index);
+            if let Some(FormatItem::Group { items, .. }) = self
+                .items
+                .pop_if(|item| matches!(item, FormatItem::Group { .. }))
+            {
+                self.items.extend(items);
+            }
+            self
+        } else {
+            self.node(node_index)
         }
-        self
     }
 
     fn nested(
