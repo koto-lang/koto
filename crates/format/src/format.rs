@@ -82,8 +82,7 @@ fn format_node<'source>(
             let mut chain_node = root_node;
             let mut chain_next = next;
 
-            let force_break =
-                should_chain_be_broken(root_node, next, ctx.span(node).start.line, ctx);
+            let force_break = should_chain_be_broken(root_node, next, ctx);
 
             loop {
                 match chain_node {
@@ -241,9 +240,12 @@ fn format_node<'source>(
         Node::RangeFull => "..".into(),
         Node::Map { entries, braces } => {
             if *braces {
+                let span = ctx.span(node);
+                let force_break = span.start.line < span.end.line;
+
                 let mut group = GroupBuilder::new(entries.len() * 2 + 4, node, ctx, trivia)
                     .char('{')
-                    .maybe_indent();
+                    .maybe_force_indent(force_break);
 
                 let mut previous_line = ctx.span(node).start.line;
                 for (i, entry) in entries.iter().enumerate() {
@@ -409,7 +411,7 @@ fn format_node<'source>(
             .space_or_indent_if_necessary()
             .char('=')
             .space_or_indent_respecting_existing_break(target, expression)
-            .node_flattened(*expression)
+            .node(*expression)
             .build(),
         Node::MultiAssign {
             targets,
@@ -466,9 +468,11 @@ fn format_node<'source>(
                     })
                     .build()
             } else {
+                // An explicit break is in the op, so insert an indented break
                 GroupBuilder::new(3, node, ctx, trivia)
                     .node(*lhs)
-                    .indented_break()
+                    .add_trailing_trivia()
+                    .return_or_indent()
                     .nested(3, node, |nested| {
                         nested
                             .str(op.as_str())
@@ -956,6 +960,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    fn return_or_indent(mut self) -> Self {
+        self.group_break(GroupBreak::ReturnOrIndent);
+        self
+    }
+
     fn indented_break(mut self) -> Self {
         // Add any trailing comments for the current line;
         self = self.add_trailing_trivia();
@@ -1246,13 +1255,21 @@ impl<'source> FormatItem<'source> {
                 match item {
                     Self::GroupBreak(new_break) => {
                         group_break = *new_break;
-                        if matches!(new_break, GroupBreak::StartBlock) {
-                            // Reinitialize the group's start indent
-                            column += extra_indent.len();
-                            group_column = column;
-                            group_start_indent = " ".repeat(column);
-                            output.push('\n');
-                            group_break = GroupBreak::None;
+                        match group_break {
+                            GroupBreak::StartBlock => {
+                                // Reinitialize the group's start indent
+                                column += extra_indent.len();
+                                group_column = column;
+                                group_start_indent = " ".repeat(column);
+                                output.push('\n');
+                                group_break = GroupBreak::None;
+                            }
+                            GroupBreak::IndentedBreak => {
+                                if indented {
+                                    group_break = GroupBreak::MaybeIndent;
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     Self::LineBreak => {
@@ -1275,7 +1292,7 @@ impl<'source> FormatItem<'source> {
                         ) {
                             group_column = column;
 
-                            if group_break.needs_indent(too_long, force_break) {
+                            if group_break.needs_indent(too_long, force_break, indented) {
                                 group_column += extra_indent.len();
                                 child_is_indented = true;
                             }
@@ -1319,15 +1336,17 @@ impl<'source> FormatItem<'source> {
                             group_column = column;
                             line_width = group_start_indent.len();
 
-                            if group_break.needs_indent(too_long, force_break) {
+                            if group_break.needs_indent(too_long, force_break, indented) {
                                 group_column = column + extra_indent.len();
                                 output.push_str(&extra_indent);
                                 line_width = group_column;
+                                child_is_indented = true;
                             }
-                        } else if group_break.needs_return(too_long, force_break) {
+                        } else if group_break.needs_return(too_long, force_break, indented) {
                             output.push_str(&group_start_indent);
                             group_column = column;
                             line_width = group_start_indent.len();
+                            child_is_indented = false;
                         } else if group_break.needs_space(too_long) {
                             output.push(' ');
                         }
@@ -1457,6 +1476,8 @@ enum GroupBreak {
     // Forces a group to be broken onto multiple lines if followed by anything other than
     // an indented block.
     IndentedBreak,
+    // A break, with either an indent, or a return to the already-indented start column
+    ReturnOrIndent,
     // Forces the start of a new line, indented to the group's column
     LineStart,
     // The start of an indented block
@@ -1473,6 +1494,7 @@ impl GroupBreak {
             | Self::MaybeIndent
             | Self::MaybeReturn
             | Self::IndentedBreak
+            | Self::ReturnOrIndent
             | Self::LineStart
             | Self::StartBlock => false,
         }
@@ -1488,7 +1510,7 @@ impl GroupBreak {
             Self::None => false,
             // Handled separately in render_group
             Self::SpaceOrIndentIfNecessary | Self::LineStart => false,
-            Self::IndentedBreak | Self::StartBlock => true,
+            Self::IndentedBreak | Self::ReturnOrIndent | Self::StartBlock => true,
             Self::SpaceOrIndent | Self::SpaceOrReturn => line_is_too_long,
             Self::MaybeReturn | Self::MaybeIndent => {
                 accept_optional_indent && line_is_too_long || force_break
@@ -1496,7 +1518,12 @@ impl GroupBreak {
         }
     }
 
-    fn needs_indent(&self, line_is_too_long: bool, force_break: bool) -> bool {
+    fn needs_indent(
+        &self,
+        line_is_too_long: bool,
+        force_break: bool,
+        already_indented: bool,
+    ) -> bool {
         match self {
             Self::IndentedBreak | Self::LineStart => true,
             Self::SpaceOrIndent => line_is_too_long,
@@ -1506,10 +1533,16 @@ impl GroupBreak {
             | Self::SpaceOrReturn
             | Self::MaybeReturn
             | Self::SpaceOrIndentIfNecessary => false,
+            Self::ReturnOrIndent => !already_indented,
         }
     }
 
-    fn needs_return(&self, line_is_too_long: bool, force_break: bool) -> bool {
+    fn needs_return(
+        &self,
+        line_is_too_long: bool,
+        force_break: bool,
+        already_indented: bool,
+    ) -> bool {
         match self {
             Self::LineStart | Self::SpaceOrReturn => true,
             Self::MaybeReturn => line_is_too_long || force_break,
@@ -1519,6 +1552,7 @@ impl GroupBreak {
             | Self::SpaceOrIndentIfNecessary
             | Self::MaybeIndent
             | Self::StartBlock => false,
+            Self::ReturnOrIndent => already_indented,
         }
     }
 
@@ -1541,15 +1575,19 @@ enum TriviaPosition {
 fn should_chain_be_broken<'source>(
     root_node: &ChainNode,
     mut chain_next: &'source Option<AstIndex>,
-    start_line: u32,
     ctx: &'source FormatContext<'source>,
 ) -> bool {
     let mut chain_node = root_node;
     let mut dot_access_count = 0;
     let mut last_node_was_access = false;
+    let mut chain_line = 0;
 
     loop {
         match chain_node {
+            ChainNode::Root(root_node) => {
+                chain_line = ctx.span(ctx.node(*root_node)).end.line;
+                last_node_was_access = false;
+            }
             ChainNode::Call { with_parens, .. } => {
                 if !with_parens && chain_next.is_some() {
                     return true;
@@ -1584,7 +1622,7 @@ fn should_chain_be_broken<'source>(
                 }
                 _other => panic!("Expected chain node"),
             }
-            if ctx.span(&next_node).end.line > start_line {
+            if ctx.span(next_node).end.line > chain_line {
                 return true;
             }
         } else {

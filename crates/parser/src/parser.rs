@@ -1591,7 +1591,7 @@ impl<'source> Parser<'source> {
         let mut chain_line = self.current_line();
 
         let mut node_context = *context;
-        let mut node_start_span = self.current_span();
+        let mut node_start_span = *self.ast.span(root);
         let restricted = ExpressionContext::restricted();
 
         chain.push((ChainNode::Root(root), node_start_span));

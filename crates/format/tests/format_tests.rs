@@ -1110,6 +1110,22 @@ f = ||
 ",
             );
         }
+
+        #[test]
+        fn call_following_multline_map_with_braces() {
+            check_format_output(
+                &["
+x =    {
+      foo: 42
+}.bar()
+"],
+                "\
+x = {
+  foo: 42
+}.bar()
+",
+            );
+        }
     }
 
     mod import_and_export {
@@ -1222,7 +1238,7 @@ f = |
             check_format_output_with_options(
                 &["\
 f   =   |  (aaaa,  bbbb, ( ..., c, d  ))  |   ->   Number   # abc
-    x =   aaaa +  bbbb  +c+   d
+    x = aaaa +  bbbb  +c+   d
     yield   x   *   2
 "],
                 "\
@@ -1232,8 +1248,9 @@ f = |
     (..., c, d)
   )
 | -> Number # abc
-  x = aaaa + bbbb
-    + c + d
+  x =
+    aaaa + bbbb + c
+    + d
   yield x * 2
 ",
                 FormatOptions {
