@@ -1025,6 +1025,7 @@ foo
                 &["
 some
     .chained()
+    # xyz
     .expression()
   -> piped_1
       -> piped_2
@@ -1032,6 +1033,7 @@ some
                 "\
 some
   .chained()
+  # xyz
   .expression()
   -> piped_1
   -> piped_2

@@ -81,6 +81,7 @@ fn format_node<'source>(
             let mut node = node;
             let mut chain_node = root_node;
             let mut chain_next = next;
+            let mut chain_index = node_index;
 
             let force_break = should_chain_be_broken(root_node, next, ctx);
 
@@ -91,7 +92,10 @@ fn format_node<'source>(
                     }
                     ChainNode::Id(id) => {
                         if force_break {
-                            group = group.add_trailing_trivia().indented_break();
+                            group = group
+                                .add_trailing_trivia()
+                                .indented_break()
+                                .add_preceeding_trivia(chain_index);
                         } else {
                             group = group.maybe_indent();
                         }
@@ -161,6 +165,7 @@ fn format_node<'source>(
                     node = ctx.node(*next);
                     match &node.node {
                         Node::Chain((next_chain_node, next_next)) => {
+                            chain_index = *next;
                             chain_node = next_chain_node;
                             chain_next = next_next;
                         }
@@ -1021,6 +1026,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             },
             TriviaPosition::LineEnd,
         );
+        self
+    }
+
+    fn add_preceeding_trivia(mut self, node_index: AstIndex) -> Self {
+        let node = self.ctx.node(node_index);
+        let node_span = self.ctx.span(node);
+        self.add_trivia(node_span.start, TriviaPosition::Any);
         self
     }
 
