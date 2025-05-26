@@ -206,6 +206,68 @@ return
         }
     }
 
+    mod assignment {
+        use super::*;
+
+        #[test]
+        fn dont_collapse_broken_assignment() {
+            check_format_output(
+                &["
+xyz    =
+    foo
+"],
+                "\
+xyz =
+  foo
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_not_broken_by_line_length() {
+            check_format_output(
+                &["\
+a,   b,   c = 11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c = 11 + 11, 22 + 22, 33 + 33
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_with_indented_rhs_not_collapsed() {
+            check_format_output(
+                &["\
+a,   b,   c =
+  11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c =
+  11 + 11, 22 + 22, 33 + 33
+",
+            );
+        }
+
+        #[test]
+        fn multi_assignment_broken_by_line_length() {
+            check_format_output_with_options(
+                &["\
+a,   b,   c = 11+11, 22   + 22,    33   + 33
+"],
+                "\
+a, b, c =
+  11 + 11, 22 + 22,
+  33 + 33,
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
     #[test]
     fn nested() {
         check_format_output(
@@ -260,6 +322,23 @@ r###'raw!'###
 ",
             );
         }
+
+        #[test]
+        fn with_escaped_characters() {
+            check_format_output(
+                &[r#"
+x =   '\
+\n
+\u{1F44B}
+'
+"#],
+                r#"x = '\
+\n
+\u{1F44B}
+'
+"#,
+            );
+        }
     }
 
     mod arithmetic {
@@ -273,13 +352,12 @@ r###'raw!'###
 1   +  # abc
  2 * 3",
                     "\
-1 + # abc
-    2
-      * 3",
+1 +     # abc
+    2    *    3",
                 ],
                 "\
-1 + # abc
-  2 * 3
+1 # abc
+  + 2 * 3
 ",
             );
         }
@@ -306,8 +384,7 @@ x = 1 + #- abc -# x - -3 * 2
 1 + 2 * 3 - 4 / 5 % 6 + #- xyz -# 7 ^ 8 - (9 + a)
 "],
                 "\
-1
-  + 2 * 3
+1 + 2 * 3
   - 4 / 5 % 6
   + #- xyz -# 7 ^ 8
   - (9 + a)
@@ -318,26 +395,6 @@ x = 1 + #- abc -# x - -3 * 2
                 },
             );
         }
-
-        #[test]
-        fn multi_assignment() {
-            check_format_output_with_options(
-                &["\
-a,   b,   c =
-    11+11, 22   + 22,    33   + 33
-"],
-                "\
-a, b, c =
-  11 + 11, 22 + 22,
-  33 + 33
-",
-                FormatOptions {
-                    line_length: 20,
-                    ..Default::default()
-                },
-            );
-        }
-
         #[test]
         fn integers_with_alt_bases() {
             check_format_output_with_options(
@@ -427,7 +484,7 @@ a, b, c =
                 "\
 [
   a, b, # xyz
-  c, d
+  c, d,
 ]
 ",
             );
@@ -445,7 +502,7 @@ a, b, c =
 (
   11111, 22222,
   33333, #- foo -#
-  44444
+  44444,
 )
 ",
                 FormatOptions {
@@ -456,7 +513,57 @@ a, b, c =
         }
 
         #[test]
-        fn map_with_braces() {
+        fn dont_rebreak_assignment_of_already_broken_tuple() {
+            check_format_output_with_options(
+                &["\
+x = y + (
+  11111, 22222,33333,   #- foo -#     44444
+)
+"],
+                "\
+x = y + (
+  11111, 22222,
+  33333, #- foo -#
+  44444,
+)
+",
+                FormatOptions {
+                    line_length: 20,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn map_with_braces_single_line() {
+            check_format_output(
+                &["\
+{ foo:42,bar,      baz: 99    }
+"],
+                "\
+{foo: 42, bar, baz: 99}
+",
+            );
+        }
+
+        #[test]
+        fn map_with_braces_multi_line() {
+            check_format_output(
+                &["\
+{ foo:42,
+  bar,      baz: 99    }
+"],
+                "\
+{
+  foo: 42,
+  bar, baz: 99,
+}
+",
+            );
+        }
+
+        #[test]
+        fn map_with_braces_broken_by_line_length() {
             check_format_output_with_options(
                 &["\
 { foo:42,bar,      baz: 99    }
@@ -464,7 +571,7 @@ a, b, c =
                 "\
 {
   foo: 42, bar,
-  baz: 99
+  baz: 99,
 }
 ",
                 FormatOptions {
@@ -660,6 +767,7 @@ f = ||
                 &["\
 switch
   x   ==   0   then x # abc
+  # 123
   y   ==0    then
     debug y
     f(y)
@@ -669,6 +777,7 @@ switch
                 "\
 switch
   x == 0 then x # abc
+  # 123
   y == 0 then
     debug y
     f(y)
@@ -714,6 +823,7 @@ match   foo()    # abc
   'hello'   then
                   'xyz'
   1   or   2   or 3   or   4 then   -1
+  # 123
   ('a', 'b'  )or(   'c', 'd')if bar()then baz()      # xyz
   else
     0
@@ -723,6 +833,7 @@ match foo() # abc
   'hello' then
     'xyz'
   1 or 2 or 3 or 4 then -1
+  # 123
   ('a', 'b') or ('c', 'd') if bar() then
     baz() # xyz
   else
@@ -827,15 +938,17 @@ foo.bar[#- foo -# 1..]?.'baz'(x[..], 2, 3)
         }
 
         #[test]
-        fn multi_line_that_gets_collapsed() {
+        fn multi_line_with_existing_break() {
             check_format_output(
                 &["\
 foo
   .bar(
-  )?[0]
+  )?[0].baz()
 "],
                 "\
-foo.bar()?[0]
+foo
+  .bar()?[0]
+  .baz()
 ",
             );
         }
@@ -844,13 +957,14 @@ foo.bar()?[0]
         fn single_line_that_gets_broken() {
             check_format_output(
                 &["\
-foo.bar()?.'baz'().xyz[0]?
+foo.bar()?.'baz'().xyz[0]?.abc()
 "],
                 "\
 foo
   .bar()?
   .'baz'()
   .xyz[0]?
+  .abc()
 ",
             );
         }
@@ -899,7 +1013,166 @@ foo
       .bar     |x| x+10
 "],
                 "\
-foo.bar |x| x + 10
+foo
+  .bar |x| x + 10
+",
+            );
+        }
+
+        #[test]
+        fn dont_collapse_pipe_operator() {
+            check_format_output(
+                &["
+some
+    .chained()
+    # xyz
+    .expression()
+  -> piped_1
+      -> piped_2
+"],
+                "\
+some
+  .chained()
+  # xyz
+  .expression()
+  -> piped_1
+  -> piped_2
+",
+            );
+        }
+
+        #[test]
+        fn two_pipes_in_assignment() {
+            check_format_output(
+                &["
+x =
+  foo.bar()   # xyz
+      -> piped_1
+          -> piped_2
+"],
+                "\
+x =
+  foo.bar() # xyz
+  -> piped_1
+  -> piped_2
+",
+            );
+        }
+
+        #[test]
+        fn dont_break_trailing_paren_free_call() {
+            check_format_output(
+                &["
+foo.bar   ||
+  baz
+"],
+                "\
+foo.bar ||
+  baz
+",
+            );
+        }
+
+        #[test]
+        fn dont_break_call_with_long_multiline_string() {
+            check_format_output_with_options(
+                &["
+x   =   foo   '
+abcdefghijklmnopqrstuvwxyz
+'
+"],
+                "\
+x = foo '
+abcdefghijklmnopqrstuvwxyz
+'
+",
+                FormatOptions {
+                    line_length: 25,
+                    ..Default::default()
+                },
+            );
+        }
+
+        #[test]
+        fn dont_collapse_call_with_explicit_linebreak() {
+            check_format_output(
+                &["
+x   =   foo
+  1,
+  2,
+  3
+"],
+                "\
+x = foo
+  1,
+  2,
+  3
+",
+            );
+        }
+
+        #[test]
+        fn dont_collapse_call_with_parens_with_explicit_linebreak() {
+            check_format_output(
+                &["
+f  =    ||
+    x   =   foo(
+      1,
+      2, 3 )
+"],
+                "\
+f = ||
+  x = foo(
+    1,
+    2,
+    3
+  )
+",
+            );
+        }
+
+        #[test]
+        fn call_following_multline_map_with_braces() {
+            check_format_output(
+                &["
+x =    {
+      foo: 42
+}.bar()
+"],
+                "\
+x = {
+  foo: 42,
+}.bar()
+",
+            );
+        }
+
+        #[test]
+        fn chained_calls_with_trailing_comments() {
+            check_format_output(
+                &["
+foo
+  .bar   x     # abc
+  .foo() # 123
+  .baz    y    # xyz
+"],
+                "\
+foo
+  .bar x # abc
+  .foo() # 123
+  .baz y # xyz
+",
+            );
+        }
+
+        #[test]
+        fn call_in_string_interpolation_followed_by_comment() {
+            check_format_output(
+                &["
+'{foo   42}'    # abc
+"],
+                "\
+'{foo 42}' # abc
 ",
             );
         }
@@ -967,10 +1240,8 @@ import
         fn metakey_assignment() {
             check_format_output(
                 &["\
-@main =
-    ||
-        print
-            'hello'
+@main =    ||
+        print     'hello'
 "],
                 "\
 @main = ||
@@ -1017,19 +1288,18 @@ f = |
             check_format_output_with_options(
                 &["\
 f   =   |  (aaaa,  bbbb, ( ..., c, d  ))  |   ->   Number   # abc
-    x =   aaaa +  bbbb  +c+   d
+    x = aaaa +  bbbb  +c+   d
     yield   x   *   2
 "],
                 "\
 f = |
   (
     aaaa, bbbb,
-    (..., c, d)
+    (..., c, d),
   )
 | -> Number # abc
-  x = aaaa
-    + bbbb
-    + c
+  x =
+    aaaa + bbbb + c
     + d
   yield x * 2
 ",
