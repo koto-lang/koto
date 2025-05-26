@@ -2833,6 +2833,44 @@ foo.bar x
                 ]),
             )
         }
+
+        #[test]
+        fn multiline_comment_before_function_with_default_arg() {
+            let source = "
+#-
+A bug previously broke default argument parsing when
+the function was preceeded by a multiline comment.
+-#
+
+|foo = bar| foo
+";
+            check_ast(
+                source,
+                &[
+                    id(0), // foo
+                    id(1), // bar
+                    assign(0, 1),
+                    FunctionArgs {
+                        args: nodes(&[2]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(0), // foo
+                    Function(koto_parser::Function {
+                        args: 3.into(),
+                        local_count: 1,
+                        accessed_non_locals: constants(&[]),
+                        body: 4.into(),
+                        is_generator: false,
+                    }), // 5
+                    MainBlock {
+                        body: nodes(&[5]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            );
+        }
     }
 
     mod chains {

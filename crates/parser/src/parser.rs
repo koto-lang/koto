@@ -254,7 +254,6 @@ pub struct Parser<'source> {
     constants: ConstantPoolBuilder,
     lexer: Lexer<'source>,
     current_token: LexedToken,
-    current_line: u32,
     frame_stack: Vec<Frame>,
     options: ParserOptions,
 }
@@ -274,7 +273,6 @@ impl<'source> Parser<'source> {
             constants: ConstantPoolBuilder::default(),
             lexer: Lexer::new(source),
             current_token: LexedToken::default(),
-            current_line: 0,
             frame_stack: Vec::new(),
             options,
         };
@@ -389,7 +387,7 @@ impl<'source> Parser<'source> {
     fn parse_indented_block(&mut self) -> Result<Option<AstIndex>> {
         let block_context = ExpressionContext::permissive();
 
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let start_indent = self.current_indent();
         match self.peek_token_with_context(&block_context) {
             Some(peeked) if peeked.info.indent > start_indent => {}
@@ -492,7 +490,7 @@ impl<'source> Parser<'source> {
             ..*context
         };
 
-        let start_line = self.current_line;
+        let start_line = self.current_line();
 
         let Some(first) = self.parse_expression(&expression_context)? else {
             return Ok(None);
@@ -515,7 +513,7 @@ impl<'source> Parser<'source> {
 
                 last_token_was_a_comma = true;
 
-                if !encountered_linebreak && self.current_line > start_line {
+                if !encountered_linebreak && self.current_line() > start_line {
                     // e.g.
                     //   x, y =
                     //     1, # <- We're here,
@@ -604,7 +602,7 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>> {
-        let entry_line = self.current_line;
+        let entry_line = self.current_line();
 
         // Look ahead to get the indent of the first token in the expression.
         // We need to look ahead here because the term may contain its own indentation,
@@ -618,7 +616,7 @@ impl<'source> Parser<'source> {
         };
         let start_span = *self.ast.span(self.ast.node(expression_start).span);
 
-        let continuation_context = if self.current_line > entry_line {
+        let continuation_context = if self.current_line() > entry_line {
             match context.expected_indentation {
                 Indentation::Equal(indent)
                 | Indentation::GreaterThan(indent)
@@ -660,7 +658,7 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>> {
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let start_indent = self.current_indent();
 
         if let Some(assignment_expression) =
@@ -678,7 +676,7 @@ impl<'source> Parser<'source> {
                     }
                     self.consume_until_token_with_context(context).unwrap();
 
-                    let rhs_context = if self.current_line > start_line {
+                    let rhs_context = if self.current_line() > start_line {
                         match context.expected_indentation {
                             Indentation::Equal(indent)
                             | Indentation::GreaterThan(indent)
@@ -835,7 +833,7 @@ impl<'source> Parser<'source> {
     fn parse_term(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
         use Node::*;
 
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let start_indent = self.current_indent();
 
         let Some(peeked) = self.peek_token_with_context(context) else {
@@ -1350,7 +1348,7 @@ impl<'source> Parser<'source> {
                 ..*context
             };
 
-            let mut last_arg_line = self.current_line;
+            let mut last_arg_line = self.current_line();
 
             while let Some(peeked) = self.peek_token_with_context(&arg_context) {
                 let new_line = peeked.info.line() > last_arg_line;
@@ -1471,7 +1469,7 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_id_expression(&mut self, context: &ExpressionContext) -> Result<AstIndex> {
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let Some((constant_index, id_context)) = self.parse_id(context)? else {
             return self.consume_token_and_error(InternalError::UnexpectedToken);
         };
@@ -1590,7 +1588,7 @@ impl<'source> Parser<'source> {
     //   #    ^ You are here
     fn consume_chain(&mut self, root: AstIndex, context: &ExpressionContext) -> Result<AstIndex> {
         let mut chain = AstVec::new();
-        let mut chain_line = self.current_line;
+        let mut chain_line = self.current_line();
 
         let mut node_context = *context;
         let mut node_start_span = self.current_span();
@@ -1669,7 +1667,7 @@ impl<'source> Parser<'source> {
                             .unwrap();
 
                         // Check that the next dot is on an indented line
-                        if self.current_line == chain_line {
+                        if self.current_line() == chain_line {
                             return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                         }
 
@@ -1719,7 +1717,7 @@ impl<'source> Parser<'source> {
                         }
                     }
 
-                    chain_line = self.current_line;
+                    chain_line = self.current_line();
                 }
             }
         }
@@ -2127,7 +2125,7 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedLineBreakBeforeMapBlock);
         }
 
-        let start_span = Span::line_start((start_line + 1).min(self.current_line));
+        let start_span = Span::line_start((start_line + 1).min(self.current_line()));
         let start_indent = self.current_indent();
 
         if self.consume_next_token_on_same_line() != Some(Token::Colon) {
@@ -2143,7 +2141,7 @@ impl<'source> Parser<'source> {
             .with_expected_indentation(Indentation::Equal(start_indent));
 
         while self.peek_token_with_context(&block_context).is_some() {
-            let entry_start_line = self.current_line + 1;
+            let entry_start_line = self.current_line() + 1;
             if self
                 .consume_until_token_with_context(&block_context)
                 .is_none()
@@ -3428,11 +3426,6 @@ impl<'source> Parser<'source> {
     fn consume_token(&mut self) -> Option<Token> {
         if let Some(next) = self.lexer.next() {
             self.current_token = next;
-
-            if self.current_token.token == Token::NewLine {
-                self.current_line += 1;
-            }
-
             Some(self.current_token.token)
         } else {
             None
@@ -3445,6 +3438,10 @@ impl<'source> Parser<'source> {
 
     fn peek_token_n(&mut self, n: usize) -> Option<Token> {
         self.lexer.peek(n).map(|peeked| peeked.token)
+    }
+
+    fn current_line(&self) -> u32 {
+        self.current_token.span.end.line
     }
 
     fn current_indent(&self) -> usize {
@@ -3559,12 +3556,12 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Option<(Token, ExpressionContext)> {
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let start_indent = self.current_indent();
 
         while let Some(token) = self.consume_token() {
             if !(token.is_whitespace_including_newline()) {
-                let is_indented_block = self.current_line > start_line
+                let is_indented_block = self.current_line() > start_line
                     && self.current_indent() > start_indent
                     && context.allow_linebreaks
                     && matches!(context.expected_indentation, Indentation::Greater);
@@ -3593,7 +3590,7 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Option<ExpressionContext> {
-        let start_line = self.current_line;
+        let start_line = self.current_line();
         let start_indent = self.current_indent();
 
         while let Some(peeked) = self.lexer.peek(0) {
