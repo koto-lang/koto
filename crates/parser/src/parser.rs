@@ -1587,11 +1587,13 @@ impl<'source> Parser<'source> {
     //   y = x[0][1].foo()
     //   #    ^ You are here
     fn consume_chain(&mut self, root: AstIndex, context: &ExpressionContext) -> Result<AstIndex> {
+        let chain_start_span = *self.ast.span(root);
+
         let mut chain = AstVec::new();
-        let mut chain_line = self.current_line();
+        let mut chain_line = chain_start_span.end.line;
 
         let mut node_context = *context;
-        let mut node_start_span = *self.ast.span(root);
+        let mut node_start_span = chain_start_span;
         let restricted = ExpressionContext::restricted();
 
         chain.push((ChainNode::Root(root), node_start_span));
@@ -1723,13 +1725,19 @@ impl<'source> Parser<'source> {
         }
 
         // Add the chain nodes to the AST in reverse order:
-        // the final AST index will be the chain root node.
+        // the final AST index will be the chain's root node.
         let mut next_index = None;
-        for (node, span) in chain.iter().rev() {
+        for (node, span) in chain.iter().rev().take(chain.len() - 1) {
             next_index =
                 Some(self.push_node_with_span(Node::Chain((node.clone(), next_index)), *span)?);
         }
-        next_index.ok_or_else(|| self.make_error(InternalError::ChainParseFailure))
+        if next_index.is_none() {
+            return self.error(InternalError::ChainParseFailure);
+        }
+        self.push_node_with_start_span(
+            Node::Chain((ChainNode::Root(root), next_index)),
+            chain_start_span,
+        )
     }
 
     // Helper for consume_chain() that parses an index expression

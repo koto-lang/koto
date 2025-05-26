@@ -1144,6 +1144,18 @@ foo
 ",
             );
         }
+
+        #[test]
+        fn call_in_string_interpolation_followed_by_comment() {
+            check_format_output(
+                &["
+'{foo   42}'    # abc
+"],
+                "\
+'{foo 42}' # abc
+",
+            );
+        }
     }
 
     mod import_and_export {

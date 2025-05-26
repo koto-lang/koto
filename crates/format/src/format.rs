@@ -148,8 +148,6 @@ fn format_node<'source>(
                                     nested = nested.maybe_return();
                                 }
                                 nested = nested.char(')');
-                            } else {
-                                nested = nested.add_trailing_trivia();
                             }
                             nested.build()
                         })
@@ -308,7 +306,11 @@ fn format_node<'source>(
         Node::MainBlock { body, .. } => {
             let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia);
             for block_node in body {
-                group = group.line_start(*block_node).node(*block_node).line_break()
+                group = group
+                    .line_start(*block_node)
+                    .node(*block_node)
+                    .add_trailing_trivia()
+                    .line_break()
             }
             group.build_block()
         }
@@ -319,7 +321,11 @@ fn format_node<'source>(
             _ => {
                 let mut group = GroupBuilder::new(body.len() * 3, node, ctx, trivia).start_block();
                 for block_node in body {
-                    group = group.line_start(*block_node).node(*block_node).line_break()
+                    group = group
+                        .line_start(*block_node)
+                        .node(*block_node)
+                        .add_trailing_trivia()
+                        .line_break()
                 }
                 group.build_block()
             }
