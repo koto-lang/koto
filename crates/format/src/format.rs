@@ -110,8 +110,21 @@ fn format_node<'source>(
                     }
                     ChainNode::Call { args, with_parens } => {
                         group = group.nested(args.len() * 3, node, |mut nested| {
+                            let force_break_args = match args.as_slice() {
+                                &[first, .., last] => {
+                                    ctx.span(ctx.node(first)).end.line
+                                        < ctx.span(ctx.node(last)).start.line
+                                }
+                                _ => false,
+                            };
+
                             if *with_parens {
                                 nested = nested.char('(');
+                                if force_break_args {
+                                    nested = nested.indented_break();
+                                }
+                            } else if force_break_args {
+                                nested = nested.indented_break();
                             } else {
                                 nested = nested.space_or_indent();
                             }
@@ -120,11 +133,19 @@ fn format_node<'source>(
                                 nested = nested.node(*arg);
 
                                 if i < args.len() - 1 {
-                                    nested = nested.char(',').space_or_indent();
+                                    nested = nested.char(',');
+                                    if force_break_args {
+                                        nested = nested.indented_break();
+                                    } else {
+                                        nested = nested.space_or_indent();
+                                    }
                                 }
                             }
 
                             if *with_parens {
+                                if force_break_args {
+                                    nested = nested.maybe_return();
+                                }
                                 nested = nested.char(')');
                             }
                             nested.build()
@@ -1550,7 +1571,7 @@ fn should_chain_be_broken<'source>(
                 }
                 _other => panic!("Expected chain node"),
             }
-            if ctx.span(&next_node).start.line > start_line {
+            if ctx.span(&next_node).end.line > start_line {
                 return true;
             }
         } else {

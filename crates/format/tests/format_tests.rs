@@ -1044,6 +1044,44 @@ abcdefghijklmnopqrstuvwxyz
                 },
             );
         }
+
+        #[test]
+        fn dont_collapse_call_with_explicit_linebreak() {
+            check_format_output(
+                &["
+x   =   foo
+  1,
+  2,
+  3
+"],
+                "\
+x = foo
+  1,
+  2,
+  3
+",
+            );
+        }
+
+        #[test]
+        fn dont_collapse_call_with_parens_with_explicit_linebreak() {
+            check_format_output(
+                &["
+f  =    ||
+    x   =   foo(
+      1,
+      2, 3 )
+"],
+                "\
+f = ||
+  x = foo(
+    1,
+    2,
+    3
+  )
+",
+            );
+        }
     }
 
     mod import_and_export {
@@ -1109,8 +1147,7 @@ import
             check_format_output(
                 &["\
 @main =    ||
-        print
-            'hello'
+        print     'hello'
 "],
                 "\
 @main = ||
