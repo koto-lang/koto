@@ -951,6 +951,26 @@ foo.bar ||
 ",
             );
         }
+
+        #[test]
+        fn dont_break_call_with_long_multiline_string() {
+            check_format_output_with_options(
+                &["
+x   =   foo   '
+abcdefghijklmnopqrstuvwxyz
+'
+"],
+                "\
+x = foo '
+abcdefghijklmnopqrstuvwxyz
+'
+",
+                FormatOptions {
+                    line_length: 25,
+                    ..Default::default()
+                },
+            );
+        }
     }
 
     mod import_and_export {

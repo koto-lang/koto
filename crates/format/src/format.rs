@@ -9,7 +9,7 @@ use koto_parser::{
     StringAlignment, StringContents, StringFormatOptions, StringNode,
 };
 use std::{cell::OnceCell, iter};
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Returns the input source formatted according to the provided options
 pub fn format(source: &str, options: FormatOptions) -> Result<String> {
@@ -1212,11 +1212,7 @@ impl<'source> FormatItem<'source> {
                         // Get the width of the item's first line
                         // (multiline items are possible, and we only need the first line's width
                         // to decide if a linebreak is necessary).
-                        let mut item_first_line_width = item_buffer
-                            .split_once('\n')
-                            .map(|(first, _rest)| first)
-                            .unwrap_or(&item_buffer)
-                            .width();
+                        let mut item_first_line_width = first_line_length(&item_buffer);
 
                         // Check for 'indented break if necessary' items
                         if matches!(group_break, GroupBreak::SpaceOrIndentIfNecessary) {
@@ -1276,12 +1272,10 @@ impl<'source> FormatItem<'source> {
 
     // Gets the length of the format item
     fn line_length(&self) -> usize {
-        use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
-
         match self {
             Self::Char(c) => c.width().unwrap_or(0),
-            Self::Str(s) => s.width(),
-            Self::KString(s) => s.width(),
+            Self::Str(s) => first_line_length(s),
+            Self::KString(s) => first_line_length(s),
             Self::Group {
                 line_length, items, ..
             } => *line_length.get_or_init(|| {
@@ -1501,4 +1495,11 @@ fn should_chain_be_broken<'source>(
     }
 
     false
+}
+
+fn first_line_length(s: &str) -> usize {
+    s.split_once('\n')
+        .map(|(first, _rest)| first)
+        .unwrap_or(s)
+        .width()
 }
