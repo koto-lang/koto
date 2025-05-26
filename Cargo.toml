@@ -69,7 +69,7 @@ regex = "1.10.2"
 # A speedy, non-cryptographic hash used in rustc
 rustc-hash = "2.1.0"
 # Rustyline, a readline implementation
-rustyline = { version = "15.0.0", default-features = false }
+rustyline = { version = "16.0.0", default-features = false }
 # Library for saturating casts between integer primitives.
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework

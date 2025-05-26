@@ -110,6 +110,7 @@ impl Repl {
                 .max_history_size(settings.max_history_size)?
                 .edit_mode(settings.edit_mode.into())
                 .completion_type(CompletionType::List)
+                .completion_show_all_if_ambiguous(true)
                 .build(),
         )?;
         editor.set_helper(Some(ReplHelper {
