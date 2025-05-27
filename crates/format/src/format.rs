@@ -1,6 +1,6 @@
 use crate::{
     Error, ErrorKind, FormatOptions, Result, Trivia,
-    trivia::{TriviaIterator, TriviaToken},
+    trivia::{TriviaItem, TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
 use koto_parser::{
@@ -561,77 +561,101 @@ fn format_node<'source>(
             .add_trailing_trivia()
             .nested(arms.len() * 2, node, |mut nested| {
                 nested = nested.start_block();
+
                 for arm in arms.iter() {
-                    nested = nested
-                        .line_start(*arm.patterns.first().unwrap_or(&arm.expression))
-                        .nested(arm.patterns.len() * 2 + 4, node, |mut nested| {
-                            if arm.is_else() {
-                                nested = nested.str("else");
-                            } else {
-                                for (i, pattern) in arm.patterns.iter().enumerate() {
-                                    nested = nested.node(*pattern);
-                                    if i < arm.patterns.len() - 1 {
-                                        nested = nested
-                                            .space_or_indent_if_necessary()
-                                            .str("or")
-                                            .space_or_indent_if_necessary();
-                                    }
-                                }
-                                if let Some(condition) = arm.condition {
-                                    nested = nested
-                                        .space_or_indent_if_necessary()
-                                        .str("if")
-                                        .space_or_indent_if_necessary()
-                                        .node(condition);
-                                }
-                                nested = nested.space_or_indent_if_necessary().str("then");
-                            }
-
-                            if ctx.options.always_indent_arms {
-                                nested = nested.indented_break();
-                            } else {
-                                nested = nested.space_or_indent();
-                            }
-
-                            nested.node(arm.expression).add_trailing_trivia().build()
-                        })
-                        .line_break();
+                    nested = nested.line_start(*arm).node(*arm).line_break();
                 }
 
                 nested.build_block()
             })
             .build(),
+        Node::MatchArm {
+            patterns,
+            condition,
+            expression,
+        } => {
+            let mut group = GroupBuilder::new(patterns.len() * 2 + 4, node, ctx, trivia);
+
+            if patterns.is_empty() {
+                group = group.str("else");
+            } else {
+                for (i, pattern) in patterns.iter().enumerate() {
+                    group = group.node(*pattern);
+                    if i < patterns.len() - 1 {
+                        group = group
+                            .space_or_indent_if_necessary()
+                            .str("or")
+                            .space_or_indent_if_necessary();
+                    }
+                }
+                if let Some(condition) = condition {
+                    group = group
+                        .space_or_indent_if_necessary()
+                        .str("if")
+                        .space_or_indent_if_necessary()
+                        .node(*condition);
+                }
+                group = group.space_or_indent_if_necessary().str("then");
+            }
+
+            if ctx.options.always_indent_arms {
+                // If we're force breaking and the body is on the same line as the arm,
+                // then allow trivia to move with the body.
+                if ctx.span(ctx.node(*expression)).start.line == ctx.span(node).start.line {
+                    group = group.indented_break_without_trivia();
+                } else {
+                    group = group.indented_break();
+                }
+            } else {
+                group = group.space_or_indent();
+            }
+
+            group.node(*expression).add_trailing_trivia().build()
+        }
         Node::Switch(arms) => GroupBuilder::new(2, node, ctx, trivia)
             .str("switch")
             .nested(arms.len() * 2, node, |mut nested| {
                 nested = nested.start_block();
 
                 for (i, arm) in arms.iter().enumerate() {
-                    nested = nested
-                        .line_start(arm.condition.unwrap_or(node_index))
-                        .nested(3, node, |mut nested| {
-                            nested = if let Some(condition) = arm.condition {
-                                nested.node(condition).str(" then")
-                            } else {
-                                nested.str("else")
-                            };
-
-                            if ctx.options.always_indent_arms {
-                                nested = nested.indented_break();
-                            } else {
-                                nested = nested.space_or_indent();
-                            }
-
-                            nested.node(arm.expression).add_trailing_trivia().build()
-                        });
+                    nested = nested.line_start(*arm).node(*arm);
 
                     if i < arms.len() - 1 {
                         nested = nested.line_break();
                     }
                 }
+
                 nested.build_block()
             })
             .build(),
+        Node::SwitchArm {
+            condition,
+            expression,
+        } => {
+            let mut group = GroupBuilder::new(4, node, ctx, trivia);
+
+            group = if let Some(condition) = condition {
+                group.node(*condition).str(" then")
+            } else {
+                group.str("else")
+            };
+
+            if ctx.options.always_indent_arms {
+                let expression_span = ctx.span(ctx.node(*expression));
+                let arm_span = ctx.span(node);
+                // If we're force breaking and the body is on the same line as the arm,
+                // then allow trivia to move with the body.
+                if expression_span.start.line == arm_span.start.line {
+                    group = group.indented_break_without_trivia();
+                } else {
+                    group = group.indented_break();
+                }
+            } else {
+                group = group.space_or_indent();
+            }
+
+            group.node(*expression).add_trailing_trivia().build()
+        }
         Node::Wildcard(id, type_hint) => {
             let mut group = GroupBuilder::new(1, node, ctx, trivia).char('_');
             if let Some(id) = id {
@@ -855,6 +879,7 @@ struct GroupBuilder<'source, 'trivia> {
     ctx: &'source FormatContext<'source>,
     trivia: &'trivia mut TriviaIterator<'source>,
     current_line: u32,
+    skip_next_node: bool,
 }
 
 impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
@@ -872,6 +897,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             ctx,
             trivia,
             current_line,
+            skip_next_node: false,
         }
     }
 
@@ -995,6 +1021,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    fn indented_break_without_trivia(mut self) -> Self {
+        self.group_break(GroupBreak::IndentedBreak);
+        self
+    }
+
     fn line_break(mut self) -> Self {
         self = self.add_trailing_trivia();
         self.strip_trailing_breaks();
@@ -1040,11 +1071,37 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         let node = self.ctx.node(node_index);
         let node_span = self.ctx.span(node);
         let node_end_line = node_span.end.line;
+
+        // Add any trivia that should appear before the node
         self.add_trivia(node_span.start, TriviaPosition::Any);
-        self.items
-            .push(format_node(node_index, self.ctx, self.trivia));
+
+        // Check to see if the node was preceded skip commands
+        if self.skip_next_node {
+            self.skip_next_node = false;
+
+            // Skip rendering and add the node's source region directly
+            // to the output.
+            self.add_source_region(node_span);
+
+            // Skip over any trivia that's already captured in the node's span
+            while let Some(item) = self.trivia.peek() {
+                if item.span.start < node_span.end {
+                    self.trivia.next();
+                } else {
+                    break;
+                }
+            }
+        } else {
+            self.items
+                .push(format_node(node_index, self.ctx, self.trivia));
+        }
+
         self.current_line = node_end_line;
         self
+    }
+
+    fn add_source_region(&mut self, span: &Span) {
+        self.items.push(self.ctx.source_slice(span).into());
     }
 
     // Adds the node, and then if it's a group, flattens its contents into this group
@@ -1091,11 +1148,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    // Add any trivia that needs to be inserted before the given position
+    //
+    // If a skip command is encountered, then the function exits and the command's span is returned.
     fn add_trivia(&mut self, position: Position, position_info: TriviaPosition) {
         // Add any trivia items that belong before the format item to the group
         while let Some(item) = self.trivia.peek() {
             let item_start = item.span.start;
-            let item_end = item.span.end;
 
             let consume_item = match position_info {
                 TriviaPosition::LineStart => item_start.line < position.line,
@@ -1105,57 +1164,69 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                 break;
             }
 
-            // Advance the trivia iterator
             let item = *item;
             self.trivia.next();
 
-            match item.token {
-                TriviaToken::EmptyLine => {
-                    self.strip_trailing_breaks();
-                    self.items.push(FormatItem::LineBreak);
-                }
-                TriviaToken::CommentSingle => {
-                    match position_info {
-                        TriviaPosition::LineStart => {
-                            if item_end.line < position.line {
-                                self.group_break(GroupBreak::LineStart);
-                            }
-                        }
-                        _ if self.items.last().is_some_and(|item| !item.is_break()) => {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
-                        _ => {}
-                    }
+            self.add_trivia_item(item, position, position_info);
+        }
+    }
 
-                    self.items.push(self.ctx.source_slice(&item.span).into());
-
-                    match position_info {
-                        TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
-                        _ => self.group_break(GroupBreak::IndentedBreak),
-                    }
+    fn add_trivia_item(
+        &mut self,
+        item: &TriviaItem,
+        position: Position,
+        position_info: TriviaPosition,
+    ) {
+        match item.token {
+            TriviaToken::EmptyLine => {
+                self.strip_trailing_breaks();
+                self.items.push(FormatItem::LineBreak);
+            }
+            TriviaToken::CommentSingle | TriviaToken::SkipNode => {
+                if item.token == TriviaToken::SkipNode {
+                    self.skip_next_node = true;
                 }
-                TriviaToken::CommentMulti => {
-                    match position_info {
-                        TriviaPosition::LineStart if item_end.line < position.line => {
+
+                match position_info {
+                    TriviaPosition::LineStart => {
+                        if item.span.end.line < position.line {
                             self.group_break(GroupBreak::LineStart);
                         }
-                        TriviaPosition::LineEnd
-                            if self.items.last().is_some_and(|item| !item.is_break()) =>
-                        {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
-                        _ => {}
                     }
+                    _ if self.items.last().is_some_and(|item| !item.is_break()) => {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                    }
+                    _ => {}
+                }
 
-                    self.items.push(self.ctx.source_slice(&item.span).into());
+                self.add_source_region(&item.span);
 
-                    match position_info {
-                        TriviaPosition::LineStart if item_end.line < position.line => {
-                            self.items.push(FormatItem::LineBreak);
-                        }
-                        _ => {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
+                match position_info {
+                    TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
+                    _ => self.group_break(GroupBreak::IndentedBreak),
+                }
+            }
+            TriviaToken::CommentMulti => {
+                match position_info {
+                    TriviaPosition::LineStart if item.span.end.line < position.line => {
+                        self.group_break(GroupBreak::LineStart);
+                    }
+                    TriviaPosition::LineEnd
+                        if self.items.last().is_some_and(|item| !item.is_break()) =>
+                    {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                    }
+                    _ => {}
+                }
+
+                self.add_source_region(&item.span);
+
+                match position_info {
+                    TriviaPosition::LineStart if item.span.end.line < position.line => {
+                        self.items.push(FormatItem::LineBreak);
+                    }
+                    _ => {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
                     }
                 }
             }

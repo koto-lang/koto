@@ -193,6 +193,8 @@ pub enum SyntaxError {
     UnexpectedMetaKey,
     #[error("unexpected 'else' in switch arm")]
     UnexpectedSwitchElse,
+    #[error("condition expected before 'then' in switch arm")]
+    UnexpectedSwitchThen,
     #[error("unexpected '?'")]
     UnexpectedNullCheck,
     #[error("unexpected token")]

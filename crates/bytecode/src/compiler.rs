@@ -6,8 +6,8 @@ use circular_buffer::CircularBuffer;
 use derive_name::VariantName;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
-    ConstantIndex, Function, ImportItem, KString, MatchArm, MetaKeyId, Node, Parser, Span,
-    StringContents, StringFormatOptions, StringNode, SwitchArm,
+    ConstantIndex, Function, ImportItem, KString, MetaKeyId, Node, Parser, Span, StringContents,
+    StringFormatOptions, StringNode,
 };
 use smallvec::{SmallVec, smallvec};
 use thiserror::Error;
@@ -526,7 +526,15 @@ impl Compiler {
             Node::BinaryOp { op, lhs, rhs } => self.compile_binary_op(*op, *lhs, *rhs, ctx)?,
             Node::If(ast_if) => self.compile_if(ast_if, ctx)?,
             Node::Match { expression, arms } => self.compile_match(*expression, arms, ctx)?,
+            Node::MatchArm { .. } => {
+                // Match arms are only compiled in `self.compile_match`.
+                unreachable!();
+            }
             Node::Switch(arms) => self.compile_switch(arms, ctx)?,
+            Node::SwitchArm { .. } => {
+                // Switch arms are only compiled in `self.compile_switch`.
+                unreachable!();
+            }
             Node::PackedId(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::PackedExpression(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::Wildcard(..) => return self.error(ErrorKind::UnexpectedWildcard),
@@ -3343,7 +3351,7 @@ impl Compiler {
 
     fn compile_switch(
         &mut self,
-        arms: &[SwitchArm],
+        arms: &[AstIndex],
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         let result = self.assign_result_register(ctx)?;
@@ -3358,9 +3366,22 @@ impl Compiler {
                 .map_or(ResultRegister::None, ResultRegister::Fixed),
         );
 
+        let mut last_arm_is_else = false;
         for arm in arms.iter() {
-            let arm_end_jump_placeholder = if let Some(condition) = arm.condition {
-                let condition_register = self.compile_node(condition, ctx.with_any_register())?;
+            let arm_node = ctx.node(*arm);
+            let Node::SwitchArm {
+                condition,
+                expression,
+            } = arm_node
+            else {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "SwitchArm".into(),
+                    unexpected: arm_node.clone(),
+                });
+            };
+
+            let arm_end_jump_placeholder = if let Some(condition) = condition {
+                let condition_register = self.compile_node(*condition, ctx.with_any_register())?;
 
                 self.push_op_without_span(Op::JumpIfFalse, &[condition_register.unwrap(self)?]);
 
@@ -3373,10 +3394,10 @@ impl Compiler {
                 None
             };
 
-            self.compile_node(arm.expression, switch_arm_context)?;
+            self.compile_node(*expression, switch_arm_context)?;
 
             // Add a jump instruction if this anything other than an `else` arm
-            if !arm.is_else() {
+            if condition.is_some() {
                 self.push_op_without_span(Op::Jump, &[]);
                 result_jump_placeholders.push(self.push_offset_placeholder())
             }
@@ -3384,12 +3405,14 @@ impl Compiler {
             if let Some(jump_placeholder) = arm_end_jump_placeholder {
                 self.update_offset_placeholder(jump_placeholder)?;
             }
+
+            last_arm_is_else = condition.is_none();
         }
 
         // Set the result register to null, in case no switch arm is executed
         if let Some(result_register) = result.register {
             // If the last arm is `else`, then setting to Null isn't necessary
-            if matches!(arms.last(), Some(arm) if !arm.is_else()) {
+            if !last_arm_is_else {
                 self.push_op(Op::SetNull, &[result_register]);
             }
         }
@@ -3406,7 +3429,7 @@ impl Compiler {
     fn compile_match(
         &mut self,
         match_expression: AstIndex,
-        arms: &[MatchArm],
+        arms: &[AstIndex],
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         let result = self.assign_result_register(ctx)?;
@@ -3422,15 +3445,25 @@ impl Compiler {
         };
 
         // Compile the match arms, collecting their jump offset placeholders
+        let mut last_arm_is_else = false;
         let arm_jump_placeholders = arms
             .iter()
-            .map(|arm| self.compile_match_arm(result, match_register, match_len, arm, ctx))
+            .map(|arm| {
+                self.compile_match_arm(
+                    result,
+                    match_register,
+                    match_len,
+                    *arm,
+                    &mut last_arm_is_else,
+                    ctx,
+                )
+            })
             .collect::<Result<Vec<_>>>()?;
 
         // Set the result to Null in case there was no matching arm
         if let Some(result_register) = result.register {
             // If the last arm was `else`, then setting to Null isn't necessary
-            if matches!(arms.last(), Some(arm) if !arm.is_else()) {
+            if !last_arm_is_else {
                 self.push_op(Op::SetNull, &[result_register]);
             }
         }
@@ -3450,13 +3483,29 @@ impl Compiler {
         result: CompileNodeOutput,
         match_register: u8,
         match_len: usize,
-        arm: &MatchArm,
+        arm: AstIndex,
+        last_arm_is_else: &mut bool,
         ctx: CompileNodeContext,
     ) -> Result<Option<usize>> {
+        let arm_node = ctx.node(arm);
+        let Node::MatchArm {
+            patterns,
+            condition,
+            expression,
+        } = arm_node
+        else {
+            return self.error(ErrorKind::UnexpectedNode {
+                expected: "MatchArm".into(),
+                unexpected: arm_node.clone(),
+            });
+        };
+        let arm_is_else = patterns.is_empty();
+        *last_arm_is_else = arm_is_else;
+
         let mut jumps = MatchJumpPlaceholders::default();
 
-        for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
-            let is_last_alternative = alternative_index == arm.patterns.len() - 1;
+        for (alternative_index, arm_pattern) in patterns.iter().enumerate() {
+            let is_last_alternative = alternative_index == patterns.len() - 1;
 
             jumps.alternative_end.clear();
 
@@ -3539,8 +3588,8 @@ impl Compiler {
         // Arm condition, e.g.
         // match foo
         //   x if x > 10 then 99
-        if let Some(condition) = arm.condition {
-            let condition_register = self.compile_node(condition, ctx.with_any_register())?;
+        if let Some(condition) = condition {
+            let condition_register = self.compile_node(*condition, ctx.with_any_register())?;
 
             self.push_op_without_span(Op::JumpIfFalse, &[condition_register.unwrap(self)?]);
             jumps.arm_end.push(self.push_offset_placeholder());
@@ -3553,10 +3602,10 @@ impl Compiler {
         let body_result_register = result
             .register
             .map_or(ResultRegister::None, ResultRegister::Fixed);
-        self.compile_node(arm.expression, ctx.with_register(body_result_register))?;
+        self.compile_node(*expression, ctx.with_register(body_result_register))?;
 
         // Jump to the end of the match expression, unless this is an `else` arm
-        let result_jump_placeholder = if !arm.is_else() {
+        let result_jump_placeholder = if !arm_is_else {
             self.push_op_without_span(Op::Jump, &[]);
             Some(self.push_offset_placeholder())
         } else {

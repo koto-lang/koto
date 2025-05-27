@@ -110,6 +110,18 @@ The `koto` CLI can format scripts with the `--format` flag.
 If a script path is provided then the file will be formatted in place,
 otherwise the script will be read from `stdin` and written to `stdout`.
 
+Placing a `#[fmt:skip]` directive before an expression will cause it to be left alone during formatting.
+
+```koto
+# Formatting gets disabled for the following assignment:
+
+#[fmt:skip]
+flags =
+  1, 0, 1,
+  0,    0,
+  1, 0, 1
+```
+
 ## Configuration
 
 Options for formatting and the REPL can be chosen by exporting them from a `config.koto` file, which is expected to be placed in `~/.koto/config.koto`.
