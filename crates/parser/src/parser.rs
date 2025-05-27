@@ -2599,7 +2599,7 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(switch_context); // Token::Switch
 
         let current_indent = self.current_indent();
-        let switch_span = self.current_span();
+        let switch_start_span = self.current_span();
 
         let arm_context = match self.consume_until_token_with_context(switch_context) {
             Some(arm_context) if self.current_indent() > current_indent => arm_context,
@@ -2607,17 +2607,24 @@ impl<'source> Parser<'source> {
         };
 
         let mut arms = AstVec::new();
+        let mut else_arm_encountered = false;
 
         while self.peek_token().is_some() {
             let condition = self.parse_expression(&ExpressionContext::inline())?;
 
+            let arm_start_span;
             let arm_body = match self.peek_next_token_on_same_line() {
                 Some(Token::Else) => {
                     if condition.is_some() {
                         return self.consume_token_and_error(UnexpectedSwitchElse);
                     }
+                    if else_arm_encountered {
+                        return Err(Error::new(SwitchElseNotInLastArm.into(), switch_start_span));
+                    }
 
                     self.consume_next_token_on_same_line();
+                    arm_start_span = self.current_span();
+                    else_arm_encountered = true;
 
                     if let Some(expression) =
                         self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
@@ -2630,7 +2637,14 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Some(Token::Then) => {
+                    if else_arm_encountered {
+                        return Err(Error::new(SwitchElseNotInLastArm.into(), switch_start_span));
+                    }
+                    let Some(condition) = condition else {
+                        return self.consume_token_and_error(UnexpectedSwitchThen);
+                    };
                     self.consume_next_token_on_same_line();
+                    arm_start_span = self.node_span(condition);
 
                     if let Some(expression) =
                         self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
@@ -2645,10 +2659,14 @@ impl<'source> Parser<'source> {
                 _ => return self.consume_token_and_error(ExpectedSwitchArmExpression),
             };
 
-            arms.push(SwitchArm {
-                condition,
-                expression: arm_body,
-            });
+            let arm_node = self.push_node_with_start_span(
+                Node::SwitchArm {
+                    condition,
+                    expression: arm_body,
+                },
+                arm_start_span,
+            )?;
+            arms.push(arm_node);
 
             if self.peek_token_with_context(&arm_context).is_none() {
                 break;
@@ -2657,16 +2675,7 @@ impl<'source> Parser<'source> {
             self.consume_until_token_with_context(&arm_context);
         }
 
-        // Check for errors now that the match expression is complete
-        for (arm_index, arm) in arms.iter().enumerate() {
-            let last_arm = arm_index == arms.len() - 1;
-
-            if arm.condition.is_none() && !last_arm {
-                return Err(Error::new(SwitchElseNotInLastArm.into(), switch_span));
-            }
-        }
-
-        self.push_node_with_span(Node::Switch(arms), switch_span)
+        self.push_node_with_span(Node::Switch(arms), switch_start_span)
     }
 
     fn consume_match_expression(&mut self, match_context: &ExpressionContext) -> Result<AstIndex> {
@@ -2675,7 +2684,7 @@ impl<'source> Parser<'source> {
         self.consume_token_with_context(match_context); // Token::Match
 
         let current_indent = self.current_indent();
-        let match_span = self.current_span();
+        let match_start_span = self.current_span();
 
         let match_expression =
             match self.parse_expressions(&ExpressionContext::inline(), TempResult::Yes)? {
@@ -2690,7 +2699,8 @@ impl<'source> Parser<'source> {
             _ => return self.consume_token_on_same_line_and_error(ExpectedIndentation::MatchArm),
         };
 
-        let mut arms = Vec::new();
+        let mut arms = AstVec::new();
+        let mut else_arm_encountered = false;
 
         while self.peek_token().is_some() {
             // Match patterns for a single arm, with alternatives separated by 'or'
@@ -2701,8 +2711,14 @@ impl<'source> Parser<'source> {
             let mut arm_patterns = AstVec::new();
             let mut expected_arm_count = 1;
 
+            let mut arm_start_span = match_start_span;
+
             let condition = {
                 while let Some(pattern) = self.parse_match_pattern(false)? {
+                    if else_arm_encountered {
+                        return Err(Error::new(MatchElseNotInLastArm.into(), match_start_span));
+                    }
+
                     // Match patterns, separated by commas in the case of matching multi-expressions
                     let mut patterns = astvec![pattern];
 
@@ -2738,13 +2754,22 @@ impl<'source> Parser<'source> {
                 }
             };
 
+            if let Some(first_pattern) = arm_patterns.first() {
+                arm_start_span = self.node_span(*first_pattern);
+            }
+
             let arm_body = match self.peek_next_token_on_same_line() {
                 Some(Token::Else) => {
+                    if else_arm_encountered {
+                        return Err(Error::new(MatchElseNotInLastArm.into(), match_start_span));
+                    }
                     if !arm_patterns.is_empty() || condition.is_some() {
                         return self.consume_token_and_error(UnexpectedMatchElse);
                     }
 
                     self.consume_next_token_on_same_line();
+                    arm_start_span = self.current_span();
+                    else_arm_encountered = true;
 
                     if let Some(expression) =
                         self.parse_expressions(&ExpressionContext::inline(), TempResult::No)?
@@ -2777,11 +2802,15 @@ impl<'source> Parser<'source> {
                 _ => return self.consume_token_and_error(ExpectedMatchArmExpression),
             };
 
-            arms.push(MatchArm {
-                patterns: arm_patterns,
-                condition,
-                expression: arm_body,
-            });
+            let arm_node = self.push_node_with_start_span(
+                Node::MatchArm {
+                    patterns: arm_patterns,
+                    condition,
+                    expression: arm_body,
+                },
+                arm_start_span,
+            )?;
+            arms.push(arm_node);
 
             if self.peek_token_with_context(&arm_context).is_none() {
                 break;
@@ -2790,22 +2819,12 @@ impl<'source> Parser<'source> {
             self.consume_until_token_with_context(&arm_context);
         }
 
-        // Check for errors now that the match expression is complete
-
-        for (arm_index, arm) in arms.iter().enumerate() {
-            let last_arm = arm_index == arms.len() - 1;
-
-            if arm.patterns.is_empty() && arm.condition.is_none() && !last_arm {
-                return Err(Error::new(MatchElseNotInLastArm.into(), match_span));
-            }
-        }
-
         self.push_node_with_span(
             Node::Match {
                 expression: match_expression,
                 arms,
             },
-            match_span,
+            match_start_span,
         )
     }
 

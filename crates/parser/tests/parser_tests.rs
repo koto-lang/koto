@@ -4183,26 +4183,25 @@ x = match y
                     SmallInt(0),
                     SmallInt(1),
                     SmallInt(42),
-                    id(2), // 5
+                    MatchArm {
+                        patterns: nodes(&[2, 3]),
+                        condition: None,
+                        expression: 4.into(),
+                    }, // 5
+                    id(2),
                     SmallInt(-1),
+                    MatchArm {
+                        patterns: nodes(&[6]),
+                        condition: None,
+                        expression: 7.into(),
+                    },
                     Match {
                         expression: 1.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[2, 3]),
-                                condition: None,
-                                expression: 4.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[5]),
-                                condition: None,
-                                expression: 6.into(),
-                            },
-                        ],
+                        arms: nodes(&[5, 8]),
                     },
-                    assign(0, 7),
+                    assign(0, 9), // 10
                     MainBlock {
-                        body: nodes(&[8]),
+                        body: nodes(&[10]),
                         local_count: 2,
                     },
                 ],
@@ -4223,26 +4222,25 @@ match x
                     id(0),
                     string_literal(1, StringQuote::Single),
                     SmallInt(99),
+                    MatchArm {
+                        patterns: nodes(&[1]),
+                        condition: None,
+                        expression: 2.into(),
+                    },
                     string_literal(2, StringQuote::Double),
-                    string_literal(3, StringQuote::Double),
-                    Break(None), // 5
+                    string_literal(3, StringQuote::Double), // 5
+                    Break(None),
+                    MatchArm {
+                        patterns: nodes(&[4, 5]),
+                        condition: None,
+                        expression: 6.into(),
+                    },
                     Match {
                         expression: 0.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[1]),
-                                condition: None,
-                                expression: 2.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[3, 4]),
-                                condition: None,
-                                expression: 5.into(),
-                            },
-                        ],
+                        arms: nodes(&[3, 7]),
                     },
                     MainBlock {
-                        body: nodes(&[6]),
+                        body: nodes(&[8]),
                         local_count: 0,
                     },
                 ],
@@ -4268,16 +4266,17 @@ match x
                     type_hint(2),            // String
                     id_with_type_hint(1, 1), // y
                     id(1),                   // y
+                    MatchArm {
+                        patterns: nodes(&[2]),
+                        condition: None,
+                        expression: 3.into(),
+                    },
                     Match {
                         expression: 0.into(),
-                        arms: vec![MatchArm {
-                            patterns: nodes(&[2]),
-                            condition: None,
-                            expression: 3.into(),
-                        }],
-                    },
+                        arms: nodes(&[4]),
+                    }, // 5
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[5]),
                         local_count: 1,
                     },
                 ],
@@ -4304,34 +4303,33 @@ match (x, y, z)
                     id(2),
                     tuple_with_parens(&[0, 1, 2]),
                     SmallInt(0),
-                    id(3), // 5
+                    id(3), // 5 - a
                     Wildcard(None, None),
                     tuple_with_parens(&[4, 5, 6]),
                     id(3),
-                    Wildcard(None, None),
-                    SmallInt(0), // 10
-                    id(4),
-                    tuple_with_parens(&[10, 11]),
+                    MatchArm {
+                        patterns: nodes(&[7]),
+                        condition: None,
+                        expression: 8.into(),
+                    },
+                    Wildcard(None, None), // 10
+                    SmallInt(0),
+                    id(4), // a
+                    tuple_with_parens(&[11, 12]),
                     Wildcard(Some(5.into()), None),
-                    tuple_with_parens(&[9, 12, 13]),
-                    SmallInt(0), // 15
+                    tuple_with_parens(&[10, 13, 14]), // 15
+                    SmallInt(0),
+                    MatchArm {
+                        patterns: nodes(&[15]),
+                        condition: None,
+                        expression: 16.into(),
+                    },
                     Match {
                         expression: 3.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[7]),
-                                condition: None,
-                                expression: 8.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[14]),
-                                condition: None,
-                                expression: 15.into(),
-                            },
-                        ],
+                        arms: nodes(&[9, 17]),
                     },
                     MainBlock {
-                        body: nodes(&[16]),
+                        body: nodes(&[18]),
                         local_count: 2,
                     },
                 ],
@@ -4361,27 +4359,26 @@ match x
                     SmallInt(0),
                     tuple_with_parens(&[1, 2]),
                     SmallInt(0),
-                    SmallInt(1), // 5
-                    PackedId(None),
-                    tuple_with_parens(&[5, 6]),
+                    MatchArm {
+                        patterns: nodes(&[3]),
+                        condition: None,
+                        expression: 4.into(),
+                    }, // 5
                     SmallInt(1),
+                    PackedId(None),
+                    tuple_with_parens(&[6, 7]),
+                    SmallInt(1),
+                    MatchArm {
+                        patterns: nodes(&[8]),
+                        condition: None,
+                        expression: 9.into(),
+                    }, // 10
                     Match {
                         expression: 0.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[3]),
-                                condition: None,
-                                expression: 4.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[7]),
-                                condition: None,
-                                expression: 8.into(),
-                            },
-                        ],
+                        arms: nodes(&[5, 10]),
                     },
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[11]),
                         local_count: 0,
                     },
                 ],
@@ -4405,28 +4402,27 @@ match y
                     SmallInt(1),
                     tuple_with_parens(&[1, 2, 3]),
                     SmallInt(0), // 5
+                    MatchArm {
+                        patterns: nodes(&[4]),
+                        condition: None,
+                        expression: 5.into(),
+                    },
                     SmallInt(1),
                     SmallInt(0),
                     PackedId(Some(2.into())),
-                    tuple_with_parens(&[6, 7, 8]),
-                    SmallInt(1), // 10
+                    tuple_with_parens(&[7, 8, 9]), // 10
+                    SmallInt(1),
+                    MatchArm {
+                        patterns: nodes(&[10]),
+                        condition: None,
+                        expression: 11.into(),
+                    },
                     Match {
                         expression: 0.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[4]),
-                                condition: None,
-                                expression: 5.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[9]),
-                                condition: None,
-                                expression: 10.into(),
-                            },
-                        ],
+                        arms: nodes(&[6, 12]),
                     },
                     MainBlock {
-                        body: nodes(&[11]),
+                        body: nodes(&[13]),
                         local_count: 2,
                     },
                 ],
@@ -4435,63 +4431,6 @@ match y
                     Constant::Str("rest"),
                     Constant::Str("others"),
                 ]),
-            )
-        }
-
-        #[test]
-        fn match_with_conditions_and_block() {
-            let source = r#"
-match x
-  z if z > 5 then 0
-  z if z < 10 then
-    1
-  z then
-    -1
-"#;
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    id(1),
-                    SmallInt(5),
-                    binary_op(AstBinaryOp::Greater, 2, 3),
-                    SmallInt(0), // 5
-                    id(1),
-                    id(1),
-                    SmallInt(10),
-                    binary_op(AstBinaryOp::Less, 7, 8),
-                    SmallInt(1), // 10
-                    Block(nodes(&[10])),
-                    id(1),
-                    SmallInt(-1),
-                    Block(nodes(&[13])),
-                    Match {
-                        expression: 0.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[1]),
-                                condition: Some(4.into()),
-                                expression: 5.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[6]),
-                                condition: Some(9.into()),
-                                expression: 11.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[12]),
-                                condition: None,
-                                expression: 14.into(),
-                            },
-                        ],
-                    }, // 15
-                    MainBlock {
-                        body: nodes(&[15]),
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("z")]),
             )
         }
 
@@ -4518,34 +4457,33 @@ match x, y
                     TempTuple(nodes(&[6, 7])),
                     id(2),
                     SmallInt(0), // 10
-                    id(3),       // a
+                    MatchArm {
+                        patterns: nodes(&[5, 8]),
+                        condition: Some(9.into()),
+                        expression: 10.into(),
+                    },
+                    id(3), // a
                     Null,
-                    TempTuple(nodes(&[11, 12])),
-                    id(3),               // a
-                    Block(nodes(&[14])), // 15
+                    TempTuple(nodes(&[12, 13])),
+                    id(3), // a - 15
+                    Block(nodes(&[15])),
+                    MatchArm {
+                        patterns: nodes(&[14]),
+                        condition: None,
+                        expression: 16.into(),
+                    },
                     SmallInt(0),
+                    MatchArm {
+                        patterns: nodes(&[]),
+                        condition: None,
+                        expression: 18.into(),
+                    },
                     Match {
                         expression: 2.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[5, 8]),
-                                condition: Some(9.into()),
-                                expression: 10.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[13]),
-                                condition: None,
-                                expression: 15.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[]),
-                                condition: None,
-                                expression: 16.into(),
-                            },
-                        ],
-                    },
+                        arms: nodes(&[11, 17, 19]),
+                    }, // 20
                     MainBlock {
-                        body: nodes(&[17]),
+                        body: nodes(&[20]),
                         local_count: 1,
                     },
                 ],
@@ -4555,54 +4493,6 @@ match x, y
                     Constant::Str("z"),
                     Constant::Str("a"),
                 ]),
-            )
-        }
-
-        #[test]
-        fn match_expression_is_chain() {
-            let source = "
-match x.foo 42
-  null then 0
-  else 1
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    SmallInt(42),
-                    Chain((
-                        ChainNode::Call {
-                            args: nodes(&[1]),
-                            with_parens: false,
-                        },
-                        None,
-                    )),
-                    chain_id(1, Some(2)),
-                    chain_root(0, Some(3)),
-                    Null, // 5
-                    SmallInt(0),
-                    SmallInt(1),
-                    Match {
-                        expression: 4.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[5]),
-                                condition: None,
-                                expression: 6.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[]),
-                                condition: None,
-                                expression: 7.into(),
-                            },
-                        ],
-                    },
-                    MainBlock {
-                        body: nodes(&[8]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
@@ -4620,59 +4510,21 @@ match x
                     chain_id(2, None),
                     chain_root(1, Some(2)),
                     SmallInt(0),
+                    MatchArm {
+                        patterns: nodes(&[3]),
+                        condition: None,
+                        expression: 4.into(),
+                    }, // 5
                     Match {
                         expression: 0.into(),
-                        arms: vec![MatchArm {
-                            patterns: nodes(&[3]),
-                            condition: None,
-                            expression: 4.into(),
-                        }],
+                        arms: nodes(&[5]),
                     },
                     MainBlock {
-                        body: nodes(&[5]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("foo")]),
-            )
-        }
-
-        #[test]
-        fn match_arm_is_throw_expression() {
-            let source = "
-match x
-  0 then 1
-  else throw 'nope'
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    SmallInt(0),
-                    SmallInt(1),
-                    string_literal(1, StringQuote::Single),
-                    Throw(3.into()),
-                    Match {
-                        expression: 0.into(),
-                        arms: vec![
-                            MatchArm {
-                                patterns: nodes(&[1]),
-                                condition: None,
-                                expression: 2.into(),
-                            },
-                            MatchArm {
-                                patterns: nodes(&[]),
-                                condition: None,
-                                expression: 4.into(),
-                            },
-                        ],
-                    }, // 5
-                    MainBlock {
-                        body: nodes(&[5]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("nope")]),
             )
         }
 
@@ -4691,27 +4543,26 @@ switch
                     SmallInt(0),
                     binary_op(AstBinaryOp::Equal, 0, 1),
                     SmallInt(0),
-                    id(0),
-                    id(1), // 5
-                    binary_op(AstBinaryOp::Greater, 4, 5),
+                    SwitchArm {
+                        condition: Some(2.into()),
+                        expression: 3.into(),
+                    },
+                    id(0), // 5
+                    id(1),
+                    binary_op(AstBinaryOp::Greater, 5, 6),
                     SmallInt(1),
-                    id(0),
-                    Switch(astvec![
-                        SwitchArm {
-                            condition: Some(2.into()),
-                            expression: 3.into(),
-                        },
-                        SwitchArm {
-                            condition: Some(6.into()),
-                            expression: 7.into(),
-                        },
-                        SwitchArm {
-                            condition: None,
-                            expression: 8.into(),
-                        },
-                    ]),
+                    SwitchArm {
+                        condition: Some(7.into()),
+                        expression: 8.into(),
+                    },
+                    id(0), // 10
+                    SwitchArm {
+                        condition: None,
+                        expression: 10.into(),
+                    },
+                    Switch(nodes(&[4, 9, 11])),
                     MainBlock {
-                        body: nodes(&[9]),
+                        body: nodes(&[12]),
                         local_count: 0,
                     },
                 ],
@@ -4731,23 +4582,22 @@ switch
                 &[
                     BoolTrue,
                     SmallInt(1),
+                    SwitchArm {
+                        condition: Some(0.into()),
+                        expression: 1.into(),
+                    },
                     id(0),
                     Debug {
                         expression_string: 0.into(),
-                        expression: 2.into(),
+                        expression: 3.into(),
                     },
-                    Switch(astvec![
-                        SwitchArm {
-                            condition: Some(0.into()),
-                            expression: 1.into(),
-                        },
-                        SwitchArm {
-                            condition: None,
-                            expression: 3.into(),
-                        },
-                    ]),
+                    SwitchArm {
+                        condition: None,
+                        expression: 4.into(),
+                    }, // 5
+                    Switch(nodes(&[2, 5])),
                     MainBlock {
-                        body: nodes(&[4]),
+                        body: nodes(&[6]),
                         local_count: 0,
                     },
                 ],

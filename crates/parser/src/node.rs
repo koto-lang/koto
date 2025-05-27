@@ -220,11 +220,37 @@ pub enum Node {
         /// The expression that will be matched against
         expression: AstIndex,
         /// The series of arms that match against the provided expression
-        arms: Vec<MatchArm>,
+        arms: AstVec<AstIndex>,
+    },
+
+    /// An arm of a [Self::Match] expression
+    MatchArm {
+        /// A series of match patterns
+        ///
+        /// If `patterns` is empty then `else` is implied, and should always appear as the last arm.
+        patterns: AstVec<AstIndex>,
+        /// An optional condition for the match arm
+        ///
+        /// e.g.
+        /// match foo
+        ///   bar if check_condition bar then ...
+        condition: Option<AstIndex>,
+        /// The body of the match arm
+        expression: AstIndex,
     },
 
     /// A switch expression
-    Switch(AstVec<SwitchArm>),
+    Switch(AstVec<AstIndex>),
+
+    /// An arm of a [Self::Switch] expression
+    SwitchArm {
+        /// An optional condition for the switch arm
+        ///
+        /// None implies `else`, and should always appear as the last arm.
+        condition: Option<AstIndex>,
+        /// The body of the switch arm
+        expression: AstIndex,
+    },
 
     /// A `_` identifier
     ///
@@ -549,48 +575,6 @@ pub enum ChainNode {
     },
     /// A `?` short-circuiting null check
     NullCheck,
-}
-
-/// An arm in a match expression
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MatchArm {
-    /// A series of match patterns
-    ///
-    /// If `patterns` is empty then `else` is implied, and should always appear as the last arm.
-    pub patterns: AstVec<AstIndex>,
-    /// An optional condition for the match arm
-    ///
-    /// e.g.
-    /// match foo
-    ///   bar if check_condition bar then ...
-    pub condition: Option<AstIndex>,
-    /// The body of the match arm
-    pub expression: AstIndex,
-}
-
-impl MatchArm {
-    /// Returns true if the arm is `else`
-    pub fn is_else(&self) -> bool {
-        self.patterns.is_empty()
-    }
-}
-
-/// An arm in a switch expression
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SwitchArm {
-    /// An optional condition for the switch arm
-    ///
-    /// None implies `else`, and should always appear as the last arm.
-    pub condition: Option<AstIndex>,
-    /// The body of the switch arm
-    pub expression: AstIndex,
-}
-
-impl SwitchArm {
-    /// Returns true if the arm is `else`
-    pub fn is_else(&self) -> bool {
-        self.condition.is_none()
-    }
 }
 
 /// A meta key

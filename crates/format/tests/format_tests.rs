@@ -800,8 +800,8 @@ switch
 "],
                 "\
 switch
-  x == 0 then # abc
-    x
+  x == 0 then
+    x # abc
   y == 0 then
     debug y
     f(y)
@@ -864,8 +864,8 @@ match foo() # abc
     'xyz'
   1 or 2 or 3 or 4 then
     -1
-  ('a', 'b') or ('c', 'd') if bar() then # xyz
-    baz()
+  ('a', 'b') or ('c', 'd') if bar() then
+    baz() # xyz
   else
     0
 ",
@@ -1448,6 +1448,30 @@ foo =
   baz:       123 # xyz
   # abc
   qux: 'hello'
+",
+            );
+        }
+
+        #[test]
+        fn skip_match_arm() {
+            check_format_output(
+                &["\
+foo  = match  bar
+  1   then   1
+  #[fmt:skip]
+  2   then   2
+  3   then   3
+  #[fmt:skip]
+  4   then   4
+"],
+                "\
+foo = match bar
+  1 then 1
+  #[fmt:skip]
+  2   then   2
+  3 then 3
+  #[fmt:skip]
+  4   then   4
 ",
             );
         }

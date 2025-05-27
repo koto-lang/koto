@@ -561,77 +561,101 @@ fn format_node<'source>(
             .add_trailing_trivia()
             .nested(arms.len() * 2, node, |mut nested| {
                 nested = nested.start_block();
+
                 for arm in arms.iter() {
-                    nested = nested
-                        .line_start(*arm.patterns.first().unwrap_or(&arm.expression))
-                        .nested(arm.patterns.len() * 2 + 4, node, |mut nested| {
-                            if arm.is_else() {
-                                nested = nested.str("else");
-                            } else {
-                                for (i, pattern) in arm.patterns.iter().enumerate() {
-                                    nested = nested.node(*pattern);
-                                    if i < arm.patterns.len() - 1 {
-                                        nested = nested
-                                            .space_or_indent_if_necessary()
-                                            .str("or")
-                                            .space_or_indent_if_necessary();
-                                    }
-                                }
-                                if let Some(condition) = arm.condition {
-                                    nested = nested
-                                        .space_or_indent_if_necessary()
-                                        .str("if")
-                                        .space_or_indent_if_necessary()
-                                        .node(condition);
-                                }
-                                nested = nested.space_or_indent_if_necessary().str("then");
-                            }
-
-                            if ctx.options.always_indent_arms {
-                                nested = nested.indented_break();
-                            } else {
-                                nested = nested.space_or_indent();
-                            }
-
-                            nested.node(arm.expression).add_trailing_trivia().build()
-                        })
-                        .line_break();
+                    nested = nested.line_start(*arm).node(*arm).line_break();
                 }
 
                 nested.build_block()
             })
             .build(),
+        Node::MatchArm {
+            patterns,
+            condition,
+            expression,
+        } => {
+            let mut group = GroupBuilder::new(patterns.len() * 2 + 4, node, ctx, trivia);
+
+            if patterns.is_empty() {
+                group = group.str("else");
+            } else {
+                for (i, pattern) in patterns.iter().enumerate() {
+                    group = group.node(*pattern);
+                    if i < patterns.len() - 1 {
+                        group = group
+                            .space_or_indent_if_necessary()
+                            .str("or")
+                            .space_or_indent_if_necessary();
+                    }
+                }
+                if let Some(condition) = condition {
+                    group = group
+                        .space_or_indent_if_necessary()
+                        .str("if")
+                        .space_or_indent_if_necessary()
+                        .node(*condition);
+                }
+                group = group.space_or_indent_if_necessary().str("then");
+            }
+
+            if ctx.options.always_indent_arms {
+                // If we're force breaking and the body is on the same line as the arm,
+                // then allow trivia to move with the body.
+                if ctx.span(ctx.node(*expression)).start.line == ctx.span(node).start.line {
+                    group = group.indented_break_without_trivia();
+                } else {
+                    group = group.indented_break();
+                }
+            } else {
+                group = group.space_or_indent();
+            }
+
+            group.node(*expression).add_trailing_trivia().build()
+        }
         Node::Switch(arms) => GroupBuilder::new(2, node, ctx, trivia)
             .str("switch")
             .nested(arms.len() * 2, node, |mut nested| {
                 nested = nested.start_block();
 
                 for (i, arm) in arms.iter().enumerate() {
-                    nested = nested
-                        .line_start(arm.condition.unwrap_or(node_index))
-                        .nested(3, node, |mut nested| {
-                            nested = if let Some(condition) = arm.condition {
-                                nested.node(condition).str(" then")
-                            } else {
-                                nested.str("else")
-                            };
-
-                            if ctx.options.always_indent_arms {
-                                nested = nested.indented_break();
-                            } else {
-                                nested = nested.space_or_indent();
-                            }
-
-                            nested.node(arm.expression).add_trailing_trivia().build()
-                        });
+                    nested = nested.line_start(*arm).node(*arm);
 
                     if i < arms.len() - 1 {
                         nested = nested.line_break();
                     }
                 }
+
                 nested.build_block()
             })
             .build(),
+        Node::SwitchArm {
+            condition,
+            expression,
+        } => {
+            let mut group = GroupBuilder::new(4, node, ctx, trivia);
+
+            group = if let Some(condition) = condition {
+                group.node(*condition).str(" then")
+            } else {
+                group.str("else")
+            };
+
+            if ctx.options.always_indent_arms {
+                let expression_span = ctx.span(ctx.node(*expression));
+                let arm_span = ctx.span(node);
+                // If we're force breaking and the body is on the same line as the arm,
+                // then allow trivia to move with the body.
+                if expression_span.start.line == arm_span.start.line {
+                    group = group.indented_break_without_trivia();
+                } else {
+                    group = group.indented_break();
+                }
+            } else {
+                group = group.space_or_indent();
+            }
+
+            group.node(*expression).add_trailing_trivia().build()
+        }
         Node::Wildcard(id, type_hint) => {
             let mut group = GroupBuilder::new(1, node, ctx, trivia).char('_');
             if let Some(id) = id {
@@ -993,6 +1017,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     fn indented_break(mut self) -> Self {
         // Add any trailing comments for the current line;
         self = self.add_trailing_trivia();
+        self.group_break(GroupBreak::IndentedBreak);
+        self
+    }
+
+    fn indented_break_without_trivia(mut self) -> Self {
         self.group_break(GroupBreak::IndentedBreak);
         self
     }
