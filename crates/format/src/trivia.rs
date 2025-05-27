@@ -23,7 +23,21 @@ impl Trivia {
             }
 
             let maybe_trivia = match token.token {
-                Token::CommentSingle => Some(TriviaToken::CommentSingle),
+                Token::CommentSingle => {
+                    let mut trivia = TriviaToken::CommentSingle;
+
+                    // Check for #[fmt: skip] commands
+                    let slice = token.slice(source).trim();
+                    if let Some(rest) = slice.strip_prefix("#[fmt:") {
+                        if let Some(command) = rest.strip_suffix("]") {
+                            if command.trim() == "skip" {
+                                trivia = TriviaToken::SkipNode;
+                            }
+                        }
+                    }
+
+                    Some(trivia)
+                }
                 Token::CommentMulti => Some(TriviaToken::CommentMulti),
                 Token::NewLine => {
                     newline_count += 1;
@@ -74,6 +88,8 @@ pub enum TriviaToken {
     CommentSingle,
     /// A multi-line comment
     CommentMulti,
+    /// A directive to skip formatting for the following node
+    SkipNode,
 }
 
 #[cfg(test)]

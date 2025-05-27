@@ -1340,4 +1340,116 @@ f = ||
             );
         }
     }
+
+    mod skip {
+        use super::*;
+
+        #[test]
+        fn skip_assignment() {
+            check_format_output(
+                &["\
+a =   1   + 2
+
+#[fmt: skip]
+b =
+  1 + 2
+      * 3
+
+c    =    99
+"],
+                "\
+a = 1 + 2
+
+#[fmt: skip]
+b =
+  1 + 2
+      * 3
+
+c = 99
+",
+            );
+        }
+
+        #[test]
+        fn skip_function() {
+            check_format_output(
+                &["\
+#[fmt: skip]
+f =  ||
+# xyz
+  x    +    y
+
+f =  ||
+# xyz
+  x    +    y
+"],
+                "\
+#[fmt: skip]
+f =  ||
+# xyz
+  x    +    y
+
+f = ||
+  # xyz
+  x + y
+",
+            );
+        }
+
+        #[test]
+        fn skip_nested() {
+            check_format_output(
+                &["\
+f  = | |
+  x    = y
+
+  # 123
+#[fmt:skip]
+  z  =
+    4 *
+      z
+
+  # abc
+  x +   z
+"],
+                "\
+f = ||
+  x = y
+
+  # 123
+  #[fmt:skip]
+  z  =
+    4 *
+      z
+
+  # abc
+  x + z
+",
+            );
+        }
+
+        #[test]
+        fn skip_map_entry() {
+            check_format_output(
+                &["\
+foo   =
+  bar:    99
+
+  #[fmt:skip]
+  baz:       123     # xyz
+  # abc
+  qux:   'hello'
+"],
+                "\
+foo =
+  bar: 99
+
+  #[fmt:skip]
+  baz:       123 # xyz
+  # abc
+  qux: 'hello'
+",
+            );
+        }
+    }
 }

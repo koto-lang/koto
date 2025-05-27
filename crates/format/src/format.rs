@@ -1,6 +1,6 @@
 use crate::{
     Error, ErrorKind, FormatOptions, Result, Trivia,
-    trivia::{TriviaIterator, TriviaToken},
+    trivia::{TriviaItem, TriviaIterator, TriviaToken},
 };
 use koto_lexer::Position;
 use koto_parser::{
@@ -855,6 +855,7 @@ struct GroupBuilder<'source, 'trivia> {
     ctx: &'source FormatContext<'source>,
     trivia: &'trivia mut TriviaIterator<'source>,
     current_line: u32,
+    skip_next_node: bool,
 }
 
 impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
@@ -872,6 +873,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             ctx,
             trivia,
             current_line,
+            skip_next_node: false,
         }
     }
 
@@ -1040,11 +1042,37 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         let node = self.ctx.node(node_index);
         let node_span = self.ctx.span(node);
         let node_end_line = node_span.end.line;
+
+        // Add any trivia that should appear before the node
         self.add_trivia(node_span.start, TriviaPosition::Any);
-        self.items
-            .push(format_node(node_index, self.ctx, self.trivia));
+
+        // Check to see if the node was preceded skip commands
+        if self.skip_next_node {
+            self.skip_next_node = false;
+
+            // Skip rendering and add the node's source region directly
+            // to the output.
+            self.add_source_region(node_span);
+
+            // Skip over any trivia that's already captured in the node's span
+            while let Some(item) = self.trivia.peek() {
+                if item.span.start < node_span.end {
+                    self.trivia.next();
+                } else {
+                    break;
+                }
+            }
+        } else {
+            self.items
+                .push(format_node(node_index, self.ctx, self.trivia));
+        }
+
         self.current_line = node_end_line;
         self
+    }
+
+    fn add_source_region(&mut self, span: &Span) {
+        self.items.push(self.ctx.source_slice(span).into());
     }
 
     // Adds the node, and then if it's a group, flattens its contents into this group
@@ -1091,11 +1119,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    // Add any trivia that needs to be inserted before the given position
+    //
+    // If a skip command is encountered, then the function exits and the command's span is returned.
     fn add_trivia(&mut self, position: Position, position_info: TriviaPosition) {
         // Add any trivia items that belong before the format item to the group
         while let Some(item) = self.trivia.peek() {
             let item_start = item.span.start;
-            let item_end = item.span.end;
 
             let consume_item = match position_info {
                 TriviaPosition::LineStart => item_start.line < position.line,
@@ -1105,57 +1135,69 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                 break;
             }
 
-            // Advance the trivia iterator
             let item = *item;
             self.trivia.next();
 
-            match item.token {
-                TriviaToken::EmptyLine => {
-                    self.strip_trailing_breaks();
-                    self.items.push(FormatItem::LineBreak);
-                }
-                TriviaToken::CommentSingle => {
-                    match position_info {
-                        TriviaPosition::LineStart => {
-                            if item_end.line < position.line {
-                                self.group_break(GroupBreak::LineStart);
-                            }
-                        }
-                        _ if self.items.last().is_some_and(|item| !item.is_break()) => {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
-                        _ => {}
-                    }
+            self.add_trivia_item(item, position, position_info);
+        }
+    }
 
-                    self.items.push(self.ctx.source_slice(&item.span).into());
-
-                    match position_info {
-                        TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
-                        _ => self.group_break(GroupBreak::IndentedBreak),
-                    }
+    fn add_trivia_item(
+        &mut self,
+        item: &TriviaItem,
+        position: Position,
+        position_info: TriviaPosition,
+    ) {
+        match item.token {
+            TriviaToken::EmptyLine => {
+                self.strip_trailing_breaks();
+                self.items.push(FormatItem::LineBreak);
+            }
+            TriviaToken::CommentSingle | TriviaToken::SkipNode => {
+                if item.token == TriviaToken::SkipNode {
+                    self.skip_next_node = true;
                 }
-                TriviaToken::CommentMulti => {
-                    match position_info {
-                        TriviaPosition::LineStart if item_end.line < position.line => {
+
+                match position_info {
+                    TriviaPosition::LineStart => {
+                        if item.span.end.line < position.line {
                             self.group_break(GroupBreak::LineStart);
                         }
-                        TriviaPosition::LineEnd
-                            if self.items.last().is_some_and(|item| !item.is_break()) =>
-                        {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
-                        _ => {}
                     }
+                    _ if self.items.last().is_some_and(|item| !item.is_break()) => {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                    }
+                    _ => {}
+                }
 
-                    self.items.push(self.ctx.source_slice(&item.span).into());
+                self.add_source_region(&item.span);
 
-                    match position_info {
-                        TriviaPosition::LineStart if item_end.line < position.line => {
-                            self.items.push(FormatItem::LineBreak);
-                        }
-                        _ => {
-                            self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
-                        }
+                match position_info {
+                    TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
+                    _ => self.group_break(GroupBreak::IndentedBreak),
+                }
+            }
+            TriviaToken::CommentMulti => {
+                match position_info {
+                    TriviaPosition::LineStart if item.span.end.line < position.line => {
+                        self.group_break(GroupBreak::LineStart);
+                    }
+                    TriviaPosition::LineEnd
+                        if self.items.last().is_some_and(|item| !item.is_break()) =>
+                    {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
+                    }
+                    _ => {}
+                }
+
+                self.add_source_region(&item.span);
+
+                match position_info {
+                    TriviaPosition::LineStart if item.span.end.line < position.line => {
+                        self.items.push(FormatItem::LineBreak);
+                    }
+                    _ => {
+                        self.group_break(GroupBreak::SpaceOrIndentIfNecessary);
                     }
                 }
             }

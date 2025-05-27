@@ -801,7 +801,6 @@ impl<'source> Parser<'source> {
 
         // Consume the `=` token
         self.consume_token_with_context(context);
-        let assign_span = self.current_span();
 
         let single_target = targets.len() == 1;
 
@@ -812,6 +811,7 @@ impl<'source> Parser<'source> {
         };
 
         if let Some(rhs) = self.parse_expressions(context, temp_result)? {
+            let start_span = self.node_span(*targets.first().unwrap());
             let node = if single_target {
                 Node::Assign {
                     target: *targets.first().unwrap(),
@@ -823,7 +823,7 @@ impl<'source> Parser<'source> {
                     expression: rhs,
                 }
             };
-            Ok(Some(self.push_node_with_span(node, assign_span)?))
+            Ok(Some(self.push_node_with_start_span(node, start_span)?))
         } else {
             self.error(ExpectedIndentation::AssignmentExpression)
         }
@@ -2149,7 +2149,6 @@ impl<'source> Parser<'source> {
             .with_expected_indentation(Indentation::Equal(start_indent));
 
         while self.peek_token_with_context(&block_context).is_some() {
-            let entry_start_line = self.current_line() + 1;
             if self
                 .consume_until_token_with_context(&block_context)
                 .is_none()
@@ -2166,11 +2165,9 @@ impl<'source> Parser<'source> {
 
             self.consume_next_token_on_same_line(); // ':'
 
+            let start_span = self.node_span(key);
             let value = self.consume_map_block_value()?;
-            let entry = self.push_node_with_start_span(
-                Node::MapEntry(key, value),
-                Span::line_start(entry_start_line),
-            )?;
+            let entry = self.push_node_with_start_span(Node::MapEntry(key, value), start_span)?;
             entries.push(entry);
         }
 
@@ -3476,6 +3473,10 @@ impl<'source> Parser<'source> {
 
     fn push_node_with_start_span(&mut self, node: Node, start_span: Span) -> Result<AstIndex> {
         self.push_node_with_span(node, self.span_with_start(start_span))
+    }
+
+    fn node_span(&self, node_index: AstIndex) -> Span {
+        *self.ast.span(self.ast.node(node_index).span)
     }
 
     fn span_with_start(&self, start_span: Span) -> Span {
