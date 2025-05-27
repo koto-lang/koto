@@ -423,22 +423,39 @@ fn format_node<'source>(
         Node::Export(value) => {
             FormatItem::from_keyword_and_value("export", value, node, ctx, trivia)
         }
-        Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
-            .node(*target)
-            .space_or_indent_if_necessary()
-            .char('=')
-            .space_or_indent_respecting_existing_break(target, expression)
-            .node(*expression)
-            .build(),
+        Node::Assign {
+            target,
+            expression,
+            let_assignment,
+        } => {
+            let mut group = GroupBuilder::new(5, node, ctx, trivia);
+
+            if *let_assignment {
+                group = group.str("let ");
+            }
+
+            group
+                .node(*target)
+                .space_or_indent_if_necessary()
+                .char('=')
+                .space_or_indent_respecting_existing_break(target, expression)
+                .node(*expression)
+                .build()
+        }
         Node::MultiAssign {
             targets,
             expression,
+            let_assignment,
         } => {
             if targets.is_empty() {
                 return Error::new(ErrorKind::MissingMultiAssignTargets, *ctx.span(node)).into();
             }
 
-            let mut group = GroupBuilder::new(targets.len() * 3, node, ctx, trivia);
+            let mut group = GroupBuilder::new(targets.len() * 3 + 3, node, ctx, trivia);
+
+            if *let_assignment {
+                group = group.str("let ");
+            }
 
             for (i, target) in targets.iter().enumerate() {
                 group = group.node(*target);

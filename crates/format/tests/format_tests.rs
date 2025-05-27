@@ -266,6 +266,18 @@ a, b, c =
                 },
             );
         }
+
+        #[test]
+        fn let_assignment() {
+            check_format_output(
+                &["
+let   x  :   String   =   'hello'
+"],
+                "\
+let x: String = 'hello'
+",
+            );
+        }
     }
 
     #[test]
@@ -1186,9 +1198,16 @@ foo
             check_format_output(
                 &["\
 export   #- abc -#   foo     # xyz
+
+export    let    bar:    String   = # 123
+         'hello'
 "],
                 "\
 export #- abc -# foo # xyz
+
+export let bar: String =
+  # 123
+  'hello'
 ",
             );
         }
