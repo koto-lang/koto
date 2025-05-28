@@ -212,7 +212,7 @@ export
   @test index_mut: ||
     expection_caught = false
 
-    try 
+    try
       foo(100)[1] = 42
     catch error
       assert error.contains '(index: 1, value: 42})'
