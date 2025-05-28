@@ -515,12 +515,13 @@ impl Compiler {
             Node::Function(f) => self.compile_function(f, ctx)?,
             Node::Import { from, items } => self.compile_import(from, items, ctx)?,
             Node::Export(expression) => self.compile_export(*expression, ctx)?,
-            Node::Assign { target, expression } => {
-                self.compile_assign(*target, *expression, false, ctx)?
-            }
+            Node::Assign {
+                target, expression, ..
+            } => self.compile_assign(*target, *expression, false, ctx)?,
             Node::MultiAssign {
                 targets,
                 expression,
+                ..
             } => self.compile_multi_assign(targets, *expression, false, ctx)?,
             Node::UnaryOp { op, value } => self.compile_unary_op(*op, *value, ctx)?,
             Node::BinaryOp { op, lhs, rhs } => self.compile_binary_op(*op, *lhs, *rhs, ctx)?,
@@ -1620,12 +1621,13 @@ impl Compiler {
         let expression_node = ctx.node_with_span(expression);
 
         match &expression_node.node {
-            Node::Assign { target, expression } => {
-                self.compile_assign(*target, *expression, true, ctx)
-            }
+            Node::Assign {
+                target, expression, ..
+            } => self.compile_assign(*target, *expression, true, ctx),
             Node::MultiAssign {
                 targets,
                 expression,
+                ..
             } => self.compile_multi_assign(targets, *expression, true, ctx),
             // Maps can be exported directly rather than relying on the iterator logic below
             Node::Map { entries, .. } => self.compile_make_map(entries, true, ctx),

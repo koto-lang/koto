@@ -77,29 +77,40 @@ fn format_node<'source>(
             }
         }
         Node::Chain((root_node, next)) => {
+            let force_break = should_chain_be_broken(root_node, next, ctx);
+            let chain_start_line = ctx.span(node).start.line;
+
             let mut group = GroupBuilder::new(2, node, ctx, trivia);
             let mut node = node;
             let mut chain_node = root_node;
             let mut chain_next = next;
             let mut chain_index = node_index;
 
-            let force_break = should_chain_be_broken(root_node, next, ctx);
+            let mut first_id = true;
 
             loop {
                 match chain_node {
                     ChainNode::Root(root) => {
-                        group = group.node(*root);
+                        group = group.sub_group_start().node(*root);
                     }
                     ChainNode::Id(id) => {
-                        if force_break {
+                        // The first id access can be allowed to stay on the start line when force
+                        // breaking.
+                        group = group.sub_group_end();
+                        if force_break
+                            && (!first_id || ctx.span(node).start.line > chain_start_line)
+                        {
                             group = group
                                 .add_trailing_trivia()
                                 .indented_break()
                                 .add_preceeding_trivia(chain_index);
+                        } else if first_id {
+                            group = group.indent_if_necessary();
                         } else {
                             group = group.maybe_indent();
                         }
-                        group = group.char('.').string_constant(*id);
+                        group = group.sub_group_start().char('.').string_constant(*id);
+                        first_id = false;
                     }
                     ChainNode::Str(s) => {
                         group = group.maybe_force_indent(force_break).char('.').nested(
@@ -423,22 +434,39 @@ fn format_node<'source>(
         Node::Export(value) => {
             FormatItem::from_keyword_and_value("export", value, node, ctx, trivia)
         }
-        Node::Assign { target, expression } => GroupBuilder::new(3, node, ctx, trivia)
-            .node(*target)
-            .space_or_indent_if_necessary()
-            .char('=')
-            .space_or_indent_respecting_existing_break(target, expression)
-            .node(*expression)
-            .build(),
+        Node::Assign {
+            target,
+            expression,
+            let_assignment,
+        } => {
+            let mut group = GroupBuilder::new(5, node, ctx, trivia);
+
+            if *let_assignment {
+                group = group.str("let ");
+            }
+
+            group
+                .node(*target)
+                .space_or_indent_if_necessary()
+                .char('=')
+                .space_or_indent_respecting_existing_break(target, expression)
+                .node(*expression)
+                .build()
+        }
         Node::MultiAssign {
             targets,
             expression,
+            let_assignment,
         } => {
             if targets.is_empty() {
                 return Error::new(ErrorKind::MissingMultiAssignTargets, *ctx.span(node)).into();
             }
 
-            let mut group = GroupBuilder::new(targets.len() * 3, node, ctx, trivia);
+            let mut group = GroupBuilder::new(targets.len() * 3 + 3, node, ctx, trivia);
+
+            if *let_assignment {
+                group = group.str("let ");
+            }
 
             for (i, target) in targets.iter().enumerate() {
                 group = group.node(*target);
@@ -875,6 +903,7 @@ impl<'source> FormatContext<'source> {
 
 struct GroupBuilder<'source, 'trivia> {
     items: Vec<FormatItem<'source>>,
+    sub_group_start: Option<usize>,
     group_span: Span,
     ctx: &'source FormatContext<'source>,
     trivia: &'trivia mut TriviaIterator<'source>,
@@ -893,6 +922,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         let current_line = group_span.start.line;
         Self {
             items: Vec::with_capacity(capacity),
+            sub_group_start: None,
             group_span,
             ctx,
             trivia,
@@ -904,20 +934,14 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     fn build(mut self) -> FormatItem<'source> {
         self.add_trivia(self.group_span.end, TriviaPosition::Any);
 
-        FormatItem::Group {
-            items: self.items,
-            line_length: OnceCell::new(),
-        }
+        FormatItem::make_group(self.items)
     }
 
     fn build_block(mut self) -> FormatItem<'source> {
         self.add_trivia(self.group_span.end, TriviaPosition::LineStart);
-        // Remove any trailing whitespace
         self.strip_trailing_whitespace();
-        FormatItem::Group {
-            items: self.items,
-            line_length: OnceCell::new(),
-        }
+
+        FormatItem::make_group(self.items)
     }
 
     fn strip_trailing_whitespace(&mut self) {
@@ -933,6 +957,24 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         }) {
             self.items.pop();
         }
+    }
+
+    fn sub_group_start(mut self) -> Self {
+        debug_assert!(self.sub_group_start.is_none());
+        self.sub_group_start = Some(self.items.len());
+        self
+    }
+
+    fn sub_group_end(mut self) -> Self {
+        if let Some(sub_group_start) = self.sub_group_start.take() {
+            let sub_group_items = self.items.drain(sub_group_start..).collect();
+            self.items.push(FormatItem::Group {
+                items: sub_group_items,
+                line_length: OnceCell::new(),
+            });
+        }
+
+        self
     }
 
     fn char(mut self, c: char) -> Self {
@@ -992,6 +1034,11 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn maybe_indent(mut self) -> Self {
         self.group_break(GroupBreak::MaybeIndent);
+        self
+    }
+
+    fn indent_if_necessary(mut self) -> Self {
+        self.group_break(GroupBreak::IndentIfNecessary);
         self
     }
 
@@ -1262,7 +1309,7 @@ enum FormatItem<'source> {
     // The group will be rendered on a single line by default, or if the group doesn't fit in the
     // remaining space then it will be rendered with breaks replaced with appropriate indentation.
     Group {
-        items: Vec<FormatItem<'source>>,
+        items: Vec<Self>,
         // The group's length if it was rendered on a single line.
         // This gets calculated and cached during rendering to avoid nested group recalculations.
         line_length: OnceCell<usize>,
@@ -1277,8 +1324,6 @@ enum FormatItem<'source> {
     // errors everywhere in `format_node` the error gets propagated during rendering.
     Error(Error),
 }
-
-type Type = Result<()>;
 
 impl<'source> FormatItem<'source> {
     // Used for keyword/value expressions like `return true`
@@ -1296,6 +1341,13 @@ impl<'source> FormatItem<'source> {
             .build()
     }
 
+    fn make_group(items: Vec<Self>) -> Self {
+        Self::Group {
+            items,
+            line_length: OnceCell::new(),
+        }
+    }
+
     // Renders the format item, appending to the provided output string
     fn render(
         &self,
@@ -1304,7 +1356,7 @@ impl<'source> FormatItem<'source> {
         render_optional: bool,
         options: &FormatOptions,
         column: usize,
-    ) -> Type {
+    ) -> Result<()> {
         match self {
             Self::Char(c) => output.push(*c),
             Self::OptionalChar(c) => {
@@ -1429,22 +1481,37 @@ impl<'source> FormatItem<'source> {
                         let mut item_first_line_width = first_line_length(&item_buffer);
 
                         // Check for 'indented break if necessary' items
-                        if matches!(group_break, GroupBreak::SpaceOrIndentIfNecessary) {
-                            // +1 for a space
-                            let line_width_with_item = line_width + item_first_line_width + 1;
-                            if line_width_with_item > options.line_length as usize {
-                                group_break = if indented {
-                                    GroupBreak::MaybeReturn
+                        match group_break {
+                            GroupBreak::SpaceOrIndentIfNecessary => {
+                                // +1 for a space
+                                let line_width_with_item = line_width + item_first_line_width + 1;
+                                if line_width_with_item > options.line_length as usize {
+                                    group_break = if indented {
+                                        GroupBreak::MaybeReturn
+                                    } else {
+                                        GroupBreak::IndentedBreak
+                                    };
                                 } else {
-                                    GroupBreak::IndentedBreak
-                                };
-                            } else {
-                                if item_first_line_width > 0 {
-                                    output.push(' ');
-                                    item_first_line_width += 1;
+                                    if item_first_line_width > 0 {
+                                        output.push(' ');
+                                        item_first_line_width += 1;
+                                    }
+                                    group_break = GroupBreak::None;
                                 }
-                                group_break = GroupBreak::None;
                             }
+                            GroupBreak::IndentIfNecessary => {
+                                let line_width_with_item = line_width + item_first_line_width;
+                                if line_width_with_item > options.line_length as usize {
+                                    group_break = if indented {
+                                        GroupBreak::MaybeReturn
+                                    } else {
+                                        GroupBreak::IndentedBreak
+                                    };
+                                } else {
+                                    group_break = GroupBreak::None;
+                                }
+                            }
+                            _ => {}
                         }
 
                         // Emit linebreaks if necessary
@@ -1587,6 +1654,8 @@ enum GroupBreak {
     SpaceOrReturn,
     // A point where a long line can be broken with an indent
     MaybeIndent,
+    // An indented linebreak, only breaking when necessary
+    IndentIfNecessary,
     // A point where a long line can be broken with a return to the start column
     MaybeReturn,
     // Forces a group to be broken onto multiple lines if followed by anything other than
@@ -1608,6 +1677,7 @@ impl GroupBreak {
             }
             Self::None
             | Self::MaybeIndent
+            | Self::IndentIfNecessary
             | Self::MaybeReturn
             | Self::IndentedBreak
             | Self::ReturnOrIndent
@@ -1620,16 +1690,16 @@ impl GroupBreak {
         &self,
         line_is_too_long: bool,
         force_break: bool,
-        accept_optional_indent: bool,
+        accept_optional_linebreak: bool,
     ) -> bool {
         match self {
             Self::None => false,
             // Handled separately in render_group
-            Self::SpaceOrIndentIfNecessary | Self::LineStart => false,
+            Self::SpaceOrIndentIfNecessary | Self::IndentIfNecessary | Self::LineStart => false,
             Self::IndentedBreak | Self::ReturnOrIndent | Self::StartBlock => true,
             Self::SpaceOrIndent | Self::SpaceOrReturn => line_is_too_long,
             Self::MaybeReturn | Self::MaybeIndent => {
-                accept_optional_indent && line_is_too_long || force_break
+                force_break || accept_optional_linebreak && line_is_too_long
             }
         }
     }
@@ -1644,11 +1714,9 @@ impl GroupBreak {
             Self::IndentedBreak | Self::LineStart => true,
             Self::SpaceOrIndent => line_is_too_long,
             Self::MaybeIndent => line_is_too_long || force_break,
-            Self::None
-            | Self::StartBlock
-            | Self::SpaceOrReturn
-            | Self::MaybeReturn
-            | Self::SpaceOrIndentIfNecessary => false,
+            Self::None | Self::StartBlock | Self::SpaceOrReturn | Self::MaybeReturn => false,
+            // Handled separately in render_group
+            Self::SpaceOrIndentIfNecessary | Self::IndentIfNecessary => false,
             Self::ReturnOrIndent => !already_indented,
         }
     }
@@ -1665,9 +1733,10 @@ impl GroupBreak {
             Self::None
             | Self::IndentedBreak
             | Self::SpaceOrIndent
-            | Self::SpaceOrIndentIfNecessary
             | Self::MaybeIndent
             | Self::StartBlock => false,
+            // Handled separately in render_group
+            Self::SpaceOrIndentIfNecessary | Self::IndentIfNecessary => false,
             Self::ReturnOrIndent => already_indented,
         }
     }

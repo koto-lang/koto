@@ -130,6 +130,15 @@ mod parser {
         Node::Assign {
             target: target.into(),
             expression: expression.into(),
+            let_assignment: false,
+        }
+    }
+
+    fn let_assign(target: u32, expression: u32) -> Node {
+        Node::Assign {
+            target: target.into(),
+            expression: expression.into(),
+            let_assignment: true,
         }
     }
 
@@ -1288,6 +1297,7 @@ min..max
                     MultiAssign {
                         targets: nodes(&[0, 4]),
                         expression: 7.into(),
+                        let_assignment: false,
                     },
                     MainBlock {
                         body: nodes(&[8]),
@@ -1316,6 +1326,7 @@ x";
                     MultiAssign {
                         targets: nodes(&[0, 1]),
                         expression: 4.into(),
+                        let_assignment: false,
                     }, // 5
                     id(0),
                     MainBlock {
@@ -1348,6 +1359,7 @@ x";
                     MultiAssign {
                         targets: nodes(&[0, 1, 2]),
                         expression: 5.into(),
+                        let_assignment: false,
                     },
                     MainBlock {
                         body: nodes(&[6]),
@@ -1438,10 +1450,7 @@ x ^= 5";
                 &[
                     id(0), // a
                     SmallInt(1),
-                    Assign {
-                        target: 0.into(),
-                        expression: 1.into(),
-                    },
+                    let_assign(0, 1),
                     MainBlock {
                         body: nodes(&[2]),
                         local_count: 1,
@@ -1461,10 +1470,7 @@ x ^= 5";
                     type_hint(1),            // Int
                     id_with_type_hint(0, 0), // a
                     SmallInt(1),
-                    Assign {
-                        target: 1.into(),
-                        expression: 2.into(),
-                    },
+                    let_assign(1, 2),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 1,
@@ -1484,10 +1490,7 @@ x ^= 5";
                     optional_type_hint(1),   // String?
                     id_with_type_hint(0, 0), // a
                     string_literal(2, StringQuote::Single),
-                    Assign {
-                        target: 1.into(),
-                        expression: 2.into(),
-                    },
+                    let_assign(1, 2),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 1,
@@ -1516,6 +1519,7 @@ x ^= 5";
                     MultiAssign {
                         targets: nodes(&[1, 3]),
                         expression: 4.into(),
+                        let_assignment: true,
                     }, // 5
                     MainBlock {
                         body: nodes(&[5]),
@@ -1542,10 +1546,7 @@ x ^= 5";
                     type_hint(0),
                     Wildcard(None, Some(0.into())),
                     SmallInt(1),
-                    Assign {
-                        target: 1.into(),
-                        expression: 2.into(),
-                    },
+                    let_assign(1, 2),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
@@ -1565,10 +1566,7 @@ x ^= 5";
                     type_hint(1),
                     Wildcard(Some(0.into()), Some(0.into())),
                     SmallInt(1),
-                    Assign {
-                        target: 1.into(),
-                        expression: 2.into(),
-                    },
+                    let_assign(1, 2),
                     MainBlock {
                         body: nodes(&[3]),
                         local_count: 0,
@@ -1602,6 +1600,7 @@ x ^= 5";
                     MultiAssign {
                         targets: nodes(&[1, 3, 5]),
                         expression: 8.into(),
+                        let_assignment: true,
                     },
                     MainBlock {
                         body: nodes(&[9]),
@@ -1684,6 +1683,7 @@ export
                     MultiAssign {
                         targets: nodes(&[0, 1, 2]),
                         expression: 3.into(),
+                        let_assignment: false,
                     },
                     Export(4.into()), // 5
                     MainBlock {
@@ -2134,6 +2134,7 @@ a",
                     MultiAssign {
                         targets: nodes(&[0, 1]),
                         expression: 9.into(),
+                        let_assignment: false,
                     }, // 10
                     MainBlock {
                         body: nodes(&[10]),

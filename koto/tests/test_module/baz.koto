@@ -8,7 +8,7 @@ from number import pi
 assert_eq pi, pi
 
 # Export using inline map syntax
-export { qux, @type: 'Baz' }
+export {qux, @type: 'Baz'}
 
 @main = ||
   # Redefine qux to check that main has been called

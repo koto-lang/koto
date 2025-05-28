@@ -182,6 +182,8 @@ pub enum Node {
         target: AstIndex,
         /// The expression to be assigned
         expression: AstIndex,
+        /// Whether or not the assignment uses `let`
+        let_assignment: bool,
     },
 
     /// A multiple-assignment expression
@@ -192,6 +194,8 @@ pub enum Node {
         targets: AstVec<AstIndex>,
         /// The expression to be assigned
         expression: AstIndex,
+        /// Whether or not the assignment uses `let`
+        let_assignment: bool,
     },
 
     /// A unary operation

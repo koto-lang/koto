@@ -662,7 +662,7 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
 
         if let Some(assignment_expression) =
-            self.parse_assign_expression(expression_start, previous_expressions, context)?
+            self.parse_assign_expression(expression_start, previous_expressions, context, false)?
         {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(context) {
@@ -771,6 +771,7 @@ impl<'source> Parser<'source> {
         lhs: AstIndex,
         previous_lhs: &[AstIndex],
         context: &ExpressionContext,
+        let_assignment: bool,
     ) -> Result<Option<AstIndex>> {
         match self
             .peek_token_with_context(context)
@@ -816,11 +817,13 @@ impl<'source> Parser<'source> {
                 Node::Assign {
                     target: *targets.first().unwrap(),
                     expression: rhs,
+                    let_assignment,
                 }
             } else {
                 Node::MultiAssign {
                     targets,
                     expression: rhs,
+                    let_assignment,
                 }
             };
             Ok(Some(self.push_node_with_start_span(node, start_span)?))
@@ -888,7 +891,7 @@ impl<'source> Parser<'source> {
                 {
                     self.consume_map_block(meta_key, start_line, &meta_context)
                 } else {
-                    match self.parse_assign_expression(meta_key, &[], &meta_context)? {
+                    match self.parse_assign_expression(meta_key, &[], &meta_context, false)? {
                         Some(result) => Ok(result),
                         None => self
                             .consume_token_and_error(SyntaxError::ExpectedAssignmentAfterMetaKey),
@@ -1136,6 +1139,7 @@ impl<'source> Parser<'source> {
                     Node::Assign {
                         target: arg_node,
                         expression: default_value,
+                        let_assignment: false,
                     },
                     arg_span,
                 )?);
@@ -3166,7 +3170,7 @@ impl<'source> Parser<'source> {
             return self.error(SyntaxError::ExpectedAssignmentTarget);
         };
 
-        match self.parse_assign_expression(last_target, &targets, context)? {
+        match self.parse_assign_expression(last_target, &targets, context, true)? {
             Some(val) => Ok(val),
             None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget),
         }

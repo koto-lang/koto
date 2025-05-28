@@ -100,7 +100,6 @@ mod koto_tests {
     koto_test!(comments);
     koto_test!(enums);
     koto_test!(io);
-    koto_test!(line_breaks);
     koto_test!(load_and_run);
     koto_test!(meta_maps);
     koto_test!(os);

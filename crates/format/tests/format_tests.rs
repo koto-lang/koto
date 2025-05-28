@@ -266,6 +266,18 @@ a, b, c =
                 },
             );
         }
+
+        #[test]
+        fn let_assignment() {
+            check_format_output(
+                &["
+let   x  :   String   =   'hello'
+"],
+                "\
+let x: String = 'hello'
+",
+            );
+        }
     }
 
     #[test]
@@ -960,8 +972,7 @@ foo
 foo.bar()?.'baz'().xyz[0]?.abc()
 "],
                 "\
-foo
-  .bar()?
+foo.bar()?
   .'baz'()
   .xyz[0]?
   .abc()
@@ -973,7 +984,8 @@ foo
         fn broken_by_line_length() {
             check_format_output_with_options(
                 &["\
-foo.bar[  #- foo -# ..9  ]?.baz( 1 ,  2 ,  3..=4  )
+foo.bar[  #- foo -# ..9  ]?
+  .baz( 1 ,  2 ,  3..=4  )
 "],
                 "\
 foo
@@ -989,7 +1001,7 @@ foo
 
         #[test]
         fn paren_free_call_before_end() {
-            // The paren-free call prevents collaps
+            // The paren-free call prevents collapse
             check_format_output(
                 &["\
 foo
@@ -1186,9 +1198,16 @@ foo
             check_format_output(
                 &["\
 export   #- abc -#   foo     # xyz
+
+export    let    bar:    String   = # 123
+         'hello'
 "],
                 "\
 export #- abc -# foo # xyz
+
+export let bar: String =
+  # 123
+  'hello'
 ",
             );
         }
