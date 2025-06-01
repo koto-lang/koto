@@ -220,6 +220,20 @@ impl KMap {
         PtrMut::ptr_eq(&self.data, &other.data)
     }
 
+    /// If present, returns the @type meta value as a [KString], recursively going up the @base chain.
+    pub fn meta_type(&self) -> Option<KString> {
+        use KValue::*;
+
+        match self.get_meta_value(&MetaKey::Type) {
+            Some(Str(s)) => Some(s),
+            Some(_) => Some("Error: expected string as result of @type".into()),
+            None => match self.get_meta_value(&MetaKey::Base) {
+                Some(Map(base)) => base.meta_type(),
+                _ => None,
+            },
+        }
+    }
+
     /// Renders the map to the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         if self.contains_meta_key(&UnaryOp::Display.into()) {
@@ -234,6 +248,11 @@ impl KMap {
                 unexpected => return unexpected_type("String as @display result", &unexpected),
             }
         } else {
+            if let Some(meta_type) = self.meta_type() {
+                ctx.append(meta_type);
+                ctx.append(' ');
+            }
+
             ctx.append('{');
 
             let id = PtrMut::address(&self.data);

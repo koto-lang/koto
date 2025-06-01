@@ -161,14 +161,9 @@ impl KValue {
             Number(_) => TYPE_NUMBER.with(|x| x.clone()),
             List(_) => TYPE_LIST.with(|x| x.clone()),
             Range { .. } => TYPE_RANGE.with(|x| x.clone()),
-            Map(m) if m.meta_map().is_some() => match m.get_meta_value(&MetaKey::Type) {
-                Some(Str(s)) => s,
-                Some(_) => "Error: expected string as result of @type".into(),
-                None => match m.get_meta_value(&MetaKey::Base) {
-                    Some(base @ Map(_)) => base.type_as_string(),
-                    _ => TYPE_OBJECT.with(|x| x.clone()),
-                },
-            },
+            Map(m) if m.meta_map().is_some() => m
+                .meta_type()
+                .unwrap_or_else(|| TYPE_OBJECT.with(|x| x.clone())),
             Map(_) => TYPE_MAP.with(|x| x.clone()),
             Str(_) => TYPE_STRING.with(|x| x.clone()),
             Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),

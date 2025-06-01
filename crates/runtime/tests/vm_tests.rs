@@ -2447,6 +2447,42 @@ m[0]
 ";
             check_script_output(script, tuple(&["foo".into(), 42.into()]));
         }
+
+        #[test]
+        fn display_map_without_type() {
+            let script = "
+foo =
+    val: 2
+
+'{foo} - {foo:?}' # Check that @type is not shown
+";
+            check_script_output(script, "{val: 2} - {val: 2}");
+        }
+
+        #[test]
+        fn display_map_with_type() {
+            let script = "
+foo =
+    @type: 'Foo'
+    val: 2
+
+'{foo} - {foo:?}' # Check that @type is shown
+";
+            check_script_output(script, "Foo {val: 2} - Foo {val: 2}");
+        }
+
+        #[test]
+        fn display_map_with_type_and_overriden_display() {
+            let script = "
+foo =
+    @display: || 'display'
+    @type: 'Foo'
+    val: 2
+
+'{foo} - {foo:?}' # Check that @type is shown
+";
+            check_script_output(script, "display - display");
+        }
     }
 
     mod chains {
