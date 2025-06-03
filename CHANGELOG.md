@@ -62,6 +62,12 @@ The Koto project adheres to
     generated_3
     # -> 3
     ```
+- Ranges can now be indexed by number.
+  - ```koto
+    r = 100..200
+    r[50]
+    # -> 150
+    ```
 - Overridden operator improvements
   - Objects can now implement arithmetic operations when the object is on the right-hand side of the
     operation via the `@r+`, `@r-`, `@r*`, `@r/`, and `@r%` metakeys.

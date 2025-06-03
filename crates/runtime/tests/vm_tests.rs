@@ -200,6 +200,13 @@ a, b, c
             check_script_output("4..=0", KRange::from(4..=0));
             check_script_output("2 * 2..=3 * 3", KRange::from(4..=9));
         }
+
+        #[test]
+        fn range_indexing() {
+            check_script_output("(10..=20)[5]", 15);
+            check_script_output("(100..)[100]", 200);
+            check_script_output("(-10..-20)[3]", -13);
+        }
     }
 
     mod tuples {
@@ -1243,7 +1250,7 @@ f 1, (2, 3), 4
             fn nested() {
                 let script = "
 f = |a, (_, (c, d), _), f| a + c + d + f
-f 1, (2, (3, 4), 5), 6
+f 1, (2, 3..=4, 5), 6
 ";
                 check_script_output(script, 14);
             }
@@ -1328,6 +1335,60 @@ f = |(..., y, z)| y + z
 f (1, 2)
 ";
                 check_script_output(script, 3);
+            }
+
+            #[test]
+            fn ellipsis_at_start_with_inclusive_range() {
+                let script = "
+f = |(..., y, z)| y, z
+f 0..=100
+";
+                check_script_output(script, number_tuple(&[99, 100]));
+            }
+
+            #[test]
+            fn ellipsis_at_start_with_non_inclusive_range() {
+                let script = "
+f = |(..., y, z)| y, z
+f 0..100
+";
+                check_script_output(script, number_tuple(&[98, 99]));
+            }
+
+            #[test]
+            fn ellipsis_at_start_with_inclusive_descending_range() {
+                let script = "
+f = |(..., y, z)| y, z
+f -10..=-20
+";
+                check_script_output(script, number_tuple(&[-19, -20]));
+            }
+
+            #[test]
+            fn ellipsis_at_start_with_non_inclusive_descending_range() {
+                let script = "
+f = |(..., y, z)| y, z
+f 50..10
+";
+                check_script_output(script, number_tuple(&[12, 11]));
+            }
+
+            #[test]
+            fn ellipsis_at_end_with_range() {
+                let script = "
+f = |(a, b, ...)| a, b
+f 0..=100
+";
+                check_script_output(script, number_tuple(&[0, 1]));
+            }
+
+            #[test]
+            fn ellipsis_at_end_with_descending_range() {
+                let script = "
+f = |(a, b, ...)| a, b
+f -10..-20
+";
+                check_script_output(script, number_tuple(&[-10, -11]));
             }
 
             #[test]

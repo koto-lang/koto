@@ -1465,6 +1465,18 @@ print! r.end()
 check! 100
 ```
 
+Ranges that have a defined start can be indexed using square brackets.
+
+```koto
+r = 100..200
+print! r[50]
+check! 150
+
+r = 10..
+print! r[100]
+check! 110
+```
+
 _Bounded_ ranges are declared as iterable,
 so they can be used in for loops and with the [`iterator`][iterator] module.
 

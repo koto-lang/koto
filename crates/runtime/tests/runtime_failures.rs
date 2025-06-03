@@ -677,10 +677,19 @@ f x...
             use super::*;
 
             #[test]
-            fn index_out_of_bounds() {
+            fn index_out_of_bounds_list() {
                 let script = "
 x = [0, 1, 2]
 x[3] = 3
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn index_out_of_bounds_range() {
+                let script = "
+x = 10..20
+x[100]
 ";
                 check_script_fails(script);
             }
