@@ -142,3 +142,6 @@ pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn koto_method(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
+const PREFIX_STATIC: &str = "__KOTO_";
+const PREFIX_FUNCTION: &str = "__koto_";
