@@ -133,6 +133,8 @@ The Koto project adheres to
     - `{swap: |a, b| b, a}` should now written as `{swap: |a, b| (b, a)}`
   - Parentheses-free calls with multiple arguments that were wrapped in parentheses will need to be adjusted.
     - `(foo 1, 2, 3)` will now be parsed as `(foo(1), 2, 3)` and should be rewritten as `foo(1, 2, 3)`.
+- Maps that implement `@type` now have their type included by default when rendering the map as a string.
+  [#478](https://github.com/koto-lang/koto/pull/478)
 
 #### Core Library
 
