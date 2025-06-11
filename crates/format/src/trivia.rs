@@ -65,7 +65,7 @@ impl Trivia {
         Ok(Self { items })
     }
 
-    pub fn iter(&self) -> TriviaIterator {
+    pub fn iter(&self) -> TriviaIterator<'_> {
         self.items.iter().peekable()
     }
 }

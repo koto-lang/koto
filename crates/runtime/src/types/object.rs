@@ -444,21 +444,21 @@ impl KObject {
     }
 
     /// Attempts to borrow the underlying object immutably
-    pub fn try_borrow(&self) -> Result<Borrow<dyn KotoObject>> {
+    pub fn try_borrow(&self) -> Result<Borrow<'_, dyn KotoObject>> {
         self.object
             .try_borrow()
             .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to borrow the underlying object mutably
-    pub fn try_borrow_mut(&self) -> Result<BorrowMut<dyn KotoObject>> {
+    pub fn try_borrow_mut(&self) -> Result<BorrowMut<'_, dyn KotoObject>> {
         self.object
             .try_borrow_mut()
             .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
-    pub fn cast<T: KotoObject>(&self) -> Result<Borrow<T>> {
+    pub fn cast<T: KotoObject>(&self) -> Result<Borrow<'_, T>> {
         Borrow::filter_map(self.try_borrow()?, |object| {
             (object as &dyn Any).downcast_ref::<T>()
         })
@@ -473,7 +473,7 @@ impl KObject {
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
-    pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<T>> {
+    pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<'_, T>> {
         BorrowMut::filter_map(self.try_borrow_mut()?, |object| {
             (object as &mut dyn Any).downcast_mut::<T>()
         })
@@ -553,12 +553,12 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
     }
 
     /// Attempts to immutably borrow the object instance
-    pub fn instance(&self) -> Result<Borrow<T>> {
+    pub fn instance(&self) -> Result<Borrow<'_, T>> {
         self.object.cast::<T>()
     }
 
     /// Attempts to mutably borrow the object instance
-    pub fn instance_mut(&self) -> Result<BorrowMut<T>> {
+    pub fn instance_mut(&self) -> Result<BorrowMut<'_, T>> {
         self.object.cast_mut::<T>()
     }
 

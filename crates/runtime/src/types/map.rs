@@ -105,12 +105,12 @@ impl KMap {
     }
 
     /// Provides a reference to the data map
-    pub fn data(&self) -> Borrow<ValueMap> {
+    pub fn data(&self) -> Borrow<'_, ValueMap> {
         self.data.borrow()
     }
 
     /// Provides a mutable reference to the data map
-    pub fn data_mut(&self) -> BorrowMut<ValueMap> {
+    pub fn data_mut(&self) -> BorrowMut<'_, ValueMap> {
         self.data.borrow_mut()
     }
 

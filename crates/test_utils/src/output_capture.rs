@@ -37,7 +37,7 @@ impl OutputCapture {
     }
 
     /// Returns the currently captured output
-    pub fn captured_output(&self) -> Borrow<String> {
+    pub fn captured_output(&self) -> Borrow<'_, String> {
         self.output.borrow()
     }
 }
