@@ -169,7 +169,7 @@ Run `help` for more information
                     break;
                 }
                 Err(err) => {
-                    writeln!(self.stdout, "Error: {:?}", err)?;
+                    writeln!(self.stdout, "Error: {err:?}")?;
                     break;
                 }
             }

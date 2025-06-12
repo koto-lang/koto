@@ -34,12 +34,12 @@ impl KList {
     }
 
     /// Returns a reference to the list's entries
-    pub fn data(&self) -> Borrow<ValueVec> {
+    pub fn data(&self) -> Borrow<'_, ValueVec> {
         self.0.borrow()
     }
 
     /// Returns a mutable reference to the list's entries
-    pub fn data_mut(&self) -> BorrowMut<ValueVec> {
+    pub fn data_mut(&self) -> BorrowMut<'_, ValueVec> {
         self.0.borrow_mut()
     }
 

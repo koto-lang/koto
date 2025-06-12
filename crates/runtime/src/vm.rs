@@ -3069,7 +3069,7 @@ impl KotoVm {
         ) {
             (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line + 1),
             (Some(span), None) => format!("[{}] ", span.start.line + 1),
-            (None, Some(path)) => format!("[{}: #ERR] ", path),
+            (None, Some(path)) => format!("[{path}: #ERR] "),
             (None, None) => "[#ERR] ".to_string(),
         };
 
