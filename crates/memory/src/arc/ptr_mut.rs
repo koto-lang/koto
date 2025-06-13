@@ -50,7 +50,7 @@ impl<T: ?Sized> KCell<T> {
     ///
     /// If the value is currently mutably borrowed then this function will block.
     /// See `try_borrow` for a non-blocking version.
-    pub fn borrow(&self) -> Borrow<T> {
+    pub fn borrow(&self) -> Borrow<'_, T> {
         Borrow::new(self.0.read())
     }
 
@@ -66,7 +66,7 @@ impl<T: ?Sized> KCell<T> {
     /// If the value is currently borrowed then this function will block until the value can be
     /// locked.
     /// See `try_borrow_mut` for a non-blocking version.
-    pub fn borrow_mut(&self) -> BorrowMut<T> {
+    pub fn borrow_mut(&self) -> BorrowMut<'_, T> {
         BorrowMut::new(self.0.write())
     }
 
