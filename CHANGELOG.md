@@ -133,6 +133,14 @@ The Koto project adheres to
     - `{swap: |a, b| b, a}` should now written as `{swap: |a, b| (b, a)}`
   - Parentheses-free calls with multiple arguments that were wrapped in parentheses will need to be adjusted.
     - `(foo 1, 2, 3)` will now be parsed as `(foo(1), 2, 3)` and should be rewritten as `foo(1, 2, 3)`.
+- The `->` pipe operator now inserts the piped value as the first argument to the call to the right of the pipe.
+  - This makes it easier to build pipes with functions that treat the first argument as the subject of the operations, like instance functions.
+    ```koto
+    'hello!'
+      -> string.to_uppercase
+      -> string.repeat 3 # Previously this call would have failed due to the arguments being out of order
+    # -> HELLO!HELLO!HELLO!
+    ```
 - Maps that implement `@type` now have their type included by default when rendering the map as a string.
   [#478](https://github.com/koto-lang/koto/pull/478)
 
