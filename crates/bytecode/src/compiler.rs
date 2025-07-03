@@ -3104,7 +3104,7 @@ impl Compiler {
         Ok(())
     }
 
-    // Compiles a node like `f x -> g`, compiling the lhs as the last arg for a call on the rhs
+    // Compiles a node like `f x -> g`, compiling the lhs as the first arg for a call on the rhs
     fn compile_piped_call(
         &mut self,
         lhs: AstIndex,
@@ -3128,7 +3128,7 @@ impl Compiler {
         let rhs_node = ctx.node_with_span(rhs);
         let result = match &rhs_node.node {
             Node::Id(id, ..) => {
-                // Compile a call with the piped arg using the id to access the function
+                // Compile a call with the piped arg, using the id to access the function
                 if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
                     self.compile_call(function_register, &[], pipe_register, None, ctx)
                 } else {
@@ -3205,21 +3205,25 @@ impl Compiler {
             self.push_register()?
         };
 
+        let arg_offset = if let Some(piped_arg) = piped_arg {
+            arg_count += 1;
+            let arg_register = self.push_register()?;
+            self.push_op(Copy, &[arg_register, piped_arg]);
+            1
+        } else {
+            0
+        };
+
         let mut packed_arg_indices = AstVec::<u8>::new();
         for (i, arg) in args.iter().enumerate() {
             let arg = if let Node::PackedExpression(packed_arg) = ctx.node(*arg) {
-                packed_arg_indices.push(i as u8);
+                packed_arg_indices.push(arg_offset + i as u8);
                 packed_arg
             } else {
                 arg
             };
             let arg_register = self.push_register()?;
             self.compile_node(*arg, ctx.with_fixed_register(arg_register))?;
-        }
-        if let Some(piped_arg) = piped_arg {
-            arg_count += 1;
-            let arg_register = self.push_register()?;
-            self.push_op(Copy, &[arg_register, piped_arg]);
         }
 
         // Indices of args that need to be unpacked are placed in the registers following the args

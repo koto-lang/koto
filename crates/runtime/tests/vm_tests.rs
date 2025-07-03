@@ -1508,9 +1508,9 @@ f x..., 'c', y...
 f = |args...| args
 x = (1, 2)
 y = (3, 4)
-5 -> f x..., y...
+0 -> f x..., y...
 ";
-                check_script_output(script, number_tuple(&[1, 2, 3, 4, 5]));
+                check_script_output(script, number_tuple(&[0, 1, 2, 3, 4]));
             }
 
             #[test]
@@ -1865,13 +1865,14 @@ f == g, f != g
             fn chained_piping() {
                 let script = "
 add = |a, b| a + b
-multiply = |a, b| a * b
 square = |x| x * x
-add 1, 2
-  -> square
-  -> multiply 10
+pow = |a, b| a ^ b
+
+add 1, 2    # 3
+  -> square # 9
+  -> pow 2  # 81
 ";
-                check_script_output(script, 90);
+                check_script_output(script, 81);
             }
 
             #[test]
@@ -1906,6 +1907,31 @@ get_op = |i| ops[i]
   -> get_op(1)  # 2
 ";
                 check_script_output(script, 2);
+            }
+
+            #[test]
+            fn with_core_lib_functions() {
+                let script = "
+'1x2x3'
+  -> string.split 'x'
+  -> iterator.to_string
+  -> string.repeat 2
+";
+                check_script_output(script, "123123");
+            }
+
+            #[test]
+            fn with_optional_argument() {
+                let script = "
+repeat = |input, n = 3| input.repeat n
+
+'O'
+  -> repeat
+  -> repeat 2
+
+# 3 * 2 repeats
+";
+                check_script_output(script, "OOOOOO");
             }
 
             #[test]
