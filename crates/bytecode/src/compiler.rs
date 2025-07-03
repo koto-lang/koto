@@ -2811,16 +2811,17 @@ impl Compiler {
         };
 
         // Where should the final value in the chain be placed?
-        let result_register = match (result.register, piped_arg_register, rhs_op) {
-            // If there's a result register and no piped call, then use the result register
-            (Some(register), None, _) => register,
-            // If there's a piped call after the chain, or an assignment operation,
-            // then place the result of the chain in a temporary register.
-            _ => match chain_nodes.reuse_oldest() {
-                Some(register) => register,
-                None => self.push_register()?,
-            },
-        };
+        let (output_register, output_register_is_temporary) =
+            match (result.register, piped_arg_register, rhs_op) {
+                // If there's a result register and no piped call, then use the result register
+                (Some(register), None, _) => (register, false),
+                // If there's a piped call after the chain, or an assignment operation,
+                // then place the result of the chain in a temporary register.
+                _ => match chain_nodes.reuse_oldest() {
+                    Some(register) => (register, false),
+                    None => (self.push_register()?, true),
+                },
+            };
 
         let string_key = if let ChainNode::Str(access_string) = &end_node {
             self.compile_string(&access_string.contents, ctx.with_any_register())?
@@ -2847,26 +2848,26 @@ impl Compiler {
         //   or the last node is the result.
         match &end_node {
             ChainNode::Id(id, ..) if access_end_node => {
-                self.compile_access_id(result_register, container_register, *id);
-                chain_nodes.push(result_register, false);
+                self.compile_access_id(output_register, container_register, *id);
+                chain_nodes.push(output_register, false);
             }
             ChainNode::Str(_) if access_end_node => {
                 self.push_op(
                     AccessString,
                     &[
-                        result_register,
+                        output_register,
                         container_register,
                         string_key.unwrap(self)?,
                     ],
                 );
-                chain_nodes.push(result_register, false);
+                chain_nodes.push(output_register, false);
             }
             ChainNode::Index(_) if access_end_node => {
                 self.push_op(
                     Index,
-                    &[result_register, container_register, index.unwrap(self)?],
+                    &[output_register, container_register, index.unwrap(self)?],
                 );
-                chain_nodes.push(result_register, false);
+                chain_nodes.push(output_register, false);
             }
             ChainNode::Call { args, with_parens } => {
                 if simple_assignment {
@@ -2888,9 +2889,9 @@ impl Compiler {
                         args,
                         None,
                         instance_register,
-                        ctx.with_fixed_register(result_register),
+                        ctx.with_fixed_register(output_register),
                     )?;
-                    chain_nodes.push(result_register, false);
+                    chain_nodes.push(output_register, false);
                 }
             }
             _ => {}
@@ -2898,7 +2899,7 @@ impl Compiler {
 
         // Is a null check needed on the last node?
         if null_check_on_end_node {
-            self.push_op(JumpIfNull, &[result_register]);
+            self.push_op(JumpIfNull, &[output_register]);
             null_check_jump_placeholders.push(self.push_offset_placeholder());
         }
 
@@ -2908,8 +2909,8 @@ impl Compiler {
             let rhs = rhs.unwrap();
             let rhs_op = rhs_op.unwrap();
 
-            self.push_op(rhs_op, &[result_register, rhs]);
-            chain_nodes.push(result_register, false);
+            self.push_op(rhs_op, &[output_register, rhs]);
+            chain_nodes.push(output_register, false);
         }
 
         // Do we need to assign a value to the last node in the chain?
@@ -2917,7 +2918,7 @@ impl Compiler {
             let value_register = if simple_assignment {
                 rhs.unwrap()
             } else {
-                result_register
+                output_register
             };
 
             match &end_node {
@@ -2961,6 +2962,11 @@ impl Compiler {
                 ResultRegister::None
             };
 
+            if output_register_is_temporary && function_register != output_register {
+                // The output register is unused and no longer needed, so can be deallocated
+                self.pop_register()?;
+            }
+
             self.compile_call(
                 function_register,
                 &piped_call_args,
@@ -2982,7 +2988,9 @@ impl Compiler {
             for placeholder in null_check_jump_placeholders {
                 self.update_offset_placeholder(placeholder)?;
             }
-            self.push_op(Op::SetNull, &[result_register]);
+            if let Some(result_register) = result.register {
+                self.push_op(Op::SetNull, &[result_register]);
+            }
 
             // Update the success jump offset, skipping the SetNull op
             self.update_offset_placeholder(success_jump_placeholder)?;
