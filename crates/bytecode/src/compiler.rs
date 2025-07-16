@@ -82,7 +82,7 @@ enum ErrorKind {
     #[error("unexpected ellipsis")]
     UnexpectedEllipsis,
     #[error("attempting to access an ignored value")]
-    UnexpectedWildcard,
+    UnexpectedIgnoredValue,
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
 
@@ -539,7 +539,7 @@ impl Compiler {
             }
             Node::PackedId(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::PackedExpression(_) => return self.error(ErrorKind::UnexpectedEllipsis),
-            Node::Wildcard(..) => return self.error(ErrorKind::UnexpectedWildcard),
+            Node::Ignored(..) => return self.error(ErrorKind::UnexpectedIgnoredValue),
             Node::For(ast_for) => self.compile_for(ast_for, ctx)?,
             Node::While { condition, body } => {
                 self.compile_loop(Some((*condition, false)), *body, ctx)?
@@ -689,7 +689,7 @@ impl Compiler {
             };
 
             match &arg_node.node {
-                Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
+                Node::Id(_, maybe_type) | Node::Ignored(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
                     }
@@ -856,13 +856,15 @@ impl Compiler {
 
     fn collect_args(&self, args: &[AstIndex], ctx: CompileNodeContext) -> Result<Vec<Arg>> {
         // Collect args for local assignment in the new frame
-        // Top-level args need to match the arguments as they appear in the arg list, with
-        // Placeholders for wildcards and containers that are being unpacked.
+        // Top-level args need to match the arguments as they appear in the arg list,
+        // with `Placeholder`s for ignored values and containers that are being unpacked.
         // Unpacked IDs have registers assigned for them after the top-level IDs.
-        // e.g. Given:
-        // f = |a, (b, (c, d)), _, e|
+        //
+        // E.g.:
+        // Given:
+        //   f = |a, (b, (c, d)), _, e|
         // Args should then appear as:
-        // [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
+        //   [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
         //
         // Note that the value stack at runtime will have the function's captures loaded in after
         // the top-level locals and placeholders, and before any unpacked args (e.g. in the example
@@ -880,7 +882,7 @@ impl Compiler {
 
             match node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
-                Node::Wildcard(..) => result.push(Arg::Placeholder),
+                Node::Ignored(..) => result.push(Arg::Placeholder),
                 Node::Tuple {
                     elements: nested, ..
                 } => {
@@ -906,7 +908,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
-                Node::Wildcard(..) => {}
+                Node::Ignored(..) => {}
                 Node::Tuple {
                     elements: nested_args,
                     ..
@@ -947,7 +949,7 @@ impl Compiler {
             };
 
             match ctx.node(*arg) {
-                Node::Wildcard(_, Some(type_hint)) => {
+                Node::Ignored(_, Some(type_hint)) => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
                     self.compile_assert_type(temp_register, *type_hint, Some(*arg), ctx)?;
@@ -1042,7 +1044,7 @@ impl Compiler {
     ) -> Result<Option<u8>> {
         let result = match ctx.node(target) {
             Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(..) => None,
+            Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
@@ -1103,7 +1105,7 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register)?;
             }
-            Node::Wildcard(_id, type_hint) => {
+            Node::Ignored(_id, type_hint) => {
                 if let Some(type_hint) = type_hint {
                     self.compile_assert_type(value_register, *type_hint, Some(target), ctx)?;
                 }
@@ -1225,7 +1227,7 @@ impl Compiler {
 
                     self.pop_register()?; // value_register
                 }
-                Node::Wildcard(_id, type_hint) => {
+                Node::Ignored(_id, type_hint) => {
                     if result.register.is_some() || type_hint.is_some() {
                         let value_register = self.push_register()?;
 
@@ -1842,7 +1844,7 @@ impl Compiler {
                     let assigned_catch_register = self.assign_local_register(*id)?;
                     self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
                 }
-                Node::Wildcard(_id, maybe_type) => {
+                Node::Ignored(_id, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         if !is_last_catch {
                             type_check_jump_placeholder =
@@ -1856,7 +1858,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or wildcard as catch arg".into(),
+                        expected: "ID as catch arg".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -3602,7 +3604,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard(..) => Some(smallvec![*arm_pattern]),
+                Node::Ignored(..) => Some(smallvec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
@@ -3779,7 +3781,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard(_, maybe_type) => {
+                Node::Ignored(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         let temp_register = self.push_register()?;
                         if match_is_container {
@@ -3803,7 +3805,7 @@ impl Compiler {
                         }
                     }
 
-                    // The wildcard has been validated, is a jump needed?
+                    // The ignored id has been validated, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
                         // e.g. x, 0, _ or x, 1, y if foo x then
                         //            ^~~~~~~ We're here, jump to the if condition
@@ -4033,7 +4035,7 @@ impl Compiler {
                             )?;
                         }
                     }
-                    Node::Wildcard(_, maybe_type) => {
+                    Node::Ignored(_, maybe_type) => {
                         if let Some(type_hint) = maybe_type {
                             // e.g. for _: Number in 0..10
                             let temp_register = self.push_register()?;
@@ -4057,7 +4059,7 @@ impl Compiler {
                     }
                     unexpected => {
                         return self.error(ErrorKind::UnexpectedNode {
-                            expected: "ID or wildcard in for loop args".into(),
+                            expected: "ID in for loop args".into(),
                             unexpected: unexpected.clone(),
                         });
                     }
@@ -4090,7 +4092,7 @@ impl Compiler {
                                 )?;
                             }
                         }
-                        Node::Wildcard(_, maybe_type) => {
+                        Node::Ignored(_, maybe_type) => {
                             if let Some(type_hint) = maybe_type {
                                 let arg_register = self.push_register()?;
                                 self.push_op_without_span(
@@ -4110,7 +4112,7 @@ impl Compiler {
                         }
                         unexpected => {
                             return self.error(ErrorKind::UnexpectedNode {
-                                expected: "ID or wildcard in for loop args".into(),
+                                expected: "ID in for loop args".into(),
                                 unexpected: unexpected.clone(),
                             });
                         }

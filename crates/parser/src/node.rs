@@ -260,14 +260,14 @@ pub enum Node {
         expression: AstIndex,
     },
 
-    /// A `_` identifier
+    /// A `_`-prefixed identifier
     ///
-    /// Used as a placeholder for unused function arguments or unpacked values, or as a wildcard
-    /// in match expressions.
+    /// Used as a placeholder for unused function arguments or unpacked values,
+    /// or as an ignored match-all in match expressions.
     ///
     /// Comes with an optional name (e.g. `_foo` will have `foo` stored as a constant),
     /// and an optional type hint.
-    Wildcard(Option<ConstantIndex>, Option<AstIndex>),
+    Ignored(Option<ConstantIndex>, Option<AstIndex>),
 
     /// Used when capturing variadic arguments, and when unpacking list or tuple arguments.
     ///
@@ -416,7 +416,7 @@ pub enum StringNode {
 /// A for loop definition
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstFor {
-    /// The ids that capture each iteration's output values, or wildcards that ignore them
+    /// The ids that capture each iteration's output values
     pub args: AstVec<AstIndex>,
     /// The expression that produces an iterable value
     pub iterable: AstIndex,
@@ -539,7 +539,7 @@ pub struct AstTry {
 /// A catch block definition
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AstCatch {
-    /// The identifier that will receive a caught error, or a wildcard
+    /// The identifier that will receive a caught error
     pub arg: AstIndex,
     /// The catch block
     pub block: AstIndex,

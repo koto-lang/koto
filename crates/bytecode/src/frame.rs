@@ -56,7 +56,7 @@ enum LocalRegister {
     // Instructions can be deferred until the register is committed,
     // e.g. for functions that need to capture themselves after they've been fully assigned.
     Reserved(ConstantIndex, Vec<DeferredOp>),
-    // The register contains a value not associated with an id, e.g. a wildcard function arg
+    // The register contains a value not associated with an id, e.g. an ignored function arg
     Allocated,
 }
 

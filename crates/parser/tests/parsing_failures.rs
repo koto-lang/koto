@@ -167,7 +167,7 @@ for x in y if f x
             }
 
             #[test]
-            fn varargs_on_wildcard() {
+            fn varargs_on_ignored_arg() {
                 check_parsing_fails("f = |x, _...| x");
             }
 
@@ -283,7 +283,7 @@ x = ||
             use super::*;
 
             #[test]
-            fn wildcard_as_map_id() {
+            fn ignored_as_map_id() {
                 check_parsing_fails("{_}");
             }
 
