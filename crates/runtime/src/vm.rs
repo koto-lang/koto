@@ -39,7 +39,7 @@ struct VmContext {
     // The module loader used to compile imported modules
     loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
-    imported_modules: KCell<ModuleCache>,
+    module_cache: KCell<ModuleCache>,
 }
 
 impl Default for VmContext {
@@ -57,7 +57,7 @@ impl VmContext {
             prelude: core_lib.prelude(),
             core_lib,
             loader: ModuleLoader::default().into(),
-            imported_modules: ModuleCache::default().into(),
+            module_cache: ModuleCache::default().into(),
         }
     }
 }
@@ -2269,7 +2269,7 @@ impl KotoVm {
         // Has the module been loaded previously?
         let maybe_in_cache = self
             .context
-            .imported_modules
+            .module_cache
             .borrow()
             .get(&compile_result.path)
             .cloned();
@@ -2294,7 +2294,7 @@ impl KotoVm {
 
         // Insert a placeholder for the new module, preventing recursive imports
         self.context
-            .imported_modules
+            .module_cache
             .borrow_mut()
             .insert(compile_result.path.clone(), None);
 
@@ -2333,7 +2333,7 @@ impl KotoVm {
             // Cache the module's resulting exports and assign them to the import register
             let module_exports = self.exports.clone();
             self.context
-                .imported_modules
+                .module_cache
                 .borrow_mut()
                 .insert(compile_result.path, Some(module_exports.clone()));
             self.set_register(import_register, KValue::Map(module_exports));
@@ -2341,7 +2341,7 @@ impl KotoVm {
             // If there was an error while importing the module then make sure that the
             // placeholder is removed from the imported modules cache.
             self.context
-                .imported_modules
+                .module_cache
                 .borrow_mut()
                 .remove(&compile_result.path);
         }
