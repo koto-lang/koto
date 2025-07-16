@@ -23,6 +23,11 @@ The Koto project adheres to
     f = |a, b = 42|
       a + b
     ```
+- Wildcard imports have been added to make it easier to work with modules with lots of exported values.
+  - ```koto
+    from number import *
+    assert_eq pi * 2, tau
+    ```
 - When calling a function, arguments can be now be unpacked at the call site.
   [#418](https://github.com/koto-lang/koto/issues/418)
   - ```koto

@@ -4200,6 +4200,53 @@ from number import 'pi' as 𝜋
 number.pi == 𝜋";
             check_script_output(script, true);
         }
+
+        #[test]
+        fn wildcard_import_at_top_level() {
+            let script = "
+from number import *
+abs -42
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn wildcard_import_inside_function() {
+            let script = "
+from string import *
+
+f = |x|
+  from number import *
+  g = |x| abs x
+  repeat '{g x}', 2
+
+f -50
+";
+            check_script_output(script, "5050");
+        }
+
+        #[test]
+        fn wildcard_import_precedence() {
+            let script = "
+foo = { a: 1, b: 2, c: 3}
+bar = { a: -1, b: -2 }
+
+from foo import *
+from bar import *
+
+b * c
+";
+            check_script_output(script, -6);
+        }
+
+        #[test]
+        fn wildcard_import_with_assignment() {
+            let script = "
+foo = from number import *
+foo.abs -42
+";
+            check_script_output(script, 42);
+        }
     }
 
     mod export {

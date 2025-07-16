@@ -2977,6 +2977,10 @@ impl<'source> Parser<'source> {
             }
         }
 
+        if from.is_empty() && items.is_empty() {
+            return self.error(SyntaxError::MissingModuleForWildcardImport);
+        }
+
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
@@ -3006,10 +3010,20 @@ impl<'source> Parser<'source> {
 
     // Helper for parse_import(), parses a series of import items
     // e.g.
-    //   from baz.qux import foo, 'bar', 'x'
-    //   #    ^ You are here, with nested items allowed
-    //   #                   ^ Or here, with nested items disallowed
+    //   import baz, baz2
+    //   #     ^ You are here
+    //   from baz.qux import *
+    //   #                  ^ ...or here
     fn consume_import_items(&mut self, context: &ExpressionContext) -> Result<Vec<ImportItem>> {
+        // `*` wildcard import?
+        if let Some(Token::Multiply) = self
+            .peek_token_with_context(context)
+            .map(|token| token.token)
+        {
+            self.consume_token_with_context(context);
+            return Ok(Vec::default());
+        }
+
         let mut items = Vec::new();
         let mut context = *context;
 

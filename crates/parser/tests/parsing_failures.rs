@@ -546,6 +546,16 @@ switch
             fn missing_id_after_as() {
                 check_parsing_fails("from foo import bar as");
             }
+
+            #[test]
+            fn wildcard_without_from() {
+                check_parsing_fails("import *");
+            }
+
+            #[test]
+            fn wildcard_after_id() {
+                check_parsing_fails("from foo import bar, *");
+            }
         }
 
         mod reserved_keywords {

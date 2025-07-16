@@ -129,6 +129,11 @@ mod repl_mode {
     }
 
     #[test]
+    fn wildcard_import() {
+        run_repl_mode_test(&[("from number import *", ""), ("print abs -1", "1")]);
+    }
+
+    #[test]
     fn for_loop() {
         run_repl_mode_test(&[
             ("min = 1", ""),

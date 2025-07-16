@@ -43,6 +43,11 @@ impl KList {
         self.0.borrow_mut()
     }
 
+    /// Returns true if the lists refer to the same underlying data
+    pub fn is_same_instance(&self, other: &Self) -> bool {
+        PtrMut::ptr_eq(&self.0, &other.0)
+    }
+
     /// Renders the list to the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append('[');

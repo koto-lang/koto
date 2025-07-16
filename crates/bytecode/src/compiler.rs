@@ -254,6 +254,7 @@ pub struct CompilerSettings {
     /// This is used by the REPL, allowing for incremental compilation and execution of expressions
     /// that need to share declared values.
     pub export_top_level_ids: bool,
+
     /// When enabled, the compiler will emit type check instructions when type hints are encountered
     /// that will be performed at runtime.
     ///
@@ -1460,6 +1461,8 @@ impl Compiler {
         let result = self.assign_result_register(ctx)?;
         let stack_count = self.stack_count();
 
+        let wildcard_import = items.is_empty();
+
         let mut imported = vec![];
 
         if from.is_empty() {
@@ -1480,7 +1483,12 @@ impl Compiler {
                                 self.push_register()?
                             };
 
-                            self.compile_import_item(import_register, item.item, ctx)?;
+                            self.compile_import_item(
+                                import_register,
+                                item.item,
+                                wildcard_import,
+                                ctx,
+                            )?;
 
                             if result.register.is_some() {
                                 imported.push(import_register);
@@ -1494,7 +1502,12 @@ impl Compiler {
                             let local_id = maybe_as.unwrap_or(*import_id);
 
                             let import_register = self.reserve_local_register(local_id)?;
-                            self.compile_import_item(import_register, item.item, ctx)?;
+                            self.compile_import_item(
+                                import_register,
+                                item.item,
+                                wildcard_import,
+                                ctx,
+                            )?;
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
@@ -1514,7 +1527,7 @@ impl Compiler {
                         } else {
                             self.push_register()?
                         };
-                        self.compile_import_item(import_register, item.item, ctx)?;
+                        self.compile_import_item(import_register, item.item, wildcard_import, ctx)?;
 
                         if result.register.is_some() {
                             imported.push(import_register);
@@ -1530,67 +1543,74 @@ impl Compiler {
             }
         } else {
             let from_register = self.push_register()?;
+            self.compile_from(from_register, from, wildcard_import, ctx)?;
 
-            self.compile_from(from_register, from, ctx)?;
+            if wildcard_import {
+                if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                    self.compile_export_iterable(from_register)?;
+                }
+                imported.push(from_register);
+            } else {
+                for item in items.iter() {
+                    let maybe_as = item.name.and_then(|name| match ctx.node(name) {
+                        Node::Id(id, ..) => Some(*id),
+                        _ => None,
+                    });
 
-            for item in items.iter() {
-                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id, ..) => Some(*id),
-                    _ => None,
-                });
+                    match ctx.node(item.item) {
+                        Node::Id(import_id, ..) => {
+                            let import_register = if let Some(name) = maybe_as {
+                                // 'import as' has been used, so assign a register for the given name
+                                self.assign_local_register(name)?
+                            } else if result.register.is_some() {
+                                // The result of the import is being assigned,
+                                // so import the item into a temporary register.
+                                self.push_register()?
+                            } else {
+                                // Assign the leaf item to a local with a matching name.
+                                self.assign_local_register(*import_id)?
+                            };
 
-                match ctx.node(item.item) {
-                    Node::Id(import_id, ..) => {
-                        let import_register = if let Some(name) = maybe_as {
-                            // 'import as' has been used, so assign a register for the given name
-                            self.assign_local_register(name)?
-                        } else if result.register.is_some() {
-                            // The result of the import is being assigned,
-                            // so import the item into a temporary register.
-                            self.push_register()?
-                        } else {
-                            // Assign the leaf item to a local with a matching name.
-                            self.assign_local_register(*import_id)?
-                        };
+                            // Access the item from from_register
+                            self.compile_access_id(import_register, from_register, *import_id);
 
-                        // Access the item from from_register
-                        self.compile_access_id(import_register, from_register, *import_id);
+                            if result.register.is_some() {
+                                imported.push(import_register);
+                            }
 
-                        if result.register.is_some() {
-                            imported.push(import_register);
+                            // Should we export the imported ID?
+                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                                self.compile_value_export(*import_id, import_register)?;
+                            }
                         }
+                        Node::Str(string) => {
+                            let import_register = if let Some(name) = maybe_as {
+                                self.assign_local_register(name)?
+                            } else {
+                                self.push_register()?
+                            };
 
-                        // Should we export the imported ID?
-                        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                            self.compile_value_export(*import_id, import_register)?;
+                            // Access the item from `from_register`, incrementally accessing any
+                            // nested items
+                            self.compile_access_string(
+                                import_register,
+                                from_register,
+                                &string.contents,
+                                ctx,
+                            )?;
+
+                            if result.register.is_some() {
+                                imported.push(import_register);
+                            }
                         }
-                    }
-                    Node::Str(string) => {
-                        let import_register = if let Some(name) = maybe_as {
-                            self.assign_local_register(name)?
-                        } else {
-                            self.push_register()?
-                        };
-
-                        // Access the item from from_register, incrementally accessing nested items
-                        self.compile_access_string(
-                            import_register,
-                            from_register,
-                            &string.contents,
-                            ctx,
-                        )?;
-
-                        if result.register.is_some() {
-                            imported.push(import_register);
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "import ID".into(),
+                                unexpected: unexpected.clone(),
+                            });
                         }
-                    }
-                    unexpected => {
-                        return self.error(ErrorKind::UnexpectedNode {
-                            expected: "import ID".into(),
-                            unexpected: unexpected.clone(),
-                        });
-                    }
-                };
+                    };
+                }
             }
         }
 
@@ -1636,43 +1656,49 @@ impl Compiler {
                 // Evaluate the expression and convert the result into an iterator
                 let result = self.compile_node(expression, ctx.with_fixed_register_or_any())?;
                 let expression_register = result.unwrap(self)?;
-                let stack_count = self.stack_count();
-                let iterator_register = self.push_register()?;
-                self.push_op(Op::MakeIterator, &[iterator_register, expression_register]);
-
-                // Consume the expression iterator, exporting each output entry
-                let iter_start_ip = self.bytes.len();
-                let output_register = self.push_register()?;
-                self.push_op(Op::IterNextTemp, &[output_register, iterator_register]);
-                let iter_finished_offset = self.push_offset_placeholder();
-
-                self.push_op(Op::ExportEntry, &[output_register]);
-
-                // Jump back to get more iterator output
-                self.push_jump_back_op(Op::JumpBack, &[], iter_start_ip);
-
-                // Finished, update the IterNextTemp offset and clean up the temporary registers
-                self.update_offset_placeholder(iter_finished_offset)?;
-                self.truncate_register_stack(stack_count)?;
-
+                self.compile_export_iterable(expression_register)?;
                 Ok(result)
             }
         }
+    }
+
+    fn compile_export_iterable(&mut self, iterable_register: u8) -> Result<()> {
+        let stack_count = self.stack_count();
+        let iterator_register = self.push_register()?;
+        self.push_op(Op::MakeIterator, &[iterator_register, iterable_register]);
+
+        // Consume the expression iterator, exporting each output entry
+        let iter_start_ip = self.bytes.len();
+        let output_register = self.push_register()?;
+        self.push_op(Op::IterNextTemp, &[output_register, iterator_register]);
+        let iter_finished_offset = self.push_offset_placeholder();
+
+        self.push_op(Op::ExportEntry, &[output_register]);
+
+        // Jump back to get more iterator output
+        self.push_jump_back_op(Op::JumpBack, &[], iter_start_ip);
+
+        // Finished, update the IterNextTemp offset and clean up the temporary registers
+        self.update_offset_placeholder(iter_finished_offset)?;
+        self.truncate_register_stack(stack_count)?;
+
+        Ok(())
     }
 
     fn compile_from(
         &mut self,
         result_register: u8,
         path: &[AstIndex],
+        wildcard_import: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, *root, ctx)?;
+                self.compile_import_item(result_register, *root, wildcard_import, ctx)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, *root, ctx)?;
+                self.compile_import_item(result_register, *root, false, ctx)?;
 
                 for nested_item in nested.iter() {
                     match ctx.node(*nested_item) {
@@ -1693,6 +1719,10 @@ impl Compiler {
                         }
                     }
                 }
+
+                if wildcard_import {
+                    self.push_op(Op::ImportAll, &[result_register]);
+                }
             }
         }
 
@@ -1703,29 +1733,35 @@ impl Compiler {
         &mut self,
         result_register: u8,
         item: AstIndex,
+        wildcard_import: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
-        use Op::*;
+        use Op::{Copy, Import, ImportAll};
+
+        let import_op = if wildcard_import { ImportAll } else { Import };
 
         match ctx.node(item) {
             Node::Id(id, ..) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
-                    // It might be better for this to be reported as an error?
                     if local_register != result_register {
-                        self.push_op(Copy, &[result_register, local_register]);
+                        if wildcard_import {
+                            self.push_op(ImportAll, &[local_register]);
+                        } else {
+                            self.push_op(Copy, &[result_register, local_register]);
+                        }
                     }
                     Ok(())
                 } else {
                     // If the id isn't a local then it needs to be imported
                     self.compile_load_string_constant(result_register, *id);
-                    self.push_op(Import, &[result_register]);
+                    self.push_op(import_op, &[result_register]);
                     Ok(())
                 }
             }
             Node::Str(string) => {
                 self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
-                self.push_op(Import, &[result_register]);
+                self.push_op(import_op, &[result_register]);
                 Ok(())
             }
             unexpected => self.error(ErrorKind::UnexpectedNode {

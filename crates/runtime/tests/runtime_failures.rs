@@ -867,5 +867,40 @@ x = r###########################################################################
                 )
             }
         }
+
+        mod import {
+            use super::*;
+
+            #[test]
+            fn import_unknown_module() {
+                let script = "
+import abcxyz
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_import_after_function() {
+                let script = "
+f = |x| abs x
+from number import *
+f -1
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_import_after_nested_function() {
+                let script = "
+f = |x|
+  g = |x| abs x
+  from number import *
+  g x
+
+f -1
+";
+                check_script_fails(script);
+            }
+        }
     }
 }

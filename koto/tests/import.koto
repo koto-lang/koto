@@ -68,8 +68,12 @@ export
     assert_eq test_module.generated_export_2, 2
     assert_eq test_module.generated_export_3, 3
 
-  @test import_item_that_refers_to_exported_item: ||
+  @test import_function_that_refers_to_exported_item: ||
     assert_eq test_module.baz.get_qux(), "O_o"
+
+  @test import_function_that_refers_to_wildcard_import: ||
+    from test_module.baz import *
+    assert_eq get_abs_local_value(), 999
 
   @test tests_should_be_run_when_importing_a_module: ||
     # Tests will be run when importing a module when the 'run import tests' setting is set

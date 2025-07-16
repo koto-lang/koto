@@ -61,8 +61,7 @@ pub enum ErrorKind {
         rhs: KValue,
         op: BinaryOp,
     },
-    #[error(transparent)]
-    CompileError(#[from] ModuleLoaderError),
+
     #[error("empty call stack")]
     EmptyCallStack,
     #[error("missing sequence builder")]
@@ -75,6 +74,9 @@ pub enum ErrorKind {
         "an unexpected error occurred, please report this as a bug at\nhttps://github.com/koto-lang/koto/issues"
     )]
     UnexpectedError,
+
+    #[error(transparent)]
+    CompileError(#[from] ModuleLoaderError),
 }
 
 fn display_thrown_value(value: &KValue, vm: Option<&KotoVm>) -> String {

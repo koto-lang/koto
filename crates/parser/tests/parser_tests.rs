@@ -3908,6 +3908,26 @@ loop
         }
 
         #[test]
+        fn wildcard_import() {
+            let source = "from foo import *";
+            check_ast(
+                source,
+                &[
+                    id(0), // foo
+                    Import {
+                        from: nodes(&[0]),
+                        items: import_items(&[]),
+                    },
+                    MainBlock {
+                        body: nodes(&[1]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
         fn import_item_used_in_assignment() {
             let source = "x = from foo import bar";
             check_ast(

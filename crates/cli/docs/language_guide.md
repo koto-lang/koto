@@ -967,7 +967,7 @@ check! 13
 `match` expressions can be used to match a value against a series of patterns,
 with the matched pattern causing a specific branch of code to be executed.
 
-Patterns can be literals or identifiers. An identifier will accept any value,
+Patterns can be literals or identifiers. An identifier will match any value,
 so they're often used with `if` conditions to refine the match.
 
 ```koto
@@ -980,8 +980,7 @@ print! match 40 + 2
 check! less than 50: 42
 ```
 
-The `_` wildcard match can be used to match against any value
-(when the matched value itself can be ignored),
+Ignored values (any identifier starting with `_`) match against any value,
 and `else` can be used for fallback branches.
 
 ```koto
@@ -2597,6 +2596,17 @@ print! list_first [1, 2]
 check! 1
 print! tuple_first (3, 2, 1)
 check! 3
+```
+
+You can also use `*` to import all of a module's exported values at once (known as a _wildcard import_) .
+
+```koto
+from number import *
+
+print! abs -1
+check! 1
+print! sqrt 25
+check! 5.0
 ```
 
 ### `export`

@@ -55,6 +55,9 @@ pub enum Instruction {
     Import {
         register: u8,
     },
+    ImportAll {
+        register: u8,
+    },
     MakeTempTuple {
         register: u8,
         start: u8,
@@ -596,6 +599,7 @@ impl fmt::Debug for Instruction {
             }
             ExportEntry { entry } => write!(f, "ExportEntry     entry: {entry}"),
             Import { register } => write!(f, "Import          register: {register}"),
+            ImportAll { register } => write!(f, "ImportAll       register: {register}"),
             MakeTempTuple {
                 register,
                 start,

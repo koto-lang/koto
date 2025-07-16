@@ -168,6 +168,8 @@ pub enum Node {
         /// The series of items to import
         // The import items are stored in a `Vec` here rather than an `AstVec` to avoid bloating the
         // overall size of `Node`.
+        ///
+        /// An empty list here implies that a `*` wildcard import was used.
         items: Vec<ImportItem>,
     },
 
