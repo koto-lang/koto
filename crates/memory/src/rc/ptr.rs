@@ -10,7 +10,7 @@ use crate::Address;
 
 /// Makes a Ptr, with support for casting to trait objects
 ///
-/// Although Ptr::new can be used, the challenge comes when a trait object needs to be used as
+/// Although `Ptr::from` can be used, the challenge comes when a trait object needs to be used as
 /// the pointee type. Until the `CoerceUnized` trait is stabilized, casting from a concrete type to
 /// `dyn Trait` needs to be performed on the inner pointer. This macro encapsulates the casting to
 /// make life easier at the call site.
