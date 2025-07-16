@@ -82,7 +82,7 @@ enum ErrorKind {
     #[error("unexpected ellipsis")]
     UnexpectedEllipsis,
     #[error("attempting to access an ignored value")]
-    UnexpectedWildcard,
+    UnexpectedIgnoredValue,
     #[error("expected {expected} patterns in match arm, found {unexpected}")]
     UnexpectedMatchPatternCount { expected: usize, unexpected: usize },
 
@@ -254,6 +254,7 @@ pub struct CompilerSettings {
     /// This is used by the REPL, allowing for incremental compilation and execution of expressions
     /// that need to share declared values.
     pub export_top_level_ids: bool,
+
     /// When enabled, the compiler will emit type check instructions when type hints are encountered
     /// that will be performed at runtime.
     ///
@@ -538,7 +539,7 @@ impl Compiler {
             }
             Node::PackedId(_) => return self.error(ErrorKind::UnexpectedEllipsis),
             Node::PackedExpression(_) => return self.error(ErrorKind::UnexpectedEllipsis),
-            Node::Wildcard(..) => return self.error(ErrorKind::UnexpectedWildcard),
+            Node::Ignored(..) => return self.error(ErrorKind::UnexpectedIgnoredValue),
             Node::For(ast_for) => self.compile_for(ast_for, ctx)?,
             Node::While { condition, body } => {
                 self.compile_loop(Some((*condition, false)), *body, ctx)?
@@ -688,7 +689,7 @@ impl Compiler {
             };
 
             match &arg_node.node {
-                Node::Id(_, maybe_type) | Node::Wildcard(_, maybe_type) => {
+                Node::Id(_, maybe_type) | Node::Ignored(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
                     }
@@ -855,13 +856,15 @@ impl Compiler {
 
     fn collect_args(&self, args: &[AstIndex], ctx: CompileNodeContext) -> Result<Vec<Arg>> {
         // Collect args for local assignment in the new frame
-        // Top-level args need to match the arguments as they appear in the arg list, with
-        // Placeholders for wildcards and containers that are being unpacked.
+        // Top-level args need to match the arguments as they appear in the arg list,
+        // with `Placeholder`s for ignored values and containers that are being unpacked.
         // Unpacked IDs have registers assigned for them after the top-level IDs.
-        // e.g. Given:
-        // f = |a, (b, (c, d)), _, e|
+        //
+        // E.g.:
+        // Given:
+        //   f = |a, (b, (c, d)), _, e|
         // Args should then appear as:
-        // [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
+        //   [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
         //
         // Note that the value stack at runtime will have the function's captures loaded in after
         // the top-level locals and placeholders, and before any unpacked args (e.g. in the example
@@ -879,7 +882,7 @@ impl Compiler {
 
             match node {
                 Node::Id(id_index, ..) => result.push(Arg::Local(*id_index)),
-                Node::Wildcard(..) => result.push(Arg::Placeholder),
+                Node::Ignored(..) => result.push(Arg::Placeholder),
                 Node::Tuple {
                     elements: nested, ..
                 } => {
@@ -905,7 +908,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
-                Node::Wildcard(..) => {}
+                Node::Ignored(..) => {}
                 Node::Tuple {
                     elements: nested_args,
                     ..
@@ -946,7 +949,7 @@ impl Compiler {
             };
 
             match ctx.node(*arg) {
-                Node::Wildcard(_, Some(type_hint)) => {
+                Node::Ignored(_, Some(type_hint)) => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
                     self.compile_assert_type(temp_register, *type_hint, Some(*arg), ctx)?;
@@ -1041,7 +1044,7 @@ impl Compiler {
     ) -> Result<Option<u8>> {
         let result = match ctx.node(target) {
             Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(..) => None,
+            Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => None,
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
                     expected: "ID".into(),
@@ -1102,7 +1105,7 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register)?;
             }
-            Node::Wildcard(_id, type_hint) => {
+            Node::Ignored(_id, type_hint) => {
                 if let Some(type_hint) = type_hint {
                     self.compile_assert_type(value_register, *type_hint, Some(target), ctx)?;
                 }
@@ -1224,7 +1227,7 @@ impl Compiler {
 
                     self.pop_register()?; // value_register
                 }
-                Node::Wildcard(_id, type_hint) => {
+                Node::Ignored(_id, type_hint) => {
                     if result.register.is_some() || type_hint.is_some() {
                         let value_register = self.push_register()?;
 
@@ -1460,6 +1463,8 @@ impl Compiler {
         let result = self.assign_result_register(ctx)?;
         let stack_count = self.stack_count();
 
+        let wildcard_import = items.is_empty();
+
         let mut imported = vec![];
 
         if from.is_empty() {
@@ -1480,7 +1485,12 @@ impl Compiler {
                                 self.push_register()?
                             };
 
-                            self.compile_import_item(import_register, item.item, ctx)?;
+                            self.compile_import_item(
+                                import_register,
+                                item.item,
+                                wildcard_import,
+                                ctx,
+                            )?;
 
                             if result.register.is_some() {
                                 imported.push(import_register);
@@ -1494,7 +1504,12 @@ impl Compiler {
                             let local_id = maybe_as.unwrap_or(*import_id);
 
                             let import_register = self.reserve_local_register(local_id)?;
-                            self.compile_import_item(import_register, item.item, ctx)?;
+                            self.compile_import_item(
+                                import_register,
+                                item.item,
+                                wildcard_import,
+                                ctx,
+                            )?;
 
                             // Commit the register now that the import is complete
                             self.commit_local_register(import_register)?;
@@ -1514,7 +1529,7 @@ impl Compiler {
                         } else {
                             self.push_register()?
                         };
-                        self.compile_import_item(import_register, item.item, ctx)?;
+                        self.compile_import_item(import_register, item.item, wildcard_import, ctx)?;
 
                         if result.register.is_some() {
                             imported.push(import_register);
@@ -1530,67 +1545,74 @@ impl Compiler {
             }
         } else {
             let from_register = self.push_register()?;
+            self.compile_from(from_register, from, wildcard_import, ctx)?;
 
-            self.compile_from(from_register, from, ctx)?;
+            if wildcard_import {
+                if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                    self.compile_export_iterable(from_register)?;
+                }
+                imported.push(from_register);
+            } else {
+                for item in items.iter() {
+                    let maybe_as = item.name.and_then(|name| match ctx.node(name) {
+                        Node::Id(id, ..) => Some(*id),
+                        _ => None,
+                    });
 
-            for item in items.iter() {
-                let maybe_as = item.name.and_then(|name| match ctx.node(name) {
-                    Node::Id(id, ..) => Some(*id),
-                    _ => None,
-                });
+                    match ctx.node(item.item) {
+                        Node::Id(import_id, ..) => {
+                            let import_register = if let Some(name) = maybe_as {
+                                // 'import as' has been used, so assign a register for the given name
+                                self.assign_local_register(name)?
+                            } else if result.register.is_some() {
+                                // The result of the import is being assigned,
+                                // so import the item into a temporary register.
+                                self.push_register()?
+                            } else {
+                                // Assign the leaf item to a local with a matching name.
+                                self.assign_local_register(*import_id)?
+                            };
 
-                match ctx.node(item.item) {
-                    Node::Id(import_id, ..) => {
-                        let import_register = if let Some(name) = maybe_as {
-                            // 'import as' has been used, so assign a register for the given name
-                            self.assign_local_register(name)?
-                        } else if result.register.is_some() {
-                            // The result of the import is being assigned,
-                            // so import the item into a temporary register.
-                            self.push_register()?
-                        } else {
-                            // Assign the leaf item to a local with a matching name.
-                            self.assign_local_register(*import_id)?
-                        };
+                            // Access the item from from_register
+                            self.compile_access_id(import_register, from_register, *import_id);
 
-                        // Access the item from from_register
-                        self.compile_access_id(import_register, from_register, *import_id);
+                            if result.register.is_some() {
+                                imported.push(import_register);
+                            }
 
-                        if result.register.is_some() {
-                            imported.push(import_register);
+                            // Should we export the imported ID?
+                            if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
+                                self.compile_value_export(*import_id, import_register)?;
+                            }
                         }
+                        Node::Str(string) => {
+                            let import_register = if let Some(name) = maybe_as {
+                                self.assign_local_register(name)?
+                            } else {
+                                self.push_register()?
+                            };
 
-                        // Should we export the imported ID?
-                        if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                            self.compile_value_export(*import_id, import_register)?;
+                            // Access the item from `from_register`, incrementally accessing any
+                            // nested items
+                            self.compile_access_string(
+                                import_register,
+                                from_register,
+                                &string.contents,
+                                ctx,
+                            )?;
+
+                            if result.register.is_some() {
+                                imported.push(import_register);
+                            }
                         }
-                    }
-                    Node::Str(string) => {
-                        let import_register = if let Some(name) = maybe_as {
-                            self.assign_local_register(name)?
-                        } else {
-                            self.push_register()?
-                        };
-
-                        // Access the item from from_register, incrementally accessing nested items
-                        self.compile_access_string(
-                            import_register,
-                            from_register,
-                            &string.contents,
-                            ctx,
-                        )?;
-
-                        if result.register.is_some() {
-                            imported.push(import_register);
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "import ID".into(),
+                                unexpected: unexpected.clone(),
+                            });
                         }
-                    }
-                    unexpected => {
-                        return self.error(ErrorKind::UnexpectedNode {
-                            expected: "import ID".into(),
-                            unexpected: unexpected.clone(),
-                        });
-                    }
-                };
+                    };
+                }
             }
         }
 
@@ -1636,43 +1658,49 @@ impl Compiler {
                 // Evaluate the expression and convert the result into an iterator
                 let result = self.compile_node(expression, ctx.with_fixed_register_or_any())?;
                 let expression_register = result.unwrap(self)?;
-                let stack_count = self.stack_count();
-                let iterator_register = self.push_register()?;
-                self.push_op(Op::MakeIterator, &[iterator_register, expression_register]);
-
-                // Consume the expression iterator, exporting each output entry
-                let iter_start_ip = self.bytes.len();
-                let output_register = self.push_register()?;
-                self.push_op(Op::IterNextTemp, &[output_register, iterator_register]);
-                let iter_finished_offset = self.push_offset_placeholder();
-
-                self.push_op(Op::ExportEntry, &[output_register]);
-
-                // Jump back to get more iterator output
-                self.push_jump_back_op(Op::JumpBack, &[], iter_start_ip);
-
-                // Finished, update the IterNextTemp offset and clean up the temporary registers
-                self.update_offset_placeholder(iter_finished_offset)?;
-                self.truncate_register_stack(stack_count)?;
-
+                self.compile_export_iterable(expression_register)?;
                 Ok(result)
             }
         }
+    }
+
+    fn compile_export_iterable(&mut self, iterable_register: u8) -> Result<()> {
+        let stack_count = self.stack_count();
+        let iterator_register = self.push_register()?;
+        self.push_op(Op::MakeIterator, &[iterator_register, iterable_register]);
+
+        // Consume the expression iterator, exporting each output entry
+        let iter_start_ip = self.bytes.len();
+        let output_register = self.push_register()?;
+        self.push_op(Op::IterNextTemp, &[output_register, iterator_register]);
+        let iter_finished_offset = self.push_offset_placeholder();
+
+        self.push_op(Op::ExportEntry, &[output_register]);
+
+        // Jump back to get more iterator output
+        self.push_jump_back_op(Op::JumpBack, &[], iter_start_ip);
+
+        // Finished, update the IterNextTemp offset and clean up the temporary registers
+        self.update_offset_placeholder(iter_finished_offset)?;
+        self.truncate_register_stack(stack_count)?;
+
+        Ok(())
     }
 
     fn compile_from(
         &mut self,
         result_register: u8,
         path: &[AstIndex],
+        wildcard_import: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, *root, ctx)?;
+                self.compile_import_item(result_register, *root, wildcard_import, ctx)?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, *root, ctx)?;
+                self.compile_import_item(result_register, *root, false, ctx)?;
 
                 for nested_item in nested.iter() {
                     match ctx.node(*nested_item) {
@@ -1693,6 +1721,10 @@ impl Compiler {
                         }
                     }
                 }
+
+                if wildcard_import {
+                    self.push_op(Op::ImportAll, &[result_register]);
+                }
             }
         }
 
@@ -1703,29 +1735,35 @@ impl Compiler {
         &mut self,
         result_register: u8,
         item: AstIndex,
+        wildcard_import: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
-        use Op::*;
+        use Op::{Copy, Import, ImportAll};
+
+        let import_op = if wildcard_import { ImportAll } else { Import };
 
         match ctx.node(item) {
             Node::Id(id, ..) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     // The item to be imported is already locally assigned.
-                    // It might be better for this to be reported as an error?
                     if local_register != result_register {
-                        self.push_op(Copy, &[result_register, local_register]);
+                        if wildcard_import {
+                            self.push_op(ImportAll, &[local_register]);
+                        } else {
+                            self.push_op(Copy, &[result_register, local_register]);
+                        }
                     }
                     Ok(())
                 } else {
                     // If the id isn't a local then it needs to be imported
                     self.compile_load_string_constant(result_register, *id);
-                    self.push_op(Import, &[result_register]);
+                    self.push_op(import_op, &[result_register]);
                     Ok(())
                 }
             }
             Node::Str(string) => {
                 self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
-                self.push_op(Import, &[result_register]);
+                self.push_op(import_op, &[result_register]);
                 Ok(())
             }
             unexpected => self.error(ErrorKind::UnexpectedNode {
@@ -1806,7 +1844,7 @@ impl Compiler {
                     let assigned_catch_register = self.assign_local_register(*id)?;
                     self.push_op(Op::Copy, &[assigned_catch_register, catch_register]);
                 }
-                Node::Wildcard(_id, maybe_type) => {
+                Node::Ignored(_id, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         if !is_last_catch {
                             type_check_jump_placeholder =
@@ -1820,7 +1858,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or wildcard as catch arg".into(),
+                        expected: "ID as catch arg".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -2522,8 +2560,14 @@ impl Compiler {
             &[single_arg] => matches!(ctx.node(single_arg), Node::Tuple { .. }),
             _ => false,
         };
+        let non_local_access = function.accessed_non_locals.len() > captures.len();
 
-        let flags = FunctionFlags::new(*variadic, function.is_generator, arg_is_unpacked_tuple);
+        let flags = FunctionFlags::new(
+            *variadic,
+            function.is_generator,
+            arg_is_unpacked_tuple,
+            non_local_access,
+        );
 
         let function_size_ip = if let Some(result_register) = result.register {
             self.push_op(
@@ -3560,7 +3604,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard(..) => Some(smallvec![*arm_pattern]),
+                Node::Ignored(..) => Some(smallvec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return self.error(ErrorKind::UnexpectedMatchPatternCount {
@@ -3737,7 +3781,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard(_, maybe_type) => {
+                Node::Ignored(_, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         let temp_register = self.push_register()?;
                         if match_is_container {
@@ -3761,7 +3805,7 @@ impl Compiler {
                         }
                     }
 
-                    // The wildcard has been validated, is a jump needed?
+                    // The ignored id has been validated, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
                         // e.g. x, 0, _ or x, 1, y if foo x then
                         //            ^~~~~~~ We're here, jump to the if condition
@@ -3991,7 +4035,7 @@ impl Compiler {
                             )?;
                         }
                     }
-                    Node::Wildcard(_, maybe_type) => {
+                    Node::Ignored(_, maybe_type) => {
                         if let Some(type_hint) = maybe_type {
                             // e.g. for _: Number in 0..10
                             let temp_register = self.push_register()?;
@@ -4015,7 +4059,7 @@ impl Compiler {
                     }
                     unexpected => {
                         return self.error(ErrorKind::UnexpectedNode {
-                            expected: "ID or wildcard in for loop args".into(),
+                            expected: "ID in for loop args".into(),
                             unexpected: unexpected.clone(),
                         });
                     }
@@ -4048,7 +4092,7 @@ impl Compiler {
                                 )?;
                             }
                         }
-                        Node::Wildcard(_, maybe_type) => {
+                        Node::Ignored(_, maybe_type) => {
                             if let Some(type_hint) = maybe_type {
                                 let arg_register = self.push_register()?;
                                 self.push_op_without_span(
@@ -4068,7 +4112,7 @@ impl Compiler {
                         }
                         unexpected => {
                             return self.error(ErrorKind::UnexpectedNode {
-                                expected: "ID or wildcard in for loop args".into(),
+                                expected: "ID in for loop args".into(),
                                 unexpected: unexpected.clone(),
                             });
                         }

@@ -1339,14 +1339,14 @@ x";
         }
 
         #[test]
-        fn multi_1_to_3_with_wildcard() {
+        fn multi_1_to_3_with_ignored_ids() {
             let source = "x, _, _y = f()";
             check_ast(
                 source,
                 &[
                     id(0),
-                    Wildcard(None, None),
-                    Wildcard(Some(1.into()), None),
+                    Ignored(None, None),
+                    Ignored(Some(1.into()), None),
                     id(2),
                     Chain((
                         ChainNode::Call {
@@ -1537,14 +1537,14 @@ x ^= 5";
         }
 
         #[test]
-        fn number_with_typehint_and_wildcard() {
+        fn ignored_number_with_type_hint() {
             let source = "let _: Int = 1";
 
             check_ast(
                 source,
                 &[
                     type_hint(0),
-                    Wildcard(None, Some(0.into())),
+                    Ignored(None, Some(0.into())),
                     SmallInt(1),
                     let_assign(1, 2),
                     MainBlock {
@@ -1557,14 +1557,14 @@ x ^= 5";
         }
 
         #[test]
-        fn number_with_tagged_wildcard_and_type_hint() {
+        fn number_with_ignored_id_and_type_hint() {
             let source = "let _a: Int = 1";
 
             check_ast(
                 source,
                 &[
                     type_hint(1),
-                    Wildcard(Some(0.into()), Some(0.into())),
+                    Ignored(Some(0.into()), Some(0.into())),
                     SmallInt(1),
                     let_assign(1, 2),
                     MainBlock {
@@ -1577,7 +1577,7 @@ x ^= 5";
         }
 
         #[test]
-        fn multi_1_to_3_with_wildcards_and_type_hint() {
+        fn multi_1_to_3_with_ignored_ids_and_type_hint() {
             let source = "let x: Int, _: Int, _y: Int = f()";
             check_ast(
                 source,
@@ -1585,9 +1585,9 @@ x ^= 5";
                     type_hint(1),
                     id_with_type_hint(0, 0),
                     type_hint(1),
-                    Wildcard(None, Some(2.into())),
+                    Ignored(None, Some(2.into())),
                     type_hint(1),
-                    Wildcard(Some(2.into()), Some(4.into())),
+                    Ignored(Some(2.into()), Some(4.into())),
                     id(3),
                     Chain((
                         ChainNode::Call {
@@ -2157,14 +2157,14 @@ for x: String, _: Number, _y, z in foo
             check_ast(
                 source,
                 &[
-                    type_hint(1),                   // String
-                    id_with_type_hint(0, 0),        // x
-                    type_hint(2),                   // Number
-                    Wildcard(None, Some(2.into())), // _
-                    Wildcard(Some(3.into()), None), // _y
-                    id(4),                          // z - 5
-                    id(5),                          // foo
-                    id(0),                          // x
+                    type_hint(1),                  // String
+                    id_with_type_hint(0, 0),       // x
+                    type_hint(2),                  // Number
+                    Ignored(None, Some(2.into())), // _
+                    Ignored(Some(3.into()), None), // _y
+                    id(4),                         // z - 5
+                    id(5),                         // foo
+                    id(0),                         // x
                     Block(nodes(&[7])),
                     For(AstFor {
                         args: nodes(&[1, 3, 4, 5]),
@@ -2799,13 +2799,13 @@ foo.bar x
                 &sources,
                 &[
                     id(0), // a
-                    Wildcard(None, None),
-                    PackedId(Some(1.into())),       // others
-                    id(2),                          // c
-                    Wildcard(Some(3.into()), None), // d
-                    tuple_with_parens(&[2, 3, 4]),  // ast index 5
+                    Ignored(None, None),
+                    PackedId(Some(1.into())),      // others
+                    id(2),                         // c
+                    Ignored(Some(3.into()), None), // d
+                    tuple_with_parens(&[2, 3, 4]), // ast index 5
                     tuple_with_parens(&[1, 5]),
-                    Wildcard(Some(4.into()), None), // e
+                    Ignored(Some(4.into()), None), // e
                     FunctionArgs {
                         args: nodes(&[0, 6, 7]),
                         variadic: false,
@@ -3908,6 +3908,26 @@ loop
         }
 
         #[test]
+        fn wildcard_import() {
+            let source = "from foo import *";
+            check_ast(
+                source,
+                &[
+                    id(0), // foo
+                    Import {
+                        from: nodes(&[0]),
+                        items: import_items(&[]),
+                    },
+                    MainBlock {
+                        body: nodes(&[1]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
         fn import_item_used_in_assignment() {
             let source = "x = from foo import bar";
             check_ast(
@@ -4305,7 +4325,7 @@ match (x, y, z)
                     tuple_with_parens(&[0, 1, 2]),
                     SmallInt(0),
                     id(3), // 5 - a
-                    Wildcard(None, None),
+                    Ignored(None, None),
                     tuple_with_parens(&[4, 5, 6]),
                     id(3),
                     MatchArm {
@@ -4313,11 +4333,11 @@ match (x, y, z)
                         condition: None,
                         expression: 8.into(),
                     },
-                    Wildcard(None, None), // 10
+                    Ignored(None, None), // 10
                     SmallInt(0),
                     id(4), // a
                     tuple_with_parens(&[11, 12]),
-                    Wildcard(Some(5.into()), None),
+                    Ignored(Some(5.into()), None),
                     tuple_with_parens(&[10, 13, 14]), // 15
                     SmallInt(0),
                     MatchArm {

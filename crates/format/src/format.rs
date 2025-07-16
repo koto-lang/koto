@@ -684,7 +684,7 @@ fn format_node<'source>(
 
             group.node(*expression).add_trailing_trivia().build()
         }
-        Node::Wildcard(id, type_hint) => {
+        Node::Ignored(id, type_hint) => {
             let mut group = GroupBuilder::new(1, node, ctx, trivia).char('_');
             if let Some(id) = id {
                 group = group.string_constant(*id);

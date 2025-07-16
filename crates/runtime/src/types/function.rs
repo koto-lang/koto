@@ -1,4 +1,4 @@
-use crate::KList;
+use crate::{KList, vm::NonLocals};
 use koto_bytecode::{Chunk, FunctionFlags};
 use koto_memory::Ptr;
 
@@ -19,17 +19,8 @@ pub struct KFunction {
     pub optional_arg_count: u8,
     /// Flags that define various properties of the function
     pub flags: FunctionFlags,
-    /// The optional list of captures that should be copied into scope when the function is called.
-    ///
-    /// The captures list starts with any default argument values, followed by values captured from
-    /// parent scopes.
-    //
-    // Q. Why use a KList?
-    // A. Because capturing values currently works by assigning by index, after the function
-    //    itself has been created, and the captured function and the assigned function both need to
-    //    share the same captures list. Currently the only way for this to work is to allow mutation
-    //    of the shared list after the creation of the function, so a KList is a reasonable choice.
-    pub captures: Option<KList>,
+    /// Context for the function, including captures and access to non-locals
+    pub context: Option<Ptr<FunctionContext>>,
     // Pads the size of KFunction to exactly 24 bytes on 64 byte targets,
     // allowing KFunction to be used in niche optimization for KValue.
     _niche: Niche,
@@ -43,7 +34,7 @@ impl KFunction {
         arg_count: u8,
         optional_arg_count: u8,
         flags: FunctionFlags,
-        captures: Option<KList>,
+        context: Option<Ptr<FunctionContext>>,
     ) -> Self {
         Self {
             chunk,
@@ -51,7 +42,7 @@ impl KFunction {
             arg_count,
             optional_arg_count,
             flags,
-            captures,
+            context,
             _niche: Niche::default(),
         }
     }
@@ -68,6 +59,37 @@ impl KFunction {
             self.arg_count
         }
     }
+
+    /// Provide access to the function's captures
+    pub fn captures(&self) -> Option<&KList> {
+        self.context
+            .as_ref()
+            .and_then(|context| context.captures.as_ref())
+    }
+
+    /// Provide access to the function's non-locals
+    pub fn non_locals(&self) -> Option<NonLocals> {
+        self.context
+            .as_ref()
+            .and_then(|context| context.non_locals.clone())
+    }
+}
+
+pub struct FunctionContext {
+    /// The optional list of captures that should be copied into scope when the function is called.
+    ///
+    /// The captures list starts with any default argument values, followed by values captured from
+    /// parent scopes.
+    //
+    // Q. Why use a KList?
+    // A. Because capturing values currently works by assigning by index, after the function
+    //    itself has been created, and the captured function and the assigned function both need to
+    //    share the same captures list. Currently the only way for this to work is to allow mutation
+    //    of the shared list after the creation of the function, so a KList is a reasonable choice.
+    pub captures: Option<KList>,
+
+    /// The non-locals available to the function
+    pub non_locals: Option<NonLocals>,
 }
 
 // A dummy value usable in niche optimization

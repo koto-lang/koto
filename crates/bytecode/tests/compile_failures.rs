@@ -11,7 +11,7 @@ mod bytecode {
         use super::*;
 
         #[test]
-        fn wildcard_access() {
+        fn ignored_id_access() {
             let source = "
 f _x
 ";
@@ -19,7 +19,7 @@ f _x
         }
 
         #[test]
-        fn wildcard_as_rhs() {
+        fn ignored_id_as_rhs() {
             let source = "
 x = 1 + _
 ";
@@ -67,7 +67,7 @@ catch y
             }
 
             #[test]
-            fn missing_type_hint_on_first_catch_block_with_wildcard_arg() {
+            fn missing_type_hint_on_first_catch_block_with_ignored_arg() {
                 let source = "
 try
   f()
@@ -93,7 +93,7 @@ catch x: Bool
             }
 
             #[test]
-            fn type_hint_on_last_catch_block_with_wildcard_arg() {
+            fn type_hint_on_last_catch_block_with_ignored_arg() {
                 let source = "
 try
   f()

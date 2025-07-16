@@ -159,7 +159,7 @@ let foo: Iterable? = true
             }
 
             #[test]
-            fn wildcard_expected_bool() {
+            fn ignored_id_expected_bool() {
                 let script = "\
 let _foo: Bool = 'abc'
 #   ^^^^
@@ -174,7 +174,7 @@ let _foo: Bool = 'abc'
             }
 
             #[test]
-            fn wildcard_expected_string_in_multi_assignment() {
+            fn ignored_id_expected_string_in_multi_assignment() {
                 let script = "\
 let _x: String, y: Bool = 99, true
 #   ^^
@@ -221,7 +221,7 @@ f ('hello',)
             }
 
             #[test]
-            fn wildcard_arg_with_type() {
+            fn ignored_arg_with_type() {
                 let script = "\
 f = |_x: List| true
 #    ^^
@@ -237,7 +237,7 @@ f 'hello'
             }
 
             #[test]
-            fn nested_wildcard_arg_with_type() {
+            fn nested_ignored_arg_with_type() {
                 let script = "\
 f = |(_x: Bool)| true
 #     ^^
@@ -306,7 +306,7 @@ for foo: Number in (1, true, 2)
             }
 
             #[test]
-            fn for_loop_with_typed_wildcard_arg() {
+            fn for_loop_with_typed_ignored_arg() {
                 let script = "\
 for _foo: Number in (1, true, 2)
 #   ^^^^
@@ -344,7 +344,7 @@ for i: Number, x: Bool in 'abc'.enumerate()
             }
 
             #[test]
-            fn for_loop_with_typed_unpacked_wildcard_arg() {
+            fn for_loop_with_typed_unpacked_ignored_arg() {
                 let script = "\
 for i: Number, _x: Bool in 'abc'.enumerate()
 #              ^^
@@ -865,6 +865,41 @@ x = r###########################################################################
                         end: Position { line: 1, column: 7 },
                     },
                 )
+            }
+        }
+
+        mod import {
+            use super::*;
+
+            #[test]
+            fn import_unknown_module() {
+                let script = "
+import abcxyz
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_import_after_function() {
+                let script = "
+f = |x| abs x
+from number import *
+f -1
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn wildcard_import_after_nested_function() {
+                let script = "
+f = |x|
+  g = |x| abs x
+  from number import *
+  g x
+
+f -1
+";
+                check_script_fails(script);
             }
         }
     }

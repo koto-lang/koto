@@ -89,11 +89,19 @@ pub enum Op {
 
     /// Imports a value
     ///
-    /// The name of the value to be imported will be placed in the register before running this op,
-    /// the imported value will then be placed in the same register.
+    /// The name of the module to be imported will be placed in the register before running this op,
+    /// the imported module will then be placed in the same register.
     ///
     /// `[*register]`
     Import,
+
+    /// Imports all items from a value
+    ///
+    /// The name of the module to be imported will be placed in the register before running this op,
+    /// the imported module will then be made available for non-local access within the module.
+    ///
+    /// `[*register]`
+    ImportAll,
 
     /// Makes a temporary tuple out of values stored in consecutive registers
     ///
@@ -585,7 +593,6 @@ pub enum Op {
     CheckOptionalType,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused92,
     Unused93,
     Unused94,
     Unused95,

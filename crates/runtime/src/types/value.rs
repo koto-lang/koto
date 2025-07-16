@@ -152,6 +152,18 @@ impl KValue {
         }
     }
 
+    /// Returns true if the values refer to the same underlying data
+    pub fn is_same_instance(&self, other: &Self) -> bool {
+        use KValue::*;
+        match (self, other) {
+            (Map(a), Map(b)) => a.is_same_instance(b),
+            (Object(a), Object(b)) => a.is_same_instance(b),
+            (List(a), List(b)) => a.is_same_instance(b),
+            (Tuple(a), Tuple(b)) => a.is_same_instance(b),
+            _ => false,
+        }
+    }
+
     /// Returns the value's type as a [KString]
     pub fn type_as_string(&self) -> KString {
         use KValue::*;

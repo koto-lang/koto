@@ -3,7 +3,7 @@ use crate::{
     core_lib::{CoreLib, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
-    types::{meta_id_to_key, value::RegisterSlice},
+    types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
@@ -39,7 +39,7 @@ struct VmContext {
     // The module loader used to compile imported modules
     loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
-    imported_modules: KCell<ModuleCache>,
+    module_cache: KCell<ModuleCache>,
 }
 
 impl Default for VmContext {
@@ -57,7 +57,7 @@ impl VmContext {
             prelude: core_lib.prelude(),
             core_lib,
             loader: ModuleLoader::default().into(),
-            imported_modules: ModuleCache::default().into(),
+            module_cache: ModuleCache::default().into(),
         }
     }
 }
@@ -252,7 +252,17 @@ impl KotoVm {
         // Set up an execution frame to run the chunk in
         let frame_base = self.next_register();
         self.registers.push(KValue::Null); // Instance register
-        self.push_frame(chunk, 0, frame_base, None);
+        self.push_frame(
+            chunk,
+            0,
+            frame_base,
+            None,
+            // Provide access to the module's exports
+            Some(NonLocals {
+                module_exports: self.exports.clone(),
+                wildcard_imports: None,
+            }),
+        );
 
         // Ensure that execution stops here if an error is thrown
         self.frame_mut().execution_barrier = true;
@@ -346,11 +356,7 @@ impl KotoVm {
                 // non-temporary Tuple for the values.
                 match &function {
                     KValue::Function(f) if f.flags.arg_is_unpacked_tuple() => {
-                        let capture_count = f
-                            .captures
-                            .as_ref()
-                            .map(|captures| captures.len())
-                            .unwrap_or(0) as u8;
+                        let capture_count = f.captures().map_or(0, |captures| captures.len() as u8);
                         let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
                             // function's captures, which are placed after the temp tuple and
@@ -763,7 +769,8 @@ impl KotoVm {
             LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
             ExportValue { key, value } => self.run_export_value(key, value)?,
             ExportEntry { entry } => self.run_export_entry(entry)?,
-            Import { register } => self.run_import(register)?,
+            Import { register } => self.run_import(register, false)?,
+            ImportAll { register } => self.run_import(register, true)?,
             MakeTempTuple {
                 register,
                 start,
@@ -819,7 +826,7 @@ impl KotoVm {
             MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable, true)?
             }
-            Function { .. } => self.run_make_function(instruction),
+            Function { .. } => self.run_make_function(instruction)?,
             Capture {
                 function,
                 target,
@@ -1009,8 +1016,8 @@ impl KotoVm {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
-            .exports
-            .get(name)
+            .frame()
+            .non_local(name)
             .or_else(|| self.context.prelude.get(name));
 
         if let Some(non_local) = non_local {
@@ -1044,6 +1051,7 @@ impl KotoVm {
             _ => None,
         };
         let Some((key, value)) = maybe_key_value_pair else {
+            dbg!(&self.registers);
             return unexpected_type("Key/Value pair to export", &maybe_entry);
         };
         self.exports
@@ -1467,7 +1475,7 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_make_function(&mut self, function_instruction: Instruction) {
+    fn run_make_function(&mut self, function_instruction: Instruction) -> Result<()> {
         match function_instruction {
             Instruction::Function {
                 register,
@@ -1487,17 +1495,37 @@ impl KotoVm {
                     None
                 };
 
+                let non_locals = if flags.non_local_access() {
+                    let non_locals = self.frame().non_locals.clone();
+                    if non_locals.is_none() {
+                        return runtime_error!(ErrorKind::UnexpectedError);
+                    }
+                    non_locals
+                } else {
+                    None
+                };
+
+                let context = if captures.is_some() || non_locals.is_some() {
+                    Some(Ptr::from(FunctionContext {
+                        captures,
+                        non_locals,
+                    }))
+                } else {
+                    None
+                };
+
                 let function = KFunction::new(
                     self.chunk(),
                     self.ip(),
                     arg_count,
                     optional_arg_count,
                     flags,
-                    captures,
+                    context,
                 );
 
                 self.jump_ip(size as u32);
                 self.set_register(register, KValue::Function(function));
+                Ok(())
             }
             _ => unreachable!(),
         }
@@ -1514,7 +1542,7 @@ impl KotoVm {
 
         match function {
             KValue::Function(f) => {
-                if let Some(captures) = &f.captures {
+                if let Some(captures) = f.captures() {
                     captures.data_mut()[capture_index as usize] = self.clone_register(value);
                 }
                 Ok(())
@@ -2040,7 +2068,7 @@ impl KotoVm {
 
     fn compare_functions(&mut self, a: KFunction, b: KFunction) -> Result<bool> {
         if a.chunk == b.chunk && a.ip == b.ip {
-            match (&a.captures, &b.captures) {
+            match (a.captures(), b.captures()) {
                 (None, None) => Ok(true),
                 (Some(captures_a), Some(captures_b)) => {
                     let captures_a = captures_a.clone();
@@ -2232,28 +2260,40 @@ impl KotoVm {
         }
     }
 
-    fn run_import(&mut self, import_register: u8) -> Result<()> {
+    fn successful_import(
+        &mut self,
+        import_register: u8,
+        imported: KValue,
+        import_all: bool,
+    ) -> Result<()> {
+        self.set_register(import_register, imported.clone());
+
+        if import_all {
+            self.frame_mut()
+                .non_locals
+                .get_or_insert_default()
+                .add_wildcard_import(imported);
+        }
+
+        Ok(())
+    }
+
+    fn run_import(&mut self, import_register: u8, import_all: bool) -> Result<()> {
         let import_name = match self.clone_register(import_register) {
             KValue::Str(s) => s,
             value @ KValue::Map(_) => {
-                self.set_register(import_register, value);
-                return Ok(());
+                return self.successful_import(import_register, value, import_all);
             }
             other => return unexpected_type("import id or string, or accessible value", &other),
         };
 
-        // Is the import in the exports?
-        let maybe_in_exports = self.exports.get(&import_name);
-        if let Some(value) = maybe_in_exports {
-            self.set_register(import_register, value);
-            return Ok(());
-        }
-
-        // Is the import in the prelude?
-        let maybe_in_prelude = self.context.prelude.get(&import_name);
-        if let Some(value) = maybe_in_prelude {
-            self.set_register(import_register, value);
-            return Ok(());
+        // Is the import available as a non-local?
+        let maybe_non_local = self
+            .frame()
+            .non_local(&import_name)
+            .or_else(|| self.context.prelude.get(&import_name));
+        if let Some(value) = maybe_non_local {
+            return self.successful_import(import_register, value, import_all);
         }
 
         // Attempt to compile the imported module from disk,
@@ -2269,7 +2309,7 @@ impl KotoVm {
         // Has the module been loaded previously?
         let maybe_in_cache = self
             .context
-            .imported_modules
+            .module_cache
             .borrow()
             .get(&compile_result.path)
             .cloned();
@@ -2280,8 +2320,7 @@ impl KotoVm {
                 return runtime_error!("recursive import of module '{import_name}'");
             }
             Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
-                self.set_register(import_register, KValue::Map(cached_exports));
-                return Ok(());
+                return self.successful_import(import_register, cached_exports.into(), import_all);
             }
             _ => {}
         }
@@ -2294,7 +2333,7 @@ impl KotoVm {
 
         // Insert a placeholder for the new module, preventing recursive imports
         self.context
-            .imported_modules
+            .module_cache
             .borrow_mut()
             .insert(compile_result.path.clone(), None);
 
@@ -2330,18 +2369,20 @@ impl KotoVm {
                 callback(&compile_result.path);
             }
 
-            // Cache the module's resulting exports and assign them to the import register
+            // Cache the module's resulting exports
             let module_exports = self.exports.clone();
             self.context
-                .imported_modules
+                .module_cache
                 .borrow_mut()
                 .insert(compile_result.path, Some(module_exports.clone()));
-            self.set_register(import_register, KValue::Map(module_exports));
+
+            self.successful_import(import_register, module_exports.into(), import_all)
+                .ok();
         } else {
             // If there was an error while importing the module then make sure that the
             // placeholder is removed from the imported modules cache.
             self.context
-                .imported_modules
+                .module_cache
                 .borrow_mut()
                 .remove(&compile_result.path);
         }
@@ -2818,6 +2859,7 @@ impl KotoVm {
             f.ip,
             0, // Arguments will be copied starting in register 0
             None,
+            f.non_locals(),
         );
         // Set the generator VM's state as suspended
         generator_vm.execution_state = ExecutionState::Suspended;
@@ -2922,6 +2964,7 @@ impl KotoVm {
             f.ip,
             call_info.frame_base,
             call_info.result_register,
+            f.non_locals(),
         );
 
         Ok(())
@@ -3396,25 +3439,28 @@ impl KotoVm {
     // - The `frame_base` register should already exist in the register stack.
     // - If the new frame's return value should be copied to a register in the calling frame,
     //   then `return_register` should be lower in the stack than `frame_base`.
+    // - The frame will use the provided `non_locals` if they're defined, otherwise the frame will
+    //   inherit the parent's non-locals.
     fn push_frame(
         &mut self,
         chunk: Ptr<Chunk>,
         ip: u32,
         frame_base: u8,
         return_register: Option<u8>,
+        non_locals: Option<NonLocals>,
     ) {
         let return_ip = self.ip();
         if let Some(frame) = self.call_stack.last_mut() {
             frame.return_instruction_ip = self.instruction_ip;
             frame.return_resume_ip = return_ip;
             frame.return_value_register = return_register;
-        }
+        };
 
         let previous_frame_base = self.register_base;
         let new_frame_base = previous_frame_base + frame_base as usize;
 
         self.call_stack
-            .push(Frame::new(chunk.clone(), new_frame_base));
+            .push(Frame::new(chunk.clone(), non_locals, new_frame_base));
         self.register_base = new_frame_base;
         self.set_chunk_and_ip(chunk, ip);
     }
@@ -3624,7 +3670,7 @@ fn apply_optional_arguments(
             });
         }
 
-        let Some(captures) = f.captures.as_ref() else {
+        let Some(captures) = f.captures() else {
             // Non-zero default arg count without captures is unexpected
             return runtime_error!(ErrorKind::UnexpectedError);
         };
@@ -3685,7 +3731,7 @@ fn apply_captures_and_temp_tuple_values(
     f: &KFunction,
     temp_tuple_values: Option<&[KValue]>,
 ) {
-    if let Some(captures) = &f.captures {
+    if let Some(captures) = f.captures() {
         // Copy the captures list into the registers following the args
         registers.extend(
             captures
@@ -3765,10 +3811,12 @@ impl<'a, const N: usize> From<&'a [KValue; N]> for CallArgs<'a> {
 type ModuleCache = HashMap<PathBuf, Option<KMap>, BuildHasherDefault<FxHasher>>;
 
 // A frame in the VM's call stack
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Frame {
     // The chunk being interpreted in this frame
     pub chunk: Ptr<Chunk>,
+    // The non-local values that are available within this frame
+    pub non_locals: Option<NonLocals>,
     // The index in the VM's value stack of the first frame register.
     // The frame's instance is always in register 0 (Null if not set).
     // Call arguments followed by local values are in registers starting from index 1.
@@ -3793,9 +3841,10 @@ struct Frame {
 }
 
 impl Frame {
-    pub fn new(chunk: Ptr<Chunk>, register_base: usize) -> Self {
+    fn new(chunk: Ptr<Chunk>, non_locals: Option<NonLocals>, register_base: usize) -> Self {
         Self {
             chunk,
+            non_locals,
             register_base,
             required_registers: 0,
             return_resume_ip: 0,
@@ -3803,6 +3852,59 @@ impl Frame {
             return_instruction_ip: 0,
             catch_stack: vec![],
             execution_barrier: false,
+        }
+    }
+
+    fn non_local(&self, name: &str) -> Option<KValue> {
+        self.non_locals
+            .as_ref()
+            .and_then(|non_locals| non_locals.get(name))
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct NonLocals {
+    wildcard_imports: Option<Ptr<Vec<KValue>>>,
+    module_exports: KMap,
+}
+
+impl NonLocals {
+    fn get(&self, name: &str) -> Option<KValue> {
+        if let Some(wildcard_imports) = &self.wildcard_imports {
+            // Check any wildcard imports in reverse order (most recent import takes precedence)
+            for wildcard_import in wildcard_imports.iter().rev() {
+                let result = match wildcard_import {
+                    KValue::Map(m) => m.get(name),
+                    KValue::Object(o) => o
+                        .try_borrow()
+                        .ok()
+                        .and_then(|o| o.entries())
+                        .and_then(|entries| entries.get(name)),
+                    _ => None,
+                };
+                if let Some(result) = result {
+                    return Some(result);
+                }
+            }
+        }
+
+        // Check the module's exports
+        self.module_exports.get(name)
+    }
+
+    fn add_wildcard_import(&mut self, new_import: KValue) {
+        let already_imported = self
+            .wildcard_imports
+            .as_ref()
+            .and_then(|imports| {
+                imports
+                    .iter()
+                    .find(|import| import.is_same_instance(&new_import))
+            })
+            .is_some();
+
+        if !already_imported {
+            Ptr::make_mut(self.wildcard_imports.get_or_insert_default()).push(new_import);
         }
     }
 }

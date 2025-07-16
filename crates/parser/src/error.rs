@@ -171,6 +171,8 @@ pub enum SyntaxError {
     MatchEllipsisOutsideOfNestedPatterns,
     #[error("'else' can only be used in the last arm in a match expression")]
     MatchElseNotInLastArm,
+    #[error("Missing 'from' for wildcard import")]
+    MissingModuleForWildcardImport,
     #[error("nested types aren't currently supported")]
     NestedTypesArentSupported,
     #[error("keyword reserved for future use")]

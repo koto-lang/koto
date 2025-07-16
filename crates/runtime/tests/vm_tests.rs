@@ -577,7 +577,7 @@ x, y, z
         }
 
         #[test]
-        fn multi_assignment_with_wildcard() {
+        fn multi_assignment_with_ignored_value() {
             let script = "
 let x: String, _: String = 'foo', 'bar'
 x
@@ -586,7 +586,7 @@ x
         }
 
         #[test]
-        fn multi_assignment_with_tagged_wildcard() {
+        fn multi_assignment_with_tagged_ignored_value() {
             let script = "
 let x: String, _y: String = 'foo', 'bar'
 x
@@ -899,7 +899,7 @@ match 'hello!'
         }
 
         #[test]
-        fn match_on_multiple_expressions_with_alternatives_wildcard() {
+        fn match_ignored_on_multiple_expressions_with_alternatives() {
             let script = "
 match 0, 1
   0, 0 or 1, 1 then -1
@@ -912,7 +912,7 @@ match 0, 1
         }
 
         #[test]
-        fn match_on_multiple_expressions_with_alternatives_id() {
+        fn match_id_on_multiple_expressions_with_alternatives() {
             let script = "
 match 0, 1
   0, 0 or 1, 1 then -1
@@ -1208,7 +1208,7 @@ add(5, add(6, 7))";
         }
 
         #[test]
-        fn wildcard_arg_at_start() {
+        fn ignored_arg_at_start() {
             let script = "
 f = |_, b, c| b + c
 f 1, 2, 3
@@ -1217,7 +1217,7 @@ f 1, 2, 3
         }
 
         #[test]
-        fn wildcard_arg_in_middle() {
+        fn ignored_arg_in_middle() {
             let script = "
 f = |a, _, c| a + c
 f 1, 2, 3
@@ -1226,7 +1226,7 @@ f 1, 2, 3
         }
 
         #[test]
-        fn wildcard_arg_at_end() {
+        fn ignored_arg_at_end() {
             let script = "
 f = |a, b, _| a + b
 f 1, 2, 3
@@ -2789,7 +2789,7 @@ foo([42, 99]).to_tuple()
         }
 
         #[test]
-        fn default_arg_for_unpacked_arg() {
+        fn default_for_unpacked_arg() {
             let script = "
 foo = |a = 10, (b, c) = (20, 30)|
   a + b + c
@@ -2799,7 +2799,7 @@ foo(100)
         }
 
         #[test]
-        fn default_arg_for_wildcard() {
+        fn default_for_ignored_arg() {
             let script = "
 m = { default_call_made: false }
 
@@ -4199,6 +4199,53 @@ number.pi == 𝜋";
 from number import 'pi' as 𝜋
 number.pi == 𝜋";
             check_script_output(script, true);
+        }
+
+        #[test]
+        fn wildcard_import_at_top_level() {
+            let script = "
+from number import *
+abs -42
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn wildcard_import_inside_function() {
+            let script = "
+from string import *
+
+f = |x|
+  from number import *
+  g = |x| abs x
+  repeat '{g x}', 2
+
+f -50
+";
+            check_script_output(script, "5050");
+        }
+
+        #[test]
+        fn wildcard_import_precedence() {
+            let script = "
+foo = { a: 1, b: 2, c: 3}
+bar = { a: -1, b: -2 }
+
+from foo import *
+from bar import *
+
+b * c
+";
+            check_script_output(script, -6);
+        }
+
+        #[test]
+        fn wildcard_import_with_assignment() {
+            let script = "
+foo = from number import *
+foo.abs -42
+";
+            check_script_output(script, 42);
         }
     }
 

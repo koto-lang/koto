@@ -789,7 +789,7 @@ impl<'source> Parser<'source> {
                 Node::Id(id_index, ..) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                Node::Meta { .. } | Node::Chain(_) | Node::Wildcard(..) => {}
+                Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => {}
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
             }
 
@@ -898,9 +898,9 @@ impl<'source> Parser<'source> {
                     }
                 }
             }
-            Token::Wildcard => {
-                let maybe_id = self.consume_wildcard(context)?;
-                self.push_node(Node::Wildcard(maybe_id, None))
+            Token::Underscore => {
+                let maybe_id = self.consume_ignored_id(context)?;
+                self.push_node(Node::Ignored(maybe_id, None))
             }
             Token::SquareOpen => self.consume_list(context),
             Token::CurlyOpen => self.consume_map_with_braces(context),
@@ -1066,11 +1066,11 @@ impl<'source> Parser<'source> {
 
             self.consume_until_token_with_context(&args_context);
 
-            let maybe_id_or_wildcard = self.parse_id_or_wildcard(&args_context)?;
+            let maybe_id_or_ignored = self.parse_id_or_ignored(&args_context)?;
             let arg_span = self.current_span();
 
-            let arg_node = match maybe_id_or_wildcard {
-                Some(IdOrWildcard::Id(constant_index)) => {
+            let arg_node = match maybe_id_or_ignored {
+                Some(IdOrIgnored::Id(constant_index)) => {
                     function_frame.ids_assigned_in_frame.insert(constant_index);
                     let type_hint = self.parse_type_hint(&args_context)?;
                     let id_node =
@@ -1089,9 +1089,9 @@ impl<'source> Parser<'source> {
 
                     id_node
                 }
-                Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                Some(IdOrIgnored::Ignored(maybe_id)) => {
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?
+                    self.push_node_with_span(Node::Ignored(maybe_id, type_hint), arg_span)?
                 }
                 None => match self.peek_token() {
                     Some(Token::Self_) => {
@@ -1274,8 +1274,8 @@ impl<'source> Parser<'source> {
         let args_context = ExpressionContext::inside_braces();
         while self.peek_token_with_context(&args_context).is_some() {
             self.consume_until_token_with_context(&args_context);
-            match self.parse_id_or_wildcard(&args_context)? {
-                Some(IdOrWildcard::Id(constant_index)) => {
+            match self.parse_id_or_ignored(&args_context)? {
+                Some(IdOrIgnored::Id(constant_index)) => {
                     if self.constants.get_str(constant_index) == "self" {
                         return self.error(SyntaxError::SelfArg);
                     }
@@ -1291,11 +1291,11 @@ impl<'source> Parser<'source> {
                     nested_args.push(self.push_node_with_span(arg_node, arg_span)?);
                     function_frame.ids_assigned_in_frame.insert(constant_index);
                 }
-                Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                Some(IdOrIgnored::Ignored(maybe_id)) => {
                     let arg_span = self.current_span();
                     let type_hint = self.parse_type_hint(&args_context)?;
                     nested_args.push(
-                        self.push_node_with_span(Node::Wildcard(maybe_id, type_hint), arg_span)?,
+                        self.push_node_with_span(Node::Ignored(maybe_id, type_hint), arg_span)?,
                     );
                 }
                 None => match self.peek_token() {
@@ -1398,7 +1398,7 @@ impl<'source> Parser<'source> {
 
     // Parses a single id
     //
-    // See also: parse_id_or_wildcard(), consume_id_expression()
+    // See also: parse_id_or_ignored(), consume_id_expression()
     fn parse_id(
         &mut self,
         context: &ExpressionContext,
@@ -1415,11 +1415,11 @@ impl<'source> Parser<'source> {
         }
     }
 
-    // Consumes a single `_` wildcard, along with its optional following id
-    fn consume_wildcard(&mut self, context: &ExpressionContext) -> Result<Option<ConstantIndex>> {
+    // Consumes a single `_`-prefixed identifier, along with its optional following id
+    fn consume_ignored_id(&mut self, context: &ExpressionContext) -> Result<Option<ConstantIndex>> {
         if !matches!(
             self.consume_token_with_context(context),
-            Some((Token::Wildcard, _))
+            Some((Token::Underscore, _))
         ) {
             return self.error(InternalError::UnexpectedToken);
         }
@@ -1434,27 +1434,24 @@ impl<'source> Parser<'source> {
         Ok(maybe_id)
     }
 
-    // Parses either an id or a wildcard
+    // Parses either an id or a `_`-prefixed ignored id
     //
     // Used in function arguments, match expressions, etc.
-    fn parse_id_or_wildcard(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<IdOrWildcard>> {
+    fn parse_id_or_ignored(&mut self, context: &ExpressionContext) -> Result<Option<IdOrIgnored>> {
         match self.peek_token_with_context(context) {
             Some(PeekInfo {
                 token: Token::Id, ..
             }) => {
                 self.consume_token_with_context(context);
                 self.add_current_slice_as_string_constant()
-                    .map(|result| Some(IdOrWildcard::Id(result)))
+                    .map(|result| Some(IdOrIgnored::Id(result)))
             }
             Some(PeekInfo {
-                token: Token::Wildcard,
+                token: Token::Underscore,
                 ..
             }) => {
-                let maybe_id = self.consume_wildcard(context)?;
-                Ok(Some(IdOrWildcard::Wildcard(maybe_id)))
+                let maybe_id = self.consume_ignored_id(context)?;
+                Ok(Some(IdOrIgnored::Ignored(maybe_id)))
             }
             _ => Ok(None),
         }
@@ -2392,16 +2389,16 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
 
         let mut args = AstVec::new();
-        while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
+        while let Some(id_or_ignored) = self.parse_id_or_ignored(context)? {
             let arg_span = self.current_span();
             let type_hint = self.parse_type_hint(context)?;
 
-            let arg_node = match id_or_wildcard {
-                IdOrWildcard::Id(id) => {
+            let arg_node = match id_or_ignored {
+                IdOrIgnored::Id(id) => {
                     self.frame_mut()?.ids_assigned_in_frame.insert(id);
                     Node::Id(id, type_hint)
                 }
-                IdOrWildcard::Wildcard(maybe_id) => Node::Wildcard(maybe_id, type_hint),
+                IdOrIgnored::Ignored(maybe_id) => Node::Ignored(maybe_id, type_hint),
             };
             args.push(self.push_node_with_span(arg_node, arg_span)?);
 
@@ -2871,12 +2868,14 @@ impl<'source> Parser<'source> {
                     }
                     None => return self.error(InternalError::IdParseFailure),
                 },
-                Wildcard => {
-                    let wildcard = self.consume_wildcard(&pattern_context)?;
-                    let wildcard_span = self.current_span();
+                Underscore => {
+                    let ignored_id = self.consume_ignored_id(&pattern_context)?;
+                    let ignored_id_span = self.current_span();
                     let maybe_type = self.parse_type_hint(&pattern_context)?;
-                    let result = self
-                        .push_node_with_span(Node::Wildcard(wildcard, maybe_type), wildcard_span)?;
+                    let result = self.push_node_with_span(
+                        Node::Ignored(ignored_id, maybe_type),
+                        ignored_id_span,
+                    )?;
                     Some(result)
                 }
                 RoundOpen => {
@@ -2977,6 +2976,10 @@ impl<'source> Parser<'source> {
             }
         }
 
+        if from.is_empty() && items.is_empty() {
+            return self.error(SyntaxError::MissingModuleForWildcardImport);
+        }
+
         self.push_node_with_start_span(Node::Import { from, items }, start_span)
     }
 
@@ -3006,10 +3009,20 @@ impl<'source> Parser<'source> {
 
     // Helper for parse_import(), parses a series of import items
     // e.g.
-    //   from baz.qux import foo, 'bar', 'x'
-    //   #    ^ You are here, with nested items allowed
-    //   #                   ^ Or here, with nested items disallowed
+    //   import baz, baz2
+    //   #     ^ You are here
+    //   from baz.qux import *
+    //   #                  ^ ...or here
     fn consume_import_items(&mut self, context: &ExpressionContext) -> Result<Vec<ImportItem>> {
+        // `*` wildcard import?
+        if let Some(Token::Multiply) = self
+            .peek_token_with_context(context)
+            .map(|token| token.token)
+        {
+            self.consume_token_with_context(context);
+            return Ok(Vec::default());
+        }
+
         let mut items = Vec::new();
         let mut context = *context;
 
@@ -3112,15 +3125,15 @@ impl<'source> Parser<'source> {
 
         self.consume_token_with_context(context);
 
-        let catch_arg = match self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
-            Some(IdOrWildcard::Id(id)) => {
+        let catch_arg = match self.parse_id_or_ignored(&ExpressionContext::restricted())? {
+            Some(IdOrIgnored::Id(id)) => {
                 let type_hint_index = self.parse_type_hint(context)?;
                 self.frame_mut()?.ids_assigned_in_frame.insert(id);
                 self.push_node(Node::Id(id, type_hint_index))?
             }
-            Some(IdOrWildcard::Wildcard(maybe_id)) => {
+            Some(IdOrIgnored::Ignored(maybe_id)) => {
                 let type_hint_index = self.parse_type_hint(context)?;
-                self.push_node(Node::Wildcard(maybe_id, type_hint_index))?
+                self.push_node(Node::Ignored(maybe_id, type_hint_index))?
             }
             None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
         };
@@ -3142,18 +3155,17 @@ impl<'source> Parser<'source> {
 
         let mut targets = vec![];
 
-        while let Some(id_or_wildcard) =
-            self.parse_id_or_wildcard(&ExpressionContext::permissive())?
+        while let Some(id_or_ignored) = self.parse_id_or_ignored(&ExpressionContext::permissive())?
         {
             let target_span = self.current_span();
-            let target_node = match id_or_wildcard {
-                IdOrWildcard::Id(constant_index) => {
+            let target_node = match id_or_ignored {
+                IdOrIgnored::Id(constant_index) => {
                     let type_hint_index = self.parse_type_hint(context)?;
                     Node::Id(constant_index, type_hint_index)
                 }
-                IdOrWildcard::Wildcard(maybe_id) => {
+                IdOrIgnored::Ignored(maybe_id) => {
                     let type_hint_index = self.parse_type_hint(context)?;
-                    Node::Wildcard(maybe_id, type_hint_index)
+                    Node::Ignored(maybe_id, type_hint_index)
                 }
             };
             targets.push(self.push_node_with_span(target_node, target_span)?);
@@ -3761,11 +3773,11 @@ struct PeekInfo {
     info: LexedToken,
 }
 
-// Returned by Parser::parse_id_or_wildcard()
+// Returned by Parser::parse_id_or_ignored()
 #[derive(Debug)]
-enum IdOrWildcard {
+enum IdOrIgnored {
     Id(ConstantIndex),
-    Wildcard(Option<ConstantIndex>),
+    Ignored(Option<ConstantIndex>),
 }
 
 // Returned by Parser::parse_string()

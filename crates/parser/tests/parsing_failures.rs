@@ -167,7 +167,7 @@ for x in y if f x
             }
 
             #[test]
-            fn varargs_on_wildcard() {
+            fn varargs_on_ignored_arg() {
                 check_parsing_fails("f = |x, _...| x");
             }
 
@@ -283,7 +283,7 @@ x = ||
             use super::*;
 
             #[test]
-            fn wildcard_as_map_id() {
+            fn ignored_as_map_id() {
                 check_parsing_fails("{_}");
             }
 
@@ -545,6 +545,16 @@ switch
             #[test]
             fn missing_id_after_as() {
                 check_parsing_fails("from foo import bar as");
+            }
+
+            #[test]
+            fn wildcard_without_from() {
+                check_parsing_fails("import *");
+            }
+
+            #[test]
+            fn wildcard_after_id() {
+                check_parsing_fails("from foo import bar, *");
             }
         }
 
