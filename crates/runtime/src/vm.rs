@@ -3,7 +3,7 @@ use crate::{
     core_lib::{CoreLib, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
-    types::{meta_id_to_key, value::RegisterSlice},
+    types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
 };
 use instant::Instant;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
@@ -252,7 +252,16 @@ impl KotoVm {
         // Set up an execution frame to run the chunk in
         let frame_base = self.next_register();
         self.registers.push(KValue::Null); // Instance register
-        self.push_frame(chunk, 0, frame_base, None);
+        self.push_frame(
+            chunk,
+            0,
+            frame_base,
+            None,
+            // Give access to the module exports to the top-level of the chunk
+            Some(NonLocals {
+                module_exports: self.exports.clone(),
+            }),
+        );
 
         // Ensure that execution stops here if an error is thrown
         self.frame_mut().execution_barrier = true;
@@ -346,11 +355,7 @@ impl KotoVm {
                 // non-temporary Tuple for the values.
                 match &function {
                     KValue::Function(f) if f.flags.arg_is_unpacked_tuple() => {
-                        let capture_count = f
-                            .captures
-                            .as_ref()
-                            .map(|captures| captures.len())
-                            .unwrap_or(0) as u8;
+                        let capture_count = f.captures().map_or(0, |captures| captures.len() as u8);
                         let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
                             // function's captures, which are placed after the temp tuple and
@@ -1009,8 +1014,8 @@ impl KotoVm {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
-            .exports
-            .get(name)
+            .frame()
+            .non_local(name)
             .or_else(|| self.context.prelude.get(name));
 
         if let Some(non_local) = non_local {
@@ -1487,13 +1492,30 @@ impl KotoVm {
                     None
                 };
 
+                let non_locals = if flags.non_local_access() {
+                    Some(NonLocals {
+                        module_exports: self.exports.clone(),
+                    })
+                } else {
+                    None
+                };
+
+                let context = if captures.is_some() || non_locals.is_some() {
+                    Some(Ptr::from(FunctionContext {
+                        captures,
+                        non_locals,
+                    }))
+                } else {
+                    None
+                };
+
                 let function = KFunction::new(
                     self.chunk(),
                     self.ip(),
                     arg_count,
                     optional_arg_count,
                     flags,
-                    captures,
+                    context,
                 );
 
                 self.jump_ip(size as u32);
@@ -1514,7 +1536,7 @@ impl KotoVm {
 
         match function {
             KValue::Function(f) => {
-                if let Some(captures) = &f.captures {
+                if let Some(captures) = f.captures() {
                     captures.data_mut()[capture_index as usize] = self.clone_register(value);
                 }
                 Ok(())
@@ -2040,7 +2062,7 @@ impl KotoVm {
 
     fn compare_functions(&mut self, a: KFunction, b: KFunction) -> Result<bool> {
         if a.chunk == b.chunk && a.ip == b.ip {
-            match (&a.captures, &b.captures) {
+            match (a.captures(), b.captures()) {
                 (None, None) => Ok(true),
                 (Some(captures_a), Some(captures_b)) => {
                     let captures_a = captures_a.clone();
@@ -2818,6 +2840,7 @@ impl KotoVm {
             f.ip,
             0, // Arguments will be copied starting in register 0
             None,
+            f.non_locals(),
         );
         // Set the generator VM's state as suspended
         generator_vm.execution_state = ExecutionState::Suspended;
@@ -2922,6 +2945,7 @@ impl KotoVm {
             f.ip,
             call_info.frame_base,
             call_info.result_register,
+            f.non_locals(),
         );
 
         Ok(())
@@ -3396,25 +3420,28 @@ impl KotoVm {
     // - The `frame_base` register should already exist in the register stack.
     // - If the new frame's return value should be copied to a register in the calling frame,
     //   then `return_register` should be lower in the stack than `frame_base`.
+    // - The frame will use the provided `non_locals` if they're defined, otherwise the frame will
+    //   inherit the parent's non-locals.
     fn push_frame(
         &mut self,
         chunk: Ptr<Chunk>,
         ip: u32,
         frame_base: u8,
         return_register: Option<u8>,
+        non_locals: Option<NonLocals>,
     ) {
         let return_ip = self.ip();
         if let Some(frame) = self.call_stack.last_mut() {
             frame.return_instruction_ip = self.instruction_ip;
             frame.return_resume_ip = return_ip;
             frame.return_value_register = return_register;
-        }
+        };
 
         let previous_frame_base = self.register_base;
         let new_frame_base = previous_frame_base + frame_base as usize;
 
         self.call_stack
-            .push(Frame::new(chunk.clone(), new_frame_base));
+            .push(Frame::new(chunk.clone(), non_locals, new_frame_base));
         self.register_base = new_frame_base;
         self.set_chunk_and_ip(chunk, ip);
     }
@@ -3624,7 +3651,7 @@ fn apply_optional_arguments(
             });
         }
 
-        let Some(captures) = f.captures.as_ref() else {
+        let Some(captures) = f.captures() else {
             // Non-zero default arg count without captures is unexpected
             return runtime_error!(ErrorKind::UnexpectedError);
         };
@@ -3685,7 +3712,7 @@ fn apply_captures_and_temp_tuple_values(
     f: &KFunction,
     temp_tuple_values: Option<&[KValue]>,
 ) {
-    if let Some(captures) = &f.captures {
+    if let Some(captures) = f.captures() {
         // Copy the captures list into the registers following the args
         registers.extend(
             captures
@@ -3765,10 +3792,12 @@ impl<'a, const N: usize> From<&'a [KValue; N]> for CallArgs<'a> {
 type ModuleCache = HashMap<PathBuf, Option<KMap>, BuildHasherDefault<FxHasher>>;
 
 // A frame in the VM's call stack
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Frame {
     // The chunk being interpreted in this frame
     pub chunk: Ptr<Chunk>,
+    // The non-local values that are available within this frame
+    pub non_locals: Option<NonLocals>,
     // The index in the VM's value stack of the first frame register.
     // The frame's instance is always in register 0 (Null if not set).
     // Call arguments followed by local values are in registers starting from index 1.
@@ -3793,9 +3822,10 @@ struct Frame {
 }
 
 impl Frame {
-    pub fn new(chunk: Ptr<Chunk>, register_base: usize) -> Self {
+    fn new(chunk: Ptr<Chunk>, non_locals: Option<NonLocals>, register_base: usize) -> Self {
         Self {
             chunk,
+            non_locals,
             register_base,
             required_registers: 0,
             return_resume_ip: 0,
@@ -3804,6 +3834,23 @@ impl Frame {
             catch_stack: vec![],
             execution_barrier: false,
         }
+    }
+
+    fn non_local(&self, name: &str) -> Option<KValue> {
+        self.non_locals
+            .as_ref()
+            .and_then(|non_locals| non_locals.get(name))
+    }
+}
+
+#[derive(Clone)]
+pub struct NonLocals {
+    module_exports: KMap,
+}
+
+impl NonLocals {
+    fn get(&self, name: &str) -> Option<KValue> {
+        self.module_exports.get(name)
     }
 }
 

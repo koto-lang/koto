@@ -2522,8 +2522,14 @@ impl Compiler {
             &[single_arg] => matches!(ctx.node(single_arg), Node::Tuple { .. }),
             _ => false,
         };
+        let non_local_access = function.accessed_non_locals.len() > captures.len();
 
-        let flags = FunctionFlags::new(*variadic, function.is_generator, arg_is_unpacked_tuple);
+        let flags = FunctionFlags::new(
+            *variadic,
+            function.is_generator,
+            arg_is_unpacked_tuple,
+            non_local_access,
+        );
 
         let function_size_ip = if let Some(result_register) = result.register {
             self.push_op(

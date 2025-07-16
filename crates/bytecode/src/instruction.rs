@@ -379,9 +379,15 @@ impl FunctionFlags {
     const VARIADIC: u8 = 1 << 0;
     const GENERATOR: u8 = 1 << 1;
     const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 2;
+    const NON_LOCAL_ACCESS: u8 = 1 << 3;
 
     /// Returns a new [FunctionFlags] with the given flags set
-    pub fn new(variadic: bool, generator: bool, arg_is_unpacked_tuple: bool) -> Self {
+    pub fn new(
+        variadic: bool,
+        generator: bool,
+        arg_is_unpacked_tuple: bool,
+        non_local_access: bool,
+    ) -> Self {
         let mut flags = 0;
         if variadic {
             flags |= Self::VARIADIC;
@@ -391,6 +397,9 @@ impl FunctionFlags {
         }
         if arg_is_unpacked_tuple {
             flags |= Self::ARG_IS_UNPACKED_TUPLE;
+        }
+        if non_local_access {
+            flags |= Self::NON_LOCAL_ACCESS;
         }
         Self(flags)
     }
@@ -419,13 +428,22 @@ impl FunctionFlags {
     pub fn arg_is_unpacked_tuple(self) -> bool {
         self.0 & Self::ARG_IS_UNPACKED_TUPLE != 0
     }
+
+    /// True if the function accesses a non-local value
+    ///
+    /// Functions that access a non-local value need to carry module exports and wildcard imports
+    /// with them, if no non-locals are accessed then the creation of the non-local context can be
+    /// skipped.
+    pub fn non_local_access(self) -> bool {
+        self.0 & Self::NON_LOCAL_ACCESS != 0
+    }
 }
 
 impl TryFrom<u8> for FunctionFlags {
     type Error = String;
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        if byte <= 0b111 {
+        if byte <= 0b1111 {
             Ok(Self(byte))
         } else {
             Err(format!("Invalid function flags: {byte:#010b}"))
