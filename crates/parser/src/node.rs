@@ -166,6 +166,8 @@ pub enum Node {
         /// An empty list here implies that import without `from` has been used.
         from: AstVec<AstIndex>,
         /// The series of items to import
+        // The import items are stored in a `Vec` here rather than an `AstVec` to avoid bloating the
+        // overall size of `Node`.
         items: Vec<ImportItem>,
     },
 
@@ -390,6 +392,8 @@ pub enum StringContents {
     ///
     /// An interpolated string is made up of a series of literals and template expressions,
     /// which are then joined together using a string builder.
+    // The interpolated nodes are stored in a `Vec` here rather than an `AstVec` to avoid bloating
+    // the overall size of `Node`.
     Interpolated(Vec<StringNode>),
 }
 
