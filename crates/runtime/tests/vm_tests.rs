@@ -71,6 +71,41 @@ a = 99
         fn power_negative() {
             check_script_output("2 ^ -1", 0.5);
         }
+
+        mod integer_wrapping {
+            use super::*;
+
+            #[test]
+            fn addition() {
+                check_script_output("2 ^ 62 + 2 ^ 62", i64::MIN);
+            }
+
+            #[test]
+            fn subtraction() {
+                // 2 ^ 63 wraps to i64::MIN
+                check_script_output("2 ^ 63 - 1", i64::MAX);
+            }
+
+            #[test]
+            fn negate() {
+                check_script_output("-(2 ^ 63)", i64::MIN);
+            }
+
+            #[test]
+            fn multiply() {
+                check_script_output("2 ^ 62 * 2", i64::MIN);
+            }
+
+            #[test]
+            fn power() {
+                check_script_output("2 ^ 64", 0);
+            }
+
+            #[test]
+            fn remainder() {
+                check_script_output("(2 ^ 63) % -1", 0);
+            }
+        }
     }
 
     mod logic {

@@ -148,6 +148,7 @@ The Koto project adheres to
     ```
 - Maps that implement `@type` now have their type included by default when rendering the map as a string.
   [#478](https://github.com/koto-lang/koto/pull/478)
+- Integer arithmetic operations now wrap when overflowing the boundaries of the 64-bit signed range.
 
 #### Core Library
 

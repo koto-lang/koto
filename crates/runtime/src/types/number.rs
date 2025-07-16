@@ -96,7 +96,7 @@ impl KNumber {
     /// otherwise the result will be an f64.
     #[must_use]
     pub fn pow(self, other: Self) -> Self {
-        use KNumber::*;
+        use KNumber::{F64, I64};
 
         match (self, other) {
             (F64(a), F64(b)) => F64(a.powf(b)),
@@ -106,7 +106,7 @@ impl KNumber {
                 if b < 0 {
                     F64((a as f64).powf(b as f64))
                 } else {
-                    I64(a.pow(b as u32))
+                    I64(a.wrapping_pow(b as u32))
                 }
             }
         }
@@ -203,7 +203,7 @@ impl ops::Neg for KNumber {
 
         match self {
             F64(n) => F64(-n),
-            I64(n) => I64(-n),
+            I64(n) => I64(n.wrapping_neg()),
         }
     }
 }
@@ -216,7 +216,7 @@ impl ops::Neg for &KNumber {
 
         match *self {
             F64(n) => F64(-n),
-            I64(n) => I64(-n),
+            I64(n) => I64(n.wrapping_neg()),
         }
     }
 }
@@ -351,7 +351,7 @@ number_traits_int!(
 );
 
 macro_rules! number_op {
-    ($trait:ident, $fn:ident, $op:tt) => {
+    ($trait:ident, $fn:ident, $f64_op:tt, $i64_op:ident) => {
         impl ops::$trait for KNumber {
             type Output = KNumber;
 
@@ -359,10 +359,10 @@ macro_rules! number_op {
                 use KNumber::*;
 
                 match (self, other) {
-                    (F64(a), F64(b)) => F64(a $op b),
-                    (F64(a), I64(b)) => F64(a $op b as f64),
-                    (I64(a), F64(b)) => F64(a as f64 $op b),
-                    (I64(a), I64(b)) => I64(a $op b),
+                    (F64(a), F64(b)) => F64(a $f64_op b),
+                    (F64(a), I64(b)) => F64(a $f64_op b as f64),
+                    (I64(a), F64(b)) => F64(a as f64 $f64_op b),
+                    (I64(a), I64(b)) => I64(a.$i64_op(b)),
                 }
             }
         }
@@ -374,20 +374,20 @@ macro_rules! number_op {
                 use KNumber::*;
 
                 match (*self, *other) {
-                    (F64(a), F64(b)) => F64(a $op b),
-                    (F64(a), I64(b)) => F64(a $op b as f64),
-                    (I64(a), F64(b)) => F64(a as f64 $op b),
-                    (I64(a), I64(b)) => I64(a $op b),
+                    (F64(a), F64(b)) => F64(a $f64_op b),
+                    (F64(a), I64(b)) => F64(a $f64_op b as f64),
+                    (I64(a), F64(b)) => F64(a as f64 $f64_op b),
+                    (I64(a), I64(b)) => I64(a.$i64_op(b)),
                 }
             }
         }
     };
 }
 
-number_op!(Add, add, +);
-number_op!(Sub, sub, -);
-number_op!(Mul, mul, *);
-number_op!(Rem, rem, %);
+number_op!(Add, add, +, wrapping_add);
+number_op!(Sub, sub, -, wrapping_sub);
+number_op!(Mul, mul, *, wrapping_mul);
+number_op!(Rem, rem, %, wrapping_rem);
 
 impl ops::Div for KNumber {
     type Output = KNumber;
