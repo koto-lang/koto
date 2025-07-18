@@ -76,10 +76,10 @@ mod tests {
     use serde::Deserialize;
 
     #[test]
-    fn object_to_kmap() {
-        let test_object = TestObject { x: 123 };
-
-        match KotoObject::serialize(&test_object).unwrap() {
+    fn object_to_kvalue() {
+        // TestObject could return any kind of value from `KotoObject::serialize`,
+        // but it defers to `to_koto_value` which produces a map.
+        match KotoObject::serialize(&TestObject { x: 123 }).unwrap() {
             KValue::Map(m) => match m.get("x").unwrap() {
                 KValue::Number(n) => assert_eq!(n, 123),
                 unexpected => unexpected_type("number", &unexpected).unwrap(),
@@ -89,10 +89,8 @@ mod tests {
     }
 
     #[test]
-    fn kobject_roundtrip() {
-        // Wrap a TestObject in a KValue
+    fn kvalue_to_object() {
         let kvalue = KValue::Object(KObject::from(TestObject { x: 99 }));
-        // Call from_koto_value to produce a new TestObject
         let test_object: TestObject = from_koto_value(kvalue).unwrap();
         assert_eq!(test_object.x, 99);
     }
