@@ -426,6 +426,16 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         let _ = vm;
         None
     }
+
+    /// Converts the object into a serializable [KValue]
+    ///
+    /// This is called by `koto_serde`'s serialize implementation when the object is encountered
+    /// during serialization.
+    ///
+    /// The object should prepare a [KValue] that best represents the object's properties.
+    fn serialize(&self) -> Result<KValue> {
+        unimplemented_error("serialize", self.type_string())
+    }
 }
 
 /// A [`KotoObject`] wrapper used in the Koto runtime

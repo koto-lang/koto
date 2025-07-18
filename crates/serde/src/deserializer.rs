@@ -14,7 +14,7 @@ pub fn from_koto_value<'de, T>(value: impl Into<KValue>) -> Result<T>
 where
     T: Deserialize<'de>,
 {
-    T::deserialize(Deserializer(value.into()))
+    T::deserialize(Deserializer::new(value.into())?)
 }
 
 macro_rules! deserialize_number {
@@ -49,6 +49,20 @@ macro_rules! try_deserialize_number {
 }
 
 pub struct Deserializer(KValue);
+
+impl Deserializer {
+    fn new(value: KValue) -> Result<Self> {
+        let value = match value {
+            KValue::Object(o) => o
+                .try_borrow()
+                .map_err(|e| Error::FailedToSerializeKObject(e.to_string()))?
+                .serialize()
+                .map_err(|e| Error::FailedToSerializeKObject(e.to_string()))?,
+            other => other,
+        };
+        Ok(Self(value))
+    }
+}
 
 impl<'de> de::Deserializer<'de> for Deserializer {
     type Error = Error;
@@ -366,7 +380,9 @@ impl<'slice, 'de> SeqAccess<'de> for ValueSliceDeserializer<'slice, 'de> {
         T: DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some(value) => seed.deserialize(Deserializer(value.clone())).map(Some),
+            Some(value) => seed
+                .deserialize(Deserializer::new(value.clone())?)
+                .map(Some),
             None => Ok(None),
         }
     }
@@ -425,7 +441,7 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
             Some((key, value)) => {
                 self.value = Some(value.clone());
                 self.index += 1;
-                seed.deserialize(Deserializer(key.value().clone()))
+                seed.deserialize(Deserializer::new(key.value().clone())?)
                     .map(Some)
             }
             None => Ok(None),
@@ -437,7 +453,7 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
         S: DeserializeSeed<'de>,
     {
         match self.value.take() {
-            Some(value) => seed.deserialize(Deserializer(value)),
+            Some(value) => seed.deserialize(Deserializer::new(value)?),
             None => Err(de::Error::custom("missing value for map entry")),
         }
     }
@@ -471,7 +487,7 @@ impl<'de> EnumAccess<'de> for KotoEnum {
         V: DeserializeSeed<'de>,
     {
         Ok((
-            seed.deserialize(Deserializer(self.tag.clone()))?,
+            seed.deserialize(Deserializer::new(self.tag.clone())?)?,
             EnumPayload {
                 payload: self.payload,
             },
@@ -497,21 +513,21 @@ impl<'de> VariantAccess<'de> for EnumPayload {
     where
         T: DeserializeSeed<'de>,
     {
-        seed.deserialize(Deserializer(self.payload.clone()))
+        seed.deserialize(Deserializer::new(self.payload.clone())?)
     }
 
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        de::Deserializer::deserialize_seq(Deserializer(self.payload.clone()), visitor)
+        de::Deserializer::deserialize_seq(Deserializer::new(self.payload.clone())?, visitor)
     }
 
     fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        de::Deserializer::deserialize_map(Deserializer(self.payload.clone()), visitor)
+        de::Deserializer::deserialize_map(Deserializer::new(self.payload.clone())?, visitor)
     }
 }
 
