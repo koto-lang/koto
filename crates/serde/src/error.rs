@@ -11,6 +11,8 @@ pub enum Error {
     #[error("{0}")]
     Message(String),
 
+    #[error("failed to make KotoObject serializable '{0}'")]
+    FailedToSerializeKObject(String),
     #[error("missing map key for value")]
     MissingMapKey,
     #[error("number out of i64 range {0}")]
@@ -25,6 +27,7 @@ pub enum Error {
     OutOfRangeU128(u128),
     #[error("expected char, found string containing {} chars", .0.chars().count())]
     StringDoesntContainSingleChar(String),
+
     #[error("{0} is unsupported")]
     Unsupported(String),
 }

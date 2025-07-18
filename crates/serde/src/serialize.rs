@@ -4,6 +4,8 @@ use serde::{
     ser::{self, SerializeMap, SerializeSeq},
 };
 
+use crate::Error;
+
 /// A newtype for [`KValue`] that implements [`serde::Serialize`]
 pub struct SerializableKValue<'a>(pub &'a KValue);
 
@@ -44,10 +46,87 @@ impl Serialize for SerializableKValue<'_> {
                 seq.end()
             }
             KValue::Str(string) => s.serialize_str(string),
+            KValue::Object(o) => {
+                let serialized_object = o
+                    .try_borrow()
+                    .map_err(|e| {
+                        ser::Error::custom(Error::FailedToSerializeKObject(e.to_string()))
+                    })?
+                    .serialize()
+                    .map_err(|e| {
+                        ser::Error::custom(Error::FailedToSerializeKObject(e.to_string()))
+                    })?;
+
+                SerializableKValue(&serialized_object).serialize(s)
+            }
             other => Err(ser::Error::custom(format!(
                 "serialization isn't supported for '{}'",
                 other.type_as_string(),
             ))),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{from_koto_value, to_koto_value};
+
+    use super::*;
+    use koto_runtime::prelude::*;
+    use serde::Deserialize;
+
+    #[test]
+    fn object_to_kmap() {
+        let test_object = TestObject { x: 123 };
+
+        match KotoObject::serialize(&test_object).unwrap() {
+            KValue::Map(m) => match m.get("x").unwrap() {
+                KValue::Number(n) => assert_eq!(n, 123),
+                unexpected => unexpected_type("number", &unexpected).unwrap(),
+            },
+            unexpected => unexpected_type("map", &unexpected).unwrap(),
+        }
+    }
+
+    #[test]
+    fn kobject_roundtrip() {
+        // Wrap a TestObject in a KValue
+        let kvalue = KValue::Object(KObject::from(TestObject { x: 99 }));
+        // Call from_koto_value to produce a new TestObject
+        let test_object: TestObject = from_koto_value(kvalue).unwrap();
+        assert_eq!(test_object.x, 99);
+    }
+
+    #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+    struct TestObject {
+        x: i64,
+    }
+
+    impl KotoType for TestObject {
+        fn type_static() -> &'static str
+        where
+            Self: Sized,
+        {
+            "TestObject"
+        }
+
+        fn type_string(&self) -> KString {
+            Self::type_static().into()
+        }
+    }
+
+    impl KotoCopy for TestObject {
+        fn copy(&self) -> KObject {
+            (*self).into()
+        }
+    }
+
+    impl KotoEntries for TestObject {}
+
+    impl KotoObject for TestObject {
+        fn serialize(&self) -> koto_runtime::Result<KValue> {
+            // Convert this TestObject into a serializable kvalue by calling `to_koto_value`
+            to_koto_value(self).map_err(|e| koto_runtime::Error::from(e.to_string()))
         }
     }
 }
