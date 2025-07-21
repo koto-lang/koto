@@ -49,8 +49,8 @@ pub(crate) fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
         _ => panic!("Expected a type path"),
     };
 
-    // Generate wrapper functions an entry map insertion ops for each impl function tagged with
-    // `#[koto_method]`
+    // For each impl function tagged with `#[koto_method]`,
+    // generate wrapper functions and entry map insertion ops
     let mut insert_op_count = 0;
     let (wrapper_functions, insert_ops): (Vec<_>, Vec<_>) = input_struct
         .items

@@ -1,6 +1,6 @@
 use crate::{Error, Ptr, Result, prelude::*};
 use koto_bytecode::CompilerSettings;
-use koto_runtime::ModuleImportedCallback;
+use koto_runtime::{ModuleImportedCallback, core_lib::CoreLib};
 use std::time::Duration;
 
 /// The main interface for the Koto language.
@@ -53,6 +53,11 @@ impl Koto {
     /// Returns a reference to the runtime's prelude
     pub fn prelude(&self) -> &KMap {
         self.runtime.prelude()
+    }
+
+    /// Returns a reference to the runtime's core library
+    pub fn core_lib(&self) -> &CoreLib {
+        self.runtime.core_lib()
     }
 
     /// Returns a reference to the runtime's exports

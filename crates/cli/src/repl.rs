@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fmt,
     io::{self, Stdout, Write},
     path::PathBuf,
@@ -7,7 +8,7 @@ use std::{
 
 use anyhow::Result;
 use crossterm::{execute, style, tty::IsTty};
-use koto::prelude::*;
+use koto::{prelude::*, runtime::core_lib::CoreLib};
 use rustyline::{CompletionType, Config, Editor, error::ReadlineError, history::DefaultHistory};
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +69,7 @@ impl From<EditMode> for rustyline::EditMode {
 type ReplEditor = Editor<ReplHelper, DefaultHistory>;
 
 pub struct Repl {
-    koto: Koto,
+    koto: Rc<RefCell<Koto>>,
     settings: ReplSettings,
     editor: ReplEditor,
     stdout: Stdout,
@@ -104,6 +105,7 @@ impl Repl {
     pub fn with_settings(settings: ReplSettings, koto_settings: KotoSettings) -> Result<Self> {
         let koto = Koto::with_settings(koto_settings);
         super::add_modules(&koto);
+        let koto = Rc::new(RefCell::new(koto));
 
         let mut editor = ReplEditor::with_config(
             Config::builder()
@@ -113,10 +115,8 @@ impl Repl {
                 .completion_show_all_if_ambiguous(true)
                 .build(),
         )?;
-        editor.set_helper(Some(ReplHelper {
-            exports: koto.exports().clone(),
-            prelude: koto.prelude().clone(),
-        }));
+
+        editor.set_helper(Some(ReplHelper { koto: koto.clone() }));
 
         if let Some(path) = history_path() {
             editor.load_history(&path).ok();
@@ -199,7 +199,8 @@ Run `help` for more information
             self.editor.add_history_entry(&input)?;
 
             let compile_args = CompileArgs::new(&input).export_top_level_ids(true);
-            match self.koto.compile(compile_args) {
+            let compile_result = self.koto.borrow_mut().compile(compile_args);
+            match compile_result {
                 Ok(chunk) => {
                     if self.settings.show_bytecode {
                         print_wrapped!(self.stdout, "{}\n", &Chunk::bytes_as_string(&chunk))?;
@@ -215,19 +216,23 @@ Run `help` for more information
                             Chunk::instructions_as_string(chunk.clone(), &script_lines)
                         )?;
                     }
-                    match self.koto.run(chunk) {
-                        Ok(result) => match self.koto.value_to_string(result.clone()) {
-                            Ok(result_string) => {
-                                self.print_result(&result_string)?;
+                    let output = self.koto.borrow_mut().run(chunk);
+                    match output {
+                        Ok(result) => {
+                            let rendered = self.koto.borrow_mut().value_to_string(result.clone());
+                            match rendered {
+                                Ok(rendered) => {
+                                    self.print_result(&rendered)?;
+                                }
+                                Err(e) => {
+                                    print_wrapped!(
+                                        self.stdout,
+                                        "Error while getting display string for return value ({})",
+                                        e
+                                    )?;
+                                }
                             }
-                            Err(e) => {
-                                print_wrapped!(
-                                    self.stdout,
-                                    "Error while getting display string for return value ({})",
-                                    e
-                                )?;
-                            }
-                        },
+                        }
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
                                 print_wrapped_indented!(self.stdout, HELP_INDENT, "{help}")?;
@@ -262,7 +267,7 @@ Run `help` for more information
 
             // Check if we should add indentation on the next line
             let input = self.continued_lines.join("\n");
-            if let Err(e) = self.koto.compile(&input) {
+            if let Err(e) = self.koto.borrow_mut().compile(&input) {
                 if e.is_indentation_error() {
                     indent_next_line = true;
                 }
@@ -351,8 +356,7 @@ Run `help` for more information
 
 #[derive(Default)]
 struct ReplHelper {
-    exports: KMap,
-    prelude: KMap,
+    koto: Rc<RefCell<Koto>>,
 }
 
 impl ReplHelper {
@@ -367,7 +371,8 @@ impl ReplHelper {
             help()
                 .topics()
                 .map(|topic| CompletionCandidate {
-                    contents: topic.clone(),
+                    display: topic.clone(),
+                    replacement: None,
                 })
                 .collect()
         } else {
@@ -376,48 +381,78 @@ impl ReplHelper {
                 .all_entries()
                 .filter(|(key, _entry)| key.starts_with(&lowercase_search))
                 .map(|(key, _entry)| CompletionCandidate {
-                    contents: key.clone(),
+                    display: key.clone(),
+                    replacement: None,
                 })
                 .collect()
         };
         Ok((offset, candidates))
     }
 
-    fn candidates_from_koto_items(
+    fn candidates_from_koto_expression(
         &self,
         line: &str,
         pos: usize,
     ) -> rustyline::Result<(usize, Vec<CompletionCandidate>)> {
-        let offset = if let Some(whitespace) = line[..pos].rfind(char::is_whitespace) {
-            whitespace + 1
-        } else {
-            0
-        };
-        let search = &line[offset..pos];
+        // We're treating the input as an incomplete Koto expression, so find the expression's start
+        let offset = line[..pos]
+            .chars()
+            .position(|c| !c.is_whitespace())
+            .unwrap_or(0);
+        let expression = &line[offset..pos];
 
-        let candidates: Vec<_> = self
-            .exports
-            .data()
-            .keys()
-            .chain(self.prelude.data().keys())
-            .filter_map(|key| match key.value() {
-                KValue::Str(s) if s.starts_with(search) => Some(CompletionCandidate {
-                    contents: s.as_str().into(),
-                }),
-                _ => None,
-            })
-            .collect();
+        let mut result = Vec::new();
 
-        if candidates.is_empty() && "help".starts_with(search) {
-            Ok((
-                offset,
-                vec![CompletionCandidate {
-                    contents: "help".into(),
-                }],
-            ))
+        if let Some((before_last_dot, after_last_dot)) = expression.rsplit_once('.') {
+            let mut koto = self.koto.borrow_mut();
+            // Evaluate the expression before the last dot to yield the parent value
+            let parent = koto.compile_and_run(before_last_dot).ok();
+            if let Some(parent) = parent
+                && let Some(entries) = value_entries(&parent, koto.core_lib())
+            {
+                for key in entries.data().keys().filter_map(|key| match key.value() {
+                    KValue::Str(s) => Some(s),
+                    _ => None,
+                }) {
+                    if key.starts_with(after_last_dot) {
+                        result.push(CompletionCandidate {
+                            display: key.as_str().into(),
+                            replacement: Some(format!(
+                                "{}.{key}",
+                                &expression[..before_last_dot.len()]
+                            )),
+                        });
+                    }
+                }
+            };
         } else {
-            Ok((offset, candidates))
+            let koto = self.koto.borrow();
+
+            // Find items in the exports and prelude that match the search term
+            result.extend(
+                koto.exports()
+                    .data()
+                    .keys()
+                    .chain(koto.prelude().data().keys())
+                    .filter_map(|key| match key.value() {
+                        KValue::Str(s) if s.starts_with(expression) => Some(CompletionCandidate {
+                            display: s.as_str().into(),
+                            replacement: None,
+                        }),
+                        _ => None,
+                    }),
+            );
         }
+
+        // If there aren't any candidates, then complete with `help`
+        if result.is_empty() && "help".starts_with(expression) {
+            result.push(CompletionCandidate {
+                display: "help".into(),
+                replacement: None,
+            });
+        }
+
+        Ok((offset, result))
     }
 }
 
@@ -433,7 +468,7 @@ impl rustyline::completion::Completer for ReplHelper {
         if let Some(search) = line.trim_start().strip_prefix("help ") {
             self.candidates_from_help(search, line)
         } else {
-            self.candidates_from_koto_items(line, pos)
+            self.candidates_from_koto_expression(line, pos)
         }
     }
 }
@@ -446,15 +481,30 @@ impl rustyline::validate::Validator for ReplHelper {}
 impl rustyline::Helper for ReplHelper {}
 
 struct CompletionCandidate {
-    contents: Rc<str>,
+    display: Rc<str>,
+    replacement: Option<String>,
 }
 
 impl rustyline::completion::Candidate for CompletionCandidate {
     fn display(&self) -> &str {
-        &self.contents
+        &self.display
     }
 
     fn replacement(&self) -> &str {
-        &self.contents
+        self.replacement.as_deref().unwrap_or(&self.display)
+    }
+}
+
+fn value_entries(value: &KValue, core_lib: &CoreLib) -> Option<KMap> {
+    match value {
+        KValue::Number(_) => Some(core_lib.number.clone()),
+        KValue::Range(_) => Some(core_lib.range.clone()),
+        KValue::List(_) => Some(core_lib.list.clone()),
+        KValue::Tuple(_) => Some(core_lib.tuple.clone()),
+        KValue::Str(_) => Some(core_lib.string.clone()),
+        KValue::Iterator(_) => Some(core_lib.iterator.clone()),
+        KValue::Map(m) => Some(m.clone()),
+        KValue::Object(o) => o.try_borrow().ok().and_then(|o| o.entries()),
+        _ => None,
     }
 }

@@ -219,6 +219,11 @@ impl KotoVm {
         &self.context.prelude
     }
 
+    /// The runtime's core library
+    pub fn core_lib(&self) -> &CoreLib {
+        &self.context.core_lib
+    }
+
     /// The active module's exports map
     ///
     /// Note that this is the exports map of the active module, so during execution the returned

@@ -72,6 +72,11 @@ impl KIterator {
         Self(make_ptr_mut!(external))
     }
 
+    /// Creates an empty iterator that yields no values
+    pub fn empty() -> Self {
+        Self::new(EmptyIterator)
+    }
+
     /// Creates a new KIterator from any iterator that implements DoubleEndedIterator
     ///
     /// This should only be used for iterators without side-effects.
@@ -755,5 +760,30 @@ impl Iterator for ByteIterator {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let remaining = self.bytes.len().saturating_sub(self.index);
         (remaining, Some(remaining))
+    }
+}
+
+#[derive(Clone)]
+struct EmptyIterator;
+
+impl KotoIterator for EmptyIterator {
+    fn make_copy(&self) -> Result<KIterator> {
+        Ok(KIterator::new(self.clone()))
+    }
+
+    fn is_bidirectional(&self) -> bool {
+        true
+    }
+
+    fn next_back(&mut self) -> Option<KIteratorOutput> {
+        None
+    }
+}
+
+impl Iterator for EmptyIterator {
+    type Item = KIteratorOutput;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
     }
 }
