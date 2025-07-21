@@ -74,7 +74,8 @@ The Koto project adheres to
     #: 150
     ```
 - Overridden operator improvements
-  - Objects can now implement arithmetic operations.
+  - Objects can now define how arithmetic operations should behave when the object is on the RHS of
+    an expression.
     - Overridden operators define how the object on the right-hand side of an operation should
       behave via the `@r+`, `@r-`, `@r*`, `@r/`, `@r^`, and `@r%` metakeys.
     - If the LHS value doesn't implement the operation, then the RHS value is checked for an
