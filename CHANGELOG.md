@@ -145,7 +145,7 @@ The Koto project adheres to
       and should be rewritten as `foo(1, 2, 3)`.
 - The `->` pipe operator now inserts the piped value as the _first_ argument to the call to the
   right of the pipe, instead of as the last argument.
-  - This makes it easier to build pipelinens with functions that treat the first argument as the
+  - This makes it easier to build pipelines with functions that treat the first argument as the
     subject of the operations, like instance functions.
     ```koto
     'hello!'
