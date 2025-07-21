@@ -593,7 +593,7 @@ check! 234
 
 ### Optional Call Parentheses
 
-In simple expressions the parentheses for function call arguments are optional and can be omitted.
+In simple expressions, the parentheses for function call arguments are optional and can be omitted.
 
 ```koto
 square = |x| x * x
@@ -1917,13 +1917,13 @@ print! f(1, 2, 3)
 check! (1, (2, 3))
 ```
 
-### Container Argument Unpacking
+### Unpacking Container Arguments
 
-Functions that expect containers as arguments can _unpack_ the contained
-elements directly in the argument declaration by using parentheses.
+Functions that expect containers as arguments can _unpack_ the container's
+elements directly by using parentheses.
 
 ```koto
-# A function that sums a container with three contained values
+# A function that sums a value that contains three values
 f = |(a, b, c)| a + b + c
 
 x = [100, 10, 1]
@@ -1946,8 +1946,7 @@ print! f x
 check! 15
 ```
 
-Ellipses can be used to unpack any number of elements at the start or end of a
-container.
+An ellipsis (`...`) can be used to unpack any number of elements at the start or end of a container.
 
 ```koto
 f = |(..., last)| last * last
@@ -1956,7 +1955,7 @@ print! f x
 check! 16
 ```
 
-A name can be added to ellipses to assign the unpacked elements.
+A name can be added an ellipsis to capture the unpacked elements in a tuple.
 
 ```koto
 f = |(first, others...)| first * others.sum()

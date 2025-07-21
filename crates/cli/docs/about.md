@@ -50,8 +50,8 @@ wherever possible.
 Koto is a new language and should be considered to have a prominent
 'use at your own risk' disclaimer.
 
-With that said, Koto is starting to feel more stable, and although we're still
-some way from a `1.0` release,
+With that said, Koto is becoming more stable with each release,
+and although we're still some way from a `1.0` version,
 breaking changes are becoming much less frequent.
 
 Early adopter feedback is invaluable, so if you do try out Koto please
