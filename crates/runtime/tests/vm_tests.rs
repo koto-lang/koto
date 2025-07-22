@@ -2890,7 +2890,7 @@ else
             use super::*;
 
             #[test]
-            fn check_after_lookup() {
+            fn failed_check_after_lookup() {
                 let script = "
 m = {foo: null}
 x = m.foo?.nested
@@ -2900,7 +2900,7 @@ x
             }
 
             #[test]
-            fn check_after_previous_assignment() {
+            fn failed_check_after_previous_assignment() {
                 let script = "
 m = {foo: null}
 x = 99
@@ -2911,7 +2911,7 @@ x
             }
 
             #[test]
-            fn checks_between_calls() {
+            fn failed_checks_between_calls() {
                 let script = "
 f = || null
 x = f()?()
@@ -2921,7 +2921,7 @@ x
             }
 
             #[test]
-            fn check_before_assignment() {
+            fn failed_check_before_assignment() {
                 let script = "
 m = {foo: null}
 m.foo? = 1
@@ -2931,7 +2931,7 @@ m.foo
             }
 
             #[test]
-            fn check_before_compound_assignment() {
+            fn successful_check_before_compound_assignment() {
                 let script = "
 m = {foo: 42}
 m.foo? += 1
@@ -2941,7 +2941,7 @@ m.foo
             }
 
             #[test]
-            fn several_checks_pass() {
+            fn several_successful_checks() {
                 let script = "
 m = || {foo: [{bar: {baz: 99}}]}
 m?()?.foo?[0]?.bar?.baz? += 1
@@ -2959,7 +2959,7 @@ m?()?.foo?[0]?.bar?.get('baz')? += 1
             }
 
             #[test]
-            fn check_into_piped_call_pass() {
+            fn successful_check_on_rhs_of_piped_access() {
                 let script = "
 m = {foo: |x| x}
 42 -> m.foo?
@@ -2968,7 +2968,7 @@ m = {foo: |x| x}
             }
 
             #[test]
-            fn check_into_piped_call_after_call_pass() {
+            fn successful_check_on_rhs_of_piped_call() {
                 let script = "
 m = {foo: || |x| x}
 42 -> m.foo()?
@@ -2986,7 +2986,7 @@ m = {foo: null}
             }
 
             #[test]
-            fn check_before_piped_call_pass() {
+            fn successful_check_before_piped_call() {
                 let script = "
 f = |x|
   x = x or 0
@@ -2998,7 +2998,7 @@ m.foo?() -> f
             }
 
             #[test]
-            fn check_short_circuited_before_piped_call() {
+            fn failed_check_short_circuits_before_piped_call() {
                 let script = "
 f = |x|
   x = x or 0
@@ -3010,7 +3010,7 @@ m.foo?() -> f
             }
 
             #[test]
-            fn check_after_call() {
+            fn successful_check_after_call() {
                 let script = "
 m = {foo: || 42}
 m.foo()? # The check is redundant, but shouldn't error
@@ -3019,7 +3019,7 @@ m.foo()? # The check is redundant, but shouldn't error
             }
 
             #[test]
-            fn check_when_result_is_temporary() {
+            fn failed_check_when_result_is_temporary() {
                 // The result should be 0 due to `m` not containing a value for `bar`
                 // If the temporary register used by the match expression isn't cleared correctly,
                 // then the `other` arm will be matched instead of the `null` arm.
