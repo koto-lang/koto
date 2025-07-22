@@ -2666,16 +2666,11 @@ impl Compiler {
 
     // Compiles a chained expression
     //
-    // The expression chain is a linked list of ChainNodes stored as AST indices.
-    //
-    // The loop keeps track of the temporary values that are the result of each chain node.
-    //
-    // piped_arg_register - used when a value is being piped into the chain,
-    //   e.g. `f x -> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
-    //
-    // rhs - used when assigning to the result of a chain,
+    // - `piped_arg_register`: Used when a value is being piped into the chain,
+    //   e.g. `f x -> foo.bar 123`, should be equivalent to `foo.bar(f(x), 123)`.
+    // - `rhs`: Used when assigning to the result of a chain,
     //   e.g. `foo.bar += 42`, or `foo[123] = bar`
-    // rhs_op - If present, then the op should be applied to the result of the chain.
+    // - `rhs_op`: If present, then the op should be applied to the result of the chain.
     fn compile_chain(
         &mut self,
         &(ref root_node, mut next_node_index): &(ChainNode, Option<AstIndex>),
@@ -2694,23 +2689,24 @@ impl Compiler {
         let result = self.assign_result_register(ctx)?;
 
         // Keep track of the registers containing the two previous nodes in the chain.
-        // This keeps track of parent containers for producing the next chain node, and for function
-        // calls, the two previous nodes are needed (parent container and function).
+        // This keeps track of parent containers for evaluating the next node in the chain.
+        // For function calls, the two previous nodes are needed (the function's parent container
+        // which will be passed as `self` to the function, and the function itself).
         let mut chain_nodes = ChainRegisters::default();
 
-        // At the end of the chain we'll pop the whole stack,
-        // so we don't need to keep track of how many temporary registers we use.
+        // Once we're at the end of the chain we'll pop the register stack to the current count.
         let stack_count = self.stack_count();
         let span_stack_count = self.span_stack.len();
 
-        let mut chain_node = root_node.clone();
+        let mut current_node = root_node.clone();
 
         let mut null_check_jump_placeholders = SmallVec::<[usize; 4]>::new();
         let mut null_check_on_end_node = false;
 
-        // Work through the chain, up until the last node, which will be handled separately
+        // Compile the chain's nodes, except for the last node, which will be compiled separately
+        // following the loop.
         while let Some(next) = next_node_index {
-            match &chain_node {
+            match &current_node {
                 ChainNode::Root(root_node) => {
                     if !chain_nodes.is_empty() {
                         return self.error(ErrorKind::OutOfPositionRootNodeInChain);
@@ -2822,11 +2818,11 @@ impl Compiler {
 
             match &next_chain_node.node {
                 Node::Chain((node, next)) => {
-                    chain_node = node.clone();
+                    current_node = node.clone();
                     next_node_index = *next;
 
                     // If the last node in the chain is a null check then break out now,
-                    // allowing the final node (before the null check) to be held in `chain_node`
+                    // allowing the final node (before the null check) to be held in `current_node`
                     // for further processing below, after this loop.
                     if let Some(next) = *next {
                         if ctx.node(next) == &Node::Chain((ChainNode::NullCheck, None)) {
@@ -2848,7 +2844,7 @@ impl Compiler {
         //   - accessing and assigning to map entries
         //   - accessing and assigning to list entries
         //   - calling functions
-        let end_node = chain_node;
+        let end_node = current_node;
 
         let Some(container_register) = chain_nodes.previous() else {
             return self.error(ErrorKind::MissingChainParentRegister);
@@ -2888,8 +2884,8 @@ impl Compiler {
         // Do we need to access the last node in the lookup chain?
         // - No if it's a simple assignment (without a null check) and the last node is going to be
         //   overwritten.
-        // - Yes otherwise, either there's a compound assignment, or a null check,
-        //   or the last node is the result.
+        // - Otherwise yes, either there's a compound assignment, or a null check,
+        //   or the last node is the expression result.
         match &end_node {
             ChainNode::Id(id, ..) if access_end_node => {
                 self.compile_access_id(output_register, container_register, *id);
@@ -4150,6 +4146,7 @@ impl Compiler {
         Ok(result)
     }
 
+    // Used to compile `loop`, `while`, and `until`
     fn compile_loop(
         &mut self,
         condition: Option<(AstIndex, bool)>, // condition, negate condition
