@@ -3739,7 +3739,7 @@ enum TempResult {
 //    with higher precedence than Pipe would allow this to go away, but would likely take quite a
 //    bit of reworking. All calls to parse_call_args will need to reworked).
 //    parse_call_args needs to parse arguments as expressions with a minimum precedence that
-//    excludes piping, otherwise `f g >> x` would be parsed as `f (g >> x)` instead of `(f g) >> x`.
+//    excludes piping, otherwise `f g -> x` would be parsed as `f (g -> x)` instead of `(f g) -> x`.
 const MIN_PRECEDENCE_AFTER_PIPE: u8 = 3;
 
 fn operator_precedence(op: Token) -> Option<(u8, u8)> {
@@ -3751,15 +3751,15 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         AddAssign | SubtractAssign | MultiplyAssign | DivideAssign | RemainderAssign
         | PowerAssign => (4, MIN_PRECEDENCE_AFTER_PIPE),
         // Logical operators, left-associative
-        Or => (7, 8),
-        And => (9, 10),
+        Or => (5, 6),
+        And => (7, 8),
         // Comparisons, right-associative
-        Equal | NotEqual => (12, 11),
-        Greater | GreaterOrEqual | Less | LessOrEqual => (14, 13),
+        Equal | NotEqual => (10, 9),
+        Greater | GreaterOrEqual | Less | LessOrEqual => (12, 11),
         // Arithmetic operators, left-associative
-        Add | Subtract => (15, 16),
-        Multiply | Divide | Remainder => (17, 18),
-        Power => (19, 20),
+        Add | Subtract => (13, 14),
+        Multiply | Divide | Remainder => (15, 16),
+        Power => (17, 18),
         _ => return None,
     };
     Some(priority)
