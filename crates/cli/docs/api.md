@@ -8,6 +8,10 @@ The Rust code examples are included from the
 
 # Rust API
 
+This document contains a collection of examples of how to interact with Koto from Rust code.
+
+The complete API documentation can be found [here][koto-docs].
+
 ## Hello World
 
 To run a Koto script, instantiate `koto::Koto` and call `compile_and_run`:
@@ -159,4 +163,5 @@ using_koto_in_a_repl.rs
 
 ---
 
+[koto-docs]: https://docs.rs/koto/latest/koto/
 [type]: ./language_guide.md#type
