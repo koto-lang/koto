@@ -361,7 +361,7 @@ print! x
 check! ()
 ```
 
-To create a tuple that contains a single element, then a trailing comma must be included.
+A tuple that contains a single element can be created by including a trailing comma.
 
 ```koto
 # An expression inside parentheses simply resolves to the result of the expression
@@ -393,7 +393,7 @@ check! (1, 2, 3, 4, 5, 6)
 
 ### Tuple Mutability
 
-While tuples have a fixed structure and its contained elements can't be
+While tuples have a fixed structure and its contained values can't be
 replaced, [_mutable_][immutable] value types (like [lists](#lists)) can be
 modified while they're contained in tuples.
 
@@ -484,6 +484,19 @@ print! 'Hi \u{1F44B}'
 check! Hi 👋
 ```
 
+### Continuing a Long Line
+
+The end of a line can be escaped with a `\`, which will skip the
+newline and any leading whitespace on the next line.
+
+```koto
+foo = "This string \
+       doesn't contain \
+       newlines."
+print! foo
+check! This string doesn't contain newlines.
+```
+
 ### String Indexing
 
 Individual _bytes_ of a string can be accessed via indexing with `[]` braces.
@@ -498,20 +511,8 @@ check! yz
 Care must be taken when using indexing with strings that could contain
 non-[ASCII][ascii] data.
 If the indexed bytes would produce invalid UTF-8 data then an
-error will be thrown. To access Unicode characters see [`string.chars`][chars].
-
-### Continuing a Long Line
-
-The end of a line can be escaped with a `\`, which will skip the
-newline and any leading whitespace on the next line.
-
-```koto
-foo = "This string \
-       doesn't contain \
-       newlines."
-print! foo
-check! This string doesn't contain newlines.
-```
+error will be thrown.
+To access a string's Unicode characters individually, see [`string.chars`][chars].
 
 ### Single or Double Quotes
 
@@ -665,14 +666,25 @@ print! x = add 1, 3
 check! 32
 ```
 
+Piped arguments are inserted as the first argument for the following call.
+
+```koto
+get_name = || 'Ada'
+say = |name, greeting| print '{greeting}, {name}!'
+
+get_name() -> say 'Hello'
+check! Hello, Ada!
+```
+
 ## Maps
 
-_Maps_ in Koto are [associative containers][associated] that contain a series of
-_entries_ with _keys_ that correspond to associated _values_.
+Maps in Koto are [associative containers][associated] that contain a series of
+_entries_ with _keys_ that correspond to associated values.
 
-The `.` dot operator returns the value associated with a particular key.
+Maps can be created using _inline syntax_, with `{}` braces containing a series of entries separated by commas.
 
-Maps can be created using _inline syntax_ with `{}` braces:
+The `.` operator returns the value associated with a particular key.
+
 
 ```koto
 m = {apples: 42, oranges: 99, lemons: 63}
@@ -682,7 +694,7 @@ print! m.oranges
 check! 99
 ```
 
-...Or using _block syntax_ with indented entries:
+Maps can also be created using _block syntax_, with each entry on a new indented line:
 
 ```koto
 m =
@@ -770,7 +782,7 @@ check! Bye, Friend!
 which the function is contained.
 
 In maps, `self` allows functions to access and modify data from the map,
-enabling object-like behaviour.
+enabling [_object_][object-wiki]-like behaviour.
 
 ```koto
 m =
@@ -852,38 +864,42 @@ and values for working with the Koto language, organized within _modules_.
 print! string.to_lowercase 'HELLO'
 check! hello
 
-# Return the first element of a list
+# Get the first element of a list
 print! list.first [99, -1, 3]
 check! 99
 ```
 
-Values in Koto automatically have access to their corresponding core modules
-via `.` access.
+Koto's built-in value types automatically have access to their corresponding
+core library modules via `.` access.
 
 ```koto
+# Convert a string to uppercase
 print! 'xyz'.to_uppercase()
 check! XYZ
 
-print! ['abc', 123].first()
-check! abc
+# Get the last element in a list
+print! ['abc', 123].last()
+check! 123
 
+# Round a floating-point number to the closest integer
 print! (7 / 2).round()
 check! 4
 
+# Check if a map contains an 'apples' key
 print! {apples: 42, pears: 99}.contains_key 'apples'
 check! true
 ```
 
 The [documentation][core] for the Core library (along with this guide) is
-available in the `help` command of the [Koto CLI][cli].
+also available in the `help` command of the [Koto CLI][cli].
 
 ### Prelude
 
-Koto's _prelude_ is a collection of core library items that are automatically
+Koto's _prelude_ is a collection of items that are automatically
 made available in a Koto script without the need for first calling [`import`](#import).
 
-The modules that make up the core library are all included by default in the
-prelude. The following functions are also added to the prelude by default:
+The core library's modules are all included by default in the prelude,
+along with the following functions:
 
 - [`io.print`](./core_lib/io.md#print)
 - [`koto.copy`](./core_lib/koto.md#copy)
@@ -1016,12 +1032,12 @@ check! Starts with 'a', followed by 'b', then 4 others
 
 ### Optional Chaining
 
-The `?` operator can be used to short-circuit expression chains where `null`
-might be encountered as an intermediate value. The `?` checks the current value
-in the expression chain and if `null` is found then the chain is short-circuited
-with `null` given as the expression's result.
+Checking optional values for `null` in expression chains can feel a bit
+cumbersome, with `if` checks interrupting an expression's natural flow.
 
-This makes it easier to check for `null` when you want to avoid runtime errors.
+The `?` operator can be used to simplify expression chains that contain optional results.
+If `?` finds `null` when checking an optional value,
+then the chain gets _short-circuited_ with `null` given as the chain's overall result.
 
 ```koto
 info = {town: 'Hamburg', country: 'Germany'}
@@ -1035,7 +1051,7 @@ check! HAMBURG
 print! info.get('state')?.to_uppercase()
 check! null
 
-# Without the `?` operator an intermediate step is necessary:
+# Without the `?` operator, an intermediate step is necessary:
 country = info.get('country')
 print! if country then country.to_uppercase()
 check! GERMANY
@@ -1097,7 +1113,7 @@ check! 1
 
 ### `continue`
 
-`continue` skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
+The `continue` keyword skips the remaining part of a loop's body and proceeds with the next repetition of the loop.
 
 ```koto
 for n in (-2, -1, 1, 2)
@@ -1325,11 +1341,11 @@ check! ('bar', 99)
 ### Ignoring Unpacked Values
 
 `_` can be used as a placeholder for unpacked values that aren't needed elsewhere
-in the code and can be ignored.
+in the code and can therefore be ignored.
 
-If you would like to add a name to the ignored value as a reminder,
-then the name can be appended to `_`. Ignored values (any variables starting with
-`_`) can be written to, but can't be accessed.
+If you would like to add a name to the ignored value as a reminder, then the name can be appended to `_`.
+
+Ignored values (any variables starting with `_`) can be written to, but can't be accessed.
 
 ```koto
 a, _, c = 10..20
@@ -1339,81 +1355,6 @@ check! (10, 12)
 _first, second = 'xyz'
 print! second
 check! y
-```
-
-## Generators
-
-Generators are iterators that are made by calling _generator functions_,
-which are any functions that contain a `yield` expression.
-
-The generator is paused each time `yield` is encountered,
-waiting for the caller to continue execution.
-
-```koto
-my_first_generator = ||
-  yield 1
-  yield 2
-
-x = my_first_generator()
-print! x.next()
-check! IteratorOutput(1)
-print! x.next()
-check! IteratorOutput(2)
-print! x.next()
-check! null
-```
-
-Generator functions can accept arguments like any other function,
-and each time they're called a new generator is created.
-
-As with any other iterable value, the [`iterator`][iterator] module's functions
-are made available to generators.
-
-```koto
-make_generator = |x|
-  for y in (1, 2, 3)
-    yield x + y
-
-print! make_generator(0).to_tuple()
-check! (1, 2, 3)
-print! make_generator(10)
-  .keep |n| n % 2 == 1
-  .to_list()
-check! [11, 13]
-```
-
-### Custom Iterator Adaptors
-
-Generators can also serve as _iterator adaptors_ by modifying the output of
-another iterator.
-
-Inserting a generator into the [`iterator`][iterator] module makes it available
-in any iterator chain.
-
-```koto
-# Make an iterator adaptor that yields every
-# other value from the adapted iterator
-iterator.every_other = |iter = null|
-  n = 0
-  # If the iterator to be adapted is provided as an argument then use it,
-  # otherwise defer to `self`, which is set by the runtime when the
-  # generator is used in an iterator chain.
-  for output in iter or self
-    # If n is even, then yield a value
-    if n % 2 == 0
-      yield output
-    n += 1
-
-# The adaptor can be called directly...
-print! iterator.every_other('abcdef').to_string()
-check! ace
-
-# ...or anywhere in an iterator chain
-print! (1, 2, 3, 4, 5)
-  .each |n| n * 10
-  .every_other()
-  .to_list()
-check! [10, 30, 50]
 ```
 
 ## Ranges
@@ -1593,18 +1534,6 @@ f = |s: String| -> Tuple
   s.to_tuple()
 print! f 'abc'
 check! ('a', 'b', 'c')
-```
-
-For [generator functions](#generators), the `->` type hint is used to check
-the generator's `yield` expressions.
-
-```koto
-g = || -> Number
-  yield 1
-  yield 2
-  yield 3
-print! g().to_tuple()
-check! (1, 2, 3)
 ```
 
 ### `match` patterns
@@ -2035,6 +1964,94 @@ check! 3: 99
 check! 4: 100
 ```
 
+## Generators
+
+Generators are iterators that are made by calling _generator functions_,
+which are any functions that contain a `yield` expression.
+
+The generator is paused each time `yield` is encountered,
+waiting for the caller to continue execution.
+
+```koto
+my_first_generator = ||
+  yield 1
+  yield 2
+
+x = my_first_generator()
+print! x.next()
+check! IteratorOutput(1)
+print! x.next()
+check! IteratorOutput(2)
+print! x.next()
+check! null
+```
+
+Generator functions can accept arguments like any other function,
+and each time they're called a new generator is created.
+
+As with any other iterable value, the [`iterator`][iterator] module's functions
+are made available to generators.
+
+```koto
+make_generator = |x|
+  for y in (1, 2, 3)
+    yield x + y
+
+print! make_generator(0).to_tuple()
+check! (1, 2, 3)
+
+print! make_generator(10)
+  # Keep odd numbers, and discard even numbers 
+  .keep |n| n % 2 == 1
+  .to_list()
+check! [11, 13]
+```
+
+When defining a generator, a `->` [type hint](#type-checks) is used to check
+the type of the generator's `yield` expressions.
+
+```koto
+g = || -> Number
+  yield 1
+  yield 2
+  yield 3
+print! g().to_tuple()
+check! (1, 2, 3)
+```
+
+### Custom Iterator Adaptors
+
+Generators can also serve as _iterator adaptors_ by modifying the output of
+another iterator.
+
+Inserting a generator into the [`iterator`][iterator] module makes it available
+in any iterator chain.
+
+```koto
+# Make an iterator adaptor that yields every
+# other value from the adapted iterator
+iterator.every_other = |iter = null|
+  n = 0
+  # If the iterator to be adapted is provided as an argument then use it,
+  # otherwise defer to `self`, which is set by the runtime when the
+  # generator is used in an iterator chain.
+  for output in iter or self
+    # If n is even, then yield a value
+    if n % 2 == 0
+      yield output
+    n += 1
+
+# The adaptor can be called directly...
+print! iterator.every_other('abcdef').to_string()
+check! ace
+
+# ...or anywhere in an iterator chain
+print! (1, 2, 3, 4, 5)
+  .each |n| n * 10
+  .every_other()
+  .to_list()
+check! [10, 30, 50]
+```
 
 ## Objects and Metamaps
 
@@ -2085,7 +2102,7 @@ check! 200
 
 ### Arithmetic Operators
 
-Arithmetic operators used in binary expressions can all be implemented in an object's metamap
+All arithmetic operators used in binary expressions can be implemented in an object's metamap
 by implementing functions for the appropriate metakeys.
 
 When the object is on the left-hand side (_LHS_) of the expression the metakeys are
@@ -2165,7 +2182,7 @@ check! false
 
 #### `@negate`
 
-The `@negate` metakey overrides the negation operator.
+The `@negate` metakey overrides the `-` negation operator.
 
 ```koto
 foo = |n|
@@ -2250,15 +2267,14 @@ function.
 ```koto
 foo = |n|
   data: n
-  @call: ||
-    self.data *= 2
-    self.data
+  @call: |arg|
+    self.data *= arg
 
 x = foo 2
-print! x()
-check! 4
-print! x()
-check! 8
+print! x(10)
+check! 20
+print! x(4)
+check! 80
 ```
 
 #### `@iterator`
@@ -2284,12 +2300,12 @@ print! foo(100).to_list()
 check! [101, 102, 103]
 ```
 
-Note that this key will be ignored if the object also implements `@next`,
+Note that the `@iterator` metakey will be ignored if the object also implements `@next`,
 which implies that the object is _already_ an iterator.
 
 #### `@next`
 
-The `@next` metakey allows for objects to behave as iterators.
+The `@next` metakey allows for objects to treated as iterators.
 
 Whenever the runtime needs to produce an iterator from an object, it will first
 check the metamap for an implementation of `@next`, before looking for `@iterator`.
@@ -2429,6 +2445,7 @@ check! Fido
 #### `@meta`
 
 The `@meta` metakey allows named metakeys to be added to the metamap.
+
 Metakeys defined with `@meta` are accessible via `.` access,
 similar to regular object `keys`, but they don't appear as part of the object's
 main data entries when treated as a regular map.
@@ -2494,8 +2511,9 @@ check! Foo(30)
 Errors can be _thrown_ in the Koto runtime, which then cause the runtime to stop
 execution.
 
-A `try` / `catch` expression can be used to _catch_ any thrown errors,
-allowing execution to continue.
+A _try_ / _catch_ expression can be used to catch any errors thrown while inside
+the `try` block, allowing execution to continue.
+
 An optional `finally` block can be used for cleanup actions that need to
 performed whether or not an error was caught.
 
@@ -2505,10 +2523,10 @@ try
   # Accessing an invalid index will throw an error
   print x[100]
 catch error
-  print "Caught an error"
+  print "Caught an error: '{error}'"
 finally
   print "...and finally"
-check! Caught an error
+check! Caught an error: 'index out of bounds - index: 100, size: 3'
 check! ...and finally
 ```
 
@@ -2623,7 +2641,7 @@ making them available to be imported by other modules.
 # hello is a local variable, and isn't exported
 hello = 'Hello'
 
-# export say_hello to make it available to other modules
+# Here, say_hello gets exported, making it available to other modules
 export say_hello = |name| '{hello}, {name}!'
 
 ##################
@@ -2745,9 +2763,9 @@ check! 'Hello, Koto!'
 When looking for a module, `import` will look for a `.koto` file with a matching
 name, or for a folder with a matching name that contains a `main.koto` file.
 
-E.g. When an `import foo` expression is run, then a `foo.koto` file will be
-looked for in the same location as the current script,
-and if `foo.koto` isn't found then the runtime will look for `foo/main.koto`.
+For example, when the expression `import foo` is evaluated,
+then the runtime will look for a `foo.koto` file in the same location as the current script,
+and if one isn't found then the runtime will look for `foo/main.koto`.
 
 ## Testing
 
@@ -2763,16 +2781,18 @@ and are included by default in the [prelude](#prelude).
 
 ```koto
 try
-  assert 1 + 1 == 3
+  assert 1 + 1 == 2
+  print 'The assertion passed'
 catch error
-  print 'An assertion failed'
-check! An assertion failed
+  print 'The assertion failed'
+check! The assertion passed
 
 try
   assert_eq 'hello', 'goodbye'
+  print 'The assertion passed'
 catch error
-  print 'An assertion failed'
-check! An assertion failed
+  print 'The assertion failed'
+check! The assertion failed
 ```
 
 ### Module Tests
@@ -2780,7 +2800,8 @@ check! An assertion failed
 Tests can be added to a module by exporting `@test` functions. A test function is considered to have failed if it throws an error (e.g. from an assertion).
 
 If Koto is configured to run tests, then the tests will be run after a module has been successfully initialized.
-If the module also exports `@main` then it will be called after all tests have run successfully.
+
+After all tests have run successully, then the runtime will call the module's `@main` function if it's defined.
 
 The CLI doesn't enable tests by default when running scripts, but they can be enabled [via a flag][cli-tests].
 
@@ -2862,6 +2883,11 @@ test.run_tests my_tests
 
 ---
 
+You've made it to the end of the guide! If you spotted any mistakes, or noticed any sections that were less clear than you would have liked,
+then please open an [issue][issues] or create a [PR][prs].
+
+For further reading, take a look at docs for the [core library][core], the [extra libs][libs], or how Koto can be integrated into Rust applications in the [Rust API docs][rust-api].
+
 [ascii]: https://en.wikipedia.org/wiki/ASCII
 [associated]: https://en.wikipedia.org/wiki/Associative_array
 [chars]: ./core_lib/string.md#chars
@@ -2869,7 +2895,9 @@ test.run_tests my_tests
 [cli-tests]: ./cli.md#running_tests
 [compound-assignment]: https://en.wikipedia.org/wiki/Augmented_assignment
 [core]: ./core_lib
+[extra]: ./libs
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
+[issues]: https://github.com/koto-lang/koto/issues
 [iterator]: ./core_lib/iterator.md
 [iterator-count]: ./core_lib/iterator.md#count
 [iterator-reversed]: ./core_lib/iterator.md#reversed
@@ -2880,12 +2908,15 @@ test.run_tests my_tests
 [map-get]: ./core_lib/map.md#get
 [map-insert]: ./core_lib/map.md#insert
 [map-with_meta]: ./core_lib/map.md#with_meta
+[prs]: https://github.com/koto-lang/koto/pulls
 [lazy]: https://en.wikipedia.org/wiki/Lazy_evaluation
 [next]: ./core_lib/iterator.md#next
+[object-wiki]: https://en.wikipedia.org/wiki/Object_(computer_science)
 [once]: ./core_lib/iterator.md#once
 [optional-type]: https://en.wikipedia.org/wiki/Option_type
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
 [repeat]: ./core_lib/iterator.md#repeat
+[rust-api]: ./api
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
 [test-run_tests]: ./core_lib/test.md#run_tests
 [to_list]: ./core_lib/iterator.md#to_list
