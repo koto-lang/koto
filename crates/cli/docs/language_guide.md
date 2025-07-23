@@ -2886,7 +2886,7 @@ test.run_tests my_tests
 You've made it to the end of the guide! If you spotted any mistakes, or noticed any sections that were less clear than you would have liked,
 then please open an [issue][issues] or create a [PR][prs].
 
-For further reading, take a look at docs for the [core library][core], the [extra libs][libs], or how Koto can be integrated into Rust applications in the [Rust API docs][rust-api].
+For further reading, take a look at docs for the [core library][core], the [extra libs][extra-libs], or how Koto can be integrated into Rust applications in the [Rust API docs][rust-api].
 
 [ascii]: https://en.wikipedia.org/wiki/ASCII
 [associated]: https://en.wikipedia.org/wiki/Associative_array
@@ -2895,7 +2895,7 @@ For further reading, take a look at docs for the [core library][core], the [extr
 [cli-tests]: ./cli.md#running_tests
 [compound-assignment]: https://en.wikipedia.org/wiki/Augmented_assignment
 [core]: ./core_lib
-[extra]: ./libs
+[extra-libs]: ./libs
 [immutable]: https://en.wikipedia.org/wiki/Immutable_object
 [issues]: https://github.com/koto-lang/koto/issues
 [iterator]: ./core_lib/iterator.md
@@ -2916,7 +2916,7 @@ For further reading, take a look at docs for the [core library][core], the [extr
 [optional-type]: https://en.wikipedia.org/wiki/Option_type
 [operation-order]: https://en.wikipedia.org/wiki/Order_of_operations#Conventional_order
 [repeat]: ./core_lib/iterator.md#repeat
-[rust-api]: ./api
+[rust-api]: ./api.md
 [rust-format-options]: https://doc.rust-lang.org/std/fmt/#formatting-parameters
 [test-run_tests]: ./core_lib/test.md#run_tests
 [to_list]: ./core_lib/iterator.md#to_list
