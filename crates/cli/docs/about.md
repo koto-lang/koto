@@ -8,8 +8,9 @@ See the neighboring [readme](./README.md) for an explanation of the
 - [Background](#background)
 - [Current State](#current-state)
 - [Features](#features)
-- [Influences](#influences)
 - [Tooling](#tooling)
+- [Projects using Koto](#projects-using-koto)
+- [Influences](#influences)
 - [Performance](#performance)
 
 ---
@@ -95,19 +96,6 @@ the [CLI](./cli.md), and see how well it works in your
 - **Integration with other languages:** There's currently no C API for Koto,
   which would allow it to be integrated with languages other than Rust.
 
-## Influences
-
-Koto was influenced by and is indebted to many other languages.
-- **Scope:** [Lua][lua] was a strong influence on Koto, showing the strength of
-  a minimalistic feature-set in an embeddable scripting language.
-- **Syntax:** [Coffeescript][coffeescript] and [Moonscript][moonscript] show how
-  languages can be made easy on the eye by minimizing visual distractions,
-  while also managing to avoid inexpressive terseness.
-- **Language Design:** Although the syntax and core purpose is very different,
-  [Rust][rust] had a huge impact on Koto's design. In particular Rust's
-  [rich iterator support][rust-iterators] was a major influence on emphasizing
-  the role of iterators in Koto.
-
 ## Tooling
 
 ### Editors
@@ -130,13 +118,43 @@ If you're using Neovim then it's easy to set up with [nvim-treesitter][nvim-tree
 An implementation of the [Language Server Protocol][lsp] for Koto is
 [available here][koto-ls].
 
+## Projects using Koto
+
+- [Kotoist](https://kotoist.alestsurko.by)
+  - A VST plugin for live coding and algorithmic composition
+- [Metabuild](https://github.com/jasal82/metabuild)
+  - A scriptable build automation system with dependency manager
+- [Ohm](https://github.com/cornedriesprong/ohm)
+  - A live coding language/DSL for audio synthesis and processing
+- [bevy-koto](https://github.com/koto-lang/bevy_koto)
+  - A proof of concept for scripting [Bevy](https://bevy.org) entities using Koto
+- [fidget-koto](https://github.com/rsaccon/fidget-koto)
+  - Koto scripting support for [Fidget](https://github.com/mkeeter/fidget)
+- [koto-midi](https://github.com/alisomay/koto_midi)
+  - A module for working with MIDI messages in Koto scripts
+
+Please open a [PR][pr] if you would like to add your project to this list.
+
+## Influences
+
+Koto was influenced by and is indebted to many other languages.
+- **Scope:** [Lua][lua] was a strong influence on Koto, showing the strength of
+  a minimalistic feature-set in an embeddable scripting language.
+- **Syntax:** [Coffeescript][coffeescript] and [Moonscript][moonscript] show how
+  languages can be made easy on the eye by minimizing visual distractions,
+  while also managing to avoid inexpressive terseness.
+- **Language Design:** Although the syntax and core purpose is very different,
+  [Rust][rust] had a huge impact on Koto's design. In particular Rust's
+  [rich iterator support][rust-iterators] was a major influence on emphasizing
+  the role of iterators in Koto.
+
 ## Performance
 
-Koto's runtime is fast enough for many applications, with performance comparable to similar embedded scripting languages for Rust like [Rhai][rhai] and [Dyon][dyon].
+Koto's runtime is fast enough for many applications, with similar performance to other embedded scripting languages for Rust (see [here][script-bench-rs] for a comparison).
 
 By default, Koto uses a single-threaded runtime. The multi-threaded runtime is available via a [feature flag][api-multi-threaded], but comes with a runtime performance cost typically in the range of ~5-10%.
 
-As an embedded language that runs in a virtual machine within an application, runtime performance is heavily affected by the way that the application is compiled. See [The Rust Performance Book][performance-book] for lots of excellent advice on how to improve performance. In particular, the choice of [allocator][allocators] used by the application should be considered.
+When Koto is used as an embedded language within a host application, runtime performance is heavily affected by the way that the application itself is compiled. See [The Rust Performance Book][performance-book] for lots of excellent advice on how to improve performance. In particular, the choice of [allocator][allocators] used by the application should be considered.
 
 ---
 
@@ -146,7 +164,6 @@ As an embedded language that runs in a virtual machine within an application, ru
 [coffeescript]: https://coffeescript.org
 [discord]: https://discord.gg/JeV8RuK4CT
 [discussions]: https://github.com/koto-lang/koto/discussions
-[dyon]: https://github.com/PistonDevelopers/dyon
 [helix]: https://helix-editor.com
 [helix-build]: https://docs.helix-editor.com/building-from-source.html
 [issues]: https://github.com/koto-lang/koto/issues
@@ -160,9 +177,10 @@ As an embedded language that runs in a virtual machine within an application, ru
 [nvim-treesitter]: https://github.com/nvim-treesitter/nvim-treesitter
 [performance-book]: https://nnethercote.github.io/perf-book
 [playground]: https://koto.dev/play
-[rhai]: https://rhai.rs
+[pr]: https://github.com/koto-lang/koto/pulls
 [rust]: https://rust-lang.org
 [rust-iterators]: https://doc.rust-lang.org/rust-by-example/trait/iter.html
+[script-bench-rs]: https://github.com/khvzak/script-bench-rs
 [testing]: ./language_guide.md#testing
 [tree-sitter]: https://tree-sitter.github.io/tree-sitter/
 [tree-sitter-koto]: https://github.com/koto-lang/tree-sitter-koto
