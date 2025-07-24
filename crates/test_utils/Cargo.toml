@@ -20,15 +20,8 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
+koto_bytecode = {workspace = true}
+koto_runtime = {workspace = true}
+
 itertools = { workspace = true }
 pulldown-cmark = { workspace = true }
-
-[dependencies.koto_bytecode]
-path = "../../crates/bytecode"
-version = "^0.17.0"
-default-features = false
-
-[dependencies.koto_runtime]
-path = "../../crates/runtime"
-version = "^0.17.0"
-default-features = false
