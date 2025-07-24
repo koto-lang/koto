@@ -20,8 +20,8 @@ arc = ["koto_parser/arc"]
 rc = ["koto_parser/rc"]
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.17.0" }
-koto_parser = { path = "../parser", version = "^0.17.0", default-features = false }
+koto_lexer = { workspace = true }
+koto_parser = { workspace = true }
 
 derive-name = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

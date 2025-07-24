@@ -20,12 +20,9 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
+koto_runtime = { workspace = true }
+
 glam = { workspace = true }
 
-[dependencies.koto_runtime]
-path = "../../crates/runtime"
-version = "^0.17.0"
-default-features = false
-
 [dev-dependencies]
-koto_test_utils = { path = "../../crates/test_utils", default-features = false }
+koto_test_utils = { workspace = true }

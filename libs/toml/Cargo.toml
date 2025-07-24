@@ -5,10 +5,11 @@ description = "A Koto library for working with TOML data"
 
 authors.workspace = true
 edition.workspace = true
-license.workspace = true
 homepage.workspace = true
-repository.workspace = true
 keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 
 [features]
 default = ["rc"]
@@ -19,17 +20,10 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
+koto_runtime = { workspace = true }
+koto_serde = { workspace = true }
+
 toml = { workspace = true }
 
-[dependencies.koto_runtime]
-path = "../../crates/runtime"
-version = "^0.17.0"
-default-features = false
-
-[dependencies.koto_serde]
-path = "../../crates/serde"
-version = "^0.17.0"
-default-features = false
-
 [dev-dependencies]
-koto_test_utils = { path = "../../crates/test_utils", default-features = false }
+koto_test_utils = { workspace = true }

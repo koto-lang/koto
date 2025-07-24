@@ -12,6 +12,27 @@ readme = "README.md"
 repository = "https://github.com/koto-lang/koto"
 
 [workspace.dependencies]
+koto_bytecode = { path = "crates/bytecode", default-features = false }
+koto_derive = { path = "crates/derive", default-features = false }
+koto_format = { path = "crates/format", default-features = false }
+koto = { path = "crates/koto", default-features = false }
+koto_lexer = { path = "crates/lexer" }
+koto_memory = { path = "crates/memory", default-features = false }
+koto_parser = { path = "crates/parser", default-features = false }
+koto_runtime = { path = "crates/runtime", default-features = false }
+koto_serde = { path = "crates/serde", default-features = false }
+koto_test_utils = { path = "crates/test_utils", default-features = false }
+
+koto_color = { path = "libs/color", default-features = false }
+koto_geometry = { path = "libs/geometry", default-features = false }
+koto_json = { path = "libs/json", default-features = false }
+koto_random = { path = "libs/random", default-features = false }
+koto_regex = { path = "libs/regex", default-features = false }
+koto_tempfile = { path = "libs/tempfile", default-features = false }
+koto_toml = { path = "libs/toml", default-features = false }
+koto_yaml = { path = "libs/yaml", default-features = false }
+
+
 # Flexible concrete Error type built on std::error::Error
 anyhow = "1.0.75"
 # Date and time library for Rust

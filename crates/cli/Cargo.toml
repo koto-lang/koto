@@ -24,17 +24,17 @@ name = "koto"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../koto", version = "^0.17.0", default-features = false }
-koto_format = { path = "../format", version = "^0.17.0", default-features = false }
+koto = { workspace = true }
+koto_format = { workspace = true }
 
-koto_color = { path = "../../libs/color", version = "^0.17.0", default-features = false }
-koto_geometry = { path = "../../libs/geometry", version = "^0.17.0", default-features = false }
-koto_json = { path = "../../libs/json", version = "^0.17.0", default-features = false }
-koto_random = { path = "../../libs/random", version = "^0.17.0", default-features = false }
-koto_regex = { path = "../../libs/regex", version = "^0.17.0", default-features = false }
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.17.0", default-features = false }
-koto_toml = { path = "../../libs/toml", version = "^0.17.0", default-features = false }
-koto_yaml = { path = "../../libs/yaml", version = "^0.17.0", default-features = false }
+koto_color = { workspace = true }
+koto_geometry = { workspace = true }
+koto_json = { workspace = true }
+koto_random = { workspace = true }
+koto_regex = { workspace = true }
+koto_tempfile = { workspace = true }
+koto_toml = { workspace = true }
+koto_yaml = { workspace = true }
 
 anyhow = { workspace = true }
 home = { workspace = true }

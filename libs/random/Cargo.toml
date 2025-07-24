@@ -20,18 +20,15 @@ arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
+koto_runtime = { workspace = true }
+
 lazy_static = { workspace = true }
 rand = { workspace = true, features = ["std", "os_rng"] }
 rand_xoshiro = { workspace = true }
-
-[dependencies.koto_runtime]
-path = "../../crates/runtime"
-version = "^0.17.0"
-default-features = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true }
 
 [dev-dependencies]
-koto_derive = { path = "../../crates/derive", default-features = false }
-koto_test_utils = { path = "../../crates/test_utils", default-features = false }
+koto_derive = { workspace = true }
+koto_test_utils = { workspace = true }

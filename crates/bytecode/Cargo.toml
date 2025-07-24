@@ -20,8 +20,8 @@ arc = ["koto_memory/arc"]
 rc = ["koto_memory/rc"]
 
 [dependencies]
-koto_memory = { path = "../memory", version = "^0.17.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.17.0", default-features = false }
+koto_memory = { workspace = true }
+koto_parser = { workspace = true }
 
 circular-buffer = { workspace = true }
 derive-name = { workspace = true }
