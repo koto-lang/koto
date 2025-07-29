@@ -57,7 +57,7 @@ impl Hash for KNativeFunction {
     }
 }
 
-/// The context provided when a call to a [KNativeFunction] is made
+/// The context provided to [native functions](KNativeFunction) when called
 ///
 /// See also: [crate::MethodContext].
 #[allow(missing_docs)]

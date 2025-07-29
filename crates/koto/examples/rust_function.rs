@@ -1,34 +1,34 @@
-use koto::{Result, prelude::*, runtime};
+use koto::{Result, prelude::*};
 
 fn main() -> Result<()> {
-    let script = "
-say_hello()
-say_hello 'Alice'
-print plus 10, 20
-";
     let mut koto = Koto::default();
     let prelude = koto.prelude();
 
-    // Standalone functions can be inserted directly
     prelude.insert("say_hello", say_hello);
+    prelude.insert("plus", plus);
 
-    // The add_fn helper avoids the need for type annotations
-    prelude.add_fn("plus", |ctx| match ctx.args() {
-        [KValue::Number(a), KValue::Number(b)] => Ok((a + b).into()),
-        unexpected => unexpected_args("|Number, Number|", unexpected),
-    });
+    let script = "
+say_hello()
+say_hello 'Alice'
+
+print plus 10, 20
+";
 
     koto.compile_and_run(script)?;
-
     Ok(())
 }
 
-fn say_hello(ctx: &mut CallContext) -> runtime::Result<KValue> {
-    match ctx.args() {
-        [] => println!("Hello?"),
-        [KValue::Str(name)] => println!("Hello, {name}"),
-        unexpected => return unexpected_args("||, or |String|", unexpected),
+// The `koto_fn` macro generates wrappers for each function, with support for overloaded functions
+koto_fn! {
+    fn say_hello() {
+        println!("Hello?");
     }
 
-    Ok(KValue::Null)
+    fn say_hello(name: &str) {
+        println!("Hello, {name}");
+    }
+
+    fn plus(a: i64, b: i64) -> i64 {
+        a + b
+    }
 }
