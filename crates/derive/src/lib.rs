@@ -6,11 +6,138 @@
 compile_error!("A single memory management feature can be enabled at a time");
 
 mod attributes;
+mod function;
 mod koto_copy;
 mod koto_impl;
 mod koto_type;
 
 use proc_macro::TokenStream;
+
+/// A helper macro for declaring Rust functions for the Koto runtime
+///
+/// The macro generates a `KotoFunction`-compatible wrapper function with the specified name.
+///
+/// Multiple functions can be declared in a single macro invocation, with a separate wrapper
+/// generated for each function.
+///
+/// Functions can be overloaded, with the macro logic generating appropriate `match` arms for each
+/// overload.
+///
+/// ## Argument Type Conversions
+///
+/// The macro will attempt to convert Koto arguments into the expected argument types.
+///
+/// E.g.: For a function signature like `fn(x: i64, s: &str)`, the macro will expect a
+/// `KValue::Number`, followed by a `KValue::String`.
+///
+/// Inner variant types for `KValue` (like `KMap`, `KString`, etc.) will be unpacked and forwarded.
+///
+/// The macro will call `.clone()` for arguments that take their inputs by value.
+///
+/// An argument that takes `&KValue` or `KValue` will match against any value type.
+///
+/// Variadic functions should take `&[KValue]` as the last argument, and then the wrapper will
+/// forward any remaining arguments.
+///
+/// Any unknown value type is assumed by the macro to implement `KotoObject`. The wrapper will match
+/// against `KValue::Object` and then attempt to cast the object to the expected type.
+///
+/// ## Return Type
+///
+/// If no return type is specified then the generated wrapper will return `Ok(KValue::Null)`.
+///
+/// If `koto::runtime::Result<T>` is returned, then `T` is assumed to implement `Into<KValue>`.
+///
+/// Similarly, if a non-`Result` value is returned, then the generated wrapper will return
+/// `Ok(KValue::from(value))`.
+///  
+/// ## Non-Koto Arguments
+///
+/// - If an argument takes `&mut CallContext` then it will receive the `CallContext` with which the
+///   generated wrapper function was called.
+/// - If an argument takes `&mut KotoVm` then it will receive the `CallContext`'s `KotoVm`.
+///
+/// In both cases, any other arguments will need to be taken by value rather than reference to avoid
+/// lifetime errors.
+///
+/// ## Overriding the Koto Runtime Crate
+///
+/// The macro generates code assuming that the top-level `koto` crate is being used,
+/// with the `koto_runtime` crate re-exported at `::koto::runtime`.
+///
+/// If the runtime crate is located at a different path (e.g., if your crate depends on
+/// `koto_runtime` directly), then specify the runtime path before declaring any functions.
+///
+/// E.g.:
+/// ```ignore
+/// koto_fn! {
+///     runtime = koto_runtime;   
+///
+///     fn foo()...
+/// }
+/// ```
+///
+/// ## Examples
+///
+/// ### Getting Started
+///
+/// ```ignore
+/// koto_fn! {
+///     fn foo() -> bool {
+///         true
+///     }
+///
+///     fn say_hello(name: &str) -> String {
+///         format!("Hello, {name}!")
+///     }
+/// }
+/// ```
+///
+/// ### Returning an Error
+///
+/// ```ignore
+/// koto_fn! {
+///     fn first_in_list(list: &KList) -> Result<KValue> {
+///         match list.data().first() {
+///             Some(result) => Ok(result.clone()),
+///             None => runtime_error!("Empty list"),
+///         }
+///     }
+/// }
+/// ```
+///
+/// ### Overloading Functions
+///
+/// ```ignore
+/// koto_fn! {
+///     fn rect() -> Rect {
+///         (0.0, 0.0, 0.0, 0.0).into()
+///     }
+///
+///     fn rect(x: f64, y: f64, w: f64, h: f64) -> Rect {
+///         (x, y, w, h).into()
+///     }
+///
+///     fn rect(xy: &Vec2, size: &Vec2) -> Rect {
+///         (xy.inner().x, xy.inner().y, size.inner().x, size.inner().y).into()
+///     }
+/// }
+/// ```
+///
+/// ### VM Argument
+///
+/// ```ignore
+/// koto_fn! {
+///     fn to_string(arg: KValue, vm: &mut KotoVm) -> Result<KValue> {
+///         vm.value_to_string(&value)
+///     }
+/// }
+/// ```
+///
+#[proc_macro]
+pub fn koto_fn(input: TokenStream) -> TokenStream {
+    function::koto_fn(input)
+}
 
 /// `#[derive(KotoType)]`
 ///
@@ -80,7 +207,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// ## `runtime` attribute
 ///
 /// The macro generates code assuming that the top-level `koto` crate is being used,
-/// with the koto_runtime crate re-exported at `::koto::runtime`.
+/// with the `koto_runtime` crate re-exported at `::koto::runtime`.
+///
 /// If the runtime crate is located at a different path (e.g., if your crate depends on
 /// `koto_runtime` directly), then use the `runtime` attribute to define the alternative path,
 /// e.g. `#[koto_impl(runtime = koto_runtime)]`.

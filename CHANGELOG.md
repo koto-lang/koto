@@ -8,6 +8,39 @@ The Koto project adheres to
 
 ## [0.17.0] Unreleased
 
+### Added
+
+#### API
+
+- The `koto_fn` macro has been introduced to make it easier to define Rust functions for the Koto runtime ([#492](https://github.com/koto-lang/koto/pull/492)).
+  - For example, manually defining a native function involves writing `match` conditions against `ctx.args()`:
+    ```rust
+    fn foo(ctx: &mut CallContext) -> runtime::Result<KValue> {
+        use KValue::Str;
+
+        let result = match ctx.args() {
+            [Str(s)] => s.to_string(),
+            [Str(a), Str(b)] => format!("{a}, {b}"),
+            unexpected => return unexpected_args("|String|, or |String, String|", unexpected),
+        };
+
+        Ok(result.into())
+    }
+    ```
+
+    With `koto_fn`, the matching logic is automatically generated:
+    ```rust
+    koto_fn! {
+        fn foo(s: &str) -> &str {
+            s
+        }
+
+        fn foo(a: KNumber, b: KNumber) -> String {
+            format!("{a}, {b}")
+        }
+    }
+    ```
+
 ## [0.16.0] 2025.07.23
 
 ### Added

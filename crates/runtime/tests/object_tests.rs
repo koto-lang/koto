@@ -1,6 +1,5 @@
 mod objects {
-    use koto_derive::*;
-    use koto_runtime::{Result, prelude::*};
+    use koto_runtime::{Result, derive::*, prelude::*};
     use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
@@ -394,20 +393,31 @@ mod objects {
         let vm = KotoVm::default();
         let prelude = vm.prelude();
 
-        prelude.add_fn("make_object", |ctx| match ctx.args() {
-            [KValue::Number(x)] => Ok(TestObject::make_value(x.into())),
-            unexpected => unexpected_args("|Number|", unexpected),
-        });
-
-        prelude.add_fn("make_generic", |ctx| match ctx.args() {
-            [KValue::Bool(x)] => Ok(GenericObject::<bool>::make_value(*x)),
-            [KValue::Number(x)] => Ok(GenericObject::<KNumber>::make_value(*x)),
-            [KValue::Str(x)] => Ok(GenericObject::<KString>::make_value(x.clone())),
-            unexpected => unexpected_args("|Number| or |String|", unexpected),
-        });
+        prelude.add_fn("make_object", make_object);
+        prelude.add_fn("make_generic", make_generic);
 
         if let Err(e) = check_script_output_with_vm(vm, script, expected_output.into()) {
             panic!("{e}");
+        }
+    }
+
+    koto_fn! {
+        runtime = koto_runtime;
+
+        fn make_object(x: i64) -> KValue {
+            TestObject::make_value(x)
+        }
+
+        fn make_generic(x: bool) -> KValue {
+             GenericObject::<bool>::make_value(x)
+        }
+
+        fn make_generic(x: KNumber) -> KValue {
+             GenericObject::<KNumber>::make_value(x)
+        }
+
+        fn make_generic(x: &KString) -> KValue {
+             GenericObject::<KString>::make_value(x.clone())
         }
     }
 

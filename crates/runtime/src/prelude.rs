@@ -6,6 +6,6 @@ pub use crate::{
     KList, KMap, KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy,
     KotoEntries, KotoField, KotoFile, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoRead,
     KotoSend, KotoSync, KotoType, KotoVm, KotoVmSettings, KotoWrite, MetaKey, MetaMap,
-    MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec, make_ptr, make_ptr_mut, runtime_error,
-    unexpected_args, unexpected_args_after_instance, unexpected_type,
+    MethodContext, UnaryOp, ValueKey, ValueMap, ValueVec, derive::koto_fn, make_ptr, make_ptr_mut,
+    runtime_error, unexpected_args, unexpected_args_after_instance, unexpected_type,
 };

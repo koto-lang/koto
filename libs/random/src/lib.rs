@@ -6,47 +6,47 @@ use rand_xoshiro::Xoshiro256PlusPlus;
 use std::cell::RefCell;
 
 pub fn make_module() -> KMap {
+    koto_fn! {
+        runtime = koto_runtime;
+
+        fn gen_bool() -> Result<KValue> {
+            THREAD_RNG.with_borrow_mut(|rng| rng.bool())
+        }
+
+        fn generator() -> KValue {
+            // No seed, use a randomly seeded rng
+            Xoshiro256PlusPlusRng::make_value(Xoshiro256PlusPlus::from_os_rng())
+        }
+
+        fn generator(seed: KNumber) -> KValue {
+            Xoshiro256PlusPlusRng::make_value(Xoshiro256PlusPlus::seed_from_u64(seed.to_bits()))
+        }
+
+        fn gen_number() -> Result<KValue> {
+            THREAD_RNG.with_borrow_mut(|rng| rng.number())
+        }
+
+        fn pick(arg: KValue, vm: &mut KotoVm) -> Result<KValue> {
+            THREAD_RNG.with_borrow_mut(|rng| rng.pick_inner(arg, vm))
+        }
+
+        fn seed(n: &KNumber) {
+            THREAD_RNG.with_borrow_mut(|rng| rng.seed_inner(n));
+        }
+
+        fn shuffle(arg: KValue, vm: &mut KotoVm) -> Result<KValue> {
+            THREAD_RNG.with_borrow_mut(|rng| rng.shuffle_inner(arg, vm))
+        }
+    }
+
     let result = KMap::with_type("random");
 
-    result.add_fn("bool", |ctx| match ctx.args() {
-        [] => THREAD_RNG.with_borrow_mut(|rng| rng.bool()),
-        unexpected => unexpected_args("||", unexpected),
-    });
-
-    result.add_fn("generator", |ctx| {
-        let rng = match ctx.args() {
-            // No seed, make RNG from entropy
-            [] => Xoshiro256PlusPlus::from_os_rng(),
-            // RNG from seed
-            [KValue::Number(n)] => Xoshiro256PlusPlus::seed_from_u64(n.to_bits()),
-            unexpected => return unexpected_args("||, or |Number|", unexpected),
-        };
-
-        Ok(Xoshiro256PlusPlusRng::make_value(rng))
-    });
-
-    result.add_fn("number", |ctx| match ctx.args() {
-        [] => THREAD_RNG.with_borrow_mut(|rng| rng.number()),
-        unexpected => unexpected_args("||", unexpected),
-    });
-
-    result.add_fn("pick", |ctx| {
-        THREAD_RNG.with_borrow_mut(|rng| match ctx.args() {
-            [arg] => rng.pick_inner(arg.clone(), ctx.vm),
-            unexpected => unexpected_args("|Indexable|", unexpected),
-        })
-    });
-
-    result.add_fn("seed", |ctx| {
-        THREAD_RNG.with_borrow_mut(|rng| rng.seed(ctx.args()))
-    });
-
-    result.add_fn("shuffle", |ctx| {
-        THREAD_RNG.with_borrow_mut(|rng| match ctx.args() {
-            [arg] => rng.shuffle_inner(arg.clone(), ctx.vm),
-            unexpected => unexpected_args("|Indexable|", unexpected),
-        })
-    });
+    result.add_fn("bool", gen_bool);
+    result.add_fn("generator", generator);
+    result.add_fn("number", gen_number);
+    result.add_fn("pick", pick);
+    result.add_fn("seed", seed);
+    result.add_fn("shuffle", shuffle);
 
     result
 }
@@ -143,11 +143,15 @@ impl Xoshiro256PlusPlusRng {
         use KValue::*;
         match args {
             [Number(n)] => {
-                self.0 = Xoshiro256PlusPlus::seed_from_u64(n.to_bits());
+                self.seed_inner(n);
                 Ok(Null)
             }
             unexpected => unexpected_args("|Number|", unexpected),
         }
+    }
+
+    fn seed_inner(&mut self, n: &KNumber) {
+        self.0 = Xoshiro256PlusPlus::seed_from_u64(n.to_bits());
     }
 
     #[koto_method]
