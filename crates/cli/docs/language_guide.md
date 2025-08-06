@@ -1802,7 +1802,7 @@ check! a: 10, b: 20, others: ()
 
 ### Optional Arguments
 
-Arguments can be made optional by assigning default values.
+Function arguments can be given default values, making them _optional_.
 
 ```koto
 f = |a, b = 2, c = 3|
@@ -1845,6 +1845,37 @@ check! (1, ())
 print! f(1, 2, 3)
 check! (1, (2, 3))
 ```
+
+#### Mutable Default Argument Values
+
+It's worth noting that mutable values (like [lists](#lists) and [maps](#maps)) share their state between calls when used as default argument values.
+
+```koto
+f = |value, values = []|
+  values.push value
+
+print! f 1
+check! [1]
+print! f 2
+check! [1, 2]
+```
+
+This might seem a bit strange at first (why doesn't the `values` argument start with an empty list on each call?), but it might help to consider what happens when a named variable is given as the default value.
+
+```koto
+z = [1, 2]
+f = |value, values = z|
+  values.push value
+
+f 3
+f 4
+
+# z was used as the default value for the function's `values` argument.
+print! z
+check! [1, 2, 3, 4]
+```
+
+Lists usually share state between instances when [captured](#captured-variables) in functions, and a hidden [`copy`](./core_lib/koto.md#copy) on each call would be surprising, and potentially expensive.
 
 ### Unpacking Container Arguments
 
@@ -2001,7 +2032,7 @@ print! make_generator(0).to_tuple()
 check! (1, 2, 3)
 
 print! make_generator(10)
-  # Keep odd numbers, and discard even numbers 
+  # Keep odd numbers, and discard even numbers
   .keep |n| n % 2 == 1
   .to_list()
 check! [11, 13]

@@ -2784,6 +2784,28 @@ foo [42]
         }
 
         #[test]
+        fn default_arg_is_list() {
+            let script = "
+foo = |a, b = []| b.push a
+foo 1
+foo 2
+";
+            check_script_output(script, number_list(&[1, 2]));
+        }
+
+        #[test]
+        fn default_arg_is_named_list() {
+            let script = "
+z = [10, 20]
+foo = |a, b = z| b.push a
+foo 30
+foo 40
+z
+";
+            check_script_output(script, number_list(&[10, 20, 30, 40]));
+        }
+
+        #[test]
         fn default_arg_with_capture() {
             let script = "
 x = 100
