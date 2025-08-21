@@ -17,13 +17,13 @@ impl DebugInfo {
     /// Instructions with matching spans share the same entry, so if the span matches the
     /// previously pushed span then this is a no-op.
     pub fn push(&mut self, ip: u32, span: Span) {
-        if let Some(entry) = self.source_map.last() {
-            if entry.1 == span {
-                // Don't add entries with matching spans, a search is performed in
-                // get_source_span which will find the correct span
-                // for intermediate ips.
-                return;
-            }
+        if let Some(entry) = self.source_map.last()
+            && entry.1 == span
+        {
+            // Don't add entries with matching spans, a search is performed in
+            // get_source_span which will find the correct span
+            // for intermediate ips.
+            return;
         }
         self.source_map.push((ip, span));
     }

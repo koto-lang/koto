@@ -373,10 +373,10 @@ impl Iterator for Flatten {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(nested) = &mut self.nested {
-                if let result @ Some(_) = nested.next() {
-                    return result;
-                }
+            if let Some(nested) = &mut self.nested
+                && let result @ Some(_) = nested.next()
+            {
+                return result;
             }
 
             match self.iter.next().map(collect_pair) {

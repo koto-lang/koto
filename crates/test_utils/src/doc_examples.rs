@@ -141,10 +141,10 @@ pub fn run_koto_examples_in_markdown(markdown: &str, prelude_entries: ValueMap) 
             Start(Tag::Heading {
                 level: new_level, ..
             }) => {
-                if let Some(current_level) = current_level {
-                    if new_level <= current_level {
-                        headings.truncate(new_level as usize - 1);
-                    }
+                if let Some(current_level) = current_level
+                    && new_level <= current_level
+                {
+                    headings.truncate(new_level as usize - 1);
                 }
                 headings.push(String::new());
                 current_level = Some(new_level);

@@ -28,12 +28,11 @@ impl Trivia {
 
                     // Check for #[fmt: skip] commands
                     let slice = token.slice(source).trim();
-                    if let Some(rest) = slice.strip_prefix("#[fmt:") {
-                        if let Some(command) = rest.strip_suffix("]") {
-                            if command.trim() == "skip" {
-                                trivia = TriviaToken::SkipNode;
-                            }
-                        }
+                    if let Some(rest) = slice.strip_prefix("#[fmt:")
+                        && let Some(command) = rest.strip_suffix("]")
+                        && command.trim() == "skip"
+                    {
+                        trivia = TriviaToken::SkipNode;
                     }
 
                     Some(trivia)

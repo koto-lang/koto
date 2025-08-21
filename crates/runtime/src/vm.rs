@@ -639,14 +639,14 @@ impl KotoVm {
                 Err(error.with_context(format!("{message} '{test_name}'")))
             };
 
-            if let Some(pre_test) = &pre_test {
-                if pre_test.is_callable() {
-                    let pre_test_result =
-                        self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
+            if let Some(pre_test) = &pre_test
+                && pre_test.is_callable()
+            {
+                let pre_test_result =
+                    self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
 
-                    if let Err(error) = pre_test_result {
-                        return make_test_error(error, "while preparing to run test");
-                    }
+                if let Err(error) = pre_test_result {
+                    return make_test_error(error, "while preparing to run test");
                 }
             }
 
@@ -656,14 +656,14 @@ impl KotoVm {
                 return make_test_error(error, "while running test");
             }
 
-            if let Some(post_test) = &post_test {
-                if post_test.is_callable() {
-                    let post_test_result =
-                        self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
+            if let Some(post_test) = &post_test
+                && post_test.is_callable()
+            {
+                let post_test_result =
+                    self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
 
-                    if let Err(error) = post_test_result {
-                        return make_test_error(error, "after running test");
-                    }
+                if let Err(error) = post_test_result {
+                    return make_test_error(error, "after running test");
                 }
             }
         }
@@ -685,16 +685,16 @@ impl KotoVm {
         self.execution_state = ExecutionState::Active;
 
         while let Some(instruction) = self.reader.next() {
-            if let Some(timeout) = timeout.as_mut() {
-                if timeout.check_for_timeout() {
-                    self.execution_state = ExecutionState::Inactive;
-                    return self
-                        .pop_call_stack_on_error(
-                            ErrorKind::Timeout(timeout.execution_limit).into(),
-                            false,
-                        )
-                        .map(|_| KValue::Null);
-                }
+            if let Some(timeout) = timeout.as_mut()
+                && timeout.check_for_timeout()
+            {
+                self.execution_state = ExecutionState::Inactive;
+                return self
+                    .pop_call_stack_on_error(
+                        ErrorKind::Timeout(timeout.execution_limit).into(),
+                        false,
+                    )
+                    .map(|_| KValue::Null);
             }
 
             match self.execute_instruction(instruction) {
@@ -2489,10 +2489,10 @@ impl KotoVm {
 
         if n < 0.0 {
             return runtime_error!("negative indices aren't allowed ('{n}')");
-        } else if let Some(size) = size {
-            if index >= size {
-                return runtime_error!("index out of bounds - index: {n}, size: {size}");
-            }
+        } else if let Some(size) = size
+            && index >= size
+        {
+            return runtime_error!("index out of bounds - index: {n}, size: {size}");
         }
 
         Ok(index)

@@ -665,96 +665,90 @@ impl<'source> Parser<'source> {
             self.parse_assign_expression(expression_start, previous_expressions, context, false)?
         {
             return Ok(Some(assignment_expression));
-        } else if let Some(next) = self.peek_token_with_context(context) {
-            if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
-                if left_priority >= min_precedence {
-                    let (op, _) = self.consume_token_with_context(context).unwrap();
+        } else if let Some(next) = self.peek_token_with_context(context)
+            && let Some((left_priority, right_priority)) = operator_precedence(next.token)
+            && left_priority >= min_precedence
+        {
+            let (op, _) = self.consume_token_with_context(context).unwrap();
 
-                    // Move on to the token after the operator
-                    if self.peek_token_with_context(context).is_none() {
-                        return self.error(ExpectedIndentation::RhsExpression);
-                    }
-                    self.consume_until_token_with_context(context).unwrap();
-
-                    let rhs_context = if self.current_line() > start_line {
-                        match context.expected_indentation {
-                            Indentation::Equal(indent)
-                            | Indentation::GreaterThan(indent)
-                            | Indentation::GreaterOrEqual(indent) => {
-                                // If the context has a fixed indentation requirement, then allow
-                                // the indentation for the continued expression to grow or stay the
-                                // same.
-                                context
-                                    .with_expected_indentation(Indentation::GreaterOrEqual(indent))
-                            }
-                            Indentation::Greater | Indentation::Flexible => {
-                                // Indentation within an arithmetic expression shouldn't be able to
-                                // continue with decreased indentation.
-                                context.with_expected_indentation(Indentation::GreaterOrEqual(
-                                    start_indent,
-                                ))
-                            }
-                        }
-                    } else {
-                        *context
-                    };
-                    let Some(rhs) =
-                        self.parse_expression_start(&[], right_priority, &rhs_context)?
-                    else {
-                        return self.error(ExpectedIndentation::RhsExpression);
-                    };
-
-                    use Token::*;
-                    let ast_op = match op {
-                        Add => AstBinaryOp::Add,
-                        Subtract => AstBinaryOp::Subtract,
-                        Multiply => AstBinaryOp::Multiply,
-                        Divide => AstBinaryOp::Divide,
-                        Remainder => AstBinaryOp::Remainder,
-                        Power => AstBinaryOp::Power,
-
-                        AddAssign => AstBinaryOp::AddAssign,
-                        SubtractAssign => AstBinaryOp::SubtractAssign,
-                        MultiplyAssign => AstBinaryOp::MultiplyAssign,
-                        DivideAssign => AstBinaryOp::DivideAssign,
-                        RemainderAssign => AstBinaryOp::RemainderAssign,
-                        PowerAssign => AstBinaryOp::PowerAssign,
-
-                        Equal => AstBinaryOp::Equal,
-                        NotEqual => AstBinaryOp::NotEqual,
-
-                        Greater => AstBinaryOp::Greater,
-                        GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
-                        Less => AstBinaryOp::Less,
-                        LessOrEqual => AstBinaryOp::LessOrEqual,
-
-                        And => AstBinaryOp::And,
-                        Or => AstBinaryOp::Or,
-
-                        Arrow => AstBinaryOp::Pipe,
-
-                        _ => unreachable!(), // The list of tokens here matches the operators in
-                                             // operator_precedence()
-                    };
-
-                    let op_node = self.push_node_with_start_span(
-                        Node::BinaryOp {
-                            op: ast_op,
-                            lhs: expression_start,
-                            rhs,
-                        },
-                        start_span,
-                    )?;
-
-                    return self.parse_expression_continued(
-                        op_node,
-                        start_span,
-                        &[],
-                        min_precedence,
-                        &rhs_context,
-                    );
-                }
+            // Move on to the token after the operator
+            if self.peek_token_with_context(context).is_none() {
+                return self.error(ExpectedIndentation::RhsExpression);
             }
+            self.consume_until_token_with_context(context).unwrap();
+
+            let rhs_context = if self.current_line() > start_line {
+                match context.expected_indentation {
+                    Indentation::Equal(indent)
+                    | Indentation::GreaterThan(indent)
+                    | Indentation::GreaterOrEqual(indent) => {
+                        // If the context has a fixed indentation requirement, then allow
+                        // the indentation for the continued expression to grow or stay the
+                        // same.
+                        context.with_expected_indentation(Indentation::GreaterOrEqual(indent))
+                    }
+                    Indentation::Greater | Indentation::Flexible => {
+                        // Indentation within an arithmetic expression shouldn't be able to
+                        // continue with decreased indentation.
+                        context.with_expected_indentation(Indentation::GreaterOrEqual(start_indent))
+                    }
+                }
+            } else {
+                *context
+            };
+            let Some(rhs) = self.parse_expression_start(&[], right_priority, &rhs_context)? else {
+                return self.error(ExpectedIndentation::RhsExpression);
+            };
+
+            use Token::*;
+            let ast_op = match op {
+                Add => AstBinaryOp::Add,
+                Subtract => AstBinaryOp::Subtract,
+                Multiply => AstBinaryOp::Multiply,
+                Divide => AstBinaryOp::Divide,
+                Remainder => AstBinaryOp::Remainder,
+                Power => AstBinaryOp::Power,
+
+                AddAssign => AstBinaryOp::AddAssign,
+                SubtractAssign => AstBinaryOp::SubtractAssign,
+                MultiplyAssign => AstBinaryOp::MultiplyAssign,
+                DivideAssign => AstBinaryOp::DivideAssign,
+                RemainderAssign => AstBinaryOp::RemainderAssign,
+                PowerAssign => AstBinaryOp::PowerAssign,
+
+                Equal => AstBinaryOp::Equal,
+                NotEqual => AstBinaryOp::NotEqual,
+
+                Greater => AstBinaryOp::Greater,
+                GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
+                Less => AstBinaryOp::Less,
+                LessOrEqual => AstBinaryOp::LessOrEqual,
+
+                And => AstBinaryOp::And,
+                Or => AstBinaryOp::Or,
+
+                Arrow => AstBinaryOp::Pipe,
+
+                _ => unreachable!(), // The list of tokens here matches the operators in
+                                     // operator_precedence()
+            };
+
+            let op_node = self.push_node_with_start_span(
+                Node::BinaryOp {
+                    op: ast_op,
+                    lhs: expression_start,
+                    rhs,
+                },
+                start_span,
+            )?;
+
+            return self.parse_expression_continued(
+                op_node,
+                start_span,
+                &[],
+                min_precedence,
+                &rhs_context,
+            );
         }
 
         Ok(Some(expression_start))
@@ -1033,10 +1027,10 @@ impl<'source> Parser<'source> {
                 }
             }
             Err(error) => {
-                if cfg!(feature = "error_ast") {
-                    if let Some(block) = self.ast.entry_point() {
-                        self.push_function_node(start_span, args, block).ok();
-                    }
+                if cfg!(feature = "error_ast")
+                    && let Some(block) = self.ast.entry_point()
+                {
+                    self.push_function_node(start_span, args, block).ok();
                 }
                 return Err(error);
             }

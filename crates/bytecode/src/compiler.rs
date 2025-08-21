@@ -2046,10 +2046,11 @@ impl Compiler {
             self.push_op(op, &[lhs_register, rhs_register]);
 
             // If the LHS is a top-level ID and the export flag is enabled, then export the result
-            if let Node::Id(id, ..) = lhs_node {
-                if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*id, lhs_register)?;
-                }
+            if let Node::Id(id, ..) = lhs_node
+                && self.settings.export_top_level_ids
+                && self.frame_stack.len() == 1
+            {
+                self.compile_value_export(*id, lhs_register)?;
             }
 
             // If there's a result register, then copy the result into it
@@ -2824,11 +2825,11 @@ impl Compiler {
                     // If the last node in the chain is a null check then break out now,
                     // allowing the final node (before the null check) to be held in `current_node`
                     // for further processing below, after this loop.
-                    if let Some(next) = *next {
-                        if ctx.node(next) == &Node::Chain((ChainNode::NullCheck, None)) {
-                            null_check_on_end_node = true;
-                            break;
-                        }
+                    if let Some(next) = *next
+                        && ctx.node(next) == &Node::Chain((ChainNode::NullCheck, None))
+                    {
+                        null_check_on_end_node = true;
+                        break;
                     }
                 }
                 unexpected => {
