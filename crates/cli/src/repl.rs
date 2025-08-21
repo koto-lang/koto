@@ -262,10 +262,10 @@ Run `help` for more information
 
             // Check if we should add indentation on the next line
             let input = self.continued_lines.join("\n");
-            if let Err(e) = self.koto.compile(&input) {
-                if e.is_indentation_error() {
-                    indent_next_line = true;
-                }
+            if let Err(e) = self.koto.compile(&input)
+                && e.is_indentation_error()
+            {
+                indent_next_line = true;
             }
         }
 
