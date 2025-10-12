@@ -303,8 +303,7 @@ fn koto_entries_initializer(
     syn::parse2(initializer_fn).expect("Failed to parse entries initializer function")
 }
 
-// Generate a thread-safe entries getter
-#[cfg(feature = "arc")]
+#[allow(clippy::collapsible_else_if)] // is more readable
 fn koto_entries_getter(
     struct_ident: &Ident,
     entries_getter_name: &Ident,
@@ -312,77 +311,23 @@ fn koto_entries_getter(
     generics: &Generics,
     runtime: &Path,
 ) -> ImplItemFn {
-    let entries_getter = if generics.params.is_empty() {
-        // Non-generic types can cache the entries map in a LazyLock
-        quote! {
-            #[automatically_derived]
-            fn #entries_getter_name() -> #runtime::KMap {
-                use std::sync::LazyLock;
-
-                static ENTRIES: LazyLock<KMap> = LazyLock::new(#struct_ident::#entries_initializer_name);
-
-                ENTRIES.clone()
-            }
-        }
-    } else {
-        // Rust doesn't support generic statics, so entries are cached in a hashmap with the
-        // concrete instantiation type used as the key.
-        let (_impl_generics, type_generics, _where_clause) = generics.split_for_impl();
-        let turbofish = type_generics.as_turbofish();
-
-        quote! {
-            #[automatically_derived]
-            fn #entries_getter_name() -> #runtime::KMap {
-                use std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
-                use #runtime::{KCell, KMap, KotoHasher};
-
-                type PerTypeEntriesMap = HashMap<TypeId, KMap, BuildHasherDefault<KotoHasher>>;
-
-                static PER_TYPE_ENTRIES: LazyLock<KCell<PerTypeEntriesMap>> =
-                    LazyLock::new(KCell::default);
-
-                PER_TYPE_ENTRIES
-                    .borrow_mut()
-                    .entry(TypeId::of::<Self>())
-                    .or_insert_with(#struct_ident #turbofish :: #entries_initializer_name)
-                    .clone()
-            }
-        }
-    };
-
-    syn::parse2(entries_getter).expect("Failed to parse entries getter function")
-}
-
-// Generate an entries getter for single-threaded use
-#[cfg(feature = "rc")]
-fn koto_entries_getter(
-    struct_ident: &Ident,
-    entries_getter_name: &Ident,
-    entries_initializer_name: &Ident,
-    generics: &Generics,
-    runtime: &Path,
-) -> ImplItemFn {
-    let entries_getter = if generics.params.is_empty() {
-        // Non-generic types can cache the entries map in a thread-local static
-        quote! {
-            #[automatically_derived]
-            fn #entries_getter_name() -> #runtime::KMap {
+    let entries_getter_body = if cfg!(feature = "rc") {
+        if generics.params.is_empty() {
+            // Non-generic types can cache the entries map in a thread-local static
+            quote! {
                 thread_local! {
                     static ENTRIES: KMap = #struct_ident::#entries_initializer_name();
                 }
 
                 ENTRIES.with(KMap::clone)
             }
-        }
-    } else {
-        // Rust doesn't support generic statics, so entries are cached in a hashmap with the
-        // concrete instantiation type used as the key.
-        let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-        let turbofish = ty_generics.as_turbofish();
+        } else {
+            // Rust doesn't support generic statics, so entries are cached in a hashmap with the
+            // concrete instantiation type used as the key.
+            let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+            let turbofish = ty_generics.as_turbofish();
 
-        quote! {
-            #[automatically_derived]
-            fn #entries_getter_name() -> #runtime::KMap {
+            quote! {
                 use std::{any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{KMap, KotoHasher};
 
@@ -400,6 +345,45 @@ fn koto_entries_getter(
                             .clone()
                     })
             }
+        }
+    } else if cfg!(feature = "arc") {
+        if generics.params.is_empty() {
+            // Non-generic types can cache the entries map in a LazyLock
+            quote! {
+                use std::sync::LazyLock;
+                static ENTRIES: LazyLock<KMap> = LazyLock::new(#struct_ident::#entries_initializer_name);
+                ENTRIES.clone()
+            }
+        } else {
+            // Rust doesn't support generic statics, so entries are cached in a hashmap with the
+            // concrete instantiation type used as the key.
+            let (_impl_generics, type_generics, _where_clause) = generics.split_for_impl();
+            let turbofish = type_generics.as_turbofish();
+
+            quote! {
+                use std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
+                use #runtime::{KCell, KMap, KotoHasher};
+
+                type PerTypeEntriesMap = HashMap<TypeId, KMap, BuildHasherDefault<KotoHasher>>;
+
+                static PER_TYPE_ENTRIES: LazyLock<KCell<PerTypeEntriesMap>> =
+                    LazyLock::new(KCell::default);
+
+                PER_TYPE_ENTRIES
+                    .borrow_mut()
+                    .entry(TypeId::of::<Self>())
+                    .or_insert_with(#struct_ident #turbofish :: #entries_initializer_name)
+                    .clone()
+            }
+        }
+    } else {
+        quote! { unimplemented!() }
+    };
+
+    let entries_getter = quote! {
+        #[automatically_derived]
+        fn #entries_getter_name() -> #runtime::KMap {
+            #entries_getter_body
         }
     };
 
