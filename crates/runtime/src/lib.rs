@@ -29,4 +29,4 @@ pub use crate::{
     vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield},
 };
 pub use koto_derive as derive;
-pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, make_ptr, make_ptr_mut};
+pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, lazy, make_ptr, make_ptr_mut};

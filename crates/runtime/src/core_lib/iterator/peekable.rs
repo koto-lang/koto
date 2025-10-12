@@ -7,6 +7,7 @@ use crate::{KIteratorOutput as Output, Result, prelude::*};
 
 /// A double-ended peekable iterator for Koto
 #[derive(Clone, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct Peekable {
     iter: KIterator,
     peeked_front: Option<KValue>,

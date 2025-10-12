@@ -60,6 +60,7 @@ pub fn make_module() -> KMap {
 
 /// The underlying data type returned by `os.time()`
 #[derive(Clone, Debug, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct DateTime(chrono::DateTime<FixedOffset>);
 
 #[koto_impl(runtime = crate)]
@@ -153,6 +154,7 @@ impl KotoObject for DateTime {
 
 /// The underlying data type returned by `os.start_timer()`
 #[derive(Clone, Debug, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct Timer(Instant);
 
 #[koto_impl(runtime = crate)]

@@ -1,4 +1,4 @@
-use crate::{KString, KotoFile, KotoRead, KotoWrite, Result, core_lib::io::map_io_err};
+use crate::{KString, KotoFile, KotoRead, KotoWrite, Result, core_lib::io::map_io_err, lazy};
 use std::io::{self, IsTerminal, Read, Write};
 
 /// The default stdin used in Koto
@@ -7,7 +7,7 @@ pub struct DefaultStdin {}
 
 impl KotoFile for DefaultStdin {
     fn id(&self) -> KString {
-        STDIN_ID.with(|id| id.clone())
+        lazy!(KString; "_stdin_")
     }
 
     fn is_terminal(&self) -> bool {
@@ -43,7 +43,7 @@ pub struct DefaultStdout {}
 
 impl KotoFile for DefaultStdout {
     fn id(&self) -> KString {
-        STDOUT_ID.with(|id| id.clone())
+        lazy!(KString; "_stdout_")
     }
 
     fn is_terminal(&self) -> bool {
@@ -75,7 +75,7 @@ pub struct DefaultStderr {}
 
 impl KotoFile for DefaultStderr {
     fn id(&self) -> KString {
-        STDERR_ID.with(|id| id.clone())
+        lazy!(KString; "_stderr_")
     }
 
     fn is_terminal(&self) -> bool {
@@ -99,10 +99,4 @@ impl KotoWrite for DefaultStderr {
     fn flush(&self) -> Result<()> {
         io::stderr().flush().map_err(map_io_err)
     }
-}
-
-thread_local! {
-    static STDIN_ID: KString = "_stdin_".into();
-    static STDOUT_ID: KString = "_stdout_".into();
-    static STDERR_ID: KString = "_stderr_".into();
 }

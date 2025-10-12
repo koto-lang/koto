@@ -12,6 +12,7 @@ pub fn make_module() -> KMap {
 }
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
+#[koto(runtime = koto_runtime)]
 pub struct Regex(Ptr<regex::Regex>);
 
 #[koto_impl(runtime = koto_runtime)]
@@ -129,6 +130,7 @@ impl From<Regex> for KValue {
 }
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
+#[koto(runtime = koto_runtime)]
 pub struct Matches {
     text: KString,
     matches: Vec<(usize, usize)>,
@@ -171,6 +173,7 @@ impl From<Matches> for KValue {
 }
 
 #[derive(Clone, Debug, KotoType, KotoCopy)]
+#[koto(runtime = koto_runtime)]
 pub struct Match {
     text: KString,
     bounds: KRange,

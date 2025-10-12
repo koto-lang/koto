@@ -1,6 +1,6 @@
 //! The core value type used in the Koto runtime
 
-use crate::{KFunction, Ptr, Result, prelude::*};
+use crate::{KFunction, Ptr, Result, lazy, prelude::*};
 use std::{
     fmt::{self, Write},
     result::Result as StdResult,
@@ -168,25 +168,25 @@ impl KValue {
     pub fn type_as_string(&self) -> KString {
         use KValue::*;
         match &self {
-            Null => TYPE_NULL.with(|x| x.clone()),
-            Bool(_) => TYPE_BOOL.with(|x| x.clone()),
-            Number(_) => TYPE_NUMBER.with(|x| x.clone()),
-            List(_) => TYPE_LIST.with(|x| x.clone()),
-            Range { .. } => TYPE_RANGE.with(|x| x.clone()),
-            Map(m) if m.meta_map().is_some() => m
-                .meta_type()
-                .unwrap_or_else(|| TYPE_OBJECT.with(|x| x.clone())),
-            Map(_) => TYPE_MAP.with(|x| x.clone()),
-            Str(_) => TYPE_STRING.with(|x| x.clone()),
-            Tuple(_) => TYPE_TUPLE.with(|x| x.clone()),
-            Function(f) if f.flags.is_generator() => TYPE_GENERATOR.with(|x| x.clone()),
-            Function(_) | NativeFunction(_) => TYPE_FUNCTION.with(|x| x.clone()),
+            Null => lazy!(KString; "Null"),
+            Bool(_) => lazy!(KString; "Bool"),
+            Number(_) => lazy!(KString; "Number"),
+            List(_) => lazy!(KString; "List"),
+            Range { .. } => lazy!(KString; "Range"),
+            Map(m) if m.meta_map().is_some() => {
+                m.meta_type().unwrap_or_else(|| lazy!(KString; "Object"))
+            }
+            Map(_) => lazy!(KString; "Map"),
+            Str(_) => lazy!(KString; "String"),
+            Tuple(_) => lazy!(KString; "Tuple"),
+            Function(f) if f.flags.is_generator() => lazy!(KString; "Generator"),
+            Function(_) | NativeFunction(_) => lazy!(KString; "Function"),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
                 |o| o.type_string(),
             ),
-            Iterator(_) => TYPE_ITERATOR.with(|x| x.clone()),
-            TemporaryTuple { .. } => TYPE_TEMPORARY_TUPLE.with(|x| x.clone()),
+            Iterator(_) => lazy!(KString; "Iterator"),
+            TemporaryTuple { .. } => lazy!(KString; "TemporaryTuple"),
         }
     }
 
@@ -230,22 +230,6 @@ impl KValue {
         };
         Ok(())
     }
-}
-
-thread_local! {
-    static TYPE_NULL: KString = "Null".into();
-    static TYPE_BOOL: KString = "Bool".into();
-    static TYPE_NUMBER: KString = "Number".into();
-    static TYPE_LIST: KString = "List".into();
-    static TYPE_RANGE: KString = "Range".into();
-    static TYPE_MAP: KString = "Map".into();
-    static TYPE_OBJECT: KString = "Object".into();
-    static TYPE_STRING: KString = "String".into();
-    static TYPE_TUPLE: KString = "Tuple".into();
-    static TYPE_FUNCTION: KString = "Function".into();
-    static TYPE_GENERATOR: KString = "Generator".into();
-    static TYPE_ITERATOR: KString = "Iterator".into();
-    static TYPE_TEMPORARY_TUPLE: KString = "TemporaryTuple".into();
 }
 
 impl fmt::Debug for KValue {

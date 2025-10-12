@@ -4,7 +4,7 @@ use std::{fmt, ops};
 type Inner = glam::DVec2;
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(use_copy)]
+#[koto(runtime = koto_runtime, use_copy)]
 pub struct Vec2(Inner);
 
 #[koto_impl(runtime = koto_runtime)]

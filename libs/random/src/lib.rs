@@ -52,7 +52,7 @@ pub fn make_module() -> KMap {
 }
 
 #[derive(Clone, Debug, KotoCopy, KotoType)]
-#[koto(type_name = "Rng")]
+#[koto(runtime = koto_runtime, type_name = "Rng")]
 struct Xoshiro256PlusPlusRng(Xoshiro256PlusPlus);
 
 #[koto_impl(runtime = koto_runtime)]
