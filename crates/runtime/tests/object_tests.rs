@@ -932,17 +932,6 @@ x()
         test_object_script(script, 256);
     }
 
-    #[test]
-    fn insert_via_dot_access() {
-        let script = "
-x = make_object 41
-x.foo = 122
-x.foo += 1
-x.foo
-";
-        test_object_script(script, 123);
-    }
-
     mod temporaries {
         use super::*;
 

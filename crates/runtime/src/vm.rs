@@ -2673,15 +2673,6 @@ impl KotoVm {
                 map.data_mut().insert(key, value);
                 Ok(())
             }
-            KValue::Object(o) => {
-                let o = o.try_borrow()?;
-                if let Some(entries) = o.entries() {
-                    entries.insert(key, value);
-                    Ok(())
-                } else {
-                    runtime_error!("access assignment not supported for '{}'", o.type_string())
-                }
-            }
             unexpected => unexpected_type("a value that supports assignment via '.'", unexpected),
         }
     }
