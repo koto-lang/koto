@@ -4,7 +4,7 @@
 
     @size: || size self.data
     @index: |i| self.data[i]
-    @index_mut: |i, value| self.data[i] = value
+    @index_assign: |i, value| self.data[i] = value
 
   random.seed 42
   random.shuffle my_container

@@ -85,8 +85,8 @@ globals.foo_meta =
     index
   @size: || self.x
 
-  @index_mut: |index, value|
-    throw '@index_mut is unsupported for this object type (index: {index}, value: {value}})'
+  @index_assign: |index, value|
+    throw '@index_assign is unsupported for this object type (index: {index}, value: {value}})'
 
   # Custom iteration
   # @iterator must be a function that returns an iterable value,
@@ -209,7 +209,7 @@ export
     assert_eq (size foo(10)), 10
     assert_eq (size foo(99)), 99
 
-  @test index_mut: ||
+  @test index_assign: ||
     expection_caught = false
 
     try

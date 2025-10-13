@@ -163,7 +163,7 @@ mod objects {
             }
         }
 
-        fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+        fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
             match index {
                 KValue::Number(index) => {
                     assert_eq!(usize::from(index), 0);
@@ -905,7 +905,7 @@ match make_object 10
         }
 
         #[test]
-        fn index_mut_assign() {
+        fn index_assign() {
             let script = "
 x = make_object 100
 x[0] = 23
@@ -914,7 +914,7 @@ x[0] = 23
         }
 
         #[test]
-        fn index_mut_compound_assign() {
+        fn index_compound_assign() {
             let script = "
 x = make_object 100
 x[0] += 1

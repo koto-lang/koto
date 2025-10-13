@@ -2339,7 +2339,7 @@ impl<'source> Parser<'source> {
                 "call" => MetaKeyId::Call,
                 "display" => MetaKeyId::Display,
                 "index" => MetaKeyId::Index,
-                "index_mut" => MetaKeyId::IndexMut,
+                "index_assign" => MetaKeyId::IndexAssign,
                 "access" => MetaKeyId::Access,
                 "access_assign" => MetaKeyId::AccessAssign,
                 "iterator" => MetaKeyId::Iterator,

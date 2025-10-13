@@ -452,15 +452,10 @@ pub enum Op {
     /// `[*result, *indexable, *index]`
     Index,
 
-    /// Sets a contained value via index
+    /// Assigns a contained value via index
     ///
     /// `[*indexable, *value, *index]`
-    IndexMut,
-
-    /// Inserts a key/value entry into a map
-    ///
-    /// `[*map, *key, *value]`
-    MapInsert,
+    IndexAssign,
 
     /// Inserts a key/value entry into a map's metamap
     ///
@@ -506,15 +501,20 @@ pub enum Op {
 
     /// Accesses a contained value via a constant key
     ///
-    /// `[*target, @constant]`
+    /// `[*container, @constant]`
     Access,
 
-    /// Access a contained value via a string key
+    /// Accesses a contained value via a string key
     ///
-    /// Used in '.' access operations that use a quoted string, e.g. `foo."bar"`.
+    /// Used in `.` access operations that use a quoted string, e.g. `foo."bar"`.
     ///
-    /// `[*result, *value, *key]`
+    /// `[*result, *container, *key]`
     AccessString,
+
+    /// Assigns a key/value entry via `.` access
+    ///
+    /// `[*container, *key, *value]`
+    AccessAssign,
 
     /// Gets the size of a value
     ///

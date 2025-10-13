@@ -583,11 +583,15 @@ impl KotoVm {
         self.registers.push(write_value);
 
         match op {
-            WriteOp::IndexMut => {
-                self.run_index_mut(container_register, container_register, write_arg_register)?
+            WriteOp::IndexAssign => {
+                self.run_index_assign(container_register, container_register, write_arg_register)?
             }
             WriteOp::AccessAssign => {
-                self.run_map_insert(container_register, write_arg_register, write_value_register)?;
+                self.run_access_assign(
+                    container_register,
+                    write_arg_register,
+                    write_value_register,
+                )?;
             }
         }
 
@@ -1006,12 +1010,12 @@ impl KotoVm {
                 register,
                 index,
                 value,
-            } => self.run_index_mut(register, index, value)?,
-            MapInsert {
+            } => self.run_index_assign(register, index, value)?,
+            AccessAssign {
                 register,
                 key,
                 value,
-            } => self.run_map_insert(register, key, value)?,
+            } => self.run_access_assign(register, key, value)?,
             MetaInsert {
                 register,
                 value,
@@ -2475,7 +2479,7 @@ impl KotoVm {
         import_result
     }
 
-    fn run_index_mut(
+    fn run_index_assign(
         &mut self,
         indexable_register: u8,
         index_register: u8,
@@ -2509,12 +2513,12 @@ impl KotoVm {
                 }
                 Ok(())
             }
-            Map(map) if map.contains_meta_key(&WriteOp::IndexMut.into()) => {
-                let index_mut_fn = map.get_meta_value(&WriteOp::IndexMut.into()).unwrap();
+            Map(map) if map.contains_meta_key(&WriteOp::IndexAssign.into()) => {
+                let op = map.get_meta_value(&WriteOp::IndexAssign.into()).unwrap();
                 let index_value = index_value.clone();
                 let value = value.clone();
 
-                self.call_overridden_op_3(None, map.into(), index_value, value, index_mut_fn)
+                self.call_overridden_op_3(None, map.into(), index_value, value, op)
             }
             Map(map) => match index_value {
                 Number(index) => {
@@ -2542,7 +2546,7 @@ impl KotoVm {
                 }
                 unexpected => unexpected_type("Number", unexpected),
             },
-            Object(o) => o.try_borrow_mut()?.index_mut(index_value, value),
+            Object(o) => o.try_borrow_mut()?.index_assign(index_value, value),
             unexpected => unexpected_type("a mutable indexable value", &unexpected),
         }
     }
@@ -2649,7 +2653,7 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_map_insert(
+    fn run_access_assign(
         &mut self,
         map_register: u8,
         key_register: u8,
@@ -2675,10 +2679,10 @@ impl KotoVm {
                     entries.insert(key, value);
                     Ok(())
                 } else {
-                    runtime_error!("insertion not supported for '{}'", o.type_string())
+                    runtime_error!("access assignment not supported for '{}'", o.type_string())
                 }
             }
-            unexpected => unexpected_type("a value that supports insertion", unexpected),
+            unexpected => unexpected_type("a value that supports assignment via '.'", unexpected),
         }
     }
 

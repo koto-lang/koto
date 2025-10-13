@@ -34,7 +34,7 @@ impl KotoObject for TestContainer {
         }
     }
 
-    fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+    fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
         match index {
             KValue::Number(i) => {
                 self.data[usize::from(i)] = value.clone();

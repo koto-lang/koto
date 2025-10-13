@@ -642,8 +642,8 @@ pub enum MetaKeyId {
 
     /// @index
     Index,
-    /// @index_mut
-    IndexMut,
+    /// @index_assign
+    IndexAssign,
 
     /// @access
     Access,
@@ -721,7 +721,7 @@ impl MetaKeyId {
             Equal => "@==",
             NotEqual => "@!=",
             Index => "@index",
-            IndexMut => "@index_mut",
+            IndexAssign => "@index_assign",
             Access => "@access",
             AccessAssign => "@access_assign",
             Debug => "@debug",

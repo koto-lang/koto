@@ -59,7 +59,10 @@ The Koto project adheres to
 
 #### API
 
-- `BinaryOp::Index` has been moved to `ReadOp::Index`, and `MetaKey::IndexMut` has been moved to `WriteOp::IndexMut`.
+- Index operations have been reworked:
+  - `BinaryOp::Index` has been moved to `ReadOp::Index`.
+  - `MetaKey::IndexMut` has been moved to `WriteOp::IndexAssign`.
+  - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
 
 ## [0.16.0] 2025.07.23
 

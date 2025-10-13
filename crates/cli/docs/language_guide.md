@@ -2271,9 +2271,9 @@ print! match x
 check! first: 10, remaining: 4
 ```
 
-#### `@index_mut`
+#### `@index_assign`
 
-The `@index_mut` metakey defines how an object should behave when index-assignment is used.
+The `@index_assign` metakey defines how an object should behave when index-assignment is used.
 
 The given value should be a function that takes an index as the first argument,
 with the second argument being the value to be assigned.
@@ -2282,7 +2282,7 @@ with the second argument being the value to be assigned.
 foo = |data|
   data: data
   @index: |index| self.data[index]
-  @index_mut: |index, value| self.data[index] = value
+  @index_assign: |index, value| self.data[index] = value
 
 x = foo ['a', 'b', 'c']
 x[1] = 'hello'

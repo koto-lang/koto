@@ -2974,11 +2974,14 @@ impl Compiler {
                 }
                 ChainNode::Str(_) => {
                     let string_key = string_key.unwrap(self)?;
-                    self.push_op(MapInsert, &[container_register, string_key, value_register]);
+                    self.push_op(
+                        AccessAssign,
+                        &[container_register, string_key, value_register],
+                    );
                 }
                 ChainNode::Index(_) => {
                     let index = index.unwrap(self)?;
-                    self.push_op(IndexMut, &[container_register, index, value_register]);
+                    self.push_op(IndexAssign, &[container_register, index, value_register]);
                 }
                 _ => {}
             }
@@ -3061,7 +3064,7 @@ impl Compiler {
 
                 if let Some(map_register) = map_register {
                     self.push_op_without_span(
-                        MapInsert,
+                        AccessAssign,
                         &[map_register, key_register, value_register],
                     );
                 }
@@ -3078,7 +3081,7 @@ impl Compiler {
 
                 if let Some(map_register) = map_register {
                     self.push_op_without_span(
-                        MapInsert,
+                        AccessAssign,
                         &[map_register, key_register, value_register],
                     );
                 }
