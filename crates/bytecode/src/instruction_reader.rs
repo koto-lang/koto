@@ -525,7 +525,7 @@ impl Iterator for InstructionReader {
                     index,
                 }
             }
-            Op::IndexMut => {
+            Op::IndexAssign => {
                 let [index, value] = get_u8x2!();
                 IndexMut {
                     register: byte_a,
@@ -533,9 +533,9 @@ impl Iterator for InstructionReader {
                     value,
                 }
             }
-            Op::MapInsert => {
+            Op::AccessAssign => {
                 let [key, value] = get_u8x2!();
-                MapInsert {
+                AccessAssign {
                     register: byte_a,
                     key,
                     value,

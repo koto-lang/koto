@@ -215,7 +215,7 @@ impl KotoObject for Color {
         Some(4)
     }
 
-    fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+    fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
         use KValue::Number;
 
         match (index, value) {

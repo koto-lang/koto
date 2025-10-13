@@ -132,12 +132,12 @@ pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + 
         unimplemented_error("@index", self.type_string())
     }
 
-    /// Called when mutating an object via indexing, e.g. `x[0] = 99`
+    /// Called when assigning a value via indexing, e.g. `x[0] = 99`
     ///
     /// See also: [KotoObject::size]
-    fn index_mut(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+    fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
         let _ = (index, value);
-        unimplemented_error("@index_mut", self.type_string())
+        unimplemented_error("@index_assign", self.type_string())
     }
 
     /// Called when checking for the number of elements contained in the object

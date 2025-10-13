@@ -250,10 +250,10 @@ impl fmt::Display for ReadOp {
 /// See [MetaKey::WriteOp]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum WriteOp {
-    /// `@index_mut`
+    /// `@index_assign`
     ///
     /// Defines how an object should behave in mutable indexing operations.
-    IndexMut,
+    IndexAssign,
     /// `@access_assign`
     ///
     /// Defines how an object should behave in mutable `.` access operations.
@@ -266,7 +266,7 @@ impl fmt::Display for WriteOp {
             f,
             "{}",
             match self {
-                WriteOp::IndexMut => "[]",
+                WriteOp::IndexAssign => "[]",
                 WriteOp::AccessAssign => ".",
             }
         )
@@ -301,7 +301,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<KString>) -> Result<MetaKey> {
     let result = match id {
         MetaKeyId::Index => MetaKey::ReadOp(Index),
         MetaKeyId::Access => MetaKey::ReadOp(Access),
-        MetaKeyId::IndexMut => MetaKey::WriteOp(IndexMut),
+        MetaKeyId::IndexAssign => MetaKey::WriteOp(IndexAssign),
         MetaKeyId::AccessAssign => MetaKey::WriteOp(AccessAssign),
         MetaKeyId::Add => MetaKey::BinaryOp(Add),
         MetaKeyId::Subtract => MetaKey::BinaryOp(Subtract),

@@ -298,11 +298,6 @@ pub enum Instruction {
         index: u8,
         value: u8,
     },
-    MapInsert {
-        register: u8,
-        key: u8,
-        value: u8,
-    },
     MetaInsert {
         register: u8,
         value: u8,
@@ -332,6 +327,11 @@ pub enum Instruction {
         register: u8,
         value: u8,
         key: u8,
+    },
+    AccessAssign {
+        register: u8,
+        key: u8,
+        value: u8,
     },
     TryStart {
         arg_register: u8,
@@ -876,13 +876,13 @@ impl fmt::Debug for Instruction {
                 f,
                 "IndexMut        register: {register:<5} index: {index:<8} value: {value}"
             ),
-            MapInsert {
+            AccessAssign {
                 register,
                 value,
                 key,
             } => write!(
                 f,
-                "MapInsert       map: {register:<10} value: {value:<8} key: {key}"
+                "AccessAssign    register: {register:<10} value: {value:<8} key: {key}"
             ),
             MetaInsert {
                 register,

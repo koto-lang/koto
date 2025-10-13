@@ -171,8 +171,8 @@ impl Xoshiro256PlusPlusRng {
             List(l) => {
                 l.data_mut().shuffle(&mut self.0);
             }
-            Map(m) if m.contains_meta_key(&WriteOp::IndexMut.into()) => {
-                let index_mut = m.get_meta_value(&WriteOp::IndexMut.into()).unwrap();
+            Map(m) if m.contains_meta_key(&WriteOp::IndexAssign.into()) => {
+                let index_op = m.get_meta_value(&WriteOp::IndexAssign.into()).unwrap();
 
                 match vm.run_unary_op(UnaryOp::Size, arg.clone())? {
                     Number(size) => {
@@ -189,12 +189,12 @@ impl Xoshiro256PlusPlusRng {
                             let value_j = vm.run_read_op(ReadOp::Index, arg.clone(), j.into())?;
                             vm.call_instance_function(
                                 arg.clone(),
-                                index_mut.clone(),
+                                index_op.clone(),
                                 &[i.into(), value_j],
                             )?;
                             vm.call_instance_function(
                                 arg.clone(),
-                                index_mut.clone(),
+                                index_op.clone(),
                                 &[j.into(), value_i],
                             )?;
                         }
@@ -224,8 +224,8 @@ impl Xoshiro256PlusPlusRng {
                     let j = KValue::from(j);
                     let value_i = o_borrow.index(&i)?;
                     let value_j = o_borrow.index(&j)?;
-                    o_borrow.index_mut(&i, &value_j)?;
-                    o_borrow.index_mut(&j, &value_i)?;
+                    o_borrow.index_assign(&i, &value_j)?;
+                    o_borrow.index_assign(&j, &value_i)?;
                 }
             }
             unexpected => return unexpected_type("|Indexable|", unexpected),

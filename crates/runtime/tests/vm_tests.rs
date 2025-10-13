@@ -2897,7 +2897,7 @@ f()(8)
         }
 
         #[test]
-        fn index_mut_in_if_condition() {
+        fn index_assign_in_if_condition() {
             let script = "
 x = [0]
 if (x[0] += 1) == 0
@@ -4002,12 +4002,12 @@ x[1] + x[2]
         }
 
         #[test]
-        fn index_mut() {
+        fn index_assign() {
             let script = "
 x =
   data: [1, 2, 3]
   @index: |i| self.data[i]
-  @index_mut: |i, x| self.data[i] = x
+  @index_assign: |i, x| self.data[i] = x
 x[1] = 99
 x[2] = 1
 x[1] + x[2]
@@ -4016,11 +4016,11 @@ x[1] + x[2]
         }
 
         #[test]
-        fn index_mut_result_is_rhs() {
+        fn index_assign_result_is_rhs() {
             let script = "
 x =
-  @index_mut: |_i, _x|
-    -1 # The result of @index_mut should be discarded
+  @index_assign: |_i, _x|
+    -1 # The result of @index_assign should be discarded
 x[1] = 99
 ";
             check_script_output(script, 99);
