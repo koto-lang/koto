@@ -166,3 +166,9 @@ impl Equivalent<ValueKey> for KString {
         }
     }
 }
+
+impl From<ValueKey> for KValue {
+    fn from(key: ValueKey) -> Self {
+        key.0
+    }
+}

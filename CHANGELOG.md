@@ -10,6 +10,19 @@ The Koto project adheres to
 
 ### Added
 
+#### Language
+
+- `@access` and `@access_assign` metakeys have been added to support overriding the behavior of `.` access operations.
+  - ```koto
+    foo =
+      @access: |key| map.get(self, key) * 2
+      @access_assign: |key, value| map.insert(self, key, value * 100)
+
+    foo.x = 1
+    foo.x
+    #: 200
+    ```
+
 #### API
 
 - The `koto_fn` macro has been introduced to make it easier to define Rust functions for the Koto runtime ([#492](https://github.com/koto-lang/koto/pull/492)).
@@ -40,6 +53,13 @@ The Koto project adheres to
         }
     }
     ```
+- `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
+
+### Changed
+
+#### API
+
+- `BinaryOp::Index` has been moved to `ReadOp::Index`, and `MetaKey::IndexMut` has been moved to `WriteOp::IndexMut`.
 
 ## [0.16.0] 2025.07.23
 

@@ -2290,6 +2290,29 @@ print! x[1]
 check! hello
 ```
 
+#### `@access` and `@access_assign`
+
+The `@access` and `@access_assign` metakeys allow objects so override how `.` access operations behave.
+
+Note that care must be taken to avoid accessing members of `self` via `.` to avoid creating infinite loops!
+
+```koto
+foo =
+  @access: |key|
+    # Multiply values by 2 when accessed
+    map.get(self, key) * 2
+
+  @access_assign: |key, value|
+    # Multiply values by 100 when assigned
+    map.insert(self, key, value * 100)
+
+foo.x = 1
+
+# The assigned value was multiplied by 100 in @access_assign, and by 2 in @access.
+print! foo.x
+check! 200
+```
+
 #### `@call`
 
 The `@call` metakey defines how an object should behave when its called as a

@@ -2340,6 +2340,8 @@ impl<'source> Parser<'source> {
                 "display" => MetaKeyId::Display,
                 "index" => MetaKeyId::Index,
                 "index_mut" => MetaKeyId::IndexMut,
+                "access" => MetaKeyId::Access,
+                "access_assign" => MetaKeyId::AccessAssign,
                 "iterator" => MetaKeyId::Iterator,
                 "next" => MetaKeyId::Next,
                 "next_back" => MetaKeyId::NextBack,
