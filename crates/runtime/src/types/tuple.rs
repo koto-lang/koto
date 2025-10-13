@@ -1,4 +1,4 @@
-use crate::{Ptr, Result, prelude::*};
+use crate::{Ptr, Result, lazy, prelude::*};
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
@@ -175,13 +175,9 @@ impl Deref for KTuple {
     }
 }
 
-thread_local! {
-    static EMPTY_TUPLE: Ptr<Vec<KValue>> = Vec::new().into();
-}
-
 impl Default for KTuple {
     fn default() -> Self {
-        Self::from(EMPTY_TUPLE.with(|x| x.clone()))
+        Self::from(lazy!(Ptr<Vec<KValue>>; Vec::new()))
     }
 }
 

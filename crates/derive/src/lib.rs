@@ -145,6 +145,15 @@ pub fn koto_fn(input: TokenStream) -> TokenStream {
 /// If another name should be displayed in the Koto runtime then use
 /// `#[koto(type_name = "other_name)]`.
 ///
+/// ## `runtime` attribute
+///
+/// The macro generates code assuming that the top-level `koto` crate is being used,
+/// with the `koto_runtime` crate re-exported at `::koto::runtime`.
+///
+/// If the runtime crate is located at a different path (e.g., if your crate depends on
+/// `koto_runtime` directly), then use the `runtime` attribute to define the alternative path,
+/// e.g. `#[koto(runtime = koto_runtime)]`.
+///
 /// ## Example
 ///
 /// ```ignore
@@ -271,5 +280,4 @@ pub fn koto_method(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-const PREFIX_STATIC: &str = "__KOTO_";
 const PREFIX_FUNCTION: &str = "__koto_";

@@ -4,7 +4,7 @@ use palette::FromColor;
 use std::fmt;
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(use_copy)]
+#[koto(runtime = koto_runtime, use_copy)]
 pub struct Color {
     pub color: Encoding,
     pub alpha: f32,

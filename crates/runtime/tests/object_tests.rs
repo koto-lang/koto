@@ -3,7 +3,7 @@ mod objects {
     use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
-    #[koto(use_copy)]
+    #[koto(runtime = koto_runtime, use_copy)]
     struct TestObject {
         x: i64,
     }
@@ -329,6 +329,7 @@ mod objects {
     }
 
     #[derive(Clone, Debug, KotoCopy, KotoType)]
+    #[koto(runtime = koto_runtime)]
     struct TestIterator {
         x: i64,
     }
@@ -358,6 +359,7 @@ mod objects {
     }
 
     #[derive(Clone, KotoCopy, KotoType)]
+    #[koto(runtime = koto_runtime)]
     struct GenericObject<T>
     where
         T: KotoField,

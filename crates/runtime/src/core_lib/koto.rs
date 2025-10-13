@@ -110,6 +110,7 @@ fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<Chunk> {
 
 /// The Chunk type used in the koto module
 #[derive(Clone, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct Chunk(Ptr<koto_bytecode::Chunk>);
 
 impl Chunk {
@@ -145,6 +146,7 @@ impl From<Chunk> for KValue {
 
 /// A type error type used in the koto module
 #[derive(Clone, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct Unimplemented;
 
 impl KotoEntries for Unimplemented {}

@@ -8,6 +8,41 @@ use std::{
 
 use crate::Address;
 
+/// Provides access to a shared value that is initialized on first use
+///
+/// This macro will return a value of type `$ty`.
+/// On the first use, the value is initialized using `$expr.into()`.
+/// Subsequent acccesses return a clone of the stored value.
+///
+/// # Feature-specific behavior
+///
+/// - With the "rc" feature, the value is stored in a `thread_local`.
+/// - With the "arc" feature, the value is stored in a `static`.
+///
+/// # Examples
+///
+/// ```
+/// use koto_memory::{ Ptr, lazy };
+///
+/// fn my_string_constant() -> Ptr<str> {
+///     lazy!(Ptr<str>; "foo")
+/// }
+///
+/// let s0 = my_string_constant();
+/// let s1 = my_string_constant();
+///
+/// assert!(Ptr::ptr_eq(&s0, &s1));
+/// ```
+#[macro_export]
+macro_rules! lazy {
+    ($ty:ty; $expr:expr) => {{
+        thread_local! {
+            static VALUE: $ty = $expr.into();
+        }
+        VALUE.with(Clone::clone)
+    }};
+}
+
 /// Makes a Ptr, with support for casting to trait objects
 ///
 /// Although `Ptr::from` can be used, the challenge comes when a trait object needs to be used as

@@ -317,11 +317,8 @@ fn koto_entries_getter(
         quote! {
             #[automatically_derived]
             fn #entries_getter_name() -> #runtime::KMap {
-                use std::sync::LazyLock;
-
-                static ENTRIES: LazyLock<KMap> = LazyLock::new(#struct_ident::#entries_initializer_name);
-
-                ENTRIES.clone()
+                use #runtime::lazy;
+                lazy!(#runtime::KMap; #struct_ident::#entries_initializer_name())
             }
         }
     } else {
@@ -367,11 +364,8 @@ fn koto_entries_getter(
         quote! {
             #[automatically_derived]
             fn #entries_getter_name() -> #runtime::KMap {
-                thread_local! {
-                    static ENTRIES: KMap = #struct_ident::#entries_initializer_name();
-                }
-
-                ENTRIES.with(KMap::clone)
+                use #runtime::lazy;
+                lazy!(#runtime::KMap; #struct_ident::#entries_initializer_name())
             }
         }
     } else {

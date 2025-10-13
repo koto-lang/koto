@@ -3,7 +3,7 @@ use koto_runtime::{Result, derive::*, prelude::*};
 use std::{fmt, ops};
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(use_copy)]
+#[koto(runtime = koto_runtime, use_copy)]
 pub struct Vec3(DVec3);
 
 #[koto_impl(runtime = koto_runtime)]

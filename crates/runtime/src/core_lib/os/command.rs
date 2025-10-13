@@ -41,6 +41,7 @@ macro_rules! stdio_setter {
 
 /// A wrapper for [std::process::Command], used by `os.command`
 #[derive(Clone, Debug, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct Command(PtrMut<process::Command>);
 
 #[koto_impl(runtime = crate)]
@@ -170,6 +171,7 @@ impl KotoObject for Command {
 
 /// A wrapper for [std::process::Output], used by `os.command`
 #[derive(Clone, Debug, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 struct CommandOutput(process::Output);
 
 #[koto_impl(runtime = crate)]
@@ -219,6 +221,7 @@ impl KotoObject for CommandOutput {}
 
 /// A wrapper for [std::process::Child], used by `os.command.spawn`
 #[derive(Clone, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 struct Child {
     handle: PtrMut<Option<process::Child>>,
     // Keep track of stream handles that have been accessed by the user. This allows the streams to

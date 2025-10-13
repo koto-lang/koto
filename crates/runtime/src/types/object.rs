@@ -66,6 +66,7 @@ pub trait KotoEntries {
 /// use koto_runtime::{derive::*, prelude::*, Result};
 ///
 /// #[derive(Clone, Default, KotoType, KotoCopy)]
+/// #[koto(runtime = koto_runtime)]
 /// pub struct Foo {
 ///     data: i32,
 /// }

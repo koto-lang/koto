@@ -149,6 +149,7 @@ pub fn make_module() -> KMap {
 
 /// The File type used in the io module
 #[derive(Clone, KotoCopy, KotoType)]
+#[koto(runtime = crate)]
 pub struct File(Ptr<dyn KotoFile>);
 
 #[koto_impl(runtime = crate)]

@@ -6,7 +6,7 @@ use std::{
 };
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(use_copy)]
+#[koto(runtime = koto_runtime, use_copy)]
 pub struct Rect {
     x: Bounds<f64>,
     y: Bounds<f64>,
