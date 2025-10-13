@@ -110,7 +110,7 @@ impl Xoshiro256PlusPlusRng {
                     Ok(Null)
                 }
             }
-            Map(m) if !m.contains_meta_key(&BinaryOp::Index.into()) => {
+            Map(m) if !m.contains_meta_key(&ReadOp::Index.into()) => {
                 if !m.is_empty() {
                     let index = self.0.random_range(0..m.len());
                     match m.data().get_index(index) {
@@ -128,7 +128,7 @@ impl Xoshiro256PlusPlusRng {
                 Number(size) => {
                     if size > 0 {
                         let index = self.0.random_range(0..usize::from(size));
-                        vm.run_binary_op(BinaryOp::Index, input.clone(), index.into())
+                        vm.run_read_op(ReadOp::Index, input.clone(), index.into())
                     } else {
                         Ok(Null)
                     }
@@ -171,15 +171,8 @@ impl Xoshiro256PlusPlusRng {
             List(l) => {
                 l.data_mut().shuffle(&mut self.0);
             }
-            Map(m) if !m.contains_meta_key(&MetaKey::IndexMut) => {
-                let mut data = m.data_mut();
-                for i in (1..data.len()).rev() {
-                    let j = self.0.random_range(0..(i + 1));
-                    data.swap_indices(i, j);
-                }
-            }
-            Map(m) if m.contains_meta_key(&MetaKey::IndexMut) => {
-                let index_mut = m.get_meta_value(&MetaKey::IndexMut).unwrap();
+            Map(m) if m.contains_meta_key(&WriteOp::IndexMut.into()) => {
+                let index_mut = m.get_meta_value(&WriteOp::IndexMut.into()).unwrap();
 
                 match vm.run_unary_op(UnaryOp::Size, arg.clone())? {
                     Number(size) => {
@@ -192,10 +185,8 @@ impl Xoshiro256PlusPlusRng {
                             if i == j {
                                 continue;
                             }
-                            let value_i =
-                                vm.run_binary_op(BinaryOp::Index, arg.clone(), i.into())?;
-                            let value_j =
-                                vm.run_binary_op(BinaryOp::Index, arg.clone(), j.into())?;
+                            let value_i = vm.run_read_op(ReadOp::Index, arg.clone(), i.into())?;
+                            let value_j = vm.run_read_op(ReadOp::Index, arg.clone(), j.into())?;
                             vm.call_instance_function(
                                 arg.clone(),
                                 index_mut.clone(),
@@ -209,6 +200,13 @@ impl Xoshiro256PlusPlusRng {
                         }
                     }
                     unexpected => return unexpected_type("a Number from @size", &unexpected),
+                }
+            }
+            Map(m) => {
+                let mut data = m.data_mut();
+                for i in (1..data.len()).rev() {
+                    let j = self.0.random_range(0..(i + 1));
+                    data.swap_indices(i, j);
                 }
             }
             Object(o) => {

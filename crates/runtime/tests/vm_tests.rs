@@ -4072,6 +4072,76 @@ match foo (10, 11, 12, 13)
         }
     }
 
+    mod overridden_access {
+        use super::*;
+
+        #[test]
+        fn access_multiple() {
+            let script = "
+foo =
+  @access: |key| match key
+    'x' then 123
+    'y' then 77
+
+foo.x + foo.y
+";
+            check_script_output(script, 200);
+        }
+
+        #[test]
+        fn access_missing() {
+            let script = "
+foo =
+  z: 42
+  @access: |key| match key
+    'x' then 123
+
+foo.z
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn access_no_meta_fallback() {
+            let script = "
+foo =
+  @access: |key| match key
+    'x' then 123
+  @meta bar: 'bar'
+
+foo.bar
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn access_assign() {
+            let script = "
+foo =
+  @access_assign: |key, value|
+    map.insert self, key, value * 10
+
+assigned_value = foo.x = 10
+foo.x + assigned_value
+";
+            check_script_output(script, 110);
+        }
+
+        #[test]
+        fn access_modify_assign() {
+            let script = "
+foo =
+  @access_assign: |key, value|
+    map.insert self, key, value * 10
+
+foo.x = 1
+foo.x += 2 # (10 + 2) * 10
+foo.x
+";
+            check_script_output(script, 120);
+        }
+    }
+
     mod overridden_iterator {
         use super::*;
 
