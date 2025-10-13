@@ -2832,7 +2832,7 @@ Tests can be added to a module by exporting `@test` functions. A test function i
 
 If Koto is configured to run tests, then the tests will be run after a module has been successfully initialized.
 
-After all tests have run successully, then the runtime will call the module's `@main` function if it's defined.
+After all tests have run successfully, then the runtime will call the module's `@main` function if it's defined.
 
 The CLI doesn't enable tests by default when running scripts, but they can be enabled [via a flag][cli-tests].
 
