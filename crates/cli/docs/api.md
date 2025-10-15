@@ -115,7 +115,7 @@ module.rs
 ## Adding a Custom Object Type
 
 Any Rust type that implements `KotoObject` can be used in the Koto runtime.
-`KotoObject` requires `KotoType`, `KotoCopy`, and `KotoEntries` to be
+`KotoObject` requires `KotoType`, `KotoCopy`, and `KotoAccess` to be
 implemented.
 
 ```rust_include

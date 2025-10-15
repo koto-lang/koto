@@ -22,7 +22,7 @@ pub use crate::{
     send_sync::{KotoSend, KotoSync},
     types::{
         BinaryOp, CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,
-        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoCopy, KotoEntries,
+        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoAccess, KotoCopy,
         KotoField, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap,
         MethodContext, ReadOp, UnaryOp, ValueKey, ValueMap, ValueVec, WriteOp,
     },
@@ -30,3 +30,23 @@ pub use crate::{
 };
 pub use koto_derive as derive;
 pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, lazy, make_ptr, make_ptr_mut};
+
+#[doc(hidden)]
+pub mod __private {
+    use crate::{KNativeFunction, KValue, Result};
+
+    /// Used by the `#[koto_impl]` macro.
+    pub enum MethodOrField<T: ?Sized> {
+        Method(KNativeFunction),
+        Field(fn(&T) -> Result<KValue>),
+    }
+
+    impl<T: ?Sized> Clone for MethodOrField<T> {
+        fn clone(&self) -> Self {
+            match self {
+                Self::Method(x) => Self::Method(x.clone()),
+                Self::Field(x) => Self::Field(*x),
+            }
+        }
+    }
+}

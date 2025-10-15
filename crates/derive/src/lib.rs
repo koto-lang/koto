@@ -196,7 +196,22 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
     koto_copy::derive_koto_copy(input)
 }
 
-/// A helper for deriving `KotoEntries` with functions tagged with `#[koto_method]`
+// NOTE: The documentation examples are tested in `crates/koto/tests/derive_koto_impl_doc.rs`
+/// A helper for deriving `KotoAccess` with functions tagged with:
+///
+/// - [**`#[koto_method]`**](#koto_method)
+/// - [**`#[koto_access]`**](#koto_access)
+/// - [**`#[koto_access_assign]`**](#koto_access_assign)
+/// - [**`#[koto_access_override]`**](#koto_access_override)
+/// - [**`#[koto_access_assign_override]`**](#koto_access_assign_override)
+/// - [**`#[koto_access_fallback]`**](#koto_access_fallback)
+/// - [**`#[koto_access_assign_fallback]`**](#koto_access_assignfallback)
+///
+/// The attributes `#[koto_method]`, `#[koto_access]` and `#[koto_access_assign]` can take optional arguments:
+/// - **`name`** — sets the access key, if not set it will be inferred by the function name
+/// - **`alias`** *(multiple)* — adds additional keys to access with
+///
+/// ## `#[koto_method]`
 ///
 /// Any function tagged with `#[koto_method]` will be made available via '.' lookup.
 ///
@@ -213,6 +228,76 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self`>
 /// as the function argument and then return `MethodContext::instance_result()`.
 ///
+/// ## `#[koto_access]`
+///
+/// This function will be called to access the value of the key inferred from the
+/// function name.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn foo(&self) -> KValue { ... }
+/// fn foo(&self) -> Result<KValue> { ... }
+/// ```
+///
+/// ## `#[koto_access_assign]`
+///
+/// This function will be called to assign a value to the key inferred from the
+/// function name without its `set_` prefix.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn set_foo(&mut self, value: &KValue) { ... }
+/// fn set_foo(&mut self, value: &KValue) -> Result<()> { ... }
+/// ```
+///
+/// ## `#[koto_access_fallback]`
+///
+/// This function will be called if neither `#[koto_access]`s nor `#[koto_method]`s
+/// with the requested field name were found.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn f(&self, key: &KString) -> KValue { ... }
+/// fn f(&self, key: &KString) -> Result<KValue> { ... }
+/// ```
+///
+/// ## `#[koto_access_assign_fallback]`
+///
+/// This function will be called if no `#[koto_access_assign]`s
+/// with the requested field name were found.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn f(&mut self, key: &KString, value: &KValue) { ... }
+/// fn f(&mut self, key: &KString, value: &KValue) -> Result<()> { ... }
+/// ```
+///
+/// ## `#[koto_access_override]`
+///
+/// This function will be called **before** any `#[koto_access]` or `#[koto_method]` is looked for.
+/// If this method returns `Some`, then that's the value that will be returned to koto.
+/// If it returns `None` instead, then it will look for `#[koto_access]`s and `#[koto_method]`s
+/// and finally fall back to the `#[koto_access_fallback]` function.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn f(&self, key: &KString) -> Option<KValue> { ... }
+/// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
+/// ```
+///
+/// ## `#[koto_access_assign_override]`
+///
+/// This function will be called **before** any `#[koto_access_assign]` is looked for.
+/// If this method returns `true`, then the assignment operation is done.
+/// If it returns `false` instead, then it will look for `#[koto_access_assign]`s
+/// and finally fall back to the `#[koto_access_assign_fallback]` function.
+///
+/// The function must have a signature like either:
+/// ```ignore
+/// fn f(&mut self, key: &KString, value: &KValue) -> bool { ... }
+/// fn f(&mut self, key: &KString, value: &KValue) -> Result<bool> { ... }
+/// ```
+///
 /// ## `runtime` attribute
 ///
 /// The macro generates code assuming that the top-level `koto` crate is being used,
@@ -225,10 +310,14 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// ## Example
 ///
 /// ```ignore
+/// use koto::{derive::*, prelude::*, runtime::Result};
+///
 /// #[derive(Clone, KotoType, KotoCopy)]
 /// struct Foo {
-///   x: f64
+///     x: f64,
 /// }
+///
+/// impl KotoObject for Foo {}
 ///
 /// #[koto_impl]
 /// impl Foo {
@@ -236,14 +325,23 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///         Self { x }
 ///     }
 ///
-///     // Add an `x()` method to the Foo object, and also make it available via `get_x()`
-///     #[koto_method(alias = "get_x")]
+///     #[koto_access]
 ///     fn x(&self) -> KValue {
 ///         self.x.into()
 ///     }
 ///
-///     // A wrapper function
-///     #[koto_method]
+///     #[koto_access_assign]
+///     fn set_x(&mut self, value: &KValue) -> Result<()> {
+///         match value {
+///             KValue::Number(value) => {
+///                 self.x = value.into();
+///                 Ok(())
+///             }
+///             unexpected => unexpected_type("Number", unexpected),
+///         }
+///     }
+///
+///     #[koto_method(alias = "set")]
 ///     fn reset(&mut self, args: &[KValue]) -> Result<KValue> {
 ///         let reset_value = match args {
 ///             [] => 0.0,
@@ -251,14 +349,14 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///             unexpected => return unexpected_args("||, or |Number|", unexpected),
 ///         };
 ///         self.x = reset_value;
-///         Ok(())
+///         Ok(KValue::Null)
 ///     }
 ///
 ///     #[koto_method]
-///     fn set_x(ctx: MethodContext) -> Result<KValue> {
-///         match args {
-///             [KValue::Number(new_x)] => {
-///                 ctx.instance_mut()?.x = new_x.into();
+///     fn add(ctx: MethodContext<Self>) -> Result<KValue> {
+///         match ctx.args {
+///             [KValue::Number(addend)] => {
+///                 ctx.instance_mut()?.x += f64::from(addend);
 ///                 // Return a clone of the instance that's being modified
 ///                 ctx.instance_result()
 ///             }
@@ -267,11 +365,84 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///     }
 /// }
 ///
+/// #[test]
+/// fn test() {
+///     let script = r#"
+/// v = make_foo()
+/// assert_eq v.x, 0
 ///
+/// v.x = 1
+/// assert_eq v.x, 1
+///
+/// v.reset()
+/// assert_eq v.x, 0
+///
+/// v.reset(2)
+/// assert_eq v.x, 2
+///
+/// v.set()
+/// assert_eq v.x, 0
+///
+/// v.set(2)
+/// assert_eq v.x, 2
+///
+/// v.add(1).add(3)
+/// assert_eq v.x, 6
+/// "#;
+///
+///     let mut loader = ModuleLoader::default();
+///
+///     let chunk = loader
+///         .compile_script(script, None, CompilerSettings::default())
+///         .unwrap();
+///
+///     let mut vm = KotoVm::default();
+///
+///     vm.prelude()
+///         .add_fn("make_foo", |_| Ok(KObject::from(Foo::new(0.0)).into()));
+///
+///     vm.run(chunk).unwrap();
+/// }
 /// ```
 #[proc_macro_attribute]
 pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
     koto_impl::koto_impl(attr, item)
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access_assign(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access_assign_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_access_assign_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
 }
 
 /// See [`koto_impl`](macro@koto_impl)

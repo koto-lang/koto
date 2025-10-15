@@ -25,7 +25,7 @@ print my_type.set 99
 #[derive(Clone, Copy, KotoCopy, KotoType)]
 struct MyType(i64);
 
-// The KotoEntries trait is implemented by the koto_impl macro,
+// The KotoAccess trait is implemented by the koto_impl macro,
 // generating Koto functions for any impl function tagged with #[koto_method],
 // and inserting them into a cached KMap.
 #[koto_impl]
