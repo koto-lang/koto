@@ -119,7 +119,7 @@ mod tests {
         }
     }
 
-    impl KotoEntries for TestObject {}
+    impl KotoAccess for TestObject {}
 
     impl KotoObject for TestObject {
         fn serialize(&self) -> koto_runtime::Result<KValue> {

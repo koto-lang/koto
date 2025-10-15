@@ -119,7 +119,7 @@ impl Chunk {
     }
 }
 
-impl KotoEntries for Chunk {}
+impl KotoAccess for Chunk {}
 
 impl KotoObject for Chunk {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
@@ -149,5 +149,5 @@ impl From<Chunk> for KValue {
 #[koto(runtime = crate)]
 pub struct Unimplemented;
 
-impl KotoEntries for Unimplemented {}
+impl KotoAccess for Unimplemented {}
 impl KotoObject for Unimplemented {}

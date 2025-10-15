@@ -1,4 +1,8 @@
 mod objects {
+    use std::ptr;
+
+    use indexmap::IndexMap;
+    use koto_memory::Address;
     use koto_runtime::{Result, derive::*, prelude::*};
     use koto_test_utils::*;
 
@@ -330,6 +334,167 @@ mod objects {
 
     #[derive(Clone, Debug, KotoCopy, KotoType)]
     #[koto(runtime = koto_runtime)]
+    struct TestObjectAccess {
+        field: KValue,
+        field_for_override: KValue,
+        field_for_fallback: KValue,
+    }
+
+    impl TestObjectAccess {
+        fn make_value() -> KValue {
+            KObject::from(Self {
+                field: KValue::Null,
+                field_for_override: KValue::Null,
+                field_for_fallback: KValue::Null,
+            })
+            .into()
+        }
+    }
+
+    #[koto_impl(runtime = koto_runtime)]
+    impl TestObjectAccess {
+        #[koto_access]
+        fn field(&self) -> KValue {
+            self.field.clone()
+        }
+
+        #[koto_access_assign]
+        fn set_field(&mut self, data: &KValue) {
+            self.field = data.clone();
+        }
+
+        // For testing naming and aliases.
+        #[koto_access(name = "field_1", alias = "field_2", alias = "field_3")]
+        fn field_x(&self) -> KValue {
+            self.field.clone()
+        }
+
+        #[koto_access_assign(name = "field_1", alias = "field_2", alias = "field_3")]
+        fn set_field_x(&mut self, data: &KValue) {
+            self.field = data.clone();
+        }
+
+        #[koto_method]
+        fn method(&self) -> KValue {
+            "method".into()
+        }
+
+        #[koto_access_override]
+        fn access_override(&self, key: &KString) -> Option<KValue> {
+            if key.as_str() == "field_for_override" {
+                return Some(self.field_for_override.clone());
+            }
+
+            None
+        }
+
+        #[koto_access_fallback]
+        fn access_fallback(&self, key: &KString) -> Result<KValue> {
+            if key.as_str() != "field_for_fallback" {
+                return runtime_error!("unexpected key '{key}'");
+            }
+
+            Ok(self.field_for_fallback.clone())
+        }
+
+        #[koto_access_assign_override]
+        fn access_assign_override(&mut self, key: &KString, value: &KValue) -> bool {
+            if key.as_str() == "field_for_override" {
+                self.field_for_override = value.clone();
+                return true;
+            }
+
+            false
+        }
+
+        #[koto_access_assign_fallback]
+        fn access_assign_fallback(&mut self, key: &KString, value: &KValue) -> Result<()> {
+            if key.as_str() != "field_for_fallback" {
+                return runtime_error!("unexpected key '{key}'");
+            }
+
+            self.field_for_fallback = value.clone();
+            Ok(())
+        }
+    }
+
+    impl KotoObject for TestObjectAccess {}
+
+    /// An object that behaves similar to a `KMap`.
+    #[derive(Clone, Debug, KotoCopy, KotoType)]
+    #[koto(runtime = koto_runtime)]
+    struct MapLikeObject {
+        map: IndexMap<KString, KValue>,
+    }
+
+    impl MapLikeObject {
+        fn make_value() -> KValue {
+            KObject::from(Self {
+                map: IndexMap::new(),
+            })
+            .into()
+        }
+    }
+
+    #[koto_impl(runtime = koto_runtime)]
+    impl MapLikeObject {
+        #[koto_method]
+        fn length(&self) -> KValue {
+            self.map.len().into()
+        }
+
+        #[koto_access_override]
+        fn access_override(&self, key: &KString) -> Result<Option<KValue>> {
+            Ok(self.map.get(key).cloned())
+        }
+
+        #[koto_access_fallback]
+        fn access_fallback(&self, key: &KString) -> Result<KValue> {
+            runtime_error!("'{key}' not found in this '{}'", self.type_string())
+        }
+
+        // This object has no other `access_assign` entries, so it doesn't
+        // matter whether we use `_override` or `_fallback` here.
+        #[koto_access_assign_fallback]
+        fn access_assign_fallback(&mut self, key: &KString, value: &KValue) -> Result<()> {
+            self.map.insert(key.clone(), value.clone());
+            Ok(())
+        }
+    }
+
+    impl KotoObject for MapLikeObject {
+        fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+            if ctx.debug_enabled() {
+                ctx.append('{');
+            }
+
+            ctx.append(self.type_string());
+            ctx.append(": {");
+            ctx.push_container(Address::from(ptr::from_ref(self)));
+
+            for (i, (key, value)) in self.map.iter().enumerate() {
+                if i > 0 {
+                    ctx.append(", ");
+                }
+
+                ctx.append(key);
+                ctx.append(": ");
+                value.display(ctx)?;
+            }
+
+            ctx.append('}');
+            ctx.pop_container();
+
+            if ctx.debug_enabled() {
+                ctx.append('}');
+            }
+
+            Ok(())
+        }
+    }
+
+    #[derive(Clone, Debug, KotoCopy, KotoType)]
+    #[koto(runtime = koto_runtime)]
     struct TestIterator {
         x: i64,
     }
@@ -340,7 +505,7 @@ mod objects {
         }
     }
 
-    impl KotoEntries for TestIterator {}
+    impl KotoAccess for TestIterator {}
 
     impl KotoObject for TestIterator {
         fn is_iterable(&self) -> IsIterable {
@@ -382,6 +547,17 @@ mod objects {
         fn get(&self) -> KValue {
             self.value.clone().into()
         }
+
+        #[koto_access]
+        fn value(&self) -> KValue {
+            self.value.clone().into()
+        }
+
+        #[koto_access_assign]
+        fn set_value(&mut self, value: &KValue) {
+            _ = value;
+            // not implemented, just checking that it compiles
+        }
     }
 
     impl<T> KotoObject for GenericObject<T>
@@ -396,6 +572,8 @@ mod objects {
         let prelude = vm.prelude();
 
         prelude.add_fn("make_object", make_object);
+        prelude.add_fn("make_object_access", make_object_access);
+        prelude.add_fn("make_map_like", make_map_like);
         prelude.add_fn("make_generic", make_generic);
 
         if let Err(e) = check_script_output_with_vm(vm, script, expected_output.into()) {
@@ -408,6 +586,14 @@ mod objects {
 
         fn make_object(x: i64) -> KValue {
             TestObject::make_value(x)
+        }
+
+        fn make_object_access() -> KValue {
+            TestObjectAccess::make_value()
+        }
+
+        fn make_map_like() -> KValue {
+            MapLikeObject::make_value()
         }
 
         fn make_generic(x: bool) -> KValue {
@@ -529,6 +715,15 @@ else
   'error'
 ";
             test_object_script(script, "@@@");
+        }
+
+        #[test]
+        fn access() {
+            let script = "
+x = make_generic 99
+x.value
+";
+            test_object_script(script, 99);
         }
     }
 
@@ -930,6 +1125,85 @@ x = make_object 256
 x()
 ";
         test_object_script(script, 256);
+    }
+
+    #[test]
+    fn object_access() {
+        let script = r##"
+x = make_object_access()
+
+assert_eq x.method(), "method"
+
+x.field = "foo"
+x.field_for_override = "bar"
+x.field_for_fallback = "baz"
+
+assert_eq x.field, "foo"
+assert_eq x.field_for_override, "bar"
+assert_eq x.field_for_fallback, "baz"
+
+# testing aliases
+
+should_throw = |expected_error, f|
+  result = try 
+    f()
+    { @type: "Ok" }
+  catch error
+    { @type: "Err", msg: error }
+  match type result
+    "Ok" then throw "function should have panicked!"
+    "Err" then 
+      if result.msg != expected_error
+        throw "expected error '{expected_error}' but got '{error}'"
+
+# make sure the function identifier does not become an access key
+# if an explicit `name` argument was given
+should_throw "unexpected key 'field_x'", || x.field_x
+should_throw "unexpected key 'field_x'", || x.field_x = "something"
+
+assert_eq x.field_1, "foo"
+assert_eq x.field_2, "foo"
+assert_eq x.field_3, "foo"
+
+x.field_1 = "foo_1"
+assert_eq x.field, "foo_1"
+
+x.field_2 = "foo_2"
+assert_eq x.field, "foo_2"
+
+x.field_3 = "foo_3"
+assert_eq x.field, "foo_3"
+"##;
+        test_object_script(script, ());
+    }
+
+    #[test]
+    fn map_like_object() {
+        let script = r##"
+x = make_map_like()
+assert_eq x.length(), 0
+
+try
+  print x.foo
+  throw "expression above should have errored"
+catch error
+  assert_eq error, "'foo' not found in this 'MapLikeObject'"
+
+x.foo = 1
+assert_eq x.foo, 1
+assert_eq x.length(), 1
+assert_eq '{x}', r'MapLikeObject: {foo: 1}'
+
+x.bar = 2
+x.baz = 3
+assert_eq x.length(), 3
+assert_eq '{x}', r'MapLikeObject: {foo: 1, bar: 2, baz: 3}'
+
+x.length = "oops"
+assert_eq x.length, "oops"
+assert_eq '{x}', r"MapLikeObject: {foo: 1, bar: 2, baz: 3, length: 'oops'}"
+"##;
+        test_object_script(script, ());
     }
 
     mod temporaries {

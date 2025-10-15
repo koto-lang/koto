@@ -139,7 +139,7 @@ pub struct Matches {
 
 impl Matches {}
 
-impl KotoEntries for Matches {}
+impl KotoAccess for Matches {}
 
 impl KotoObject for Matches {
     fn is_iterable(&self) -> IsIterable {

@@ -24,7 +24,7 @@ pub use self::{
     native_function::{CallContext, KNativeFunction, KotoFunction},
     number::KNumber,
     object::{
-        IsIterable, KObject, KotoCopy, KotoEntries, KotoField, KotoObject, KotoType, MethodContext,
+        IsIterable, KObject, KotoAccess, KotoCopy, KotoField, KotoObject, KotoType, MethodContext,
     },
     range::KRange,
     tuple::KTuple,

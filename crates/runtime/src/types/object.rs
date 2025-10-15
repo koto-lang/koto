@@ -45,13 +45,18 @@ pub trait KotoCopy {
 ///
 /// The `#[koto_impl]` macro provides an easy way to declare methods that should be made available
 /// via '.' access by using the `#[koto_method]` attribute, and then derives an appropriate
-/// implementation of [KotoEntries].
-pub trait KotoEntries {
-    /// Returns an optional [KMap] containing entries that can be accessed via the '.' operator.
-    ///
-    /// Implementations should return a clone of a cached map. `None` is returned by default.
-    fn entries(&self) -> Option<KMap> {
-        None
+/// implementation of [KotoAccess].
+pub trait KotoAccess: KotoType {
+    /// Called for access operations, e.g. `x.foo`
+    fn access(&self, key: &KString) -> Result<Option<KValue>> {
+        let _ = key;
+        Ok(None)
+    }
+
+    /// Called for assignment operations, e.g. `x.foo = "bar"`
+    fn access_assign(&mut self, key: &KString, value: &KValue) -> Result<()> {
+        let _ = (key, value);
+        unimplemented_error("@access_assign", self.type_string())
     }
 }
 
@@ -71,7 +76,7 @@ pub trait KotoEntries {
 ///     data: i32,
 /// }
 ///
-/// // The `#[koto_impl]` macro derives an implementation of [KotoEntries] containing wrapper
+/// // The `#[koto_impl]` macro derives an implementation of [KotoAccess] containing wrapper
 /// // functions for each impl function tagged with `#[koto_method]`.
 /// #[koto_impl(runtime = koto_runtime)]
 /// impl Foo {
@@ -111,7 +116,7 @@ pub trait KotoEntries {
 /// ```
 ///
 /// See also: [KObject].
-pub trait KotoObject: KotoType + KotoCopy + KotoEntries + KotoSend + KotoSync + Any {
+pub trait KotoObject: KotoType + KotoCopy + KotoAccess + KotoSend + KotoSync + Any {
     /// Called when the object should be displayed as a string, e.g. by `io.print`
     ///
     /// By default, the object's type is used as the display string.

@@ -61,7 +61,6 @@ pub enum ErrorKind {
         rhs: KValue,
         op: BinaryOp,
     },
-
     #[error("empty call stack")]
     EmptyCallStack,
     #[error("missing sequence builder")]

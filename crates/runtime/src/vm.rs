@@ -2659,20 +2659,23 @@ impl KotoVm {
         key_register: u8,
         value_register: u8,
     ) -> Result<()> {
-        let key_as_value = self.clone_register(key_register);
-
-        let key = ValueKey::try_from(key_as_value.clone())?;
-        let value = self.clone_register(value_register);
+        let key = self.get_register(key_register);
+        let value = self.get_register(value_register);
 
         match self.get_register(map_register) {
             KValue::Map(map) if map.contains_meta_key(&WriteOp::AccessAssign.into()) => {
                 let op = map.get_meta_value(&WriteOp::AccessAssign.into()).unwrap();
-                self.call_overridden_op_3(None, map.clone().into(), key_as_value, value, op)
+                self.call_overridden_op_3(None, map.clone().into(), key.clone(), value.clone(), op)
             }
             KValue::Map(map) => {
-                map.data_mut().insert(key, value);
+                let key = ValueKey::try_from(key.clone())?;
+                map.data_mut().insert(key, value.clone());
                 Ok(())
             }
+            KValue::Object(o) => match key {
+                KValue::Str(key) => o.try_borrow_mut()?.access_assign(key, value),
+                unexpected => unexpected_type("String", unexpected),
+            },
             unexpected => unexpected_type("a value that supports assignment via '.'", unexpected),
         }
     }
@@ -2843,8 +2846,9 @@ impl KotoVm {
                 let o = o.try_borrow()?;
 
                 let mut result = None;
-                if let Some(entries) = o.entries() {
-                    result = entries.get(&key);
+
+                if let KValue::Str(key) = key.value() {
+                    result = o.access(key)?;
                 }
 
                 // Iterator fallback?
@@ -3953,8 +3957,7 @@ impl NonLocals {
                     KValue::Object(o) => o
                         .try_borrow()
                         .ok()
-                        .and_then(|o| o.entries())
-                        .and_then(|entries| entries.get(name)),
+                        .and_then(|o| o.access(&name.into()).ok().flatten()),
                     _ => None,
                 };
                 if let Some(result) = result {
