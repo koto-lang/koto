@@ -46,7 +46,7 @@ pub trait KotoCopy {
 /// The `#[koto_impl]` macro provides an easy way to declare methods that should be made available
 /// via '.' access by using the `#[koto_method]` attribute, and then derives an appropriate
 /// implementation of [KotoAccess].
-pub trait KotoAccess {
+pub trait KotoAccess: KotoType {
     /// Called for access operations, e.g. `x.foo`
     fn access(&self, key: &KString) -> Result<Option<KValue>> {
         let _ = key;
@@ -56,7 +56,7 @@ pub trait KotoAccess {
     /// Called for assignment operations, e.g. `x.foo = "bar"`
     fn access_assign(&mut self, key: &KString, value: &KValue) -> Result<()> {
         let _ = (key, value);
-        runtime_error!(ErrorKind::UnimplementedAccessAssign)
+        unimplemented_error("@access_assign", self.type_string())
     }
 }
 

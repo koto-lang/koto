@@ -55,15 +55,12 @@ pub enum ErrorKind {
         fn_name: &'static str,
         object_type: KString,
     },
-    #[error("access assignment is not implemented for this object")]
-    UnimplementedAccessAssign,
     #[error("unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
     InvalidBinaryOp {
         lhs: KValue,
         rhs: KValue,
         op: BinaryOp,
     },
-
     #[error("empty call stack")]
     EmptyCallStack,
     #[error("missing sequence builder")]
