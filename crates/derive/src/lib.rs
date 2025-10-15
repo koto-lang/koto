@@ -391,18 +391,12 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// assert_eq v.x, 6
 /// "#;
 ///
-///     let mut loader = ModuleLoader::default();
+///     let mut koto = Koto::default();
 ///
-///     let chunk = loader
-///         .compile_script(script, None, CompilerSettings::default())
-///         .unwrap();
-///
-///     let mut vm = KotoVm::default();
-///
-///     vm.prelude()
+///     koto.prelude()
 ///         .add_fn("make_foo", |_| Ok(KObject::from(Foo::new(0.0)).into()));
 ///
-///     vm.run(chunk).unwrap();
+///     koto.compile_and_run(script).unwrap();
 /// }
 /// ```
 #[proc_macro_attribute]
