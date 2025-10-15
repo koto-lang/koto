@@ -1145,18 +1145,19 @@ assert_eq x.field_for_fallback, "baz"
 # testing aliases
 
 should_throw = |expected_error, f|
-  try 
+  result = try 
     f()
-    throw "'f' should have panicked!"
+    { @type: "Ok" }
   catch error
-    if error == "'f' should have panicked!"
-      throw error
-    if error != expected_error
-      throw "expected error '{expected_error}' but got '{error}'"
-    assert_eq error, expected_error
+    { @type: "Err", msg: error }
+  match type result
+    "Ok" then throw "function should have panicked!"
+    "Err" then 
+      if result.msg != expected_error
+        throw "expected error '{expected_error}' but got '{error}'"
 
-# make sure the function identifier doesn't make it into
-# the names if a name argument was given
+# make sure the function identifier does not become an access key
+# if an explicit `name` argument was given
 should_throw "unexpected key 'field_x'", || x.field_x
 should_throw "unexpected key 'field_x'", || x.field_x = "something"
 
