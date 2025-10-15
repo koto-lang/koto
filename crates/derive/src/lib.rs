@@ -197,19 +197,20 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 }
 
 // NOTE: The documentation examples are tested in `crates/koto/tests/derive_koto_impl_doc.rs`
-/// A helper for deriving `KotoAccess` with functions tagged with:
+/// A helper for deriving `KotoAccess`
 ///
+/// This macro recognizes functions tagged with the following attributes:
 /// - [**`#[koto_method]`**](#koto_method)
 /// - [**`#[koto_access]`**](#koto_access)
 /// - [**`#[koto_access_assign]`**](#koto_access_assign)
 /// - [**`#[koto_access_override]`**](#koto_access_override)
 /// - [**`#[koto_access_assign_override]`**](#koto_access_assign_override)
 /// - [**`#[koto_access_fallback]`**](#koto_access_fallback)
-/// - [**`#[koto_access_assign_fallback]`**](#koto_access_assignfallback)
+/// - [**`#[koto_access_assign_fallback]`**](#koto_access_assign_fallback)
 ///
 /// The attributes `#[koto_method]`, `#[koto_access]` and `#[koto_access_assign]` can take optional arguments:
 /// - **`name`** — sets the access key, if not set it will be inferred by the function name
-/// - **`alias`** *(multiple)* — adds additional keys to access with
+/// - **`alias`** *(multiple allowed)* — adds additional keys to access with
 ///
 /// ## `#[koto_method]`
 ///
@@ -221,16 +222,16 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// The function can take `&self` or `&mut self` along with an optional `&[KValue]` slice of
 /// additional arguments, or for more advanced functions a `MethodContext<Self>` can be provided.
 ///
-/// The return type can be ommitted (in which case the result will be `KValue::Null`),
+/// The return type can be omitted (in which case the result will be `KValue::Null`),
 /// or a `KValue`, or a `Result<KValue>`.
 ///
 /// For cases where it would be preferable to return a clone of the object instance
-/// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self`>
+/// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self>`
 /// as the function argument and then return `MethodContext::instance_result()`.
 ///
 /// ## `#[koto_access]`
 ///
-/// This function will be called to access the value of the key inferred from the
+/// This function is called when accessing the value of the key inferred from the
 /// function name.
 ///
 /// The function must have a signature like either:
@@ -241,7 +242,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_access_assign]`
 ///
-/// This function will be called to assign a value to the key inferred from the
+/// This function is called when assigning a value to the key inferred from the
 /// function name without its `set_` prefix.
 ///
 /// The function must have a signature like either:
@@ -252,8 +253,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_access_fallback]`
 ///
-/// This function will be called if neither `#[koto_access]`s nor `#[koto_method]`s
-/// with the requested field name were found.
+/// This function is called when neither `#[koto_access]`es nor `#[koto_method]`s
+/// with the requested name were found.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -263,8 +264,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_access_assign_fallback]`
 ///
-/// This function will be called if no `#[koto_access_assign]`s
-/// with the requested field name were found.
+/// This function is called when no `#[koto_access_assign]`s
+/// with the requested name were found.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -274,10 +275,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_access_override]`
 ///
-/// This function will be called **before** any `#[koto_access]` or `#[koto_method]` is looked for.
-/// If this method returns `Some`, then that's the value that will be returned to koto.
-/// If it returns `None` instead, then it will look for `#[koto_access]`s and `#[koto_method]`s
-/// and finally fall back to the `#[koto_access_fallback]` function.
+/// This function is called **before** looking for any `#[koto_access]`es or `#[koto_method]`s.
+/// If this method returns `Some`, then that value will be returned to koto.
+/// If it returns `None` instead, then `#[koto_access]`es and `#[koto_method]`s with the given key
+/// will be looked for before finally falling back to the `#[koto_access_fallback]` function.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -287,10 +288,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_access_assign_override]`
 ///
-/// This function will be called **before** any `#[koto_access_assign]` is looked for.
+/// This function is called **before** any `#[koto_access_assign]` is looked for.
 /// If this method returns `true`, then the assignment operation is done.
-/// If it returns `false` instead, then it will look for `#[koto_access_assign]`s
-/// and finally fall back to the `#[koto_access_assign_fallback]` function.
+/// If it returns `false` instead, then `#[koto_access_assign]`s
+/// will be looked for before finally falling back to the `#[koto_access_assign_fallback]` function.
 ///
 /// The function must have a signature like either:
 /// ```ignore
