@@ -9,11 +9,11 @@ use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
-    Type, TypePath,
+    Signature, Type, TypePath,
     meta::ParseNestedMeta,
     parse::{Parse, Result},
     parse_macro_input, parse_quote,
-    spanned::Spanned as _,
+    spanned::Spanned,
 };
 
 pub(crate) fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -429,31 +429,15 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ))
     })?;
 
-    let mut args = fun.sig.inputs.iter();
-    let self_arg = args.next();
-
-    // The first argument must be `&self`.
-    match self_arg {
-        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
-        arg => {
-            let tokens_for_span = arg
-                .map(|s| s.to_token_stream())
-                .unwrap_or(fun.sig.to_token_stream());
-
-            return Err(Error::new_spanned(
-                tokens_for_span,
-                "Expected `&self` as the first argument of a `#[koto_get]` method",
-            ));
-        }
-    }
-
-    // There must be no further arguments.
-    if let Some(arg) = args.next() {
-        return Err(Error::new_spanned(
-            arg,
-            "Expected no extra argument for a `#[koto_get]` method",
-        ));
-    }
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get",
+            self_is_mut: false,
+            has_key: false,
+            has_value: false,
+        },
+    )?;
 
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
@@ -544,47 +528,15 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         Ok(LitStr::new(name, fun.sig.ident.span()))
     })?;
 
-    let mut args = fun.sig.inputs.iter();
-    let self_arg = args.next();
-    let second_arg = args.next();
-
-    // The first argument must be `&mut self`.
-    match self_arg {
-        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some() => {}
-        arg => {
-            let tokens_for_span = arg
-                .map(|s| s.to_token_stream())
-                .unwrap_or(fun.sig.to_token_stream());
-
-            return Err(Error::new_spanned(
-                tokens_for_span,
-                "Expected `&mut self` as the first argument of a `#[koto_set]` method",
-            ));
-        }
-    }
-
-    // The second argument must be `&KValue`.
-    match second_arg {
-        Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_)) => {}
-        arg => {
-            let tokens_for_span = arg
-                .map(|s| s.to_token_stream())
-                .unwrap_or(fun.sig.to_token_stream());
-
-            return Err(Error::new_spanned(
-                tokens_for_span,
-                "Expected `&KValue` as the extra argument for a Koto method",
-            ));
-        }
-    }
-
-    // There must be no further arguments.
-    if let Some(arg) = args.next() {
-        return Err(Error::new_spanned(
-            arg,
-            "Expected no additional argument for a `#[koto_set]` method",
-        ));
-    }
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set",
+            self_is_mut: true,
+            has_key: false,
+            has_value: true,
+        },
+    )?;
 
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
@@ -652,6 +604,16 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
 
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get_fallback",
+            self_is_mut: false,
+            has_key: true,
+            has_value: false,
+        },
+    )?;
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => {
@@ -697,6 +659,16 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
 
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set_fallback",
+            self_is_mut: true,
+            has_key: true,
+            has_value: true,
+        },
+    )?;
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => Span::call_site(),
@@ -736,6 +708,16 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
+
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get_override",
+            self_is_mut: false,
+            has_key: true,
+            has_value: false,
+        },
+    )?;
 
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
@@ -781,6 +763,16 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
+
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set_override",
+            self_is_mut: true,
+            has_key: true,
+            has_value: true,
+        },
+    )?;
 
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
@@ -1426,3 +1418,72 @@ macro_rules! no_feature_set {
 }
 
 use no_feature_set;
+
+fn check_method_args(sig: &Signature, check: CheckMethodArgs) -> Result<()> {
+    let CheckMethodArgs {
+        attr_name,
+        self_is_mut,
+        has_key,
+        has_value,
+    } = check;
+    let mut args = sig.inputs.iter();
+
+    match args.next() {
+        Some(FnArg::Receiver(r))
+            if r.reference.is_some() && r.mutability.is_some() == self_is_mut => {}
+        self_arg => {
+            let tokens_for_span = self_arg
+                .map(|s| s.to_token_stream())
+                .unwrap_or_else(|| sig.to_token_stream());
+
+            let mut_str = if self_is_mut { "mut" } else { "" };
+
+            return Err(Error::new_spanned(
+                tokens_for_span,
+                format!(
+                    "Expected `&{mut_str} self` as the first parameter of a `#[{attr_name}]` method"
+                ),
+            ));
+        }
+    }
+
+    let mut nth_name = ["second", "third"].iter();
+
+    if has_key {
+        let nth = nth_name.next().unwrap();
+
+        if args.next().is_none() {
+            return Err(Error::new_spanned(
+                sig,
+                format!("Expected `&KString` as the {nth} parameter of a `#[{attr_name}]` method"),
+            ));
+        }
+    }
+
+    if has_value {
+        let nth = nth_name.next().unwrap();
+
+        if args.next().is_none() {
+            return Err(Error::new_spanned(
+                sig,
+                format!("Expected `&KValue` as the {nth} parameter of a `#[{attr_name}]` method"),
+            ));
+        }
+    }
+
+    if let Some(arg) = args.next() {
+        return Err(Error::new_spanned(
+            arg,
+            format!("Expected no additional parameter for a `#[{attr_name}]` method"),
+        ));
+    }
+
+    Ok(())
+}
+
+struct CheckMethodArgs {
+    attr_name: &'static str,
+    self_is_mut: bool,
+    has_key: bool,
+    has_value: bool,
+}
