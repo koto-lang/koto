@@ -6,7 +6,7 @@ use std::{
 use crate::PREFIX_FUNCTION;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{format_ident, quote, quote_spanned};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
     Type, TypePath,
@@ -435,9 +435,13 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     // The first argument must be `&self`.
     match self_arg {
         Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
-        _ => {
-            return Err(Error::new(
-                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+        arg => {
+            let tokens_for_span = arg
+                .map(|s| s.to_token_stream())
+                .unwrap_or(fun.sig.to_token_stream());
+
+            return Err(Error::new_spanned(
+                tokens_for_span,
                 "Expected `&self` as the first argument of a `#[koto_get]` method",
             ));
         }
@@ -547,9 +551,13 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     // The first argument must be `&mut self`.
     match self_arg {
         Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some() => {}
-        _ => {
-            return Err(Error::new(
-                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+        arg => {
+            let tokens_for_span = arg
+                .map(|s| s.to_token_stream())
+                .unwrap_or(fun.sig.to_token_stream());
+
+            return Err(Error::new_spanned(
+                tokens_for_span,
                 "Expected `&mut self` as the first argument of a `#[koto_set]` method",
             ));
         }
@@ -558,9 +566,13 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     // The second argument must be `&KValue`.
     match second_arg {
         Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_)) => {}
-        _ => {
-            return Err(Error::new(
-                second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+        arg => {
+            let tokens_for_span = arg
+                .map(|s| s.to_token_stream())
+                .unwrap_or(fun.sig.to_token_stream());
+
+            return Err(Error::new_spanned(
+                tokens_for_span,
                 "Expected `&KValue` as the extra argument for a Koto method",
             ));
         }
