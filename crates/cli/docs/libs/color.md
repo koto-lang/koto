@@ -215,13 +215,9 @@ check! Color(RGB, r: 0.2, g: 0.4, b: 0.3, a: 0.5)
 The `color` module's core color type.
 
 The color may belong to various different color spaces,
-with the space's components available via iteration or indexing.
+with the space's components available by name, indexing, or via iteration.
 
 The color's `alpha` value is always present as the color's fourth component.
-
-The color space's components can be modified via index, and the `alpha`
-component can also be modified via [`.set_alpha`](#color-set-alpha).
-
 
 ### Example
 
