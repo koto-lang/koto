@@ -448,11 +448,6 @@ mod objects {
             Ok(self.map.get(key).cloned())
         }
 
-        #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<Option<KValue>> {
-            runtime_error!("'{key}' not found in this '{}'", self.type_string())
-        }
-
         // This object has no other `access_assign` entries, so it doesn't
         // matter whether we use `_override` or `_fallback` here.
         #[koto_access_assign_fallback]
@@ -1187,7 +1182,7 @@ try
   print x.foo
   throw "expression above should have errored"
 catch error
-  assert_eq error, "'foo' not found in this 'MapLikeObject'"
+  assert_eq error, "'foo' not found in 'MapLikeObject'"
 
 x.foo = 1
 assert_eq x.foo, 1
