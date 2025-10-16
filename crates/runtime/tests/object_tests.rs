@@ -391,7 +391,7 @@ mod objects {
         #[koto_access_fallback]
         fn access_fallback(&self, key: &KString) -> Result<Option<KValue>> {
             if key.as_str() != "field_for_fallback" {
-                return runtime_error!("unexpected key '{key}'");
+                return Ok(None);
             }
 
             Ok(Some(self.field_for_fallback.clone()))
@@ -1153,7 +1153,7 @@ should_throw = |expected_error, f|
 
 # make sure the function identifier does not become an access key
 # if an explicit `name` argument was given
-should_throw "unexpected key 'field_x'", || x.field_x
+should_throw "'field_x' not found in 'TestObjectAccess'", || x.field_x
 should_throw "unexpected key 'field_x'", || x.field_x = "something"
 
 assert_eq x.field_1, "foo"
