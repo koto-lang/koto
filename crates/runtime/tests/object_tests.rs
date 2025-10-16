@@ -389,12 +389,12 @@ mod objects {
         }
 
         #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<Option<KValue>> {
+        fn access_fallback(&self, key: &KString) -> Option<KValue> {
             if key.as_str() != "field_for_fallback" {
-                return Ok(None);
+                return None;
             }
 
-            Ok(Some(self.field_for_fallback.clone()))
+            Some(self.field_for_fallback.clone())
         }
 
         #[koto_access_assign_override]
