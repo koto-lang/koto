@@ -16,14 +16,10 @@
 compile_error!("A single memory management feature can be enabled at a time");
 
 mod address;
+mod ptr;
+mod ptr_impl;
+mod ptr_mut;
+
 pub use address::Address;
-
-#[cfg(feature = "arc")]
-mod arc;
-#[cfg(feature = "arc")]
-pub use crate::arc::*;
-
-#[cfg(feature = "rc")]
-mod rc;
-#[cfg(feature = "rc")]
-pub use crate::rc::*;
+pub use ptr::*;
+pub use ptr_mut::*;

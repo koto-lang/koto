@@ -6,7 +6,7 @@ use crate::{
     derive::*,
     prelude::*,
 };
-use koto_memory::{Ptr, PtrMut};
+use koto_memory::PtrMut;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::process;
 
