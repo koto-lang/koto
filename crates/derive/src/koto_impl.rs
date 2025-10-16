@@ -161,6 +161,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
     };
 
     let koto_access_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics #runtime::KotoAccess for #ty #where_clause {
             #koto_access_impl_content
         }
@@ -873,6 +874,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
+        #[automatically_derived]
         fn #wrapper_name(ctx: &mut #runtime::CallContext) -> #runtime::Result<#runtime::KValue> {
             #wrapper_body
         }
