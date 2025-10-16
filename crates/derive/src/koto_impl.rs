@@ -401,13 +401,15 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
         ctx.insert_ops_for_access.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
@@ -497,13 +499,15 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ctx.insert_ops_for_access.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        #value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
@@ -608,13 +612,15 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ctx.insert_ops_for_access_assign.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        #value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
