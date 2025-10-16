@@ -43,126 +43,126 @@ impl KotoMethodReturn for () {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access]` method must return `KValue` or `koto_runtime::Result<KValue>`",
+    message = "a `#[koto_get]` method must return `KValue` or `koto_runtime::Result<KValue>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessReturn {
+pub trait KotoGetReturn {
     fn into_result(self) -> Result<KValue>;
 }
 
-impl KotoAccessReturn for Result<KValue> {
+impl KotoGetReturn for Result<KValue> {
     fn into_result(self) -> Result<KValue> {
         self
     }
 }
 
-impl KotoAccessReturn for KValue {
+impl KotoGetReturn for KValue {
     fn into_result(self) -> Result<KValue> {
         Ok(self)
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access_assign]` method must return `()` or `koto_runtime::Result<()>`",
+    message = "a `#[koto_set]` method must return `()` or `koto_runtime::Result<()>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessAssignReturn {
+pub trait KotoSetReturn {
     fn into_result(self) -> Result<()>;
 }
 
-impl KotoAccessAssignReturn for Result<()> {
+impl KotoSetReturn for Result<()> {
     fn into_result(self) -> Result<()> {
         self
     }
 }
 
-impl KotoAccessAssignReturn for () {
+impl KotoSetReturn for () {
     fn into_result(self) -> Result<()> {
         Ok(self)
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access_fallback]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
+    message = "a `#[koto_get_fallback]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessFallbackReturn {
+pub trait KotoGetFallbackReturn {
     fn into_result(self) -> Result<Option<KValue>>;
 }
 
-impl KotoAccessFallbackReturn for Result<Option<KValue>> {
+impl KotoGetFallbackReturn for Result<Option<KValue>> {
     fn into_result(self) -> Result<Option<KValue>> {
         self
     }
 }
 
-impl KotoAccessFallbackReturn for Option<KValue> {
+impl KotoGetFallbackReturn for Option<KValue> {
     fn into_result(self) -> Result<Option<KValue>> {
         Ok(self)
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access_assign_fallback]` method must return `()` or `koto_runtime::Result<()>`",
+    message = "a `#[koto_set_fallback]` method must return `()` or `koto_runtime::Result<()>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessAssignFallbackReturn {
+pub trait KotoSetFallbackReturn {
     fn into_result(self) -> Result<()>;
 }
 
-impl KotoAccessAssignFallbackReturn for Result<()> {
+impl KotoSetFallbackReturn for Result<()> {
     fn into_result(self) -> Result<()> {
         self
     }
 }
 
-impl KotoAccessAssignFallbackReturn for () {
+impl KotoSetFallbackReturn for () {
     fn into_result(self) -> Result<()> {
         Ok(self)
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access_override]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
+    message = "a `#[koto_get_override]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessOverrideReturn {
+pub trait KotoGetOverrideReturn {
     fn into_result(self) -> Result<Option<KValue>>;
 }
 
-impl KotoAccessOverrideReturn for Result<Option<KValue>> {
+impl KotoGetOverrideReturn for Result<Option<KValue>> {
     fn into_result(self) -> Result<Option<KValue>> {
         self
     }
 }
 
-impl KotoAccessOverrideReturn for Option<KValue> {
+impl KotoGetOverrideReturn for Option<KValue> {
     fn into_result(self) -> Result<Option<KValue>> {
         Ok(self)
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_access_assign_override]` method must return `bool` or `koto_runtime::Result<bool>`",
+    message = "a `#[koto_set_override]` method must return `bool` or `koto_runtime::Result<bool>`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
-pub trait KotoAccessAssignOverrideReturn {
+pub trait KotoSetOverrideReturn {
     fn into_result(self) -> Result<bool>;
 }
 
-impl KotoAccessAssignOverrideReturn for Result<bool> {
+impl KotoSetOverrideReturn for Result<bool> {
     fn into_result(self) -> Result<bool> {
         self
     }
 }
 
-impl KotoAccessAssignOverrideReturn for bool {
+impl KotoSetOverrideReturn for bool {
     fn into_result(self) -> Result<bool> {
         Ok(self)
     }

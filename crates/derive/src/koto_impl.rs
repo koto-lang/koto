@@ -458,7 +458,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident();
-        #runtime::__private::KotoAccessReturn::into_result(#call_result)
+        #runtime::__private::KotoGetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
@@ -557,7 +557,7 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident(#value);
-        #runtime::__private::KotoAccessAssignReturn::into_result(#call_result)
+        #runtime::__private::KotoSetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
@@ -642,7 +642,7 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        #runtime::__private::KotoAccessFallbackReturn::into_result(#call_result)
+        #runtime::__private::KotoGetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -703,7 +703,7 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        #runtime::__private::KotoAccessAssignFallbackReturn::into_result(#call_result)
+        #runtime::__private::KotoSetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -763,7 +763,7 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        #runtime::__private::KotoAccessOverrideReturn::into_result(#call_result)
+        #runtime::__private::KotoGetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -829,7 +829,7 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        #runtime::__private::KotoAccessAssignOverrideReturn::into_result(#call_result)
+        #runtime::__private::KotoSetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
