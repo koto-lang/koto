@@ -32,21 +32,4 @@ pub use koto_derive as derive;
 pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, lazy, make_ptr, make_ptr_mut};
 
 #[doc(hidden)]
-pub mod __private {
-    use crate::{KNativeFunction, KValue, Result};
-
-    /// Used by the `#[koto_impl]` macro.
-    pub enum MethodOrField<T: ?Sized> {
-        Method(KNativeFunction),
-        Field(fn(&T) -> Result<KValue>),
-    }
-
-    impl<T: ?Sized> Clone for MethodOrField<T> {
-        fn clone(&self) -> Self {
-            match self {
-                Self::Method(x) => Self::Method(x.clone()),
-                Self::Field(x) => Self::Field(*x),
-            }
-        }
-    }
-}
+pub mod __private;

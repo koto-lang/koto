@@ -6,7 +6,7 @@ use std::{
 use crate::PREFIX_FUNCTION;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
     Type, TypePath,
@@ -429,21 +429,6 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ))
     })?;
 
-    let fn_ident = &fun.sig.ident;
-    let call = quote! { instance.#fn_ident() };
-
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
-            return Err(Error::new_spanned(
-                &fun.sig,
-                "Expected return type for a `#[koto_get]` method",
-            ));
-        }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
-    };
-
     let mut args = fun.sig.inputs.iter();
     let self_arg = args.next();
 
@@ -466,7 +451,28 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ));
     }
 
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
+            return Err(Error::new_spanned(
+                &fun.sig,
+                "a `#[koto_get]` method must return `KValue` or `koto_runtime::Result<KValue>`",
+            ));
+        }
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
     let ty = ctx.ty();
+
+    let wrapped_call = quote! {
+        let #call_result = instance.#fn_ident();
+        #runtime::__private::KotoAccessReturn::into_result(#call_result)
+    };
 
     let value = if ctx.has_generics() {
         quote! {
@@ -478,7 +484,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
             )
         }
     } else {
-        quote! {
+        quote_spanned! { return_ty_span =>
             MethodOrField::Field(
                 |instance: &#ty| {
                     #wrapped_call
@@ -534,21 +540,6 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         Ok(LitStr::new(name, fun.sig.ident.span()))
     })?;
 
-    let fn_ident = &fun.sig.ident;
-    let call = quote! { instance.#fn_ident(value) };
-
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => quote! { #call; Ok(()) },
-        MethodReturnType::Value => {
-            return Err(Error::new_spanned(
-                &fun.sig,
-                "Expected result or no return type for a `#[koto_set]` method",
-            ));
-        }
-        MethodReturnType::Result => call,
-    };
-
     let mut args = fun.sig.inputs.iter();
     let self_arg = args.next();
     let second_arg = args.next();
@@ -583,7 +574,23 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ));
     }
 
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => Span::call_site(),
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
     let ty = ctx.ty();
+
+    let wrapped_call = quote! {
+        let #call_result = instance.#fn_ident(value);
+        #runtime::__private::KotoAccessAssignReturn::into_result(#call_result)
+    };
 
     let value = if ctx.has_generics() {
         quote! {
@@ -632,20 +639,27 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
 fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_get_fallback]` method",
+                "a `#[koto_get_fallback]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(key);
+        #runtime::__private::KotoAccessFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -670,20 +684,22 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key, value) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => quote! { #call; Ok(()) },
-        MethodReturnType::Value => {
-            return Err(Error::new_spanned(
-                &fun.sig,
-                "Expected result or no return type for a `#[koto_set_fallback]` method",
-            ));
-        }
-        MethodReturnType::Result => call,
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => Span::call_site(),
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(key, value);
+        #runtime::__private::KotoAccessAssignFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -708,22 +724,27 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
 
-    // We don't wrap this call like in other
-    let call = quote! { self.#fun_name(key) };
-
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_get_override]` method",
+                "a `#[koto_get_override]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(key);
+        #runtime::__private::KotoAccessOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -748,20 +769,27 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key, value) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_set_override]` method",
+                "a `#[koto_set_override]` method must return `bool` or `koto_runtime::Result<bool>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+    // the error will point to the function return type.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(key, value);
+        #runtime::__private::KotoAccessAssignOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -785,12 +813,9 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 }
 
 fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
-    let fn_name = &fun.sig.ident;
-
     let arg_count = fun.sig.inputs.len();
     let mut args = fun.sig.inputs.iter();
 
-    let return_type = detect_return_type(&fun.sig.output);
     let runtime = &ctx.runtime;
 
     let wrapper_body = match args.next() {
@@ -827,15 +852,21 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                 _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
             };
 
-            // Wrap the call differently depending on the declared return type
-            let call = quote! { instance.#fn_name(#call_args) };
-            let wrapped_call = match return_type {
-                MethodReturnType::None => quote! {{
-                    #call;
-                    Ok(KValue::Null)
-                }},
-                MethodReturnType::Value => quote! { Ok(#call) },
-                MethodReturnType::Result => call,
+            let return_ty_span = match &fun.sig.output {
+                ReturnType::Type(_, ty) => ty.span(),
+                ReturnType::Default => Span::call_site(),
+            };
+
+            // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+            // the error will point to the function return type.
+            let call_result = quote_spanned!(return_ty_span=> call_result);
+
+            let fn_ident = &fun.sig.ident;
+            let runtime = &ctx.runtime;
+
+            let wrapped_call = quote! {
+                let #call_result = instance.#fn_ident(#call_args);
+                #runtime::__private::KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
@@ -846,7 +877,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                 )? {
                     (KValue::Object(o), #args_match) => {
                         match o.#cast::<Self>() {
-                            Ok(#instance) => #wrapped_call,
+                            Ok(#instance) => { #wrapped_call }
                             Err(e) => Err(e),
                         }
                     },
@@ -856,15 +887,21 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
         }
         // Functions that take a MethodContext
         _ => {
-            // Wrap the call differently depending on the declared return type
-            let call = quote! { Self::#fn_name(MethodContext::new(&o, extra_args, ctx.vm)) };
-            let wrapped_call = match return_type {
-                MethodReturnType::None => quote! {
-                    #call;
-                    Ok(KValue::Null)
-                },
-                MethodReturnType::Value => quote! { Ok(#call) },
-                MethodReturnType::Result => call,
+            let return_ty_span = match &fun.sig.output {
+                ReturnType::Type(_, ty) => ty.span(),
+                ReturnType::Default => Span::call_site(),
+            };
+
+            // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
+            // the error will point to the function return type.
+            let call_result = quote_spanned!(return_ty_span=> call_result);
+
+            let fn_ident = &fun.sig.ident;
+            let runtime = &ctx.runtime;
+
+            let wrapped_call = quote! {
+                let #call_result = Self::#fn_ident(MethodContext::new(&o, extra_args, ctx.vm));
+                #runtime::__private::KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
@@ -1292,39 +1329,6 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
 
     ctx.add_fn_to_impl(item);
     Ok(())
-}
-
-enum MethodReturnType {
-    None,
-    Value,
-    Result,
-}
-
-fn detect_return_type(return_type: &ReturnType) -> MethodReturnType {
-    const IDENTS_CONSIDERED_VALUES: &[&str] = &["KValue", "bool", "Option"];
-
-    match return_type {
-        ReturnType::Default => return MethodReturnType::None,
-        ReturnType::Type(_, ty) => match ty.as_ref() {
-            Type::Tuple(t) if t.elems.is_empty() => return MethodReturnType::None,
-            Type::Path(p) => {
-                if let Some(path_seg) = p.path.segments.last() {
-                    let ident = path_seg.ident.to_string();
-
-                    if IDENTS_CONSIDERED_VALUES.contains(&&*ident) {
-                        return MethodReturnType::Value;
-                    }
-                }
-            }
-            _ => (),
-        },
-    }
-
-    // Default to expecting a Result to be the return value
-    // Ideally we would detect that this is precisely koto_runtime::Result,
-    // but in practice type aliases may be used so we should just let the compiler complain
-    // if the wrong type is used.
-    MethodReturnType::Result
 }
 
 struct AccessAttributeArgs {
