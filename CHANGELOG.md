@@ -53,16 +53,34 @@ The Koto project adheres to
         }
     }
     ```
+- The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
+  - `#[koto_impl]` has been extended with `#[koto_get]`/`#[koto_set]` attributes (along with `_override` and `_fallback` attributes) to make it easier to define field getters and setters.
+  - [#500](https://github.com/koto-lang/koto/issues/500), thanks to [@bluurryy](https://github.com/bluurryy) for the contributions.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 
 ### Changed
 
 #### API
 
+- The `KotoEntries` trait has been replaced with `KotoAccess`, see the note in the `Added` section above for more info.
 - Index operations have been reworked:
   - `BinaryOp::Index` has been moved to `ReadOp::Index`.
   - `MetaKey::IndexMut` has been moved to `WriteOp::IndexAssign`.
   - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
+
+#### Libs
+
+- `color`
+  - Color components are now exposed as settable fields.
+    - ```koto
+      color('cyan').blue
+      #: 1.0
+      color.lch(0.6, 0.1, 180).hue
+      #: 180
+      ```
+  - The `alpha` and `set_alpha` functions have been replace with a settable `alpha` field.
+- `geometry`
+  - `vec2.x` and `.y`, and `vec3.x`, `.y`, and `.z` are now settable fields instead of functions.
 
 ## [0.16.0] 2025.07.23
 
