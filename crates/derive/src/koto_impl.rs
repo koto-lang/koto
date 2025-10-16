@@ -517,7 +517,8 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         let Some(name) = fun_name.strip_prefix("set_") else {
             return Err(Error::new_spanned(
                 attr,
-                r#"A `#[koto_set]` method must either start with `set_` or have an explicit name given like `#[koto_set = "foo"]`"#,
+                "A `#[koto_set]` method must either start with `set_`,\
+                 or have an explicit name given like `#[koto_set(name = \"foo\")]`",
             ));
         };
 

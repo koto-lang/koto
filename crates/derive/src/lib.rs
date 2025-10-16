@@ -214,7 +214,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_method]`
 ///
-/// Any function tagged with `#[koto_method]` will be made available via '.' lookup.
+/// Any function tagged with `#[koto_method]` will be made available via '.' access.
 ///
 /// Wrapper functions are generated that take care of checking that the function has been called
 /// with an instance of the correct object type.
@@ -231,8 +231,13 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_get]`
 ///
-/// This function is called when accessing the value of the key inferred from the
-/// function name.
+/// This function is called when accessing a field via `.` access.
+///
+/// The field's name is derived from the function name, or from a name given explicitly,
+/// e.g. `#[koto_get(name = "my_field_name")]`.
+///
+/// Aliases for the field name can also be given,
+/// e.g. `#[koto_get(name = "my_field_name", alias = "my_alias", alias = "my_other_alias")]`.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -242,8 +247,14 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_set]`
 ///
-/// This function is called when assigning a value to the key inferred from the
-/// function name without its `set_` prefix.
+/// This function is called when assigning a value to a field via `.` access.
+///
+/// The field name's is derived from the function name without the `set_` prefix,
+/// or from a name given explicitly, e.g. `#[koto_set(name = "my_field_name")]`.
+///
+/// Aliases for the field name can also be given,
+/// e.g. `#[koto_set(name = "my_field_name", alias = "my_alias", alias = "my_other_alias")]`.
+///
 ///
 /// The function must have a signature like either:
 /// ```ignore
