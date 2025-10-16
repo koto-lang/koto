@@ -453,12 +453,11 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident();
-        #runtime::__private::KotoGetReturn::into_result(#call_result)
+        KotoGetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
@@ -552,12 +551,11 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident(#value);
-        #runtime::__private::KotoSetReturn::into_result(#call_result)
+        KotoSetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
@@ -642,7 +640,7 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        #runtime::__private::KotoGetFallbackReturn::into_result(#call_result)
+        KotoGetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -651,6 +649,8 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         fn #wrapper_name(&self, #key: &#runtime::KString)
             -> #runtime::Result<Option<#runtime::KValue>>
         {
+            use #runtime::__private::KotoGetFallbackReturn;
+
             #wrapped_call
         }
     };
@@ -703,7 +703,7 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        #runtime::__private::KotoSetFallbackReturn::into_result(#call_result)
+        KotoSetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -712,6 +712,8 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<()>
         {
+            use #runtime::__private::KotoSetFallbackReturn;
+
             #wrapped_call
         }
     };
@@ -763,7 +765,7 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        #runtime::__private::KotoGetOverrideReturn::into_result(#call_result)
+        KotoGetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -772,6 +774,8 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         fn #wrapper_name(&self, #key: &KString)
             -> #runtime::Result<Option<KValue>>
         {
+            use #runtime::__private::KotoGetOverrideReturn;
+
             #wrapped_call
         }
     };
@@ -829,7 +833,7 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        #runtime::__private::KotoSetOverrideReturn::into_result(#call_result)
+        KotoSetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
@@ -838,6 +842,8 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<bool>
         {
+            use #runtime::__private::KotoSetOverrideReturn;
+
             #wrapped_call
         }
     };
@@ -916,11 +922,12 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
 
             let wrapped_call = quote! {
                 let #call_result = instance.#fn_ident(#call_args);
-                #runtime::__private::KotoMethodReturn::into_result(#call_result)
+                KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
-                use #runtime::KValue;
+                use #runtime::{KValue, __private::KotoMethodReturn};
+
                 match ctx.instance_and_args(
                     |i| matches!(i, KValue::Object(_)),
                     <Self as #runtime::KotoType>::type_static()
@@ -957,11 +964,15 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
 
             let wrapped_call = quote! {
                 let #call_result = Self::#fn_ident(MethodContext::new(&o, extra_args, ctx.vm));
-                #runtime::__private::KotoMethodReturn::into_result(#call_result)
+                KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
-                use #runtime::{ErrorKind, KValue, MethodContext, runtime_error};
+                use #runtime::{
+                    ErrorKind, KValue, MethodContext, runtime_error,
+                    __private::KotoMethodReturn,
+                };
+
                 match ctx.instance_and_args(
                     |i| matches!(i, KValue::Object(_)), Self::type_static())?
                 {
@@ -1008,7 +1019,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::MethodOrField,
+                    __private::{MethodOrField, KotoGetReturn},
                 };
 
                 let mut result = HashMap::<
@@ -1035,7 +1046,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::MethodOrField,
+                    __private::{MethodOrField, KotoGetReturn},
                 };
 
                 let mut result = HashMap::<
@@ -1079,6 +1090,7 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, Result, ValueKey, ValueMap,
+                    __private::KotoSetReturn,
                 };
 
                 let mut result = HashMap::<
@@ -1101,7 +1113,10 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result};
+                use #runtime::{
+                    KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result,
+                    __private::KotoSetReturn,
+                };
 
                 let mut result = ::std::collections::HashMap::<
                     &'static str,
