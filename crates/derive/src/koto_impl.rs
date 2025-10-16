@@ -381,12 +381,9 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     ctx.add_fn_to_impl(wrapper);
 
     let wrapper_name = koto_method_wrapper_name(fun);
-    let runtime = &ctx.runtime;
 
     let value = quote! {
-        #runtime::__private::MethodOrField::Method(
-            KNativeFunction::new(Self::#wrapper_name)
-        )
+        MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
     };
 
     if names.len() == 1 {
@@ -464,12 +461,11 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ));
     }
 
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let value = if ctx.has_generics() {
         quote! {
-            #runtime::__private::MethodOrField::Field(
+            MethodOrField::Field(
                 |instance: &dyn ::std::any::Any| {
                     let instance = instance.downcast_ref::<#ty>().unwrap();
                     #wrapped_call
@@ -478,7 +474,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         }
     } else {
         quote! {
-            #runtime::__private::MethodOrField::Field(
+            MethodOrField::Field(
                 |instance: &#ty| {
                     #wrapped_call
                 }
@@ -580,19 +576,18 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ));
     }
 
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let value = if ctx.has_generics() {
         quote! {
-            |instance: &mut dyn ::std::any::Any, value: &#runtime::KValue| -> #runtime::Result<()> {
+            |instance: &mut dyn Any, value: &KValue| -> Result<()> {
                 let instance = instance.downcast_mut::<#ty>().unwrap();
                 #wrapped_call
             }
         }
     } else {
         quote! {
-            |instance: &mut #ty, value: &#runtime::KValue| -> #runtime::Result<()> {
+            |instance: &mut #ty, value: &KValue| -> Result<()> {
                 #wrapped_call
             }
         }
@@ -685,7 +680,7 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
             -> #runtime::Result<()>
         {
             #wrapped_call
@@ -725,8 +720,8 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString)
-            -> #runtime::Result<Option<#runtime::KValue>>
+        fn #wrapper_name(&self, key: &KString)
+            -> #runtime::Result<Option<KValue>>
         {
             #wrapped_call
         }
@@ -763,7 +758,7 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
             -> #runtime::Result<bool>
         {
             #wrapped_call
@@ -907,13 +902,16 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 #runtime::__private::MethodOrField<dyn ::std::any::Any>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap};
+                use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    __private::MethodOrField,
+                };
 
                 let mut result = HashMap::<
                     &'static str,
-                    #runtime::__private::MethodOrField<dyn ::std::any::Any>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    MethodOrField<dyn Any>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
@@ -932,12 +930,15 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    __private::MethodOrField,
+                };
 
                 let mut result = HashMap::<
                     &'static str,
-                    #runtime::__private::MethodOrField<#ty>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    MethodOrField<#ty>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
@@ -973,12 +974,14 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, Result, ValueKey, ValueMap,
+                };
 
-                let mut result = ::std::collections::HashMap::<
+                let mut result = HashMap::<
                     &'static str,
                     fn(&mut #ty, &KValue) -> Result<()>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
