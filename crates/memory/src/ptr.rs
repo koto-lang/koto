@@ -3,10 +3,9 @@ use std::{
     fmt,
     hash::{Hash, Hasher},
     ops::Deref,
-    rc::Rc,
 };
 
-use crate::Address;
+use crate::{Address, ptr_impl::PtrImpl};
 
 /// Provides access to a shared value that is initialized on first use
 ///
@@ -35,12 +34,9 @@ use crate::Address;
 /// ```
 #[macro_export]
 macro_rules! lazy {
-    ($ty:ty; $expr:expr) => {{
-        thread_local! {
-            static VALUE: $ty = $expr.into();
-        }
-        VALUE.with(Clone::clone)
-    }};
+    ($ty:ty; $expr:expr) => {
+        $crate::__lazy!($ty; $expr)
+    };
 }
 
 /// Makes a Ptr, with support for casting to trait objects
@@ -51,16 +47,14 @@ macro_rules! lazy {
 /// make life easier at the call site.
 #[macro_export]
 macro_rules! make_ptr {
-    ($value:expr) => {{
-        use std::rc::Rc;
-
-        Ptr::from(Rc::new($value) as Rc<_>)
-    }};
+    ($value:expr) => {
+        $crate::__make_ptr!($value)
+    };
 }
 
 /// An immutable pointer to a value in allocated memory
 #[derive(Debug, Default)]
-pub struct Ptr<T: ?Sized>(Rc<T>);
+pub struct Ptr<T: ?Sized>(PtrImpl<T>);
 
 impl<T> From<T> for Ptr<T> {
     fn from(value: T) -> Self {
@@ -74,8 +68,8 @@ impl<T: ?Sized> From<Box<T>> for Ptr<T> {
     }
 }
 
-impl<T: ?Sized> From<Rc<T>> for Ptr<T> {
-    fn from(inner: Rc<T>) -> Self {
+impl<T: ?Sized> From<PtrImpl<T>> for Ptr<T> {
+    fn from(inner: PtrImpl<T>) -> Self {
         Self(inner)
     }
 }
@@ -83,21 +77,24 @@ impl<T: ?Sized> From<Rc<T>> for Ptr<T> {
 impl<T: ?Sized> Ptr<T> {
     /// Returns true if the two `Ptr`s point to the same allocation
     ///
-    /// See also: [std::rc::Rc::ptr_eq]
+    /// See also: [`Rc::ptr_eq`] or [`Arc::ptr_eq`]
+    ///
+    /// [`Rc::ptr_eq`]: std::rc::Rc::ptr_eq
+    /// [`Arc::ptr_eq`]: std::sync::Arc::ptr_eq
     pub fn ptr_eq(this: &Self, other: &Self) -> bool {
-        Rc::ptr_eq(&this.0, &other.0)
+        PtrImpl::ptr_eq(&this.0, &other.0)
     }
 
     /// Returns the address of the allocated memory
     pub fn address(this: &Self) -> Address {
-        Rc::as_ptr(&this.0).into()
+        PtrImpl::as_ptr(&this.0).into()
     }
 
     /// Returns the number of references to the allocated memory
     ///
     /// Only strong references are counted, weak references don't get added to the result.
     pub fn ref_count(this: &Self) -> usize {
-        Rc::strong_count(&this.0)
+        PtrImpl::strong_count(&this.0)
     }
 }
 
@@ -108,9 +105,12 @@ impl<T: Clone> Ptr<T> {
     /// Otherwise a clone of the value will be made to ensure uniqueness before returning the
     /// reference.
     ///
-    /// See also: [std::rc::Rc::make_mut]
+    /// See also: [`Rc::make_mut`] or [`Arc::make_mut`]
+    ///
+    /// [`Rc::make_mut`]: std::rc::Rc::make_mut
+    /// [`Arc::make_mut`]: std::sync::Arc::make_mut
     pub fn make_mut(this: &mut Self) -> &mut T {
-        Rc::make_mut(&mut this.0)
+        PtrImpl::make_mut(&mut this.0)
     }
 }
 
@@ -124,41 +124,41 @@ impl<T: ?Sized> Deref for Ptr<T> {
 
 impl<T: ?Sized> Clone for Ptr<T> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        Self(PtrImpl::clone(&self.0))
     }
 }
 
 impl<T: Clone> From<&[T]> for Ptr<[T]> {
     #[inline]
     fn from(value: &[T]) -> Self {
-        Self(Rc::from(value))
+        Self(PtrImpl::from(value))
     }
 }
 
 impl<T> From<Vec<T>> for Ptr<[T]> {
     #[inline]
     fn from(value: Vec<T>) -> Self {
-        Self(Rc::from(value))
+        Self(PtrImpl::from(value))
     }
 }
 
 impl From<&str> for Ptr<str> {
     #[inline]
     fn from(value: &str) -> Self {
-        Self(Rc::from(value))
+        Self(PtrImpl::from(value))
     }
 }
 
 impl From<String> for Ptr<str> {
     #[inline]
     fn from(value: String) -> Self {
-        Self(Rc::from(value))
+        Self(PtrImpl::from(value))
     }
 }
 
 impl<T: ?Sized + PartialEq> PartialEq for Ptr<T> {
     fn eq(&self, other: &Self) -> bool {
-        Rc::eq(&self.0, &other.0)
+        PtrImpl::eq(&self.0, &other.0)
     }
 }
 
