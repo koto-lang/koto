@@ -1,0 +1,20 @@
+name: History Checks
+
+on:
+  pull_request:
+
+jobs:
+  prevent-temp-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prevent Temporary Commits
+        run: |
+          BASE_SHA=$(git merge-base origin/main HEAD)
+          git log $BASE_SHA..HEAD --pretty=format:%s \
+            | grep -ie '^\s*fixup\|^\s*squash\|^\s*wip' \
+              && exit 1 || echo "No temporary commits found"
