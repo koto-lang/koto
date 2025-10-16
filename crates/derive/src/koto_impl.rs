@@ -128,14 +128,16 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             fn access(&self, key: &#runtime::KString)
                 -> #runtime::Result<::std::option::Option<#runtime::KValue>>
             {
+                use #runtime::{KValue, __private::MethodOrField};
+
                 #access_override
 
                 if let Some(method_or_field) = #impl_item_ident #turbofish::#get_access(key) {
                     return match method_or_field {
-                        #runtime::__private::MethodOrField::Method(f) => Ok(Some(
-                            #runtime::KValue::NativeFunction(f)
+                        MethodOrField::Method(f) => Ok(Some(
+                            KValue::NativeFunction(f)
                         )),
-                        #runtime::__private::MethodOrField::Field(getter) => Ok(Some(
+                        MethodOrField::Field(getter) => Ok(Some(
                             getter(self)?
                         )),
                     };
@@ -401,13 +403,15 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
         ctx.insert_ops_for_access.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
@@ -497,13 +501,15 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ctx.insert_ops_for_access.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        #value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
@@ -608,13 +614,15 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ctx.insert_ops_for_access_assign.add_many(
             names.len(),
             quote! {
-                let value = #value;
-                #(
-                    result.insert(
-                        #names,
-                        #value.clone(),
-                    );
-                )*
+                {
+                    let value = #value;
+                    #(
+                        result.insert(
+                            #names,
+                            value.clone(),
+                        );
+                    )*
+                }
             },
         );
     }
@@ -1039,12 +1047,12 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                 #[automatically_derived]
                 fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<#ty>> {
                     use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                    use #runtime::KotoHasher;
+                    use #runtime::{KotoHasher, __private::MethodOrField};
 
                     thread_local! {
                         static ENTRIES: HashMap<
                             &'static str,
-                            #runtime::__private::MethodOrField<#ty>,
+                            MethodOrField<#ty>,
                             BuildHasherDefault<KotoHasher>,
                         > = #ty_turbofish::#create_access_map();
                     }
@@ -1061,7 +1069,7 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
 
                     static ENTRIES: LazyLock<HashMap<
                         &'static str,
-                        #runtime::__private::MethodOrField<#ty>,
+                        MethodOrField<#ty>,
                         BuildHasherDefault<KotoHasher>,
                     >> = LazyLock::new(#ty_turbofish::#create_access_map);
 
@@ -1084,13 +1092,13 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                     use ::std::{
                         any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault,
                     };
-                    use #runtime::{KMap, KotoHasher};
+                    use #runtime::{KMap, KotoHasher, __private::MethodOrField};
 
                     type PerTypeEntriesMap = HashMap<
                         TypeId,
                         HashMap<
                             &'static str,
-                            #runtime::__private::MethodOrField<dyn ::std::any::Any>,
+                            MethodOrField<dyn ::std::any::Any>,
                             BuildHasherDefault<KotoHasher>,
                         >,
                         BuildHasherDefault<KotoHasher>,
@@ -1118,13 +1126,15 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                     use ::std::{
                         any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock,
                     };
-                    use #runtime::{KCell, KMap, KotoHasher, KNativeFunction};
+                    use #runtime::{
+                        KCell, KMap, KotoHasher, KNativeFunction, __private::MethodOrField,
+                    };
 
                     type PerTypeEntriesMap = HashMap<
                         TypeId,
                         HashMap<
                             &'static str,
-                            #runtime::__private::MethodOrField<dyn ::std::any::Any>,
+                            MethodOrField<dyn ::std::any::Any>,
                             BuildHasherDefault<KotoHasher>
                         >,
                         BuildHasherDefault<KotoHasher>
