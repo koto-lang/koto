@@ -125,7 +125,9 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             };
 
         quote! {
-            fn access(&self, key: &#runtime::KString) -> #runtime::Result<::std::option::Option<#runtime::KValue>> {
+            fn access(&self, key: &#runtime::KString)
+                -> #runtime::Result<::std::option::Option<#runtime::KValue>>
+            {
                 #access_override
 
                 if let Some(method_or_field) = #impl_item_ident #turbofish::#get_access(key) {
@@ -142,7 +144,9 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
                 #access_fallback
             }
 
-            fn access_assign(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<()> {
+            fn access_assign(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+                -> #runtime::Result<()>
+            {
                 #access_assign_override
 
                 if let Some(setter) = #impl_item_ident #turbofish::#get_access_assign(key) {
@@ -442,12 +446,14 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let self_arg = args.next();
 
     // The first argument must be `&self`.
-    if !matches!(self_arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none())
-    {
-        return Err(Error::new(
-            self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&self` as the first argument of a `#[koto_get]` method",
-        ));
+    match self_arg {
+        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
+        _ => {
+            return Err(Error::new(
+                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&self` as the first argument of a `#[koto_get]` method",
+            ));
+        }
     }
 
     // There must be no further arguments.
@@ -545,20 +551,25 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let second_arg = args.next();
 
     // The first argument must be `&mut self`.
-    if !matches!(self_arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some())
-    {
-        return Err(Error::new(
-            self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&mut self` as the first argument of a `#[koto_set]` method",
-        ));
+    match self_arg {
+        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some() => {}
+        _ => {
+            return Err(Error::new(
+                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&mut self` as the first argument of a `#[koto_set]` method",
+            ));
+        }
     }
 
     // The second argument must be `&KValue`.
-    if !matches!(second_arg, Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_))) {
-        return Err(Error::new(
-            second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&KValue` as the extra argument for a Koto method",
-        ));
+    match second_arg {
+        Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_)) => {}
+        _ => {
+            return Err(Error::new(
+                second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&KValue` as the extra argument for a Koto method",
+            ));
+        }
     }
 
     // There must be no further arguments.
@@ -636,7 +647,9 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<Option<#runtime::KValue>> {
+        fn #wrapper_name(&self, key: &#runtime::KString)
+            -> #runtime::Result<Option<#runtime::KValue>>
+        {
             #wrapped_call
         }
     };
@@ -672,7 +685,9 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<()> {
+        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+            -> #runtime::Result<()>
+        {
             #wrapped_call
         }
     };
@@ -710,7 +725,9 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<Option<#runtime::KValue>> {
+        fn #wrapper_name(&self, key: &#runtime::KString)
+            -> #runtime::Result<Option<#runtime::KValue>>
+        {
             #wrapped_call
         }
     };
@@ -746,7 +763,9 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<bool> {
+        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+            -> #runtime::Result<bool>
+        {
             #wrapped_call
         }
     };
@@ -796,7 +815,9 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                         // Append the args to the call
                         quote! {args},
                         // Any number of args will be captured
-                        quote! { _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError) },
+                        quote! {
+                            _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError)
+                        },
                     )
                 }
                 _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
@@ -1052,8 +1073,12 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
         if cfg!(feature = "rc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>> {
-                    use std::{any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault};
+                fn #name(key: &str)
+                    -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                {
+                    use ::std::{
+                        any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault,
+                    };
                     use #runtime::{KMap, KotoHasher};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1082,8 +1107,12 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
         } else if cfg!(feature = "arc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>> {
-                    use ::std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
+                fn #name(key: &str)
+                    -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                {
+                    use ::std::{
+                        any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock,
+                    };
                     use #runtime::{KCell, KMap, KotoHasher, KNativeFunction};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1174,8 +1203,12 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
         if cfg!(feature = "rc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>> {
-                    use ::std::{any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault};
+                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &#runtime::KValue)
+                    -> #runtime::Result<()>>
+                {
+                    use ::std::{
+                        any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault,
+                    };
                     use #runtime::{KMap, KotoHasher, KValue, Result};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1204,8 +1237,12 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
         } else if cfg!(feature = "arc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &KValue) -> #runtime::Result<()>> {
-                    use ::std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
+                fn #name(key: &str)
+                    -> Option<fn(&mut dyn ::std::any::Any, &KValue) -> #runtime::Result<()>>
+                {
+                    use ::std::{
+                        any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock,
+                    };
                     use #runtime::{KCell, KMap, KotoHasher, KNativeFunction, Result};
 
                     type PerTypeEntriesMap = HashMap<
