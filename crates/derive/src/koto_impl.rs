@@ -6,14 +6,14 @@ use std::{
 use crate::PREFIX_FUNCTION;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
-    Type, TypePath,
+    Signature, Type, TypePath,
     meta::ParseNestedMeta,
     parse::{Parse, Result},
     parse_macro_input, parse_quote,
-    spanned::Spanned as _,
+    spanned::Spanned,
 };
 
 pub(crate) fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -429,44 +429,36 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         ))
     })?;
 
-    let fn_ident = &fun.sig.ident;
-    let call = quote! { instance.#fn_ident() };
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get",
+            self_is_mut: false,
+            has_key: false,
+            has_value: false,
+        },
+    )?;
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_get]` method",
+                "a `#[koto_get]` method must return `KValue` or `koto_runtime::Result<KValue>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
     };
 
-    let mut args = fun.sig.inputs.iter();
-    let self_arg = args.next();
+    // Attach a span to so a type error will point at the right place.
+    let call_result = quote_spanned!(return_ty_span=> call_result);
 
-    // The first argument must be `&self`.
-    match self_arg {
-        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
-        _ => {
-            return Err(Error::new(
-                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-                "Expected `&self` as the first argument of a `#[koto_get]` method",
-            ));
-        }
-    }
-
-    // There must be no further arguments.
-    if let Some(arg) = args.next() {
-        return Err(Error::new_spanned(
-            arg,
-            "Expected no extra argument for a `#[koto_get]` method",
-        ));
-    }
-
+    let fn_ident = &fun.sig.ident;
     let ty = ctx.ty();
+
+    let wrapped_call = quote! {
+        let #call_result = instance.#fn_ident();
+        KotoGetReturn::into_result(#call_result)
+    };
 
     let value = if ctx.has_generics() {
         quote! {
@@ -478,7 +470,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
             )
         }
     } else {
-        quote! {
+        quote_spanned! { return_ty_span =>
             MethodOrField::Field(
                 |instance: &#ty| {
                     #wrapped_call
@@ -534,67 +526,48 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         Ok(LitStr::new(name, fun.sig.ident.span()))
     })?;
 
-    let fn_ident = &fun.sig.ident;
-    let call = quote! { instance.#fn_ident(value) };
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set",
+            self_is_mut: true,
+            has_key: false,
+            has_value: true,
+        },
+    )?;
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => quote! { #call; Ok(()) },
-        MethodReturnType::Value => {
-            return Err(Error::new_spanned(
-                &fun.sig,
-                "Expected result or no return type for a `#[koto_set]` method",
-            ));
-        }
-        MethodReturnType::Result => call,
+    let value_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
     };
 
-    let mut args = fun.sig.inputs.iter();
-    let self_arg = args.next();
-    let second_arg = args.next();
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => Span::call_site(),
+    };
 
-    // The first argument must be `&mut self`.
-    match self_arg {
-        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some() => {}
-        _ => {
-            return Err(Error::new(
-                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-                "Expected `&mut self` as the first argument of a `#[koto_set]` method",
-            ));
-        }
-    }
+    // Attach a span to so a type error will point at the right place.
+    let value = quote_spanned!(value_ty_span=> value);
+    let call_result = quote_spanned!(return_ty_span=> call_result);
 
-    // The second argument must be `&KValue`.
-    match second_arg {
-        Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_)) => {}
-        _ => {
-            return Err(Error::new(
-                second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-                "Expected `&KValue` as the extra argument for a Koto method",
-            ));
-        }
-    }
-
-    // There must be no further arguments.
-    if let Some(arg) = args.next() {
-        return Err(Error::new_spanned(
-            arg,
-            "Expected no additional argument for a `#[koto_set]` method",
-        ));
-    }
-
+    let fn_ident = &fun.sig.ident;
     let ty = ctx.ty();
+
+    let wrapped_call = quote! {
+        let #call_result = instance.#fn_ident(#value);
+        KotoSetReturn::into_result(#call_result)
+    };
 
     let value = if ctx.has_generics() {
         quote! {
-            |instance: &mut dyn Any, value: &KValue| -> Result<()> {
+            |instance: &mut dyn Any, #value: &KValue| -> Result<()> {
                 let instance = instance.downcast_mut::<#ty>().unwrap();
                 #wrapped_call
             }
         }
     } else {
         quote! {
-            |instance: &mut #ty, value: &KValue| -> Result<()> {
+            |instance: &mut #ty, #value: &KValue| -> Result<()> {
                 #wrapped_call
             }
         }
@@ -632,28 +605,52 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
 fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get_fallback",
+            self_is_mut: false,
+            has_key: true,
+            has_value: false,
+        },
+    )?;
+
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_get_fallback]` method",
+                "a `#[koto_get_fallback]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(#key);
+        KotoGetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString)
+        fn #wrapper_name(&self, #key: &#runtime::KString)
             -> #runtime::Result<Option<#runtime::KValue>>
         {
+            use #runtime::__private::KotoGetFallbackReturn;
+
             #wrapped_call
         }
     };
@@ -670,28 +667,53 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key, value) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => quote! { #call; Ok(()) },
-        MethodReturnType::Value => {
-            return Err(Error::new_spanned(
-                &fun.sig,
-                "Expected result or no return type for a `#[koto_set_fallback]` method",
-            ));
-        }
-        MethodReturnType::Result => call,
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set_fallback",
+            self_is_mut: true,
+            has_key: true,
+            has_value: true,
+        },
+    )?;
+
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let value_ty_span = match &fun.sig.inputs[2] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => Span::call_site(),
+    };
+
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let value = quote_spanned!(value_ty_span=> value);
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(#key, #value);
+        KotoSetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<()>
         {
+            use #runtime::__private::KotoSetFallbackReturn;
+
             #wrapped_call
         }
     };
@@ -708,30 +730,52 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
 
-    // We don't wrap this call like in other
-    let call = quote! { self.#fun_name(key) };
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_get_override",
+            self_is_mut: false,
+            has_key: true,
+            has_value: false,
+        },
+    )?;
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_get_override]` method",
+                "a `#[koto_get_override]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(#key);
+        KotoGetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &KString)
+        fn #wrapper_name(&self, #key: &KString)
             -> #runtime::Result<Option<KValue>>
         {
+            use #runtime::__private::KotoGetOverrideReturn;
+
             #wrapped_call
         }
     };
@@ -748,28 +792,58 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
 fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
-    let runtime = &ctx.runtime;
-    let fun_name = &fun.sig.ident;
-    let call = quote! { self.#fun_name(key, value) };
 
-    // Wrap the call differently depending on the declared return type
-    let wrapped_call = match detect_return_type(&fun.sig.output) {
-        MethodReturnType::None => {
+    check_method_args(
+        &fun.sig,
+        CheckMethodArgs {
+            attr_name: "koto_set_override",
+            self_is_mut: true,
+            has_key: true,
+            has_value: true,
+        },
+    )?;
+
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let value_ty_span = match &fun.sig.inputs[2] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let return_ty_span = match &fun.sig.output {
+        ReturnType::Type(_, ty) => ty.span(),
+        ReturnType::Default => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_set_override]` method",
+                "a `#[koto_set_override]` method must return `bool` or `koto_runtime::Result<bool>`",
             ));
         }
-        MethodReturnType::Value => quote! { Ok(#call) },
-        MethodReturnType::Result => call,
+    };
+
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let value = quote_spanned!(value_ty_span=> value);
+    let call_result = quote_spanned!(return_ty_span=> call_result);
+
+    let fn_ident = &fun.sig.ident;
+    let runtime = &ctx.runtime;
+
+    let wrapped_call = quote! {
+        let #call_result = self.#fn_ident(#key, #value);
+        KotoSetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<bool>
         {
+            use #runtime::__private::KotoSetOverrideReturn;
+
             #wrapped_call
         }
     };
@@ -785,12 +859,8 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 }
 
 fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
-    let fn_name = &fun.sig.ident;
-
-    let arg_count = fun.sig.inputs.len();
     let mut args = fun.sig.inputs.iter();
 
-    let return_type = detect_return_type(&fun.sig.output);
     let runtime = &ctx.runtime;
 
     let wrapper_body = match args.next() {
@@ -806,47 +876,65 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
             // Does the function expect additional arguments after the instance?
             let (args_match, call_args, error_arm) = match args.next() {
                 None => (
-                    quote! {[]}, // No args expected
-                    quote! {},   // No args to call with
-                    quote! { (_, unexpected) =>  #runtime::unexpected_args("||", unexpected)},
+                    quote!([]), // No args expected
+                    quote!(),   // No args to call with
+                    quote!((_, unexpected) =>  #runtime::unexpected_args("||", unexpected)),
                 ),
-                Some(FnArg::Typed(pattern))
-                    if arg_count == 2 && matches!(*pattern.ty, Type::Reference(_)) =>
-                {
+                Some(FnArg::Typed(pattern)) if matches!(*pattern.ty, Type::Reference(_)) => {
+                    let ty_span = pattern.ty.span();
+
                     (
                         // Match against any number of args
-                        quote! {args},
+                        quote_spanned!(ty_span=> args),
                         // Append the args to the call
-                        quote! {args},
+                        quote_spanned!(ty_span=> args),
                         // Any number of args will be captured
                         quote! {
                             _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError)
                         },
                     )
                 }
-                _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
+                Some(arg) => {
+                    return Err(Error::new_spanned(
+                        arg,
+                        "Expected `&[KValue]` as the second parameter of a `#[koto_method]`",
+                    ));
+                }
             };
 
-            // Wrap the call differently depending on the declared return type
-            let call = quote! { instance.#fn_name(#call_args) };
-            let wrapped_call = match return_type {
-                MethodReturnType::None => quote! {{
-                    #call;
-                    Ok(KValue::Null)
-                }},
-                MethodReturnType::Value => quote! { Ok(#call) },
-                MethodReturnType::Result => call,
+            if let Some(arg) = args.next() {
+                return Err(Error::new_spanned(
+                    arg,
+                    "Unexpected additional parameter for a `#[koto_method]`",
+                ));
+            }
+
+            let return_ty_span = match &fun.sig.output {
+                ReturnType::Type(_, ty) => ty.span(),
+                ReturnType::Default => Span::call_site(),
+            };
+
+            // Attach a span to so a type error will point at the right place.
+            let call_result = quote_spanned!(return_ty_span=> call_result);
+
+            let fn_ident = &fun.sig.ident;
+            let runtime = &ctx.runtime;
+
+            let wrapped_call = quote! {
+                let #call_result = instance.#fn_ident(#call_args);
+                KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
-                use #runtime::KValue;
+                use #runtime::{KValue, __private::KotoMethodReturn};
+
                 match ctx.instance_and_args(
                     |i| matches!(i, KValue::Object(_)),
                     <Self as #runtime::KotoType>::type_static()
                 )? {
                     (KValue::Object(o), #args_match) => {
                         match o.#cast::<Self>() {
-                            Ok(#instance) => #wrapped_call,
+                            Ok(#instance) => { #wrapped_call }
                             Err(e) => Err(e),
                         }
                     },
@@ -856,19 +944,35 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
         }
         // Functions that take a MethodContext
         _ => {
-            // Wrap the call differently depending on the declared return type
-            let call = quote! { Self::#fn_name(MethodContext::new(&o, extra_args, ctx.vm)) };
-            let wrapped_call = match return_type {
-                MethodReturnType::None => quote! {
-                    #call;
-                    Ok(KValue::Null)
-                },
-                MethodReturnType::Value => quote! { Ok(#call) },
-                MethodReturnType::Result => call,
+            if let Some(arg) = args.next() {
+                return Err(Error::new_spanned(
+                    arg,
+                    "Unexpected additional parameter for a `#[koto_method]`",
+                ));
+            }
+
+            let return_ty_span = match &fun.sig.output {
+                ReturnType::Type(_, ty) => ty.span(),
+                ReturnType::Default => Span::call_site(),
+            };
+
+            // Attach a span to so a type error will point at the right place.
+            let call_result = quote_spanned!(return_ty_span=> call_result);
+
+            let fn_ident = &fun.sig.ident;
+            let runtime = &ctx.runtime;
+
+            let wrapped_call = quote! {
+                let #call_result = Self::#fn_ident(MethodContext::new(&o, extra_args, ctx.vm));
+                KotoMethodReturn::into_result(#call_result)
             };
 
             quote! {{
-                use #runtime::{ErrorKind, KValue, MethodContext, runtime_error};
+                use #runtime::{
+                    ErrorKind, KValue, MethodContext, runtime_error,
+                    __private::KotoMethodReturn,
+                };
+
                 match ctx.instance_and_args(
                     |i| matches!(i, KValue::Object(_)), Self::type_static())?
                 {
@@ -915,7 +1019,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::MethodOrField,
+                    __private::{MethodOrField, KotoGetReturn},
                 };
 
                 let mut result = HashMap::<
@@ -942,7 +1046,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::MethodOrField,
+                    __private::{MethodOrField, KotoGetReturn},
                 };
 
                 let mut result = HashMap::<
@@ -986,6 +1090,7 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
                     KMap, KNativeFunction, KotoHasher, KValue, Result, ValueKey, ValueMap,
+                    __private::KotoSetReturn,
                 };
 
                 let mut result = HashMap::<
@@ -1008,7 +1113,10 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result};
+                use #runtime::{
+                    KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result,
+                    __private::KotoSetReturn,
+                };
 
                 let mut result = ::std::collections::HashMap::<
                     &'static str,
@@ -1294,39 +1402,6 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
     Ok(())
 }
 
-enum MethodReturnType {
-    None,
-    Value,
-    Result,
-}
-
-fn detect_return_type(return_type: &ReturnType) -> MethodReturnType {
-    const IDENTS_CONSIDERED_VALUES: &[&str] = &["KValue", "bool", "Option"];
-
-    match return_type {
-        ReturnType::Default => return MethodReturnType::None,
-        ReturnType::Type(_, ty) => match ty.as_ref() {
-            Type::Tuple(t) if t.elems.is_empty() => return MethodReturnType::None,
-            Type::Path(p) => {
-                if let Some(path_seg) = p.path.segments.last() {
-                    let ident = path_seg.ident.to_string();
-
-                    if IDENTS_CONSIDERED_VALUES.contains(&&*ident) {
-                        return MethodReturnType::Value;
-                    }
-                }
-            }
-            _ => (),
-        },
-    }
-
-    // Default to expecting a Result to be the return value
-    // Ideally we would detect that this is precisely koto_runtime::Result,
-    // but in practice type aliases may be used so we should just let the compiler complain
-    // if the wrong type is used.
-    MethodReturnType::Result
-}
-
 struct AccessAttributeArgs {
     name: Option<LitStr>,
     aliases: Vec<LitStr>,
@@ -1410,3 +1485,72 @@ macro_rules! no_feature_set {
 }
 
 use no_feature_set;
+
+fn check_method_args(sig: &Signature, check: CheckMethodArgs) -> Result<()> {
+    let CheckMethodArgs {
+        attr_name,
+        self_is_mut,
+        has_key,
+        has_value,
+    } = check;
+    let mut args = sig.inputs.iter();
+
+    match args.next() {
+        Some(FnArg::Receiver(r))
+            if r.reference.is_some() && r.mutability.is_some() == self_is_mut => {}
+        self_arg => {
+            let tokens_for_span = self_arg
+                .map(|s| s.to_token_stream())
+                .unwrap_or_else(|| sig.to_token_stream());
+
+            let mut_str = if self_is_mut { "mut" } else { "" };
+
+            return Err(Error::new_spanned(
+                tokens_for_span,
+                format!(
+                    "Expected `&{mut_str} self` as the first parameter of a `#[{attr_name}]` method"
+                ),
+            ));
+        }
+    }
+
+    let mut nth_name = ["second", "third"].iter();
+
+    if has_key {
+        let nth = nth_name.next().unwrap();
+
+        if args.next().is_none() {
+            return Err(Error::new_spanned(
+                sig,
+                format!("Expected `&KString` as the {nth} parameter of a `#[{attr_name}]` method"),
+            ));
+        }
+    }
+
+    if has_value {
+        let nth = nth_name.next().unwrap();
+
+        if args.next().is_none() {
+            return Err(Error::new_spanned(
+                sig,
+                format!("Expected `&KValue` as the {nth} parameter of a `#[{attr_name}]` method"),
+            ));
+        }
+    }
+
+    if let Some(arg) = args.next() {
+        return Err(Error::new_spanned(
+            arg,
+            format!("Unexpected additional parameter for a `#[{attr_name}]` method"),
+        ));
+    }
+
+    Ok(())
+}
+
+struct CheckMethodArgs {
+    attr_name: &'static str,
+    self_is_mut: bool,
+    has_key: bool,
+    has_value: bool,
+}
