@@ -817,7 +817,6 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 }
 
 fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
-    let arg_count = fun.sig.inputs.len();
     let mut args = fun.sig.inputs.iter();
 
     let runtime = &ctx.runtime;
@@ -839,9 +838,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                     quote! {},   // No args to call with
                     quote! { (_, unexpected) =>  #runtime::unexpected_args("||", unexpected)},
                 ),
-                Some(FnArg::Typed(pattern))
-                    if arg_count == 2 && matches!(*pattern.ty, Type::Reference(_)) =>
-                {
+                Some(FnArg::Typed(pattern)) if matches!(*pattern.ty, Type::Reference(_)) => {
                     (
                         // Match against any number of args
                         quote! {args},
@@ -853,8 +850,20 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                         },
                     )
                 }
-                _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
+                Some(arg) => {
+                    return Err(Error::new_spanned(
+                        arg,
+                        "Expected `&[KValue]` as the second parameter of a `#[koto_method]`",
+                    ));
+                }
             };
+
+            if let Some(arg) = args.next() {
+                return Err(Error::new_spanned(
+                    arg,
+                    "Unexpected additional parameter for a `#[koto_method]`",
+                ));
+            }
 
             let return_ty_span = match &fun.sig.output {
                 ReturnType::Type(_, ty) => ty.span(),
@@ -891,6 +900,13 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
         }
         // Functions that take a MethodContext
         _ => {
+            if let Some(arg) = args.next() {
+                return Err(Error::new_spanned(
+                    arg,
+                    "Unexpected additional parameter for a `#[koto_method]`",
+                ));
+            }
+
             let return_ty_span = match &fun.sig.output {
                 ReturnType::Type(_, ty) => ty.span(),
                 ReturnType::Default => Span::call_site(),
@@ -1474,7 +1490,7 @@ fn check_method_args(sig: &Signature, check: CheckMethodArgs) -> Result<()> {
     if let Some(arg) = args.next() {
         return Err(Error::new_spanned(
             arg,
-            format!("Expected no additional parameter for a `#[{attr_name}]` method"),
+            format!("Unexpected additional parameter for a `#[{attr_name}]` method"),
         ));
     }
 
