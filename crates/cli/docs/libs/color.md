@@ -45,13 +45,31 @@ print! color 0, 0.5, 1, 0.5
 check! Color(RGB, r: 0, g: 0.5, b: 1, a: 0.5)
 ```
 
+## named
+
+```kototype
+|name: String| -> Color?
+```
+
+Returns a color in the [sRGB][srgb] color space corresponding to one of the named colors
+listed in the [SVG color keywords][svg-colors] specification.
+
+If no name is found then `null` will be returned.
+
+### Example
+
+```koto
+print! color.named 'yellow'
+check! Color(RGB, r: 1, g: 1, b: 0, a: 1)
+```
+
 ## hex
 
 ```kototype
 |String| -> Color
 ```
 
-Creates a color from the given [hex triplet][hex-triplet] string, e.g. `'#7fee80'`.
+Creates a color in the [sRGB][srgb] color space from the given [hex triplet][hex-triplet] string, e.g. `'#7fee80'`.
 
 The `#` prefix is optional, and the 3 digit shorthand version (e.g. `'#7e8'`) can also be used.
 
@@ -122,24 +140,6 @@ print! color.hsv 90, 0.5, 1
 check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
 ```
 
-## named
-
-```kototype
-|name: String| -> Color?
-```
-
-Returns a color corresponding to one of the named colors listed in the
-[SVG color keywords][svg-colors] specification.
-
-If no name is found then `null` will be returned.
-
-### Example
-
-```koto
-print! color.named 'yellow'
-check! Color(RGB, r: 1, g: 1, b: 0, a: 1)
-```
-
 ## oklab
 
 ```kototype
@@ -160,7 +160,7 @@ The `a` (green/red) and `b` (blue/yellow) components are numbers with values typ
 
 ```koto
 print! color.oklab 0.5, 0.1, -0.2
-check! Color(Oklab, l: 0.5, a: 0.1, b: -0.2, a: 1)
+check! Color(Oklab, l: 0.5, a: 0.1, b: -0.2, alpha: 1)
 ```
 
 ## oklch
@@ -234,8 +234,9 @@ h, s, v, a = color.hsv 90, 0.5, 0.25
 print! h, s, v, a
 check! (90.0, 0.5, 0.25, 1.0)
 
-print! color('red')[0]
-check! 1.0
+red = color 'red'
+print! red.r, red.g, red.b
+check! (1.0, 0.0, 0.0)
 
 print! c = color.oklch 0.5, 0.1, 180
 check! Color(Oklch, l: 0.5, c: 0.1, h: 180, a: 1)
@@ -245,41 +246,265 @@ print c
 check! Color(Oklch, l: 0.25, c: 0.1, h: 180, a: 1)
 ```
 
-## Color.alpha
+## Color.red | Color.r
 
 ```kototype
-|Color| -> Number
+Number
 ```
 
-Returns the color's alpha value.
+The color's `red` component.
+
+An error is thrown if the color space doesn't have a `red` component.
 
 ### Example
 
 ```koto
-c = color 'red'
+print! c = color 'red'
+check! Color(RGB, r: 1, g: 0, b: 0, a: 1)
 
-print! c.alpha()
+print! c.red
 check! 1.0
 
-c[3] = 0.5
-print! c.alpha()
+c.red = 0.5
+print! c.r
 check! 0.5
 ```
 
-## Color.set_alpha
+## Color.green | Color.g
 
 ```kototype
-|Color, alpha: Number| -> Color
+Number
 ```
 
-Sets the color's alpha component to the given value, and returns the color.
+The color's `green` component.
+
+An error is thrown if the color space doesn't have a `green` component.
+
+### Example
+
+```koto
+print! c = color 'lime'
+check! Color(RGB, r: 0, g: 1, b: 0, a: 1)
+
+print! c.green
+check! 1.0
+
+c.green = 0.5
+print! c.g
+check! 0.5
+```
+
+## Color.blue | Color.b
+
+```kototype
+Number
+```
+
+The color's `blue` component.
+
+An error is thrown if the color space doesn't have a `blue` component.
+
+### Example
+
+```koto
+print! c = color 'blue'
+check! Color(RGB, r: 0, g: 0, b: 1, a: 1)
+
+print! c.blue
+check! 1.0
+
+c.blue = 0.5
+print! c.b
+check! 0.5
+```
+
+## Color.hue | Color.h
+
+```kototype
+Number
+```
+
+The color's `hue` component.
+
+An error is thrown if the color space doesn't have a `hue` component.
+
+### Example
+
+```koto
+print! c = color.hsv 90, 0.5, 1.0
+check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
+
+print! c.hue
+check! 90.0
+
+c.hue = 45.0
+print! c.h
+check! 45.0
+```
+
+## Color.saturation | Color.s
+
+```kototype
+Number
+```
+
+The color's `saturation` component.
+
+An error is thrown if the color space doesn't have a `saturation` component.
+
+### Example
+
+```koto
+print! c = color.hsv 90, 0.5, 1.0
+check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
+
+print! c.saturation
+check! 0.5
+
+c.saturation = 0.25
+print! c.s
+check! 0.25
+```
+
+## Color.value | Color.v
+
+```kototype
+Number
+```
+
+The color's `value` component.
+
+An error is thrown if the color space doesn't have a `value` component.
+
+### Example
+
+```koto
+print! c = color.hsv 90, 0.5, 1.0
+check! Color(HSV, h: 90, s: 0.5, v: 1, a: 1)
+
+print! c.value
+check! 1.0
+
+c.value = 0.5
+print! c.v
+check! 0.5
+```
+
+## Color.lightness | Color.l
+
+```kototype
+Number
+```
+
+The color's `lightness` component.
+
+An error is thrown if the color space doesn't have a `lightness` component.
+
+### Example
+
+```koto
+print! c = color.oklab 0.5, 0.2, -0.1
+check! Color(Oklab, l: 0.5, a: 0.2, b: -0.1, alpha: 1)
+
+print! c.lightness
+check! 0.5
+
+c.lightness = 0.25
+print! c.l
+check! 0.25
+```
+
+## Color.a
+
+```kototype
+Number
+```
+
+The color's `a` component.
+
+An error is thrown if the color space doesn't have an `a` component.
+
+### Example
+
+```koto
+print! c = color.oklab 0.5, 0.25, -0.1
+check! Color(Oklab, l: 0.5, a: 0.25, b: -0.1, alpha: 1)
+
+print! c.a
+check! 0.25
+
+c.a = 0.5
+print! c.a
+check! 0.5
+```
+
+## Color.b
+
+```kototype
+Number
+```
+
+The color's `b` component.
+
+An error is thrown if the color space doesn't have a `b` component.
+
+### Example
+
+```koto
+print! c = color.oklab 0.5, 0.25, -0.25
+check! Color(Oklab, l: 0.5, a: 0.25, b: -0.25, alpha: 1)
+
+print! c.b
+check! -0.25
+
+c.b = 0.25
+print! c.b
+check! 0.25
+```
+
+
+## Color.chroma | Color.c
+
+```kototype
+Number
+```
+
+The color's `chroma` component.
+
+An error is thrown if the color space doesn't have a `chroma` component.
+
+### Example
+
+```koto
+print! c = color.oklch 0.6, 0.25, 180
+check! Color(Oklch, l: 0.6, c: 0.25, h: 180, a: 1)
+
+print! c.chroma
+check! 0.25
+
+c.chroma = 0.5
+print! c.c
+check! 0.5
+```
+
+## Color.alpha
+
+```kototype
+Number
+```
+
+The color's alpha component.
 
 ### Example
 
 ```koto
 c = color 'red'
 
-print! c.set_alpha(0.25).alpha()
+print! c.alpha
+check! 1.0
+
+c.alpha = 0.25
+print! c.alpha
 check! 0.25
 ```
 
