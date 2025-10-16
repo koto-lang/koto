@@ -449,8 +449,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         }
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
@@ -538,13 +537,18 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         },
     )?;
 
+    let value_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => Span::call_site(),
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
+    let value = quote_spanned!(value_ty_span=> value);
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
@@ -552,20 +556,20 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let ty = ctx.ty();
 
     let wrapped_call = quote! {
-        let #call_result = instance.#fn_ident(value);
+        let #call_result = instance.#fn_ident(#value);
         #runtime::__private::KotoAccessAssignReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
         quote! {
-            |instance: &mut dyn Any, value: &KValue| -> Result<()> {
+            |instance: &mut dyn Any, #value: &KValue| -> Result<()> {
                 let instance = instance.downcast_mut::<#ty>().unwrap();
                 #wrapped_call
             }
         }
     } else {
         quote! {
-            |instance: &mut #ty, value: &KValue| -> Result<()> {
+            |instance: &mut #ty, #value: &KValue| -> Result<()> {
                 #wrapped_call
             }
         }
@@ -614,6 +618,11 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         },
     )?;
 
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => {
@@ -624,22 +633,22 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         }
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
     let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
-        let #call_result = self.#fn_ident(key);
+        let #call_result = self.#fn_ident(#key);
         #runtime::__private::KotoAccessFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString)
+        fn #wrapper_name(&self, #key: &#runtime::KString)
             -> #runtime::Result<Option<#runtime::KValue>>
         {
             #wrapped_call
@@ -669,27 +678,38 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         },
     )?;
 
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let value_ty_span = match &fun.sig.inputs[2] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => Span::call_site(),
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let value = quote_spanned!(value_ty_span=> value);
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
     let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
-        let #call_result = self.#fn_ident(key, value);
+        let #call_result = self.#fn_ident(#key, #value);
         #runtime::__private::KotoAccessAssignFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<()>
         {
             #wrapped_call
@@ -719,6 +739,11 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         },
     )?;
 
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => {
@@ -729,22 +754,22 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         }
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
     let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
-        let #call_result = self.#fn_ident(key);
+        let #call_result = self.#fn_ident(#key);
         #runtime::__private::KotoAccessOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &KString)
+        fn #wrapper_name(&self, #key: &KString)
             -> #runtime::Result<Option<KValue>>
         {
             #wrapped_call
@@ -774,6 +799,16 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         },
     )?;
 
+    let key_ty_span = match &fun.sig.inputs[1] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
+    let value_ty_span = match &fun.sig.inputs[2] {
+        FnArg::Receiver(_) => unreachable!(),
+        FnArg::Typed(pat_ty) => pat_ty.ty.span(),
+    };
+
     let return_ty_span = match &fun.sig.output {
         ReturnType::Type(_, ty) => ty.span(),
         ReturnType::Default => {
@@ -784,22 +819,23 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         }
     };
 
-    // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-    // the error will point to the function return type.
+    // Attach a span to so a type error will point at the right place.
+    let key = quote_spanned!(key_ty_span=> key);
+    let value = quote_spanned!(value_ty_span=> value);
     let call_result = quote_spanned!(return_ty_span=> call_result);
 
     let fn_ident = &fun.sig.ident;
     let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
-        let #call_result = self.#fn_ident(key, value);
+        let #call_result = self.#fn_ident(#key, #value);
         #runtime::__private::KotoAccessAssignOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
             -> #runtime::Result<bool>
         {
             #wrapped_call
@@ -834,16 +870,18 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
             // Does the function expect additional arguments after the instance?
             let (args_match, call_args, error_arm) = match args.next() {
                 None => (
-                    quote! {[]}, // No args expected
-                    quote! {},   // No args to call with
-                    quote! { (_, unexpected) =>  #runtime::unexpected_args("||", unexpected)},
+                    quote!([]), // No args expected
+                    quote!(),   // No args to call with
+                    quote!((_, unexpected) =>  #runtime::unexpected_args("||", unexpected)),
                 ),
                 Some(FnArg::Typed(pattern)) if matches!(*pattern.ty, Type::Reference(_)) => {
+                    let ty_span = pattern.ty.span();
+
                     (
                         // Match against any number of args
-                        quote! {args},
+                        quote_spanned!(ty_span=> args),
                         // Append the args to the call
-                        quote! {args},
+                        quote_spanned!(ty_span=> args),
                         // Any number of args will be captured
                         quote! {
                             _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError)
@@ -870,8 +908,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                 ReturnType::Default => Span::call_site(),
             };
 
-            // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-            // the error will point to the function return type.
+            // Attach a span to so a type error will point at the right place.
             let call_result = quote_spanned!(return_ty_span=> call_result);
 
             let fn_ident = &fun.sig.ident;
@@ -912,8 +949,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                 ReturnType::Default => Span::call_site(),
             };
 
-            // Attach a span to `call_result` so that when it does not implement the required return `*Return` trait
-            // the error will point to the function return type.
+            // Attach a span to so a type error will point at the right place.
             let call_result = quote_spanned!(return_ty_span=> call_result);
 
             let fn_ident = &fun.sig.ident;
