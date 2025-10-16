@@ -127,37 +127,37 @@ impl Color {
         }
     }
 
-    #[koto_access(name = "red", alias = "r")]
+    #[koto_get(alias = "r")]
     pub fn red(&self) -> Result<KValue> {
         get_component!(self, red, (Srgb, c => c.red))
     }
 
-    #[koto_access_assign(name = "red", alias = "r")]
+    #[koto_set(alias = "r")]
     pub fn set_red(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, red, (Srgb, c => c.red))
     }
 
-    #[koto_access(name = "green", alias = "g")]
+    #[koto_get(alias = "g")]
     pub fn green(&self) -> Result<KValue> {
         get_component!(self, green, (Srgb, c => c.green))
     }
 
-    #[koto_access_assign(name = "green", alias = "g")]
+    #[koto_set(alias = "g")]
     pub fn set_green(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, green, (Srgb, c => c.green))
     }
 
-    #[koto_access(name = "blue")]
+    #[koto_get]
     pub fn blue(&self) -> Result<KValue> {
         get_component!(self, blue, (Srgb, c => c.blue))
     }
 
-    #[koto_access_assign(name = "blue", alias = "b")]
+    #[koto_set(alias = "b")]
     pub fn set_blue(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, blue, (Srgb, c => c.blue))
     }
 
-    #[koto_access(name = "hue", alias = "h")]
+    #[koto_get(alias = "h")]
     pub fn hue(&self) -> Result<KValue> {
         get_component!(self, hue,
             (Hsl, c => c.hue.into_inner()),
@@ -166,7 +166,7 @@ impl Color {
         )
     }
 
-    #[koto_access_assign(name = "hue", alias = "b")]
+    #[koto_set(alias = "h")]
     pub fn set_hue(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, hue,
             (Hsl, c => c.hue),
@@ -175,7 +175,7 @@ impl Color {
         )
     }
 
-    #[koto_access(name = "saturation", alias = "s")]
+    #[koto_get(alias = "s")]
     pub fn saturation(&self) -> Result<KValue> {
         get_component!(self, saturation,
             (Hsl, c => c.saturation),
@@ -183,7 +183,7 @@ impl Color {
         )
     }
 
-    #[koto_access_assign(name = "saturation", alias = "s")]
+    #[koto_set(alias = "s")]
     pub fn set_saturation(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, saturation,
             (Hsl, c => c.saturation),
@@ -191,7 +191,7 @@ impl Color {
         )
     }
 
-    #[koto_access(name = "lightness", alias = "l")]
+    #[koto_get(alias = "l")]
     pub fn lightness(&self) -> Result<KValue> {
         get_component!(self, lightness,
             (Hsl, c => c.lightness),
@@ -200,7 +200,7 @@ impl Color {
         )
     }
 
-    #[koto_access_assign(name = "lightness", alias = "l")]
+    #[koto_set(alias = "l")]
     pub fn set_lightness(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, lightness,
             (Hsl, c => c.lightness),
@@ -209,27 +209,27 @@ impl Color {
         )
     }
 
-    #[koto_access(name = "value", alias = "v")]
+    #[koto_get(alias = "v")]
     pub fn value(&self) -> Result<KValue> {
         get_component!(self, value, (Hsv, c => c.value))
     }
 
-    #[koto_access_assign(name = "value", alias = "v")]
+    #[koto_set(alias = "v")]
     pub fn set_value(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, value, (Hsv, c => c.value))
     }
 
-    #[koto_access(name = "a")]
+    #[koto_get]
     pub fn a(&self) -> Result<KValue> {
         get_component!(self, a, (Oklab, c => c.a))
     }
 
-    #[koto_access_assign(name = "a")]
+    #[koto_set]
     pub fn set_a(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, a, (Oklab, c => c.a))
     }
 
-    #[koto_access(name = "b")]
+    #[koto_get]
     pub fn b(&self) -> Result<KValue> {
         get_component!(self, b,
             (Srgb, c => c.blue),
@@ -237,27 +237,27 @@ impl Color {
         )
     }
 
-    #[koto_access_assign(name = "b")]
+    #[koto_set]
     pub fn set_b(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, b, (Oklab, c => c.b))
     }
 
-    #[koto_access(name = "chroma", alias = "c")]
+    #[koto_get(alias = "c")]
     pub fn chroma(&self) -> Result<KValue> {
         get_component!(self, chroma, (Oklch, c => c.chroma))
     }
 
-    #[koto_access_assign(name = "chroma", alias = "c")]
+    #[koto_set(alias = "c")]
     pub fn set_chroma(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, chroma, (Oklch, c => c.chroma))
     }
 
-    #[koto_access(name = "alpha")]
+    #[koto_get]
     pub fn alpha(&self) -> KValue {
         self.alpha.into()
     }
 
-    #[koto_access_assign(name = "alpha")]
+    #[koto_set]
     pub fn set_alpha(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(alpha) => {

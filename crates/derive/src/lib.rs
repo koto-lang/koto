@@ -201,14 +201,14 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// This macro recognizes functions tagged with the following attributes:
 /// - [**`#[koto_method]`**](#koto_method)
-/// - [**`#[koto_access]`**](#koto_access)
-/// - [**`#[koto_access_assign]`**](#koto_access_assign)
-/// - [**`#[koto_access_fallback]`**](#koto_access_fallback)
-/// - [**`#[koto_access_assign_fallback]`**](#koto_access_assign_fallback)
-/// - [**`#[koto_access_override]`**](#koto_access_override)
-/// - [**`#[koto_access_assign_override]`**](#koto_access_assign_override)
+/// - [**`#[koto_get]`**](#koto_get)
+/// - [**`#[koto_set]`**](#koto_set)
+/// - [**`#[koto_get_fallback]`**](#koto_get_fallback)
+/// - [**`#[koto_set_fallback]`**](#koto_set_fallback)
+/// - [**`#[koto_get_override]`**](#koto_get_override)
+/// - [**`#[koto_set_override]`**](#koto_set_override)
 ///
-/// The attributes `#[koto_method]`, `#[koto_access]` and `#[koto_access_assign]` can take optional arguments:
+/// The attributes `#[koto_method]`, `#[koto_get]` and `#[koto_set]` can take optional arguments:
 /// - **`name`** — sets the access key, if not set it will be inferred by the function name
 /// - **`alias`** *(multiple allowed)* — adds additional keys to access with
 ///
@@ -229,7 +229,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self>`
 /// as the function argument and then return `MethodContext::instance_result()`.
 ///
-/// ## `#[koto_access]`
+/// ## `#[koto_get]`
 ///
 /// This function is called when accessing the value of the key inferred from the
 /// function name.
@@ -240,7 +240,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// fn foo(&self) -> Result<KValue> { ... }
 /// ```
 ///
-/// ## `#[koto_access_assign]`
+/// ## `#[koto_set]`
 ///
 /// This function is called when assigning a value to the key inferred from the
 /// function name without its `set_` prefix.
@@ -251,9 +251,9 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// fn set_foo(&mut self, value: &KValue) -> Result<()> { ... }
 /// ```
 ///
-/// ## `#[koto_access_fallback]`
+/// ## `#[koto_get_fallback]`
 ///
-/// This function is called when neither `#[koto_access]`es nor `#[koto_method]`s
+/// This function is called when neither `#[koto_get]`s nor `#[koto_method]`s
 /// with the requested name were found.
 ///
 /// The function must have a signature like either:
@@ -262,9 +262,9 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
 /// ```
 ///
-/// ## `#[koto_access_assign_fallback]`
+/// ## `#[koto_set_fallback]`
 ///
-/// This function is called when no `#[koto_access_assign]`s
+/// This function is called when no `#[koto_set]`s
 /// with the requested name were found.
 ///
 /// The function must have a signature like either:
@@ -273,12 +273,12 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// fn f(&mut self, key: &KString, value: &KValue) -> Result<()> { ... }
 /// ```
 ///
-/// ## `#[koto_access_override]`
+/// ## `#[koto_get_override]`
 ///
-/// This function is called **before** looking for any `#[koto_access]`es or `#[koto_method]`s.
+/// This function is called **before** looking for any `#[koto_get]`es or `#[koto_method]`s.
 /// If this method returns `Some`, then that value will be returned to koto.
-/// If it returns `None` instead, then `#[koto_access]`es and `#[koto_method]`s with the given key
-/// will be looked for before finally falling back to the `#[koto_access_fallback]` function.
+/// If it returns `None` instead, then `#[koto_get]`s and `#[koto_method]`s with the given key
+/// will be looked for before finally falling back to the `#[koto_get_fallback]` function.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -286,12 +286,12 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
 /// ```
 ///
-/// ## `#[koto_access_assign_override]`
+/// ## `#[koto_set_override]`
 ///
-/// This function is called **before** any `#[koto_access_assign]` is looked for.
+/// This function is called **before** any `#[koto_set]` is looked for.
 /// If this method returns `true`, then the assignment operation is done.
-/// If it returns `false` instead, then `#[koto_access_assign]`s
-/// will be looked for before finally falling back to the `#[koto_access_assign_fallback]` function.
+/// If it returns `false` instead, then `#[koto_set]`s
+/// will be looked for before finally falling back to the `#[koto_set_fallback]` function.
 ///
 /// The function must have a signature like either:
 /// ```ignore
@@ -326,12 +326,12 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///         Self { x }
 ///     }
 ///
-///     #[koto_access]
+///     #[koto_get]
 ///     fn x(&self) -> KValue {
 ///         self.x.into()
 ///     }
 ///
-///     #[koto_access_assign]
+///     #[koto_set]
 ///     fn set_x(&mut self, value: &KValue) -> Result<()> {
 ///         match value {
 ///             KValue::Number(value) => {
@@ -406,37 +406,37 @@ pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_get(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_get_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_get_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access_assign(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_set(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access_assign_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_set_override(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
-pub fn koto_access_assign_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_set_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 

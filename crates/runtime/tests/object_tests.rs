@@ -353,23 +353,23 @@ mod objects {
 
     #[koto_impl(runtime = koto_runtime)]
     impl TestObjectAccess {
-        #[koto_access]
+        #[koto_get]
         fn field(&self) -> KValue {
             self.field.clone()
         }
 
-        #[koto_access_assign]
+        #[koto_set]
         fn set_field(&mut self, data: &KValue) {
             self.field = data.clone();
         }
 
         // For testing naming and aliases.
-        #[koto_access(name = "field_1", alias = "field_2", alias = "field_3")]
+        #[koto_get(name = "field_1", alias = "field_2", alias = "field_3")]
         fn field_x(&self) -> KValue {
             self.field.clone()
         }
 
-        #[koto_access_assign(name = "field_1", alias = "field_2", alias = "field_3")]
+        #[koto_set(name = "field_1", alias = "field_2", alias = "field_3")]
         fn set_field_x(&mut self, data: &KValue) {
             self.field = data.clone();
         }
@@ -379,8 +379,8 @@ mod objects {
             "method".into()
         }
 
-        #[koto_access_override]
-        fn access_override(&self, key: &KString) -> Option<KValue> {
+        #[koto_get_override]
+        fn get_override(&self, key: &KString) -> Option<KValue> {
             if key.as_str() == "field_for_override" {
                 return Some(self.field_for_override.clone());
             }
@@ -388,8 +388,8 @@ mod objects {
             None
         }
 
-        #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Option<KValue> {
+        #[koto_get_fallback]
+        fn get_fallback(&self, key: &KString) -> Option<KValue> {
             if key.as_str() != "field_for_fallback" {
                 return None;
             }
@@ -397,8 +397,8 @@ mod objects {
             Some(self.field_for_fallback.clone())
         }
 
-        #[koto_access_assign_override]
-        fn access_assign_override(&mut self, key: &KString, value: &KValue) -> bool {
+        #[koto_set_override]
+        fn set_override(&mut self, key: &KString, value: &KValue) -> bool {
             if key.as_str() == "field_for_override" {
                 self.field_for_override = value.clone();
                 return true;
@@ -407,8 +407,8 @@ mod objects {
             false
         }
 
-        #[koto_access_assign_fallback]
-        fn access_assign_fallback(&mut self, key: &KString, value: &KValue) -> Result<()> {
+        #[koto_set_fallback]
+        fn set_fallback(&mut self, key: &KString, value: &KValue) -> Result<()> {
             if key.as_str() != "field_for_fallback" {
                 return runtime_error!("unexpected key '{key}'");
             }
@@ -443,14 +443,14 @@ mod objects {
             self.map.len().into()
         }
 
-        #[koto_access_override]
+        #[koto_get_override]
         fn access_override(&self, key: &KString) -> Result<Option<KValue>> {
             Ok(self.map.get(key).cloned())
         }
 
         // This object has no other `access_assign` entries, so it doesn't
         // matter whether we use `_override` or `_fallback` here.
-        #[koto_access_assign_fallback]
+        #[koto_set_fallback]
         fn access_assign_fallback(&mut self, key: &KString, value: &KValue) -> Result<()> {
             self.map.insert(key.clone(), value.clone());
             Ok(())
@@ -543,12 +543,12 @@ mod objects {
             self.value.clone().into()
         }
 
-        #[koto_access]
+        #[koto_get]
         fn value(&self) -> KValue {
             self.value.clone().into()
         }
 
-        #[koto_access_assign]
+        #[koto_set]
         fn set_value(&mut self, value: &KValue) {
             _ = value;
             // not implemented, just checking that it compiles

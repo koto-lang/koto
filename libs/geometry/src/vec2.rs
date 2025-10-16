@@ -27,17 +27,17 @@ impl Vec2 {
         self.0.length().into()
     }
 
-    #[koto_access]
+    #[koto_get]
     fn x(&self) -> KValue {
         self.0.x.into()
     }
 
-    #[koto_access]
+    #[koto_get]
     fn y(&self) -> KValue {
         self.0.y.into()
     }
 
-    #[koto_access_assign]
+    #[koto_set]
     fn set_x(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(x) => {
@@ -48,7 +48,7 @@ impl Vec2 {
         }
     }
 
-    #[koto_access_assign]
+    #[koto_set]
     fn set_y(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(y) => {

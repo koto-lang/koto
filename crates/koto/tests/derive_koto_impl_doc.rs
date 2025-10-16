@@ -4,7 +4,7 @@ use koto::{derive::*, prelude::*, runtime::Result};
 mod snippets {
     use super::*;
 
-    mod access {
+    mod get {
         use super::*;
 
         const _: () = {
@@ -15,7 +15,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access]
+                #[koto_get]
                 fn foo(&self) -> KValue {
                     unimplemented!()
                 }
@@ -30,7 +30,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access]
+                #[koto_get]
                 fn foo(&self) -> Result<KValue> {
                     unimplemented!()
                 }
@@ -38,7 +38,7 @@ mod snippets {
         };
     }
 
-    mod access_assign {
+    mod set {
         use super::*;
 
         const _: () = {
@@ -49,7 +49,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign]
+                #[koto_set]
                 fn set_foo(&mut self, value: &KValue) {
                     unimplemented!()
                 }
@@ -64,7 +64,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign]
+                #[koto_set]
                 fn set_foo(&mut self, value: &KValue) -> Result<()> {
                     unimplemented!()
                 }
@@ -72,7 +72,7 @@ mod snippets {
         };
     }
 
-    mod access_fallback {
+    mod get_fallback {
         use super::*;
 
         const _: () = {
@@ -83,7 +83,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_fallback]
+                #[koto_get_fallback]
                 fn f(&self, key: &KString) -> Option<KValue> {
                     unimplemented!()
                 }
@@ -98,7 +98,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_fallback]
+                #[koto_get_fallback]
                 fn f(&self, key: &KString) -> Result<Option<KValue>> {
                     unimplemented!()
                 }
@@ -106,7 +106,7 @@ mod snippets {
         };
     }
 
-    mod access_assign_fallback {
+    mod set_fallback {
         use super::*;
 
         const _: () = {
@@ -117,7 +117,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign_fallback]
+                #[koto_set_fallback]
                 fn f(&mut self, key: &KString, value: &KValue) {
                     unimplemented!()
                 }
@@ -132,7 +132,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign_fallback]
+                #[koto_set_fallback]
                 fn f(&mut self, key: &KString, value: &KValue) -> Result<()> {
                     unimplemented!()
                 }
@@ -140,7 +140,7 @@ mod snippets {
         };
     }
 
-    mod access_override {
+    mod get_override {
         use super::*;
 
         const _: () = {
@@ -151,7 +151,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_override]
+                #[koto_get_override]
                 fn f(&self, key: &KString) -> Option<KValue> {
                     unimplemented!()
                 }
@@ -166,7 +166,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_override]
+                #[koto_get_override]
                 fn f(&self, key: &KString) -> Result<Option<KValue>> {
                     unimplemented!()
                 }
@@ -174,7 +174,7 @@ mod snippets {
         };
     }
 
-    mod access_assign_override {
+    mod set_override {
         use super::*;
 
         const _: () = {
@@ -185,7 +185,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign_override]
+                #[koto_set_override]
                 fn f(&mut self, key: &KString, value: &KValue) -> bool {
                     unimplemented!()
                 }
@@ -200,7 +200,7 @@ mod snippets {
 
             #[koto_impl]
             impl Struct {
-                #[koto_access_assign_override]
+                #[koto_set_override]
                 fn f(&mut self, key: &KString, value: &KValue) -> Result<bool> {
                     unimplemented!()
                 }
@@ -225,12 +225,12 @@ mod example {
             Self { x }
         }
 
-        #[koto_access]
+        #[koto_get]
         fn x(&self) -> KValue {
             self.x.into()
         }
 
-        #[koto_access_assign]
+        #[koto_set]
         fn set_x(&mut self, value: &KValue) -> Result<()> {
             match value {
                 KValue::Number(value) => {

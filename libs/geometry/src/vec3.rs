@@ -12,22 +12,22 @@ impl Vec3 {
         Self(DVec3::new(x, y, z))
     }
 
-    #[koto_access]
+    #[koto_get]
     fn x(&self) -> KValue {
         self.0.x.into()
     }
 
-    #[koto_access]
+    #[koto_get]
     fn y(&self) -> KValue {
         self.0.y.into()
     }
 
-    #[koto_access]
+    #[koto_get]
     fn z(&self) -> KValue {
         self.0.z.into()
     }
 
-    #[koto_access_assign]
+    #[koto_set]
     fn set_x(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(x) => {
@@ -38,7 +38,7 @@ impl Vec3 {
         }
     }
 
-    #[koto_access_assign]
+    #[koto_set]
     fn set_y(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(y) => {
@@ -49,7 +49,7 @@ impl Vec3 {
         }
     }
 
-    #[koto_access_assign]
+    #[koto_set]
     fn set_z(&mut self, value: &KValue) -> Result<()> {
         match value {
             KValue::Number(z) => {

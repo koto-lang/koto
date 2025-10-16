@@ -325,28 +325,28 @@ fn process(ctx: &Context) -> Result<()> {
         handle_koto_method(ctx, fun, attr)?;
     }
 
-    for (fun, attr) in ctx.fns_with_attr("koto_access") {
-        handle_koto_access(ctx, fun, attr)?;
+    for (fun, attr) in ctx.fns_with_attr("koto_get") {
+        handle_koto_get(ctx, fun, attr)?;
     }
 
-    for (fun, attr) in ctx.fns_with_attr("koto_access_assign") {
-        handle_koto_access_assign(ctx, fun, attr)?;
+    for (fun, attr) in ctx.fns_with_attr("koto_set") {
+        handle_koto_set(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_fallback")? {
-        handle_koto_access_fallback(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_get_fallback")? {
+        handle_koto_get_fallback(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_assign_fallback")? {
-        handle_koto_access_assign_fallback(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_set_fallback")? {
+        handle_koto_set_fallback(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_override")? {
-        handle_koto_access_override(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_get_override")? {
+        handle_koto_get_override(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_assign_override")? {
-        handle_koto_access_assign_override(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_set_override")? {
+        handle_koto_set_override(ctx, fun, attr)?;
     }
 
     // Add access and access assign map creation and getter functions.
@@ -413,7 +413,7 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     Ok(())
 }
 
-fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let args = AccessAttributeArgs::new(attr)?;
     let names = args.names(|| {
         // Use the function name as key if no explicit name is given.
@@ -431,7 +431,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access]` method",
+                "Expected return type for a `#[koto_get]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -446,7 +446,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     {
         return Err(Error::new(
             self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&self` as the first argument of a `#[koto_access]` method",
+            "Expected `&self` as the first argument of a `#[koto_get]` method",
         ));
     }
 
@@ -454,7 +454,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     if let Some(arg) = args.next() {
         return Err(Error::new_spanned(
             arg,
-            "Expected no extra argument for a `#[koto_access]` method",
+            "Expected no extra argument for a `#[koto_get]` method",
         ));
     }
 
@@ -508,7 +508,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     Ok(())
 }
 
-fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let args = AccessAttributeArgs::new(attr)?;
     let names = args.names(|| {
         // Use the function name without `set_` as key if no explicit name is given.
@@ -517,7 +517,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
         let Some(name) = fun_name.strip_prefix("set_") else {
             return Err(Error::new_spanned(
                 attr,
-                r#"A `#[koto_access_assign]` method must either start with `set_` or have an explicit name given like `#[koto_access_assign = "foo"]`"#,
+                r#"A `#[koto_set]` method must either start with `set_` or have an explicit name given like `#[koto_set = "foo"]`"#,
             ));
         };
 
@@ -533,7 +533,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
         MethodReturnType::Value => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected result or no return type for a `#[koto_access_assign]` method",
+                "Expected result or no return type for a `#[koto_set]` method",
             ));
         }
         MethodReturnType::Result => call,
@@ -548,7 +548,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
     {
         return Err(Error::new(
             self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&mut self` as the first argument of a `#[koto_access]` method",
+            "Expected `&mut self` as the first argument of a `#[koto_set]` method",
         ));
     }
 
@@ -564,7 +564,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
     if let Some(arg) = args.next() {
         return Err(Error::new_spanned(
             arg,
-            "Expected no additional argument for a `#[koto_access]` method",
+            "Expected no additional argument for a `#[koto_set]` method",
         ));
     }
 
@@ -614,7 +614,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
     Ok(())
 }
 
-fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -625,7 +625,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_fallback]` method",
+                "Expected return type for a `#[koto_get_fallback]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -642,7 +642,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_fallback]` method wrapper",
+        "the generated `#[koto_get_fallback]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -650,11 +650,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     Ok(())
 }
 
-fn handle_koto_access_assign_fallback(
-    ctx: &Context,
-    fun: &ImplItemFn,
-    attr: &Attribute,
-) -> Result<()> {
+fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -666,7 +662,7 @@ fn handle_koto_access_assign_fallback(
         MethodReturnType::Value => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected result or no return type for a `#[koto_access_assign_fallback]` method",
+                "Expected result or no return type for a `#[koto_set_fallback]` method",
             ));
         }
         MethodReturnType::Result => call,
@@ -682,7 +678,7 @@ fn handle_koto_access_assign_fallback(
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_assign_fallback]` method wrapper",
+        "the generated `#[koto_set_fallback]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -690,7 +686,7 @@ fn handle_koto_access_assign_fallback(
     Ok(())
 }
 
-fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -703,7 +699,7 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_override]` method",
+                "Expected return type for a `#[koto_get_override]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -720,7 +716,7 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_override]` method wrapper",
+        "the generated `#[koto_get_override]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -728,11 +724,7 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     Ok(())
 }
 
-fn handle_koto_access_assign_override(
-    ctx: &Context,
-    fun: &ImplItemFn,
-    attr: &Attribute,
-) -> Result<()> {
+fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -743,7 +735,7 @@ fn handle_koto_access_assign_override(
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_assign_override]` method",
+                "Expected return type for a `#[koto_set_override]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -760,7 +752,7 @@ fn handle_koto_access_assign_override(
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_assign_override]` method wrapper",
+        "the generated `#[koto_set_override]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
