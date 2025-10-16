@@ -3,6 +3,42 @@ use koto_runtime::{Result, derive::*, prelude::*};
 use palette::FromColor;
 use std::fmt;
 
+macro_rules! get_component {
+    ($self:ident, $component:ident, $(($variant:ident, $c:ident => $expr:expr)),+ $(,)?) => {{
+        match &$self.color {
+            $(
+                Encoding::$variant($c) => Ok(($expr).into()),
+            )+
+            _ => $self.component_error(stringify!($component)),
+        }
+    }};
+}
+
+macro_rules! set_component {
+    (
+        $self:ident,
+        $arg:ident, $component:ident,
+        $(($variant:ident, $c:ident => $expr:expr)),+
+        $(,)?
+    ) => {{
+        match $arg {
+            KValue::Number($component) => {
+                let component: f32 = $component.into();
+                match &mut $self.color {
+                    $(
+                        Encoding::$variant($c) => {
+                            $expr = component.into();
+                            Ok(())
+                        },
+                    )+
+                    _ => $self.component_error(stringify!($component)),
+                }
+            },
+            unexpected => unexpected_type("a Number", unexpected),
+        }
+    }};
+}
+
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
 #[koto(runtime = koto_runtime, use_copy)]
 pub struct Color {
@@ -91,19 +127,145 @@ impl Color {
         }
     }
 
-    #[koto_method]
+    #[koto_get(alias = "r")]
+    pub fn red(&self) -> Result<KValue> {
+        get_component!(self, red, (Srgb, c => c.red))
+    }
+
+    #[koto_set(alias = "r")]
+    pub fn set_red(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, red, (Srgb, c => c.red))
+    }
+
+    #[koto_get(alias = "g")]
+    pub fn green(&self) -> Result<KValue> {
+        get_component!(self, green, (Srgb, c => c.green))
+    }
+
+    #[koto_set(alias = "g")]
+    pub fn set_green(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, green, (Srgb, c => c.green))
+    }
+
+    #[koto_get]
+    pub fn blue(&self) -> Result<KValue> {
+        get_component!(self, blue, (Srgb, c => c.blue))
+    }
+
+    #[koto_set(alias = "b")]
+    pub fn set_blue(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, blue, (Srgb, c => c.blue))
+    }
+
+    #[koto_get(alias = "h")]
+    pub fn hue(&self) -> Result<KValue> {
+        get_component!(self, hue,
+            (Hsl, c => c.hue.into_inner()),
+            (Hsv, c => c.hue.into_inner()),
+            (Oklch, c => c.hue.into_inner()),
+        )
+    }
+
+    #[koto_set(alias = "h")]
+    pub fn set_hue(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, hue,
+            (Hsl, c => c.hue),
+            (Hsv, c => c.hue),
+            (Oklch, c => c.hue),
+        )
+    }
+
+    #[koto_get(alias = "s")]
+    pub fn saturation(&self) -> Result<KValue> {
+        get_component!(self, saturation,
+            (Hsl, c => c.saturation),
+            (Hsv, c => c.saturation),
+        )
+    }
+
+    #[koto_set(alias = "s")]
+    pub fn set_saturation(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, saturation,
+            (Hsl, c => c.saturation),
+            (Hsv, c => c.saturation),
+        )
+    }
+
+    #[koto_get(alias = "l")]
+    pub fn lightness(&self) -> Result<KValue> {
+        get_component!(self, lightness,
+            (Hsl, c => c.lightness),
+            (Oklab, c => c.l),
+            (Oklch, c => c.l),
+        )
+    }
+
+    #[koto_set(alias = "l")]
+    pub fn set_lightness(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, lightness,
+            (Hsl, c => c.lightness),
+            (Oklab, c => c.l),
+            (Oklch, c => c.l),
+        )
+    }
+
+    #[koto_get(alias = "v")]
+    pub fn value(&self) -> Result<KValue> {
+        get_component!(self, value, (Hsv, c => c.value))
+    }
+
+    #[koto_set(alias = "v")]
+    pub fn set_value(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, value, (Hsv, c => c.value))
+    }
+
+    #[koto_get]
+    pub fn a(&self) -> Result<KValue> {
+        get_component!(self, a, (Oklab, c => c.a))
+    }
+
+    #[koto_set]
+    pub fn set_a(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, a, (Oklab, c => c.a))
+    }
+
+    #[koto_get]
+    pub fn b(&self) -> Result<KValue> {
+        get_component!(self, b,
+            (Srgb, c => c.blue),
+            (Oklab, c => c.b),
+        )
+    }
+
+    #[koto_set]
+    pub fn set_b(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, b, (Oklab, c => c.b))
+    }
+
+    #[koto_get(alias = "c")]
+    pub fn chroma(&self) -> Result<KValue> {
+        get_component!(self, chroma, (Oklch, c => c.chroma))
+    }
+
+    #[koto_set(alias = "c")]
+    pub fn set_chroma(&mut self, arg: &KValue) -> Result<()> {
+        set_component!(self, arg, chroma, (Oklch, c => c.chroma))
+    }
+
+    #[koto_get]
     pub fn alpha(&self) -> KValue {
         self.alpha.into()
     }
 
-    #[koto_method]
-    pub fn set_alpha(ctx: MethodContext<Self>) -> Result<KValue> {
-        match ctx.args {
-            [KValue::Number(n)] => ctx.instance_mut()?.alpha = n.into(),
-            unexpected => return unexpected_args("|Number|", unexpected),
+    #[koto_set]
+    pub fn set_alpha(&mut self, value: &KValue) -> Result<()> {
+        match value {
+            KValue::Number(alpha) => {
+                self.alpha = alpha.into();
+                Ok(())
+            }
+            unexpected => unexpected_type("a Number", unexpected),
         }
-
-        ctx.instance_result()
     }
 
     #[koto_method]
@@ -171,6 +333,13 @@ impl Color {
     #[koto_method]
     pub fn to_oklch(&self) -> KValue {
         Self::from(palette::Oklcha::from(*self)).into()
+    }
+
+    fn component_error<T>(&self, component: &str) -> Result<T> {
+        runtime_error!(
+            "The {} color space doesn’t define a {component} component",
+            self.color_space_str()
+        )
     }
 }
 
@@ -273,7 +442,11 @@ impl fmt::Display for Color {
                 )?;
             }
             Encoding::Oklab(c) => {
-                write!(f, "l: {}, a: {}, b: {}, a: {}", c.l, c.a, c.b, self.alpha)?;
+                write!(
+                    f,
+                    "l: {}, a: {}, b: {}, alpha: {}",
+                    c.l, c.a, c.b, self.alpha
+                )?;
             }
             Encoding::Oklch(c) => {
                 write!(

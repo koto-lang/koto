@@ -27,14 +27,36 @@ impl Vec2 {
         self.0.length().into()
     }
 
-    #[koto_method]
+    #[koto_get]
     fn x(&self) -> KValue {
         self.0.x.into()
     }
 
-    #[koto_method]
+    #[koto_get]
     fn y(&self) -> KValue {
         self.0.y.into()
+    }
+
+    #[koto_set]
+    fn set_x(&mut self, value: &KValue) -> Result<()> {
+        match value {
+            KValue::Number(x) => {
+                self.0.x = x.into();
+                Ok(())
+            }
+            unexpected => unexpected_type("a Number", unexpected),
+        }
+    }
+
+    #[koto_set]
+    fn set_y(&mut self, value: &KValue) -> Result<()> {
+        match value {
+            KValue::Number(y) => {
+                self.0.y = y.into();
+                Ok(())
+            }
+            unexpected => unexpected_type("a Number", unexpected),
+        }
     }
 }
 

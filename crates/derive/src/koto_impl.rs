@@ -125,7 +125,9 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             };
 
         quote! {
-            fn access(&self, key: &#runtime::KString) -> #runtime::Result<::std::option::Option<#runtime::KValue>> {
+            fn access(&self, key: &#runtime::KString)
+                -> #runtime::Result<::std::option::Option<#runtime::KValue>>
+            {
                 #access_override
 
                 if let Some(method_or_field) = #impl_item_ident #turbofish::#get_access(key) {
@@ -142,7 +144,9 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
                 #access_fallback
             }
 
-            fn access_assign(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<()> {
+            fn access_assign(&mut self, key: &#runtime::KString, value: &#runtime::KValue)
+                -> #runtime::Result<()>
+            {
                 #access_assign_override
 
                 if let Some(setter) = #impl_item_ident #turbofish::#get_access_assign(key) {
@@ -157,6 +161,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
     };
 
     let koto_access_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics #runtime::KotoAccess for #ty #where_clause {
             #koto_access_impl_content
         }
@@ -325,28 +330,28 @@ fn process(ctx: &Context) -> Result<()> {
         handle_koto_method(ctx, fun, attr)?;
     }
 
-    for (fun, attr) in ctx.fns_with_attr("koto_access") {
-        handle_koto_access(ctx, fun, attr)?;
+    for (fun, attr) in ctx.fns_with_attr("koto_get") {
+        handle_koto_get(ctx, fun, attr)?;
     }
 
-    for (fun, attr) in ctx.fns_with_attr("koto_access_assign") {
-        handle_koto_access_assign(ctx, fun, attr)?;
+    for (fun, attr) in ctx.fns_with_attr("koto_set") {
+        handle_koto_set(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_fallback")? {
-        handle_koto_access_fallback(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_get_fallback")? {
+        handle_koto_get_fallback(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_assign_fallback")? {
-        handle_koto_access_assign_fallback(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_set_fallback")? {
+        handle_koto_set_fallback(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_override")? {
-        handle_koto_access_override(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_get_override")? {
+        handle_koto_get_override(ctx, fun, attr)?;
     }
 
-    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_access_assign_override")? {
-        handle_koto_access_assign_override(ctx, fun, attr)?;
+    if let Some((fun, attr)) = ctx.one_fn_with_attr("koto_set_override")? {
+        handle_koto_set_override(ctx, fun, attr)?;
     }
 
     // Add access and access assign map creation and getter functions.
@@ -377,12 +382,9 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     ctx.add_fn_to_impl(wrapper);
 
     let wrapper_name = koto_method_wrapper_name(fun);
-    let runtime = &ctx.runtime;
 
     let value = quote! {
-        #runtime::__private::MethodOrField::Method(
-            KNativeFunction::new(Self::#wrapper_name)
-        )
+        MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
     };
 
     if names.len() == 1 {
@@ -413,7 +415,7 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     Ok(())
 }
 
-fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let args = AccessAttributeArgs::new(attr)?;
     let names = args.names(|| {
         // Use the function name as key if no explicit name is given.
@@ -431,7 +433,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access]` method",
+                "Expected return type for a `#[koto_get]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -442,28 +444,29 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     let self_arg = args.next();
 
     // The first argument must be `&self`.
-    if !matches!(self_arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none())
-    {
-        return Err(Error::new(
-            self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&self` as the first argument of a `#[koto_access]` method",
-        ));
+    match self_arg {
+        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
+        _ => {
+            return Err(Error::new(
+                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&self` as the first argument of a `#[koto_get]` method",
+            ));
+        }
     }
 
     // There must be no further arguments.
     if let Some(arg) = args.next() {
         return Err(Error::new_spanned(
             arg,
-            "Expected no extra argument for a `#[koto_access]` method",
+            "Expected no extra argument for a `#[koto_get]` method",
         ));
     }
 
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let value = if ctx.has_generics() {
         quote! {
-            #runtime::__private::MethodOrField::Field(
+            MethodOrField::Field(
                 |instance: &dyn ::std::any::Any| {
                     let instance = instance.downcast_ref::<#ty>().unwrap();
                     #wrapped_call
@@ -472,7 +475,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
         }
     } else {
         quote! {
-            #runtime::__private::MethodOrField::Field(
+            MethodOrField::Field(
                 |instance: &#ty| {
                     #wrapped_call
                 }
@@ -508,7 +511,7 @@ fn handle_koto_access(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     Ok(())
 }
 
-fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let args = AccessAttributeArgs::new(attr)?;
     let names = args.names(|| {
         // Use the function name without `set_` as key if no explicit name is given.
@@ -517,7 +520,8 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
         let Some(name) = fun_name.strip_prefix("set_") else {
             return Err(Error::new_spanned(
                 attr,
-                r#"A `#[koto_access_assign]` method must either start with `set_` or have an explicit name given like `#[koto_access_assign = "foo"]`"#,
+                "A `#[koto_set]` method must either start with `set_`,\
+                 or have an explicit name given like `#[koto_set(name = \"foo\")]`",
             ));
         };
 
@@ -533,7 +537,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
         MethodReturnType::Value => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected result or no return type for a `#[koto_access_assign]` method",
+                "Expected result or no return type for a `#[koto_set]` method",
             ));
         }
         MethodReturnType::Result => call,
@@ -544,43 +548,47 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
     let second_arg = args.next();
 
     // The first argument must be `&mut self`.
-    if !matches!(self_arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some())
-    {
-        return Err(Error::new(
-            self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&mut self` as the first argument of a `#[koto_access]` method",
-        ));
+    match self_arg {
+        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some() => {}
+        _ => {
+            return Err(Error::new(
+                self_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&mut self` as the first argument of a `#[koto_set]` method",
+            ));
+        }
     }
 
     // The second argument must be `&KValue`.
-    if !matches!(second_arg, Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_))) {
-        return Err(Error::new(
-            second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
-            "Expected `&KValue` as the extra argument for a Koto method",
-        ));
+    match second_arg {
+        Some(FnArg::Typed(pat)) if matches!(*pat.ty, Type::Reference(_)) => {}
+        _ => {
+            return Err(Error::new(
+                second_arg.map(|s| s.span()).unwrap_or(fun.sig.span()),
+                "Expected `&KValue` as the extra argument for a Koto method",
+            ));
+        }
     }
 
     // There must be no further arguments.
     if let Some(arg) = args.next() {
         return Err(Error::new_spanned(
             arg,
-            "Expected no additional argument for a `#[koto_access]` method",
+            "Expected no additional argument for a `#[koto_set]` method",
         ));
     }
 
-    let runtime = &ctx.runtime;
     let ty = ctx.ty();
 
     let value = if ctx.has_generics() {
         quote! {
-            |instance: &mut dyn ::std::any::Any, value: &#runtime::KValue| -> #runtime::Result<()> {
+            |instance: &mut dyn Any, value: &KValue| -> Result<()> {
                 let instance = instance.downcast_mut::<#ty>().unwrap();
                 #wrapped_call
             }
         }
     } else {
         quote! {
-            |instance: &mut #ty, value: &#runtime::KValue| -> #runtime::Result<()> {
+            |instance: &mut #ty, value: &KValue| -> Result<()> {
                 #wrapped_call
             }
         }
@@ -614,7 +622,7 @@ fn handle_koto_access_assign(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) 
     Ok(())
 }
 
-fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -625,7 +633,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_fallback]` method",
+                "Expected return type for a `#[koto_get_fallback]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -635,14 +643,16 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<Option<#runtime::KValue>> {
+        fn #wrapper_name(&self, key: &#runtime::KString)
+            -> #runtime::Result<Option<#runtime::KValue>>
+        {
             #wrapped_call
         }
     };
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_fallback]` method wrapper",
+        "the generated `#[koto_get_fallback]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -650,11 +660,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     Ok(())
 }
 
-fn handle_koto_access_assign_fallback(
-    ctx: &Context,
-    fun: &ImplItemFn,
-    attr: &Attribute,
-) -> Result<()> {
+fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -666,7 +672,7 @@ fn handle_koto_access_assign_fallback(
         MethodReturnType::Value => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected result or no return type for a `#[koto_access_assign_fallback]` method",
+                "Expected result or no return type for a `#[koto_set_fallback]` method",
             ));
         }
         MethodReturnType::Result => call,
@@ -675,14 +681,16 @@ fn handle_koto_access_assign_fallback(
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<()> {
+        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+            -> #runtime::Result<()>
+        {
             #wrapped_call
         }
     };
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_assign_fallback]` method wrapper",
+        "the generated `#[koto_set_fallback]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -690,7 +698,7 @@ fn handle_koto_access_assign_fallback(
     Ok(())
 }
 
-fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -703,7 +711,7 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_override]` method",
+                "Expected return type for a `#[koto_get_override]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -713,14 +721,16 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<Option<#runtime::KValue>> {
+        fn #wrapper_name(&self, key: &KString)
+            -> #runtime::Result<Option<KValue>>
+        {
             #wrapped_call
         }
     };
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_override]` method wrapper",
+        "the generated `#[koto_get_override]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -728,11 +738,7 @@ fn handle_koto_access_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     Ok(())
 }
 
-fn handle_koto_access_assign_override(
-    ctx: &Context,
-    fun: &ImplItemFn,
-    attr: &Attribute,
-) -> Result<()> {
+fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let _args = FallbackAttributeArgs::new(attr)?;
     let runtime = &ctx.runtime;
     let fun_name = &fun.sig.ident;
@@ -743,7 +749,7 @@ fn handle_koto_access_assign_override(
         MethodReturnType::None => {
             return Err(Error::new_spanned(
                 &fun.sig,
-                "Expected return type for a `#[koto_access_assign_override]` method",
+                "Expected return type for a `#[koto_set_override]` method",
             ));
         }
         MethodReturnType::Value => quote! { Ok(#call) },
@@ -753,14 +759,16 @@ fn handle_koto_access_assign_override(
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, key: &#runtime::KString, value: &#runtime::KValue) -> #runtime::Result<bool> {
+        fn #wrapper_name(&mut self, key: &KString, value: &KValue)
+            -> #runtime::Result<bool>
+        {
             #wrapped_call
         }
     };
 
     let item = parse2(
         wrapped_fn,
-        "the generated `#[koto_access_assign_override]` method wrapper",
+        "the generated `#[koto_set_override]` method wrapper",
     )?;
 
     ctx.add_fn_to_impl(item);
@@ -803,7 +811,9 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
                         // Append the args to the call
                         quote! {args},
                         // Any number of args will be captured
-                        quote! { _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError) },
+                        quote! {
+                            _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError)
+                        },
                     )
                 }
                 _ => panic!("Expected &[KValue] as the extra argument for a Koto method"),
@@ -864,6 +874,7 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
+        #[automatically_derived]
         fn #wrapper_name(ctx: &mut #runtime::CallContext) -> #runtime::Result<#runtime::KValue> {
             #wrapper_body
         }
@@ -893,13 +904,16 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 #runtime::__private::MethodOrField<dyn ::std::any::Any>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap};
+                use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    __private::MethodOrField,
+                };
 
                 let mut result = HashMap::<
                     &'static str,
-                    #runtime::__private::MethodOrField<dyn ::std::any::Any>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    MethodOrField<dyn Any>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
@@ -918,12 +932,15 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    __private::MethodOrField,
+                };
 
                 let mut result = HashMap::<
                     &'static str,
-                    #runtime::__private::MethodOrField<#ty>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    MethodOrField<#ty>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
@@ -959,12 +976,14 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result};
+                use #runtime::{
+                    KMap, KNativeFunction, KotoHasher, KValue, Result, ValueKey, ValueMap,
+                };
 
-                let mut result = ::std::collections::HashMap::<
+                let mut result = HashMap::<
                     &'static str,
                     fn(&mut #ty, &KValue) -> Result<()>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
+                    BuildHasherDefault<KotoHasher>,
                 >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
 
                 #(#insert_ops)*
@@ -1059,8 +1078,12 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
         if cfg!(feature = "rc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>> {
-                    use std::{any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault};
+                fn #name(key: &str)
+                    -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                {
+                    use ::std::{
+                        any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault,
+                    };
                     use #runtime::{KMap, KotoHasher};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1089,8 +1112,12 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
         } else if cfg!(feature = "arc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>> {
-                    use ::std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
+                fn #name(key: &str)
+                    -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                {
+                    use ::std::{
+                        any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock,
+                    };
                     use #runtime::{KCell, KMap, KotoHasher, KNativeFunction};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1181,8 +1208,12 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
         if cfg!(feature = "rc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>> {
-                    use ::std::{any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault};
+                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &#runtime::KValue)
+                    -> #runtime::Result<()>>
+                {
+                    use ::std::{
+                        any::TypeId, cell::RefCell, collections::HashMap, hash::BuildHasherDefault,
+                    };
                     use #runtime::{KMap, KotoHasher, KValue, Result};
 
                     type PerTypeEntriesMap = HashMap<
@@ -1211,8 +1242,12 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
         } else if cfg!(feature = "arc") {
             quote! {
                 #[automatically_derived]
-                fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &KValue) -> #runtime::Result<()>> {
-                    use ::std::{any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
+                fn #name(key: &str)
+                    -> Option<fn(&mut dyn ::std::any::Any, &KValue) -> #runtime::Result<()>>
+                {
+                    use ::std::{
+                        any::TypeId, collections::HashMap, hash::BuildHasherDefault, sync::LazyLock,
+                    };
                     use #runtime::{KCell, KMap, KotoHasher, KNativeFunction, Result};
 
                     type PerTypeEntriesMap = HashMap<

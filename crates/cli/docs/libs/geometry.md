@@ -399,39 +399,45 @@ check! 5.0
 ## Vec2.x
 
 ```kototype
-|Vec2| -> Number
+Number
 ```
 
-Returns the `x` coordinate of the vector.
+The `x` coordinate of the vector.
 
 ### Example
 
 ```koto
 from geometry import vec2
 
-print! vec2(-1, 0).x()
+v = vec2 -1, 0
+print! v.x
 check! -1.0
-print! vec2(3, 4).x()
-check! 3.0
+
+v.x = 99
+print! v
+check! Vec2{x: 99, y: 0}
 ```
 
 ## Vec2.y
 
 ```kototype
-|Vec2| -> Number
+Number
 ```
 
-Returns the `y` coordinate of the vector.
+The `y` coordinate of the vector.
 
 ### Example
 
 ```koto
 from geometry import vec2
 
-print! vec2(0, -2).y()
-check! -2.0
-print! vec2(3, 4).y()
-check! 4.0
+v = vec2 0, 2
+print! v.y
+check! 2.0
+
+v.y = 100
+print! v
+check! Vec2{x: 0, y: 100}
 ```
 
 ## Vec3
@@ -458,53 +464,67 @@ check! (25.0, 200.0, -150.0)
 ## Vec3.x
 
 ```kototype
-|Vec3| -> Number
+Number
 ```
 
-Returns the `x` coordinate of the vector.
+The `x` coordinate of the vector.
 
 ### Example
 
 ```koto
 from geometry import vec3
 
-print! vec3(-1, 0, 1).x()
-check! -1.0
-```
+v = vec3 1, 2, 3
+print! v.x
+check! 1.0
 
+v.x = 99
+print! v
+check! Vec3{x: 99, y: 2, z: 3}
+```
 
 ## Vec3.y
 
 ```kototype
-|Vec3| -> Number
+Number
 ```
 
-Returns the `y` coordinate of the vector.
+The `y` coordinate of the vector.
 
 ### Example
 
 ```koto
 from geometry import vec3
 
-print! vec3(-1, -2, -3).y()
-check! -2.0
+v = vec3 1, 2, 3
+print! v.y
+check! 2.0
+
+v.y = 99
+print! v
+check! Vec3{x: 1, y: 99, z: 3}
 ```
 
 ## Vec3.z
 
 ```kototype
-|Vec3| -> Number
+Number
 ```
 
-Returns the `z` coordinate of the vector.
+The `z` coordinate of the vector.
 
 ### Example
 
 ```koto
 from geometry import vec3
 
-print! vec3(10, 20, 30).z()
-check! 30.0
+v = vec3 1, 2, 3
+print! v.z
+check! 3.0
+
+v.z = 99
+print! v
+check! Vec3{x: 1, y: 2, z: 99}
 ```
 
 ## Vec3.length
