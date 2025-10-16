@@ -84,7 +84,7 @@ mod snippets {
             #[koto_impl]
             impl Struct {
                 #[koto_access_fallback]
-                fn f(&self, key: &KString) -> KValue {
+                fn f(&self, key: &KString) -> Option<KValue> {
                     unimplemented!()
                 }
             }
@@ -99,7 +99,7 @@ mod snippets {
             #[koto_impl]
             impl Struct {
                 #[koto_access_fallback]
-                fn f(&self, key: &KString) -> Result<KValue> {
+                fn f(&self, key: &KString) -> Result<Option<KValue>> {
                     unimplemented!()
                 }
             }

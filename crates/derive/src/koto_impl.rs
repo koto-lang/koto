@@ -94,7 +94,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
 
         let access_fallback = if let Some(fallback_fn) = access_fallback_fn.into_inner() {
             quote! {
-                self.#fallback_fn(key).map(Some)
+                self.#fallback_fn(key)
             }
         } else {
             quote! {
@@ -635,7 +635,7 @@ fn handle_koto_access_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute
     let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<#runtime::KValue> {
+        fn #wrapper_name(&self, key: &#runtime::KString) -> #runtime::Result<Option<#runtime::KValue>> {
             #wrapped_call
         }
     };

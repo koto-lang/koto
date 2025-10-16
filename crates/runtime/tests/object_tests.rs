@@ -389,12 +389,12 @@ mod objects {
         }
 
         #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<KValue> {
+        fn access_fallback(&self, key: &KString) -> Option<KValue> {
             if key.as_str() != "field_for_fallback" {
-                return runtime_error!("unexpected key '{key}'");
+                return None;
             }
 
-            Ok(self.field_for_fallback.clone())
+            Some(self.field_for_fallback.clone())
         }
 
         #[koto_access_assign_override]
@@ -446,11 +446,6 @@ mod objects {
         #[koto_access_override]
         fn access_override(&self, key: &KString) -> Result<Option<KValue>> {
             Ok(self.map.get(key).cloned())
-        }
-
-        #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<KValue> {
-            runtime_error!("'{key}' not found in this '{}'", self.type_string())
         }
 
         // This object has no other `access_assign` entries, so it doesn't
@@ -1158,7 +1153,7 @@ should_throw = |expected_error, f|
 
 # make sure the function identifier does not become an access key
 # if an explicit `name` argument was given
-should_throw "unexpected key 'field_x'", || x.field_x
+should_throw "'field_x' not found in 'TestObjectAccess'", || x.field_x
 should_throw "unexpected key 'field_x'", || x.field_x = "something"
 
 assert_eq x.field_1, "foo"
@@ -1187,7 +1182,7 @@ try
   print x.foo
   throw "expression above should have errored"
 catch error
-  assert_eq error, "'foo' not found in this 'MapLikeObject'"
+  assert_eq error, "'foo' not found in 'MapLikeObject'"
 
 x.foo = 1
 assert_eq x.foo, 1
