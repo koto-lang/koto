@@ -389,12 +389,12 @@ mod objects {
         }
 
         #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<KValue> {
+        fn access_fallback(&self, key: &KString) -> Result<Option<KValue>> {
             if key.as_str() != "field_for_fallback" {
                 return runtime_error!("unexpected key '{key}'");
             }
 
-            Ok(self.field_for_fallback.clone())
+            Ok(Some(self.field_for_fallback.clone()))
         }
 
         #[koto_access_assign_override]
@@ -449,7 +449,7 @@ mod objects {
         }
 
         #[koto_access_fallback]
-        fn access_fallback(&self, key: &KString) -> Result<KValue> {
+        fn access_fallback(&self, key: &KString) -> Result<Option<KValue>> {
             runtime_error!("'{key}' not found in this '{}'", self.type_string())
         }
 

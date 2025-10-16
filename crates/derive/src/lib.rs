@@ -203,10 +203,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// - [**`#[koto_method]`**](#koto_method)
 /// - [**`#[koto_access]`**](#koto_access)
 /// - [**`#[koto_access_assign]`**](#koto_access_assign)
-/// - [**`#[koto_access_override]`**](#koto_access_override)
-/// - [**`#[koto_access_assign_override]`**](#koto_access_assign_override)
 /// - [**`#[koto_access_fallback]`**](#koto_access_fallback)
 /// - [**`#[koto_access_assign_fallback]`**](#koto_access_assign_fallback)
+/// - [**`#[koto_access_override]`**](#koto_access_override)
+/// - [**`#[koto_access_assign_override]`**](#koto_access_assign_override)
 ///
 /// The attributes `#[koto_method]`, `#[koto_access]` and `#[koto_access_assign]` can take optional arguments:
 /// - **`name`** — sets the access key, if not set it will be inferred by the function name
@@ -258,8 +258,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// The function must have a signature like either:
 /// ```ignore
-/// fn f(&self, key: &KString) -> KValue { ... }
-/// fn f(&self, key: &KString) -> Result<KValue> { ... }
+/// fn f(&self, key: &KString) -> Option<KValue> { ... }
+/// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
 /// ```
 ///
 /// ## `#[koto_access_assign_fallback]`
