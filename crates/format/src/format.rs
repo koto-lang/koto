@@ -234,7 +234,7 @@ fn format_node<'source>(
                     .build()
             }
         }
-        Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 2, node, ctx, trivia)
+        Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 3, node, ctx, trivia)
             .maybe_indent()
             .tuple_elements(elements)
             .build(),
