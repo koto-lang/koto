@@ -467,9 +467,9 @@ x = 1 + #- abc -# x - -3 * 2
         fn tuple_single_element() {
             check_format_output(
                 &["\
-x = (1,)
-y = 1,
-z, w = 1,
+x = (  1,  )
+y = 1  ,
+z, w  =     1,
 "],
                 "\
 x = (1,)
