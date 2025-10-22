@@ -464,6 +464,22 @@ x = 1 + #- abc -# x - -3 * 2
         }
 
         #[test]
+        fn tuple_single_element() {
+            check_format_output(
+                &["\
+x = (  1,  )
+y = 1  ,
+z, w  =     1,
+"],
+                "\
+x = (1,)
+y = 1,
+z, w = 1,
+",
+            );
+        }
+
+        #[test]
         fn list_single_line() {
             check_format_output(
                 &[

@@ -208,7 +208,7 @@ fn format_node<'source>(
         Node::List(elements) => GroupBuilder::new(elements.len() * 2 + 2, node, ctx, trivia)
             .char('[')
             .maybe_indent()
-            .elements(elements)
+            .list_elements(elements)
             .maybe_return()
             .char(']')
             .build(),
@@ -221,7 +221,7 @@ fn format_node<'source>(
                     .char('(')
                     .maybe_indent()
                     .nested(elements.len() * 3, node, |nested| {
-                        nested.elements(elements).build()
+                        nested.tuple_elements(elements).build()
                     })
                     .maybe_return()
                     .char(')')
@@ -229,14 +229,14 @@ fn format_node<'source>(
             } else {
                 GroupBuilder::new(elements.len() * 3 + 2, node, ctx, trivia)
                     .maybe_indent()
-                    .elements(elements)
+                    .tuple_elements(elements)
                     .maybe_return()
                     .build()
             }
         }
-        Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 2, node, ctx, trivia)
+        Node::TempTuple(elements) => GroupBuilder::new(elements.len() * 3, node, ctx, trivia)
             .maybe_indent()
-            .elements(elements)
+            .tuple_elements(elements)
             .build(),
         Node::Range {
             start,
@@ -1183,7 +1183,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
-    fn elements(mut self, elements: &[AstIndex]) -> Self {
+    fn list_elements(mut self, elements: &[AstIndex]) -> Self {
         for (i, element) in elements.iter().enumerate() {
             self = self.node(*element);
             if i < elements.len() - 1 {
@@ -1193,6 +1193,14 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             }
         }
         self
+    }
+
+    fn tuple_elements(self, elements: &[AstIndex]) -> Self {
+        if elements.len() == 1 {
+            self.node(elements[0]).char(',')
+        } else {
+            self.list_elements(elements)
+        }
     }
 
     // Add any trivia that needs to be inserted before the given position
