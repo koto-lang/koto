@@ -160,6 +160,27 @@ mod parser {
         Node::MapEntry(key.into(), value.into())
     }
 
+    fn map_pat(entries: &[u32]) -> Node {
+        Node::MapPat {
+            entries: nodes(entries),
+            type_hint: None,
+        }
+    }
+
+    fn map_pat_with_type_hint(entries: &[u32], type_hint: u32) -> Node {
+        Node::MapPat {
+            entries: nodes(entries),
+            type_hint: Some(type_hint.into()),
+        }
+    }
+
+    fn map_key_rebind(key: u32, pattern: u32) -> Node {
+        Node::MapKeyRebind {
+            key: key.into(),
+            pattern: pattern.into(),
+        }
+    }
+
     fn range(start: u32, end: u32, inclusive: bool) -> Node {
         Node::Range {
             start: start.into(),
@@ -1436,6 +1457,145 @@ x ^= 5";
                 Some(&[Constant::Str("foo"), Constant::Str("bar")]),
             )
         }
+
+        #[test]
+        fn map_one() {
+            let source = "
+{x} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    map_with_braces(&[0]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(2, 3),
+                    map_with_braces(&[4]),
+                    assign(1, 5),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn map_two() {
+            let source = "
+{x, y} = {x: 1, y: 2}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    id(1),
+                    map_with_braces(&[0, 1]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(3, 4),
+                    id(1),
+                    SmallInt(2),
+                    map_entry(6, 7),
+                    map_with_braces(&[5, 8]),
+                    assign(2, 9),
+                    MainBlock {
+                        body: nodes(&[10]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_multiple() {
+            let source = "
+{x}, {y} = {x: 1}, {y: 2}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    map_with_braces(&[0]),
+                    id(1),
+                    map_with_braces(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    id(1),
+                    SmallInt(2),
+                    map_entry(8, 9),
+                    map_with_braces(&[10]),
+                    TempTuple(nodes(&[7, 11])),
+                    MultiAssign {
+                        targets: nodes(&[1, 3]),
+                        expression: 12.into(),
+                        let_assignment: false,
+                    },
+                    MainBlock {
+                        body: nodes(&[13]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_with_as() {
+            let source = "
+{x as y} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    id(1),
+                    map_key_rebind(0, 1),
+                    map_with_braces(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    assign(3, 7),
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_ignored_key() {
+            let source = "
+{x as _} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    Ignored(None, None),
+                    map_key_rebind(0, 1),
+                    map_with_braces(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    assign(3, 7),
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
     }
 
     mod let_expression {
@@ -1613,6 +1773,282 @@ x ^= 5";
                     Constant::Str("y"),
                     Constant::Str("f"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn map_one() {
+            let source = "
+let {x} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    map_pat(&[0]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(2, 3),
+                    map_with_braces(&[4]),
+                    let_assign(1, 5),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn map_two() {
+            let source = "
+let {x, y} = {x: 1, y: 2}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    id(1),
+                    map_pat(&[0, 1]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(3, 4),
+                    id(1),
+                    SmallInt(2),
+                    map_entry(6, 7),
+                    map_with_braces(&[5, 8]),
+                    let_assign(2, 9),
+                    MainBlock {
+                        body: nodes(&[10]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_multiple() {
+            let source = "
+let {x}, {y} = {x: 1}, {y: 2}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    map_pat(&[0]),
+                    id(1),
+                    map_pat(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    id(1),
+                    SmallInt(2),
+                    map_entry(8, 9),
+                    map_with_braces(&[10]),
+                    TempTuple(nodes(&[7, 11])),
+                    MultiAssign {
+                        targets: nodes(&[1, 3]),
+                        expression: 12.into(),
+                        let_assignment: true,
+                    },
+                    MainBlock {
+                        body: nodes(&[13]),
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_with_type_hint() {
+            let source = "
+let {x}: Foo = {@type: 'Foo'}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    type_hint(1),
+                    map_pat_with_type_hint(&[0], 1),
+                    Meta(MetaKeyId::Type, None),
+                    string_literal(1, StringQuote::Single),
+                    map_entry(3, 4),
+                    map_with_braces(&[5]),
+                    let_assign(2, 6),
+                    MainBlock {
+                        body: nodes(&[7]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("Foo")]),
+            )
+        }
+
+        #[test]
+        fn map_with_as() {
+            let source = "
+let {x as y} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    id(1),
+                    map_key_rebind(0, 1),
+                    map_pat(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    let_assign(3, 7),
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn map_with_type() {
+            let source = "
+let {x: Number} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    type_hint(1),
+                    id_with_type_hint(0, 0),
+                    map_pat(&[1]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(3, 4),
+                    map_with_braces(&[5]),
+                    let_assign(2, 6),
+                    MainBlock {
+                        body: nodes(&[7]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("Number")]),
+            )
+        }
+
+        #[test]
+        fn map_with_type_optional() {
+            let source = "
+let {x: Number?} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    optional_type_hint(1),
+                    id_with_type_hint(0, 0),
+                    map_pat(&[1]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(3, 4),
+                    map_with_braces(&[5]),
+                    let_assign(2, 6),
+                    MainBlock {
+                        body: nodes(&[7]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("Number")]),
+            )
+        }
+
+        #[test]
+        fn map_with_as_and_type() {
+            let source = "
+let {x as y: Number} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    type_hint(2),
+                    id_with_type_hint(1, 1),
+                    map_key_rebind(0, 2),
+                    map_pat(&[3]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(5, 6),
+                    map_with_braces(&[7]),
+                    let_assign(4, 8),
+                    MainBlock {
+                        body: nodes(&[9]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("Number"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_with_as_and_type_optional() {
+            let source = "
+let {x as y: Number?} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    optional_type_hint(2),
+                    id_with_type_hint(1, 1),
+                    map_key_rebind(0, 2),
+                    map_pat(&[3]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(5, 6),
+                    map_with_braces(&[7]),
+                    let_assign(4, 8),
+                    MainBlock {
+                        body: nodes(&[9]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("Number"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_ignored_key() {
+            let source = "
+let {x as _} = {x: 1}
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    Ignored(None, None),
+                    map_key_rebind(0, 1),
+                    map_pat(&[2]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(4, 5),
+                    map_with_braces(&[6]),
+                    let_assign(3, 7),
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
     }
@@ -2310,6 +2746,38 @@ for a in x.zip y
                 ]),
             )
         }
+
+        #[test]
+        fn for_destructure_map() {
+            let source = "\
+for {x} in [{x: 1}]
+    x
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    map_pat(&[0]),
+                    id(0),
+                    SmallInt(1),
+                    map_entry(2, 3),
+                    map_with_braces(&[4]),
+                    List(nodes(&[5])),
+                    id(0),
+                    Block(nodes(&[7])),
+                    For(AstFor {
+                        args: nodes(&[1]),
+                        iterable: 6.into(),
+                        body: 8.into(),
+                    }),
+                    MainBlock {
+                        body: nodes(&[9]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
     }
 
     mod functions {
@@ -2871,6 +3339,45 @@ the function was preceeded by a multiline comment.
                 ],
                 Some(&[Constant::Str("foo"), Constant::Str("bar")]),
             );
+        }
+
+        #[test]
+        fn destructure_map() {
+            let source = "\
+f = |{x, y}|
+  x + y
+";
+            check_ast(
+                source,
+                &[
+                    id(0), // f
+                    id(1), // x
+                    id(2), // y
+                    map_pat(&[1, 2]),
+                    FunctionArgs {
+                        args: nodes(&[3]),
+                        variadic: false,
+                        output_type: None,
+                    },
+                    id(1), // x
+                    id(2), // y
+                    binary_op(AstBinaryOp::Add, 5, 6),
+                    Block(nodes(&[7])),
+                    Function(koto_parser::Function {
+                        args: 4.into(),
+                        local_count: 2,
+                        accessed_non_locals: constants(&[]),
+                        body: 8.into(),
+                        is_generator: false,
+                    }),
+                    assign(0, 9),
+                    MainBlock {
+                        body: nodes(&[10]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x"), Constant::Str("y")]),
+            )
         }
     }
 
@@ -4546,6 +5053,180 @@ match x
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn match_map() {
+            let source = r#"
+match {x: 1}
+  {x} then x
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    map_entry(0, 1),
+                    map_with_braces(&[2]),
+                    id(0),
+                    map_pat(&[4]),
+                    id(0),
+                    MatchArm {
+                        patterns: nodes(&[5]),
+                        condition: None,
+                        expression: 6.into(),
+                    },
+                    Match {
+                        expression: 3.into(),
+                        arms: nodes(&[7]),
+                    },
+                    MainBlock {
+                        body: nodes(&[8]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn match_map_with_type() {
+            let source = r#"
+match {x: 1, @type: 'Foo'}
+  {x}: Foo then x
+"#;
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    map_entry(0, 1),
+                    Meta(MetaKeyId::Type, None),
+                    Str(simple_string(1, StringQuote::Single)),
+                    map_entry(3, 4),
+                    map_with_braces(&[2, 5]),
+                    id(0),
+                    type_hint(1),
+                    map_pat_with_type_hint(&[7], 8),
+                    id(0),
+                    MatchArm {
+                        patterns: nodes(&[9]),
+                        condition: None,
+                        expression: 10.into(),
+                    },
+                    Match {
+                        expression: 6.into(),
+                        arms: nodes(&[11]),
+                    },
+                    MainBlock {
+                        body: nodes(&[12]),
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("Foo")]),
+            )
+        }
+
+        #[test]
+        fn map_nested() {
+            let source = "\
+match {foo: {bar: 'baz'}}
+  {foo as {bar as 'baz'}} then 'ok'
+  else 'err'
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    id(1),
+                    Str(simple_string(2, StringQuote::Single)),
+                    map_entry(1, 2),
+                    map_with_braces(&[3]),
+                    map_entry(0, 4),
+                    map_with_braces(&[5]),
+                    id(0),
+                    id(1),
+                    Str(simple_string(2, StringQuote::Single)),
+                    map_key_rebind(8, 9),
+                    map_pat(&[10]),
+                    map_key_rebind(7, 11),
+                    map_pat(&[12]),
+                    Str(simple_string(3, StringQuote::Single)),
+                    MatchArm {
+                        patterns: nodes(&[13]),
+                        condition: None,
+                        expression: 14.into(),
+                    },
+                    Str(simple_string(4, StringQuote::Single)),
+                    MatchArm {
+                        patterns: nodes(&[]),
+                        condition: None,
+                        expression: 16.into(),
+                    },
+                    Match {
+                        expression: 6.into(),
+                        arms: nodes(&[15, 17]),
+                    },
+                    MainBlock {
+                        body: nodes(&[18]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                    Constant::Str("ok"),
+                    Constant::Str("err"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_multi_line() {
+            let source = "\
+match {x: 1, y: 2}
+  {
+    x as 1, 
+    y as 2
+  } then 
+    'ok'
+";
+            check_ast(
+                source,
+                &[
+                    id(0),
+                    SmallInt(1),
+                    map_entry(0, 1),
+                    id(1),
+                    SmallInt(2),
+                    map_entry(3, 4),
+                    map_with_braces(&[2, 5]),
+                    id(0),
+                    SmallInt(1),
+                    map_key_rebind(7, 8),
+                    id(1),
+                    SmallInt(2),
+                    map_key_rebind(10, 11),
+                    map_pat(&[9, 12]),
+                    Str(simple_string(2, StringQuote::Single)),
+                    Block(nodes(&[14])),
+                    MatchArm {
+                        patterns: nodes(&[13]),
+                        condition: None,
+                        expression: 15.into(),
+                    },
+                    Match {
+                        expression: 6.into(),
+                        arms: nodes(&[16]),
+                    },
+                    MainBlock {
+                        body: nodes(&[17]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("ok")]),
             )
         }
 

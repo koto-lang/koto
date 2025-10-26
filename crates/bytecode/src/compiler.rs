@@ -1,3 +1,5 @@
+use std::slice;
+
 use crate::{
     Chunk, DebugInfo, FunctionFlags, Op, StringFormatFlags,
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
@@ -402,6 +404,14 @@ impl Compiler {
                 // so we only need to compile the value here.
                 self.compile_node(*value, ctx)?
             }
+            Node::MapPat { .. } => {
+                // Map patterns are only compiled in `self.compile_assign` or `self.compile_match`.
+                unreachable!();
+            }
+            Node::MapKeyRebind { .. } => {
+                // Map patterns are only compiled in `self.compile_assign` or `self.compile_match`.
+                unreachable!();
+            }
             Node::Self_ => {
                 // self is always in register 0
                 match ctx.result_register {
@@ -682,37 +692,12 @@ impl Compiler {
             let arg_register = arg_index as u8 + 1; // self is in register 0, args start from 1
             let arg_node = ctx.node_with_span(*arg);
 
-            // Get the LHS node for default arguments
-            let arg_node = match &arg_node.node {
-                Node::Assign { target, .. } => ctx.node_with_span(*target),
-                _ => arg_node,
+            let arg_target = match &arg_node.node {
+                Node::Assign { target, .. } => *target,
+                _ => *arg,
             };
 
-            match &arg_node.node {
-                Node::Id(_, maybe_type) | Node::Ignored(_, maybe_type) => {
-                    if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(arg_register, *type_hint, Some(*arg), ctx)?;
-                    }
-                }
-                Node::Tuple {
-                    elements: nested_args,
-                    ..
-                } => {
-                    self.push_span(arg_node, ctx.ast);
-
-                    let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
-                    self.push_op(size_op, &[arg_register, size_to_check as u8]);
-                    self.compile_unpack_nested_args(arg_register, nested_args, ctx)?;
-
-                    self.pop_span();
-                }
-                unexpected => {
-                    return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or Tuple as function arg".into(),
-                        unexpected: unexpected.clone(),
-                    });
-                }
-            }
+            self.compile_arg(arg_register, arg_target, ctx)?;
         }
 
         let result_register = if allow_implicit_return {
@@ -889,9 +874,15 @@ impl Compiler {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
                 }
+                Node::MapPat {
+                    entries: nested, ..
+                } => {
+                    result.push(Arg::Placeholder);
+                    nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
+                }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID in function args".into(),
+                        expected: "function args".into(),
                         unexpected: (*unexpected).clone(),
                     });
                 }
@@ -917,9 +908,18 @@ impl Compiler {
                 }
                 Node::PackedId(Some(id)) => result.push(Arg::Unpacked(*id)),
                 Node::PackedId(None) => {}
+                Node::MapPat {
+                    entries: nested_args,
+                    ..
+                } => {
+                    result.extend(self.collect_nested_args(nested_args, ast)?);
+                }
+                Node::MapKeyRebind { pattern, .. } => {
+                    result.extend(self.collect_nested_args(slice::from_ref(pattern), ast)?);
+                }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID in function args".into(),
+                        expected: "nested function args".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -929,7 +929,58 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_unpack_nested_args(
+    fn compile_arg(
+        &mut self,
+        arg_register: u8,
+        arg: AstIndex,
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
+        match ctx.node(arg) {
+            Node::Id(_, maybe_type) | Node::Ignored(_, maybe_type) => {
+                if let Some(type_hint) = maybe_type {
+                    self.compile_assert_type(arg_register, *type_hint, Some(arg), ctx)?;
+                }
+            }
+            Node::Tuple {
+                elements: nested_args,
+                ..
+            } => {
+                self.push_span(ctx.node_with_span(arg), ctx.ast);
+
+                let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
+                self.push_op(size_op, &[arg_register, size_to_check as u8]);
+                self.compile_unpack_nested_args_of_tuple(arg_register, nested_args, ctx)?;
+
+                self.pop_span();
+            }
+            Node::MapPat {
+                entries: nested_args,
+                type_hint: maybe_type,
+            } => {
+                self.push_span(ctx.node_with_span(arg), ctx.ast);
+
+                if let Some(type_hint) = maybe_type {
+                    self.compile_assert_type(arg_register, *type_hint, Some(arg), ctx)?;
+                }
+
+                for nested_arg in nested_args {
+                    self.compile_unpack_nested_arg_of_map(arg_register, *nested_arg, ctx)?;
+                }
+
+                self.pop_span();
+            }
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "function arg".into(),
+                    unexpected: unexpected.clone(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_unpack_nested_args_of_tuple(
         &mut self,
         container_register: u8,
         args: &[AstIndex],
@@ -939,7 +990,7 @@ impl Compiler {
 
         let mut index_from_end = false;
 
-        for (arg_index, arg) in args.iter().enumerate() {
+        for (arg_index, &arg) in args.iter().enumerate() {
             let is_first_arg = arg_index == 0;
             let is_last_arg = arg_index == args.len() - 1;
             let arg_index = if index_from_end {
@@ -948,30 +999,13 @@ impl Compiler {
                 arg_index as u8
             };
 
-            match ctx.node(*arg) {
-                Node::Ignored(_, Some(type_hint)) => {
-                    let temp_register = self.push_register()?;
-                    self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
-                    self.compile_assert_type(temp_register, *type_hint, Some(*arg), ctx)?;
-                    self.pop_register()?; // temp_register
-                }
+            match ctx.node(arg) {
                 Node::Id(constant_index, maybe_type) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(TempIndex, &[local_register, container_register, arg_index]);
                     if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(local_register, *type_hint, Some(*arg), ctx)?;
+                        self.compile_assert_type(local_register, *type_hint, Some(arg), ctx)?;
                     }
-                }
-                Node::Tuple {
-                    elements: nested_args,
-                    ..
-                } => {
-                    let tuple_register = self.push_register()?;
-                    self.push_op(TempIndex, &[tuple_register, container_register, arg_index]);
-                    let (size_op, size_to_check) = args_size_op(nested_args, ctx.ast);
-                    self.push_op(size_op, &[tuple_register, size_to_check as u8]);
-                    self.compile_unpack_nested_args(tuple_register, nested_args, ctx)?;
-                    self.pop_register()?; // tuple_register
                 }
                 Node::PackedId(maybe_id) if is_first_arg => {
                     if let Some(id) = maybe_id {
@@ -996,8 +1030,85 @@ impl Compiler {
                 Node::PackedId(_) => {
                     return self.error(ErrorKind::InvalidPositionForArgWithEllipses);
                 }
-                _ => {}
+                Node::Ignored { .. } | Node::Tuple { .. } | Node::MapPat { .. } => {
+                    let temp_register = self.push_register()?;
+                    self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
+                    self.compile_arg(temp_register, arg, ctx)?;
+                    self.pop_register()?; // temp_register
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "nested args of tuple".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_unpack_nested_arg_of_map(
+        &mut self,
+        container_register: u8,
+        arg: AstIndex,
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
+        // allocate register
+        let maybe_id = match ctx.node(arg) {
+            Node::Id(id, _) => Some(*id),
+            Node::MapKeyRebind { pattern, .. } => match ctx.node(*pattern) {
+                Node::Id(id, _) => Some(*id),
+                _ => None,
+            },
+            _ => None,
+        };
+
+        let pattern_register = match maybe_id {
+            Some(id) => self.assign_local_register(id),
+            None => self.push_register(),
+        }?;
+
+        // access the map
+        let pattern = match ctx.node(arg) {
+            Node::Id(id, _) => {
+                self.compile_access_id(pattern_register, container_register, *id);
+                arg
+            }
+            Node::MapKeyRebind { key, pattern } => {
+                match ctx.node(*key) {
+                    Node::Id(id, ..) => {
+                        self.compile_access_id(pattern_register, container_register, *id);
+                    }
+                    Node::Str(string) => {
+                        self.compile_access_string(
+                            pattern_register,
+                            container_register,
+                            &string.contents,
+                            ctx,
+                        )?;
+                    }
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "access key".into(),
+                            unexpected: unexpected.clone(),
+                        });
+                    }
+                }
+                *pattern
+            }
+            unexpected => {
+                return self.error(ErrorKind::UnexpectedNode {
+                    expected: "nested arg of map".into(),
+                    unexpected: unexpected.clone(),
+                });
+            }
+        };
+
+        self.compile_arg(pattern_register, pattern, ctx)?;
+
+        if maybe_id.is_none() {
+            self.pop_register()?; // arg_register
         }
 
         Ok(())
@@ -1037,23 +1148,55 @@ impl Compiler {
         self.settings.export_top_level_ids && self.frame_stack.len() == 1
     }
 
-    fn local_register_for_assign_target(
+    fn local_registers_for_assign_target(
         &mut self,
         target: AstIndex,
         ctx: CompileNodeContext,
-    ) -> Result<Option<u8>> {
-        let result = match ctx.node(target) {
-            Node::Id(constant_index, ..) => Some(self.reserve_local_register(*constant_index)?),
-            Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => None,
-            unexpected => {
-                return self.error(ErrorKind::UnexpectedNode {
-                    expected: "ID".into(),
-                    unexpected: unexpected.clone(),
-                });
+    ) -> Result<SmallVec<[u8; 16]>> {
+        match ctx.node(target) {
+            Node::Id(constant_index, ..) => {
+                Ok(smallvec![self.reserve_local_register(*constant_index)?])
             }
-        };
+            Node::MapKeyRebind { pattern, .. } => {
+                self.local_registers_for_assign_target(*pattern, ctx)
+            }
+            Node::Map { entries, .. } | Node::MapPat { entries, .. } => {
+                let mut registers = smallvec![];
 
-        Ok(result)
+                for entry in entries {
+                    match ctx.node(*entry) {
+                        Node::Id(id, _) => registers.push(self.reserve_local_register(*id)?),
+                        Node::MapKeyRebind { pattern, .. } => match ctx.node(*pattern) {
+                            Node::Id(id, _) => registers.push(self.reserve_local_register(*id)?),
+                            Node::Ignored { .. } => continue,
+                            Node::Map { .. } | Node::MapPat { .. } => {
+                                registers
+                                    .extend(self.local_registers_for_assign_target(*entry, ctx)?);
+                            }
+                            unexpected => {
+                                return self.error(ErrorKind::UnexpectedNode {
+                                    expected: "map assignment pattern".into(),
+                                    unexpected: unexpected.clone(),
+                                });
+                            }
+                        },
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "map assignment entry".into(),
+                                unexpected: unexpected.clone(),
+                            });
+                        }
+                    }
+                }
+
+                Ok(registers)
+            }
+            Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => Ok(smallvec![]),
+            unexpected => self.error(ErrorKind::UnexpectedNode {
+                expected: "assign target".into(),
+                unexpected: unexpected.clone(),
+            }),
+        }
     }
 
     fn compile_assign(
@@ -1065,9 +1208,13 @@ impl Compiler {
     ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        let local_assign_register = self.local_register_for_assign_target(target, ctx)?;
-        let value_result_register = match local_assign_register {
-            Some(local) => ResultRegister::Fixed(local),
+        if matches!(ctx.node(target), Node::Map { .. } | Node::MapPat { .. }) {
+            return self.compile_assign_to_map(target, expression, export_assignment, ctx);
+        }
+
+        let local_assign_register = self.local_registers_for_assign_target(target, ctx)?;
+        let value_result_register = match local_assign_register.first() {
+            Some(local) => ResultRegister::Fixed(*local),
             None => ResultRegister::Any,
         };
 
@@ -1134,6 +1281,191 @@ impl Compiler {
         Ok(result)
     }
 
+    fn compile_assign_to_map(
+        &mut self,
+        target: AstIndex,
+        expression: AstIndex,
+        export_assignment: bool,
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        let result = self.assign_result_register(ctx)?;
+
+        // Reserve any assignment registers for IDs on the LHS before compiling the RHS
+        let target_registers = self.local_registers_for_assign_target(target, ctx)?;
+
+        let rhs = self.compile_node(expression, ctx.with_any_register())?;
+        let rhs_register = rhs.unwrap(self)?;
+
+        self.compile_assign_to_map_finish(
+            target,
+            &target_registers,
+            result,
+            rhs_register,
+            export_assignment,
+            ctx,
+        )
+    }
+
+    fn compile_assign_to_map_finish(
+        &mut self,
+        target: AstIndex,
+        target_registers: &[u8],
+        result: CompileNodeOutput,
+        value_register: u8,
+        export_assignment: bool,
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        self.compile_assign_to_map_finish_recurse(
+            target,
+            &mut target_registers.iter(),
+            result,
+            value_register,
+            export_assignment,
+            ctx,
+        )?;
+
+        Ok(result)
+    }
+
+    fn compile_assign_to_map_finish_recurse(
+        &mut self,
+        target: AstIndex,
+        target_registers: &mut slice::Iter<u8>,
+        result: CompileNodeOutput,
+        value_register: u8,
+        export_assignment: bool,
+        ctx: CompileNodeContext,
+    ) -> Result<()> {
+        use Op::*;
+
+        let target_node = ctx.node_with_span(target);
+
+        let (targets, type_hint) = match &target_node.node {
+            Node::Map { entries, .. } => (entries, None),
+            Node::MapPat { entries, type_hint } => (entries, *type_hint),
+            _ => unreachable!(),
+        };
+
+        if let Some(type_hint) = type_hint {
+            self.compile_assert_type(value_register, type_hint, Some(target), ctx)?;
+        }
+
+        // If the result is needed then prepare the creation of a map
+        if let Some(result_register) = result.register {
+            self.push_op(MakeMap, &[result_register]);
+            self.push_var_u32(targets.len() as u32);
+        }
+
+        for &target in targets {
+            let target_node = ctx.node(target);
+
+            let (key_node, pattern_node, pattern) = match target_node {
+                Node::Id(..) => (target_node, target_node, target),
+                Node::MapKeyRebind { key, pattern } => {
+                    (ctx.node(*key), ctx.node(*pattern), *pattern)
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "map assignment entry".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
+            };
+
+            let target_register = match pattern_node {
+                Node::Id(..) => *target_registers
+                    .next()
+                    .expect("ran out of reserved assignment target registers"),
+                Node::Ignored(..) | Node::Map { .. } | Node::MapPat { .. } => {
+                    self.push_register()?
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "map assignment pattern".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
+            };
+
+            match key_node {
+                Node::Id(id, _) => {
+                    self.compile_access_id(target_register, value_register, *id);
+                }
+                Node::Str(string) => {
+                    self.compile_access_string(
+                        target_register,
+                        value_register,
+                        &string.contents,
+                        ctx,
+                    )?;
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "map assignment key".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
+            }
+
+            if let Node::Id(..) = pattern_node {
+                self.commit_local_register(target_register)?;
+            }
+
+            let maybe_type = match pattern_node {
+                Node::Id(_, maybe_type)
+                | Node::MapPat {
+                    type_hint: maybe_type,
+                    ..
+                } => *maybe_type,
+                _ => None,
+            };
+
+            if let Some(type_hint) = maybe_type {
+                self.compile_assert_type(target_register, type_hint, Some(target), ctx)?;
+            }
+
+            match pattern_node {
+                Node::Id(id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
+                        self.compile_assert_type(target_register, *type_hint, Some(pattern), ctx)?;
+                    }
+
+                    if export_assignment || self.force_export_assignment() {
+                        self.compile_value_export(*id, target_register)?;
+                    }
+
+                    if let Some(result_register) = result.register {
+                        let key_register = self.push_register()?;
+                        self.compile_load_string_constant(key_register, *id);
+                        self.push_op(
+                            AccessAssign,
+                            &[result_register, key_register, target_register],
+                        );
+                        self.pop_register()?; // key_register
+                    }
+                }
+                Node::Map { .. } | Node::MapPat { .. } => {
+                    self.compile_assign_to_map_finish_recurse(
+                        pattern,
+                        target_registers,
+                        CompileNodeOutput::none(),
+                        target_register,
+                        export_assignment,
+                        ctx,
+                    )?;
+
+                    self.pop_register()?; // target_register
+                }
+                Node::Ignored(..) => {
+                    self.pop_register()?; // target_register
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(())
+    }
+
     fn compile_multi_assign(
         &mut self,
         targets: &[AstIndex],
@@ -1153,7 +1485,7 @@ impl Compiler {
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
             .iter()
-            .map(|target| self.local_register_for_assign_target(*target, ctx))
+            .map(|target| self.local_registers_for_assign_target(*target, ctx))
             .collect::<Result<Vec<_>>>()?;
 
         let rhs_node = ctx.node_with_span(expression);
@@ -1179,18 +1511,21 @@ impl Compiler {
             iter_register
         };
 
-        for (i, (target, target_register)) in
+        for (i, (target, target_registers)) in
             targets.iter().zip(target_registers.iter()).enumerate()
         {
             match ctx.node(*target) {
                 Node::Id(id_index, type_hint) => {
-                    let target_register =
-                        target_register.expect("Missing target register for assignment");
+                    let target_register = *target_registers
+                        .first()
+                        .expect("Missing target register for assignment");
+
                     if rhs_is_temp_tuple {
                         self.push_op(TempIndex, &[target_register, iter_register, i as u8]);
                     } else {
                         self.push_op(IterUnpack, &[target_register, iter_register]);
                     }
+
                     // The register was reserved before the RHS was compiled, and now it
                     // needs to be committed.
                     self.commit_local_register(target_register)?;
@@ -1256,9 +1591,41 @@ impl Compiler {
                         self.push_op(IterNextQuiet, &[iter_register, 0, 0]);
                     }
                 }
+                Node::Map { .. } | Node::MapPat { .. } => {
+                    let nested_result = if result.register.is_some() {
+                        let temp_register = self.push_register()?;
+                        CompileNodeOutput::with_temporary(temp_register)
+                    } else {
+                        CompileNodeOutput::none()
+                    };
+
+                    let value_register = self.push_register()?;
+
+                    if rhs_is_temp_tuple {
+                        self.push_op(TempIndex, &[value_register, iter_register, i as u8]);
+                    } else {
+                        self.push_op(IterUnpack, &[value_register, iter_register]);
+                    }
+
+                    self.compile_assign_to_map_finish(
+                        *target,
+                        target_registers,
+                        nested_result,
+                        value_register,
+                        export_assignment,
+                        ctx,
+                    )?;
+
+                    self.pop_register()?; // value_register
+
+                    if let Some(temp_register) = nested_result.register {
+                        self.pop_register()?; // temp_register
+                        self.push_op(SequencePush, &[temp_register]);
+                    }
+                }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "ID or Chain".into(),
+                        expected: "multi assign element".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -3139,6 +3506,17 @@ impl Compiler {
         self.push_var_u32(key.into());
     }
 
+    /// Returns the jump placeholder for a failed access; the caller needs to update the
+    /// placeholder with the offset to the jump target.
+    ///
+    /// This is used for pattern matching maps.
+    #[must_use]
+    fn compile_try_access_id(&mut self, result: u8, value: u8, key: ConstantIndex) -> usize {
+        self.push_op(Op::TryAccess, &[result, value]);
+        self.push_var_u32(key.into());
+        self.push_offset_placeholder()
+    }
+
     fn compile_access_string(
         &mut self,
         result_register: u8,
@@ -3154,6 +3532,28 @@ impl Compiler {
         );
         self.pop_register()?;
         Ok(())
+    }
+
+    /// Returns the jump placeholder for a failed access; the caller needs to update the
+    /// placeholder with the offset to the jump target.
+    ///
+    /// This is used for pattern matching maps.
+    fn compile_try_access_string(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key_string_contents: &StringContents,
+        ctx: CompileNodeContext,
+    ) -> Result<usize> {
+        let key_register = self.push_register()?;
+        self.compile_string(key_string_contents, ctx.with_fixed_register(key_register))?;
+        self.push_op(
+            Op::TryAccessString,
+            &[result_register, value_register, key_register],
+        );
+        let jump = self.push_offset_placeholder();
+        self.pop_register()?;
+        Ok(jump)
     }
 
     // Compiles a node like `f x -> g`, compiling the lhs as the first arg for a call on the rhs
@@ -3864,6 +4264,122 @@ impl Compiler {
                         return self.error(ErrorKind::OutOfPositionMatchEllipsis);
                     }
                 }
+                Node::MapPat { entries, type_hint } => {
+                    let map = if match_is_container {
+                        let map = self.push_register()?;
+                        self.push_op(
+                            TempIndex,
+                            &[map, params.match_register, pattern_index as u8],
+                        );
+                        map
+                    } else {
+                        params.match_register
+                    };
+
+                    if let Some(type_hint) = type_hint {
+                        let jump = self.compile_check_type(map, *type_hint, ctx)?;
+
+                        if params.is_last_alternative {
+                            &mut params.jumps.arm_end
+                        } else {
+                            &mut params.jumps.alternative_end
+                        }
+                        .push(jump);
+                    }
+
+                    for entry in entries {
+                        let (key, pattern) = match ctx.node(*entry) {
+                            Node::Id(..) => (*entry, None),
+                            Node::MapKeyRebind { key, pattern } => (*key, Some(*pattern)),
+                            unexpected => {
+                                return self
+                                    .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
+                            }
+                        };
+
+                        if let Some(pattern) = pattern {
+                            let element = self.push_register()?;
+
+                            // Access the map
+                            let jump = match ctx.node(key) {
+                                Node::Id(key, _) => self.compile_try_access_id(element, map, *key),
+                                Node::Str(string) => self.compile_try_access_string(
+                                    element,
+                                    map,
+                                    &string.contents,
+                                    ctx,
+                                )?,
+                                unexpected => {
+                                    return self
+                                        .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
+                                }
+                            };
+
+                            if params.is_last_alternative {
+                                &mut params.jumps.arm_end
+                            } else {
+                                &mut params.jumps.alternative_end
+                            }
+                            .push(jump);
+
+                            self.compile_match_arm_patterns(
+                                MatchArmParameters {
+                                    match_register: element,
+                                    is_last_alternative: params.is_last_alternative,
+                                    has_last_pattern: params.has_last_pattern,
+                                    jumps: params.jumps,
+                                },
+                                false,
+                                &[pattern],
+                                ctx,
+                            )?;
+
+                            self.pop_register()?; // element
+                        } else {
+                            match ctx.node(key) {
+                                Node::Id(id, maybe_type) => {
+                                    let element = self.assign_local_register(*id)?;
+                                    let jump = self.compile_try_access_id(element, map, *id);
+
+                                    if params.is_last_alternative {
+                                        &mut params.jumps.arm_end
+                                    } else {
+                                        &mut params.jumps.alternative_end
+                                    }
+                                    .push(jump);
+
+                                    if let Some(type_hint) = maybe_type {
+                                        let jump =
+                                            self.compile_check_type(element, *type_hint, ctx)?;
+
+                                        if params.is_last_alternative {
+                                            &mut params.jumps.arm_end
+                                        } else {
+                                            &mut params.jumps.alternative_end
+                                        }
+                                        .push(jump);
+                                    }
+                                }
+                                unexpected => {
+                                    return self
+                                        .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
+                                }
+                            }
+                        }
+                    }
+
+                    // The map pattern been validated, is a jump needed?
+                    if is_last_pattern && !params.is_last_alternative {
+                        // e.g. x, 0, {y: 1} or x, 1, {y: 2} if foo x then
+                        //                 ^~~~ We're here, jump to the if condition
+                        self.push_op(Jump, &[]);
+                        params.jumps.match_end.push(self.push_offset_placeholder());
+                    }
+
+                    if match_is_container {
+                        self.pop_register()?; // map
+                    }
+                }
                 unexpected => {
                     return self.error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
                 }
@@ -4056,6 +4572,28 @@ impl Compiler {
                             self.push_op_without_span(IterNextQuiet, &[iterator_register]);
                             self.push_loop_jump_placeholder()?;
                         }
+                    }
+                    Node::MapPat { .. } => {
+                        // e.g. for {x} in [{x: 1}, {x: 2}]
+                        // e.g. for {x}: Number in [{x: 1}, {x: 2}]
+                        let map_register = self.push_register()?;
+                        self.push_op_without_span(IterNext, &[map_register, iterator_register]);
+                        self.push_loop_jump_placeholder()?;
+
+                        let target = *single_arg;
+                        let target_registers =
+                            self.local_registers_for_assign_target(target, ctx)?;
+
+                        self.compile_assign_to_map_finish(
+                            target,
+                            &target_registers,
+                            result,
+                            map_register,
+                            false,
+                            ctx,
+                        )?;
+
+                        self.pop_register()?; // map_register
                     }
                     unexpected => {
                         return self.error(ErrorKind::UnexpectedNode {

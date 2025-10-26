@@ -24,7 +24,6 @@ pub fn format(source: &str, options: FormatOptions) -> Result<String> {
     if let Some(entry_point) = ast.entry_point() {
         let context = FormatContext::new(source, &ast, &options);
         let output = format_node(entry_point, &context, &mut trivia.iter());
-        // dbg!(&output);
 
         let mut result = String::new();
         output.render(&mut result, false, false, &options, 0)?;
@@ -319,6 +318,57 @@ fn format_node<'source>(
             .char(':')
             .space_or_indent()
             .node(*value)
+            .build(),
+        Node::MapPat { entries, type_hint } => {
+            let span = ctx.span(node);
+            let force_break = span.start.line < span.end.line;
+            let type_hint_capacity = if type_hint.is_some() { 3 } else { 0 };
+
+            let mut group = GroupBuilder::new(
+                entries.len() * 3 + 4 + type_hint_capacity,
+                node,
+                ctx,
+                trivia,
+            )
+            .char('{')
+            .maybe_force_indent(force_break);
+
+            let mut previous_line = ctx.span(node).start.line;
+            for (i, entry) in entries.iter().enumerate() {
+                let entry_start_line = ctx.span(ctx.node(*entry)).start.line;
+
+                // Space or indent following the previous entry?
+                if i > 0 {
+                    if entry_start_line > previous_line {
+                        group = group.indented_break();
+                    } else {
+                        group = group.space_or_indent_if_necessary();
+                    }
+                }
+                previous_line = entry_start_line;
+
+                group = group.node(*entry);
+                if i < entries.len() - 1 {
+                    group = group.char(',');
+                } else {
+                    group = group.maybe_char(',');
+                }
+            }
+
+            group = group.maybe_return().char('}');
+
+            if let Some(type_hint) = type_hint {
+                group = group.char(':').space_or_indent().node(*type_hint);
+            }
+
+            group.build()
+        }
+        Node::MapKeyRebind { key, pattern } => GroupBuilder::new(5, node, ctx, trivia)
+            .node(*key)
+            .space_or_indent()
+            .str("as")
+            .space_or_indent()
+            .node(*pattern)
             .build(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {

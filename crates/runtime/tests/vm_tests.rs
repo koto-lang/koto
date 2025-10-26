@@ -581,6 +581,106 @@ c
         }
     }
 
+    mod map_assignment {
+        use super::*;
+
+        #[test]
+        fn id_key() {
+            let script = "
+{x as y} = {x: 1}
+y
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn ignored_key() {
+            let script = "
+{x as _} = {x: 1}
+";
+            check_script_output(script, KMap::new());
+        }
+
+        #[test]
+        fn string_key() {
+            let script = "
+{'x' as y} = {x: 1}
+y
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn nested() {
+            let script = "
+{foo as {bar as baz}} = {foo: {bar: 123}}
+baz
+";
+            check_script_output(script, 123);
+        }
+
+        #[test]
+        fn nested_result() {
+            let script = "
+{foo as {bar as baz}} = {foo: {bar: 123}}
+";
+            check_script_output(script, KMap::new());
+        }
+
+        #[test]
+        fn nested_multiple() {
+            let script = "
+{foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
+'{baz1} {baz2}'
+";
+            check_script_output(script, "123 456");
+        }
+
+        #[test]
+        fn nested_multiple_result() {
+            let script = "
+tuple = {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
+'{tuple}'
+";
+            check_script_output(script, "({}, {})");
+        }
+
+        #[test]
+        fn let_nested() {
+            let script = "
+let {foo as {bar as baz}} = {foo: {bar: 123}}
+baz
+";
+            check_script_output(script, 123);
+        }
+
+        #[test]
+        fn let_nested_result() {
+            let script = "
+let {foo as {bar as baz}} = {foo: {bar: 123}}
+";
+            check_script_output(script, KMap::new());
+        }
+
+        #[test]
+        fn let_nested_multiple() {
+            let script = "
+let {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
+'{baz1} {baz2}'
+";
+            check_script_output(script, "123 456");
+        }
+
+        #[test]
+        fn let_nested_multiple_result() {
+            let script = "
+tuple = let {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
+'{tuple}'
+";
+            check_script_output(script, "({}, {})");
+        }
+    }
+
     mod type_checks {
         use super::*;
 
@@ -660,6 +760,24 @@ true
         fn iterable_matches_iterable_values() {
             let script = "
 let x: Iterable, y: Iterable = 1..10, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn map() {
+            let script = "
+let {}: Foo = {@type: 'Foo'}
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn map_key() {
+            let script = "
+let {x: Number} = {x: 1}
 true
 ";
             check_script_output(script, true);
@@ -1072,6 +1190,87 @@ x
 "#;
             check_script_output(script, 100);
         }
+
+        #[test]
+        fn match_map_on_type() {
+            let script = "
+match { @type: 'Foo', x: 3}
+  {x}: Bar then 'bar'
+  {x}: Foo then 'foo'
+  else 'neither'
+";
+            check_script_output(script, "foo");
+        }
+
+        #[test]
+        fn match_map_on_element_type() {
+            let script = "
+match {foo: 'bar'}
+  {foo: Number} then 'err'
+  {foo: String} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_on_number() {
+            let script = "
+match {foo: 4}
+  {foo as 2} then 'err'
+  {foo as 4} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_on_string() {
+            let script = "
+match {foo: 'bar'}
+  {foo as 'qux'} then 'err'
+  {foo as 'bar'} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_on_key() {
+            let script = "
+match {bar: 2}
+  {foo} then 'err'
+  {bar} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_or_first() {
+            let script = "
+match {x: 1}
+  {z} or {w} then 'err'
+  {x} or {y} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_or_last() {
+            let script = "
+match {y: 1}
+  {z} or {w} then 'err'
+  {x} or {y} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_nested() {
+            let script = "
+match {foo: {bar: 'baz'}}
+  {foo as {bar as 'baz'}} then 'ok'
+  else 'err'
+";
+            check_script_output(script, "ok");
+        }
     }
 
     mod switch_expressions {
@@ -1433,6 +1632,46 @@ f = |((_, a), (_, b))| a + b
 f {foo: 42, bar: 99}
 ";
                 check_script_output(script, 141);
+            }
+
+            #[test]
+            fn unpacking_map_by_keys() {
+                let script = "
+f = |{x, y}|
+    x + y
+f {x: 1, y: 2}
+";
+                check_script_output(script, 3);
+            }
+
+            #[test]
+            fn unpacking_map_with_type_by_keys() {
+                let script = "
+f = |{x, y}: Foo|
+  x + y
+f {x: 1, y: 2, @type: 'Foo'}
+";
+                check_script_output(script, 3);
+            }
+
+            #[test]
+            fn unpacking_map_by_keys_with_type() {
+                let script = "
+f = |{x: Number}|
+  x
+f {x: 3}
+";
+                check_script_output(script, 3);
+            }
+
+            #[test]
+            fn unpacking_nested_map_in_map() {
+                let script = "
+f = |{foo as {bar as x}}|
+    x
+f {foo: {bar: 3}}
+";
+                check_script_output(script, 3);
             }
 
             #[test]
@@ -2125,6 +2364,27 @@ for a, _foo, b in ((1, 99, 2), (3, 99, 4))
   sum += a + b
 ";
             check_script_output(script, 10);
+        }
+
+        #[test]
+        fn for_map_arg() {
+            let script = "
+sum = 0
+for {x} in [{x: 1}, {x: 2}, {x: 3}]
+    sum += x
+";
+            check_script_output(script, 6);
+        }
+
+        #[test]
+        fn for_map_arg_nested() {
+            let script = "
+sum = ''
+m = {foo: {bar: 'baz'}}
+for {foo as {bar as baz}} in [m, m]
+    sum = sum + baz
+";
+            check_script_output(script, "bazbaz");
         }
 
         #[test]

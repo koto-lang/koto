@@ -612,12 +612,30 @@ impl Iterator for InstructionReader {
                     key: get_var_u32_with_first_byte!(key_a).into(),
                 }
             }
+            Op::TryAccess => {
+                let [value, key_a] = get_u8x2!();
+                TryAccess {
+                    register: byte_a,
+                    value,
+                    key: get_var_u32_with_first_byte!(key_a).into(),
+                    jump_offset: get_u16!(),
+                }
+            }
             Op::AccessString => {
                 let [byte_b, byte_c] = get_u8x2!();
                 AccessString {
                     register: byte_a,
                     value: byte_b,
                     key: byte_c,
+                }
+            }
+            Op::TryAccessString => {
+                let [byte_b, byte_c] = get_u8x2!();
+                TryAccessString {
+                    register: byte_a,
+                    value: byte_b,
+                    key: byte_c,
+                    jump_offset: get_u16!(),
                 }
             }
             Op::TryStart => TryStart {

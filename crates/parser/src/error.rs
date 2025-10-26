@@ -131,6 +131,16 @@ pub enum SyntaxError {
     ExpectedMapKey,
     #[error("expected value after ':' in Map")]
     ExpectedMapValue,
+    #[error("expected map assignment entry")]
+    ExpectedMapAssignmentEntry,
+    #[error("expected map assignment key rebind id")]
+    ExpectedMapAssignmentKeyRebindId,
+    #[error("expected 'as' after a string key")]
+    ExpectedMapPatAsAfterString,
+    #[error("expected pattern after 'as' in map pattern")]
+    ExpectedMapPatEntryPattern,
+    #[error("expected id or string as the key in map pattern")]
+    ExpectedMapPatKey,
     #[error("expected expression in match arm")]
     ExpectedMatchArmExpression,
     #[error("expected expression after then in match arm")]
@@ -207,6 +217,10 @@ pub enum SyntaxError {
     UnterminatedNumericEscapeCode,
     #[error("unterminated string")]
     UnterminatedString,
+    #[error("unexpected map assignment value")]
+    UnexpectedMapAssignmentValue,
+    #[error("unexpected 'as' after map key")]
+    UnexpectedMapKeyRebindOnRhs,
 }
 
 /// See [`Error`][crate::Error]

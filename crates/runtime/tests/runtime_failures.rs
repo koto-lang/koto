@@ -7,14 +7,18 @@ mod runtime {
     use koto_test_utils::script_instructions;
 
     fn check_script_fails(script: &str) {
-        check_that_script_fails(script, None);
+        check_that_script_fails(script, None, None);
     }
 
     fn check_script_fails_with_span(script: &str, span: Span) {
-        check_that_script_fails(script, Some(span))
+        check_that_script_fails(script, None, Some(span))
     }
 
-    fn check_that_script_fails(script: &str, span: Option<Span>) {
+    fn check_script_fails_with_error_span(script: &str, error: impl Into<String>, span: Span) {
+        check_that_script_fails(script, Some(error.into()), Some(span))
+    }
+
+    fn check_that_script_fails(script: &str, message: Option<String>, span: Option<Span>) {
         let mut vm = KotoVm::default();
 
         let mut loader = ModuleLoader::default();
@@ -35,6 +39,10 @@ mod runtime {
                 )
             }
             Err(e) => {
+                if let Some(expected_message) = message {
+                    assert_eq!(expected_message, e.error.to_string());
+                }
+
                 if let Some(expected_span) = span {
                     let InstructionFrame { chunk, instruction } = e.trace.first().unwrap();
                     let error_span = chunk.debug_info.get_source_span(*instruction).unwrap();
@@ -290,6 +298,50 @@ f 42
             }
 
             #[test]
+            fn function_with_map_arg() {
+                let script = "\
+f = |{x, y}: Foo|
+#    ^^^^^^
+  x + y
+
+f {x: 1, y: 2, @type: 'Bar'}
+";
+                check_script_fails_with_error_span(
+                    script,
+                    "expected Foo, found Bar",
+                    Span {
+                        start: Position { line: 0, column: 5 },
+                        end: Position {
+                            line: 0,
+                            column: 11,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn function_with_map_arg_entry() {
+                let script = "\
+f = |{number: Number}|
+#     ^^^^^^
+  number
+
+f {number: 'not a number'}
+";
+                check_script_fails_with_error_span(
+                    script,
+                    "expected Number, found String",
+                    Span {
+                        start: Position { line: 0, column: 6 },
+                        end: Position {
+                            line: 0,
+                            column: 12,
+                        },
+                    },
+                );
+            }
+
+            #[test]
             fn for_loop_with_typed_arg() {
                 let script = "\
 for foo: Number in (1, true, 2)
@@ -383,6 +435,38 @@ g().consume()
                             line: 2,
                             column: 13,
                         },
+                    },
+                );
+            }
+
+            #[test]
+            fn let_map() {
+                let script = "\
+let {abc}: Foo = {@type: 'Bar', abc: 123}
+#   ^^^^^
+";
+                check_script_fails_with_error_span(
+                    script,
+                    "expected Foo, found Bar",
+                    Span {
+                        start: Position { line: 0, column: 4 },
+                        end: Position { line: 0, column: 9 },
+                    },
+                );
+            }
+
+            #[test]
+            fn let_map_key() {
+                let script = "\
+let {abc: String} = {abc: 123}
+#    ^^^
+";
+                check_script_fails_with_error_span(
+                    script,
+                    "expected String, found Number",
+                    Span {
+                        start: Position { line: 0, column: 5 },
+                        end: Position { line: 0, column: 8 },
                     },
                 );
             }

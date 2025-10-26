@@ -1,7 +1,12 @@
 mod parser {
-    use koto_parser::{Ast, Parser, Position, Result, Span};
+    use koto_parser::{Ast, ErrorKind, Parser, Position, Result, Span, SyntaxError};
 
-    fn check_parsing_result(result: Result<Ast>, source: &str, span: Option<Span>) {
+    fn check_parsing_result(
+        result: Result<Ast>,
+        source: &str,
+        error_kind: Option<ErrorKind>,
+        span: Option<Span>,
+    ) {
         match result {
             Ok(ast) => {
                 panic!(
@@ -10,6 +15,10 @@ mod parser {
                 );
             }
             Err(error) => {
+                if let Some(expected_error_kind) = error_kind {
+                    assert_eq!(expected_error_kind.to_string(), error.error.to_string());
+                }
+
                 if let Some(expected_span) = span {
                     assert_eq!(expected_span, error.span);
                 }
@@ -17,26 +26,33 @@ mod parser {
         }
     }
 
-    #[cfg(feature = "panic_on_parser_error")]
-    fn check_parsing_fails(source: &str, span: Option<Span>) {
+    fn check_that_parsing_fails_with_error_span(
+        source: &str,
+        error: Option<ErrorKind>,
+        span: Option<Span>,
+    ) {
+        #[cfg(feature = "panic_on_parser_error")]
         check_parsing_result(
             std::panic::catch_unwind(|| Parser::parse(source)),
             source,
+            error,
             span,
         );
-    }
 
-    #[cfg(not(feature = "panic_on_parser_error"))]
-    fn check_that_parsing_fails(source: &str, span: Option<Span>) {
-        check_parsing_result(Parser::parse(source), source, span);
+        #[cfg(not(feature = "panic_on_parser_error"))]
+        check_parsing_result(Parser::parse(source), source, error, span);
     }
 
     fn check_parsing_fails(source: &str) {
-        check_that_parsing_fails(source, None);
+        check_that_parsing_fails_with_error_span(source, None, None);
     }
 
     fn check_parsing_fails_with_span(source: &str, span: Span) {
-        check_that_parsing_fails(source, Some(span))
+        check_that_parsing_fails_with_error_span(source, None, Some(span))
+    }
+
+    fn check_parsing_fails_with_error_span(source: &str, error: impl Into<ErrorKind>, span: Span) {
+        check_that_parsing_fails_with_error_span(source, Some(error.into()), Some(span))
     }
 
     mod should_fail {
@@ -67,6 +83,79 @@ x =
                         end: Position { line: 0, column: 3 },
                     },
                 )
+            }
+
+            #[test]
+            fn expected_map_rebind_assignment_target() {
+                let source = "\
+{ x as [] } = { x: [] }
+#      ^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedAssignmentTarget,
+                    Span {
+                        start: Position { line: 0, column: 7 },
+                        end: Position { line: 0, column: 8 },
+                    },
+                );
+            }
+
+            #[test]
+            fn unexpected_map_assignment_value() {
+                let source = "\
+{ x: 'foo' } = { x: 'foo' }
+#    ^^^^^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::UnexpectedMapAssignmentValue,
+                    Span {
+                        start: Position { line: 0, column: 5 },
+                        end: Position {
+                            line: 0,
+                            column: 10,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn unexpected_map_assignment_value_with_meta_key() {
+                let source = "\
+{ @type: 'Foo' } = { @type: 'Foo' }
+#        ^^^^^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::UnexpectedMapAssignmentValue,
+                    Span {
+                        start: Position { line: 0, column: 9 },
+                        end: Position {
+                            line: 0,
+                            column: 14,
+                        },
+                    },
+                );
+            }
+
+            #[test]
+            fn expected_type_for_map_assignment() {
+                let source = "\
+let { x: 'foo' } = { x: 'foo' }
+#        ^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedType,
+                    Span {
+                        start: Position { line: 0, column: 9 },
+                        end: Position {
+                            line: 0,
+                            column: 10,
+                        },
+                    },
+                );
             }
         }
 
@@ -352,6 +441,22 @@ x = {foo: 42, ?}
                     },
                 );
             }
+
+            #[test]
+            fn map_pat_key_rebind_on_rhs() {
+                let source = "\
+{x as y}
+#  ^^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::UnexpectedMapKeyRebindOnRhs,
+                    Span {
+                        start: Position { line: 0, column: 3 },
+                        end: Position { line: 0, column: 5 },
+                    },
+                );
+            }
         }
 
         mod lists {
@@ -463,6 +568,63 @@ match [1, 2, 3]
   else 2
 ";
                 check_parsing_fails(source);
+            }
+
+            #[test]
+            fn map_pat_key() {
+                let source = "\
+match { @type: 'Foo' }
+  { @type: 'Foo' } then 'ok'
+#   ^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedMapPatKey,
+                    Span {
+                        start: Position { line: 1, column: 4 },
+                        end: Position { line: 1, column: 5 },
+                    },
+                );
+            }
+
+            #[test]
+            fn map_pat_string_key_without_as() {
+                let source = "\
+match { x: 'y' }
+  { 'x' } then 'ok'
+#   ^^^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedMapPatAsAfterString,
+                    Span {
+                        start: Position { line: 1, column: 4 },
+                        end: Position { line: 1, column: 7 },
+                    },
+                );
+            }
+
+            #[test]
+            fn map_pat_non_pattern_after_as() {
+                let source = "\
+match { x: 'y' }
+  { 'x' as [] } then 'ok'
+#          ^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedMapPatEntryPattern,
+                    Span {
+                        start: Position {
+                            line: 1,
+                            column: 11,
+                        },
+                        end: Position {
+                            line: 1,
+                            column: 12,
+                        },
+                    },
+                );
             }
         }
 

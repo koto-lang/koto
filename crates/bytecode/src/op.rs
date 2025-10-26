@@ -592,9 +592,27 @@ pub enum Op {
     /// `[*value, @type constant, jump_offset[2]]`
     CheckOptionalType,
 
+    /// Tries to access a contained value via a constant key
+    ///
+    /// If the access fails then the instruction pointer will be jumped forward to
+    /// the location referred to by the jump offset.
+    ///
+    /// This is used for match patterns.
+    ///
+    /// `[*container, @constant, jump_offset[2]]`
+    TryAccess,
+
+    /// Tries to access a contained value via a string key
+    ///
+    /// If the access fails then the instruction pointer will be jumped forward to
+    /// the location referred to by the jump offset.
+    ///
+    /// This is used for match patterns.
+    ///
+    /// `[*result, *container, *key, jump_offset[2]]`
+    TryAccessString,
+
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused93,
-    Unused94,
     Unused95,
     Unused96,
     Unused97,
