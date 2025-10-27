@@ -443,7 +443,7 @@ x = {foo: 42, ?}
             }
 
             #[test]
-            fn map_pat_key_rebind_on_rhs() {
+            fn map_pattern_key_rebind_on_rhs() {
                 let source = "\
 {x as y}
 #  ^^
@@ -571,7 +571,7 @@ match [1, 2, 3]
             }
 
             #[test]
-            fn map_pat_key() {
+            fn map_pattern_key() {
                 let source = "\
 match { @type: 'Foo' }
   { @type: 'Foo' } then 'ok'
@@ -588,7 +588,7 @@ match { @type: 'Foo' }
             }
 
             #[test]
-            fn map_pat_string_key_without_as() {
+            fn map_pattern_string_key_without_as() {
                 let source = "\
 match { x: 'y' }
   { 'x' } then 'ok'
@@ -605,7 +605,7 @@ match { x: 'y' }
             }
 
             #[test]
-            fn map_pat_non_pattern_after_as() {
+            fn map_pattern_non_pattern_after_as() {
                 let source = "\
 match { x: 'y' }
   { 'x' as [] } then 'ok'

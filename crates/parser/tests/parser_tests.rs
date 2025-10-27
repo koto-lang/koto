@@ -160,15 +160,15 @@ mod parser {
         Node::MapEntry(key.into(), value.into())
     }
 
-    fn map_pat(entries: &[u32]) -> Node {
-        Node::MapPat {
+    fn map_pattern(entries: &[u32]) -> Node {
+        Node::MapPattern {
             entries: nodes(entries),
             type_hint: None,
         }
     }
 
-    fn map_pat_with_type_hint(entries: &[u32], type_hint: u32) -> Node {
-        Node::MapPat {
+    fn map_pattern_with_type_hint(entries: &[u32], type_hint: u32) -> Node {
+        Node::MapPattern {
             entries: nodes(entries),
             type_hint: Some(type_hint.into()),
         }
@@ -1785,7 +1785,7 @@ let {x} = {x: 1}
                 source,
                 &[
                     id(0),
-                    map_pat(&[0]),
+                    map_pattern(&[0]),
                     id(0),
                     SmallInt(1),
                     map_entry(2, 3),
@@ -1810,7 +1810,7 @@ let {x, y} = {x: 1, y: 2}
                 &[
                     id(0),
                     id(1),
-                    map_pat(&[0, 1]),
+                    map_pattern(&[0, 1]),
                     id(0),
                     SmallInt(1),
                     map_entry(3, 4),
@@ -1837,9 +1837,9 @@ let {x}, {y} = {x: 1}, {y: 2}
                 source,
                 &[
                     id(0),
-                    map_pat(&[0]),
+                    map_pattern(&[0]),
                     id(1),
-                    map_pat(&[2]),
+                    map_pattern(&[2]),
                     id(0),
                     SmallInt(1),
                     map_entry(4, 5),
@@ -1873,7 +1873,7 @@ let {x}: Foo = {@type: 'Foo'}
                 &[
                     id(0),
                     type_hint(1),
-                    map_pat_with_type_hint(&[0], 1),
+                    map_pattern_with_type_hint(&[0], 1),
                     Meta(MetaKeyId::Type, None),
                     string_literal(1, StringQuote::Single),
                     map_entry(3, 4),
@@ -1899,7 +1899,7 @@ let {x as y} = {x: 1}
                     id(0),
                     id(1),
                     map_key_rebind(0, 1),
-                    map_pat(&[2]),
+                    map_pattern(&[2]),
                     id(0),
                     SmallInt(1),
                     map_entry(4, 5),
@@ -1924,7 +1924,7 @@ let {x: Number} = {x: 1}
                 &[
                     type_hint(1),
                     id_with_type_hint(0, 0),
-                    map_pat(&[1]),
+                    map_pattern(&[1]),
                     id(0),
                     SmallInt(1),
                     map_entry(3, 4),
@@ -1949,7 +1949,7 @@ let {x: Number?} = {x: 1}
                 &[
                     optional_type_hint(1),
                     id_with_type_hint(0, 0),
-                    map_pat(&[1]),
+                    map_pattern(&[1]),
                     id(0),
                     SmallInt(1),
                     map_entry(3, 4),
@@ -1976,7 +1976,7 @@ let {x as y: Number} = {x: 1}
                     type_hint(2),
                     id_with_type_hint(1, 1),
                     map_key_rebind(0, 2),
-                    map_pat(&[3]),
+                    map_pattern(&[3]),
                     id(0),
                     SmallInt(1),
                     map_entry(5, 6),
@@ -2007,7 +2007,7 @@ let {x as y: Number?} = {x: 1}
                     optional_type_hint(2),
                     id_with_type_hint(1, 1),
                     map_key_rebind(0, 2),
-                    map_pat(&[3]),
+                    map_pattern(&[3]),
                     id(0),
                     SmallInt(1),
                     map_entry(5, 6),
@@ -2037,7 +2037,7 @@ let {x as _} = {x: 1}
                     id(0),
                     Ignored(None, None),
                     map_key_rebind(0, 1),
-                    map_pat(&[2]),
+                    map_pattern(&[2]),
                     id(0),
                     SmallInt(1),
                     map_entry(4, 5),
@@ -2757,7 +2757,7 @@ for {x} in [{x: 1}]
                 source,
                 &[
                     id(0),
-                    map_pat(&[0]),
+                    map_pattern(&[0]),
                     id(0),
                     SmallInt(1),
                     map_entry(2, 3),
@@ -3353,7 +3353,7 @@ f = |{x, y}|
                     id(0), // f
                     id(1), // x
                     id(2), // y
-                    map_pat(&[1, 2]),
+                    map_pattern(&[1, 2]),
                     FunctionArgs {
                         args: nodes(&[3]),
                         variadic: false,
@@ -5070,7 +5070,7 @@ match {x: 1}
                     map_entry(0, 1),
                     map_with_braces(&[2]),
                     id(0),
-                    map_pat(&[4]),
+                    map_pattern(&[4]),
                     id(0),
                     MatchArm {
                         patterns: nodes(&[5]),
@@ -5108,7 +5108,7 @@ match {x: 1, @type: 'Foo'}
                     map_with_braces(&[2, 5]),
                     id(0),
                     type_hint(1),
-                    map_pat_with_type_hint(&[7], 8),
+                    map_pattern_with_type_hint(&[7], 8),
                     id(0),
                     MatchArm {
                         patterns: nodes(&[9]),
@@ -5154,7 +5154,7 @@ match {x: 1, y: 2}
                     id(1),
                     id(3),
                     map_key_rebind(10, 11),
-                    map_pat(&[9, 12]),
+                    map_pattern(&[9, 12]),
                     Str(simple_string(4, StringQuote::Single)),
                     Block(nodes(&[14])),
                     MatchArm {

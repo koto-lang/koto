@@ -402,7 +402,7 @@ impl Compiler {
                 // so we only need to compile the value here.
                 self.compile_node(*value, ctx)?
             }
-            Node::MapPat { .. } => {
+            Node::MapPattern { .. } => {
                 // Map patterns are only compiled in `self.compile_assign` or `self.compile_match`.
                 unreachable!();
             }
@@ -872,7 +872,7 @@ impl Compiler {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ctx.ast)?);
                 }
-                Node::MapPat {
+                Node::MapPattern {
                     entries: nested, ..
                 } => {
                     result.push(Arg::Placeholder);
@@ -906,7 +906,7 @@ impl Compiler {
                 }
                 Node::PackedId(Some(id)) => result.push(Arg::Unpacked(*id)),
                 Node::PackedId(None) => {}
-                Node::MapPat {
+                Node::MapPattern {
                     entries: nested_args,
                     ..
                 } => {
@@ -958,7 +958,7 @@ impl Compiler {
 
                 self.pop_span();
             }
-            Node::MapPat {
+            Node::MapPattern {
                 entries: nested_args,
                 type_hint: maybe_type,
             } => {
@@ -1035,7 +1035,7 @@ impl Compiler {
                 Node::PackedId(_) => {
                     return self.error(ErrorKind::InvalidPositionForArgWithEllipses);
                 }
-                Node::Ignored { .. } | Node::Tuple { .. } | Node::MapPat { .. } => {
+                Node::Ignored { .. } | Node::Tuple { .. } | Node::MapPattern { .. } => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
                     self.compile_arg(temp_register, arg, ctx)?;
@@ -1165,7 +1165,7 @@ impl Compiler {
             Node::MapKeyRebind { id_or_ignored, .. } => {
                 self.local_registers_for_assign_target(*id_or_ignored, ctx)
             }
-            Node::Map { entries, .. } | Node::MapPat { entries, .. } => {
+            Node::Map { entries, .. } | Node::MapPattern { entries, .. } => {
                 let mut registers = smallvec![];
 
                 for entry in entries {
@@ -1213,7 +1213,7 @@ impl Compiler {
     ) -> Result<CompileNodeOutput> {
         use Op::*;
 
-        if matches!(ctx.node(target), Node::Map { .. } | Node::MapPat { .. }) {
+        if matches!(ctx.node(target), Node::Map { .. } | Node::MapPattern { .. }) {
             return self.compile_assign_to_map(target, expression, export_assignment, ctx);
         }
 
@@ -1327,7 +1327,7 @@ impl Compiler {
 
         let (targets, type_hint) = match &target_node.node {
             Node::Map { entries, .. } => (entries, None),
-            Node::MapPat { entries, type_hint } => (entries, *type_hint),
+            Node::MapPattern { entries, type_hint } => (entries, *type_hint),
             _ => unreachable!(),
         };
 
@@ -1563,7 +1563,7 @@ impl Compiler {
                         self.push_op(IterNextQuiet, &[iter_register, 0, 0]);
                     }
                 }
-                Node::Map { .. } | Node::MapPat { .. } => {
+                Node::Map { .. } | Node::MapPattern { .. } => {
                     let nested_result = if result.register.is_some() {
                         let temp_register = self.push_register()?;
                         CompileNodeOutput::with_temporary(temp_register)
@@ -4236,7 +4236,7 @@ impl Compiler {
                         return self.error(ErrorKind::OutOfPositionMatchEllipsis);
                     }
                 }
-                Node::MapPat { entries, type_hint } => {
+                Node::MapPattern { entries, type_hint } => {
                     let map_register = if match_is_container {
                         let map_register = self.push_register()?;
                         self.push_op(
@@ -4536,7 +4536,7 @@ impl Compiler {
                             self.push_loop_jump_placeholder()?;
                         }
                     }
-                    Node::MapPat { .. } => {
+                    Node::MapPattern { .. } => {
                         // e.g. for {x} in [{x: 1}, {x: 2}]
                         // e.g. for {x}: Number in [{x: 1}, {x: 2}]
                         let map_register = self.push_register()?;

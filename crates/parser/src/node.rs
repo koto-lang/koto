@@ -123,14 +123,14 @@ pub enum Node {
     MapEntry(AstIndex, AstIndex),
 
     /// A map pattern, on the left hand side of an assignment or as a match pattern
-    MapPat {
+    MapPattern {
         /// The map patterns entries.
         entries: AstVec<AstIndex>,
         /// An optional type hint.
         type_hint: Option<AstIndex>,
     },
 
-    /// A key rebinding inside a [Self::Map] or [Self::MapPat], e.g. `key as id`
+    /// A key rebinding inside a [Self::Map] or [Self::MapPattern], e.g. `key as id`
     MapKeyRebind {
         /// The map key on the left hand side
         key: AstIndex,

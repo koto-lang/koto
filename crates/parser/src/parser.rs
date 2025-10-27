@@ -807,7 +807,7 @@ impl<'source> Parser<'source> {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => {}
-                Node::Map { .. } | Node::MapPat { .. } => {
+                Node::Map { .. } | Node::MapPattern { .. } => {
                     self.add_local_ids_for_map_assignment(*lhs_expression)?
                 }
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
@@ -860,7 +860,7 @@ impl<'source> Parser<'source> {
         let node = mem::take(&mut self.ast.node_mut(index).node);
 
         let entries = match &node {
-            Node::Map { entries, .. } | Node::MapPat { entries, .. } => entries,
+            Node::Map { entries, .. } | Node::MapPattern { entries, .. } => entries,
             _ => unreachable!(), // this function is only called with a Map
         };
 
@@ -875,7 +875,7 @@ impl<'source> Parser<'source> {
                         self.frame_mut()?.add_local_id_assignment(id);
                     }
                     Node::Ignored(..) => (),
-                    Node::Map { .. } | Node::MapPat { .. } => {
+                    Node::Map { .. } | Node::MapPattern { .. } => {
                         self.add_local_ids_for_map_assignment(id_or_ignored)?;
                     }
                     _ => {
@@ -1208,7 +1208,7 @@ impl<'source> Parser<'source> {
 
                     let map_span = self.span_with_start(start_span);
                     let type_hint = self.parse_type_hint(&args_context)?;
-                    let arg_node = Node::MapPat { entries, type_hint };
+                    let arg_node = Node::MapPattern { entries, type_hint };
                     self.push_node_with_span(arg_node, map_span)?
                 }
                 Token::Self_ => {
@@ -1484,7 +1484,7 @@ impl<'source> Parser<'source> {
                 )?;
 
                 let type_hint = self.parse_type_hint(arg_context)?;
-                let arg_node = Node::MapPat { entries, type_hint };
+                let arg_node = Node::MapPattern { entries, type_hint };
                 self.push_node_with_start_span(arg_node, start_span)
             }
             Token::RoundOpen => {
@@ -1725,7 +1725,7 @@ impl<'source> Parser<'source> {
                     None
                 };
 
-                self.push_node_with_span(Node::MapPat { entries, type_hint }, map_span)
+                self.push_node_with_span(Node::MapPattern { entries, type_hint }, map_span)
             }
             _ => return Ok(None),
         }
@@ -2688,7 +2688,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_map_pat_entries(&mut self) -> Result<AstVec<AstIndex>> {
+    fn parse_map_pattern_entries(&mut self) -> Result<AstVec<AstIndex>> {
         let mut entries = AstVec::new();
         let entry_context = &ExpressionContext::inside_braces();
 
@@ -3338,7 +3338,7 @@ impl<'source> Parser<'source> {
 
                     let start_span = self.current_span();
 
-                    let entries = self.parse_map_pat_entries()?;
+                    let entries = self.parse_map_pattern_entries()?;
 
                     self.expect_and_consume_token(
                         Token::CurlyClose,
@@ -3349,7 +3349,7 @@ impl<'source> Parser<'source> {
                     let type_hint = self.parse_type_hint(&pattern_context)?;
 
                     Some(self.push_node_with_start_span(
-                        Node::MapPat { entries, type_hint },
+                        Node::MapPattern { entries, type_hint },
                         start_span,
                     )?)
                 }

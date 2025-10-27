@@ -319,7 +319,7 @@ fn format_node<'source>(
             .space_or_indent()
             .node(*value)
             .build(),
-        Node::MapPat { entries, type_hint } => {
+        Node::MapPattern { entries, type_hint } => {
             let span = ctx.span(node);
             let force_break = span.start.line < span.end.line;
             let type_hint_capacity = if type_hint.is_some() { 3 } else { 0 };
