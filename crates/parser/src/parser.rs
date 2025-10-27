@@ -12,7 +12,6 @@ use std::{
     borrow::Cow,
     collections::HashSet,
     iter::Peekable,
-    mem,
     str::{Chars, FromStr},
 };
 
@@ -807,8 +806,8 @@ impl<'source> Parser<'source> {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
                 Node::Meta { .. } | Node::Chain(_) | Node::Ignored(..) => {}
-                Node::Map { .. } | Node::MapPattern { .. } => {
-                    self.add_local_ids_for_map_assignment(*lhs_expression)?
+                Node::Map { entries, .. } | Node::MapPattern { entries, .. } => {
+                    self.add_local_ids_for_map_assignment(&entries)?
                 }
                 _ => return self.error(SyntaxError::ExpectedAssignmentTarget),
             }
@@ -854,37 +853,29 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn add_local_ids_for_map_assignment(&mut self, index: AstIndex) -> Result<()> {
-        // Temporarily take the Map node out of the ast so we can iterate over its entries
-        // while calling mutating methods on the parser.
-        let node = mem::take(&mut self.ast.node_mut(index).node);
-
-        let entries = match &node {
-            Node::Map { entries, .. } | Node::MapPattern { entries, .. } => entries,
-            _ => unreachable!(), // this function is only called with a Map
-        };
-
+    fn add_local_ids_for_map_assignment(&mut self, entries: &[AstIndex]) -> Result<()> {
         for &entry in entries {
             match self.ast.node(entry).node {
                 Node::Id(id, _) => {
                     self.frame_mut()?.add_local_id_assignment(id);
                 }
-                Node::MapKeyRebind { id_or_ignored, .. } => match self.ast.node(id_or_ignored).node
-                {
-                    Node::Id(id, _) => {
-                        self.frame_mut()?.add_local_id_assignment(id);
+                Node::MapKeyRebind { id_or_ignored, .. } => {
+                    match self.ast.node(id_or_ignored).node.clone() {
+                        Node::Id(id, _) => {
+                            self.frame_mut()?.add_local_id_assignment(id);
+                        }
+                        Node::Ignored(..) => (),
+                        Node::Map { entries, .. } | Node::MapPattern { entries, .. } => {
+                            self.add_local_ids_for_map_assignment(&entries)?;
+                        }
+                        _ => {
+                            return self.error_with_span_of(
+                                SyntaxError::ExpectedMapAssignmentEntry,
+                                id_or_ignored,
+                            );
+                        }
                     }
-                    Node::Ignored(..) => (),
-                    Node::Map { .. } | Node::MapPattern { .. } => {
-                        self.add_local_ids_for_map_assignment(id_or_ignored)?;
-                    }
-                    _ => {
-                        return self.error_with_span_of(
-                            SyntaxError::ExpectedMapAssignmentEntry,
-                            id_or_ignored,
-                        );
-                    }
-                },
+                }
                 Node::MapEntry(_, value) => {
                     return self
                         .error_with_span_of(SyntaxError::UnexpectedMapAssignmentValue, value);
@@ -894,9 +885,6 @@ impl<'source> Parser<'source> {
                 }
             }
         }
-
-        // Put the Map node back into the ast.
-        self.ast.node_mut(index).node = node;
 
         Ok(())
     }

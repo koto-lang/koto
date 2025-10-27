@@ -97,11 +97,6 @@ impl Ast {
         &self.nodes[usize::from(index)]
     }
 
-    /// Returns a node for a given node index mutably
-    pub(crate) fn node_mut(&mut self, index: AstIndex) -> &mut AstNode {
-        &mut self.nodes[usize::from(index)]
-    }
-
     /// Returns a span for a given span index
     pub fn span(&self, index: AstIndex) -> &Span {
         &self.spans[usize::from(index)]
