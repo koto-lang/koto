@@ -869,17 +869,20 @@ impl<'source> Parser<'source> {
                 Node::Id(id, _) => {
                     self.frame_mut()?.add_local_id_assignment(id);
                 }
-                Node::MapKeyRebind { pattern, .. } => match self.ast.node(pattern).node {
+                Node::MapKeyRebind { id_or_ignored, .. } => match self.ast.node(id_or_ignored).node
+                {
                     Node::Id(id, _) => {
                         self.frame_mut()?.add_local_id_assignment(id);
                     }
                     Node::Ignored(..) => (),
                     Node::Map { .. } | Node::MapPat { .. } => {
-                        self.add_local_ids_for_map_assignment(pattern)?;
+                        self.add_local_ids_for_map_assignment(id_or_ignored)?;
                     }
                     _ => {
-                        return self
-                            .error_with_span_of(SyntaxError::ExpectedMapAssignmentEntry, pattern);
+                        return self.error_with_span_of(
+                            SyntaxError::ExpectedMapAssignmentEntry,
+                            id_or_ignored,
+                        );
                     }
                 },
                 Node::MapEntry(_, value) => {
@@ -1175,52 +1178,12 @@ impl<'source> Parser<'source> {
                     while self.peek_token_with_context(entry_context).is_some() {
                         self.consume_until_token_with_context(entry_context);
 
-                        let Some(start_span) = self.peek_span() else {
+                        let Some(entry) = self.parse_destructure_map_entry(
+                            DestructureContext::Function(function_frame),
+                        )?
+                        else {
                             break;
                         };
-
-                        let (mut key_node, key_span) = if let Some((id, _)) =
-                            self.parse_id(&ExpressionContext::restricted())?
-                        {
-                            (Node::Id(id, None), self.current_span())
-                        } else if let Some(s) =
-                            self.parse_string(&ExpressionContext::restricted())?
-                        {
-                            (Node::Str(s.string), s.span)
-                        } else {
-                            break;
-                        };
-
-                        let entry = if let Some(Token::As) = self.peek_next_token_on_same_line() {
-                            let key = self.push_node_with_span(key_node, key_span)?;
-
-                            self.consume_next_token_on_same_line(); // as
-
-                            let Some(pattern) = self.parse_nested_function_arg(function_frame)?
-                            else {
-                                return self.error(SyntaxError::ExpectedMapAssignmentKeyRebindId);
-                            };
-
-                            self.push_node_with_start_span(
-                                Node::MapKeyRebind { key, pattern },
-                                start_span,
-                            )
-                        } else {
-                            if let Node::Id(id, _) = key_node {
-                                function_frame.ids_assigned_in_frame.insert(id);
-
-                                let type_hint_index = self.parse_type_hint(entry_context)?;
-
-                                match &mut key_node {
-                                    Node::Id(_, type_hint) => {
-                                        *type_hint = type_hint_index;
-                                    }
-                                    _ => unreachable!(),
-                                }
-                            }
-
-                            self.push_node_with_span(key_node, key_span)
-                        }?;
 
                         entries.push(entry);
 
@@ -1414,7 +1377,7 @@ impl<'source> Parser<'source> {
         })
     }
 
-    // Helper for parse_function() that recursively parses nested function arguments
+    // Helper for consume_function() that recursively parses nested function arguments
     // e.g.
     //   f = |(foo, bar, (x, y))|
     //   #     ^ You are here
@@ -1492,49 +1455,12 @@ impl<'source> Parser<'source> {
                 while self.peek_token_with_context(entry_context).is_some() {
                     self.consume_until_token_with_context(entry_context);
 
-                    let Some(start_span) = self.peek_span() else {
+                    let Some(entry) = self.parse_destructure_map_entry(
+                        DestructureContext::Function(function_frame),
+                    )?
+                    else {
                         break;
                     };
-
-                    let (mut key_node, key_span) = if let Some((id, _)) =
-                        self.parse_id(&ExpressionContext::restricted())?
-                    {
-                        (Node::Id(id, None), self.current_span())
-                    } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
-                        (Node::Str(s.string), s.span)
-                    } else {
-                        break;
-                    };
-
-                    let entry = if let Some(Token::As) = self.peek_next_token_on_same_line() {
-                        let key = self.push_node_with_span(key_node, key_span)?;
-
-                        self.consume_next_token_on_same_line(); // as
-
-                        let Some(pattern) = self.parse_nested_function_arg(function_frame)? else {
-                            return self.error(SyntaxError::ExpectedMapAssignmentKeyRebindId);
-                        };
-
-                        self.push_node_with_start_span(
-                            Node::MapKeyRebind { key, pattern },
-                            start_span,
-                        )
-                    } else {
-                        if let Node::Id(id, _) = key_node {
-                            function_frame.ids_assigned_in_frame.insert(id);
-
-                            let type_hint_index = self.parse_type_hint(entry_context)?;
-
-                            match &mut key_node {
-                                Node::Id(_, type_hint) => {
-                                    *type_hint = type_hint_index;
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-
-                        self.push_node_with_span(key_node, key_span)
-                    }?;
 
                     entries.push(entry);
 
@@ -1720,13 +1646,13 @@ impl<'source> Parser<'source> {
     /// Parses either:
     /// - an id
     /// - a `_`-prefixed ignored id
-    /// - a map assignment target
+    /// - a map destructuring
     ///
     /// Used in function arguments, for loop, and let.
-    fn parse_assignment_target(
+    fn parse_destructure(
         &mut self,
         context: &ExpressionContext,
-        with_type_hint: bool,
+        mut destructure: DestructureContext,
     ) -> Result<Option<AstIndex>> {
         let Some(peek_info) = self.peek_token_with_context(context) else {
             return Ok(None);
@@ -1736,9 +1662,9 @@ impl<'source> Parser<'source> {
             Token::Id => {
                 self.consume_token_with_context(context);
                 let id = self.add_current_slice_as_string_constant()?;
-                self.frame_mut()?.ids_assigned_in_frame.insert(id);
+                destructure.add_assigned_id(self, id)?;
                 let span = self.current_span();
-                let type_hint = if with_type_hint {
+                let type_hint = if destructure.allows_type_hint() {
                     self.parse_type_hint(context)?
                 } else {
                     None
@@ -1748,7 +1674,7 @@ impl<'source> Parser<'source> {
             Token::Underscore => {
                 let maybe_id = self.consume_ignored_id(context)?;
                 let span = self.current_span();
-                let type_hint = if with_type_hint {
+                let type_hint = if destructure.allows_type_hint() {
                     self.parse_type_hint(context)?
                 } else {
                     None
@@ -1765,7 +1691,7 @@ impl<'source> Parser<'source> {
                 while self.peek_token_with_context(entry_context).is_some() {
                     self.consume_until_token_with_context(entry_context);
 
-                    let Some(entry) = self.parse_assignment_target_map_entry(with_type_hint)?
+                    let Some(entry) = self.parse_destructure_map_entry(destructure.reborrow())?
                     else {
                         break;
                     };
@@ -1793,7 +1719,7 @@ impl<'source> Parser<'source> {
 
                 let map_span = self.span_with_start(start_span);
 
-                let type_hint = if with_type_hint {
+                let type_hint = if destructure.allows_type_hint() {
                     self.parse_type_hint(context)?
                 } else {
                     None
@@ -1806,65 +1732,92 @@ impl<'source> Parser<'source> {
         .map(Some)
     }
 
-    fn parse_assignment_target_map_entry(
+    fn parse_destructure_map_entry(
         &mut self,
-        with_type_hint: bool,
+        mut destructure: DestructureContext,
     ) -> Result<Option<AstIndex>> {
-        let entry_context = &ExpressionContext::inside_braces();
-
-        let Some(start_span) = self.peek_span() else {
+        if let Some(Token::CurlyClose) = self.peek_token() {
             return Ok(None);
+        }
+
+        let context = &ExpressionContext::inside_braces();
+
+        let allow_as;
+        let require_as;
+        let id_for_assignment;
+
+        let key = if let Some((id, _)) = self.parse_id(context)? {
+            let span = self.current_span();
+            let type_hint = self.parse_type_hint(context)?;
+
+            allow_as = type_hint.is_none();
+            require_as = false;
+            id_for_assignment = Some(id);
+
+            self.push_node_with_span(Node::Id(id, type_hint), span)?
+        } else if let Some(s) = self.parse_string(context)? {
+            allow_as = true;
+            require_as = true;
+            id_for_assignment = None;
+
+            self.push_node_with_span(Node::Str(s.string), s.span)?
+        } else {
+            return self.consume_token_and_error(SyntaxError::ExpectedMapPatKey);
         };
 
-        let (mut key_node, key_span) =
-            if let Some((id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-                (Node::Id(id, None), self.current_span())
-            } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
-                (Node::Str(s.string), s.span)
-            } else {
-                return Ok(None);
-            };
-
-        let entry = if let Some(Token::As) = self.peek_next_token_on_same_line() {
-            let key = self.push_node_with_span(key_node, key_span)?;
-
-            self.consume_next_token_on_same_line(); // as
-
-            if self.peek_token_with_context(entry_context).is_none() {
-                return self.error(SyntaxError::ExpectedMapAssignmentKeyRebindId);
+        if allow_as {
+            if let Some(Token::As) = self.peek_next_token_on_same_line() {
+                self.consume_next_token_on_same_line(); // as
+                self.consume_until_token_with_context(context);
+                return self.consume_map_key_rebind(key, destructure).map(Some);
             }
 
-            let Some(target) = self.parse_assignment_target(entry_context, with_type_hint)? else {
-                return self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget);
-            };
+            if require_as {
+                return self.error_with_span_of(SyntaxError::ExpectedMapPatAsAfterString, key);
+            }
+        }
 
-            self.push_node_with_start_span(
-                Node::MapKeyRebind {
-                    key,
-                    pattern: target,
-                },
-                start_span,
-            )
+        if let Some(id) = id_for_assignment {
+            destructure.add_assigned_id(self, id)?;
+        }
+
+        Ok(Some(key))
+    }
+
+    fn consume_map_key_rebind(
+        &mut self,
+        key: AstIndex,
+        mut destructure: DestructureContext,
+    ) -> Result<AstIndex> {
+        let context = &ExpressionContext::inside_braces();
+
+        let Some(id_or_ignored) = self.parse_id_or_ignored(context)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedMapDestructureKeyRebindId);
+        };
+
+        let id_or_ignored_span = self.current_span();
+
+        let type_hint = if destructure.allows_type_hint() {
+            self.parse_type_hint(context)?
         } else {
-            if let Node::Id(id, _) = key_node {
-                self.frame_mut()?.ids_assigned_in_frame.insert(id);
+            None
+        };
 
-                if with_type_hint {
-                    let type_hint_index = self.parse_type_hint(entry_context)?;
+        if let IdOrIgnored::Id(id) = id_or_ignored {
+            destructure.add_assigned_id(self, id)?;
+        }
 
-                    match &mut key_node {
-                        Node::Id(_, type_hint) => {
-                            *type_hint = type_hint_index;
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-            }
+        let id_or_ignored_node = match id_or_ignored {
+            IdOrIgnored::Id(id) => Node::Id(id, type_hint),
+            IdOrIgnored::Ignored(maybe_id) => Node::Ignored(maybe_id, type_hint),
+        };
 
-            self.push_node_with_span(key_node, key_span)
-        }?;
+        let id_or_ignored = self.push_node_with_span(id_or_ignored_node, id_or_ignored_span)?;
 
-        Ok(Some(entry))
+        self.push_node_with_start_span(
+            Node::MapKeyRebind { key, id_or_ignored },
+            *self.ast.span(self.ast.node(key).span),
+        )
     }
 
     fn parse_id_or_string(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>> {
@@ -2683,31 +2636,18 @@ impl<'source> Parser<'source> {
         };
 
         if let Some(key) = key {
-            // Try to parse this entry as lhs
+            // Try to parse this entry as a key rebind
             if let Some((Token::As, as_span)) = self.peek_next_token_on_same_line_with_span() {
                 self.consume_next_token_on_same_line(); // as
-
-                if self.peek_token_with_context(entry_context).is_none() {
-                    return self.error(SyntaxError::ExpectedMapAssignmentKeyRebindId);
-                }
-
-                self.consume_until_token_with_context(entry_context);
-
-                let Some(pattern) = self.parse_assignment_target(entry_context, false)? else {
-                    return self.consume_token_and_error(SyntaxError::ExpectedAssignmentTarget);
-                };
-
-                let entry_start_span = *self.ast.span(self.ast.node(key).span);
 
                 self.frame_mut()?
                     .register_error_if_not_lhs(SyntaxError::UnexpectedMapKeyRebindOnRhs, as_span);
 
-                return self
-                    .push_node_with_start_span(
-                        Node::MapKeyRebind { key, pattern },
-                        entry_start_span,
-                    )
-                    .map(Some);
+                self.consume_until_token_with_context(entry_context);
+
+                let entry = self.consume_map_key_rebind(key, DestructureContext::Expression)?;
+
+                return Ok(Some(entry));
             } else if let Node::Id(id, _) = self.ast.node(key).node
                 && export_map_entries
             {
@@ -2755,7 +2695,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(entry_context).is_some() {
             self.consume_until_token_with_context(entry_context);
 
-            let Some(entry) = self.parse_map_pat_entry()? else {
+            let Some(entry) = self.parse_destructure_map_entry(DestructureContext::Match)? else {
                 break;
             };
 
@@ -2775,75 +2715,6 @@ impl<'source> Parser<'source> {
         }
 
         Ok(entries)
-    }
-
-    fn parse_map_pat_entry(&mut self) -> Result<Option<AstIndex>> {
-        let Some(start_span) = self.peek_span() else {
-            return Ok(None);
-        };
-
-        let key = if let Some((parsed_id, _)) = self.parse_id(&ExpressionContext::restricted())? {
-            self.push_node(Node::Id(parsed_id, None))
-        } else if let Some(s) = self.parse_string(&ExpressionContext::restricted())? {
-            self.push_node_with_span(Node::Str(s.string), s.span)
-        } else {
-            self.consume_token_and_error(SyntaxError::ExpectedMapPatKey)
-        }?;
-
-        let mut pattern = None::<AstIndex>;
-        let mut entry = key;
-
-        if self.peek_next_token_on_same_line() == Some(Token::As) {
-            self.consume_next_token_on_same_line();
-
-            if self
-                .peek_token_with_context(&ExpressionContext::restricted())
-                .is_none()
-            {
-                return self.error(SyntaxError::ExpectedMapPatEntryPattern);
-            }
-
-            self.consume_until_token_with_context(&ExpressionContext::restricted());
-
-            pattern = self.parse_match_pattern(false)?;
-
-            if let Some(pattern) = pattern {
-                entry = self
-                    .push_node_with_start_span(Node::MapKeyRebind { key, pattern }, start_span)?;
-            } else {
-                return self.consume_token_and_error(SyntaxError::ExpectedMapPatEntryPattern);
-            }
-        } else {
-            match self.ast.node(key).node {
-                Node::Str(_) => {
-                    return self.error_with_span_of(SyntaxError::ExpectedMapPatAsAfterString, key);
-                }
-                Node::Id(id, _) => {
-                    self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        let pattern_or_key = pattern.unwrap_or(key);
-
-        // Add type hint
-        match self.ast.node(pattern_or_key).node {
-            Node::Id(..) | Node::MapPat { .. } => {
-                if let Some(new_type_hint) =
-                    self.parse_type_hint(&ExpressionContext::restricted())?
-                {
-                    match &mut self.ast.node_mut(pattern_or_key).node {
-                        Node::Id(_, type_hint) => *type_hint = Some(new_type_hint),
-                        Node::MapPat { type_hint, .. } => *type_hint = Some(new_type_hint),
-                        _ => unreachable!(),
-                    }
-                }
-            }
-            _ => (),
-        }
-
-        Ok(Some(entry))
     }
 
     // Helper for map parsing, attempts to parse a map key from the current position
@@ -2959,7 +2830,7 @@ impl<'source> Parser<'source> {
 
         let mut args = AstVec::new();
 
-        while let Some(arg) = self.parse_assignment_target(context, true)? {
+        while let Some(arg) = self.parse_destructure(context, DestructureContext::For)? {
             args.push(arg);
 
             match self.peek_next_token_on_same_line() {
@@ -3737,7 +3608,7 @@ impl<'source> Parser<'source> {
         let mut targets = AstVec::new();
 
         while let Some(target) =
-            self.parse_assignment_target(&ExpressionContext::permissive(), true)?
+            self.parse_destructure(&ExpressionContext::permissive(), DestructureContext::Let)?
         {
             targets.push(target);
 
@@ -4394,4 +4265,52 @@ struct ParseStringOutput {
     string: AstString,
     span: Span,
     context: ExpressionContext,
+}
+
+enum DestructureContext<'a> {
+    Expression,
+    Let,
+    For,
+    Match,
+    Function(&'a mut Frame),
+}
+
+impl<'a> DestructureContext<'a> {
+    fn reborrow(&'_ mut self) -> DestructureContext<'_> {
+        use DestructureContext::*;
+
+        match self {
+            Expression => Expression,
+            Let => Let,
+            For => For,
+            Match => Match,
+            Function(frame) => Function(frame),
+        }
+    }
+
+    fn allows_type_hint(&self) -> bool {
+        !matches!(self, DestructureContext::Expression)
+    }
+
+    fn add_assigned_id(&mut self, parser: &mut Parser, id: ConstantIndex) -> Result<()> {
+        use DestructureContext::*;
+
+        match self {
+            Expression => {
+                parser.frame_mut()?.add_id_access(id);
+            }
+            Let => {
+                // id assignments will be registered when
+                // encountering the '='
+            }
+            For | Match => {
+                parser.frame_mut()?.ids_assigned_in_frame.insert(id);
+            }
+            Function(frame) => {
+                frame.ids_assigned_in_frame.insert(id);
+            }
+        }
+
+        Ok(())
+    }
 }

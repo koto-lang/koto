@@ -133,12 +133,10 @@ pub enum SyntaxError {
     ExpectedMapValue,
     #[error("expected map assignment entry")]
     ExpectedMapAssignmentEntry,
-    #[error("expected map assignment key rebind id")]
-    ExpectedMapAssignmentKeyRebindId,
+    #[error("expected map destructure key rebind id")]
+    ExpectedMapDestructureKeyRebindId,
     #[error("expected 'as' after a string key")]
     ExpectedMapPatAsAfterString,
-    #[error("expected pattern after 'as' in map pattern")]
-    ExpectedMapPatEntryPattern,
     #[error("expected id or string as the key in map pattern")]
     ExpectedMapPatKey,
     #[error("expected expression in match arm")]

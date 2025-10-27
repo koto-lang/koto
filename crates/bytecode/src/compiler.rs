@@ -1,5 +1,3 @@
-use std::slice;
-
 use crate::{
     Chunk, DebugInfo, FunctionFlags, Op, StringFormatFlags,
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
@@ -914,9 +912,16 @@ impl Compiler {
                 } => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
-                Node::MapKeyRebind { pattern, .. } => {
-                    result.extend(self.collect_nested_args(slice::from_ref(pattern), ast)?);
-                }
+                Node::MapKeyRebind { id_or_ignored, .. } => match &ast.node(*id_or_ignored).node {
+                    Node::Id(id, ..) => result.push(Arg::Unpacked(*id)),
+                    Node::Ignored(..) => {}
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "ID or Ignored".into(),
+                            unexpected: unexpected.clone(),
+                        });
+                    }
+                },
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
                         expected: "nested function args".into(),
@@ -1057,7 +1062,7 @@ impl Compiler {
         // allocate register
         let maybe_id = match ctx.node(arg) {
             Node::Id(id, _) => Some(*id),
-            Node::MapKeyRebind { pattern, .. } => match ctx.node(*pattern) {
+            Node::MapKeyRebind { id_or_ignored, .. } => match ctx.node(*id_or_ignored) {
                 Node::Id(id, _) => Some(*id),
                 _ => None,
             },
@@ -1075,7 +1080,7 @@ impl Compiler {
                 self.compile_access_id(pattern_register, container_register, *id);
                 arg
             }
-            Node::MapKeyRebind { key, pattern } => {
+            Node::MapKeyRebind { key, id_or_ignored } => {
                 match ctx.node(*key) {
                     Node::Id(id, ..) => {
                         self.compile_access_id(pattern_register, container_register, *id);
@@ -1095,7 +1100,7 @@ impl Compiler {
                         });
                     }
                 }
-                *pattern
+                *id_or_ignored
             }
             unexpected => {
                 return self.error(ErrorKind::UnexpectedNode {
@@ -1157,36 +1162,36 @@ impl Compiler {
             Node::Id(constant_index, ..) => {
                 Ok(smallvec![self.reserve_local_register(*constant_index)?])
             }
-            Node::MapKeyRebind { pattern, .. } => {
-                self.local_registers_for_assign_target(*pattern, ctx)
+            Node::MapKeyRebind { id_or_ignored, .. } => {
+                self.local_registers_for_assign_target(*id_or_ignored, ctx)
             }
             Node::Map { entries, .. } | Node::MapPat { entries, .. } => {
                 let mut registers = smallvec![];
 
                 for entry in entries {
-                    match ctx.node(*entry) {
-                        Node::Id(id, _) => registers.push(self.reserve_local_register(*id)?),
-                        Node::MapKeyRebind { pattern, .. } => match ctx.node(*pattern) {
-                            Node::Id(id, _) => registers.push(self.reserve_local_register(*id)?),
-                            Node::Ignored { .. } => continue,
-                            Node::Map { .. } | Node::MapPat { .. } => {
-                                registers
-                                    .extend(self.local_registers_for_assign_target(*entry, ctx)?);
+                    let id = match ctx.node(*entry) {
+                        Node::Id(id, _) => *id,
+                        Node::MapKeyRebind { id_or_ignored, .. } => {
+                            match ctx.node(*id_or_ignored) {
+                                Node::Id(id, _) => *id,
+                                Node::Ignored { .. } => continue,
+                                unexpected => {
+                                    return self.error(ErrorKind::UnexpectedNode {
+                                        expected: "ID or Ignored".into(),
+                                        unexpected: unexpected.clone(),
+                                    });
+                                }
                             }
-                            unexpected => {
-                                return self.error(ErrorKind::UnexpectedNode {
-                                    expected: "map assignment pattern".into(),
-                                    unexpected: unexpected.clone(),
-                                });
-                            }
-                        },
+                        }
                         unexpected => {
                             return self.error(ErrorKind::UnexpectedNode {
-                                expected: "map assignment entry".into(),
+                                expected: "map destructure entry".into(),
                                 unexpected: unexpected.clone(),
                             });
                         }
-                    }
+                    };
+
+                    registers.push(self.reserve_local_register(id)?);
                 }
 
                 Ok(registers)
@@ -1315,29 +1320,9 @@ impl Compiler {
         export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
-        self.compile_assign_to_map_finish_recurse(
-            target,
-            &mut target_registers.iter(),
-            result,
-            value_register,
-            export_assignment,
-            ctx,
-        )?;
-
-        Ok(result)
-    }
-
-    fn compile_assign_to_map_finish_recurse(
-        &mut self,
-        target: AstIndex,
-        target_registers: &mut slice::Iter<u8>,
-        result: CompileNodeOutput,
-        value_register: u8,
-        export_assignment: bool,
-        ctx: CompileNodeContext,
-    ) -> Result<()> {
         use Op::*;
 
+        let mut target_registers = target_registers.iter();
         let target_node = ctx.node_with_span(target);
 
         let (targets, type_hint) = match &target_node.node {
@@ -1359,29 +1344,27 @@ impl Compiler {
         for &target in targets {
             let target_node = ctx.node(target);
 
-            let (key_node, pattern_node, pattern) = match target_node {
+            let (key_node, id_or_ignored_node, id_or_ignored) = match target_node {
                 Node::Id(..) => (target_node, target_node, target),
-                Node::MapKeyRebind { key, pattern } => {
-                    (ctx.node(*key), ctx.node(*pattern), *pattern)
+                Node::MapKeyRebind { key, id_or_ignored } => {
+                    (ctx.node(*key), ctx.node(*id_or_ignored), *id_or_ignored)
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "map assignment entry".into(),
+                        expected: "map destructure entry".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
             };
 
-            let target_register = match pattern_node {
+            let target_register = match id_or_ignored_node {
                 Node::Id(..) => *target_registers
                     .next()
                     .expect("ran out of reserved assignment target registers"),
-                Node::Ignored(..) | Node::Map { .. } | Node::MapPat { .. } => {
-                    self.push_register()?
-                }
+                Node::Ignored(..) => self.push_register()?,
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "map assignment pattern".into(),
+                        expected: "ID or Ignored".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -1407,27 +1390,23 @@ impl Compiler {
                 }
             }
 
-            if let Node::Id(..) = pattern_node {
+            if let Node::Id(_, maybe_type) = id_or_ignored_node {
                 self.commit_local_register(target_register)?;
+
+                if let Some(type_hint) = maybe_type {
+                    self.compile_assert_type(target_register, *type_hint, Some(target), ctx)?;
+                }
             }
 
-            let maybe_type = match pattern_node {
-                Node::Id(_, maybe_type)
-                | Node::MapPat {
-                    type_hint: maybe_type,
-                    ..
-                } => *maybe_type,
-                _ => None,
-            };
-
-            if let Some(type_hint) = maybe_type {
-                self.compile_assert_type(target_register, type_hint, Some(target), ctx)?;
-            }
-
-            match pattern_node {
+            match id_or_ignored_node {
                 Node::Id(id, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
-                        self.compile_assert_type(target_register, *type_hint, Some(pattern), ctx)?;
+                        self.compile_assert_type(
+                            target_register,
+                            *type_hint,
+                            Some(id_or_ignored),
+                            ctx,
+                        )?;
                     }
 
                     if export_assignment || self.force_export_assignment() {
@@ -1444,26 +1423,19 @@ impl Compiler {
                         self.pop_register()?; // key_register
                     }
                 }
-                Node::Map { .. } | Node::MapPat { .. } => {
-                    self.compile_assign_to_map_finish_recurse(
-                        pattern,
-                        target_registers,
-                        CompileNodeOutput::none(),
-                        target_register,
-                        export_assignment,
-                        ctx,
-                    )?;
-
-                    self.pop_register()?; // target_register
-                }
                 Node::Ignored(..) => {
                     self.pop_register()?; // target_register
                 }
-                _ => unreachable!(),
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "ID or Ignored".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
             }
         }
 
-        Ok(())
+        Ok(result)
     }
 
     fn compile_multi_assign(
@@ -4265,19 +4237,19 @@ impl Compiler {
                     }
                 }
                 Node::MapPat { entries, type_hint } => {
-                    let map = if match_is_container {
-                        let map = self.push_register()?;
+                    let map_register = if match_is_container {
+                        let map_register = self.push_register()?;
                         self.push_op(
                             TempIndex,
-                            &[map, params.match_register, pattern_index as u8],
+                            &[map_register, params.match_register, pattern_index as u8],
                         );
-                        map
+                        map_register
                     } else {
                         params.match_register
                     };
 
                     if let Some(type_hint) = type_hint {
-                        let jump = self.compile_check_type(map, *type_hint, ctx)?;
+                        let jump = self.compile_check_type(map_register, *type_hint, ctx)?;
 
                         if params.is_last_alternative {
                             &mut params.jumps.arm_end
@@ -4288,32 +4260,63 @@ impl Compiler {
                     }
 
                     for entry in entries {
-                        let (key, pattern) = match ctx.node(*entry) {
-                            Node::Id(..) => (*entry, None),
-                            Node::MapKeyRebind { key, pattern } => (*key, Some(*pattern)),
+                        let entry_node = ctx.node(*entry);
+
+                        let (key_node, maybe_id, maybe_type) = match entry_node {
+                            Node::Id(id, type_hint) => (entry_node, Some(*id), *type_hint),
+                            Node::MapKeyRebind { key, id_or_ignored } => {
+                                let key_node = ctx.node(*key);
+
+                                match ctx.node(*id_or_ignored) {
+                                    Node::Id(id, type_hint) => (key_node, Some(*id), *type_hint),
+                                    Node::Ignored(_, type_hint) => (key_node, None, *type_hint),
+                                    unexpected => {
+                                        return self.error(ErrorKind::UnexpectedNode {
+                                            expected: "ID or Ignored".into(),
+                                            unexpected: unexpected.clone(),
+                                        });
+                                    }
+                                }
+                            }
+                            unexpected => {
+                                return self.error(ErrorKind::UnexpectedNode {
+                                    expected: "map destructure entry".into(),
+                                    unexpected: unexpected.clone(),
+                                });
+                            }
+                        };
+
+                        let element_register = match maybe_id {
+                            Some(id) => self.assign_local_register(id),
+                            None => self.push_register(),
+                        }?;
+
+                        // Access the map
+                        let jump = match key_node {
+                            Node::Id(key, _) => {
+                                self.compile_try_access_id(element_register, map_register, *key)
+                            }
+                            Node::Str(string) => self.compile_try_access_string(
+                                element_register,
+                                map_register,
+                                &string.contents,
+                                ctx,
+                            )?,
                             unexpected => {
                                 return self
                                     .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
                             }
                         };
 
-                        if let Some(pattern) = pattern {
-                            let element = self.push_register()?;
+                        if params.is_last_alternative {
+                            &mut params.jumps.arm_end
+                        } else {
+                            &mut params.jumps.alternative_end
+                        }
+                        .push(jump);
 
-                            // Access the map
-                            let jump = match ctx.node(key) {
-                                Node::Id(key, _) => self.compile_try_access_id(element, map, *key),
-                                Node::Str(string) => self.compile_try_access_string(
-                                    element,
-                                    map,
-                                    &string.contents,
-                                    ctx,
-                                )?,
-                                unexpected => {
-                                    return self
-                                        .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
-                                }
-                            };
+                        if let Some(type_hint) = maybe_type {
+                            let jump = self.compile_check_type(element_register, type_hint, ctx)?;
 
                             if params.is_last_alternative {
                                 &mut params.jumps.arm_end
@@ -4321,50 +4324,10 @@ impl Compiler {
                                 &mut params.jumps.alternative_end
                             }
                             .push(jump);
+                        }
 
-                            self.compile_match_arm_patterns(
-                                MatchArmParameters {
-                                    match_register: element,
-                                    is_last_alternative: params.is_last_alternative,
-                                    has_last_pattern: params.has_last_pattern,
-                                    jumps: params.jumps,
-                                },
-                                false,
-                                &[pattern],
-                                ctx,
-                            )?;
-
-                            self.pop_register()?; // element
-                        } else {
-                            match ctx.node(key) {
-                                Node::Id(id, maybe_type) => {
-                                    let element = self.assign_local_register(*id)?;
-                                    let jump = self.compile_try_access_id(element, map, *id);
-
-                                    if params.is_last_alternative {
-                                        &mut params.jumps.arm_end
-                                    } else {
-                                        &mut params.jumps.alternative_end
-                                    }
-                                    .push(jump);
-
-                                    if let Some(type_hint) = maybe_type {
-                                        let jump =
-                                            self.compile_check_type(element, *type_hint, ctx)?;
-
-                                        if params.is_last_alternative {
-                                            &mut params.jumps.arm_end
-                                        } else {
-                                            &mut params.jumps.alternative_end
-                                        }
-                                        .push(jump);
-                                    }
-                                }
-                                unexpected => {
-                                    return self
-                                        .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
-                                }
-                            }
+                        if maybe_id.is_none() {
+                            self.pop_register()?; // element_register
                         }
                     }
 
@@ -4377,7 +4340,7 @@ impl Compiler {
                     }
 
                     if match_is_container {
-                        self.pop_register()?; // map
+                        self.pop_register()?; // map_register
                     }
                 }
                 unexpected => {

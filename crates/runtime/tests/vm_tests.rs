@@ -609,76 +609,6 @@ y
 ";
             check_script_output(script, 1);
         }
-
-        #[test]
-        fn nested() {
-            let script = "
-{foo as {bar as baz}} = {foo: {bar: 123}}
-baz
-";
-            check_script_output(script, 123);
-        }
-
-        #[test]
-        fn nested_result() {
-            let script = "
-{foo as {bar as baz}} = {foo: {bar: 123}}
-";
-            check_script_output(script, KMap::new());
-        }
-
-        #[test]
-        fn nested_multiple() {
-            let script = "
-{foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
-'{baz1} {baz2}'
-";
-            check_script_output(script, "123 456");
-        }
-
-        #[test]
-        fn nested_multiple_result() {
-            let script = "
-tuple = {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
-'{tuple}'
-";
-            check_script_output(script, "({}, {})");
-        }
-
-        #[test]
-        fn let_nested() {
-            let script = "
-let {foo as {bar as baz}} = {foo: {bar: 123}}
-baz
-";
-            check_script_output(script, 123);
-        }
-
-        #[test]
-        fn let_nested_result() {
-            let script = "
-let {foo as {bar as baz}} = {foo: {bar: 123}}
-";
-            check_script_output(script, KMap::new());
-        }
-
-        #[test]
-        fn let_nested_multiple() {
-            let script = "
-let {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
-'{baz1} {baz2}'
-";
-            check_script_output(script, "123 456");
-        }
-
-        #[test]
-        fn let_nested_multiple_result() {
-            let script = "
-tuple = let {foo1 as {bar1 as baz1}}, {foo2 as {bar2 as baz2}} = {foo1: {bar1: 123}}, {foo2: {bar2: 456}}
-'{tuple}'
-";
-            check_script_output(script, "({}, {})");
-        }
     }
 
     mod type_checks {
@@ -1192,7 +1122,17 @@ x
         }
 
         #[test]
-        fn match_map_on_type() {
+        fn match_map() {
+            let script = "
+match {bar: 2}
+  {foo} then 'err'
+  {bar} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_with_type() {
             let script = "
 match { @type: 'Foo', x: 3}
   {x}: Bar then 'bar'
@@ -1203,41 +1143,11 @@ match { @type: 'Foo', x: 3}
         }
 
         #[test]
-        fn match_map_on_element_type() {
+        fn match_map_with_element_type() {
             let script = "
 match {foo: 'bar'}
   {foo: Number} then 'err'
   {foo: String} then 'ok'
-";
-            check_script_output(script, "ok");
-        }
-
-        #[test]
-        fn match_map_on_number() {
-            let script = "
-match {foo: 4}
-  {foo as 2} then 'err'
-  {foo as 4} then 'ok'
-";
-            check_script_output(script, "ok");
-        }
-
-        #[test]
-        fn match_map_on_string() {
-            let script = "
-match {foo: 'bar'}
-  {foo as 'qux'} then 'err'
-  {foo as 'bar'} then 'ok'
-";
-            check_script_output(script, "ok");
-        }
-
-        #[test]
-        fn match_map_on_key() {
-            let script = "
-match {bar: 2}
-  {foo} then 'err'
-  {bar} then 'ok'
 ";
             check_script_output(script, "ok");
         }
@@ -1258,16 +1168,6 @@ match {x: 1}
 match {y: 1}
   {z} or {w} then 'err'
   {x} or {y} then 'ok'
-";
-            check_script_output(script, "ok");
-        }
-
-        #[test]
-        fn match_map_nested() {
-            let script = "
-match {foo: {bar: 'baz'}}
-  {foo as {bar as 'baz'}} then 'ok'
-  else 'err'
 ";
             check_script_output(script, "ok");
         }
@@ -1660,16 +1560,6 @@ f {x: 1, y: 2, @type: 'Foo'}
 f = |{x: Number}|
   x
 f {x: 3}
-";
-                check_script_output(script, 3);
-            }
-
-            #[test]
-            fn unpacking_nested_map_in_map() {
-                let script = "
-f = |{foo as {bar as x}}|
-    x
-f {foo: {bar: 3}}
 ";
                 check_script_output(script, 3);
             }
@@ -2374,17 +2264,6 @@ for {x} in [{x: 1}, {x: 2}, {x: 3}]
     sum += x
 ";
             check_script_output(script, 6);
-        }
-
-        #[test]
-        fn for_map_arg_nested() {
-            let script = "
-sum = ''
-m = {foo: {bar: 'baz'}}
-for {foo as {bar as baz}} in [m, m]
-    sum = sum + baz
-";
-            check_script_output(script, "bazbaz");
         }
 
         #[test]

@@ -174,10 +174,10 @@ mod parser {
         }
     }
 
-    fn map_key_rebind(key: u32, pattern: u32) -> Node {
+    fn map_key_rebind(key: u32, id_or_ignored: u32) -> Node {
         Node::MapKeyRebind {
             key: key.into(),
-            pattern: pattern.into(),
+            id_or_ignored: id_or_ignored.into(),
         }
     }
 
@@ -5129,67 +5129,12 @@ match {x: 1, @type: 'Foo'}
         }
 
         #[test]
-        fn map_nested() {
-            let source = "\
-match {foo: {bar: 'baz'}}
-  {foo as {bar as 'baz'}} then 'ok'
-  else 'err'
-";
-            check_ast(
-                source,
-                &[
-                    id(0),
-                    id(1),
-                    Str(simple_string(2, StringQuote::Single)),
-                    map_entry(1, 2),
-                    map_with_braces(&[3]),
-                    map_entry(0, 4),
-                    map_with_braces(&[5]),
-                    id(0),
-                    id(1),
-                    Str(simple_string(2, StringQuote::Single)),
-                    map_key_rebind(8, 9),
-                    map_pat(&[10]),
-                    map_key_rebind(7, 11),
-                    map_pat(&[12]),
-                    Str(simple_string(3, StringQuote::Single)),
-                    MatchArm {
-                        patterns: nodes(&[13]),
-                        condition: None,
-                        expression: 14.into(),
-                    },
-                    Str(simple_string(4, StringQuote::Single)),
-                    MatchArm {
-                        patterns: nodes(&[]),
-                        condition: None,
-                        expression: 16.into(),
-                    },
-                    Match {
-                        expression: 6.into(),
-                        arms: nodes(&[15, 17]),
-                    },
-                    MainBlock {
-                        body: nodes(&[18]),
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Str("baz"),
-                    Constant::Str("ok"),
-                    Constant::Str("err"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn map_multi_line() {
+        fn match_map_multi_line() {
             let source = "\
 match {x: 1, y: 2}
   {
-    x as 1, 
-    y as 2
+    x as a, 
+    y as b
   } then 
     'ok'
 ";
@@ -5204,13 +5149,13 @@ match {x: 1, y: 2}
                     map_entry(3, 4),
                     map_with_braces(&[2, 5]),
                     id(0),
-                    SmallInt(1),
+                    id(2),
                     map_key_rebind(7, 8),
                     id(1),
-                    SmallInt(2),
+                    id(3),
                     map_key_rebind(10, 11),
                     map_pat(&[9, 12]),
-                    Str(simple_string(2, StringQuote::Single)),
+                    Str(simple_string(4, StringQuote::Single)),
                     Block(nodes(&[14])),
                     MatchArm {
                         patterns: nodes(&[13]),
@@ -5223,10 +5168,16 @@ match {x: 1, y: 2}
                     },
                     MainBlock {
                         body: nodes(&[17]),
-                        local_count: 0,
+                        local_count: 2,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("ok")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("a"),
+                    Constant::Str("b"),
+                    Constant::Str("ok"),
+                ]),
             )
         }
 

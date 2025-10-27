@@ -130,12 +130,12 @@ pub enum Node {
         type_hint: Option<AstIndex>,
     },
 
-    /// A key rebinding inside a [Self::Map] or [Self::MapPat], e.g. `key as id`.
+    /// A key rebinding inside a [Self::Map] or [Self::MapPat], e.g. `key as id`
     MapKeyRebind {
-        /// The map key.
+        /// The map key on the left hand side
         key: AstIndex,
-        /// The pattern to be matched.
-        pattern: AstIndex,
+        /// The id or ignored on the right hand side
+        id_or_ignored: AstIndex,
     },
 
     /// The `self` keyword

@@ -363,12 +363,12 @@ fn format_node<'source>(
 
             group.build()
         }
-        Node::MapKeyRebind { key, pattern } => GroupBuilder::new(5, node, ctx, trivia)
+        Node::MapKeyRebind { key, id_or_ignored } => GroupBuilder::new(5, node, ctx, trivia)
             .node(*key)
             .space_or_indent()
             .str("as")
             .space_or_indent()
-            .node(*pattern)
+            .node(*id_or_ignored)
             .build(),
         Node::Self_ => "self".into(),
         Node::MainBlock { body, .. } => {
