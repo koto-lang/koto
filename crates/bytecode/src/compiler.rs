@@ -2782,7 +2782,7 @@ impl Compiler {
         if result.register.is_some() || export_entries {
             for entry in entries.iter() {
                 let entry_node = ctx.node_with_span(*entry);
-                self.push_span(&entry_node, ctx.ast);
+                self.push_span(entry_node, ctx.ast);
                 let (key, value) = match &entry_node.node {
                     Node::MapEntry(key, value) => {
                         let result = match ctx.node(*key) {
