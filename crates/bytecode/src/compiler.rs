@@ -38,6 +38,8 @@ enum ErrorKind {
     JumpOffsetIsTooLarge(usize),
     #[error("function has too many {property} ({amount})")]
     FunctionPropertyLimit { property: String, amount: usize },
+    #[error("rebinding map keys isn't supported on the RHS of a map")]
+    MapKeyRebindNotAllowed,
     #[error("missing argument in for loop")]
     MissingArgumentInForLoop,
     #[error("missing arg register")]
@@ -2779,7 +2781,9 @@ impl Compiler {
         // Process the map's entries
         if result.register.is_some() || export_entries {
             for entry in entries.iter() {
-                let (key, value) = match ctx.node(*entry) {
+                let entry_node = ctx.node_with_span(*entry);
+                self.push_span(&entry_node, ctx.ast);
+                let (key, value) = match &entry_node.node {
                     Node::MapEntry(key, value) => {
                         let result = match ctx.node(*key) {
                             Node::Id(id, _) if export_entries => {
@@ -2812,6 +2816,16 @@ impl Compiler {
                         };
                         (*entry, value)
                     }
+                    Node::MapKeyRebind { .. } => {
+                        // TODO: Can we support rebinding map keys when creating new maps?
+                        // e.g.
+                        // ```
+                        // z = 1
+                        // x = {z as a}
+                        // assert_eq x.a, 1
+                        // ```
+                        return self.error(ErrorKind::MapKeyRebindNotAllowed);
+                    }
                     _ => return self.error(ErrorKind::MissingValueForMapEntry), // todo - update error
                 };
 
@@ -2829,6 +2843,8 @@ impl Compiler {
                 if value.is_temporary {
                     self.pop_register()?;
                 }
+
+                self.pop_span();
             }
         } else {
             // The map is unused, but the entry values should be compiled for side-effects

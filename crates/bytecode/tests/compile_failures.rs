@@ -50,6 +50,15 @@ a...
             check_compilation_fails(source);
         }
 
+        #[test]
+        fn map_key_rebind_on_rhs() {
+            let source = "
+z = 1
+m = {z as x}
+";
+            check_compilation_fails(source);
+        }
+
         mod try_catch {
             use super::*;
 

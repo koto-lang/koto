@@ -609,6 +609,15 @@ y
 ";
             check_script_output(script, 1);
         }
+
+        #[test]
+        fn chained_assignment_with_as() {
+            let script = "
+q = {x, y as b} = {x: 1, y: 2}
+q.b
+";
+            check_script_output(script, 2);
+        }
     }
 
     mod type_checks {
