@@ -1335,12 +1335,6 @@ impl Compiler {
             self.compile_assert_type(value_register, type_hint, Some(target), ctx)?;
         }
 
-        // If the result is needed then prepare the creation of a map
-        if let Some(result_register) = result.register {
-            self.push_op(MakeMap, &[result_register]);
-            self.push_var_u32(targets.len() as u32);
-        }
-
         for &target in targets {
             let target_node = ctx.node(target);
 
@@ -1412,16 +1406,6 @@ impl Compiler {
                     if export_assignment || self.force_export_assignment() {
                         self.compile_value_export(*id, target_register)?;
                     }
-
-                    if let Some(result_register) = result.register {
-                        let key_register = self.push_register()?;
-                        self.compile_load_string_constant(key_register, *id);
-                        self.push_op(
-                            AccessAssign,
-                            &[result_register, key_register, target_register],
-                        );
-                        self.pop_register()?; // key_register
-                    }
                 }
                 Node::Ignored(..) => {
                     self.pop_register()?; // target_register
@@ -1433,6 +1417,10 @@ impl Compiler {
                     });
                 }
             }
+        }
+
+        if let Some(result_register) = result.register {
+            self.push_op(SetNull, &[result_register]);
         }
 
         Ok(result)

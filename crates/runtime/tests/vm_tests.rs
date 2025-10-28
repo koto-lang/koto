@@ -585,7 +585,16 @@ c
         use super::*;
 
         #[test]
-        fn id_key() {
+        fn simple() {
+            let script = "
+{x} = {x: 1}
+x
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn rebind_id_to_id() {
             let script = "
 {x as y} = {x: 1}
 y
@@ -594,20 +603,49 @@ y
         }
 
         #[test]
-        fn ignored_key() {
+        fn rebind_id_to_ignore() {
             let script = "
+x = 'unchanged'
 {x as _} = {x: 1}
+x
 ";
-            check_script_output(script, KMap::new());
+            check_script_output(script, "unchanged");
         }
 
         #[test]
-        fn string_key() {
+        fn rebind_string_to_id() {
             let script = "
 {'x' as y} = {x: 1}
 y
 ";
             check_script_output(script, 1);
+        }
+
+        #[test]
+        fn rebind_string_to_ignore() {
+            let script = "
+x = 'unchanged'
+{x as _} = {x: 1}
+x
+";
+            check_script_output(script, "unchanged");
+        }
+
+        #[test]
+        fn result_value() {
+            let script = "
+{x} = {x: 1}
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn same_local_in_result_and_key() {
+            let script = "
+x = {x} = {x: 1}
+x
+";
+            check_script_output(script, KValue::Null);
         }
     }
 
