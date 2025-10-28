@@ -441,6 +441,22 @@ x = {foo: 42, ?}
                     },
                 );
             }
+
+            #[test]
+            fn map_pattern_key_rebind_on_rhs() {
+                let source = "\
+{x as y}
+#  ^^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::UnexpectedMapKeyRebindOnRhs,
+                    Span {
+                        start: Position { line: 0, column: 3 },
+                        end: Position { line: 0, column: 5 },
+                    },
+                );
+            }
         }
 
         mod lists {

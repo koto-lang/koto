@@ -79,6 +79,18 @@ impl Frame {
         self.ids_assigned_in_frame
             .extend(self.pending_assignments.drain());
     }
+
+    // Register an error, that will be returned after the expression has been parsed.
+    fn register_error_if_not_lhs(&mut self, error: SyntaxError, span: Span) {
+        if self.error_if_not_lhs.is_none() {
+            self.error_if_not_lhs = Some((error, span));
+        }
+    }
+
+    // Clears the error that has been registered.
+    fn clear_error_if_not_lhs(&mut self) {
+        self.error_if_not_lhs = None;
+    }
 }
 
 // The set of rules that can modify how an expression is parsed
@@ -806,6 +818,8 @@ impl<'source> Parser<'source> {
         if targets.is_empty() {
             return self.error(InternalError::MissingAssignmentTarget);
         }
+
+        self.frame_mut()?.clear_error_if_not_lhs();
 
         // Consume the `=` token
         self.consume_token_with_context(context);
@@ -2611,8 +2625,11 @@ impl<'source> Parser<'source> {
 
         if let Some(key) = key {
             // Try to parse this entry as a key rebind
-            if let Some(Token::As) = self.peek_next_token_on_same_line() {
+            if let Some((Token::As, as_span)) = self.peek_next_token_on_same_line_with_span() {
                 self.consume_next_token_on_same_line(); // as
+
+                self.frame_mut()?
+                    .register_error_if_not_lhs(SyntaxError::UnexpectedMapKeyRebindOnRhs, as_span);
 
                 self.consume_until_token_with_context(entry_context);
 
@@ -4106,6 +4123,22 @@ impl<'source> Parser<'source> {
             match peeked {
                 token if token.is_whitespace() => {}
                 token => return Some(token),
+            }
+
+            peek_count += 1;
+        }
+
+        None
+    }
+
+    // Peeks past whitespace on the same line until the next token is found
+    fn peek_next_token_on_same_line_with_span(&mut self) -> Option<(Token, Span)> {
+        let mut peek_count = 0;
+
+        while let Some(peeked) = self.lexer.peek(peek_count) {
+            match peeked.token {
+                token if token.is_whitespace() => {}
+                token => return Some((token, peeked.span)),
             }
 
             peek_count += 1;

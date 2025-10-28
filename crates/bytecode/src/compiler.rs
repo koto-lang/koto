@@ -38,8 +38,6 @@ enum ErrorKind {
     JumpOffsetIsTooLarge(usize),
     #[error("function has too many {property} ({amount})")]
     FunctionPropertyLimit { property: String, amount: usize },
-    #[error("rebinding map keys isn't supported on the RHS of a map")]
-    MapKeyRebindNotAllowed,
     #[error("missing argument in for loop")]
     MissingArgumentInForLoop,
     #[error("missing arg register")]
@@ -2815,16 +2813,6 @@ impl Compiler {
                             }
                         };
                         (*entry, value)
-                    }
-                    Node::MapKeyRebind { .. } => {
-                        // TODO: Can we support rebinding map keys when creating new maps?
-                        // e.g.
-                        // ```
-                        // z = 1
-                        // x = {z as a}
-                        // assert_eq x.a, 1
-                        // ```
-                        return self.error(ErrorKind::MapKeyRebindNotAllowed);
                     }
                     _ => return self.error(ErrorKind::MissingValueForMapEntry), // todo - update error
                 };
