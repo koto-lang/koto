@@ -581,6 +581,74 @@ c
         }
     }
 
+    mod map_assignment {
+        use super::*;
+
+        #[test]
+        fn simple() {
+            let script = "
+{x} = {x: 1}
+x
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn rebind_id_to_id() {
+            let script = "
+{x as y} = {x: 1}
+y
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn rebind_id_to_ignore() {
+            let script = "
+x = 'unchanged'
+{x as _} = {x: 1}
+x
+";
+            check_script_output(script, "unchanged");
+        }
+
+        #[test]
+        fn rebind_string_to_id() {
+            let script = "
+{'x' as y} = {x: 1}
+y
+";
+            check_script_output(script, 1);
+        }
+
+        #[test]
+        fn rebind_string_to_ignore() {
+            let script = "
+x = 'unchanged'
+{x as _} = {x: 1}
+x
+";
+            check_script_output(script, "unchanged");
+        }
+
+        #[test]
+        fn result_value() {
+            let script = "
+{x} = {x: 1}
+";
+            check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn same_local_in_result_and_key() {
+            let script = "
+x = {x} = {x: 1}
+x
+";
+            check_script_output(script, KValue::Null);
+        }
+    }
+
     mod type_checks {
         use super::*;
 
@@ -660,6 +728,24 @@ true
         fn iterable_matches_iterable_values() {
             let script = "
 let x: Iterable, y: Iterable = 1..10, 'foo'
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn map() {
+            let script = "
+let {}: Foo = {@type: 'Foo'}
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn map_key() {
+            let script = "
+let {x: Number} = {x: 1}
 true
 ";
             check_script_output(script, true);
@@ -1072,6 +1158,57 @@ x
 "#;
             check_script_output(script, 100);
         }
+
+        #[test]
+        fn match_map() {
+            let script = "
+match {bar: 2}
+  {foo} then 'err'
+  {bar} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_with_type() {
+            let script = "
+match { @type: 'Foo', x: 3}
+  {x}: Bar then 'bar'
+  {x}: Foo then 'foo'
+  else 'neither'
+";
+            check_script_output(script, "foo");
+        }
+
+        #[test]
+        fn match_map_with_element_type() {
+            let script = "
+match {foo: 'bar'}
+  {foo: Number} then 'err'
+  {foo: String} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_or_first() {
+            let script = "
+match {x: 1}
+  {z} or {w} then 'err'
+  {x} or {y} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
+
+        #[test]
+        fn match_map_or_last() {
+            let script = "
+match {y: 1}
+  {z} or {w} then 'err'
+  {x} or {y} then 'ok'
+";
+            check_script_output(script, "ok");
+        }
     }
 
     mod switch_expressions {
@@ -1433,6 +1570,36 @@ f = |((_, a), (_, b))| a + b
 f {foo: 42, bar: 99}
 ";
                 check_script_output(script, 141);
+            }
+
+            #[test]
+            fn unpacking_map_by_keys() {
+                let script = "
+f = |{x, y}|
+    x + y
+f {x: 1, y: 2}
+";
+                check_script_output(script, 3);
+            }
+
+            #[test]
+            fn unpacking_map_with_type_by_keys() {
+                let script = "
+f = |{x, y}: Foo|
+  x + y
+f {x: 1, y: 2, @type: 'Foo'}
+";
+                check_script_output(script, 3);
+            }
+
+            #[test]
+            fn unpacking_map_by_keys_with_type() {
+                let script = "
+f = |{x: Number}|
+  x
+f {x: 3}
+";
+                check_script_output(script, 3);
             }
 
             #[test]
@@ -2125,6 +2292,16 @@ for a, _foo, b in ((1, 99, 2), (3, 99, 4))
   sum += a + b
 ";
             check_script_output(script, 10);
+        }
+
+        #[test]
+        fn for_map_arg() {
+            let script = "
+sum = 0
+for {x} in [{x: 1}, {x: 2}, {x: 3}]
+    sum += x
+";
+            check_script_output(script, 6);
         }
 
         #[test]

@@ -323,10 +323,22 @@ pub enum Instruction {
         value: u8,
         key: ConstantIndex,
     },
+    TryAccess {
+        register: u8,
+        value: u8,
+        key: ConstantIndex,
+        jump_offset: u16,
+    },
     AccessString {
         register: u8,
         value: u8,
         key: u8,
+    },
+    TryAccessString {
+        register: u8,
+        value: u8,
+        key: u8,
+        jump_offset: u16,
     },
     AccessAssign {
         register: u8,
@@ -882,7 +894,7 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "AccessAssign    register: {register:<10} value: {value:<8} key: {key}"
+                "AccessAssign    register: {register:<5} value: {value:<8} key: {key}"
             ),
             MetaInsert {
                 register,
@@ -923,6 +935,15 @@ impl fmt::Debug for Instruction {
                 f,
                 "Access          result: {register:<7} source: {value:<7} key: {key}"
             ),
+            TryAccess {
+                register,
+                value,
+                key,
+                jump_offset,
+            } => write!(
+                f,
+                "TryAccess       result: {register:<7} source: {value:<7} key: {key} offset: {jump_offset}"
+            ),
             AccessString {
                 register,
                 value,
@@ -930,6 +951,15 @@ impl fmt::Debug for Instruction {
             } => write!(
                 f,
                 "AccessString    result: {register:<7} source: {value:<7} key: {key}"
+            ),
+            TryAccessString {
+                register,
+                value,
+                key,
+                jump_offset,
+            } => write!(
+                f,
+                "TryAccessString result: {register:<7} source: {value:<7} key: {key} offset: {jump_offset}"
             ),
             TryStart {
                 arg_register,

@@ -122,6 +122,22 @@ pub enum Node {
     /// Keys will either be Id, String, or Meta nodes.
     MapEntry(AstIndex, AstIndex),
 
+    /// A map pattern, on the left hand side of an assignment or as a match pattern
+    MapPattern {
+        /// The map patterns entries.
+        entries: AstVec<AstIndex>,
+        /// An optional type hint.
+        type_hint: Option<AstIndex>,
+    },
+
+    /// A key rebinding inside a [Self::Map] or [Self::MapPattern], e.g. `key as id`
+    MapKeyRebind {
+        /// The map key on the left hand side
+        key: AstIndex,
+        /// The id or ignored on the right hand side
+        id_or_ignored: AstIndex,
+    },
+
     /// The `self` keyword
     Self_,
 
