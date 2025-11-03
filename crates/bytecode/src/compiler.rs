@@ -1387,16 +1387,14 @@ impl Compiler {
                 }
             }
 
-            if let Node::Id(_, maybe_type) = id_or_ignored_node {
-                self.commit_local_register(target_register)?;
-
-                if let Some(type_hint) = maybe_type {
-                    self.compile_assert_type(target_register, *type_hint, Some(target), ctx)?;
-                }
-            }
-
             match id_or_ignored_node {
                 Node::Id(id, maybe_type) => {
+                    self.commit_local_register(target_register)?;
+
+                    if let Some(type_hint) = maybe_type {
+                        self.compile_assert_type(target_register, *type_hint, Some(target), ctx)?;
+                    }
+
                     if let Some(type_hint) = maybe_type {
                         self.compile_assert_type(
                             target_register,
