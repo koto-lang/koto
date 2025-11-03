@@ -42,6 +42,8 @@ enum ErrorKind {
     MissingArgumentInForLoop,
     #[error("missing arg register")]
     MissingArgRegister,
+    #[error("missing assignment target register")]
+    MissingAssignmentTargetRegister,
     #[error("missing item to import")]
     MissingImportItem,
     #[error("missing next node while compiling a chain")]
@@ -1352,9 +1354,10 @@ impl Compiler {
             };
 
             let target_register = match id_or_ignored_node {
-                Node::Id(..) => *target_registers
-                    .next()
-                    .expect("ran out of reserved assignment target registers"),
+                Node::Id(..) => match target_registers.next() {
+                    Some(register) => *register,
+                    None => return self.error(ErrorKind::MissingAssignmentTargetRegister),
+                },
                 Node::Ignored(..) => self.push_register()?,
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
@@ -1476,9 +1479,10 @@ impl Compiler {
         {
             match ctx.node(*target) {
                 Node::Id(id_index, type_hint) => {
-                    let target_register = *target_registers
-                        .first()
-                        .expect("Missing target register for assignment");
+                    let target_register = match target_registers.first() {
+                        Some(register) => *register,
+                        None => return self.error(ErrorKind::MissingAssignmentTargetRegister),
+                    };
 
                     if rhs_is_temp_tuple {
                         self.push_op(TempIndex, &[target_register, iter_register, i as u8]);
