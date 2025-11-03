@@ -2782,6 +2782,36 @@ impl KotoVm {
         value_register: u8,
         key_string: KString,
     ) -> Result<()> {
+        self.run_access_inner(result_register, value_register, key_string, true)?;
+        Ok(())
+    }
+
+    fn run_try_access(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key_string: KString,
+        jump_offset: u32,
+    ) -> Result<()> {
+        if !self.run_access_inner(result_register, value_register, key_string, false)? {
+            self.jump_ip(jump_offset);
+        }
+        Ok(())
+    }
+
+    // Runs `.` access on a value.
+    //
+    // If the given key was found then `true` will be returned.
+    //
+    // If `error_if_not_found` is `true`, then an error will be returned if the key wasn't found,
+    // otherwise `false` will be returned.
+    fn run_access_inner(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key_string: KString,
+        error_if_not_found: bool,
+    ) -> Result<bool> {
         use KValue::*;
 
         let accessed_value = self.clone_register(value_register);
@@ -2789,13 +2819,18 @@ impl KotoVm {
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
-                let op = self.get_core_op(
+                if let Some(op) = self.get_core_op(
                     &key,
                     &self.context.core_lib.$module,
                     $iterator_fallback,
                     stringify!($module),
-                )?;
-                self.set_register(result_register, op);
+                    error_if_not_found,
+                )? {
+                    self.set_register(result_register, op);
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
             }};
         }
 
@@ -2808,12 +2843,8 @@ impl KotoVm {
             Iterator(_) => core_op!(iterator, false),
             Map(map) if map.contains_meta_key(&ReadOp::Access.into()) => {
                 let op = map.get_meta_value(&ReadOp::Access.into()).unwrap();
-                return self.call_overridden_op_2(
-                    Some(result_register),
-                    accessed_value,
-                    key.into(),
-                    op,
-                );
+                self.call_overridden_op_2(Some(result_register), accessed_value, key.into(), op)?;
+                Ok(true)
             }
             Map(map) => {
                 let mut access_map = map.clone();
@@ -2824,8 +2855,7 @@ impl KotoVm {
                         Some(value) => access_result = Some(value),
                         // Fallback to the map module when there's no metamap
                         None if access_map.meta_map().is_none() => {
-                            core_op!(map, true);
-                            return Ok(());
+                            return core_op!(map, error_if_not_found);
                         }
                         _ => match access_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
                             Some(value) => access_result = Some(value),
@@ -2848,22 +2878,31 @@ impl KotoVm {
                     && (map.contains_meta_key(&UnaryOp::Iterator.into())
                         || map.contains_meta_key(&UnaryOp::Next.into()))
                 {
-                    access_result = Some(self.get_core_op(
+                    access_result = self.get_core_op(
                         &key,
                         &self.context.core_lib.iterator,
                         false,
                         &accessed_value.type_as_string(),
-                    )?);
+                        error_if_not_found,
+                    )?;
                 }
 
-                let Some(value) = access_result else {
-                    return runtime_error!(
-                        "'{key}' not found in '{}'",
-                        accessed_value.type_as_string()
-                    );
-                };
-
-                self.set_register(result_register, value);
+                match access_result {
+                    Some(value) => {
+                        self.set_register(result_register, value);
+                        Ok(true)
+                    }
+                    None => {
+                        if error_if_not_found {
+                            runtime_error!(
+                                "'{key}' not found in '{}'",
+                                accessed_value.type_as_string()
+                            )
+                        } else {
+                            Ok(false)
+                        }
+                    }
+                }
             }
             Object(o) => {
                 let o = o.try_borrow()?;
@@ -2876,139 +2915,26 @@ impl KotoVm {
 
                 // Iterator fallback?
                 if result.is_none() && !matches!(o.is_iterable(), IsIterable::NotIterable) {
-                    result = Some(self.get_core_op(
+                    result = self.get_core_op(
                         &key,
                         &self.context.core_lib.iterator,
                         false,
                         &o.type_string(),
-                    )?);
+                        error_if_not_found,
+                    )?;
                 }
 
                 if let Some(result) = result {
                     self.set_register(result_register, result);
+                    Ok(true)
+                } else if error_if_not_found {
+                    runtime_error!("'{key}' not found in '{}'", o.type_string())
                 } else {
-                    return runtime_error!("'{key}' not found in '{}'", o.type_string());
+                    Ok(false)
                 }
             }
-            unexpected => {
-                return unexpected_type("a value that supports '.' access", unexpected);
-            }
+            unexpected => unexpected_type("a value that supports '.' access", unexpected),
         }
-
-        Ok(())
-    }
-
-    fn run_try_access(
-        &mut self,
-        result_register: u8,
-        value_register: u8,
-        key_string: KString,
-        jump_offset: u32,
-    ) -> Result<()> {
-        use KValue::*;
-
-        let accessed_value = self.clone_register(value_register);
-        let key = ValueKey::from(key_string.clone());
-
-        macro_rules! core_op {
-            ($module:ident, $iterator_fallback:expr) => {
-                self.try_get_core_op(&key, &self.context.core_lib.$module, $iterator_fallback)
-            };
-        }
-
-        let value = match &accessed_value {
-            List(_) => core_op!(list, true),
-            Number(_) => core_op!(number, false),
-            Range(_) => core_op!(range, true),
-            Str(_) => core_op!(string, true),
-            Tuple(_) => core_op!(tuple, true),
-            Iterator(_) => core_op!(iterator, false),
-            Map(map) if map.contains_meta_key(&ReadOp::Access.into()) => {
-                let op = map.get_meta_value(&ReadOp::Access.into()).unwrap();
-                return self.call_overridden_op_2(
-                    Some(result_register),
-                    accessed_value,
-                    key.into(),
-                    op,
-                );
-            }
-            Map(map) => {
-                let mut access_map = map.clone();
-                let mut access_result = None;
-
-                while access_result.is_none() {
-                    let maybe_value = access_map.get(&key);
-                    match maybe_value {
-                        Some(value) => access_result = Some(value),
-                        // Fallback to the map module when there's no metamap
-                        None if access_map.meta_map().is_none() => {
-                            access_result = core_op!(map, true);
-                            break;
-                        }
-                        _ => match access_map.get_meta_value(&MetaKey::Named(key_string.clone())) {
-                            Some(value) => access_result = Some(value),
-                            None => match access_map.get_meta_value(&MetaKey::Base) {
-                                Some(Map(base)) => {
-                                    // Attempt the access again with the base map
-                                    access_map = base;
-                                }
-                                Some(unexpected) => {
-                                    return unexpected_type("Map as base value", &unexpected);
-                                }
-                                None => break,
-                            },
-                        },
-                    }
-                }
-
-                // Iterator fallback?
-                if access_result.is_none()
-                    && (map.contains_meta_key(&UnaryOp::Iterator.into())
-                        || map.contains_meta_key(&UnaryOp::Next.into()))
-                {
-                    access_result = Some(self.get_core_op(
-                        &key,
-                        &self.context.core_lib.iterator,
-                        false,
-                        &accessed_value.type_as_string(),
-                    )?);
-                }
-
-                access_result
-            }
-            Object(o) => {
-                let o = o.try_borrow()?;
-
-                let mut result = None;
-
-                if let KValue::Str(key) = key.value() {
-                    result = o.access(key)?;
-                }
-
-                // Iterator fallback?
-                if result.is_none() && !matches!(o.is_iterable(), IsIterable::NotIterable) {
-                    result = Some(self.get_core_op(
-                        &key,
-                        &self.context.core_lib.iterator,
-                        false,
-                        &o.type_string(),
-                    )?);
-                }
-
-                result
-            }
-            unexpected => {
-                return unexpected_type("Value that supports '.' get operations", unexpected);
-            }
-        };
-
-        if let Some(value) = value {
-            self.set_register(result_register, value);
-        } else {
-            self.jump_ip(jump_offset);
-        }
-
-        Ok(())
     }
 
     fn get_core_op(
@@ -3017,28 +2943,19 @@ impl KotoVm {
         module: &KMap,
         iterator_fallback: bool,
         module_name: &str,
-    ) -> Result<KValue> {
+        error_if_not_found: bool,
+    ) -> Result<Option<KValue>> {
         let maybe_op = match module.get(key) {
             None if iterator_fallback => self.context.core_lib.iterator.get(key),
             maybe_op => maybe_op,
         };
 
         if let Some(result) = maybe_op {
-            Ok(result)
-        } else {
+            Ok(Some(result))
+        } else if error_if_not_found {
             runtime_error!("'{key}' not found in '{module_name}'")
-        }
-    }
-
-    fn try_get_core_op(
-        &self,
-        key: &ValueKey,
-        module: &KMap,
-        iterator_fallback: bool,
-    ) -> Option<KValue> {
-        match module.get(key) {
-            None if iterator_fallback => self.context.core_lib.iterator.get(key),
-            maybe_op => maybe_op,
+        } else {
+            Ok(None)
         }
     }
 
