@@ -2891,7 +2891,7 @@ impl KotoVm {
                 }
             }
             unexpected => {
-                return unexpected_type("Value that supports '.' get operations", unexpected);
+                return unexpected_type("a value that supports '.' access", unexpected);
             }
         }
 
