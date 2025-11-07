@@ -487,8 +487,11 @@ l2[1]";
 
         #[test]
         fn assign_single_value() {
-            let script = "a, b = 42";
-            check_script_output(script, tuple(&[42.into(), KValue::Null]));
+            let script = "
+result = a, b = 42
+a, b, result
+";
+            check_script_output(script, tuple(&[42.into(), KValue::Null, 42.into()]));
         }
 
         #[test]
@@ -506,22 +509,39 @@ a";
         }
 
         #[test]
+        fn assign_tuple_propagate() {
+            let script = "
+result = a, b = 1, 2
+a, b, result
+";
+            check_script_output(script, tuple(&[1.into(), 2.into(), number_tuple(&[1, 2])]));
+        }
+
+        #[test]
         fn list_elements_2_to_2() {
             let script = "
 x = [0, 0]
-x[0], x[1] = -1, 42";
+x[0], x[1] = -1, 42
+x[0], x[1]
+";
             check_script_output(script, number_tuple(&[-1, 42]));
         }
 
         #[test]
         fn unpack_list() {
-            let script = "a, b, c = [7, 8]";
+            let script = "
+a, b, c = [7, 8]
+a, b, c
+";
             check_script_output(script, tuple(&[7.into(), 8.into(), KValue::Null]));
         }
 
         #[test]
         fn multiple_lists() {
-            let script = "a, b, c = [1, 2], [3, 4]";
+            let script = "
+a, b, c = [1, 2], [3, 4]
+a, b, c
+";
             check_script_output(
                 script,
                 tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), KValue::Null]),
@@ -530,7 +550,10 @@ x[0], x[1] = -1, 42";
 
         #[test]
         fn iterator() {
-            let script = "a, b, c = (1, 2).each |x| x * 10";
+            let script = "
+a, b, c = (1, 2).each |x| x * 10
+a, b, c
+";
             check_script_output(script, tuple(&[10.into(), 20.into(), KValue::Null]));
         }
 
@@ -538,7 +561,9 @@ x[0], x[1] = -1, 42";
         fn iterator_into_chains() {
             let script = "
 x = [1, 2]
-x[0], x[1] = (1, 2).each |x| x * 10";
+x[0], x[1] = (1, 2).each |x| x * 10
+x[0], x[1]
+";
             check_script_output(script, tuple(&[10.into(), 20.into()]));
         }
 
@@ -578,6 +603,36 @@ a, b, c = 1..=2
 c
 ";
             check_script_output(script, KValue::Null);
+        }
+
+        #[test]
+        fn propagate_rhs_iterator() {
+            let script = "
+i = (1..10).iter()
+c, d = a, b = i
+a, b, c, d
+";
+            check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn same_local_in_result_and_element_temp() {
+            let script = "
+a, b, c = 1, 2, 3
+b = a, b, c = a, b, c
+b
+";
+            check_script_output(script, number_tuple(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn same_local_in_result_and_element_list() {
+            let script = "
+a, b, c = 1, 2, 3
+b = a, b, c = [a, b, c]
+b
+";
+            check_script_output(script, number_list(&[1, 2, 3]));
         }
     }
 
