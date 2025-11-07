@@ -636,7 +636,10 @@ x
             let script = "
 {x} = {x: 1}
 ";
-            check_script_output(script, KValue::Null);
+
+            let map = KMap::new();
+            map.insert("x", 1);
+            check_script_output(script, map);
         }
 
         #[test]
@@ -645,7 +648,28 @@ x
 x = {x} = {x: 1}
 x
 ";
-            check_script_output(script, KValue::Null);
+            let map = KMap::new();
+            map.insert("x", 1);
+            check_script_output(script, map);
+        }
+
+        #[test]
+        fn propagate_rhs() {
+            let script = "
+result = {x} = {y} = {x: 1, y: 2, z: 3}
+x, y, result
+";
+
+            check_script_output(
+                script,
+                tuple(&[1.into(), 2.into(), {
+                    let map = KMap::new();
+                    map.insert("x", 1);
+                    map.insert("y", 2);
+                    map.insert("z", 3);
+                    map.into()
+                }]),
+            );
         }
     }
 

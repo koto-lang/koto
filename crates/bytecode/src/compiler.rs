@@ -1295,19 +1295,14 @@ impl Compiler {
         export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
-        let result = self.assign_result_register(ctx)?;
-
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = self.local_registers_for_assign_target(target, ctx)?;
-
-        let rhs = self.compile_node(expression, ctx.with_any_register())?;
-        let rhs_register = rhs.unwrap(self)?;
+        let value_result = self.compile_node(expression, ctx.with_any_register())?;
 
         self.compile_assign_to_map_finish(
             target,
             &target_registers,
-            result,
-            rhs_register,
+            value_result,
             export_assignment,
             ctx,
         )
@@ -1317,12 +1312,13 @@ impl Compiler {
         &mut self,
         target: AstIndex,
         target_registers: &[u8],
-        result: CompileNodeOutput,
-        value_register: u8,
+        value_result: CompileNodeOutput,
         export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         use Op::*;
+
+        let value_register = value_result.unwrap(self)?;
 
         let mut target_registers = target_registers.iter();
         let target_node = ctx.node_with_span(target);
@@ -1420,8 +1416,20 @@ impl Compiler {
             }
         }
 
-        if let Some(result_register) = result.register {
-            self.push_op(SetNull, &[result_register]);
+        let result = match ctx.result_register {
+            ResultRegister::Fixed(register) => {
+                if register != value_register {
+                    self.push_op(Copy, &[register, value_register]);
+                }
+                CompileNodeOutput::with_assigned(register)
+            }
+            ResultRegister::Any => value_result,
+            ResultRegister::None => CompileNodeOutput::none(),
+        };
+
+        // We must not pop the value's temporary register if we forward its result to the caller.
+        if value_result.is_temporary && !matches!(ctx.result_register, ResultRegister::Any) {
+            self.pop_register()?;
         }
 
         Ok(result)
@@ -1554,11 +1562,10 @@ impl Compiler {
                     }
                 }
                 Node::Map { .. } | Node::MapPattern { .. } => {
-                    let nested_result = if result.register.is_some() {
-                        let temp_register = self.push_register()?;
-                        CompileNodeOutput::with_temporary(temp_register)
+                    let temp_register = if result.register.is_some() {
+                        Some(self.push_register()?)
                     } else {
-                        CompileNodeOutput::none()
+                        None
                     };
 
                     let value_register = self.push_register()?;
@@ -1572,15 +1579,14 @@ impl Compiler {
                     self.compile_assign_to_map_finish(
                         *target,
                         target_registers,
-                        nested_result,
-                        value_register,
+                        CompileNodeOutput::with_assigned(value_register),
                         export_assignment,
-                        ctx,
+                        ctx.with_fixed_register_or_none(temp_register),
                     )?;
 
                     self.pop_register()?; // value_register
 
-                    if let Some(temp_register) = nested_result.register {
+                    if let Some(temp_register) = temp_register {
                         self.pop_register()?; // temp_register
                         self.push_op(SequencePush, &[temp_register]);
                     }
@@ -4544,10 +4550,9 @@ impl Compiler {
                         self.compile_assign_to_map_finish(
                             target,
                             &target_registers,
-                            result,
-                            map_register,
+                            CompileNodeOutput::with_assigned(map_register),
                             false,
-                            ctx,
+                            ctx.compile_for_side_effects(),
                         )?;
 
                         self.pop_register()?; // map_register
