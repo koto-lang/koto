@@ -1295,33 +1295,36 @@ impl Compiler {
         export_assignment: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
-        let result = self.assign_result_register(ctx)?;
-
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
+        let result = self.assign_result_register(ctx)?;
         let target_registers = self.local_registers_for_assign_target(target, ctx)?;
-
-        let rhs = self.compile_node(expression, ctx.with_any_register())?;
-        let rhs_register = rhs.unwrap(self)?;
+        let rhs_value = self.compile_node(expression, ctx.with_any_register())?;
 
         self.compile_assign_to_map_finish(
+            result.register,
             target,
             &target_registers,
-            result,
-            rhs_register,
+            rhs_value.unwrap(self)?,
             export_assignment,
             ctx,
-        )
+        )?;
+
+        if rhs_value.is_temporary {
+            self.pop_register()?;
+        }
+
+        Ok(result)
     }
 
     fn compile_assign_to_map_finish(
         &mut self,
+        result_register: Option<u8>,
         target: AstIndex,
         target_registers: &[u8],
-        result: CompileNodeOutput,
         value_register: u8,
         export_assignment: bool,
         ctx: CompileNodeContext,
-    ) -> Result<CompileNodeOutput> {
+    ) -> Result<()> {
         use Op::*;
 
         let mut target_registers = target_registers.iter();
@@ -1420,11 +1423,13 @@ impl Compiler {
             }
         }
 
-        if let Some(result_register) = result.register {
-            self.push_op(SetNull, &[result_register]);
+        if let Some(result_register) = result_register
+            && result_register != value_register
+        {
+            self.push_op(Copy, &[result_register, value_register]);
         }
 
-        Ok(result)
+        Ok(())
     }
 
     fn compile_multi_assign(
@@ -1440,9 +1445,6 @@ impl Compiler {
             return self.error(ErrorKind::TooManyAssignmentTargets(targets.len()));
         }
 
-        let result = self.assign_result_register(ctx)?;
-        let stack_count = self.stack_count();
-
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let target_registers = targets
             .iter()
@@ -1451,23 +1453,17 @@ impl Compiler {
 
         let rhs_node = ctx.node_with_span(expression);
         let rhs_is_temp_tuple = matches!(rhs_node.node, Node::TempTuple(_));
+
+        let result = self.assign_result_register(ctx)?;
+        let stack_count = self.stack_count();
         let rhs = self.compile_node(expression, ctx.with_any_register())?;
         let rhs_register = rhs.unwrap(self)?;
-
-        // If the result is needed then prepare the creation of a tuple
-        if result.register.is_some() {
-            self.push_op(SequenceStart, &[targets.len() as u8]);
-        }
 
         // If the RHS is a single value then convert it into an iterator
         let iter_register = if rhs_is_temp_tuple {
             rhs_register
         } else {
-            let iter_register = if rhs.is_temporary {
-                rhs_register
-            } else {
-                self.push_register()?
-            };
+            let iter_register = self.push_register()?;
             self.push_op(MakeIterator, &[iter_register, rhs_register]);
             iter_register
         };
@@ -1501,10 +1497,6 @@ impl Compiler {
                     if export_assignment || self.force_export_assignment() {
                         self.compile_value_export(*id_index, target_register)?;
                     }
-
-                    if result.register.is_some() {
-                        self.push_op(SequencePush, &[target_register]);
-                    }
                 }
                 Node::Chain(chain) => {
                     let value_register = self.push_register()?;
@@ -1518,14 +1510,10 @@ impl Compiler {
                     let chain_context = ctx.compile_for_side_effects();
                     self.compile_chain(chain, None, Some(value_register), None, chain_context)?;
 
-                    if result.register.is_some() {
-                        self.push_op(SequencePush, &[value_register]);
-                    }
-
                     self.pop_register()?; // value_register
                 }
-                Node::Ignored(_id, type_hint) => {
-                    if result.register.is_some() || type_hint.is_some() {
+                Node::Ignored(_id, maybe_type) => {
+                    if let Some(type_hint) = maybe_type {
                         let value_register = self.push_register()?;
 
                         if rhs_is_temp_tuple {
@@ -1534,18 +1522,7 @@ impl Compiler {
                             self.push_op(IterUnpack, &[value_register, iter_register]);
                         }
 
-                        if let Some(type_hint) = type_hint {
-                            self.compile_assert_type(
-                                value_register,
-                                *type_hint,
-                                Some(*target),
-                                ctx,
-                            )?;
-                        }
-
-                        if result.register.is_some() {
-                            self.push_op(SequencePush, &[value_register]);
-                        }
+                        self.compile_assert_type(value_register, *type_hint, Some(*target), ctx)?;
 
                         self.pop_register()?; // value_register
                     } else if !rhs_is_temp_tuple {
@@ -1554,13 +1531,6 @@ impl Compiler {
                     }
                 }
                 Node::Map { .. } | Node::MapPattern { .. } => {
-                    let nested_result = if result.register.is_some() {
-                        let temp_register = self.push_register()?;
-                        CompileNodeOutput::with_temporary(temp_register)
-                    } else {
-                        CompileNodeOutput::none()
-                    };
-
                     let value_register = self.push_register()?;
 
                     if rhs_is_temp_tuple {
@@ -1570,20 +1540,15 @@ impl Compiler {
                     }
 
                     self.compile_assign_to_map_finish(
+                        None,
                         *target,
                         target_registers,
-                        nested_result,
                         value_register,
                         export_assignment,
                         ctx,
                     )?;
 
                     self.pop_register()?; // value_register
-
-                    if let Some(temp_register) = nested_result.register {
-                        self.pop_register()?; // temp_register
-                        self.push_op(SequencePush, &[temp_register]);
-                    }
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
@@ -1595,7 +1560,39 @@ impl Compiler {
         }
 
         if let Some(result_register) = result.register {
-            self.push_op(SequenceToTuple, &[result_register]);
+            // If the rhs is a temp tuple then we need to convert
+            // it into a regular tuple.
+            if rhs_is_temp_tuple {
+                let nodes_len = match &rhs_node.node {
+                    Node::TempTuple(nodes) => nodes.len(),
+                    unexpected => {
+                        return self.error(ErrorKind::UnexpectedNode {
+                            expected: "TempTuple".into(),
+                            unexpected: unexpected.clone(),
+                        });
+                    }
+                };
+
+                let Ok(size_hint) = u32::try_from(nodes_len) else {
+                    return self.error(ErrorKind::TooManyContainerEntries(nodes_len));
+                };
+
+                self.push_op(SequenceStart, &[]);
+                self.push_var_u32(size_hint);
+
+                let temp_register = self.push_register()?;
+
+                for i in 0..nodes_len as u8 {
+                    self.push_op(TempIndex, &[temp_register, rhs_register, i]);
+                    self.push_op_without_span(SequencePush, &[temp_register]);
+                }
+
+                // temp_register is popped by the `truncate_register_stack` below
+
+                self.push_op_without_span(SequenceToTuple, &[result_register]);
+            } else {
+                self.push_op(Copy, &[result_register, rhs_register]);
+            }
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -4542,9 +4539,9 @@ impl Compiler {
                             self.local_registers_for_assign_target(target, ctx)?;
 
                         self.compile_assign_to_map_finish(
+                            None,
                             target,
                             &target_registers,
-                            result,
                             map_register,
                             false,
                             ctx,
