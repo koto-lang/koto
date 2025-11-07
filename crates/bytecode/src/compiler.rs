@@ -1298,30 +1298,34 @@ impl Compiler {
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
         let result = self.assign_result_register(ctx)?;
         let target_registers = self.local_registers_for_assign_target(target, ctx)?;
-        let value_result = self.compile_node(expression, ctx.with_any_register())?;
+        let rhs_value = self.compile_node(expression, ctx.with_any_register())?;
 
         self.compile_assign_to_map_finish(
+            result.register,
             target,
             &target_registers,
-            value_result,
+            rhs_value.unwrap(self)?,
             export_assignment,
-            ctx.with_fixed_register_or_none(result.register),
+            ctx,
         )?;
+
+        if rhs_value.is_temporary {
+            self.pop_register()?;
+        }
 
         Ok(result)
     }
 
     fn compile_assign_to_map_finish(
         &mut self,
+        result_register: Option<u8>,
         target: AstIndex,
         target_registers: &[u8],
-        value_result: CompileNodeOutput,
+        value_register: u8,
         export_assignment: bool,
         ctx: CompileNodeContext,
-    ) -> Result<CompileNodeOutput> {
+    ) -> Result<()> {
         use Op::*;
-
-        let value_register = value_result.unwrap(self)?;
 
         let mut target_registers = target_registers.iter();
         let target_node = ctx.node_with_span(target);
@@ -1419,23 +1423,13 @@ impl Compiler {
             }
         }
 
-        let result = match ctx.result_register {
-            ResultRegister::Fixed(register) => {
-                if register != value_register {
-                    self.push_op(Copy, &[register, value_register]);
-                }
-                CompileNodeOutput::with_assigned(register)
-            }
-            ResultRegister::Any => value_result,
-            ResultRegister::None => CompileNodeOutput::none(),
-        };
-
-        // We must not pop the value's temporary register if we forward its result to the caller.
-        if value_result.is_temporary && !matches!(ctx.result_register, ResultRegister::Any) {
-            self.pop_register()?;
+        if let Some(result_register) = result_register
+            && result_register != value_register
+        {
+            self.push_op(Copy, &[result_register, value_register]);
         }
 
-        Ok(result)
+        Ok(())
     }
 
     fn compile_multi_assign(
@@ -1546,11 +1540,12 @@ impl Compiler {
                     }
 
                     self.compile_assign_to_map_finish(
+                        None,
                         *target,
                         target_registers,
-                        CompileNodeOutput::with_assigned(value_register),
+                        value_register,
                         export_assignment,
-                        ctx.compile_for_side_effects(),
+                        ctx,
                     )?;
 
                     self.pop_register()?; // value_register
@@ -4544,11 +4539,12 @@ impl Compiler {
                             self.local_registers_for_assign_target(target, ctx)?;
 
                         self.compile_assign_to_map_finish(
+                            None,
                             target,
                             &target_registers,
-                            CompileNodeOutput::with_assigned(map_register),
+                            map_register,
                             false,
-                            ctx.compile_for_side_effects(),
+                            ctx,
                         )?;
 
                         self.pop_register()?; // map_register
