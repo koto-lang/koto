@@ -1296,6 +1296,7 @@ impl Compiler {
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         // Reserve any assignment registers for IDs on the LHS before compiling the RHS
+        let result = self.assign_result_register(ctx)?;
         let target_registers = self.local_registers_for_assign_target(target, ctx)?;
         let value_result = self.compile_node(expression, ctx.with_any_register())?;
 
@@ -1304,8 +1305,10 @@ impl Compiler {
             &target_registers,
             value_result,
             export_assignment,
-            ctx,
-        )
+            ctx.with_fixed_register_or_none(result.register),
+        )?;
+
+        Ok(result)
     }
 
     fn compile_assign_to_map_finish(
