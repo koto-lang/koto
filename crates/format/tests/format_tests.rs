@@ -102,6 +102,75 @@ f = ||
 ",
             );
         }
+
+        #[test]
+        fn comment_then_eof() {
+            check_format_output(
+                &["
+# comment"],
+                "\
+# comment
+",
+            );
+        }
+
+        #[test]
+        fn several_comments_then_eof() {
+            check_format_output(
+                &["
+# comment 1
+# comment 2
+# comment 3"],
+                "\
+# comment 1
+# comment 2
+# comment 3
+",
+            );
+        }
+
+        #[test]
+        fn expression_then_comment_then_eof() {
+            check_format_output(
+                &["
+x = 1
+# comment"],
+                "\
+x = 1
+# comment
+",
+            );
+        }
+
+        #[test]
+        fn expression_then_empty_then_comment_then_eof() {
+            check_format_output(
+                &["
+x = 1
+
+# comment"],
+                "\
+x = 1
+
+# comment
+",
+            );
+        }
+
+        #[test]
+        fn multiline_comment_then_eof() {
+            check_format_output(
+                &["
+#- 
+  comment 
+-#"],
+                "\
+#- 
+  comment 
+-#
+",
+            );
+        }
     }
 
     mod keywords {
