@@ -351,7 +351,7 @@ _Warning_: This version of `generate` will iterate endlessly, so consider using
 an adaptor like [`iterator.take`](#take) to produce an iterator that has an end.
 
 ```kototype
-|n: Number, generator: || -> Any| -> Any
+|generator: || -> Any, n: Number| -> Any
 ```
 
 Creates an iterator that yields the result of calling the `generator`
