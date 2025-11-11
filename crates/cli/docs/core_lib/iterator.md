@@ -416,7 +416,7 @@ check! ('a', 1, 'b', 2, 'c')
 Returns an iterator that yields the provided iterable's values.
 
 Iterable values will be automatically accepted by most iterator operations,
-so it's usually not necessary to call `.iter()`, however it can be usefult
+so it's usually not necessary to call `.iter()`, however it can be useful
 sometimes to make a standalone iterator for manual iteration.
 
 Note that calling `.iter` with an `Iterator` will return the iterator without
