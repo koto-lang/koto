@@ -23,6 +23,15 @@ jobs:
         with:
           tool: just@1.5.0
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: $build-and-test-${{ matrix.os }}-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Build
         run: cargo build --verbose
 
@@ -42,6 +51,15 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: $build-and-test-release-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Test with optimizations
         run: just test_release --verbose
@@ -70,6 +88,15 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: $build-and-test-release-arc-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Test the arc build variant
         run: just test_arc --release --verbose
