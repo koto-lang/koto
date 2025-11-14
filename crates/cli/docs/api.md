@@ -147,7 +147,7 @@ Only one memory strategy can be enabled at a time, so default features need to b
 
 [dependencies.koto]
 version = "0.15"
-default-feautures = false
+default-features = false
 features = ["arc"]
 ```
 

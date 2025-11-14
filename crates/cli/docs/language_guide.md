@@ -2715,7 +2715,7 @@ export let foo: Number = -1
 ```
 
 `export` also accepts maps, or any other iterable value that yields a series of key/value pairs.
-This is convenient when exporting a lot of values, or generating exports programatically.
+This is convenient when exporting a lot of values, or generating exports programmatically.
 
 ```koto
 ##################
