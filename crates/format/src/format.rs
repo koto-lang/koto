@@ -102,7 +102,7 @@ fn format_node<'source>(
                             group = group
                                 .add_trailing_trivia()
                                 .indented_break()
-                                .add_preceeding_trivia(chain_index);
+                                .add_preceding_trivia(chain_index);
                         } else if first_id {
                             group = group.indent_if_necessary();
                         } else {
@@ -381,11 +381,7 @@ fn format_node<'source>(
                     .line_break()
             }
 
-            while let Some(item) = group.trivia.next() {
-                group.add_trivia_item(item, group.next_line(), TriviaPosition::LineStart);
-            }
-
-            group.build_block()
+            group.build_main_block()
         }
         Node::Block(body) => match body.as_slice() {
             [single] if matches!(ctx.node(*single).node, Node::Map { braces: false, .. }) => {
@@ -956,13 +952,22 @@ impl<'source> FormatContext<'source> {
     }
 }
 
+/// A helper for building a [FormatItem] group.
 struct GroupBuilder<'source, 'trivia> {
+    // The items added the group
     items: Vec<FormatItem<'source>>,
+    // The start index in `self.items` of an active sub group,
+    // see `sub_group_start()` / `sub_group_end()`.
     sub_group_start: Option<usize>,
+    // The group node's span.
     group_span: Span,
+    // The formatting context passed into the initializer.
     ctx: &'source FormatContext<'source>,
+    // The source's trivia items.
     trivia: &'trivia mut TriviaIterator<'source>,
+    // The current line in the input, updated as nodes are added to the group.
     current_line: u32,
+    // True if a #[fmt:skip] directive was just encountered.
     skip_next_node: bool,
 }
 
@@ -994,6 +999,13 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
 
     fn build_block(mut self) -> FormatItem<'source> {
         self.add_trivia(self.group_span.end, TriviaPosition::LineStart);
+        self.strip_trailing_whitespace();
+
+        FormatItem::make_group(self.items)
+    }
+
+    fn build_main_block(mut self) -> FormatItem<'source> {
+        self.add_trivia(self.group_span.end, TriviaPosition::ScriptEnd);
         self.strip_trailing_whitespace();
 
         FormatItem::make_group(self.items)
@@ -1117,7 +1129,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
     }
 
     fn indented_break(mut self) -> Self {
-        // Add any trailing comments for the current line;
+        // Add any trailing comments for the current line before adding the break.
         self = self.add_trailing_trivia();
         self.group_break(GroupBreak::IndentedBreak);
         self
@@ -1149,8 +1161,8 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
+    // Add any trailing comments for the current line.
     fn add_trailing_trivia(mut self) -> Self {
-        // Add any trailing comments for the current line
         self.add_trivia(
             if self.items.is_empty() {
                 self.current_line()
@@ -1162,7 +1174,8 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
         self
     }
 
-    fn add_preceeding_trivia(mut self, node_index: AstIndex) -> Self {
+    // Add any trivia that precedes the given node.
+    fn add_preceding_trivia(mut self, node_index: AstIndex) -> Self {
         let node = self.ctx.node(node_index);
         let node_span = self.ctx.span(node);
         self.add_trivia(node_span.start, TriviaPosition::Any);
@@ -1269,6 +1282,7 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
             let consume_item = match position_info {
                 TriviaPosition::LineStart => item_start.line < position.line,
                 TriviaPosition::Any | TriviaPosition::LineEnd => item_start < position,
+                TriviaPosition::ScriptEnd => true,
             };
             if !consume_item {
                 break;
@@ -1312,8 +1326,12 @@ impl<'source, 'trivia> GroupBuilder<'source, 'trivia> {
                 self.add_source_region(&item.span);
 
                 match position_info {
-                    TriviaPosition::LineStart => self.items.push(FormatItem::LineBreak),
-                    _ => self.group_break(GroupBreak::IndentedBreak),
+                    TriviaPosition::LineStart | TriviaPosition::ScriptEnd => {
+                        self.items.push(FormatItem::LineBreak)
+                    }
+                    TriviaPosition::Any | TriviaPosition::LineEnd => {
+                        self.group_break(GroupBreak::IndentedBreak)
+                    }
                 }
             }
             TriviaToken::CommentMulti => {
@@ -1813,11 +1831,17 @@ impl GroupBreak {
     }
 }
 
+/// An indicator used to define how trivia should be added to the output.
 #[derive(Copy, Clone, Debug)]
 enum TriviaPosition {
+    /// Used when trivia could be anywhere in the output, e.g. inline comments between nodes
     Any,
+    /// Used when a new line is being started.
     LineStart,
+    /// Used when a line is being ended, and any trailing trivia should be added.
     LineEnd,
+    /// Used at the end of the script to capture any remaining trivia.
+    ScriptEnd,
 }
 
 fn should_chain_be_broken<'source>(
