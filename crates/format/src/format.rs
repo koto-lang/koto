@@ -380,6 +380,11 @@ fn format_node<'source>(
                     .add_trailing_trivia()
                     .line_break()
             }
+
+            while let Some(item) = group.trivia.next() {
+                group.add_trivia_item(item, group.next_line(), TriviaPosition::LineStart);
+            }
+
             group.build_block()
         }
         Node::Block(body) => match body.as_slice() {
