@@ -25,99 +25,69 @@ impl Regex {
     }
 
     #[koto_method]
-    fn is_match(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => Ok(self.0.is_match(text).into()),
-            unexpected => unexpected_args("|String|", unexpected),
+    fn is_match(&self, text: &str) -> bool {
+        self.0.is_match(text)
+    }
+
+    #[koto_method]
+    fn find(&self, text: &KString) -> KValue {
+        let m = self.0.find(text.as_str());
+        match m {
+            Some(m) => Match::make_value(text.clone(), m.start(), m.end()),
+            None => KValue::Null,
         }
     }
 
     #[koto_method]
-    fn find(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => {
-                let m = self.0.find(text);
-                match m {
-                    Some(m) => Ok(Match::make_value(text.clone(), m.start(), m.end())),
-                    None => Ok(KValue::Null),
-                }
+    fn find_all(&self, text: &KString) -> KValue {
+        let matches: Vec<(usize, usize)> = self
+            .0
+            .find_iter(text)
+            .map(|m| (m.start(), m.end()))
+            .collect();
+
+        if matches.is_empty() {
+            KValue::Null
+        } else {
+            Matches {
+                text: text.clone(),
+                matches,
+                last_index: 0,
             }
-            unexpected => unexpected_args("|String|", unexpected),
+            .into()
         }
     }
 
     #[koto_method]
-    fn find_all(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => {
-                let matches: Vec<(usize, usize)> = self
-                    .0
-                    .find_iter(text)
-                    .map(|m| (m.start(), m.end()))
-                    .collect();
+    fn captures(&self, text: &KString) -> KValue {
+        let Some(captures) = self.0.captures(text) else {
+            return KValue::Null;
+        };
 
-                let result = if matches.is_empty() {
-                    KValue::Null
+        let mut result = ValueMap::with_capacity(captures.len());
+
+        for (i, (capture, name)) in captures.iter().zip(self.0.capture_names()).enumerate() {
+            if let Some(capture) = capture {
+                let match_ = Match::make_value(text.clone(), capture.start(), capture.end());
+
+                if let Some(name) = name {
+                    // Also insert the match with the capture group's name
+                    result.insert(name.into(), match_);
                 } else {
-                    Matches {
-                        text: text.clone(),
-                        matches,
-                        last_index: 0,
-                    }
-                    .into()
-                };
-
-                Ok(result)
-            }
-            unexpected => unexpected_args("|String|", unexpected),
-        }
-    }
-
-    #[koto_method]
-    fn captures(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text)] => {
-                match self.0.captures(text) {
-                    Some(captures) => {
-                        let mut result = ValueMap::with_capacity(captures.len());
-
-                        for (i, (capture, name)) in
-                            captures.iter().zip(self.0.capture_names()).enumerate()
-                        {
-                            if let Some(capture) = capture {
-                                let match_ =
-                                    Match::make_value(text.clone(), capture.start(), capture.end());
-
-                                if let Some(name) = name {
-                                    // Also insert the match with the capture group's name
-                                    result.insert(name.into(), match_);
-                                } else {
-                                    // Insert the match with the capture group's index
-                                    result.insert(i.into(), match_);
-                                }
-                            } else {
-                                result.insert(i.into(), KValue::Null);
-                            }
-                        }
-
-                        Ok(KMap::from(result).into())
-                    }
-                    None => Ok(KValue::Null),
+                    // Insert the match with the capture group's index
+                    result.insert(i.into(), match_);
                 }
+            } else {
+                result.insert(i.into(), KValue::Null);
             }
-            unexpected => unexpected_args("|String|", unexpected),
         }
+
+        KMap::from(result).into()
     }
 
     #[koto_method]
-    fn replace_all(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Str(text), KValue::Str(replacement)] => {
-                let result = self.0.replace_all(text, replacement.as_str());
-                Ok(result.to_string().into())
-            }
-            unexpected => unexpected_args("|String, String|", unexpected),
-        }
+    fn replace_all(&self, text: &str, replacement: &str) -> String {
+        self.0.replace_all(text, replacement).to_string()
     }
 }
 
@@ -194,13 +164,13 @@ impl Match {
     }
 
     #[koto_method]
-    fn text(&self) -> KValue {
-        self.text.clone().into()
+    fn text(&self) -> KString {
+        self.text.clone()
     }
 
     #[koto_method]
-    fn range(&self) -> KValue {
-        self.bounds.clone().into()
+    fn range(&self) -> KRange {
+        self.bounds.clone()
     }
 }
 

@@ -253,15 +253,9 @@ mod example {
         }
 
         #[koto_method]
-        fn add(ctx: MethodContext<Self>) -> Result<KValue> {
-            match ctx.args {
-                [KValue::Number(addend)] => {
-                    ctx.instance_mut()?.x += f64::from(addend);
-                    // Return a clone of the instance that's being modified
-                    ctx.instance_result()
-                }
-                unexpected => unexpected_args("|Number|", unexpected),
-            }
+        fn add(&mut self, addend: f64) -> &mut Self {
+            self.x += addend;
+            self
         }
     }
 

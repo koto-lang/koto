@@ -18,23 +18,23 @@ impl Vec2 {
     }
 
     #[koto_method]
-    fn angle(&self) -> KValue {
-        Inner::X.angle_to(self.0).into()
+    fn angle(&self) -> f64 {
+        Inner::X.angle_to(self.0)
     }
 
     #[koto_method]
-    fn length(&self) -> KValue {
-        self.0.length().into()
+    fn length(&self) -> f64 {
+        self.0.length()
     }
 
     #[koto_get]
-    fn x(&self) -> KValue {
-        self.0.x.into()
+    fn x(&self) -> f64 {
+        self.0.x
     }
 
     #[koto_get]
-    fn y(&self) -> KValue {
-        self.0.y.into()
+    fn y(&self) -> f64 {
+        self.0.y
     }
 
     #[koto_set]
@@ -125,8 +125,8 @@ impl KotoObject for Vec2 {
     fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
             KValue::Number(n) => match usize::from(n) {
-                0 => Ok(self.x()),
-                1 => Ok(self.y()),
+                0 => Ok(self.x().into()),
+                1 => Ok(self.y().into()),
                 other => runtime_error!("index out of range (got {other}, should be <= 1)"),
             },
             unexpected => unexpected_type("Number", unexpected),

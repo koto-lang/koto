@@ -9,7 +9,7 @@ pub fn make_module() -> KMap {
     koto_fn! {
         runtime = koto_runtime;
 
-        fn gen_bool() -> Result<KValue> {
+        fn gen_bool() -> bool {
             THREAD_RNG.with_borrow_mut(|rng| rng.bool())
         }
 
@@ -22,7 +22,7 @@ pub fn make_module() -> KMap {
             Xoshiro256PlusPlusRng::make_value(Xoshiro256PlusPlus::seed_from_u64(seed.to_bits()))
         }
 
-        fn gen_number() -> Result<KValue> {
+        fn gen_number() -> f64 {
             THREAD_RNG.with_borrow_mut(|rng| rng.number())
         }
 
@@ -62,13 +62,13 @@ impl Xoshiro256PlusPlusRng {
     }
 
     #[koto_method]
-    fn bool(&mut self) -> Result<KValue> {
-        Ok(self.0.random::<bool>().into())
+    fn bool(&mut self) -> bool {
+        self.0.random()
     }
 
     #[koto_method]
-    fn number(&mut self) -> Result<KValue> {
-        Ok(self.0.random::<f64>().into())
+    fn number(&mut self) -> f64 {
+        self.0.random()
     }
 
     #[koto_method]
@@ -139,15 +139,8 @@ impl Xoshiro256PlusPlusRng {
     }
 
     #[koto_method]
-    fn seed(&mut self, args: &[KValue]) -> Result<KValue> {
-        use KValue::*;
-        match args {
-            [Number(n)] => {
-                self.seed_inner(n);
-                Ok(Null)
-            }
-            unexpected => unexpected_args("|Number|", unexpected),
-        }
+    fn seed(&mut self, n: &KNumber) {
+        self.seed_inner(n);
     }
 
     fn seed_inner(&mut self, n: &KNumber) {
