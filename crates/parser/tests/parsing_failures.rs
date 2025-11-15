@@ -109,7 +109,7 @@ x =
 ";
                 check_parsing_fails_with_error_span(
                     source,
-                    SyntaxError::UnexpectedMapAssignmentValue,
+                    SyntaxError::UnexpectedMapKeyTypeHint,
                     Span {
                         start: Position { line: 0, column: 5 },
                         end: Position {
@@ -128,7 +128,7 @@ x =
 ";
                 check_parsing_fails_with_error_span(
                     source,
-                    SyntaxError::UnexpectedMapAssignmentValue,
+                    SyntaxError::UnexpectedMapKeyTypeHint,
                     Span {
                         start: Position { line: 0, column: 9 },
                         end: Position {

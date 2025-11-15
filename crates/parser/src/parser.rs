@@ -877,8 +877,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Node::MapEntry(_, value) => {
-                    return self
-                        .error_with_span_of(SyntaxError::UnexpectedMapAssignmentValue, value);
+                    return self.error_with_span_of(SyntaxError::UnexpectedMapKeyTypeHint, value);
                 }
                 _ => {
                     return self.error_with_span_of(SyntaxError::ExpectedMapAssignmentEntry, entry);
@@ -1167,7 +1166,7 @@ impl<'source> Parser<'source> {
                         self.consume_until_token_with_context(entry_context);
 
                         let Some(entry) = self.parse_destructure_map_entry(
-                            DestructureContext::Function(function_frame),
+                            BindingContext::Function(function_frame),
                         )?
                         else {
                             break;
@@ -1443,9 +1442,8 @@ impl<'source> Parser<'source> {
                 while self.peek_token_with_context(entry_context).is_some() {
                     self.consume_until_token_with_context(entry_context);
 
-                    let Some(entry) = self.parse_destructure_map_entry(
-                        DestructureContext::Function(function_frame),
-                    )?
+                    let Some(entry) =
+                        self.parse_destructure_map_entry(BindingContext::Function(function_frame))?
                     else {
                         break;
                     };
@@ -1637,10 +1635,10 @@ impl<'source> Parser<'source> {
     /// - a map destructuring
     ///
     /// Used in function arguments, for loop, and let.
-    fn parse_destructure(
+    fn parse_binding(
         &mut self,
         context: &ExpressionContext,
-        mut destructure: DestructureContext,
+        mut binding_context: BindingContext,
     ) -> Result<Option<AstIndex>> {
         let Some(peek_info) = self.peek_token_with_context(context) else {
             return Ok(None);
@@ -1650,23 +1648,15 @@ impl<'source> Parser<'source> {
             Token::Id => {
                 self.consume_token_with_context(context);
                 let id = self.add_current_slice_as_string_constant()?;
-                destructure.add_assigned_id(self, id)?;
+                binding_context.add_assigned_id(self, id)?;
                 let span = self.current_span();
-                let type_hint = if destructure.allows_type_hint() {
-                    self.parse_type_hint(context)?
-                } else {
-                    None
-                };
+                let type_hint = self.parse_type_hint(context)?;
                 self.push_node_with_span(Node::Id(id, type_hint), span)
             }
             Token::Underscore => {
                 let maybe_id = self.consume_ignored_id(context)?;
                 let span = self.current_span();
-                let type_hint = if destructure.allows_type_hint() {
-                    self.parse_type_hint(context)?
-                } else {
-                    None
-                };
+                let type_hint = self.parse_type_hint(context)?;
                 self.push_node_with_span(Node::Ignored(maybe_id, type_hint), span)
             }
             Token::CurlyOpen => {
@@ -1679,7 +1669,8 @@ impl<'source> Parser<'source> {
                 while self.peek_token_with_context(entry_context).is_some() {
                     self.consume_until_token_with_context(entry_context);
 
-                    let Some(entry) = self.parse_destructure_map_entry(destructure.reborrow())?
+                    let Some(entry) =
+                        self.parse_destructure_map_entry(binding_context.reborrow())?
                     else {
                         break;
                     };
@@ -1706,12 +1697,7 @@ impl<'source> Parser<'source> {
                 )?;
 
                 let map_span = self.span_with_start(start_span);
-
-                let type_hint = if destructure.allows_type_hint() {
-                    self.parse_type_hint(context)?
-                } else {
-                    None
-                };
+                let type_hint = self.parse_type_hint(context)?;
 
                 self.push_node_with_span(Node::MapPattern { entries, type_hint }, map_span)
             }
@@ -1722,7 +1708,7 @@ impl<'source> Parser<'source> {
 
     fn parse_destructure_map_entry(
         &mut self,
-        mut destructure: DestructureContext,
+        mut destructure: BindingContext,
     ) -> Result<Option<AstIndex>> {
         if let Some(Token::CurlyClose) = self.peek_token() {
             return Ok(None);
@@ -1775,7 +1761,7 @@ impl<'source> Parser<'source> {
     fn consume_map_key_rebind(
         &mut self,
         key: AstIndex,
-        mut destructure: DestructureContext,
+        mut destructure: BindingContext,
     ) -> Result<AstIndex> {
         let context = &ExpressionContext::inside_braces();
 
@@ -1784,12 +1770,7 @@ impl<'source> Parser<'source> {
         };
 
         let id_or_ignored_span = self.current_span();
-
-        let type_hint = if destructure.allows_type_hint() {
-            self.parse_type_hint(context)?
-        } else {
-            None
-        };
+        let type_hint = self.parse_type_hint(context)?;
 
         if let IdOrIgnored::Id(id) = id_or_ignored {
             destructure.add_assigned_id(self, id)?;
@@ -2633,7 +2614,7 @@ impl<'source> Parser<'source> {
 
                 self.consume_until_token_with_context(entry_context);
 
-                let entry = self.consume_map_key_rebind(key, DestructureContext::Map)?;
+                let entry = self.consume_map_key_rebind(key, BindingContext::Default)?;
 
                 return Ok(Some(entry));
             } else if let Node::Id(id, _) = self.ast.node(key).node
@@ -2683,7 +2664,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(entry_context).is_some() {
             self.consume_until_token_with_context(entry_context);
 
-            let Some(entry) = self.parse_destructure_map_entry(DestructureContext::Default)? else {
+            let Some(entry) = self.parse_destructure_map_entry(BindingContext::Default)? else {
                 break;
             };
 
@@ -2818,7 +2799,7 @@ impl<'source> Parser<'source> {
 
         let mut args = AstVec::new();
 
-        while let Some(arg) = self.parse_destructure(context, DestructureContext::Default)? {
+        while let Some(arg) = self.parse_binding(context, BindingContext::Default)? {
             args.push(arg);
 
             match self.peek_next_token_on_same_line() {
@@ -3565,7 +3546,7 @@ impl<'source> Parser<'source> {
 
         self.consume_token_with_context(context);
 
-        let Some(catch_arg) = self.parse_destructure(context, DestructureContext::Default)? else {
+        let Some(catch_arg) = self.parse_binding(context, BindingContext::Default)? else {
             return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument);
         };
 
@@ -3587,7 +3568,7 @@ impl<'source> Parser<'source> {
         let mut targets = AstVec::new();
 
         while let Some(target) =
-            self.parse_destructure(&ExpressionContext::permissive(), DestructureContext::Let)?
+            self.parse_binding(&ExpressionContext::permissive(), BindingContext::Let)?
         {
             targets.push(target);
 
@@ -4246,41 +4227,31 @@ struct ParseStringOutput {
     context: ExpressionContext,
 }
 
-enum DestructureContext<'a> {
+enum BindingContext<'a> {
     // A binding in general expressions,
     // e.g. `for {x, y} in foo`, `catch {x, y}`, match arms, or basic assignments.
     Default,
     // A let binding, e.g. `let {x, y} = my_map`.
     Let,
-    // Within a map
-    Map,
     // Within function arguments
     Function(&'a mut Frame),
 }
 
-impl<'a> DestructureContext<'a> {
-    fn reborrow(&'_ mut self) -> DestructureContext<'_> {
-        use DestructureContext::*;
+impl<'a> BindingContext<'a> {
+    fn reborrow(&'_ mut self) -> BindingContext<'_> {
+        use BindingContext::*;
 
         match self {
             Default => Default,
-            Map => Map,
             Let => Let,
             Function(frame) => Function(frame),
         }
     }
 
-    fn allows_type_hint(&self) -> bool {
-        !matches!(self, DestructureContext::Map)
-    }
-
     fn add_assigned_id(&mut self, parser: &mut Parser, id: ConstantIndex) -> Result<()> {
-        use DestructureContext::*;
+        use BindingContext::*;
 
         match self {
-            Map => {
-                parser.frame_mut()?.add_id_access(id);
-            }
             Let => {
                 // id assignments will be registered when
                 // encountering the '='

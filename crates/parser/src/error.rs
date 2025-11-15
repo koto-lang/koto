@@ -215,10 +215,10 @@ pub enum SyntaxError {
     UnterminatedNumericEscapeCode,
     #[error("unterminated string")]
     UnterminatedString,
-    #[error("unexpected map assignment value")]
-    UnexpectedMapAssignmentValue,
     #[error("unexpected 'as' after map key")]
     UnexpectedMapKeyRebindOnRhs,
+    #[error("unexpected type hint in destructured map (`let` is required to use type hints)")]
+    UnexpectedMapKeyTypeHint,
 }
 
 /// See [`Error`][crate::Error]
