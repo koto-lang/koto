@@ -636,7 +636,7 @@ b
         }
     }
 
-    mod map_assignment {
+    mod map_destructuring {
         use super::*;
 
         #[test]
@@ -813,7 +813,7 @@ true
         }
 
         #[test]
-        fn map() {
+        fn destructured_map_with_type() {
             let script = "
 let {}: Foo = {@type: 'Foo'}
 true
@@ -822,9 +822,18 @@ true
         }
 
         #[test]
-        fn map_key() {
+        fn destructured_map_with_checked_key() {
             let script = "
 let {x: Number} = {x: 1}
+true
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn destructured_map_with_checked_key_and_type() {
+            let script = "
+let {x: Number}: Foo = {x: 1, @type: 'Foo'}
 true
 ";
             check_script_output(script, true);
@@ -3865,6 +3874,19 @@ catch error
         }
 
         #[test]
+        fn try_catch_with_destructured_map() {
+            let script = r#"
+try
+  throw
+    x: 10
+    y: 20
+catch {x, y}
+  x + y
+"#;
+            check_script_output(script, 30);
+        }
+
+        #[test]
         fn try_catch_finally() {
             let script = "
 try
@@ -3878,7 +3900,43 @@ finally
         }
 
         #[test]
-        fn try_catch_with_type_checks() {
+        fn try_catch_type_check_bool() {
+            let script = "
+x = 1
+try
+  x += 1
+  throw true
+catch error: Bool
+  error
+catch _error: Number
+  throw 'Caught number'
+catch error: String
+  throw 'Caught string'
+catch error
+  throw 'Fallback'
+";
+            check_script_output(script, true);
+        }
+
+        #[test]
+        fn try_catch_type_check_on_destructured_map() {
+            let script = "
+try
+  throw
+    @type: 'Foo'
+    data: 99
+catch {data}: Bar
+  'Bar: {data}'
+catch {data}: Foo
+  'Foo: {data}'
+catch error
+  throw 'Fallback'
+";
+            check_script_output(script, "Foo: 99");
+        }
+
+        #[test]
+        fn try_catch_type_check_string() {
             let script = "
 x = 1
 try

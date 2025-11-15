@@ -404,12 +404,8 @@ impl Compiler {
                 // so we only need to compile the value here.
                 self.compile_node(*value, ctx)?
             }
-            Node::MapPattern { .. } => {
-                // Map patterns are only compiled in `self.compile_assign` or `self.compile_match`.
-                unreachable!();
-            }
-            Node::MapKeyRebind { .. } => {
-                // Map patterns are only compiled in `self.compile_assign` or `self.compile_match`.
+            Node::MapPattern { .. } | Node::MapKeyRebind { .. } => {
+                // Map patterns are compiled in expressions that support destructuring maps.
                 unreachable!();
             }
             Node::Self_ => {
@@ -2152,15 +2148,18 @@ impl Compiler {
         for (i, catch_block) in catch_blocks.iter().enumerate() {
             let is_last_catch = i == catch_blocks.len() - 1;
 
-            let mut type_check_jump_placeholder = None;
+            let mut type_check_jump_placeholders = SmallVec::<[usize; 4]>::new();
 
             self.push_span(ctx.node_with_span(catch_block.arg), ctx.ast);
             match ctx.node(catch_block.arg) {
                 Node::Id(id, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         if !is_last_catch {
-                            type_check_jump_placeholder =
-                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                            type_check_jump_placeholders.push(self.compile_check_type(
+                                catch_register,
+                                *type_hint,
+                                ctx,
+                            )?);
                         } else {
                             return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
                         }
@@ -2174,14 +2173,26 @@ impl Compiler {
                 Node::Ignored(_id, maybe_type) => {
                     if let Some(type_hint) = maybe_type {
                         if !is_last_catch {
-                            type_check_jump_placeholder =
-                                Some(self.compile_check_type(catch_register, *type_hint, ctx)?);
+                            type_check_jump_placeholders.push(self.compile_check_type(
+                                catch_register,
+                                *type_hint,
+                                ctx,
+                            )?);
                         } else {
                             return self.error(ErrorKind::TypeCheckOnLastCatchBlock);
                         }
                     } else if !is_last_catch {
                         return self.error(ErrorKind::MissingTypeCheckOnCatchBlock);
                     }
+                }
+                Node::MapPattern { entries, type_hint } => {
+                    self.try_destructure_map(
+                        catch_register,
+                        entries,
+                        type_hint,
+                        &mut type_check_jump_placeholders,
+                        ctx,
+                    )?;
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
@@ -2202,7 +2213,7 @@ impl Compiler {
                 finally_jump_placeholders.push(self.push_offset_placeholder());
             }
 
-            if let Some(placeholder) = type_check_jump_placeholder {
+            for placeholder in type_check_jump_placeholders {
                 self.update_offset_placeholder(placeholder)?;
             }
 
@@ -4240,88 +4251,12 @@ impl Compiler {
                         params.match_register
                     };
 
-                    if let Some(type_hint) = type_hint {
-                        let jump = self.compile_check_type(map_register, *type_hint, ctx)?;
-
-                        if params.is_last_alternative {
-                            &mut params.jumps.arm_end
-                        } else {
-                            &mut params.jumps.alternative_end
-                        }
-                        .push(jump);
-                    }
-
-                    for entry in entries {
-                        let entry_node = ctx.node(*entry);
-
-                        let (key_node, maybe_id, maybe_type) = match entry_node {
-                            Node::Id(id, type_hint) => (entry_node, Some(*id), *type_hint),
-                            Node::MapKeyRebind { key, id_or_ignored } => {
-                                let key_node = ctx.node(*key);
-
-                                match ctx.node(*id_or_ignored) {
-                                    Node::Id(id, type_hint) => (key_node, Some(*id), *type_hint),
-                                    Node::Ignored(_, type_hint) => (key_node, None, *type_hint),
-                                    unexpected => {
-                                        return self.error(ErrorKind::UnexpectedNode {
-                                            expected: "ID or Ignored".into(),
-                                            unexpected: unexpected.clone(),
-                                        });
-                                    }
-                                }
-                            }
-                            unexpected => {
-                                return self.error(ErrorKind::UnexpectedNode {
-                                    expected: "map destructure entry".into(),
-                                    unexpected: unexpected.clone(),
-                                });
-                            }
-                        };
-
-                        let element_register = match maybe_id {
-                            Some(id) => self.assign_local_register(id),
-                            None => self.push_register(),
-                        }?;
-
-                        // Access the map
-                        let jump = match key_node {
-                            Node::Id(key, _) => {
-                                self.compile_try_access_id(element_register, map_register, *key)
-                            }
-                            Node::Str(string) => self.compile_try_access_string(
-                                element_register,
-                                map_register,
-                                &string.contents,
-                                ctx,
-                            )?,
-                            unexpected => {
-                                return self
-                                    .error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
-                            }
-                        };
-
-                        if params.is_last_alternative {
-                            &mut params.jumps.arm_end
-                        } else {
-                            &mut params.jumps.alternative_end
-                        }
-                        .push(jump);
-
-                        if let Some(type_hint) = maybe_type {
-                            let jump = self.compile_check_type(element_register, type_hint, ctx)?;
-
-                            if params.is_last_alternative {
-                                &mut params.jumps.arm_end
-                            } else {
-                                &mut params.jumps.alternative_end
-                            }
-                            .push(jump);
-                        }
-
-                        if maybe_id.is_none() {
-                            self.pop_register()?; // element_register
-                        }
-                    }
+                    let jumps = if params.is_last_alternative {
+                        &mut params.jumps.arm_end
+                    } else {
+                        &mut params.jumps.alternative_end
+                    };
+                    self.try_destructure_map(map_register, entries, type_hint, jumps, ctx)?;
 
                     // The map pattern been validated, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
@@ -4338,6 +4273,85 @@ impl Compiler {
                 unexpected => {
                     return self.error(ErrorKind::InvalidMatchPattern(unexpected.clone()));
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn try_destructure_map<const N: usize>(
+        &mut self,
+        map_register: u8,
+        entries: &SmallVec<[AstIndex; 4]>,
+        type_hint: &Option<AstIndex>,
+        jumps: &mut SmallVec<[usize; N]>,
+        ctx: CompileNodeContext<'_>,
+    ) -> Result<()> {
+        if let Some(type_hint) = type_hint {
+            let check_failed_jump = self.compile_check_type(map_register, *type_hint, ctx)?;
+            jumps.push(check_failed_jump);
+        }
+
+        for entry in entries {
+            let entry_node = ctx.node(*entry);
+
+            let (key_node, maybe_id, maybe_type) = match entry_node {
+                Node::Id(id, type_hint) => (entry_node, Some(*id), *type_hint),
+                Node::MapKeyRebind { key, id_or_ignored } => {
+                    let key_node = ctx.node(*key);
+
+                    match ctx.node(*id_or_ignored) {
+                        Node::Id(id, type_hint) => (key_node, Some(*id), *type_hint),
+                        Node::Ignored(_, type_hint) => (key_node, None, *type_hint),
+                        unexpected => {
+                            return self.error(ErrorKind::UnexpectedNode {
+                                expected: "Id or Ignored".into(),
+                                unexpected: unexpected.clone(),
+                            });
+                        }
+                    }
+                }
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "Map destructure entry".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
+            };
+
+            let element_register = match maybe_id {
+                Some(id) => self.assign_local_register(id),
+                None => self.push_register(),
+            }?;
+
+            // Attempt to access the requested key
+            let access_failed_jump = match key_node {
+                Node::Id(key, _) => {
+                    self.compile_try_access_id(element_register, map_register, *key)
+                }
+                Node::Str(string) => self.compile_try_access_string(
+                    element_register,
+                    map_register,
+                    &string.contents,
+                    ctx,
+                )?,
+                unexpected => {
+                    return self.error(ErrorKind::UnexpectedNode {
+                        expected: "Id or String".into(),
+                        unexpected: unexpected.clone(),
+                    });
+                }
+            };
+            jumps.push(access_failed_jump);
+
+            if let Some(type_hint) = maybe_type {
+                let check_failed_jump =
+                    self.compile_check_type(element_register, type_hint, ctx)?;
+                jumps.push(check_failed_jump);
+            }
+
+            if maybe_id.is_none() {
+                self.pop_register()?; // element_register
             }
         }
 
@@ -4884,17 +4898,17 @@ fn args_size_op(args: &[AstIndex], ast: &Ast) -> (Op, usize) {
 
 #[derive(Default)]
 struct MatchJumpPlaceholders {
-    // Jumps to the end of the arm
-    arm_end: Vec<usize>,
-    // Jumps to the end of the arm's match patterns,
-    // used after a successful match to skip over remaining alternatives
-    match_end: Vec<usize>,
     // Jumps to the end of the current arm alternative,
     // e.g.
     // match x
     //   0 or 1 or 2 then y
     //   ^~~~ a match failure here should attempt matching on the next alternative
-    alternative_end: Vec<usize>,
+    alternative_end: SmallVec<[usize; 4]>,
+    // Jumps to the end of the arm
+    arm_end: SmallVec<[usize; 4]>,
+    // Jumps to the end of the arm's match patterns,
+    // used after a successful match to skip over remaining alternatives
+    match_end: SmallVec<[usize; 8]>,
 }
 
 struct MatchArmParameters<'a> {

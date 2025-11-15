@@ -2633,7 +2633,7 @@ impl<'source> Parser<'source> {
 
                 self.consume_until_token_with_context(entry_context);
 
-                let entry = self.consume_map_key_rebind(key, DestructureContext::Expression)?;
+                let entry = self.consume_map_key_rebind(key, DestructureContext::Map)?;
 
                 return Ok(Some(entry));
             } else if let Node::Id(id, _) = self.ast.node(key).node
@@ -2683,7 +2683,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(entry_context).is_some() {
             self.consume_until_token_with_context(entry_context);
 
-            let Some(entry) = self.parse_destructure_map_entry(DestructureContext::Match)? else {
+            let Some(entry) = self.parse_destructure_map_entry(DestructureContext::Default)? else {
                 break;
             };
 
@@ -2818,7 +2818,7 @@ impl<'source> Parser<'source> {
 
         let mut args = AstVec::new();
 
-        while let Some(arg) = self.parse_destructure(context, DestructureContext::For)? {
+        while let Some(arg) = self.parse_destructure(context, DestructureContext::Default)? {
             args.push(arg);
 
             match self.peek_next_token_on_same_line() {
@@ -3565,17 +3565,8 @@ impl<'source> Parser<'source> {
 
         self.consume_token_with_context(context);
 
-        let catch_arg = match self.parse_id_or_ignored(&ExpressionContext::restricted())? {
-            Some(IdOrIgnored::Id(id)) => {
-                let type_hint_index = self.parse_type_hint(context)?;
-                self.frame_mut()?.ids_assigned_in_frame.insert(id);
-                self.push_node(Node::Id(id, type_hint_index))?
-            }
-            Some(IdOrIgnored::Ignored(maybe_id)) => {
-                let type_hint_index = self.parse_type_hint(context)?;
-                self.push_node(Node::Ignored(maybe_id, type_hint_index))?
-            }
-            None => return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument),
+        let Some(catch_arg) = self.parse_destructure(context, DestructureContext::Default)? else {
+            return self.consume_token_and_error(SyntaxError::ExpectedCatchArgument);
         };
 
         let Some(catch_block) = self.parse_indented_block()? else {
@@ -4256,10 +4247,14 @@ struct ParseStringOutput {
 }
 
 enum DestructureContext<'a> {
-    Expression,
+    // A binding in general expressions,
+    // e.g. `for {x, y} in foo`, `catch {x, y}`, match arms, or basic assignments.
+    Default,
+    // A let binding, e.g. `let {x, y} = my_map`.
     Let,
-    For,
-    Match,
+    // Within a map
+    Map,
+    // Within function arguments
     Function(&'a mut Frame),
 }
 
@@ -4268,30 +4263,29 @@ impl<'a> DestructureContext<'a> {
         use DestructureContext::*;
 
         match self {
-            Expression => Expression,
+            Default => Default,
+            Map => Map,
             Let => Let,
-            For => For,
-            Match => Match,
             Function(frame) => Function(frame),
         }
     }
 
     fn allows_type_hint(&self) -> bool {
-        !matches!(self, DestructureContext::Expression)
+        !matches!(self, DestructureContext::Map)
     }
 
     fn add_assigned_id(&mut self, parser: &mut Parser, id: ConstantIndex) -> Result<()> {
         use DestructureContext::*;
 
         match self {
-            Expression => {
+            Map => {
                 parser.frame_mut()?.add_id_access(id);
             }
             Let => {
                 // id assignments will be registered when
                 // encountering the '='
             }
-            For | Match => {
+            Default => {
                 parser.frame_mut()?.ids_assigned_in_frame.insert(id);
             }
             Function(frame) => {

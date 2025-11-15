@@ -952,20 +952,7 @@ impl KotoVm {
             }
             Yield { register } => control_flow = ControlFlow::Yield(self.clone_register(register)),
             Throw { register } => {
-                let thrown_value = self.clone_register(register);
-
-                match &thrown_value {
-                    KValue::Str(_) | KValue::Object(_) => {}
-                    KValue::Map(m) if m.contains_meta_key(&UnaryOp::Display.into()) => {}
-                    other => {
-                        return unexpected_type(
-                            "a String or a value that implements @display",
-                            other,
-                        );
-                    }
-                };
-
-                return Err(crate::Error::from_koto_value(thrown_value));
+                return Err(crate::Error::from_koto_value(self.clone_register(register)));
             }
             Size { register, value } => self.run_size(register, value, false)?,
             IterNext {
