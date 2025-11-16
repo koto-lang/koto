@@ -13,18 +13,18 @@ impl Vec3 {
     }
 
     #[koto_get]
-    fn x(&self) -> KValue {
-        self.0.x.into()
+    fn x(&self) -> f64 {
+        self.0.x
     }
 
     #[koto_get]
-    fn y(&self) -> KValue {
-        self.0.y.into()
+    fn y(&self) -> f64 {
+        self.0.y
     }
 
     #[koto_get]
-    fn z(&self) -> KValue {
-        self.0.z.into()
+    fn z(&self) -> f64 {
+        self.0.z
     }
 
     #[koto_set]
@@ -61,8 +61,8 @@ impl Vec3 {
     }
 
     #[koto_method]
-    fn length(&self) -> KValue {
-        (self.0.length()).into()
+    fn length(&self) -> f64 {
+        self.0.length()
     }
 }
 
@@ -131,9 +131,9 @@ impl KotoObject for Vec3 {
     fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
             KValue::Number(n) => match usize::from(n) {
-                0 => Ok(self.x()),
-                1 => Ok(self.y()),
-                2 => Ok(self.z()),
+                0 => Ok(self.x().into()),
+                1 => Ok(self.y().into()),
+                2 => Ok(self.z().into()),
                 other => runtime_error!("index out of range (got {other}, should be <= 2)"),
             },
             unexpected => unexpected_type("Number", unexpected),

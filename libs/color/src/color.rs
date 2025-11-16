@@ -7,7 +7,7 @@ macro_rules! get_component {
     ($self:ident, $component:ident, $(($variant:ident, $c:ident => $expr:expr)),+ $(,)?) => {{
         match &$self.color {
             $(
-                Encoding::$variant($c) => Ok(($expr).into()),
+                Encoding::$variant($c) => Ok($expr),
             )+
             _ => $self.component_error(stringify!($component)),
         }
@@ -117,18 +117,8 @@ impl Color {
         Ok(())
     }
 
-    pub fn color_space_str(&self) -> &str {
-        match &self.color {
-            Encoding::Srgb(_) => "RGB",
-            Encoding::Hsl(_) => "HSL",
-            Encoding::Hsv(_) => "HSV",
-            Encoding::Oklab(_) => "Oklab",
-            Encoding::Oklch(_) => "Oklch",
-        }
-    }
-
     #[koto_get(alias = "r")]
-    pub fn red(&self) -> Result<KValue> {
+    pub fn red(&self) -> Result<f32> {
         get_component!(self, red, (Srgb, c => c.red))
     }
 
@@ -138,7 +128,7 @@ impl Color {
     }
 
     #[koto_get(alias = "g")]
-    pub fn green(&self) -> Result<KValue> {
+    pub fn green(&self) -> Result<f32> {
         get_component!(self, green, (Srgb, c => c.green))
     }
 
@@ -148,7 +138,7 @@ impl Color {
     }
 
     #[koto_get]
-    pub fn blue(&self) -> Result<KValue> {
+    pub fn blue(&self) -> Result<f32> {
         get_component!(self, blue, (Srgb, c => c.blue))
     }
 
@@ -158,7 +148,7 @@ impl Color {
     }
 
     #[koto_get(alias = "h")]
-    pub fn hue(&self) -> Result<KValue> {
+    pub fn hue(&self) -> Result<f32> {
         get_component!(self, hue,
             (Hsl, c => c.hue.into_inner()),
             (Hsv, c => c.hue.into_inner()),
@@ -176,7 +166,7 @@ impl Color {
     }
 
     #[koto_get(alias = "s")]
-    pub fn saturation(&self) -> Result<KValue> {
+    pub fn saturation(&self) -> Result<f32> {
         get_component!(self, saturation,
             (Hsl, c => c.saturation),
             (Hsv, c => c.saturation),
@@ -192,7 +182,7 @@ impl Color {
     }
 
     #[koto_get(alias = "l")]
-    pub fn lightness(&self) -> Result<KValue> {
+    pub fn lightness(&self) -> Result<f32> {
         get_component!(self, lightness,
             (Hsl, c => c.lightness),
             (Oklab, c => c.l),
@@ -210,7 +200,7 @@ impl Color {
     }
 
     #[koto_get(alias = "v")]
-    pub fn value(&self) -> Result<KValue> {
+    pub fn value(&self) -> Result<f32> {
         get_component!(self, value, (Hsv, c => c.value))
     }
 
@@ -220,7 +210,7 @@ impl Color {
     }
 
     #[koto_get]
-    pub fn a(&self) -> Result<KValue> {
+    pub fn a(&self) -> Result<f32> {
         get_component!(self, a, (Oklab, c => c.a))
     }
 
@@ -230,7 +220,7 @@ impl Color {
     }
 
     #[koto_get]
-    pub fn b(&self) -> Result<KValue> {
+    pub fn b(&self) -> Result<f32> {
         get_component!(self, b,
             (Srgb, c => c.blue),
             (Oklab, c => c.b),
@@ -243,7 +233,7 @@ impl Color {
     }
 
     #[koto_get(alias = "c")]
-    pub fn chroma(&self) -> Result<KValue> {
+    pub fn chroma(&self) -> Result<f32> {
         get_component!(self, chroma, (Oklch, c => c.chroma))
     }
 
@@ -253,8 +243,8 @@ impl Color {
     }
 
     #[koto_get]
-    pub fn alpha(&self) -> KValue {
-        self.alpha.into()
+    pub fn alpha(&self) -> f32 {
+        self.alpha
     }
 
     #[koto_set]
@@ -269,12 +259,18 @@ impl Color {
     }
 
     #[koto_method]
-    pub fn color_space(&self) -> KValue {
-        self.color_space_str().into()
+    pub fn color_space(&self) -> &str {
+        match &self.color {
+            Encoding::Srgb(_) => "RGB",
+            Encoding::Hsl(_) => "HSL",
+            Encoding::Hsv(_) => "HSV",
+            Encoding::Oklab(_) => "Oklab",
+            Encoding::Oklch(_) => "Oklch",
+        }
     }
 
     #[koto_method]
-    pub fn mix(ctx: MethodContext<Self>) -> Result<KValue> {
+    pub fn mix(ctx: MethodContext<Self>) -> Result<Self> {
         let (a, b, amount) = match ctx.args {
             [KValue::Object(b)] if b.is_a::<Color>() => {
                 (*ctx.instance()?, *b.cast::<Color>()?, 0.5)
@@ -296,8 +292,8 @@ impl Color {
             _ => {
                 return runtime_error!(
                     "mix only works with matching color spaces (found {}, {})",
-                    a.color_space_str(),
-                    b.color_space_str()
+                    a.color_space(),
+                    b.color_space()
                 );
             }
         };
@@ -307,38 +303,38 @@ impl Color {
             alpha: (a.alpha + b.alpha) * 0.5,
         };
 
-        Ok(result.into())
+        Ok(result)
     }
 
     #[koto_method]
-    pub fn to_rgb(&self) -> KValue {
-        Self::from(palette::Srgba::from(*self)).into()
+    pub fn to_rgb(&self) -> Self {
+        palette::Srgba::from(*self).into()
     }
 
     #[koto_method]
-    pub fn to_hsl(&self) -> KValue {
-        Self::from(palette::Hsla::from(*self)).into()
+    pub fn to_hsl(&self) -> Self {
+        palette::Hsla::from(*self).into()
     }
 
     #[koto_method]
-    pub fn to_hsv(&self) -> KValue {
-        Self::from(palette::Hsva::from(*self)).into()
+    pub fn to_hsv(&self) -> Self {
+        palette::Hsva::from(*self).into()
     }
 
     #[koto_method]
-    pub fn to_oklab(&self) -> KValue {
-        Self::from(palette::Oklaba::from(*self)).into()
+    pub fn to_oklab(&self) -> Self {
+        palette::Oklaba::from(*self).into()
     }
 
     #[koto_method]
-    pub fn to_oklch(&self) -> KValue {
-        Self::from(palette::Oklcha::from(*self)).into()
+    pub fn to_oklch(&self) -> Self {
+        palette::Oklcha::from(*self).into()
     }
 
     fn component_error<T>(&self, component: &str) -> Result<T> {
         runtime_error!(
             "The {} color space doesn’t define a {component} component",
-            self.color_space_str()
+            self.color_space()
         )
     }
 }
@@ -411,7 +407,7 @@ impl KotoObject for Color {
 
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Color({}, ", self.color_space_str())?;
+        write!(f, "Color({}, ", self.color_space())?;
 
         match &self.color {
             Encoding::Srgb(c) => {
