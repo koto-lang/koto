@@ -223,8 +223,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// The function can take `&self` or `&mut self` along with an optional `&[KValue]` slice of
 /// additional arguments, or for more advanced functions a `MethodContext<Self>` can be provided.
 ///
-/// The return type can be omitted (in which case the result will be `KValue::Null`),
-/// or a `KValue`, or a `Result<KValue>`.
+/// The return type can be omitted or be any `T: Into<KValue>`, optionally wrapped in a
+/// `koto_runtime::Result`.
 ///
 /// For cases where it would be preferable to return a clone of the object instance
 /// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self>`
@@ -242,9 +242,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// The function must have a signature like either:
 /// ```ignore
-/// fn foo(&self) -> KValue { ... }
-/// fn foo(&self) -> Result<KValue> { ... }
+/// fn foo(&self) -> T { ... }
+/// fn foo(&self) -> Result<T> { ... }
 /// ```
+/// where `T: Into<KValue>`.
 ///
 /// ## `#[koto_set]`
 ///
@@ -270,9 +271,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// The function must have a signature like either:
 /// ```ignore
-/// fn f(&self, key: &KString) -> Option<KValue> { ... }
-/// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
+/// fn f(&self, key: &KString) -> Option<T> { ... }
+/// fn f(&self, key: &KString) -> Result<Option<T>> { ... }
 /// ```
+/// where `T: Into<KValue>`.
 ///
 /// ## `#[koto_set_fallback]`
 ///
@@ -294,9 +296,10 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// The function must have a signature like either:
 /// ```ignore
-/// fn f(&self, key: &KString) -> Option<KValue> { ... }
-/// fn f(&self, key: &KString) -> Result<Option<KValue>> { ... }
+/// fn f(&self, key: &KString) -> Option<T> { ... }
+/// fn f(&self, key: &KString) -> Result<Option<T>> { ... }
 /// ```
+/// where `T: Into<KValue>`.
 ///
 /// ## `#[koto_set_override]`
 ///
