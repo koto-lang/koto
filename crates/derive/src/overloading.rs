@@ -127,7 +127,7 @@ pub(crate) struct OverloadedFunctionCandidate {
     pub(crate) ident: Ident,
     pub(crate) args: KotoArgs,
     // This may originally have been an `ItemFn` or `ImplItemFn`.
-    // We use `ImplItemFn` because any `ItemFn` can also be represented as a `ImplItemFn`.
+    // We use `ImplItemFn` because any `ItemFn` can also be represented by an `ImplItemFn`.
     pub(crate) item: ImplItemFn,
     pub(crate) options: OverloadOptions,
 }
