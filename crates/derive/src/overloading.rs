@@ -29,7 +29,7 @@ impl OverloadOptions {
     }
 
     fn max_arguments(&self) -> usize {
-        // can be used in the future when overloading `#[koto_set]`
+        // May be used in the future when overloading `#[koto_set]`.
         usize::MAX
     }
 }
@@ -51,6 +51,9 @@ impl OverloadedFunctions {
 
 #[derive(Default)]
 pub(crate) struct OverloadedFunction {
+    // The vec of candidates must not be empty or some methods will panic.
+    // In practice, this is ensured by the `OverloadedFunctions::insert` implementation,
+    // which is the only place `OverloadedFunction`s are created.
     pub(crate) candidates: Vec<OverloadedFunctionCandidate>,
 }
 
@@ -60,7 +63,7 @@ impl OverloadedFunction {
     }
 
     pub(crate) fn name(&self) -> &LitStr {
-        // all candidates have the same name
+        // All candidates have the same name.
         &self.candidates.first().unwrap().name
     }
 
@@ -123,8 +126,8 @@ pub(crate) struct OverloadedFunctionCandidate {
     pub(crate) aliases: Vec<LitStr>,
     pub(crate) ident: Ident,
     pub(crate) args: KotoArgs,
-    // This doesn't have to be a function in an impl, it may just be a `ItemFn`.
-    // We use `ImplItemFn` because it's more general than `ItemFn`.
+    // This may originally have been an `ItemFn` or `ImplItemFn`.
+    // We use `ImplItemFn` because any `ItemFn` can also be represented as a `ImplItemFn`.
     pub(crate) item: ImplItemFn,
     pub(crate) options: OverloadOptions,
 }
@@ -195,9 +198,7 @@ impl OverloadedFunctionCandidate {
             },
         };
 
-        let fn_impl = &self.item;
-
-        // special handling of methods with a `MethodContext`
+        // Special handling of methods with a `MethodContext`.
         if matches!(self.options, OverloadOptions::Method) {
             let has_method_context_param = self.args.inner.iter().any(|arg| matches!(&arg.kind, KotoArgKind::Context(context) if matches!(context.kind, KotoContextArgKind::MethodContext)));
 
@@ -227,12 +228,11 @@ impl OverloadedFunctionCandidate {
             pattern = quote!((KValue::Object(o), #pattern));
         }
 
-        let fn_impl = matches!(self.options, OverloadOptions::Function).then_some(fn_impl);
-
-        // for functions we insert the implementation in the match arm,
-        // for methods we can't do that, the function must be implemented in the `impl` block
+        // For functions we insert the implementation in the match arm,
+        // but methods remain in the `impl` block and are called using `Self::fun(...)`.
         let expr = match self.options {
             OverloadOptions::Function => {
+                let fn_impl = &self.item;
                 let wrapped_call = self.wrap_call(call);
 
                 quote! {{
@@ -242,7 +242,7 @@ impl OverloadedFunctionCandidate {
                 }}
             }
             OverloadOptions::Method => {
-                // special handling of methods with `self`
+                // Special handling of methods with `self`.
                 if let Some(KotoArg {
                     kind: KotoArgKind::Receiver(receiver),
                     ..
@@ -265,6 +265,7 @@ impl OverloadedFunctionCandidate {
                         RefSelf,
                         // `-> Result<&Self>` or `-> Result<&mut Self>`
                         ResultRefSelf,
+                        // Any other return type
                         Other,
                     }
 
@@ -368,6 +369,7 @@ impl OverloadedFunctionCandidate {
     }
 }
 
+/// Either an `ItemFn` or `ImplItemFn`.
 pub(crate) trait ItemFnOrImplItemFn {
     fn into_impl_item_fn(self) -> ImplItemFn;
 }
