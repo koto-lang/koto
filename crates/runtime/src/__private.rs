@@ -150,15 +150,15 @@ pub trait KotoGetOverrideReturn {
     fn into_result(self) -> Result<Option<KValue>>;
 }
 
-impl KotoGetOverrideReturn for Result<Option<KValue>> {
+impl<T: Into<KValue>> KotoGetOverrideReturn for Result<Option<T>> {
     fn into_result(self) -> Result<Option<KValue>> {
-        self
+        self.map(|o| o.map(Into::into))
     }
 }
 
-impl KotoGetOverrideReturn for Option<KValue> {
+impl<T: Into<KValue>> KotoGetOverrideReturn for Option<T> {
     fn into_result(self) -> Result<Option<KValue>> {
-        Ok(self)
+        Ok(self.map(Into::into))
     }
 }
 
