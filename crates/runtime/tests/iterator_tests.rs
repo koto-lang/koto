@@ -262,6 +262,15 @@ y.next().get()
 ";
             check_script_output(script, "e");
         }
+
+        #[test]
+        fn keep_with_unpacked_map_entries() {
+            let script = "
+x = {x: 10, y: 20, z: 30}
+x.keep(|(_, value)| value > 15).count()
+";
+            check_script_output(script, 2);
+        }
     }
 
     mod peekable {
