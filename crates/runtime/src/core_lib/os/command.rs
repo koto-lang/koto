@@ -11,31 +11,27 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::process;
 
 macro_rules! stdio_setter {
-    ($stream:ident, $ctx:expr) => {{
-        let this = $ctx.instance_mut()?;
-        let mut command = this.0.borrow_mut();
+    ($self:ident, $io:ident, $stream:ident) => {{
+        let mut this = $self.0.borrow_mut();
 
-        match $ctx.args {
-            [KValue::Str(s)] => match s.as_str() {
-                "inherit" => {
-                    command.$stream(process::Stdio::inherit());
-                }
-                "null" => {
-                    command.$stream(process::Stdio::null());
-                }
-                "piped" => {
-                    command.$stream(process::Stdio::piped());
-                }
-                unexpected => {
-                    return runtime_error!(
-                        "Expected 'inherit', 'null', or 'piped', found '{unexpected}'"
-                    );
-                }
-            },
-            unexpected => return unexpected_args("|String|", unexpected),
+        match $io {
+            "inherit" => {
+                this.$stream(process::Stdio::inherit());
+            }
+            "null" => {
+                this.$stream(process::Stdio::null());
+            }
+            "piped" => {
+                this.$stream(process::Stdio::piped());
+            }
+            unexpected => {
+                return runtime_error!(
+                    "Expected 'inherit', 'null', or 'piped', found '{unexpected}'"
+                );
+            }
         }
 
-        $ctx.instance_result()
+        Ok($self)
     }};
 }
 
@@ -52,83 +48,56 @@ impl Command {
     }
 
     #[koto_method]
-    fn args(ctx: MethodContext<Self>) -> Result<KValue> {
-        let this = ctx.instance_mut()?;
-        let mut command = this.0.borrow_mut();
-        for arg in ctx.args {
+    fn args(&self, args: &[KValue]) -> Result<&Self> {
+        let mut command = self.0.borrow_mut();
+
+        for arg in args {
             match arg {
                 KValue::Str(arg) => command.arg(arg.as_str()),
                 unexpected => return unexpected_type("String as arg", unexpected),
             };
         }
 
-        ctx.instance_result()
+        Ok(self)
     }
 
     #[koto_method]
-    fn current_dir(ctx: MethodContext<Self>) -> Result<KValue> {
-        let this = ctx.instance_mut()?;
-        let mut command = this.0.borrow_mut();
-
-        match ctx.args {
-            [KValue::Str(path)] => {
-                command.current_dir(path.as_str());
-            }
-            unexpected => return unexpected_args("|String|", unexpected),
-        }
-
-        ctx.instance_result()
+    fn current_dir(&self, path: &str) -> &Self {
+        self.0.borrow_mut().current_dir(path);
+        self
     }
 
     #[koto_method]
-    fn env(ctx: MethodContext<Self>) -> Result<KValue> {
-        let this = ctx.instance_mut()?;
-        let mut command = this.0.borrow_mut();
-
-        match ctx.args {
-            [KValue::Str(key), KValue::Str(value)] => {
-                command.env(key.as_str(), value.as_str());
-            }
-            unexpected => return unexpected_args("|String, String|", unexpected),
-        }
-
-        ctx.instance_result()
+    fn env(&self, key: &str, value: &str) -> &Self {
+        self.0.borrow_mut().env(key, value);
+        self
     }
 
     #[koto_method]
-    fn env_clear(ctx: MethodContext<Self>) -> Result<KValue> {
-        ctx.instance_mut()?.0.borrow_mut().env_clear();
-        ctx.instance_result()
+    fn env_clear(&self) -> &Self {
+        self.0.borrow_mut().env_clear();
+        self
     }
 
     #[koto_method]
-    fn env_remove(ctx: MethodContext<Self>) -> Result<KValue> {
-        let this = ctx.instance_mut()?;
-        let mut command = this.0.borrow_mut();
-
-        match ctx.args {
-            [KValue::Str(key)] => {
-                command.env_remove(key.as_str());
-            }
-            unexpected => return unexpected_args("|String|", unexpected),
-        }
-
-        ctx.instance_result()
+    fn env_remove(&self, key: &str) -> &Self {
+        self.0.borrow_mut().env_remove(key);
+        self
     }
 
     #[koto_method]
-    fn stdin(ctx: MethodContext<Self>) -> Result<KValue> {
-        stdio_setter!(stdin, ctx)
+    fn stdin(&self, io: &str) -> Result<&Self> {
+        stdio_setter!(self, io, stdin)
     }
 
     #[koto_method]
-    fn stdout(ctx: MethodContext<Self>) -> Result<KValue> {
-        stdio_setter!(stdout, ctx)
+    fn stdout(&self, io: &str) -> Result<&Self> {
+        stdio_setter!(self, io, stdout)
     }
 
     #[koto_method]
-    fn stderr(ctx: MethodContext<Self>) -> Result<KValue> {
-        stdio_setter!(stderr, ctx)
+    fn stderr(&self, io: &str) -> Result<&Self> {
+        stdio_setter!(self, io, stderr)
     }
 
     #[koto_method]
@@ -181,39 +150,37 @@ impl CommandOutput {
     }
 
     #[koto_method]
-    fn exit_code(&self) -> KValue {
-        self.0.status.code().into()
+    fn exit_code(&self) -> Option<i32> {
+        self.0.status.code()
     }
 
     #[koto_method]
-    fn success(&self) -> KValue {
-        self.0.status.success().into()
+    fn success(&self) -> bool {
+        self.0.status.success()
     }
 
     #[koto_method]
-    fn stdout(&self) -> KValue {
+    fn stdout(&self) -> Option<String> {
         let bytes = self.0.stdout.clone();
-        String::from_utf8(bytes).ok().into()
+        String::from_utf8(bytes).ok()
     }
 
     #[koto_method]
-    fn stderr(&self) -> KValue {
+    fn stderr(&self) -> Option<String> {
         let bytes = self.0.stderr.clone();
-        String::from_utf8(bytes).ok().into()
+        String::from_utf8(bytes).ok()
     }
 
     #[koto_method]
-    fn stdout_bytes(&self) -> Result<KValue> {
+    fn stdout_bytes(&self) -> Result<KIterator> {
         let bytes = self.0.stdout.clone().into();
-        let iterator = KIterator::with_bytes(bytes)?;
-        Ok(iterator.into())
+        KIterator::with_bytes(bytes)
     }
 
     #[koto_method]
-    fn stderr_bytes(&self) -> Result<KValue> {
+    fn stderr_bytes(&self) -> Result<KIterator> {
         let bytes = self.0.stderr.clone().into();
-        let iterator = KIterator::with_bytes(bytes)?;
-        Ok(iterator.into())
+        KIterator::with_bytes(bytes)
     }
 }
 
@@ -291,21 +258,21 @@ impl Child {
     }
 
     #[koto_method]
-    fn has_exited(&mut self) -> Result<KValue> {
+    fn has_exited(&mut self) -> Result<bool> {
         let mut this = self.handle.borrow_mut();
         let Some(child) = this.as_mut() else {
-            return Ok(true.into());
+            return Ok(true);
         };
 
         match child.try_wait() {
-            Ok(Some(_)) => Ok(true.into()),
-            Ok(None) => Ok(false.into()),
+            Ok(Some(_)) => Ok(true),
+            Ok(None) => Ok(false),
             Err(error) => runtime_error!("{error}"),
         }
     }
 
     #[koto_method]
-    fn kill(&mut self) -> Result<KValue> {
+    fn kill(&mut self) -> Result<bool> {
         let mut this = self.handle.borrow_mut();
 
         let Some(child) = this.as_mut() else {
@@ -315,9 +282,9 @@ impl Child {
         match child.kill() {
             Ok(_) => {
                 *this = None;
-                Ok(true.into())
+                Ok(true)
             }
-            Err(_) => Ok(false.into()),
+            Err(_) => Ok(false),
         }
     }
 

@@ -16,7 +16,28 @@ impl<T: ?Sized> Clone for MethodOrField<T> {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_method]` method must return `()`, `KValue`, or `koto_runtime::Result<KValue>`",
+    message = "a `#[koto_fn]` must return a value that implements `Into<KValue>`, optionally wrapped in `koto_runtime::Result`",
+    label = "wrong return type",
+    note = "for more info see the `#[koto_fn]` documentation"
+)]
+pub trait KotoFunctionReturn {
+    fn into_result(self) -> Result<KValue>;
+}
+
+impl<T: Into<KValue>> KotoFunctionReturn for Result<T> {
+    fn into_result(self) -> Result<KValue> {
+        self.map(Into::into)
+    }
+}
+
+impl<T: Into<KValue>> KotoFunctionReturn for T {
+    fn into_result(self) -> Result<KValue> {
+        Ok(self.into())
+    }
+}
+
+#[diagnostic::on_unimplemented(
+    message = "a `#[koto_method]` method must return a value that implements `Into<KValue>`, optionally wrapped in `koto_runtime::Result`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
@@ -24,26 +45,20 @@ pub trait KotoMethodReturn {
     fn into_result(self) -> Result<KValue>;
 }
 
-impl KotoMethodReturn for Result<KValue> {
+impl<T: Into<KValue>> KotoMethodReturn for Result<T> {
     fn into_result(self) -> Result<KValue> {
-        self
+        self.map(Into::into)
     }
 }
 
-impl KotoMethodReturn for KValue {
+impl<T: Into<KValue>> KotoMethodReturn for T {
     fn into_result(self) -> Result<KValue> {
-        Ok(self)
-    }
-}
-
-impl KotoMethodReturn for () {
-    fn into_result(self) -> Result<KValue> {
-        Ok(KValue::Null)
+        Ok(self.into())
     }
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_get]` method must return `KValue` or `koto_runtime::Result<KValue>`",
+    message = "a `#[koto_get]` method must return a value that implements `Into<KValue>`, optionally wrapped in `koto_runtime::Result`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
@@ -51,15 +66,15 @@ pub trait KotoGetReturn {
     fn into_result(self) -> Result<KValue>;
 }
 
-impl KotoGetReturn for Result<KValue> {
+impl<T: Into<KValue>> KotoGetReturn for Result<T> {
     fn into_result(self) -> Result<KValue> {
-        self
+        self.map(Into::into)
     }
 }
 
-impl KotoGetReturn for KValue {
+impl<T: Into<KValue>> KotoGetReturn for T {
     fn into_result(self) -> Result<KValue> {
-        Ok(self)
+        Ok(self.into())
     }
 }
 
@@ -85,7 +100,7 @@ impl KotoSetReturn for () {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_get_fallback]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
+    message = "a `#[koto_get_fallback]` method must return a value that implements `Into<KValue>`, wrapped in an option, optionally wrapped in `koto_runtime::Result`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
@@ -93,15 +108,15 @@ pub trait KotoGetFallbackReturn {
     fn into_result(self) -> Result<Option<KValue>>;
 }
 
-impl KotoGetFallbackReturn for Result<Option<KValue>> {
+impl<T: Into<KValue>> KotoGetFallbackReturn for Result<Option<T>> {
     fn into_result(self) -> Result<Option<KValue>> {
-        self
+        self.map(|o| o.map(Into::into))
     }
 }
 
-impl KotoGetFallbackReturn for Option<KValue> {
+impl<T: Into<KValue>> KotoGetFallbackReturn for Option<T> {
     fn into_result(self) -> Result<Option<KValue>> {
-        Ok(self)
+        Ok(self.map(Into::into))
     }
 }
 
@@ -127,7 +142,7 @@ impl KotoSetFallbackReturn for () {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "a `#[koto_get_override]` method must return `Option<KValue>` or `koto_runtime::Result<Option<KValue>>`",
+    message = "a `#[koto_get_override]` method must return a value that implements `Into<KValue>`, wrapped in an option, optionally wrapped in `koto_runtime::Result`",
     label = "wrong return type",
     note = "for more info see the `#[koto_impl]` documentation"
 )]
@@ -135,15 +150,15 @@ pub trait KotoGetOverrideReturn {
     fn into_result(self) -> Result<Option<KValue>>;
 }
 
-impl KotoGetOverrideReturn for Result<Option<KValue>> {
+impl<T: Into<KValue>> KotoGetOverrideReturn for Result<Option<T>> {
     fn into_result(self) -> Result<Option<KValue>> {
-        self
+        self.map(|o| o.map(Into::into))
     }
 }
 
-impl KotoGetOverrideReturn for Option<KValue> {
+impl<T: Into<KValue>> KotoGetOverrideReturn for Option<T> {
     fn into_result(self) -> Result<Option<KValue>> {
-        Ok(self)
+        Ok(self.map(Into::into))
     }
 }
 

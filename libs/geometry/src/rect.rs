@@ -32,81 +32,67 @@ impl Rect {
     }
 
     #[koto_method]
-    fn left(&self) -> KValue {
-        self.x.start.into()
+    fn left(&self) -> f64 {
+        self.x.start
     }
 
     #[koto_method]
-    fn right(&self) -> KValue {
-        self.x.end.into()
+    fn right(&self) -> f64 {
+        self.x.end
     }
 
     #[koto_method]
-    fn bottom(&self) -> KValue {
-        self.y.start.into()
+    fn bottom(&self) -> f64 {
+        self.y.start
     }
 
     #[koto_method]
-    fn top(&self) -> KValue {
-        self.y.end.into()
+    fn top(&self) -> f64 {
+        self.y.end
     }
 
     #[koto_method]
-    fn width(&self) -> KValue {
-        self.x.len().into()
+    fn width(&self) -> f64 {
+        self.x.len()
     }
 
     #[koto_method]
-    fn height(&self) -> KValue {
-        self.y.len().into()
+    fn height(&self) -> f64 {
+        self.y.len()
     }
 
     #[koto_method]
-    fn center(&self) -> KValue {
-        Vec2::new(self.x.center(), self.y.center()).into()
+    fn center(&self) -> Vec2 {
+        Vec2::new(self.x.center(), self.y.center())
     }
 
     #[koto_method]
-    fn x(&self) -> KValue {
-        self.x.center().into()
+    fn x(&self) -> f64 {
+        self.x.center()
     }
 
     #[koto_method]
-    fn y(&self) -> KValue {
-        self.y.center().into()
+    fn y(&self) -> f64 {
+        self.y.center()
     }
 
     #[koto_method]
-    fn contains(&self, args: &[KValue]) -> Result<KValue> {
-        match args {
-            [KValue::Object(p)] if p.is_a::<Vec2>() => {
-                let p = p.cast::<Vec2>().unwrap();
-                let result = self.x.contains(p.inner().x) && self.y.contains(p.inner().y);
-                Ok(result.into())
-            }
-            unexpected => unexpected_args("|Vec2|", unexpected),
-        }
+    fn contains(&self, p: &Vec2) -> bool {
+        self.x.contains(p.inner().x) && self.y.contains(p.inner().y)
     }
 
-    #[koto_method]
-    fn set_center(ctx: MethodContext<Self>) -> Result<KValue> {
-        use KValue::{Number, Object};
+    #[koto_method(name = "set_center")]
+    fn set_center_point(&mut self, p: &Vec2) -> &mut Self {
+        self.x.set_center(p.inner().x);
+        self.y.set_center(p.inner().y);
+        self
+    }
 
-        let (x, y) = match ctx.args {
-            [Number(x), Number(y)] => (x.into(), y.into()),
-            [Object(p)] if p.is_a::<Vec2>() => {
-                let p = p.cast::<Vec2>().unwrap();
-                (p.inner().x, p.inner().y)
-            }
-            unexpected => return unexpected_args("|Vec2|, or |Number, Number|", unexpected),
-        };
-
-        let mut this = ctx.instance_mut()?;
-        this.x.set_center(x);
-        this.y.set_center(y);
-
-        // Return a clone of the Rect instance
-        ctx.instance_result()
+    #[koto_method(name = "set_center")]
+    fn set_center_xy(&mut self, x: f64, y: f64) -> &mut Self {
+        self.x.set_center(x);
+        self.y.set_center(y);
+        self
     }
 }
 
@@ -135,7 +121,7 @@ impl KotoObject for Rect {
                 3 => r.height(),
                 _ => unreachable!(),
             };
-            KIteratorOutput::Value(result)
+            KIteratorOutput::Value(result.into())
         });
 
         Ok(KIterator::with_std_iter(iter))
