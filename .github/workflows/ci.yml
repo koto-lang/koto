@@ -23,14 +23,24 @@ jobs:
         with:
           tool: just@1.5.0
 
+      # Cache cargo registry
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            target/
-          key: $build-and-test-${{ matrix.os }}-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
+
+      # Cache target dir
+      - uses: actions/cache@v4
+        with:
+          path: target/
+          key: build-and-test-${{ matrix.os }}-${{ github.sha }}
+          restore-keys: |
+            build-and-test-${{ matrix.os }}-
 
       - name: Build
         run: cargo build --verbose
@@ -52,14 +62,24 @@ jobs:
         with:
           tool: just@1.5.0
 
+      # Cache cargo registry
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            target/
-          key: $build-and-test-release-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
+
+      # Cache target dir
+      - uses: actions/cache@v4
+        with:
+          path: target/
+          key: build-and-test-release-${{ github.sha }}
+          restore-keys: |
+            build-and-test-release-
 
       - name: Test with optimizations
         run: just test_release --verbose
@@ -75,6 +95,25 @@ jobs:
         with:
           tool: just@1.5.0
 
+      # Cache cargo registry
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
+
+      # Cache target dir
+      - uses: actions/cache@v4
+        with:
+          path: target/
+          key: build-and-test-arc-${{ github.sha }}
+          restore-keys: |
+            build-and-test-arc-
+
       - name: Test the arc build variant
         run: just test_arc --verbose
 
@@ -89,14 +128,24 @@ jobs:
         with:
           tool: just@1.5.0
 
+      # Cache cargo registry
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            target/
-          key: $build-and-test-release-arc-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
+
+      # Cache target dir
+      - uses: actions/cache@v4
+        with:
+          path: target/
+          key: build-and-test-release-arc-${{ github.sha }}
+          restore-keys: |
+            build-and-test-release-arc-
 
       - name: Test the arc build variant
         run: just test_arc --release --verbose
@@ -112,6 +161,17 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0,mlc@0.16.3
+
+      # Cache cargo registry
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
 
       - name: Check formatting
         run: just fmt
@@ -136,6 +196,17 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: v0.13.1
+
+      # Cache cargo registry
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-deps-
 
       - name: Run wasm example tests
         run: cd crates/koto/examples/wasm && wasm-pack test --node
