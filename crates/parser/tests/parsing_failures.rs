@@ -93,7 +93,7 @@ x =
 ";
                 check_parsing_fails_with_error_span(
                     source,
-                    SyntaxError::ExpectedMapDestructureKeyRebindId,
+                    SyntaxError::ExpectedUnpackedMapKeyRebindId,
                     Span {
                         start: Position { line: 0, column: 7 },
                         end: Position { line: 0, column: 8 },
@@ -613,7 +613,7 @@ match { x: 'y' }
 ";
                 check_parsing_fails_with_error_span(
                     source,
-                    SyntaxError::ExpectedMapDestructureKeyRebindId,
+                    SyntaxError::ExpectedUnpackedMapKeyRebindId,
                     Span {
                         start: Position {
                             line: 1,

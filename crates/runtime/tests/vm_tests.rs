@@ -636,7 +636,7 @@ b
         }
     }
 
-    mod map_destructuring {
+    mod map_unpacking {
         use super::*;
 
         #[test]
@@ -813,7 +813,7 @@ true
         }
 
         #[test]
-        fn destructured_map_with_type() {
+        fn unpacked_map_with_type() {
             let script = "
 let {}: Foo = {@type: 'Foo'}
 true
@@ -822,7 +822,7 @@ true
         }
 
         #[test]
-        fn destructured_map_with_checked_key() {
+        fn unpacked_map_with_checked_key() {
             let script = "
 let {x: Number} = {x: 1}
 true
@@ -831,7 +831,7 @@ true
         }
 
         #[test]
-        fn destructured_map_with_checked_key_and_type() {
+        fn unpacked_map_with_checked_key_and_type() {
             let script = "
 let {x: Number}: Foo = {x: 1, @type: 'Foo'}
 true
@@ -3874,7 +3874,7 @@ catch error
         }
 
         #[test]
-        fn try_catch_with_destructured_map() {
+        fn try_catch_with_unpacked_map() {
             let script = r#"
 try
   throw
@@ -3919,7 +3919,7 @@ catch error
         }
 
         #[test]
-        fn try_catch_type_check_on_destructured_map() {
+        fn try_catch_type_check_on_unpacked_map() {
             let script = "
 try
   throw

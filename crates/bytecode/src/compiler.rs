@@ -405,7 +405,7 @@ impl Compiler {
                 self.compile_node(*value, ctx)?
             }
             Node::MapPattern { .. } | Node::MapKeyRebind { .. } => {
-                // Map patterns are compiled in expressions that support destructuring maps.
+                // Map patterns are compiled in expressions that support unpacking maps.
                 unreachable!();
             }
             Node::Self_ => {
@@ -1184,7 +1184,7 @@ impl Compiler {
                         }
                         unexpected => {
                             return self.error(ErrorKind::UnexpectedNode {
-                                expected: "map destructure entry".into(),
+                                expected: "id or map key rebind".into(),
                                 unexpected: unexpected.clone(),
                             });
                         }
@@ -1347,7 +1347,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "map destructure entry".into(),
+                        expected: "ID or rebind".into(),
                         unexpected: unexpected.clone(),
                     });
                 }
@@ -2186,7 +2186,7 @@ impl Compiler {
                     }
                 }
                 Node::MapPattern { entries, type_hint } => {
-                    self.try_destructure_map(
+                    self.try_unpack_map(
                         catch_register,
                         entries,
                         type_hint,
@@ -4256,7 +4256,7 @@ impl Compiler {
                     } else {
                         &mut params.jumps.alternative_end
                     };
-                    self.try_destructure_map(map_register, entries, type_hint, jumps, ctx)?;
+                    self.try_unpack_map(map_register, entries, type_hint, jumps, ctx)?;
 
                     // The map pattern been validated, is a jump needed?
                     if is_last_pattern && !params.is_last_alternative {
@@ -4279,7 +4279,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn try_destructure_map<const N: usize>(
+    fn try_unpack_map<const N: usize>(
         &mut self,
         map_register: u8,
         entries: &SmallVec<[AstIndex; 4]>,
@@ -4313,7 +4313,7 @@ impl Compiler {
                 }
                 unexpected => {
                     return self.error(ErrorKind::UnexpectedNode {
-                        expected: "Map destructure entry".into(),
+                        expected: "ID or map key rebind".into(),
                         unexpected: unexpected.clone(),
                     });
                 }

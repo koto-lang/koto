@@ -2748,7 +2748,7 @@ for a in x.zip y
         }
 
         #[test]
-        fn for_destructure_map() {
+        fn for_with_unpacked_map() {
             let source = "\
 for {x} in [{x: 1}]
     x
@@ -3342,7 +3342,7 @@ the function was preceeded by a multiline comment.
         }
 
         #[test]
-        fn destructure_map() {
+        fn unpacked_map_argument() {
             let source = "\
 f = |{x, y}|
   x + y

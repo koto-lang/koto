@@ -1165,9 +1165,8 @@ impl<'source> Parser<'source> {
                     while self.peek_token_with_context(entry_context).is_some() {
                         self.consume_until_token_with_context(entry_context);
 
-                        let Some(entry) = self.parse_destructure_map_entry(
-                            BindingContext::Function(function_frame),
-                        )?
+                        let Some(entry) =
+                            self.parse_unpack_map_entry(BindingContext::Function(function_frame))?
                         else {
                             break;
                         };
@@ -1443,7 +1442,7 @@ impl<'source> Parser<'source> {
                     self.consume_until_token_with_context(entry_context);
 
                     let Some(entry) =
-                        self.parse_destructure_map_entry(BindingContext::Function(function_frame))?
+                        self.parse_unpack_map_entry(BindingContext::Function(function_frame))?
                     else {
                         break;
                     };
@@ -1632,7 +1631,7 @@ impl<'source> Parser<'source> {
     /// Parses either:
     /// - an id
     /// - a `_`-prefixed ignored id
-    /// - a map destructuring
+    /// - a map unpacking
     ///
     /// Used in function arguments, for loop, and let.
     fn parse_binding(
@@ -1669,8 +1668,7 @@ impl<'source> Parser<'source> {
                 while self.peek_token_with_context(entry_context).is_some() {
                     self.consume_until_token_with_context(entry_context);
 
-                    let Some(entry) =
-                        self.parse_destructure_map_entry(binding_context.reborrow())?
+                    let Some(entry) = self.parse_unpack_map_entry(binding_context.reborrow())?
                     else {
                         break;
                     };
@@ -1706,9 +1704,9 @@ impl<'source> Parser<'source> {
         .map(Some)
     }
 
-    fn parse_destructure_map_entry(
+    fn parse_unpack_map_entry(
         &mut self,
-        mut destructure: BindingContext,
+        mut binding_context: BindingContext,
     ) -> Result<Option<AstIndex>> {
         if let Some(Token::CurlyClose) = self.peek_token() {
             return Ok(None);
@@ -1743,7 +1741,7 @@ impl<'source> Parser<'source> {
             if let Some(Token::As) = self.peek_next_token_on_same_line() {
                 self.consume_next_token_on_same_line(); // as
                 self.consume_until_token_with_context(context);
-                return self.consume_map_key_rebind(key, destructure).map(Some);
+                return self.consume_map_key_rebind(key, binding_context).map(Some);
             }
 
             if require_as {
@@ -1752,7 +1750,7 @@ impl<'source> Parser<'source> {
         }
 
         if let Some(id) = id_for_assignment {
-            destructure.add_assigned_id(self, id)?;
+            binding_context.add_assigned_id(self, id)?;
         }
 
         Ok(Some(key))
@@ -1761,19 +1759,19 @@ impl<'source> Parser<'source> {
     fn consume_map_key_rebind(
         &mut self,
         key: AstIndex,
-        mut destructure: BindingContext,
+        mut binding_context: BindingContext,
     ) -> Result<AstIndex> {
         let context = &ExpressionContext::inside_braces();
 
         let Some(id_or_ignored) = self.parse_id_or_ignored(context)? else {
-            return self.consume_token_and_error(SyntaxError::ExpectedMapDestructureKeyRebindId);
+            return self.consume_token_and_error(SyntaxError::ExpectedUnpackedMapKeyRebindId);
         };
 
         let id_or_ignored_span = self.current_span();
         let type_hint = self.parse_type_hint(context)?;
 
         if let IdOrIgnored::Id(id) = id_or_ignored {
-            destructure.add_assigned_id(self, id)?;
+            binding_context.add_assigned_id(self, id)?;
         }
 
         let id_or_ignored_node = match id_or_ignored {
@@ -2664,7 +2662,7 @@ impl<'source> Parser<'source> {
         while self.peek_token_with_context(entry_context).is_some() {
             self.consume_until_token_with_context(entry_context);
 
-            let Some(entry) = self.parse_destructure_map_entry(BindingContext::Default)? else {
+            let Some(entry) = self.parse_unpack_map_entry(BindingContext::Default)? else {
                 break;
             };
 
