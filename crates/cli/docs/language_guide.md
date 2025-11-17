@@ -1013,21 +1013,34 @@ print! (10, 11, 12, 13, 14, 15)
 check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
-List and tuple entries can be matched against by using parentheses,
+List and tuple entries can be matched against by using `()` parentheses,
 with `...` available for capturing the rest of the sequence.
 
 ```koto
 print! match ['a', 'b', 'c'].extend [1, 2, 3]
   ('a', 'b') then
-    "A list containing 'a' and 'b'"
+    "A list containing 'a' and 'b'."
   (1, ...) then
-    "Starts with '1'"
+    "Starts with '1'."
   (..., 'y', last) then
-    "Ends with 'y' followed by '{last}'"
+    "Ends with 'y' followed by '{last}'."
   ('a', x, others...) then
-    "Starts with 'a', followed by '{x}', then {size others} others"
-  unmatched then "other: {unmatched}"
-check! Starts with 'a', followed by 'b', then 4 others
+    "Starts with 'a', followed by '{x}', then {size others} others."
+  unmatched then "other: {unmatched}."
+check! Starts with 'a', followed by 'b', then 4 others.
+```
+
+Maps can also be matched against by listing keys in `{}` braces that should be present in the map.
+
+```koto
+print! match {foo: 10, bar: 20}
+  ('a', 'b') then
+    "A list containing 'a' and 'b'."
+  {foo, bar} if foo == 0 then
+    "A map where 'foo' is zero, and 'bar' is {bar}."
+  {foo, bar} then
+    "A map where 'foo' is {foo}, and 'bar' is {bar}."
+check! A map where 'foo' is 10, and 'bar' is 20.
 ```
 
 ### Optional Chaining
@@ -1302,6 +1315,8 @@ print! y, x
 check! (2, 1)
 ```
 
+### Unpacking Iterable Values
+
 Unpacking works with any iterable value, including adapted iterators.
 
 ```koto
@@ -1327,17 +1342,6 @@ print! x, y, z
 check! (42, null, null)
 ```
 
-Unpacking can also be used in `for` loops, which is particularly useful when
-looping over the contents of a map.
-
-```koto
-my_map = {foo: 42, bar: 99}
-for key, value in my_map
-  print key, value
-check! ('foo', 42)
-check! ('bar', 99)
-```
-
 ### Ignoring Unpacked Values
 
 `_` can be used as a placeholder for unpacked values that aren't needed elsewhere
@@ -1356,6 +1360,54 @@ _first, second = 'xyz'
 print! second
 check! y
 ```
+
+### Unpacking Maps
+
+[Maps](#maps) can be unpacked by declaring the keys that should be accessed in `{}` braces.
+
+```koto
+my_map = {foo: 42, bar: 99, baz: 123}
+
+{foo, bar} = my_map
+
+print! foo, bar
+check! (42, 99)
+```
+
+An alternative name can be given to an unpacked key using the `as` keyword.
+
+```koto
+my_map = {foo: 42, bar: 99, baz: 123}
+
+{foo as x, baz} = my_map
+
+print! x, baz
+check! (42, 123)
+```
+
+### Unpacking in `for` loops
+
+Unpacking can also be used in `for` loops, which is particularly useful when
+looping over the contents of a map.
+
+```koto
+my_map = {foo: 42, bar: 99}
+for key, value in my_map
+  print key, value
+check! ('foo', 42)
+check! ('bar', 99)
+```
+
+Map unpacking can also be used with `for` loops, which is useful if you happen to looping over a sequence of maps.
+
+```koto
+my_maps = {x: 1, y: 2}, {x: 10, y: 20}
+for {x, y} in my_maps
+  print x, y
+check! (1, 2)
+check! (10, 20)
+```
+
 
 ## Ranges
 
@@ -1877,10 +1929,11 @@ check! [1, 2, 3, 4]
 
 Lists usually share state between instances when [captured](#captured-variables) in functions, and a hidden [`copy`](./core_lib/koto.md#copy) on each call would be surprising, and potentially expensive.
 
-### Unpacking Container Arguments
+### Unpacking Arguments
 
 Functions that expect containers as arguments can _unpack_ the container's
-elements directly by using parentheses.
+elements directly in the function definition, using `()` parentheses for lists,
+or `{}` braces for maps.
 
 ```koto
 # A function that sums a value that contains three values
@@ -1892,19 +1945,8 @@ check! 111
 ```
 
 Any container that supports indexing operations (like lists and tuples)
-with a matching number of elements will be unpacked,
-otherwise an error will be thrown.
-
-Unpacked arguments can also be nested.
-
-```koto
-# A function that sums elements from nested containers
-f = |((a, b), (c, d, e))|
-  a + b + c + d + e
-x = ([1, 2], [3, 4, 5])
-print! f x
-check! 15
-```
+with a matching number of elements will be unpacked.
+If the number of elements doesn't match then an error will be thrown.
 
 An ellipsis (`...`) can be used to unpack any number of elements at the start or end of a container.
 
@@ -1922,6 +1964,25 @@ f = |(first, others...)| first * others.sum()
 x = (10, 1, 2, 3)
 print! f x
 check! 60
+```
+
+Map-like values that support `.` access can be unpacked with `{}` braces.
+
+```koto
+f = |{x, y}| x + y
+print! f {x: 10, y: 20}
+check! 30
+```
+
+Unpacked containers can also be nested.
+
+```koto
+# A function that sums elements from nested containers
+f = |((a, b), (c, d, {e, f}))|
+  a + b + c + d + e + f
+x = ([1, 2], [3, 4, {e: 5, f: 6}])
+print! f x
+check! 21
 ```
 
 ### Ignoring Arguments
