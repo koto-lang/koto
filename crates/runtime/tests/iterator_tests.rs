@@ -271,6 +271,15 @@ x.keep(|(_, value)| value > 15).count()
 ";
             check_script_output(script, 2);
         }
+
+        #[test]
+        fn keep_with_type_checked_map_entries() {
+            let script = "
+x = {x: 10, y: 20, z: 30}
+x.keep(|(_: String, value: Number)| value > 15).count()
+";
+            check_script_output(script, 2);
+        }
     }
 
     mod peekable {
