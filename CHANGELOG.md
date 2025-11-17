@@ -12,6 +12,12 @@ The Koto project adheres to
 
 #### Language
 
+- Unpacking maps is now supported anywhere that variables can be created:
+  - ```koto
+    {x, y} = {x: 10, y: 20, z: 30}
+    x, y
+    #: (10, 20)
+    ```
 - `@access` and `@access_assign` metakeys have been added to support overriding the behavior of `.` access operations.
   - ```koto
     foo =
@@ -22,6 +28,7 @@ The Koto project adheres to
     foo.x
     #: 200
     ```
+- `throw` can now be used with any value type, rather than only values that implement `@display`.
 
 #### API
 
@@ -53,9 +60,21 @@ The Koto project adheres to
         }
     }
     ```
+- `#[koto_impl]` has been improved with new features.
+  - Like `koto_fn!`, the `#[koto_method]` attribute now takes care of generating more boilerplate for you, detecting argument and result types and converting them to and from Koto values automatically.
+    - ```rust
+      /// Generates a Koto method that accepts an instance of `self` and a number,
+      /// and returns `self`. The generated wrapper checks for correct argument types,
+      /// and returns the object instance to the caller.
+      #[koto_method]
+      fn add(&mut self, arg: i64) -> &mut Self {
+          self.number += arg;
+          self
+      }
+      ```
+  - `#[koto_get]`/`#[koto_set]` attributes (along with `_override` and `_fallback` attributes) have been added to make it easier to define field getters and setters.
+  - Thanks to [@bluurryy](https://github.com/bluurryy) for the contributions.
 - The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
-  - `#[koto_impl]` has been extended with `#[koto_get]`/`#[koto_set]` attributes (along with `_override` and `_fallback` attributes) to make it easier to define field getters and setters.
-  - [#500](https://github.com/koto-lang/koto/issues/500), thanks to [@bluurryy](https://github.com/bluurryy) for the contributions.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 
 ### Changed
