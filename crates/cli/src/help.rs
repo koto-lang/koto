@@ -247,30 +247,21 @@ Help is available for the following topics:",
                 })
                 .cloned()
                 .collect();
-            self.help_map.insert(
-                text_to_key(&topic.name),
-                HelpEntry {
-                    name: topic.name.clone(),
-                    help: topic.contents,
-                    see_also,
-                    keywords: vec![],
-                },
-            );
-            self.guide_topics.push(topic.name.clone());
+            let topic_name = self.add_to_help(topic.name, topic.contents, see_also, vec![]);
+            self.guide_topics.push(topic_name.clone());
 
             for sub_topic in sub_topics {
-                self.help_map.insert(
-                    text_to_key(&sub_topic.name),
-                    HelpEntry {
-                        name: sub_topic.name,
-                        help: sub_topic.contents,
-                        keywords: sub_topic
-                            .sub_sections
-                            .iter()
-                            .map(|sub_section| text_to_key(sub_section))
-                            .collect(),
-                        see_also: vec![topic.name.clone()],
-                    },
+                let keywords = sub_topic
+                    .sub_sections
+                    .iter()
+                    .map(|sub_section| text_to_key(sub_section))
+                    .collect();
+
+                self.add_to_help(
+                    sub_topic.name,
+                    sub_topic.contents,
+                    vec![topic_name.clone()],
+                    keywords,
                 );
             }
         }
@@ -290,36 +281,84 @@ Help is available for the following topics:",
                 HeadingLevel::H2,
                 true,
             );
-            self.help_map.insert(
-                text_to_key(&module_entry.name),
-                HelpEntry {
-                    name: module_entry.name.clone(),
-                    help: module_entry.contents,
-                    see_also: Vec::new(),
-                    keywords: vec![],
-                },
-            );
-            entry_names.push(module_entry.name);
+            let module_name =
+                self.add_to_help(module_entry.name, module_entry.contents, vec![], vec![]);
+            entry_names.push(module_name);
         }
 
         if !help_section.contents.trim().is_empty() {
-            self.help_map.insert(
-                text_to_key(&help_section.name),
-                HelpEntry {
-                    name: help_section.name.clone(),
-                    help: help_section.contents,
-                    see_also: entry_names,
-                    keywords: vec![],
-                },
+            self.add_to_help(
+                help_section.name.clone(),
+                help_section.contents,
+                entry_names,
+                vec![],
             );
         }
 
         help_section.name
     }
+
+    // Adds an entry to the help map, ensuring a unique name and key.
+    //
+    // The (possibly adjusted) user-facing name is returned.
+    fn add_to_help(
+        &mut self,
+        name: Rc<str>,
+        contents: Rc<str>,
+        see_also: Vec<Rc<str>>,
+        keywords: Vec<Rc<str>>,
+    ) -> Rc<str> {
+        let key = text_to_key(&name);
+
+        if !self.help_map.contains_key(&key) {
+            self.help_map.insert(
+                key,
+                HelpEntry {
+                    name: name.clone(),
+                    help: contents,
+                    see_also,
+                    keywords,
+                },
+            );
+            name.clone()
+        } else {
+            // An entry with this key already exists, so find a unique key by appending an index.
+            let mut attempt = 2;
+            loop {
+                let key: Rc<str> = format!("{key}_{attempt}").into();
+
+                if !self.help_map.contains_key(&key) {
+                    let name: Rc<str> = format!("{name} ({attempt})").into();
+
+                    self.help_map.insert(
+                        key,
+                        HelpEntry {
+                            name: name.clone(),
+                            help: contents,
+                            see_also,
+                            keywords,
+                        },
+                    );
+
+                    return name;
+                }
+                attempt += 1;
+            }
+        }
+    }
 }
 
 fn text_to_key(text: &str) -> Rc<str> {
-    text.trim().to_lowercase().replace(' ', "_").into()
+    text.chars()
+        .filter_map(|c| match c {
+            ' ' => Some('_'),
+            '(' | ')' => None,
+            c if c.is_whitespace() => None,
+            c => Some(c),
+        })
+        .flat_map(char::to_lowercase)
+        .collect::<String>()
+        .into()
 }
 
 struct HelpSection {
