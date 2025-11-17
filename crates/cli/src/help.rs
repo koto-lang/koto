@@ -493,9 +493,16 @@ fn consume_help_section(
                     }
                 }
                 ParsingMode::TypeDeclaration => {
-                    result.push('`');
-                    result.push_str(text.trim_end());
-                    result.push('`');
+                    // Wrap each line of multiline `kototype` declarations in backticks
+                    for line in text.trim().lines() {
+                        result.push('`');
+                        result.push_str(line);
+                        result.push('`');
+                        result.push('\n');
+                    }
+
+                    // The final newline isn't needed.
+                    result.pop();
                 }
             },
             Code(code) => match parsing_mode {
