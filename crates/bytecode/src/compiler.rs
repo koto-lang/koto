@@ -1014,6 +1014,12 @@ impl Compiler {
                         self.compile_assert_type(local_register, *type_hint, Some(arg), ctx)?;
                     }
                 }
+                Node::Ignored(_, Some(type_hint)) => {
+                    let temp_register = self.push_register()?;
+                    self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
+                    self.compile_assert_type(temp_register, *type_hint, Some(arg), ctx)?;
+                    self.pop_register()?; // temp_register
+                }
                 Node::PackedId(maybe_id) if is_first_arg => {
                     if let Some(id) = maybe_id {
                         // e.g. [first..., x, y]
@@ -1037,18 +1043,13 @@ impl Compiler {
                 Node::PackedId(_) => {
                     return self.error(ErrorKind::InvalidPositionForArgWithEllipses);
                 }
-                Node::Ignored { .. } | Node::Tuple { .. } | Node::MapPattern { .. } => {
+                Node::Tuple { .. } | Node::MapPattern { .. } => {
                     let temp_register = self.push_register()?;
                     self.push_op(TempIndex, &[temp_register, container_register, arg_index]);
                     self.compile_arg(temp_register, arg, ctx)?;
                     self.pop_register()?; // temp_register
                 }
-                unexpected => {
-                    return self.error(ErrorKind::UnexpectedNode {
-                        expected: "nested args of tuple".into(),
-                        unexpected: unexpected.clone(),
-                    });
-                }
+                _ => {}
             }
         }
 

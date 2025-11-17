@@ -326,53 +326,41 @@ impl KotoVm {
         }
 
         let result_register = self.next_register();
-        let frame_base = result_register + 1;
-
         self.registers.push(KValue::Null); // Result register
+
+        let args = match (&args, &function) {
+            (CallArgs::AsTuple(args), KValue::Function(f)) if f.flags.arg_is_unpacked_tuple() => {
+                // If the function is being called with a tuple, and the function has a single
+                // unpacked tuple as its argument, then the call args can be passed into the function
+                // as a temporary tuple. The temp tuple's contents get pushed onto the stack here in
+                // the registers preceding the function's frame.
+                let start = self.registers.len();
+                self.registers.extend(args.iter().cloned());
+                CallArgs::Single(KValue::TemporaryTuple(RegisterSlice {
+                    start,
+                    count: args.len(),
+                }))
+            }
+            _ => args,
+        };
+
+        let frame_base = self.next_register();
         self.registers.push(instance.unwrap_or_default()); // Frame base
 
-        let (arg_count, temp_tuple_values) = match args {
+        let arg_count = match args {
             CallArgs::Single(arg) => {
                 self.registers.push(arg);
-                (1, None)
+                1
             }
             CallArgs::Separate(args) => {
                 self.registers.extend_from_slice(args);
-                (args.len() as u8, None)
+                args.len() as u8
             }
             CallArgs::AsTuple(args) => {
-                // If the function has a single arg which is an unpacked tuple,
-                // then the tuple contents can go into a temporary tuple.
-                //
-                // The temp tuple goes into the first arg register, the function's captures
-                // follow, and then the temp tuple contents can be placed in the registers
-                // following the captures. The captures and temp tuple contents are added
-                // to the value stack in call_function/call_generator, here we only need to
-                // add the temp tuple itself.
-                //
-                // At runtime the unpacking instructions will still be executed, resulting
-                // in the tuple values being unpacked into the same registers that they're
-                // already in. This is redundant work, but more efficient than allocating a
-                // non-temporary Tuple for the values.
-                match &function {
-                    KValue::Function(f) if f.flags.arg_is_unpacked_tuple() => {
-                        let capture_count = f.captures().map_or(0, |captures| captures.len() as u8);
-                        let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
-                            // The unpacked tuple contents go into the registers after the
-                            // function's captures, which are placed after the temp tuple and
-                            // instance registers.
-                            start: 2 + capture_count,
-                            count: args.len() as u8,
-                        });
-                        self.registers.push(temp_tuple);
-                        (1, Some(args))
-                    }
-                    _ => {
-                        let tuple_contents = Vec::from(args);
-                        self.registers.push(KValue::Tuple(tuple_contents.into()));
-                        (1, None)
-                    }
-                }
+                // If the call arg tuple wasn't converted into a temp tuple above,
+                // then at this point it needs to be stored in a KTuple.
+                self.registers.push(KValue::Tuple(Vec::from(args).into()));
+                1
             }
         };
 
@@ -388,7 +376,6 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             function,
-            temp_tuple_values,
         )?;
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -839,7 +826,10 @@ impl KotoVm {
                 count,
             } => self.set_register(
                 register,
-                KValue::TemporaryTuple(RegisterSlice { start, count }),
+                KValue::TemporaryTuple(RegisterSlice {
+                    start: self.register_index(start),
+                    count: count as usize,
+                }),
             ),
             TempTupleToTuple { register, source } => {
                 self.run_temp_tuple_to_tuple(register, source)?
@@ -936,7 +926,6 @@ impl KotoVm {
                     packed_arg_count: unpacked_arg_count,
                 },
                 self.clone_register(function),
-                None,
             )?,
             CallInstance {
                 result,
@@ -954,7 +943,6 @@ impl KotoVm {
                     packed_arg_count: unpacked_arg_count,
                 },
                 self.clone_register(function),
-                None,
             )?,
             Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
@@ -1128,7 +1116,7 @@ impl KotoVm {
                 _ => None,
             },
             KValue::TemporaryTuple(temp_tuple) => {
-                match self.register_slice(temp_tuple.start, temp_tuple.count) {
+                match self.register_slice_raw(temp_tuple.start, temp_tuple.count) {
                     [key, value] => Some((key.clone(), value.clone())),
                     _ => None,
                 }
@@ -1148,8 +1136,9 @@ impl KotoVm {
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
             KValue::TemporaryTuple(temp_registers) => {
-                let tuple =
-                    KTuple::from(self.register_slice(temp_registers.start, temp_registers.count));
+                let tuple = KTuple::from(
+                    self.register_slice_raw(temp_registers.start, temp_registers.count),
+                );
                 self.set_register(register, KValue::Tuple(tuple));
             }
             _ => unreachable!(),
@@ -1286,7 +1275,7 @@ impl KotoVm {
                 TemporaryTuple(RegisterSlice { start, count }) => {
                     if count > 0 {
                         (
-                            Some(self.clone_register(start)),
+                            Some(self.registers[start].clone()),
                             TemporaryTuple(RegisterSlice {
                                 start: start + 1,
                                 count: count - 1,
@@ -1325,7 +1314,10 @@ impl KotoVm {
                                     }
                                     self.registers[first_index] = first;
                                     self.registers[second_index] = second;
-                                    Some(TemporaryTuple(RegisterSlice { start, count: 2 }))
+                                    Some(TemporaryTuple(RegisterSlice {
+                                        start: first_index,
+                                        count: 2,
+                                    }))
                                 } else {
                                     Some(Tuple(vec![first, second].into()))
                                 }
@@ -1399,9 +1391,9 @@ impl KotoVm {
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
-                if index.unsigned_abs() < count {
-                    let index = signed_index_to_unsigned(index, count as usize);
-                    self.clone_register(start + index as u8)
+                if (index.unsigned_abs() as usize) < count {
+                    let index = signed_index_to_unsigned(index, count);
+                    self.registers[start + index].clone()
                 } else {
                     Null
                 }
@@ -2230,7 +2222,6 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-            None,
         )
     }
 
@@ -2256,7 +2247,6 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-            None,
         )
     }
 
@@ -2284,7 +2274,6 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-            None,
         )
     }
 
@@ -2355,7 +2344,7 @@ impl KotoVm {
             }
             Map(m) => Some(m.len()),
             Object(o) => o.try_borrow()?.size(),
-            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count as usize),
+            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count),
             _ => None,
         };
 
@@ -2989,12 +2978,7 @@ impl KotoVm {
     }
 
     // Similar to `call_koto_function`, but sets up the frame in a new VM for the generator
-    fn call_generator(
-        &mut self,
-        call_info: &CallInfo,
-        f: &KFunction,
-        temp_tuple_values: Option<&[KValue]>,
-    ) -> Result<()> {
+    fn call_generator(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
         // Spawn a VM for the generator
         let mut generator_vm = self.spawn_shared_vm();
         // Push a frame for running the generator function
@@ -3054,7 +3038,7 @@ impl KotoVm {
         )?;
 
         // Captures and temp tuple values are placed in the registers following the arguments
-        apply_captures_and_temp_tuple_values(&mut generator_vm.registers, f, temp_tuple_values);
+        apply_captures(&mut generator_vm.registers, f);
 
         // Move the generator vm into an iterator and then place it in the result register
         if let Some(result_register) = call_info.result_register {
@@ -3064,12 +3048,7 @@ impl KotoVm {
         Ok(())
     }
 
-    fn call_koto_function(
-        &mut self,
-        call_info: &CallInfo,
-        f: &KFunction,
-        temp_tuple_values: Option<&[KValue]>,
-    ) -> Result<()> {
+    fn call_koto_function(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
         debug_assert!(!f.flags.is_generator());
 
         // The caller instance is in the frame base register,
@@ -3100,7 +3079,7 @@ impl KotoVm {
         )?;
 
         // Captures and temp tuple values are placed in the registers following the arguments
-        apply_captures_and_temp_tuple_values(&mut self.registers, f, temp_tuple_values);
+        apply_captures(&mut self.registers, f);
 
         // Set up a new frame for the called function
         self.push_frame(
@@ -3114,12 +3093,7 @@ impl KotoVm {
         Ok(())
     }
 
-    fn call_callable(
-        &mut self,
-        mut info: CallInfo,
-        callable: KValue,
-        temp_tuple_values: Option<&[KValue]>,
-    ) -> Result<()> {
+    fn call_callable(&mut self, mut info: CallInfo, callable: KValue) -> Result<()> {
         use KValue::*;
 
         if let Some(instance) = info.instance {
@@ -3139,9 +3113,9 @@ impl KotoVm {
         match callable {
             Function(f) => {
                 if f.flags.is_generator() {
-                    self.call_generator(&info, &f, temp_tuple_values)
+                    self.call_generator(&info, &f)
                 } else {
-                    self.call_koto_function(&info, &f, temp_tuple_values)
+                    self.call_koto_function(&info, &f)
                 }
             }
             NativeFunction(f) => self.call_native_function(&info, ExternalCallable::Function(f)),
@@ -3157,7 +3131,6 @@ impl KotoVm {
                         ..info
                     },
                     f,
-                    temp_tuple_values,
                 )
             }
             unexpected => unexpected_type("callable function", &unexpected),
@@ -3749,13 +3722,19 @@ impl KotoVm {
         &mut self.registers[index]
     }
 
-    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[KValue] {
+    // Provides a slice of registers, with a start register relative to the current frame base.
+    pub(crate) fn register_slice(&self, start: u8, count: u8) -> &[KValue] {
         if count > 0 {
-            let start = self.register_index(register);
+            let start = self.register_index(start);
             &self.registers[start..start + count as usize]
         } else {
             &[]
         }
+    }
+
+    // Provides a slice of registers, with a start register index in the register stack.
+    pub(crate) fn register_slice_raw(&self, start: usize, count: usize) -> &[KValue] {
+        &self.registers[start..start + count]
     }
 
     fn truncate_registers(&mut self, len: u8) {
@@ -3870,11 +3849,7 @@ fn apply_variadic_arguments(
 }
 
 // See [KotoVm::call_koto_function] and [KotoVm::call_generator]
-fn apply_captures_and_temp_tuple_values(
-    registers: &mut Vec<KValue>,
-    f: &KFunction,
-    temp_tuple_values: Option<&[KValue]>,
-) {
+fn apply_captures(registers: &mut Vec<KValue>, f: &KFunction) {
     if let Some(captures) = f.captures() {
         // Copy the captures list into the registers following the args
         registers.extend(
@@ -3884,11 +3859,6 @@ fn apply_captures_and_temp_tuple_values(
                 .skip(f.optional_arg_count as usize)
                 .cloned(),
         );
-    }
-
-    // Place any temp tuple values in the registers following the args and captures
-    if let Some(temp_tuple_values) = temp_tuple_values {
-        registers.extend_from_slice(temp_tuple_values);
     }
 }
 
@@ -3911,7 +3881,7 @@ pub(crate) fn clone_generator_vm(vm: &KotoVm) -> Result<KotoVm> {
 /// Function call arguments
 ///
 /// Typical use will be to use the `From` implementations, either providing a single value that
-/// implements `Into<KValue>`, or an array or slice of `KValue`s.
+/// implements `Into<KValue>`, or an array or slice of [KValue]s.
 ///
 /// See [KotoVm::call_function].
 pub enum CallArgs<'a> {
@@ -3924,7 +3894,7 @@ pub enum CallArgs<'a> {
     /// Arguments are bundled together as a tuple and then passed to the function.
     ///
     /// If the called function unpacks the tuple in its arguments list,
-    /// then a temporary tuple will be used, which avoids the allocation of a regular KTuple.
+    /// then a temporary tuple will be used, which avoids the allocation of a regular [KTuple].
     AsTuple(&'a [KValue]),
 }
 

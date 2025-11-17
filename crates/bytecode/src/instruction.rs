@@ -988,7 +988,8 @@ impl fmt::Debug for Instruction {
             } => {
                 write!(
                     f,
-                    "AssertType      value: {value:7} type: {type_string:<8} allow null: {allow_null}"
+                    "AssertType      value: {value:<8} type: {type_string:<9} \
+                     allow null: {allow_null}"
                 )
             }
             CheckType {
@@ -999,8 +1000,8 @@ impl fmt::Debug for Instruction {
             } => {
                 write!(
                     f,
-                    "CheckType       value: {value:7} type: {type_string:<8} allow null: {allow_null:<6}\
-                    offset: {jump_offset}"
+                    "CheckType       value: {value:<7} type: {type_string:<8} \
+                    allow null: {allow_null:<6} offset: {jump_offset}"
                 )
             }
             StringStart { size_hint } => {

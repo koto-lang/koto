@@ -343,8 +343,8 @@ where
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RegisterSlice {
-    pub start: u8,
-    pub count: u8,
+    pub start: usize,
+    pub count: usize,
 }
 
 /// If conversion fails then the input value will be returned.
