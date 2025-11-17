@@ -17,8 +17,8 @@ impl TestContainer {
     }
 
     #[koto_method]
-    fn to_tuple(&self) -> KValue {
-        KTuple::from(self.data.clone()).into()
+    fn to_tuple(&self) -> KTuple {
+        self.data.clone().into()
     }
 }
 

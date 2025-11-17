@@ -38,20 +38,15 @@ impl MyType {
 
     // A simple getter function
     #[koto_method]
-    fn get(&self) -> runtime::Result<KValue> {
-        Ok(self.0.into())
+    fn get(&self) -> i64 {
+        self.0
     }
 
     // A function that returns the object instance as the result
     #[koto_method]
-    fn set(ctx: MethodContext<Self>) -> runtime::Result<KValue> {
-        match ctx.args {
-            [KValue::Number(n)] => {
-                ctx.instance_mut()?.0 = n.into();
-                ctx.instance_result()
-            }
-            unexpected => unexpected_args("|Number|", unexpected),
-        }
+    fn set(&mut self, n: i64) -> &mut Self {
+        self.0 = n;
+        self
     }
 }
 

@@ -338,6 +338,7 @@ mod objects {
         field: KValue,
         field_for_override: KValue,
         field_for_fallback: KValue,
+        number: i64,
     }
 
     impl TestObjectAccess {
@@ -346,6 +347,7 @@ mod objects {
                 field: KValue::Null,
                 field_for_override: KValue::Null,
                 field_for_fallback: KValue::Null,
+                number: 0,
             })
             .into()
         }
@@ -377,6 +379,34 @@ mod objects {
         #[koto_method]
         fn method(&self) -> KValue {
             "method".into()
+        }
+
+        // For testing overloading
+        #[koto_method(name = "identify")]
+        fn identify_number(&mut self, _: f64) -> &str {
+            "that's a number"
+        }
+
+        #[koto_method(name = "identify")]
+        fn identify_numbers(&mut self, _: f64, _: f64) -> &str {
+            "that's two numbers"
+        }
+
+        #[koto_method(name = "identify")]
+        fn identify_string(&mut self, _: &str) -> &str {
+            "that's a string"
+        }
+
+        // For testing builder methods
+        #[koto_method]
+        fn add(&mut self, arg: i64) -> &mut Self {
+            self.number += arg;
+            self
+        }
+
+        #[koto_get]
+        fn number(&self) -> i64 {
+            self.number
         }
 
         #[koto_get_override]
@@ -439,8 +469,8 @@ mod objects {
     #[koto_impl(runtime = koto_runtime)]
     impl MapLikeObject {
         #[koto_method]
-        fn length(&self) -> KValue {
-            self.map.len().into()
+        fn length(&self) -> usize {
+            self.map.len()
         }
 
         #[koto_get_override]
@@ -1170,6 +1200,36 @@ x.field_3 = "foo_3"
 assert_eq x.field, "foo_3"
 "##;
         test_object_script(script, ());
+    }
+
+    #[test]
+    fn method_overloading() {
+        let script = r##"
+x = make_object_access()
+
+assert_eq x.identify(3.141), "that's a number"
+assert_eq x.identify(3.141, 6.283), "that's two numbers"
+assert_eq x.identify("pi"), "that's a string"
+
+try 
+  x.identify([])
+  throw "the expression above should have thrown"
+catch error
+  assert_eq error, "Unexpected arguments.
+  Expected: |Number|, |Number, Number|, or |String|
+  Provided: |List|"
+"##;
+        test_object_script(script, ());
+    }
+
+    #[test]
+    fn builder_method() {
+        let script = r##"
+x = make_object_access()
+x.add(1).add(2).add(3)
+x.number
+"##;
+        test_object_script(script, 6);
     }
 
     #[test]

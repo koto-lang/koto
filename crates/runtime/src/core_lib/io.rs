@@ -180,18 +180,18 @@ impl File {
     }
 
     #[koto_method]
-    fn flush(&mut self) -> Result<KValue> {
-        self.0.flush().map(|_| KValue::Null)
+    fn flush(&mut self) -> Result<()> {
+        self.0.flush()
     }
 
     #[koto_method]
-    fn is_terminal(&self) -> KValue {
-        self.0.is_terminal().into()
+    fn is_terminal(&self) -> bool {
+        self.0.is_terminal()
     }
 
     #[koto_method]
-    fn path(&self) -> Result<KValue> {
-        self.0.path().map(KValue::from)
+    fn path(&self) -> Result<KString> {
+        self.0.path()
     }
 
     #[koto_method]
@@ -210,8 +210,8 @@ impl File {
     }
 
     #[koto_method]
-    fn read_to_string(&mut self) -> Result<KValue> {
-        self.0.read_to_string().map(KValue::from)
+    fn read_to_string(&mut self) -> Result<String> {
+        self.0.read_to_string()
     }
 
     #[koto_method]

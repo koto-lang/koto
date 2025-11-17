@@ -3,7 +3,13 @@ use std::{
     mem,
 };
 
-use crate::PREFIX_FUNCTION;
+use crate::{
+    PREFIX_FUNCTION,
+    overloading::{
+        AccessAttributeArgs, OverloadOptions, OverloadedFunction, OverloadedFunctionCandidate,
+        OverloadedFunctions,
+    },
+};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote, quote_spanned};
@@ -188,6 +194,8 @@ struct Context {
     get_access: Ident,
     get_access_assign: Ident,
 
+    overloaded_methods: RefCell<OverloadedFunctions>,
+
     insert_ops_for_access: InsertOps,
     insert_ops_for_access_assign: InsertOps,
     additional_items: RefCell<Vec<ImplItem>>,
@@ -227,6 +235,7 @@ impl Context {
             get_access_assign: format_ident!("_{PREFIX_FUNCTION}get_access_assign"),
 
             // output data
+            overloaded_methods: Default::default(),
             insert_ops_for_access: Default::default(),
             insert_ops_for_access_assign: Default::default(),
             additional_items: Default::default(),
@@ -356,6 +365,10 @@ fn process(ctx: &Context) -> Result<()> {
         handle_koto_set_override(ctx, fun, attr)?;
     }
 
+    // The `handle_koto_method` just added all methods to `ctx.overloaded_methods`.
+    // Now we produce the wrapper functions and insert ops for the methods.
+    add_koto_methods(ctx)?;
+
     // Add access and access assign map creation and getter functions.
     //
     // The map creator and getter are separated to avoid "can't use Self from outer item" errors
@@ -372,48 +385,55 @@ fn process(ctx: &Context) -> Result<()> {
 
 fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
     let args = AccessAttributeArgs::new(attr)?;
-    let names = args.names(|| {
-        // Use the function name as key if no explicit name is given.
-        Ok(LitStr::new(
-            &fun.sig.ident.to_string(),
-            fun.sig.ident.span(),
-        ))
-    })?;
+    let candidate = OverloadedFunctionCandidate::new(fun.clone(), args, OverloadOptions::Method)?;
+    ctx.overloaded_methods.borrow_mut().insert(candidate);
+    Ok(())
+}
 
-    let wrapper = wrap_koto_method(ctx, fun)?;
-    ctx.add_fn_to_impl(wrapper);
+fn add_koto_methods(ctx: &Context) -> Result<()> {
+    let overloaded_methods = ctx.overloaded_methods.borrow();
 
-    let wrapper_name = koto_method_wrapper_name(fun);
+    for overloaded_method in overloaded_methods.inner.values() {
+        let names = overloaded_method
+            .name_and_aliases()
+            .into_iter()
+            .collect::<Vec<_>>();
 
-    let value = quote! {
-        MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
-    };
+        let wrapper = wrap_koto_method(ctx, overloaded_method)?;
+        ctx.add_fn_to_impl(wrapper);
 
-    if names.len() == 1 {
-        let name = names.into_iter().next().unwrap();
+        let wrapper_name = koto_method_wrapper_name(overloaded_method.first_ident());
 
-        ctx.insert_ops_for_access.add(quote! {
-            result.insert(
-                #name,
-                #value,
+        let value = quote! {
+            MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
+        };
+
+        if names.len() == 1 {
+            let name = names.into_iter().next().unwrap();
+
+            ctx.insert_ops_for_access.add(quote! {
+                result.insert(
+                    #name,
+                    #value,
+                );
+            });
+        } else {
+            // Generate additional entries for each function alias
+            ctx.insert_ops_for_access.add_many(
+                names.len(),
+                quote! {
+                    {
+                        let value = #value;
+                        #(
+                            result.insert(
+                                #names,
+                                value.clone(),
+                            );
+                        )*
+                    }
+                },
             );
-        });
-    } else {
-        // Generate additional entries for each function alias
-        ctx.insert_ops_for_access.add_many(
-            names.len(),
-            quote! {
-                {
-                    let value = #value;
-                    #(
-                        result.insert(
-                            #names,
-                            value.clone(),
-                        );
-                    )*
-                }
-            },
-        );
+        }
     }
 
     Ok(())
@@ -643,7 +663,7 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         KotoGetFallbackReturn::into_result(#call_result)
     };
 
-    let wrapper_name = koto_method_wrapper_name(fun);
+    let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
         fn #wrapper_name(&self, #key: &#runtime::KString)
@@ -706,7 +726,7 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         KotoSetFallbackReturn::into_result(#call_result)
     };
 
-    let wrapper_name = koto_method_wrapper_name(fun);
+    let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
         fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
@@ -768,7 +788,7 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         KotoGetOverrideReturn::into_result(#call_result)
     };
 
-    let wrapper_name = koto_method_wrapper_name(fun);
+    let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
         fn #wrapper_name(&self, #key: &KString)
@@ -836,7 +856,7 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
         KotoSetOverrideReturn::into_result(#call_result)
     };
 
-    let wrapper_name = koto_method_wrapper_name(fun);
+    let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
         fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
@@ -858,132 +878,26 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
     Ok(())
 }
 
-fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
-    let mut args = fun.sig.inputs.iter();
-
+fn wrap_koto_method(ctx: &Context, fun: &OverloadedFunction) -> Result<ImplItemFn> {
+    let wrapper_name = koto_method_wrapper_name(fun.first_ident());
     let runtime = &ctx.runtime;
 
-    let wrapper_body = match args.next() {
-        // Functions that have a &self or &mut self arg
-        Some(FnArg::Receiver(f)) => {
-            // Mutable or immutable instance?
-            let (cast, instance) = if f.mutability.is_some() {
-                (quote! {cast_mut}, quote! {mut instance})
-            } else {
-                (quote! {cast}, quote! {instance})
-            };
+    let wrapper_body = match fun.match_arms() {
+        Ok(arms) => quote! {
+            use #runtime::{ KValue, KotoType, __private::KotoMethodReturn };
 
-            // Does the function expect additional arguments after the instance?
-            let (args_match, call_args, error_arm) = match args.next() {
-                None => (
-                    quote!([]), // No args expected
-                    quote!(),   // No args to call with
-                    quote!((_, unexpected) =>  #runtime::unexpected_args("||", unexpected)),
-                ),
-                Some(FnArg::Typed(pattern)) if matches!(*pattern.ty, Type::Reference(_)) => {
-                    let ty_span = pattern.ty.span();
-
-                    (
-                        // Match against any number of args
-                        quote_spanned!(ty_span=> args),
-                        // Append the args to the call
-                        quote_spanned!(ty_span=> args),
-                        // Any number of args will be captured
-                        quote! {
-                            _ => #runtime::runtime_error!(#runtime::ErrorKind::UnexpectedError)
-                        },
-                    )
-                }
-                Some(arg) => {
-                    return Err(Error::new_spanned(
-                        arg,
-                        "Expected `&[KValue]` as the second parameter of a `#[koto_method]`",
-                    ));
-                }
-            };
-
-            if let Some(arg) = args.next() {
-                return Err(Error::new_spanned(
-                    arg,
-                    "Unexpected additional parameter for a `#[koto_method]`",
-                ));
+            match ctx.instance_and_args(
+                |i| matches!(i, KValue::Object(_)),
+                <Self as KotoType>::type_static()
+            )? {
+                #arms
             }
-
-            let return_ty_span = match &fun.sig.output {
-                ReturnType::Type(_, ty) => ty.span(),
-                ReturnType::Default => Span::call_site(),
-            };
-
-            // Attach a span to so a type error will point at the right place.
-            let call_result = quote_spanned!(return_ty_span=> call_result);
-
-            let fn_ident = &fun.sig.ident;
-            let runtime = &ctx.runtime;
-
-            let wrapped_call = quote! {
-                let #call_result = instance.#fn_ident(#call_args);
-                KotoMethodReturn::into_result(#call_result)
-            };
-
-            quote! {{
-                use #runtime::{KValue, __private::KotoMethodReturn};
-
-                match ctx.instance_and_args(
-                    |i| matches!(i, KValue::Object(_)),
-                    <Self as #runtime::KotoType>::type_static()
-                )? {
-                    (KValue::Object(o), #args_match) => {
-                        match o.#cast::<Self>() {
-                            Ok(#instance) => { #wrapped_call }
-                            Err(e) => Err(e),
-                        }
-                    },
-                    #error_arm,
-                }
-            }}
-        }
-        // Functions that take a MethodContext
-        _ => {
-            if let Some(arg) = args.next() {
-                return Err(Error::new_spanned(
-                    arg,
-                    "Unexpected additional parameter for a `#[koto_method]`",
-                ));
-            }
-
-            let return_ty_span = match &fun.sig.output {
-                ReturnType::Type(_, ty) => ty.span(),
-                ReturnType::Default => Span::call_site(),
-            };
-
-            // Attach a span to so a type error will point at the right place.
-            let call_result = quote_spanned!(return_ty_span=> call_result);
-
-            let fn_ident = &fun.sig.ident;
-            let runtime = &ctx.runtime;
-
-            let wrapped_call = quote! {
-                let #call_result = Self::#fn_ident(MethodContext::new(&o, extra_args, ctx.vm));
-                KotoMethodReturn::into_result(#call_result)
-            };
-
-            quote! {{
-                use #runtime::{
-                    ErrorKind, KValue, MethodContext, runtime_error,
-                    __private::KotoMethodReturn,
-                };
-
-                match ctx.instance_and_args(
-                    |i| matches!(i, KValue::Object(_)), Self::type_static())?
-                {
-                    (KValue::Object(o), extra_args) => { #wrapped_call }
-                    _ => #runtime::runtime_error!(ErrorKind::UnexpectedError),
-                }
-            }}
+        },
+        Err(error) => {
+            let compile_error = error.into_compile_error();
+            quote!(#compile_error)
         }
     };
-
-    let wrapper_name = koto_method_wrapper_name(fun);
 
     let wrapped_fn = quote! {
         #[automatically_derived]
@@ -998,8 +912,8 @@ fn wrap_koto_method(ctx: &Context, fun: &ImplItemFn) -> Result<ImplItemFn> {
     )
 }
 
-fn koto_method_wrapper_name(f: &ImplItemFn) -> Ident {
-    format_ident!("{PREFIX_FUNCTION}{}", f.sig.ident)
+fn koto_method_wrapper_name(ident: &Ident) -> Ident {
+    format_ident!("{PREFIX_FUNCTION}{ident}")
 }
 
 fn add_access_map_creator(ctx: &Context) -> Result<()> {
@@ -1400,49 +1314,6 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
 
     ctx.add_fn_to_impl(item);
     Ok(())
-}
-
-struct AccessAttributeArgs {
-    name: Option<LitStr>,
-    aliases: Vec<LitStr>,
-}
-
-impl AccessAttributeArgs {
-    fn new(attr: &Attribute) -> Result<Self> {
-        let mut name = None::<LitStr>;
-        let mut aliases = Vec::new();
-
-        if matches!(attr.meta, Meta::List(_)) {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("name") {
-                    name = meta.value()?.parse()?;
-                    Ok(())
-                } else if meta.path.is_ident("alias") {
-                    aliases.push(meta.value()?.parse()?);
-                    Ok(())
-                } else {
-                    Err(meta.error("unsupported attribute argument"))
-                }
-            })?;
-        }
-
-        Ok(Self { name, aliases })
-    }
-
-    /// Returns entries for all names that should be associated with this access.
-    ///
-    /// If there is no `name` attribute, then `name_fallback` will be invoked to
-    /// produce a name in its stead.
-    fn names(self, name_fallback: impl FnOnce() -> Result<LitStr>) -> Result<Vec<LitStr>> {
-        let name = match self.name {
-            Some(name) => name,
-            None => name_fallback()?,
-        };
-
-        let mut names = vec![name];
-        names.extend(self.aliases);
-        Ok(names)
-    }
 }
 
 struct FallbackAttributeArgs {}
