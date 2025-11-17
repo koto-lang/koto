@@ -359,10 +359,9 @@ impl KotoVm {
                         let capture_count = f.captures().map_or(0, |captures| captures.len() as u8);
                         let temp_tuple = KValue::TemporaryTuple(RegisterSlice {
                             // The unpacked tuple contents go into the registers after the
-                            // function's captures, which are placed after the temp tuple and
-                            // instance registers.
-                            start: 2 + capture_count,
-                            count: args.len() as u8,
+                            // function's captures, which are placed after the temp tuple argument.
+                            start: self.registers.len() + 1 + capture_count as usize,
+                            count: args.len(),
                         });
                         self.registers.push(temp_tuple);
                         (1, Some(args))
@@ -839,7 +838,10 @@ impl KotoVm {
                 count,
             } => self.set_register(
                 register,
-                KValue::TemporaryTuple(RegisterSlice { start, count }),
+                KValue::TemporaryTuple(RegisterSlice {
+                    start: self.register_index(start),
+                    count: count as usize,
+                }),
             ),
             TempTupleToTuple { register, source } => {
                 self.run_temp_tuple_to_tuple(register, source)?
@@ -1128,7 +1130,7 @@ impl KotoVm {
                 _ => None,
             },
             KValue::TemporaryTuple(temp_tuple) => {
-                match self.register_slice(temp_tuple.start, temp_tuple.count) {
+                match self.register_slice_raw(temp_tuple.start, temp_tuple.count) {
                     [key, value] => Some((key.clone(), value.clone())),
                     _ => None,
                 }
@@ -1148,8 +1150,9 @@ impl KotoVm {
     fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> Result<()> {
         match self.clone_register(source_register) {
             KValue::TemporaryTuple(temp_registers) => {
-                let tuple =
-                    KTuple::from(self.register_slice(temp_registers.start, temp_registers.count));
+                let tuple = KTuple::from(
+                    self.register_slice_raw(temp_registers.start, temp_registers.count),
+                );
                 self.set_register(register, KValue::Tuple(tuple));
             }
             _ => unreachable!(),
@@ -1286,7 +1289,7 @@ impl KotoVm {
                 TemporaryTuple(RegisterSlice { start, count }) => {
                     if count > 0 {
                         (
-                            Some(self.clone_register(start)),
+                            Some(self.registers[start].clone()),
                             TemporaryTuple(RegisterSlice {
                                 start: start + 1,
                                 count: count - 1,
@@ -1325,7 +1328,10 @@ impl KotoVm {
                                     }
                                     self.registers[first_index] = first;
                                     self.registers[second_index] = second;
-                                    Some(TemporaryTuple(RegisterSlice { start, count: 2 }))
+                                    Some(TemporaryTuple(RegisterSlice {
+                                        start: first_index,
+                                        count: 2,
+                                    }))
                                 } else {
                                     Some(Tuple(vec![first, second].into()))
                                 }
@@ -1399,9 +1405,9 @@ impl KotoVm {
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
-                if index.unsigned_abs() < count {
-                    let index = signed_index_to_unsigned(index, count as usize);
-                    self.clone_register(start + index as u8)
+                if (index.unsigned_abs() as usize) < count {
+                    let index = signed_index_to_unsigned(index, count);
+                    self.registers[start + index].clone()
                 } else {
                     Null
                 }
@@ -2355,7 +2361,7 @@ impl KotoVm {
             }
             Map(m) => Some(m.len()),
             Object(o) => o.try_borrow()?.size(),
-            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count as usize),
+            TemporaryTuple(RegisterSlice { count, .. }) => Some(*count),
             _ => None,
         };
 
@@ -3749,13 +3755,19 @@ impl KotoVm {
         &mut self.registers[index]
     }
 
-    pub(crate) fn register_slice(&self, register: u8, count: u8) -> &[KValue] {
+    // Provides a slice of registers, with a start register relative to the current frame base.
+    pub(crate) fn register_slice(&self, start: u8, count: u8) -> &[KValue] {
         if count > 0 {
-            let start = self.register_index(register);
+            let start = self.register_index(start);
             &self.registers[start..start + count as usize]
         } else {
             &[]
         }
+    }
+
+    // Provides a slice of registers, with a start register index in the register stack.
+    pub(crate) fn register_slice_raw(&self, start: usize, count: usize) -> &[KValue] {
+        &self.registers[start..start + count]
     }
 
     fn truncate_registers(&mut self, len: u8) {
