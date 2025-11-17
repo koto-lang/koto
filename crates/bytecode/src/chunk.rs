@@ -87,7 +87,7 @@ impl Chunk {
 
     /// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
     pub fn instructions_as_string(chunk: Ptr<Chunk>, source_lines: &[&str]) -> String {
-        let ip_width = 5 + chunk.bytes.len().ilog10() as usize;
+        let ip_width = 5 + chunk.bytes.len().checked_ilog10().unwrap_or_default() as usize;
 
         let mut result = String::new();
         let mut reader = InstructionReader::new(chunk);
