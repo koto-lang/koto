@@ -2929,7 +2929,7 @@ impl KotoVm {
         if let Some(result) = maybe_op {
             Ok(Some(result))
         } else if error_if_not_found {
-            runtime_error!("'{key}' not found in '{module_name}'")
+            runtime_error!("'{key}' not found in the '{module_name}' module")
         } else {
             Ok(None)
         }

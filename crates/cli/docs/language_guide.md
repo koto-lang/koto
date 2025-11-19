@@ -93,9 +93,9 @@ print! (1 + 2) * (3 + 4)
 check! 21
 ```
 
-#### Non-decimal Numbers
+#### Non-Decimal Bases
 
-Numbers can be expressed with non-decimal bases.
+Integers can be expressed with non-decimal bases.
 
 ```koto
 # Hexadecimal numbers begin with 0x

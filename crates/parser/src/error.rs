@@ -127,9 +127,9 @@ pub enum SyntaxError {
     ExpectedMapEnd,
     #[error("expected map entry")]
     ExpectedMapEntry,
-    #[error("expected key after '.' in Map access")]
+    #[error("expected id or string for '.' access")]
     ExpectedMapKey,
-    #[error("expected value after ':' in Map")]
+    #[error("expected value after ':' in map entry")]
     ExpectedMapValue,
     #[error("expected map assignment entry")]
     ExpectedMapAssignmentEntry,
@@ -183,6 +183,8 @@ pub enum SyntaxError {
     MissingModuleForWildcardImport,
     #[error("nested types aren't currently supported")]
     NestedTypesArentSupported,
+    #[error("floating point literals aren't supported for non-decimal bases")]
+    NonDecimalFloatsAreUnsupported,
     #[error("keyword reserved for future use")]
     ReservedKeyword,
     #[error("'self' doesn't need to be declared as an argument")]
