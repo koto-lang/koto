@@ -2319,6 +2319,12 @@ impl<'source> Parser<'source> {
         };
 
         let number_node = if let Ok(n) = maybe_integer {
+            if matches!(self.peek_token_n(0), Some(Token::Dot))
+                && matches!(self.peek_token_n(1), Some(Token::Number))
+            {
+                return self.consume_token_and_error(SyntaxError::NonDecimalFloatsAreUnsupported);
+            }
+
             // Should we store the number as a SmallInt or as a stored constant?
             if u8::try_from(n).is_ok() {
                 let n = if negate { -n } else { n };
