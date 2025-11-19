@@ -42,6 +42,10 @@ jobs:
           restore-keys: |
             build-and-test-${{ matrix.os }}-
 
+      # Restore file timestamps to their commit times to avoid recompilations
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
+
       - name: Build
         run: cargo build --verbose
 
@@ -81,6 +85,9 @@ jobs:
           restore-keys: |
             build-and-test-release-
 
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
+
       - name: Test with optimizations
         run: just test_release --verbose
 
@@ -114,6 +121,9 @@ jobs:
           restore-keys: |
             build-and-test-arc-
 
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
+
       - name: Test the arc build variant
         run: just test_arc --verbose
 
@@ -146,6 +156,9 @@ jobs:
           key: build-and-test-release-arc-${{ github.sha }}
           restore-keys: |
             build-and-test-release-arc-
+
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Test the arc build variant
         run: just test_arc --release --verbose
