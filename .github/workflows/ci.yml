@@ -22,25 +22,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
-
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
-
-      # Cache target dir
-      - uses: actions/cache@v4
-        with:
-          path: target/
-          key: build-and-test-${{ matrix.os }}-${{ github.sha }}
-          restore-keys: |
-            build-and-test-${{ matrix.os }}-
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --verbose
@@ -61,25 +43,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
+      - uses: Swatinem/rust-cache@v2
 
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
-
-      # Cache target dir
-      - uses: actions/cache@v4
-        with:
-          path: target/
-          key: build-and-test-release-${{ github.sha }}
-          restore-keys: |
-            build-and-test-release-
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Test with optimizations
         run: just test_release --verbose
@@ -94,25 +61,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
+      - uses: Swatinem/rust-cache@v2
 
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
-
-      # Cache target dir
-      - uses: actions/cache@v4
-        with:
-          path: target/
-          key: build-and-test-arc-${{ github.sha }}
-          restore-keys: |
-            build-and-test-arc-
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Test the arc build variant
         run: just test_arc --verbose
@@ -127,25 +79,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0
+      - uses: Swatinem/rust-cache@v2
 
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
-
-      # Cache target dir
-      - uses: actions/cache@v4
-        with:
-          path: target/
-          key: build-and-test-release-arc-${{ github.sha }}
-          restore-keys: |
-            build-and-test-release-arc-
+      - name: restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
 
       - name: Test the arc build variant
         run: just test_arc --release --verbose
@@ -161,17 +98,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just@1.5.0,mlc@0.16.3
-
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
         run: just fmt
@@ -196,17 +123,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: v0.13.1
-
-      # Cache cargo registry
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: cargo-deps-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-deps-
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run wasm example tests
         run: cd crates/koto/examples/wasm && wasm-pack test --node
