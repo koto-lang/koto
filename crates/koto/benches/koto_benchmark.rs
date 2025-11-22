@@ -20,15 +20,14 @@ impl BenchmarkRunner {
         path.push(script_path);
         let script = read_to_string(path).expect("Unable to load path");
 
-        let mut runtime = Koto::new();
+        let mut runtime =
+            Koto::with_settings(KotoSettings::default().with_args(args.iter().copied()));
+
         let prelude = runtime.prelude();
         prelude.insert("geometry", koto_geometry::make_module());
 
         let chunk = match runtime.compile(&script) {
             Ok(chunk) => {
-                runtime
-                    .set_args(args.iter().map(|s| s.to_string()))
-                    .unwrap();
                 if let Err(error) = runtime.run(chunk.clone()) {
                     panic!("{error}");
                 }

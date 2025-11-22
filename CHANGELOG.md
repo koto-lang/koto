@@ -86,6 +86,7 @@ The Koto project adheres to
   - `BinaryOp::Index` has been moved to `ReadOp::Index`.
   - `MetaKey::IndexMut` has been moved to `WriteOp::IndexAssign`.
   - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
+- `Koto::set_args` has been replaced by `KotoSettings::with_args`
 
 #### Libs
 

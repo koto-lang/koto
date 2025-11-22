@@ -140,6 +140,7 @@ fn main() -> Result<()> {
         run_tests: args.run_tests || args.run_import_tests,
         vm_settings: KotoVmSettings {
             run_import_tests: args.run_import_tests,
+            args: args.script_args,
             ..Default::default()
         },
     };
@@ -206,7 +207,6 @@ fn main() -> Result<()> {
                             Chunk::instructions_as_string(chunk.clone(), &script_lines)
                         );
                     }
-                    koto.set_args(args.script_args)?;
                     match koto.run(chunk) {
                         Ok(_) => {}
                         Err(error) if error.source().is_some() => {
