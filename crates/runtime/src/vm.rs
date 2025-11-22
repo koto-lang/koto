@@ -1,6 +1,6 @@
 use crate::{
     DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
-    core_lib::{CoreLib, koto::Unimplemented},
+    core_lib::{CoreLib, io::File, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
     types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
@@ -52,6 +52,30 @@ impl VmContext {
     fn with_settings(settings: KotoVmSettings) -> Self {
         let core_lib = CoreLib::default();
 
+        core_lib.os.insert(
+            "args",
+            KValue::Tuple(
+                settings
+                    .args
+                    .iter()
+                    .map(|s| KValue::from(s.as_str()))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+
+        core_lib
+            .io
+            .insert("stdin", File::new(settings.stdin.clone()));
+
+        core_lib
+            .io
+            .insert("stdout", File::new(settings.stdout.clone()));
+
+        core_lib
+            .io
+            .insert("stderr", File::new(settings.stderr.clone()));
+
         Self {
             settings,
             prelude: core_lib.prelude(),
@@ -95,20 +119,25 @@ pub struct KotoVmSettings {
     /// reload the script when one of its dependencies has changed.
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
 
-    /// The runtime's `stdin`
+    /// The runtime's `stdin`that can be accessed from within the script via `io.stdin`
     ///
     /// Default: [`DefaultStdin`]
     pub stdin: Ptr<dyn KotoFile>,
 
-    /// The runtime's `stdout`
+    /// The runtime's `stdout`that can be accessed from within the script via `io.stdout`
     ///
     /// Default: [`DefaultStdout`]
     pub stdout: Ptr<dyn KotoFile>,
 
-    /// The runtime's `stderr`
+    /// The runtime's `stderr` that can be accessed from within the script via `io.stderr`
     ///
     /// Default: [`DefaultStderr`]
     pub stderr: Ptr<dyn KotoFile>,
+
+    /// The runtime's `args` that can be accessed from within the script via `os.args`
+    ///
+    /// Default: `vec![]`
+    pub args: Vec<String>,
 }
 
 impl Default for KotoVmSettings {
@@ -120,6 +149,7 @@ impl Default for KotoVmSettings {
             stdin: make_ptr!(DefaultStdin::default()),
             stdout: make_ptr!(DefaultStdout::default()),
             stderr: make_ptr!(DefaultStderr::default()),
+            args: vec![],
         }
     }
 }

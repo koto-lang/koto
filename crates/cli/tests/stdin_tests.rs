@@ -65,7 +65,7 @@ World!
     #[test]
     fn writing_directly_to_stdout() {
         let script = "
-stdout = io.stdout()
+stdout = io.stdout
 stdout.write 'Hello'
 stdout.write ', World!'
 ";
@@ -76,7 +76,7 @@ stdout.write ', World!'
     #[test]
     fn is_terminal_stdin() {
         let script = "
-assert not io.stdin().is_terminal()
+assert not io.stdin.is_terminal()
 1 + 1
 ";
         run_piped_stdio_test(script, "");
@@ -85,7 +85,7 @@ assert not io.stdin().is_terminal()
     #[test]
     fn is_terminal_stdout() {
         let script = "
-assert not io.stdout().is_terminal()
+assert not io.stdout.is_terminal()
 ";
         run_piped_stdio_test(script, "");
     }
@@ -93,7 +93,7 @@ assert not io.stdout().is_terminal()
     #[test]
     fn is_terminal_stderr() {
         let script = "
-assert not io.stderr().is_terminal()
+assert not io.stderr.is_terminal()
 ";
         run_piped_stdio_test(script, "");
     }

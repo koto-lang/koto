@@ -166,15 +166,15 @@ io.exists path
 ## stderr
 
 ```kototype
-|| -> File
+File
 ```
 
-Returns the standard error output of the current process as a [`File`](#file).
+The standard error output of the current process as a [`File`](#file).
 
 ### Example
 
 ```koto
-io.stderr().write_line "An error occurred!"
+io.stderr.write_line "An error occurred!"
 ```
 
 ### See Also
@@ -185,15 +185,15 @@ io.stderr().write_line "An error occurred!"
 ## stdin
 
 ```kototype
-|| -> File
+File
 ```
 
-Returns the standard input of the current process as a [`File`](#file).
+The standard input of the current process as a [`File`](#file).
 
 ### Example
 
 ```koto
-io.stdin().read_to_string()
+io.stdin.read_to_string()
 # "..."
 ```
 
@@ -205,15 +205,15 @@ io.stdin().read_to_string()
 ## stdout
 
 ```kototype
-|| -> File
+File
 ```
 
-Returns the standard output of the current process as a [`File`](#file).
+The standard output of the current process as a [`File`](#file).
 
 ### Example
 
 ```koto
-io.stdout().write_line "Hello, World!"
+io.stdout.write_line "Hello, World!"
 ```
 
 ### See Also
@@ -262,11 +262,11 @@ Returns `true` if the file refers to a terminal/tty.
 ### Example
 
 ```koto
-next_line = if io.stdin().is_terminal()
+next_line = if io.stdin.is_terminal()
   print 'Please provide some input'
-  io.stdin().read_line()
+  io.stdin.read_line()
 else
-  io.stdin().read_line()
+  io.stdin.read_line()
 ```
 
 ## File.path

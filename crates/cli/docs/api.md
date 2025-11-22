@@ -77,7 +77,7 @@ prelude_value_remove.rs
 ## Passing Arguments to Koto
 
 The arguments that are accessible in a script from `os.args` can be set via
-`Koto::set_args`.
+`KotoSettings::with_args`.
 
 ```rust_include
 args.rs

@@ -41,7 +41,7 @@ mod eval_tests {
     #[test]
     fn stdin_read_line() {
         let script = "
-stdin = io.stdin()
+stdin = io.stdin
 print stdin.read_line()
 print 'xyz'
 print stdin.read_line()

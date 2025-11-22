@@ -139,7 +139,7 @@ debug foo
     #[test]
     fn write_via_stdout() {
         let script = "
-stdout = io.stdout()
+stdout = io.stdout
 stdout.write 'abc'
 stdout.write 'def'
 stdout.write_line 'ghi'
@@ -151,7 +151,7 @@ stdout.write_line 'ghi'
     #[test]
     fn write_via_stderr() {
         let script = "
-stderr = io.stderr()
+stderr = io.stderr
 stderr.write '123'
 stderr.write '456'
 stderr.write_line '789'

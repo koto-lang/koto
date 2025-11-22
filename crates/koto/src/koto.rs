@@ -172,19 +172,6 @@ impl Koto {
         self.runtime.loader().borrow_mut().clear_cache();
     }
 
-    /// Sets the arguments that can be accessed from within the script via `os.args()`
-    pub fn set_args(&mut self, args: impl IntoIterator<Item = String>) -> Result<()> {
-        let koto_args = args.into_iter().map(KValue::from).collect::<Vec<_>>();
-
-        match self.runtime.prelude().data_mut().get("os") {
-            Some(KValue::Map(map)) => {
-                map.insert("args", KValue::Tuple(koto_args.into()));
-                Ok(())
-            }
-            _ => Err(Error::MissingOsModule),
-        }
-    }
-
     /// Enables or disables the `run_tests` setting
     ///
     /// Currently this is only used when running benchmarks where tests are run once during setup,
@@ -209,6 +196,18 @@ impl KotoSettings {
         Self {
             vm_settings: KotoVmSettings {
                 execution_limit: Some(limit),
+                ..self.vm_settings
+            },
+            ..self
+        }
+    }
+
+    /// Helper for conveniently defining custom args
+    #[must_use]
+    pub fn with_args(self, args: impl IntoIterator<Item: Into<String>>) -> Self {
+        Self {
+            vm_settings: KotoVmSettings {
+                args: args.into_iter().map(Into::into).collect(),
                 ..self.vm_settings
             },
             ..self

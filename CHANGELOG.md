@@ -79,6 +79,9 @@ The Koto project adheres to
 
 ### Changed
 
+#### Language
+- `io.stdin`, `io.stdout` and `io.stderr` are now provided as `File` instead of `|| -> File`
+
 #### API
 
 - The `KotoEntries` trait has been replaced with `KotoAccess`, see the note in the `Added` section above for more info.
@@ -86,6 +89,7 @@ The Koto project adheres to
   - `BinaryOp::Index` has been moved to `ReadOp::Index`.
   - `MetaKey::IndexMut` has been moved to `WriteOp::IndexAssign`.
   - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
+- `Koto::set_args` has been replaced by `KotoSettings::with_args`
 
 #### Libs
 
