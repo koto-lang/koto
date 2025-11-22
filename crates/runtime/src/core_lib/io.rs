@@ -126,18 +126,9 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("stderr", |ctx| match ctx.args() {
-        [] => Ok(File::stderr(ctx.vm)),
-        unexpected => unexpected_args("||", unexpected),
-    });
-    result.add_fn("stdin", |ctx| match ctx.args() {
-        [] => Ok(File::stdin(ctx.vm)),
-        unexpected => unexpected_args("||", unexpected),
-    });
-    result.add_fn("stdout", |ctx| match ctx.args() {
-        [] => Ok(File::stdout(ctx.vm)),
-        unexpected => unexpected_args("||", unexpected),
-    });
+    result.insert("stdin", File::empty());
+    result.insert("stdout", File::empty());
+    result.insert("stderr", File::empty());
 
     result.add_fn("temp_dir", |ctx| match ctx.args() {
         [] => Ok(std::env::temp_dir().to_string_lossy().as_ref().into()),
@@ -167,16 +158,8 @@ impl File {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
-    fn stderr(vm: &KotoVm) -> KValue {
-        Self(vm.stderr().clone()).into()
-    }
-
-    fn stdin(vm: &KotoVm) -> KValue {
-        Self(vm.stdin().clone()).into()
-    }
-
-    fn stdout(vm: &KotoVm) -> KValue {
-        Self(vm.stdout().clone()).into()
+    fn empty() -> KValue {
+        Self(make_ptr!(std::io::empty())).into()
     }
 
     #[koto_method]

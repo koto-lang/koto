@@ -1,4 +1,5 @@
 mod buffered_file;
+mod empty_file;
 mod file;
 mod stdio;
 

@@ -1,6 +1,6 @@
 use crate::{
     DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
-    core_lib::{CoreLib, koto::Unimplemented},
+    core_lib::{CoreLib, io::File, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
     types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
@@ -63,6 +63,18 @@ impl VmContext {
                     .into(),
             ),
         );
+
+        core_lib
+            .io
+            .insert("stdin", File::new(settings.stdin.clone()));
+
+        core_lib
+            .io
+            .insert("stdout", File::new(settings.stdout.clone()));
+
+        core_lib
+            .io
+            .insert("stderr", File::new(settings.stderr.clone()));
 
         Self {
             settings,

@@ -79,6 +79,9 @@ The Koto project adheres to
 
 ### Changed
 
+#### Language
+- `io.stdin`, `io.stdout` and `io.stderr` are now provided as `File` instead of `|| -> File`
+
 #### API
 
 - The `KotoEntries` trait has been replaced with `KotoAccess`, see the note in the `Added` section above for more info.
