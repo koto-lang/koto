@@ -656,24 +656,19 @@ switch
             }
 
             #[test]
-            fn missing_template_identifier() {
-                check_parsing_fails("'hello, $");
-            }
-
-            #[test]
             fn unterminated_template_expression() {
-                check_parsing_fails("'hello, ${name'");
+                check_parsing_fails("'hello, {name'");
             }
 
             #[test]
             fn incomplete_template_expression() {
-                check_parsing_fails("'${1 + }'");
+                check_parsing_fails("'{1 + }'");
             }
 
             #[test]
             fn multiline_template_expression() {
                 let source = "
-'foo: ${
+'foo: {
 42
 }'
 ";
