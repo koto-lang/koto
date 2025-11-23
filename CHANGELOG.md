@@ -77,6 +77,11 @@ The Koto project adheres to
 - The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 
+#### Core Library
+
+- New functions: 
+  - `os.env`
+
 ### Changed
 
 #### API
