@@ -15,6 +15,11 @@ pub fn make_module() -> KMap {
 
     result.insert("args", KValue::Tuple(KTuple::default()));
 
+    result.add_fn("env", |ctx| match ctx.args() {
+        [KValue::Str(key)] => Ok(std::env::var(key.as_str()).ok().into()),
+        unexpected => unexpected_args("|String|", unexpected),
+    });
+
     result.add_fn("command", |ctx| match ctx.args() {
         [KValue::Str(command)] => Ok(Command::make_value(command)),
         unexpected => unexpected_args("|String|", unexpected),
