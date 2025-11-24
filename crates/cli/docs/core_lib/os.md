@@ -25,6 +25,21 @@ os.args.last()
 # hello
 ```
 
+## env
+
+```kototype
+|String| -> String?
+```
+
+Returns the environment variable with the given name, or `null` if the name contains '=', '\0', the variable is unset, or its value is not valid Unicode.
+
+### Example
+
+```koto,skip_run
+user = os.env("USERNAME") or "world"
+print "Hello, {user}!"
+```
+
 ## command
 
 ```kototype
