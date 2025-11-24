@@ -92,10 +92,10 @@ script is running.
 t = os.start_timer()
 
 # ...after some time...
-print "Time taken: ${t.elapsed()}s"
+print "Time taken: {t.elapsed()}s"
 
 t2 = os.start_timer()
-print "Seconds between then and now: ${t2 - t}"
+print "Seconds between then and now: {t2 - t}"
 ```
 
 ## time
@@ -567,5 +567,5 @@ Returns the number of seconds that have elapsed since the timer was started.
 t = os.start_timer()
 
 # ...after some time...
-print "Time taken: ${t.elapsed()}s"
+print "Time taken: {t.elapsed()}s"
 ```
