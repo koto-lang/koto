@@ -19,7 +19,7 @@ pub use crate::{
         unexpected_args_after_instance, unexpected_type,
     },
     io::{
-        BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite,
+        BufferedFile, KotoFile, KotoRead, KotoWrite, SystemStderr, SystemStdin, SystemStdout,
         UnavailableStderr, UnavailableStdin, UnavailableStdout,
     },
     send_sync::{KotoSend, KotoSync},

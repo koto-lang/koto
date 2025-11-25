@@ -91,6 +91,7 @@ The Koto project adheres to
   - `MetaKey::IndexMut` has been moved to `WriteOp::IndexAssign`.
   - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
 - `Koto::set_args` has been replaced by `KotoSettings::with_args`
+- `DefaultStdin`, `DefaultStdout` and `DefaultStderr` have been renamed to `SystemStdin`, `SystemStdout` and `SystemStderr`
 
 #### Libs
 

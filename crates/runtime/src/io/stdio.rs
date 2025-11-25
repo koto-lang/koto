@@ -77,26 +77,26 @@ macro_rules! stream {
 stream! {
     get: stdin,
     name: "stdin",
-    system: DefaultStdin,
+    system: SystemStdin,
     unavailable: UnavailableStdin,
 }
 
 stream! {
     get: stdout,
     name: "stdout",
-    system: DefaultStdout,
+    system: SystemStdout,
     unavailable: UnavailableStdout,
 }
 
 stream! {
     get: stderr,
     name: "stderr",
-    system: DefaultStderr,
+    system: SystemStderr,
     unavailable: UnavailableStderr,
 }
 
-impl KotoWrite for DefaultStdin {}
-impl KotoRead for DefaultStdin {
+impl KotoWrite for SystemStdin {}
+impl KotoRead for SystemStdin {
     fn read_line(&self) -> Result<Option<String>> {
         let mut result = String::new();
         let bytes_read = io::stdin().read_line(&mut result).map_err(map_io_err)?;
@@ -117,8 +117,8 @@ impl KotoRead for DefaultStdin {
     }
 }
 
-impl KotoRead for DefaultStdout {}
-impl KotoWrite for DefaultStdout {
+impl KotoRead for SystemStdout {}
+impl KotoWrite for SystemStdout {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         io::stdout().write_all(bytes).map_err(map_io_err)
     }
@@ -135,8 +135,8 @@ impl KotoWrite for DefaultStdout {
     }
 }
 
-impl KotoRead for DefaultStderr {}
-impl KotoWrite for DefaultStderr {
+impl KotoRead for SystemStderr {}
+impl KotoWrite for SystemStderr {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         io::stderr().write_all(bytes).map_err(map_io_err)
     }

@@ -7,7 +7,7 @@ pub use self::{
     buffered_file::BufferedFile,
     file::{KotoFile, KotoRead, KotoWrite},
     stdio::{
-        DefaultStderr, DefaultStdin, DefaultStdout, UnavailableStderr, UnavailableStdin,
+        SystemStderr, SystemStdin, SystemStdout, UnavailableStderr, UnavailableStdin,
         UnavailableStdout,
     },
 };

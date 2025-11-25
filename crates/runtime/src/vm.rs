@@ -1,5 +1,5 @@
 use crate::{
-    DefaultStderr, DefaultStdin, DefaultStdout, InstructionFrame, KFunction, Ptr, Result,
+    InstructionFrame, KFunction, Ptr, Result, SystemStderr, SystemStdin, SystemStdout,
     core_lib::{CoreLib, io::File, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
@@ -146,9 +146,9 @@ impl Default for KotoVmSettings {
             run_import_tests: true,
             execution_limit: None,
             module_imported_callback: None,
-            stdin: make_ptr!(DefaultStdin::default()),
-            stdout: make_ptr!(DefaultStdout::default()),
-            stderr: make_ptr!(DefaultStderr::default()),
+            stdin: make_ptr!(SystemStdin::default()),
+            stdout: make_ptr!(SystemStdout::default()),
+            stderr: make_ptr!(SystemStderr::default()),
             args: vec![],
         }
     }
