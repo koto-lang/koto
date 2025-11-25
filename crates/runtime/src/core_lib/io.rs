@@ -1,6 +1,9 @@
 //! The `io` core library module
 
-use crate::{BufferedFile, Error, Ptr, Result, derive::*, prelude::*};
+use crate::{
+    BufferedFile, Error, Ptr, Result, UnavailableStderr, UnavailableStdin, UnavailableStdout,
+    derive::*, prelude::*,
+};
 use std::{
     fmt, fs,
     io::{self, BufRead, Read, Seek, SeekFrom, Write},
@@ -126,9 +129,9 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.insert("stdin", File::empty());
-    result.insert("stdout", File::empty());
-    result.insert("stderr", File::empty());
+    result.insert("stdin", File::new(make_ptr!(UnavailableStdin::default())));
+    result.insert("stdout", File::new(make_ptr!(UnavailableStdout::default())));
+    result.insert("stderr", File::new(make_ptr!(UnavailableStderr::default())));
 
     result.add_fn("temp_dir", |ctx| match ctx.args() {
         [] => Ok(std::env::temp_dir().to_string_lossy().as_ref().into()),
@@ -156,10 +159,6 @@ impl File {
         T: Read + Write + Seek + KotoSend + KotoSync + 'static,
     {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
-    }
-
-    fn empty() -> KValue {
-        Self(make_ptr!(std::io::empty())).into()
     }
 
     #[koto_method]
