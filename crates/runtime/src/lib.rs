@@ -18,7 +18,10 @@ pub use crate::{
         Error, ErrorKind, InstructionFrame, Result, unexpected_args,
         unexpected_args_after_instance, unexpected_type,
     },
-    io::{BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite},
+    io::{
+        BufferedFile, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, KotoRead, KotoWrite,
+        UnavailableStderr, UnavailableStdin, UnavailableStdout,
+    },
     send_sync::{KotoSend, KotoSync},
     types::{
         BinaryOp, CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,

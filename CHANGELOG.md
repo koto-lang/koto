@@ -76,6 +76,7 @@ The Koto project adheres to
   - Thanks to [@bluurryy](https://github.com/bluurryy) for the contributions.
 - The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
+- `UnavailableStdin`, `UnavailableStdout` and `UnavailableStderr` have been added to represent unavailable io streams
 
 ### Changed
 

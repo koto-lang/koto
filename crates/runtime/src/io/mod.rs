@@ -6,5 +6,8 @@ mod stdio;
 pub use self::{
     buffered_file::BufferedFile,
     file::{KotoFile, KotoRead, KotoWrite},
-    stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
+    stdio::{
+        DefaultStderr, DefaultStdin, DefaultStdout, UnavailableStderr, UnavailableStdin,
+        UnavailableStdout,
+    },
 };
