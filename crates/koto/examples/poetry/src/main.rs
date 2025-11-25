@@ -79,10 +79,13 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut koto = Koto::with_settings(KotoSettings {
-        run_tests: true,
-        ..Default::default()
-    });
+    let mut koto = Koto::with_settings(
+        KotoSettings {
+            run_tests: true,
+            ..Default::default()
+        }
+        .inherit_io(),
+    );
 
     koto.prelude()
         .insert("poetry", koto_bindings::make_module());

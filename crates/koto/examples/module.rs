@@ -7,7 +7,7 @@ from my_module import echo, square
 print echo 'Hello'
 print square 9
 ";
-    let mut koto = Koto::default();
+    let mut koto = Koto::with_settings(KotoSettings::default().inherit_io());
     koto.prelude().insert("my_module", make_module());
     koto.compile_and_run(script).unwrap();
 }

@@ -1,7 +1,7 @@
 use koto::prelude::*;
 
 fn main() {
-    let mut koto = Koto::default();
+    let mut koto = Koto::with_settings(KotoSettings::default().inherit_io());
     let prelude = koto.prelude();
 
     // Remove the core library's io module from the prelude.

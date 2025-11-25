@@ -1,6 +1,6 @@
 use crate::{Error, Ptr, Result, prelude::*};
 use koto_bytecode::CompilerSettings;
-use koto_runtime::ModuleImportedCallback;
+use koto_runtime::{ModuleImportedCallback, SystemStderr, SystemStdin, SystemStdout};
 use std::time::Duration;
 
 /// The main interface for the Koto language.
@@ -190,6 +190,36 @@ pub struct KotoSettings {
 }
 
 impl KotoSettings {
+    /// Helper for conveniently setting the arguments to those of the current process
+    ///
+    /// # Panics
+    ///
+    /// This will panic if any argument of the current process is not valid Unicode.
+    #[must_use]
+    pub fn inherit_args(self) -> Self {
+        Self {
+            vm_settings: KotoVmSettings {
+                args: std::env::args().collect(),
+                ..self.vm_settings
+            },
+            ..self
+        }
+    }
+
+    /// Helper for conveniently setting the stdio streams to those of the current process
+    #[must_use]
+    pub fn inherit_io(self) -> Self {
+        Self {
+            vm_settings: KotoVmSettings {
+                stdin: make_ptr!(SystemStdin::default()),
+                stdout: make_ptr!(SystemStdout::default()),
+                stderr: make_ptr!(SystemStderr::default()),
+                ..self.vm_settings
+            },
+            ..self
+        }
+    }
+
     /// Helper for conveniently defining a maximum execution duration
     #[must_use]
     pub fn with_execution_limit(self, limit: Duration) -> Self {

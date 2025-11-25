@@ -77,6 +77,7 @@ The Koto project adheres to
 - The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 - `UnavailableStdin`, `UnavailableStdout` and `UnavailableStderr` have been added to represent unavailable io streams
+- `KotoSettings::inherit_args` and `KotoSettings::inherit_io` have been added to use the args / io of the current process
 
 ### Changed
 
@@ -92,6 +93,7 @@ The Koto project adheres to
   - `KotoObject::index_mut` has been renamed to `KotoObject::index_assign`.
 - `Koto::set_args` has been replaced by `KotoSettings::with_args`
 - `DefaultStdin`, `DefaultStdout` and `DefaultStderr` have been renamed to `SystemStdin`, `SystemStdout` and `SystemStderr`
+- The default io streams of `KotoVmSettings` have been changed to `Unavailable*` io streams
 
 #### Libs
 

@@ -1,5 +1,6 @@
 use crate::{
-    InstructionFrame, KFunction, Ptr, Result, SystemStderr, SystemStdin, SystemStdout,
+    InstructionFrame, KFunction, Ptr, Result, UnavailableStderr, UnavailableStdin,
+    UnavailableStdout,
     core_lib::{CoreLib, io::File, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
@@ -121,17 +122,17 @@ pub struct KotoVmSettings {
 
     /// The runtime's `stdin`that can be accessed from within the script via `io.stdin`
     ///
-    /// Default: [`DefaultStdin`]
+    /// Default: [`UnavailableStdin`]
     pub stdin: Ptr<dyn KotoFile>,
 
     /// The runtime's `stdout`that can be accessed from within the script via `io.stdout`
     ///
-    /// Default: [`DefaultStdout`]
+    /// Default: [`UnavailableStdout`]
     pub stdout: Ptr<dyn KotoFile>,
 
     /// The runtime's `stderr` that can be accessed from within the script via `io.stderr`
     ///
-    /// Default: [`DefaultStderr`]
+    /// Default: [`UnavailableStderr`]
     pub stderr: Ptr<dyn KotoFile>,
 
     /// The runtime's `args` that can be accessed from within the script via `os.args`
@@ -146,9 +147,9 @@ impl Default for KotoVmSettings {
             run_import_tests: true,
             execution_limit: None,
             module_imported_callback: None,
-            stdin: make_ptr!(SystemStdin::default()),
-            stdout: make_ptr!(SystemStdout::default()),
-            stderr: make_ptr!(SystemStderr::default()),
+            stdin: make_ptr!(UnavailableStdin::default()),
+            stdout: make_ptr!(UnavailableStdout::default()),
+            stderr: make_ptr!(UnavailableStderr::default()),
             args: vec![],
         }
     }

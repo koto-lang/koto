@@ -11,7 +11,7 @@ else
   print 'No arguments'
 ";
 
-    let mut koto = Koto::with_settings(KotoSettings::default().with_args(std::env::args()));
+    let mut koto = Koto::with_settings(KotoSettings::default().inherit_args().inherit_io());
 
     koto.compile_and_run(script)?;
 

@@ -5,6 +5,7 @@ use anyhow::{Context, Result, bail};
 use crossterm::{terminal, tty::IsTty};
 use koto::{
     prelude::*,
+    runtime::{SystemStderr, SystemStdin, SystemStdout},
     serde::{from_koto_value, to_koto_value},
 };
 use koto_format::FormatOptions;
@@ -141,6 +142,9 @@ fn main() -> Result<()> {
         vm_settings: KotoVmSettings {
             run_import_tests: args.run_import_tests,
             args: args.script_args,
+            stdin: make_ptr!(SystemStdin::default()),
+            stdout: make_ptr!(SystemStdout::default()),
+            stderr: make_ptr!(SystemStderr::default()),
             ..Default::default()
         },
     };
