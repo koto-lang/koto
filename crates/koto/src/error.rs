@@ -6,8 +6,6 @@ use thiserror::Error;
 pub enum Error {
     #[error("{0}")]
     StringError(String),
-    #[error("missing os module in the prelude")]
-    MissingOsModule,
     #[error("no exported function named '{0}' found")]
     MissingFunction(String),
     #[error("{error}")]

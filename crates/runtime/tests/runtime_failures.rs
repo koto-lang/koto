@@ -18,6 +18,10 @@ mod runtime {
         check_that_script_fails(script, Some(error.into()), Some(span))
     }
 
+    fn check_script_fails_with_error(script: &str, error: impl Into<String>) {
+        check_that_script_fails(script, Some(error.into()), None)
+    }
+
     fn check_that_script_fails(script: &str, message: Option<String>, span: Option<Span>) {
         let mut vm = KotoVm::default();
 
@@ -984,6 +988,22 @@ f = |x|
 f -1
 ";
                 check_script_fails(script);
+            }
+        }
+
+        mod stdio {
+            use super::*;
+
+            #[test]
+            fn unavailable_by_default() {
+                // We're just calling `flush`, but whatever File method you call,
+                // the error is the same.
+                check_script_fails_with_error("io.stdin.flush()", "stdin is unavailable");
+                check_script_fails_with_error("io.stdout.flush()", "stdout is unavailable");
+                check_script_fails_with_error("io.stderr.flush()", "stderr is unavailable");
+
+                // `print` uses stdout
+                check_script_fails_with_error("print 'test'", "stdout is unavailable");
             }
         }
     }

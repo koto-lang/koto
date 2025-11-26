@@ -1,7 +1,7 @@
 use koto::{Result, prelude::*};
 
 fn main() -> Result<()> {
-    let mut koto = Koto::default();
+    let mut koto = Koto::with_settings(KotoSettings::default().inherit_io());
     let prelude = koto.prelude();
 
     prelude.insert("say_hello", say_hello);

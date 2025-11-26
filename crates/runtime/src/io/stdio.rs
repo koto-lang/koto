@@ -1,22 +1,102 @@
 use crate::{KString, KotoFile, KotoRead, KotoWrite, Result, core_lib::io::map_io_err, lazy};
 use std::io::{self, IsTerminal, Read, Write};
 
-/// The default stdin used in Koto
-#[derive(Default)]
-pub struct DefaultStdin {}
-
-impl KotoFile for DefaultStdin {
-    fn id(&self) -> KString {
-        lazy!(KString; "_stdin_")
-    }
-
-    fn is_terminal(&self) -> bool {
-        io::stdin().is_terminal()
-    }
+macro_rules! runtime_error_unavailable {
+    ($stream:literal) => {
+        crate::runtime_error!(concat!($stream, " is unavailable"))
+    };
 }
 
-impl KotoWrite for DefaultStdin {}
-impl KotoRead for DefaultStdin {
+macro_rules! stream {
+    (
+        get: $get:ident,
+        name: $name:literal,
+        system: $system:ident,
+        unavailable: $unavailable:ident,
+    ) => {
+        #[doc = concat!("The process's ", $name, " used in Koto")]
+        #[derive(Default)]
+        pub struct $system {}
+
+        #[doc = concat!("Represents an unavailable ", $name, " stream")]
+        #[derive(Default)]
+        pub struct $unavailable {}
+
+        const _: () = {
+            fn id() -> KString {
+        lazy!(KString; concat!("_", $name, "_"))
+            }
+
+            impl KotoFile for $system {
+                fn id(&self) -> KString {
+                    id()
+                }
+
+                fn is_terminal(&self) -> bool {
+                    io::$get().is_terminal()
+                }
+            }
+
+            impl KotoFile for $unavailable {
+                fn id(&self) -> KString {
+                    id()
+                }
+
+                fn is_terminal(&self) -> bool {
+                    false
+                }
+            }
+        };
+
+        impl KotoWrite for $unavailable {
+            fn write(&self, _bytes: &[u8]) -> Result<()> {
+                runtime_error_unavailable!($name)
+            }
+
+            fn write_line(&self, _text: &str) -> Result<()> {
+                runtime_error_unavailable!($name)
+            }
+
+            fn flush(&self) -> Result<()> {
+                runtime_error_unavailable!($name)
+            }
+        }
+
+        impl KotoRead for $unavailable {
+            fn read_line(&self) -> Result<Option<String>> {
+                runtime_error_unavailable!($name)
+            }
+
+            fn read_to_string(&self) -> Result<String> {
+                runtime_error_unavailable!($name)
+            }
+        }
+    };
+}
+
+stream! {
+    get: stdin,
+    name: "stdin",
+    system: SystemStdin,
+    unavailable: UnavailableStdin,
+}
+
+stream! {
+    get: stdout,
+    name: "stdout",
+    system: SystemStdout,
+    unavailable: UnavailableStdout,
+}
+
+stream! {
+    get: stderr,
+    name: "stderr",
+    system: SystemStderr,
+    unavailable: UnavailableStderr,
+}
+
+impl KotoWrite for SystemStdin {}
+impl KotoRead for SystemStdin {
     fn read_line(&self) -> Result<Option<String>> {
         let mut result = String::new();
         let bytes_read = io::stdin().read_line(&mut result).map_err(map_io_err)?;
@@ -37,22 +117,8 @@ impl KotoRead for DefaultStdin {
     }
 }
 
-/// The default stdout used in Koto
-#[derive(Default)]
-pub struct DefaultStdout {}
-
-impl KotoFile for DefaultStdout {
-    fn id(&self) -> KString {
-        lazy!(KString; "_stdout_")
-    }
-
-    fn is_terminal(&self) -> bool {
-        io::stdout().is_terminal()
-    }
-}
-
-impl KotoRead for DefaultStdout {}
-impl KotoWrite for DefaultStdout {
+impl KotoRead for SystemStdout {}
+impl KotoWrite for SystemStdout {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         io::stdout().write_all(bytes).map_err(map_io_err)
     }
@@ -69,22 +135,8 @@ impl KotoWrite for DefaultStdout {
     }
 }
 
-/// The default stderr used in Koto
-#[derive(Default)]
-pub struct DefaultStderr {}
-
-impl KotoFile for DefaultStderr {
-    fn id(&self) -> KString {
-        lazy!(KString; "_stderr_")
-    }
-
-    fn is_terminal(&self) -> bool {
-        io::stderr().is_terminal()
-    }
-}
-
-impl KotoRead for DefaultStderr {}
-impl KotoWrite for DefaultStderr {
+impl KotoRead for SystemStderr {}
+impl KotoWrite for SystemStderr {
     fn write(&self, bytes: &[u8]) -> Result<()> {
         io::stderr().write_all(bytes).map_err(map_io_err)
     }

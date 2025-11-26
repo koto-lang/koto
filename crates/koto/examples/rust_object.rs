@@ -6,7 +6,7 @@ my_type = make_my_type 41
 print my_type.get()
 print my_type.set 99
 ";
-    let mut koto = Koto::default();
+    let mut koto = Koto::with_settings(KotoSettings::default().inherit_io());
 
     koto.prelude()
         .add_fn("make_my_type", |ctx| match ctx.args() {
