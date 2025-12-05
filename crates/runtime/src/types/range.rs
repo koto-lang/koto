@@ -109,7 +109,7 @@ impl KRange {
         use Inner::*;
 
         let sort_bounded = |start, end, inclusive| {
-            if start < end {
+            if start <= end {
                 (start, if inclusive { end + 1 } else { end })
             } else {
                 (if inclusive { end } else { end + 1 }, start + 1)
@@ -279,13 +279,13 @@ impl KRange {
                 inclusive,
             } => match start.cmp(&end) {
                 Less => {
-                    let result = *end as i64;
+                    let result = if *inclusive { *end } else { *end - 1 } as i64;
                     *end -= 1;
                     Some(result)
                 }
                 Greater => {
-                    let result = *start as i64;
-                    *start -= 1;
+                    let result = if *inclusive { *end } else { *end + 1 } as i64;
+                    *end += 1;
                     Some(result)
                 }
                 Equal => {
@@ -302,13 +302,13 @@ impl KRange {
                 let r = Ptr::make_mut(r);
                 match r.start.cmp(&r.end) {
                     Less => {
-                        let result = r.end;
-                        r.end += 1;
+                        let result = if r.inclusive { r.end } else { r.end - 1 };
+                        r.end -= 1;
                         Some(result)
                     }
                     Greater => {
-                        let result = r.start;
-                        r.start -= 1;
+                        let result = if r.inclusive { r.end } else { r.end + 1 };
+                        r.end += 1;
                         Some(result)
                     }
                     Equal => {

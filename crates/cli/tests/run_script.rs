@@ -30,7 +30,7 @@ fn check_cli_run_file(
         .collect();
 
     check_output(
-        test_bin::get_test_bin("koto")
+        test_bin::get_test_bin!("koto")
             .args(iter::once(&script_path.to_string_lossy().as_ref()).chain(args))
             .output()
             .expect("Failed to run CLI"),
@@ -40,7 +40,7 @@ fn check_cli_run_file(
 }
 
 fn check_cli_piped_input(input: &'static str, expected_stdout: &str, expected_stderr: &str) {
-    let mut cli = test_bin::get_test_bin("koto")
+    let mut cli = test_bin::get_test_bin!("koto")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

@@ -81,7 +81,7 @@ The Koto project adheres to
 
 #### Core Library
 
-- New functions: 
+- New functions:
   - `os.env`
 
 ### Changed
@@ -113,6 +113,15 @@ The Koto project adheres to
   - The `alpha` and `set_alpha` functions have been replace with a settable `alpha` field.
 - `geometry`
   - `vec2.x` and `.y`, and `vec3.x`, `.y`, and `.z` are now settable fields instead of functions.
+
+### Fixed
+
+#### Core Library
+
+- Range fixes:
+  - `range.union` now behaves as expected when creating unions with a mix of inclusive and non-inclusive ranges.
+    [#534](https://github.com/koto-lang/koto/issues/534)
+  - `iterator.reversed` now produces correct results when used with non-inclusive ranges.
 
 ## [0.16.0] 2025.07.23
 
