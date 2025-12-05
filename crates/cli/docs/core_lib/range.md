@@ -182,11 +182,14 @@ ranges, and any values that lie between them.
 print! (0..10).union 5
 check! 0..10
 
-print! (0..10).union 99
-check! 0..100
+print! (0..=10).union 99
+check! 0..=99
 
 a = 10..20
 b = 40..50
 print! a.union b
 check! 10..50
+
+print! (100..=200).union 20..30
+check! 20..=200
 ```

@@ -109,7 +109,7 @@ impl KRange {
         use Inner::*;
 
         let sort_bounded = |start, end, inclusive| {
-            if start < end {
+            if start <= end {
                 (start, if inclusive { end + 1 } else { end })
             } else {
                 (if inclusive { end } else { end + 1 }, start + 1)
