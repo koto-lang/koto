@@ -1,6 +1,5 @@
 //! A Koto language module for working with geometry
 
-#[macro_use]
 mod macros;
 mod rect;
 mod vec2;
