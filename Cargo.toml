@@ -95,6 +95,8 @@ rustyline = { version = "16.0.0", default-features = false }
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework
 serde = "1.0.0"
+# Serde traits only, with no support for derive
+serde_core = "1.0.0"
 # JSON support for serde
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 # YAML data format for serde
@@ -112,7 +114,7 @@ test-case = "3.3.1"
 # derive(Error)
 thiserror = "2"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
-toml = { version = "0.8.19", features = ["preserve_order"] }
+toml = { version = "0.9.8", features = ["preserve_order"] }
 # Powerful library for word wrapping, indenting, and dedenting strings
 textwrap = "0.16.0"
 # Determine whether characters have the XID_Start or XID_Continue properties

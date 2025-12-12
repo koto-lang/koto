@@ -1,3 +1,7 @@
+use crate::{
+    geometry_arithmetic_op, geometry_arithmetic_op_rhs, geometry_comparison_op,
+    geometry_compound_assign_op,
+};
 use glam::DVec3;
 use koto_runtime::{Result, derive::*, prelude::*};
 use std::{fmt, ops};

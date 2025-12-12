@@ -1,4 +1,4 @@
-use crate::Vec2;
+use crate::{Vec2, geometry_comparison_op};
 use koto_runtime::{Result, derive::*, prelude::*};
 use std::{
     fmt,

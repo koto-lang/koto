@@ -1,5 +1,5 @@
 use koto_runtime::{KValue, ValueKey, ValueMap};
-use serde::{
+use serde_core::{
     Deserialize, Deserializer,
     de::{self, Unexpected, VariantAccess, Visitor},
 };
@@ -8,7 +8,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-/// A newtype for [`KValue`] that implements [`serde::Deserialize`]
+/// A newtype for [KValue] that implements [Deserialize](serde_core::Deserialize).
 #[derive(Clone, Default)]
 pub struct DeserializableKValue(pub KValue);
 
