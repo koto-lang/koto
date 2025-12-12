@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 use koto_runtime::{KMap, KNumber, KValue};
-use serde::{
+use serde_core::{
     Deserialize,
     de::{
         self, DeserializeSeed, EnumAccess, Expected, MapAccess, SeqAccess, Unexpected,

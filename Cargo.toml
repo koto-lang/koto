@@ -95,6 +95,8 @@ rustyline = { version = "16.0.0", default-features = false }
 saturating_cast = "0.1.0"
 # A generic serialization/deserialization framework
 serde = "1.0.0"
+# Serde traits only, with no support for derive
+serde_core = "1.0.0"
 # JSON support for serde
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 # YAML data format for serde

@@ -1,18 +1,18 @@
 use koto_runtime::KValue;
-use serde::{
+use serde_core::{
     Serialize,
     ser::{self, SerializeMap, SerializeSeq},
 };
 
 use crate::Error;
 
-/// A newtype for [`KValue`] that implements [`serde::Serialize`]
+/// A newtype for [KValue] that implements [Serialize](serde_core::Serialize).
 pub struct SerializableKValue<'a>(pub &'a KValue);
 
 impl Serialize for SerializableKValue<'_> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: serde_core::Serializer,
     {
         match self.0 {
             KValue::Null => s.serialize_unit(),
@@ -69,11 +69,10 @@ impl Serialize for SerializableKValue<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{from_koto_value, to_koto_value};
-
     use super::*;
+    use crate::{from_koto_value, to_koto_value};
     use koto_runtime::prelude::*;
-    use serde::Deserialize;
+    use serde::{Deserialize, Serialize};
 
     #[test]
     fn object_to_kvalue() {

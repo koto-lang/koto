@@ -22,7 +22,7 @@ rc = ["koto_runtime/rc"]
 [dependencies]
 koto_runtime = { workspace = true }
 
-serde = { workspace = true }
+serde_core = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

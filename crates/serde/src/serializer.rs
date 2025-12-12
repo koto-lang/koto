@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 use koto_runtime::prelude::*;
-use serde::{
+use serde_core::{
     Serialize,
     ser::{self, SerializeSeq},
 };
@@ -13,7 +13,7 @@ pub fn to_koto_value<T: Serialize>(value: T) -> Result<KValue> {
 /// A serializer that produces [KValue]s
 pub struct Serializer;
 
-impl serde::Serializer for Serializer {
+impl serde_core::Serializer for Serializer {
     type Ok = KValue;
 
     type Error = Error;

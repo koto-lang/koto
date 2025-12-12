@@ -32,7 +32,7 @@ pub enum Error {
     Unsupported(String),
 }
 
-impl serde::de::Error for Error {
+impl serde_core::de::Error for Error {
     fn custom<T>(message: T) -> Self
     where
         T: fmt::Display,
@@ -41,7 +41,7 @@ impl serde::de::Error for Error {
     }
 }
 
-impl serde::ser::Error for Error {
+impl serde_core::ser::Error for Error {
     fn custom<T>(message: T) -> Self
     where
         T: fmt::Display,
