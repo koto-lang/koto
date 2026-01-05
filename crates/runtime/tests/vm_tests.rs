@@ -305,13 +305,28 @@ a, b, c
         }
 
         #[test]
-        fn tuple_slicing() {
+        fn addition() {
+            check_script_output("(1, 2, 3) + (4, 5, 6)", number_tuple(&[1, 2, 3, 4, 5, 6]));
+        }
+
+        #[test]
+        fn tuple_slice_at_start() {
+            check_script_output("(0, 1, 2, 3, 4, 5)[..=2]", number_tuple(&[0, 1, 2]));
+        }
+
+        #[test]
+        fn tuple_slice_in_middle() {
             check_script_output("(0, 1, 2, 3, 4, 5)[2..=4]", number_tuple(&[2, 3, 4]));
         }
 
         #[test]
-        fn addition() {
-            check_script_output("(1, 2, 3) + (4, 5, 6)", number_tuple(&[1, 2, 3, 4, 5, 6]));
+        fn tuple_slice_at_end() {
+            check_script_output("(0, 1, 2, 3, 4, 5)[3..]", number_tuple(&[3, 4, 5]));
+        }
+
+        #[test]
+        fn tuple_slice_from_slice_at_end() {
+            check_script_output("(0, 1, 2, 3, 4, 5)[2..][2..]", number_tuple(&[4, 5]));
         }
     }
 
