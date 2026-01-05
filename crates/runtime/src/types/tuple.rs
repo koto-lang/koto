@@ -19,25 +19,14 @@ impl KTuple {
     /// The provided bounds should have indices relative to the current tuple's bounds
     /// (i.e. instead of relative to the underlying shared tuple data), so it follows that the
     /// result will always be a subset of the input tuple.
-    pub fn make_sub_tuple(&self, mut new_bounds: Range<usize>) -> Option<Self> {
+    pub fn make_sub_tuple(&self, bounds: Range<usize>) -> Option<Self> {
         let slice = match &self.0 {
             Inner::Full(data) => TupleSlice::from(data.clone()),
             Inner::SliceLarge(slice) => slice.deref().clone(),
             Inner::Slice(slice) => TupleSlice::from(slice.clone()),
         };
 
-        new_bounds.start += slice.bounds.start;
-        new_bounds.end += slice.bounds.start;
-
-        if new_bounds.end <= slice.bounds.end && slice.get(new_bounds.clone()).is_some() {
-            let result = TupleSlice {
-                data: slice.data.clone(),
-                bounds: new_bounds,
-            };
-            Some(result.into())
-        } else {
-            None
-        }
+        slice.with_bounds(bounds).map(Self::from)
     }
 
     /// Returns the tuple's values as a slice
@@ -226,6 +215,24 @@ struct TupleSlice {
     bounds: Range<usize>,
 }
 
+impl TupleSlice {
+    /// Returns a new tuple slice with shared data and new bounds.
+    ///
+    /// If the bounds aren't valid with the current tuple slice, then `None` is returned.
+    pub fn with_bounds(&self, bounds: Range<usize>) -> Option<Self> {
+        let new_bounds = (bounds.start + self.bounds.start)..(bounds.end + self.bounds.start);
+
+        if self.data.get(new_bounds.clone()).is_some() {
+            Some(Self {
+                data: self.data.clone(),
+                bounds: new_bounds,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 impl Deref for TupleSlice {
     type Target = [KValue];
 
@@ -318,5 +325,15 @@ mod tests {
     #[test]
     fn test_tuple_mem_size() {
         assert!(std::mem::size_of::<KTuple>() <= 16);
+    }
+
+    #[test]
+    fn subtuple_of_subtuple() {
+        let t = KTuple::from(&[KValue::from(0), 1.into(), 2.into()]);
+        let t2 = t.make_sub_tuple(1..3).unwrap();
+        assert_eq!(t2.len(), 2);
+        let t3 = t2.make_sub_tuple(1..2).unwrap();
+        assert_eq!(t3.len(), 1);
+        assert!(matches!(t3[0], KValue::Number(n) if usize::from(n) == 2));
     }
 }
