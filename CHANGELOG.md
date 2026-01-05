@@ -6,6 +6,15 @@ The format of this changelog is based on
 The Koto project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] 2026.01.05
+
+### Fixed
+
+#### Language
+
+- Making subtubles of subtuples when using a non-zero start index now works as expected.
+  - e.g. `(1, 2, 3)[1..][1..]` would previously panic.
+
 ## [0.16.0] 2025.07.23
 
 ### Added
