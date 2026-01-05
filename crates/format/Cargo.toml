@@ -1,6 +1,7 @@
 [package]
 name = "koto_format"
 version = "0.16.1"
+description = "Automatic formatting support for the Koto programming language"
 
 authors.workspace = true
 edition.workspace = true
