@@ -1,6 +1,6 @@
 [package]
 name = "koto_memory"
-version = "0.16.0"
+version = "0.16.1"
 description = "Memory management utilities used by the Koto programming language"
 
 authors.workspace = true

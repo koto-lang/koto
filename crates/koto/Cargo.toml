@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.16.0"
+version = "0.16.1"
 description = "A simple, expressive, embeddable programming language"
 
 authors.workspace = true
@@ -23,10 +23,10 @@ rc = ["koto_runtime/rc"]
 serde = ["koto_serde"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.16.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
-koto_runtime = { path = "../runtime", version = "^0.16.0", default-features = false }
-koto_serde = { path = "../serde", version = "^0.16.0", default-features = false, optional = true }
+koto_bytecode = { path = "../bytecode", version = "^0.16.1", default-features = false }
+koto_parser = { path = "../parser", version = "^0.16.1", default-features = false }
+koto_runtime = { path = "../runtime", version = "^0.16.1", default-features = false }
+koto_serde = { path = "../serde", version = "^0.16.1", default-features = false, optional = true }
 
 thiserror = { workspace = true }
 

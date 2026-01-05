@@ -1,6 +1,6 @@
 [package]
 name = "koto_cli"
-version = "0.16.0"
+version = "0.16.1"
 description = "A CLI and script runner for the Koto programming language"
 
 authors.workspace = true
@@ -24,17 +24,17 @@ name = "koto"
 path = "src/main.rs"
 
 [dependencies]
-koto = { path = "../koto", version = "^0.16.0", default-features = false }
-koto_format = { path = "../format", version = "^0.16.0", default-features = false }
+koto = { path = "../koto", version = "^0.16.1", default-features = false }
+koto_format = { path = "../format", version = "^0.16.1", default-features = false }
 
-koto_color = { path = "../../libs/color", version = "^0.16.0", default-features = false }
-koto_geometry = { path = "../../libs/geometry", version = "^0.16.0", default-features = false }
-koto_json = { path = "../../libs/json", version = "^0.16.0", default-features = false }
-koto_random = { path = "../../libs/random", version = "^0.16.0", default-features = false }
-koto_regex = { path = "../../libs/regex", version = "^0.16.0", default-features = false }
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.16.0", default-features = false }
-koto_toml = { path = "../../libs/toml", version = "^0.16.0", default-features = false }
-koto_yaml = { path = "../../libs/yaml", version = "^0.16.0", default-features = false }
+koto_color = { path = "../../libs/color", version = "^0.16.1", default-features = false }
+koto_geometry = { path = "../../libs/geometry", version = "^0.16.1", default-features = false }
+koto_json = { path = "../../libs/json", version = "^0.16.1", default-features = false }
+koto_random = { path = "../../libs/random", version = "^0.16.1", default-features = false }
+koto_regex = { path = "../../libs/regex", version = "^0.16.1", default-features = false }
+koto_tempfile = { path = "../../libs/tempfile", version = "^0.16.1", default-features = false }
+koto_toml = { path = "../../libs/toml", version = "^0.16.1", default-features = false }
+koto_yaml = { path = "../../libs/yaml", version = "^0.16.1", default-features = false }
 
 anyhow = { workspace = true }
 home = { workspace = true }

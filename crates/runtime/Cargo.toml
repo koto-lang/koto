@@ -1,6 +1,6 @@
 [package]
 name = "koto_runtime"
-version = "0.16.0"
+version = "0.16.1"
 description = "The runtime used by the Koto programming language"
 
 authors.workspace = true
@@ -20,11 +20,11 @@ arc = ["koto_memory/arc", "koto_derive/arc"]
 rc = ["koto_memory/rc", "koto_derive/rc"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.16.0", default-features = false }
-koto_derive = { path = "../derive", version = "^0.16.0", default-features = false }
-koto_lexer = { path = "../lexer", version = "^0.16.0" }
-koto_memory = { path = "../memory", version = "^0.16.0", default-features = false }
-koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
+koto_bytecode = { path = "../bytecode", version = "^0.16.1", default-features = false }
+koto_derive = { path = "../derive", version = "^0.16.1", default-features = false }
+koto_lexer = { path = "../lexer", version = "^0.16.1" }
+koto_memory = { path = "../memory", version = "^0.16.1", default-features = false }
+koto_parser = { path = "../parser", version = "^0.16.1", default-features = false }
 
 indexmap = { workspace = true }
 paste = { workspace = true }

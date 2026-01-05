@@ -1,6 +1,6 @@
 [package]
 name = "koto_yaml"
-version = "0.16.0"
+version = "0.16.1"
 description = "A Koto library for working with YAML data"
 
 authors.workspace = true
@@ -24,12 +24,12 @@ serde_yaml_ng = { workspace = true }
 
 [dependencies.koto_runtime]
 path = "../../crates/runtime"
-version = "^0.16.0"
+version = "^0.16.1"
 default-features = false
 
 [dependencies.koto_serde]
 path = "../../crates/serde"
-version = "^0.16.0"
+version = "^0.16.1"
 default-features = false
 
 [dev-dependencies]

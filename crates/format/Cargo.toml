@@ -1,6 +1,6 @@
 [package]
 name = "koto_format"
-version = "0.16.0"
+version = "0.16.1"
 
 authors.workspace = true
 edition.workspace = true
@@ -19,8 +19,8 @@ arc = ["koto_parser/arc"]
 rc = ["koto_parser/rc"]
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.16.0" }
-koto_parser = { path = "../parser", version = "^0.16.0", default-features = false }
+koto_lexer = { path = "../lexer", version = "^0.16.1" }
+koto_parser = { path = "../parser", version = "^0.16.1", default-features = false }
 
 derive-name = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
