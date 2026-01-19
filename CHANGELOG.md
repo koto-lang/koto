@@ -87,6 +87,16 @@ The Koto project adheres to
 ### Changed
 
 #### Language
+
+- Descending ranges are now considered to be empty, with the start value treated as the anchor for the empty range ([#536](https://github.com/koto-lang/koto/issues/536)).
+  - Descending ranges were mostly useful for writing descending `for` loops. `iterator.reversed` should be used instead, e.g.:
+    - ```koto
+      # Instead of `for i in 3..=1`:
+      for i in (1..=3).reversed() 
+        print i
+      #: 3
+      #: 2
+      #: 1
 - `io.stdin`, `io.stdout` and `io.stderr` are now provided as `File` instead of `|| -> File`
 
 #### API

@@ -12,8 +12,8 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(is_range, expected_error)? {
             (KValue::Range(r), [KValue::Number(n)]) => Ok(r.contains(*n).into()),
             (KValue::Range(a), [KValue::Range(b)]) => {
-                let r_a = a.as_sorted_range();
-                let r_b = b.as_sorted_range();
+                let r_a = a.as_bounded_range();
+                let r_b = b.as_bounded_range();
                 let result = r_b.start >= r_a.start && r_b.end <= r_a.end;
                 Ok(result.into())
             }
@@ -39,11 +39,7 @@ pub fn make_module() -> KMap {
             (KValue::Range(r), [KValue::Number(n)]) => match (r.start(), r.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let n = i64::from(n);
-                    let result = if r.is_ascending() {
-                        KRange::new(Some(start - n), Some((end + n, inclusive)))
-                    } else {
-                        KRange::new(Some(start + n), Some((end - n, inclusive)))
-                    };
+                    let result = KRange::new(Some(start - n), Some((end + n, inclusive)));
                     Ok(result.into())
                 }
                 _ => runtime_error!("range.expanded can't be used with '{r}'"),
@@ -97,18 +93,11 @@ pub fn make_module() -> KMap {
 
         match (a.start(), a.end()) {
             (Some(_), Some((_, inclusive))) if b.is_bounded() => {
-                let a_r = a.as_sorted_range();
-                let b_r = b.as_sorted_range();
+                let a_r = a.as_bounded_range();
+                let b_r = b.as_bounded_range();
                 let start = a_r.start.min(b_r.start);
-                let end = a_r.end.max(b_r.end);
-
-                let result = match (a.is_ascending(), inclusive) {
-                    (true, true) => KRange::new(Some(start), Some((end - 1, true))),
-                    (true, false) => KRange::new(Some(start), Some((end, false))),
-                    (false, true) => KRange::new(Some(end - 1), Some((start, true))),
-                    (false, false) => KRange::new(Some(end - 1), Some((start - 1, false))),
-                };
-
+                let end = a_r.end.max(b_r.end) - if inclusive { 1 } else { 0 };
+                let result = KRange::new(Some(start), Some((end, inclusive)));
                 Ok(result.into())
             }
             _ => {

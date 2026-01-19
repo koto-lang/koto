@@ -21,8 +21,12 @@ and false otherwise.
 print! (10..20).contains 15
 check! true
 
-print! (200..=100).contains 100
+print! (100..=200).contains 200
 check! true
+
+# Descending ranges are considered to be empty.
+print! (200..=100).contains 100 
+check! false
 
 x = 1..10
 print! x.contains -1
@@ -66,8 +70,7 @@ check! 0
 Returns a copy of the input range which has been 'expanded' in both directions
 by the provided `amount`.
 
-For an ascending range this will mean that `start` will decrease by the provided
-amount, while `end` will increase.
+This will mean that `start` will decrease by the provided amount, and `end` will increase by the same amount.
 
 Negative amounts will cause the range to shrink rather than grow.
 
@@ -80,14 +83,14 @@ check! 5..25
 print! (10..20).expanded -2
 check! 12..18
 
-print! (5..-5).expanded 5
-check! 10..-10
+print! (-5..5).expanded 5
+check! -10..10
 
-print! (5..-5).expanded -5
+print! (-5..5).expanded -5
 check! 0..0
 
-print! (5..-5).expanded -10
-check! -5..5
+print! (-5..5).expanded -10
+check! 5..-5
 ```
 
 ## intersection
@@ -106,7 +109,7 @@ If there is no intersecting region then `null` is returned.
 print! (10..20).intersection 5..15
 check! 10..15
 
-print! (100..200).intersection 250..=150
+print! (100..200).intersection 150..=250
 check! 150..200
 
 print! (0..10).intersection 90..99

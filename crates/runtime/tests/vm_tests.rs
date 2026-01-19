@@ -240,7 +240,6 @@ a, b, c
         fn range_indexing() {
             check_script_output("(10..=20)[5]", 15);
             check_script_output("(100..)[100]", 200);
-            check_script_output("(-10..-20)[3]", -13);
         }
     }
 
@@ -1631,39 +1630,12 @@ f 0..100
             }
 
             #[test]
-            fn ellipsis_at_start_with_inclusive_descending_range() {
-                let script = "
-f = |(..., y, z)| y, z
-f -10..=-20
-";
-                check_script_output(script, number_tuple(&[-19, -20]));
-            }
-
-            #[test]
-            fn ellipsis_at_start_with_non_inclusive_descending_range() {
-                let script = "
-f = |(..., y, z)| y, z
-f 50..10
-";
-                check_script_output(script, number_tuple(&[12, 11]));
-            }
-
-            #[test]
             fn ellipsis_at_end_with_range() {
                 let script = "
 f = |(a, b, ...)| a, b
 f 0..=100
 ";
                 check_script_output(script, number_tuple(&[0, 1]));
-            }
-
-            #[test]
-            fn ellipsis_at_end_with_descending_range() {
-                let script = "
-f = |(a, b, ...)| a, b
-f -10..-20
-";
-                check_script_output(script, number_tuple(&[-10, -11]));
             }
 
             #[test]
