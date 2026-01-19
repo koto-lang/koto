@@ -99,6 +99,11 @@ The Koto project adheres to
       #: 1
 - `io.stdin`, `io.stdout` and `io.stderr` are now provided as `File` instead of `|| -> File`
 
+#### Core Library
+
+- `range.union` now treats scalar inputs as an inclusive singleton range (i.e. `x..=x`),
+  and will produce inclusive results whenever the new end point was derived from an inclusive range.
+
 #### API
 
 - The `KotoEntries` trait has been replaced with `KotoAccess`, see the note in the `Added` section above for more info.
