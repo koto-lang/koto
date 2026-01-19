@@ -1,5 +1,7 @@
 //! The `number` core library module
 
+mod step_to;
+
 use crate::prelude::*;
 
 /// Initializes the `number` core library module
@@ -188,6 +190,44 @@ pub fn make_module() -> KMap {
 
     number_f64_fn!(sin);
     number_f64_fn!(sinh);
+
+    result.add_fn("step_to", |ctx| {
+        use step_to::{StepToF64Iterator, StepToI64Iterator};
+
+        let expected_error =
+            "|Number, target: Number|, or |Number, target: Number, step_by: Number|";
+
+        let result = match ctx.instance_and_args(is_number, expected_error)? {
+            (Number(start), [Number(end)]) => {
+                if start.is_i64() {
+                    KIterator::new(StepToI64Iterator::new(start.into(), end.into(), 1))
+                } else {
+                    KIterator::new(StepToF64Iterator::new(start.into(), end.into(), 1.0))
+                }
+            }
+            (Number(start), [Number(end), Number(step_by)]) => {
+                if start.is_i64() && step_by.is_i64() {
+                    KIterator::new(StepToI64Iterator::new(
+                        start.into(),
+                        end.into(),
+                        step_by.into(),
+                    ))
+                } else {
+                    KIterator::new(StepToF64Iterator::new(
+                        start.into(),
+                        end.into(),
+                        step_by.into(),
+                    ))
+                }
+            }
+            (instance, args) => {
+                return unexpected_args_after_instance(expected_error, instance, args);
+            }
+        };
+
+        Ok(result.into())
+    });
+
     number_f64_fn!(sqrt);
     number_f64_fn!(tan);
     number_f64_fn!(tanh);

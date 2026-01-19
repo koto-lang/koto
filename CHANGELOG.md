@@ -82,6 +82,7 @@ The Koto project adheres to
 #### Core Library
 
 - New functions:
+  - `number.step_to`
   - `os.env`
 
 ### Changed
@@ -89,10 +90,10 @@ The Koto project adheres to
 #### Language
 
 - Descending ranges are now considered to be empty, with the start value treated as the anchor for the empty range ([#536](https://github.com/koto-lang/koto/issues/536)).
-  - Descending ranges were mostly useful for writing descending `for` loops. `iterator.reversed` should be used instead, e.g.:
+  - Descending ranges were mostly useful for writing descending `for` loops. `number.step_to` can be used instead, e.g.:
     - ```koto
       # Instead of `for i in 3..=1`:
-      for i in (1..=3).reversed() 
+      for i in 3.step_to 1
         print i
       #: 3
       #: 2
