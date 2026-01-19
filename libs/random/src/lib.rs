@@ -102,7 +102,7 @@ impl Xoshiro256PlusPlusRng {
                 }
             }
             Range(r) => {
-                let full_range = r.as_sorted_range();
+                let full_range = r.as_bounded_range();
                 if !full_range.is_empty() {
                     let result = self.0.random_range(full_range);
                     Ok(result.into())

@@ -27,6 +27,19 @@ where
     tuple(&values)
 }
 
+/// Returns a KValue::Tuple from a slice of floats.
+pub fn float_tuple<T>(values: &[T]) -> KValue
+where
+    T: Copy,
+    f64: From<T>,
+{
+    let values = values
+        .iter()
+        .map(|n| f64::from(*n).into())
+        .collect::<Vec<_>>();
+    tuple(&values)
+}
+
 /// Returns a KValue::List from a slice of KValues
 pub fn list(values: &[KValue]) -> KValue {
     KList::from_slice(values).into()

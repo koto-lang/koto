@@ -735,6 +735,35 @@ assert_eq 0.sinh(), 0
 assert_near 1.sinh(), 1.1752011936438014
 ```
 
+## step_to
+
+```kototype
+|start: Number, target: Number| -> Iterator
+```
+
+```kototype
+|start: Number, target: Number, step_size: Number| -> Iterator
+```
+
+Returns an iterator that yields a sequence of numbers starting from `start`,
+and ending at or before `target`.
+
+The sequence progresses in steps with a size given by `step_size`,
+defaulting to `1` when `step_size` is omitted.
+
+### Example
+
+```koto
+print! 1.step_to(3).to_tuple()
+check! (1, 2, 3)
+
+print! 3.5.step_to(1).to_list()
+check! [3.5, 2.5, 1.5]
+
+print! 0.step_to(0.9, 0.25).to_tuple()
+check! (0.0, 0.25, 0.5, 0.75)
+```
+
 ## sqrt
 
 ```kototype

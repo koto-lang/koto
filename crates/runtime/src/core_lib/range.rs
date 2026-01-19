@@ -1,6 +1,7 @@
 //! The `range` core library module
 
 use crate::prelude::*;
+use std::cmp::Ordering;
 
 /// Initializes the `range` core library module
 pub fn make_module() -> KMap {
@@ -12,8 +13,8 @@ pub fn make_module() -> KMap {
         match ctx.instance_and_args(is_range, expected_error)? {
             (KValue::Range(r), [KValue::Number(n)]) => Ok(r.contains(*n).into()),
             (KValue::Range(a), [KValue::Range(b)]) => {
-                let r_a = a.as_sorted_range();
-                let r_b = b.as_sorted_range();
+                let r_a = a.as_bounded_range();
+                let r_b = b.as_bounded_range();
                 let result = r_b.start >= r_a.start && r_b.end <= r_a.end;
                 Ok(result.into())
             }
@@ -39,11 +40,7 @@ pub fn make_module() -> KMap {
             (KValue::Range(r), [KValue::Number(n)]) => match (r.start(), r.end()) {
                 (Some(start), Some((end, inclusive))) => {
                     let n = i64::from(n);
-                    let result = if r.is_ascending() {
-                        KRange::new(Some(start - n), Some((end + n, inclusive)))
-                    } else {
-                        KRange::new(Some(start + n), Some((end - n, inclusive)))
-                    };
+                    let result = KRange::new(Some(start - n), Some((end + n, inclusive)));
                     Ok(result.into())
                 }
                 _ => runtime_error!("range.expanded can't be used with '{r}'"),
@@ -87,7 +84,7 @@ pub fn make_module() -> KMap {
         let (a, b) = match ctx.instance_and_args(is_range, expected_error)? {
             (KValue::Range(a), [KValue::Number(n)]) => {
                 let n: i64 = n.into();
-                (a.clone(), KRange::from(n..n + 1))
+                (a.clone(), KRange::new(Some(n), Some((n, true))))
             }
             (KValue::Range(a), [KValue::Range(b)]) => (a.clone(), b.clone()),
             (instance, args) => {
@@ -95,25 +92,36 @@ pub fn make_module() -> KMap {
             }
         };
 
-        match (a.start(), a.end()) {
-            (Some(_), Some((_, inclusive))) if b.is_bounded() => {
-                let a_r = a.as_sorted_range();
-                let b_r = b.as_sorted_range();
-                let start = a_r.start.min(b_r.start);
-                let end = a_r.end.max(b_r.end);
+        if let (
+            Some(start_a),
+            Some((end_a, inclusive_a)),
+            Some(start_b),
+            Some((end_b, inclusive_b)),
+        ) = (a.start(), a.end(), b.start(), b.end())
+        {
+            // Detect empty ranges
+            let (end_a, inclusive_a) = if end_a >= start_a {
+                (end_a, inclusive_a)
+            } else {
+                (start_a, false)
+            };
+            let (end_b, inclusive_b) = if end_b >= start_b {
+                (end_b, inclusive_b)
+            } else {
+                (start_b, false)
+            };
 
-                let result = match (a.is_ascending(), inclusive) {
-                    (true, true) => KRange::new(Some(start), Some((end - 1, true))),
-                    (true, false) => KRange::new(Some(start), Some((end, false))),
-                    (false, true) => KRange::new(Some(end - 1), Some((start, true))),
-                    (false, false) => KRange::new(Some(end - 1), Some((start - 1, false))),
-                };
+            // Find the new start and end points, and take the inclusive flag from the new end point.
+            let start = start_a.min(start_b);
+            let (end, inclusive) = match end_a.cmp(&end_b) {
+                Ordering::Less => (end_b, inclusive_b),
+                Ordering::Equal => (end_a, inclusive_a | inclusive_b),
+                Ordering::Greater => (end_a, inclusive_a),
+            };
 
-                Ok(result.into())
-            }
-            _ => {
-                runtime_error!("range.union can only be used with bounded ranges (a: {a}, b: {b})")
-            }
+            Ok(KRange::new(Some(start), Some((end, inclusive))).into())
+        } else {
+            runtime_error!("range.union can only be used with bounded ranges (a: {a}, b: {b})")
         }
     });
 

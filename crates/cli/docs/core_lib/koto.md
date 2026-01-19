@@ -227,7 +227,7 @@ print! (size 'hello'), (size 'héllø'), (size '')
 check! (5, 7, 0)
 
 print! (size 10..20), (size 10..=20), (size 20..0)
-check! (10, 11, 20)
+check! (10, 11, 0)
 ```
 
 

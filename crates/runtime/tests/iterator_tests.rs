@@ -407,6 +407,82 @@ repeat(3, 2).to_tuple()
         }
     }
 
+    mod step_to {
+        use super::*;
+
+        mod integer {
+            use super::*;
+
+            #[test]
+            fn one_to_four() {
+                let script = "
+1.step_to(4).to_tuple()
+";
+                check_script_output(script, number_tuple(&[1, 2, 3, 4]));
+            }
+
+            #[test]
+            fn four_to_one() {
+                let script = "
+4.step_to(1).to_tuple()
+";
+                check_script_output(script, number_tuple(&[4, 3, 2, 1]));
+            }
+
+            #[test]
+            fn three_to_zero_reversed() {
+                let script = "
+3.step_to(0).reversed().to_tuple()
+";
+                check_script_output(script, number_tuple(&[0, 1, 2, 3]));
+            }
+
+            #[test]
+            fn zero_to_ten_step_3() {
+                let script = "
+0.step_to(10, 3).to_tuple()
+";
+                check_script_output(script, number_tuple(&[0, 3, 6, 9]));
+            }
+
+            #[test]
+            fn one_to_eleven_step_3_reversed() {
+                let script = "
+1.step_to(11, 3).reversed().to_tuple()
+";
+                check_script_output(script, number_tuple(&[10, 7, 4, 1]));
+            }
+        }
+
+        mod float {
+            use super::*;
+
+            #[test]
+            fn one_to_four() {
+                let script = "
+1.5.step_to(4.9).to_tuple()
+";
+                check_script_output(script, float_tuple(&[1.5, 2.5, 3.5, 4.5]));
+            }
+
+            #[test]
+            fn five_to_six_step_by() {
+                let script = "
+5.step_to(6, 0.25).to_tuple()
+";
+                check_script_output(script, float_tuple(&[5.0, 5.25, 5.5, 5.75, 6.0]));
+            }
+
+            #[test]
+            fn ten_to_one_reversed() {
+                let script = "
+10.step_to(1, 3.5).reversed().to_tuple()
+";
+                check_script_output(script, float_tuple(&[3.0, 6.5, 10.0]));
+            }
+        }
+    }
+
     mod take {
         use super::*;
 

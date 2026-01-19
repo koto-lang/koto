@@ -45,7 +45,7 @@ impl From<Bounded64> for Inner {
 }
 
 impl KRange {
-    /// Initializes a range with the given start and end bounds
+    /// Initializes a range with the given start and end bounds.
     ///
     /// The end bound has an additional flag that specifies whether or not the end of the range is
     /// inclusive or not.
@@ -101,42 +101,35 @@ impl KRange {
         }
     }
 
-    /// Returns a sorted translation of the range with missing boundaries replaced by min/max values
+    /// Returns the range with missing boundaries replaced by min/max values.
+    ///
+    /// Inclusive ranges are converted into non-inclusive ranges.
     ///
     /// No clamping of the range boundaries is performed (as in [KRange::indices]),
     /// so negative indices will be preserved.
-    pub fn as_sorted_range(&self) -> Range<i64> {
-        use Inner::*;
-
-        let sort_bounded = |start, end, inclusive| {
-            if start <= end {
-                (start, if inclusive { end + 1 } else { end })
-            } else {
-                (if inclusive { end } else { end + 1 }, start + 1)
-            }
-        };
-
-        let (start, end) = {
+    pub fn as_bounded_range(&self) -> Range<i64> {
+        let (start, end, inclusive) = {
             match &self.0 {
-                From { start } => (*start, i64::MAX),
-                To { end, inclusive } => (i64::MIN, if *inclusive { *end + 1 } else { *end }),
-                Bounded {
+                Inner::From { start } => (*start, i64::MAX, false),
+                Inner::To { end, inclusive } => (i64::MIN, *end, *inclusive),
+                Inner::Bounded {
                     start,
                     end,
                     inclusive,
-                } => sort_bounded(*start as i64, *end as i64, *inclusive),
-                BoundedLarge(r) => sort_bounded(r.start, r.end, r.inclusive),
-                Unbounded => (i64::MIN, i64::MAX),
+                } => (*start as i64, *end as i64, *inclusive),
+                Inner::BoundedLarge(r) => (r.start, r.end, r.inclusive),
+                Inner::Unbounded => (i64::MIN, i64::MAX, false),
             }
         };
 
-        start..end
+        let end = if inclusive { end + 1 } else { end };
+        start..end.max(start)
     }
 
     /// Returns true if the provided number is within the range
     pub fn contains(&self, n: KNumber) -> bool {
         let n: i64 = if n < 0.0 { n.floor() } else { n.ceil() }.into();
-        self.as_sorted_range().contains(&n)
+        self.as_bounded_range().contains(&n)
     }
 
     /// Returns the range translated into non-negative indices, suitable for container access
@@ -148,7 +141,7 @@ impl KRange {
     /// If the end value is `None` then the resulting end index will be `max_index`.
     pub fn indices(&self, max_index: usize) -> Range<usize> {
         let max_index = max_index as i64;
-        let range = self.as_sorted_range();
+        let range = self.as_bounded_range();
         let start = range.start.clamp(0, max_index);
         let end = range.end.clamp(start, max_index);
         (start as usize)..(end as usize)
@@ -156,9 +149,8 @@ impl KRange {
 
     /// Returns the intersection of two ranges
     pub fn intersection(&self, other: &KRange) -> Option<Self> {
-        let this = self.as_sorted_range();
-        // let mut result = Self::with_bounds(start, end, inclusive);
-        let other = other.as_sorted_range();
+        let this = self.as_bounded_range();
+        let other = other.as_bounded_range();
 
         if !(this.contains(&other.start) || this.contains(&other.end)) {
             return None;
@@ -169,24 +161,13 @@ impl KRange {
         ))
     }
 
-    /// Returns true if the range's start is less than or equal to its end
-    pub fn is_ascending(&self) -> bool {
-        use Inner::*;
-        match &self.0 {
-            To { end, .. } => *end > 0,
-            Bounded { start, end, .. } => *start <= *end,
-            BoundedLarge(r) => r.start <= r.end,
-            _ => true,
-        }
-    }
-
     /// Returns the size of the range if both start and end boundaries are specified
     ///
-    /// Descending ranges have a non-negative size, i.e. the size is equal to `start - end`.
+    /// Descending ranges are considered to be empty, with a size of zero.
     pub fn size(&self) -> Option<usize> {
         if self.is_bounded() {
-            let range = self.as_sorted_range();
-            Some((range.end - range.start) as usize)
+            let range = self.as_bounded_range();
+            Some(((range.end).max(range.start) - range.start) as usize)
         } else {
             None
         }
@@ -218,11 +199,6 @@ impl KRange {
                     *start += 1;
                     Some(result)
                 }
-                Greater => {
-                    let result = *start as i64;
-                    *start -= 1;
-                    Some(result)
-                }
                 Equal => {
                     if *inclusive {
                         let result = *start as i64;
@@ -232,6 +208,7 @@ impl KRange {
                         None
                     }
                 }
+                Greater => None,
             },
             BoundedLarge(r) => {
                 let r = Ptr::make_mut(r);
@@ -239,11 +216,6 @@ impl KRange {
                     Less => {
                         let result = r.start;
                         r.start += 1;
-                        Some(result)
-                    }
-                    Greater => {
-                        let result = r.start;
-                        r.start -= 1;
                         Some(result)
                     }
                     Equal => {
@@ -255,6 +227,7 @@ impl KRange {
                             None
                         }
                     }
+                    Greater => None,
                 }
             }
             _ => return runtime_error!("expected a bounded range"),
@@ -283,11 +256,6 @@ impl KRange {
                     *end -= 1;
                     Some(result)
                 }
-                Greater => {
-                    let result = if *inclusive { *end } else { *end + 1 } as i64;
-                    *end += 1;
-                    Some(result)
-                }
                 Equal => {
                     if *inclusive {
                         let result = *start as i64;
@@ -297,6 +265,7 @@ impl KRange {
                         None
                     }
                 }
+                Greater => None,
             },
             BoundedLarge(r) => {
                 let r = Ptr::make_mut(r);
@@ -304,11 +273,6 @@ impl KRange {
                     Less => {
                         let result = if r.inclusive { r.end } else { r.end - 1 };
                         r.end -= 1;
-                        Some(result)
-                    }
-                    Greater => {
-                        let result = if r.inclusive { r.end } else { r.end + 1 };
-                        r.end += 1;
                         Some(result)
                     }
                     Equal => {
@@ -320,6 +284,7 @@ impl KRange {
                             None
                         }
                     }
+                    Greater => None,
                 }
             }
             _ => return runtime_error!("expected a bounded range"),
@@ -380,14 +345,14 @@ mod tests {
     }
 
     #[test]
-    fn as_sorted_range() {
-        assert_eq!(10..20, KRange::from(10..20).as_sorted_range());
-        assert_eq!(10..21, KRange::from(10..=20).as_sorted_range());
-        assert_eq!(11..21, KRange::from(20..10).as_sorted_range());
-        assert_eq!(10..21, KRange::from(20..=10).as_sorted_range());
+    fn as_bounded_range() {
+        assert_eq!(10..20, KRange::from(10..20).as_bounded_range());
+        assert_eq!(10..21, KRange::from(10..=20).as_bounded_range());
+        assert_eq!(20..20, KRange::from(20..10).as_bounded_range());
+        assert_eq!(20..20, KRange::from(20..=10).as_bounded_range());
 
-        assert_eq!(10..i64::MAX, KRange::from(10..).as_sorted_range(),);
-        assert_eq!(i64::MIN..10, KRange::from(..10).as_sorted_range(),);
+        assert_eq!(10..i64::MAX, KRange::from(10..).as_bounded_range(),);
+        assert_eq!(i64::MIN..10, KRange::from(..10).as_bounded_range(),);
     }
 
     #[test]
@@ -397,7 +362,7 @@ mod tests {
             KRange::from(10..20).intersection(&KRange::from(15..25))
         );
         assert_eq!(
-            Some(KRange::from(200..201)),
+            None,
             KRange::from(100..=200).intersection(&KRange::from(300..=200))
         );
         assert_eq!(
@@ -407,18 +372,9 @@ mod tests {
     }
 
     #[test]
-    fn is_ascending() {
-        assert!(KRange::from(10..20).is_ascending());
-        assert!(!KRange::from(30..20).is_ascending());
-        assert!(KRange::from(..=1).is_ascending());
-        assert!(KRange::from(20..).is_ascending());
-    }
-
-    #[test]
     fn bounded_large() {
         let start_big = 2_i64.pow(42);
         let end_big = 2_i64.pow(43);
-        assert!(KRange::from(start_big..end_big).is_ascending());
         assert_eq!(
             KRange::from(start_big..end_big).size().unwrap(),
             (end_big - start_big) as usize

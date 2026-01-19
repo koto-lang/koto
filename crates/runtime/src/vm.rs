@@ -1430,13 +1430,8 @@ impl KotoVm {
                         );
                     };
 
-                    if r.is_ascending() {
-                        let end = if inclusive { end + 1 } else { end };
-                        end + index as i64
-                    } else {
-                        let end = if inclusive { end - 1 } else { end };
-                        end - index as i64
-                    }
+                    let end = if inclusive { end + 1 } else { end };
+                    end + index as i64
                 } else {
                     let Some(start) = r.start() else {
                         return runtime_error!(
@@ -1445,11 +1440,7 @@ impl KotoVm {
                             index
                         );
                     };
-                    if r.is_ascending() {
-                        start + index as i64
-                    } else {
-                        start - index as i64
-                    }
+                    start + index as i64
                 }
                 .into();
 
@@ -2662,11 +2653,7 @@ impl KotoVm {
             (Range(r), Number(n)) if r.start().is_some() => {
                 let start = r.start().unwrap();
                 let index = self.validate_index(n, r.size())?;
-                if r.is_ascending() {
-                    Number((start + index as i64).into())
-                } else {
-                    Number((start - index as i64).into())
-                }
+                Number((start + index as i64).into())
             }
             (Object(o), index) => o.try_borrow()?.index(&index)?,
             (unexpected_value, unexpected_index) => {

@@ -82,12 +82,28 @@ The Koto project adheres to
 #### Core Library
 
 - New functions:
+  - `number.step_to`
   - `os.env`
 
 ### Changed
 
 #### Language
+
+- Descending ranges are now considered to be empty, with the start value treated as the anchor for the empty range ([#536](https://github.com/koto-lang/koto/issues/536)).
+  - Descending ranges were mostly useful for writing descending `for` loops. `number.step_to` can be used instead, e.g.:
+    - ```koto
+      # Instead of `for i in 3..=1`:
+      for i in 3.step_to 1
+        print i
+      #: 3
+      #: 2
+      #: 1
 - `io.stdin`, `io.stdout` and `io.stderr` are now provided as `File` instead of `|| -> File`
+
+#### Core Library
+
+- `range.union` now treats scalar inputs as an inclusive singleton range (i.e. `x..=x`),
+  and will produce inclusive results whenever the new end point was derived from an inclusive range.
 
 #### API
 
