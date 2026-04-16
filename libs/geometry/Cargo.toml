@@ -18,9 +18,14 @@ default = ["rc"]
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
+plugin = ["dep:koto_plugin"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 koto_runtime = { workspace = true }
+koto_plugin = { path = "../../crates/plugin", optional = true }
 
 glam = { workspace = true }
 

@@ -1,6 +1,7 @@
+use crate::runtime;
 use derive_more::From;
-use koto_runtime::{Result, derive::*, prelude::*};
 use palette::FromColor;
+use runtime::{Result, derive::*, prelude::*};
 use std::fmt;
 
 macro_rules! get_component {
@@ -40,7 +41,7 @@ macro_rules! set_component {
 }
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(runtime = koto_runtime, use_copy)]
+#[koto(runtime = runtime, use_copy)]
 pub struct Color {
     pub color: Encoding,
     pub alpha: f32,
@@ -55,7 +56,7 @@ pub enum Encoding {
     Oklch(palette::Oklch),
 }
 
-#[koto_impl(runtime = koto_runtime)]
+#[koto_impl(runtime = runtime)]
 impl Color {
     pub fn named(name: &str) -> Option<Self> {
         palette::named::from_str(name).map(Self::from)
@@ -142,7 +143,7 @@ impl Color {
         get_component!(self, blue, (Srgb, c => c.blue))
     }
 
-    #[koto_set(alias = "b")]
+    #[koto_set]
     pub fn set_blue(&mut self, arg: &KValue) -> Result<()> {
         set_component!(self, arg, blue, (Srgb, c => c.blue))
     }
@@ -335,9 +336,7 @@ impl Color {
             self.color_space()
         )
     }
-}
 
-impl KotoObject for Color {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -350,16 +349,9 @@ impl KotoObject for Color {
         }
     }
 
-    fn not_equal(&self, other: &KValue) -> Result<bool> {
-        match other {
-            KValue::Object(o) if let Ok(other) = o.cast::<Self>() => Ok(*self != *other),
-            unexpected => unexpected_type(Self::type_static(), unexpected),
-        }
-    }
-
     fn index(&self, index: &KValue) -> Result<KValue> {
         match index {
-            KValue::Number(n) => match self.get_component(n.into()) {
+            KValue::Number(n) => match self.get_component((*n).into()) {
                 Some(result) => Ok(result.into()),
                 None => runtime_error!("index out of range ({n}, should be <= 3)"),
             },
@@ -368,7 +360,6 @@ impl KotoObject for Color {
     }
 
     fn size(&self) -> Option<usize> {
-        // All current color spaces have 4 components
         Some(4)
     }
 
@@ -376,7 +367,7 @@ impl KotoObject for Color {
         use KValue::Number;
 
         match (index, value) {
-            (Number(index), Number(value)) => self.set_component(index.into(), value.into()),
+            (Number(index), Number(value)) => self.set_component((*index).into(), (*value).into()),
             _ => unexpected_args("two Numbers", &[index.clone(), value.clone()]),
         }
     }
@@ -394,6 +385,36 @@ impl KotoObject for Color {
         });
 
         Ok(KIterator::with_std_iter(iter))
+    }
+}
+
+impl runtime::api::KotoObjectOps<runtime::Backend> for Color {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        Color::display(self, ctx)
+    }
+
+    fn equal(&self, other: &KValue) -> Result<bool> {
+        Color::equal(self, other)
+    }
+
+    fn index(&self, index: &KValue) -> Result<KValue> {
+        Color::index(self, index)
+    }
+
+    fn size(&self) -> Result<Option<usize>> {
+        Ok(Color::size(self))
+    }
+
+    fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
+        Color::index_assign(self, index, value)
+    }
+
+    fn is_iterable(&self) -> Result<IsIterable> {
+        Ok(Color::is_iterable(self))
+    }
+
+    fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
+        Color::make_iterator(self, vm)
     }
 }
 

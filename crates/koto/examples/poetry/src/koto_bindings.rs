@@ -1,4 +1,5 @@
 use crate::Poetry;
+use koto::runtime::{Backend, Result};
 use koto::{derive::*, prelude::*};
 
 pub fn make_module() -> KMap {
@@ -22,16 +23,17 @@ pub fn make_module() -> KMap {
 #[koto(type_name = "Poetry")]
 struct KotoPoetry(Poetry);
 
-impl KotoAccess for KotoPoetry {}
+impl<B: KotoBackend> KotoAccess<B> for KotoPoetry {}
 
-impl KotoObject for KotoPoetry {
-    fn is_iterable(&self) -> IsIterable {
-        IsIterable::ForwardIterator
+impl KotoObjectOps<Backend> for KotoPoetry {
+    fn is_iterable(&self) -> Result<IsIterable> {
+        Ok(IsIterable::ForwardIterator)
     }
 
-    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
-        self.0
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Result<Option<KIteratorOutput>> {
+        Ok(self
+            .0
             .next_word()
-            .map(|word| KIteratorOutput::Value(word.as_ref().into()))
+            .map(|word| KIteratorOutput::Value(word.as_ref().into())))
     }
 }

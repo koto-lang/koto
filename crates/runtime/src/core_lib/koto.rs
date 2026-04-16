@@ -24,7 +24,7 @@ pub fn make_module() -> KMap {
             );
             Ok(result.into())
         }
-        [KValue::Object(o)] => o.try_borrow().map(|o| o.copy().into()),
+        [KValue::Object(o)] => o.copy().map(Into::into),
         [other] => Ok(other.clone()),
         unexpected => unexpected_args("|Any|", unexpected),
     });
@@ -118,9 +118,9 @@ impl Chunk {
     }
 }
 
-impl KotoAccess for Chunk {}
+impl<B: KotoBackend> KotoAccess<B> for Chunk {}
 
-impl KotoObject for Chunk {
+impl KotoObjectOps<RuntimeBackend> for Chunk {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!(
             "{}({})",
@@ -148,5 +148,5 @@ impl From<Chunk> for KValue {
 #[koto(runtime = crate)]
 pub struct Unimplemented;
 
-impl KotoAccess for Unimplemented {}
-impl KotoObject for Unimplemented {}
+impl<B: KotoBackend> KotoAccess<B> for Unimplemented {}
+impl KotoObjectOps<RuntimeBackend> for Unimplemented {}

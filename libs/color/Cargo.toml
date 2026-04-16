@@ -17,10 +17,12 @@ default = ["rc"]
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
+plugin = ["dep:koto_plugin"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
 koto_runtime = { workspace = true }
+koto_plugin = { path = "../../crates/plugin", optional = true }
 
 derive_more = { workspace = true, features = ["from"] }
 palette = { workspace = true }

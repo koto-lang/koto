@@ -1,4 +1,5 @@
 use crate::{Error, Ptr, prelude::*};
+use koto_api::KotoRange;
 use std::{
     cmp::Ordering,
     fmt,
@@ -294,6 +295,20 @@ impl KRange {
     }
 }
 
+impl KotoRange for KRange {
+    fn start(&self) -> Option<i64> {
+        self.start()
+    }
+
+    fn end(&self) -> Option<(i64, bool)> {
+        self.end()
+    }
+
+    fn as_bounded_range(&self) -> Range<i64> {
+        self.as_bounded_range()
+    }
+}
+
 impl<R> From<R> for KRange
 where
     R: RangeBounds<i64>,
@@ -317,20 +332,7 @@ where
 
 impl fmt::Display for KRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(start) = self.start() {
-            write!(f, "{start}")?;
-        }
-
-        f.write_str("..")?;
-
-        if let Some((end, inclusive)) = self.end() {
-            if inclusive {
-                f.write_str("=")?;
-            }
-            write!(f, "{end}")?;
-        }
-
-        Ok(())
+        koto_api::write_koto_range(f, self)
     }
 }
 

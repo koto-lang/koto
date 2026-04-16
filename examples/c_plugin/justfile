@@ -1,0 +1,25 @@
+example_dir := justfile_directory()
+root_dir := example_dir + "/../.."
+header_dir := example_dir + "/include"
+output := example_dir + "/libkoto_c_plugin.dylib"
+example_script := example_dir + "/example.koto"
+
+build:
+  mkdir -p {{header_dir}}
+  cbindgen \
+    --config {{root_dir}}/crates/ffi/cbindgen.toml \
+    --crate koto_ffi \
+    --output {{header_dir}}/koto.h \
+    {{root_dir}}
+  clang \
+    -std=c11 -dynamiclib -Wall -Wextra \
+    -I{{header_dir}} \
+    {{example_dir}}/koto_c_plugin.c \
+    -o {{output}}
+  @echo {{output}}
+
+run: build
+  cd {{root_dir}} && \
+    cargo run \
+      -p koto_cli --no-default-features --features arc,koto/plugin -- \
+      {{example_script}}

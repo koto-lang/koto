@@ -15,12 +15,11 @@ repository.workspace = true
 proc-macro = true
 
 [features]
-default = ["rc"]
+default = []
 
-# Only one memory management strategy can be enabled at a time.
-# To use `arc`, default features must be disabled.
-arc = []
-rc = []
+# Access-map caching defaults to single-threaded storage unless thread-safe
+# sharing is explicitly requested.
+thread-safe = []
 
 [dependencies]
 indexmap = { workspace = true }

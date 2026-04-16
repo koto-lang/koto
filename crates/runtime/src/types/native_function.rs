@@ -1,4 +1,9 @@
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
 use crate::{Ptr, Result, error::unexpected_args_after_instance, prelude::*};
+use koto_api::KotoCallContext;
+#[cfg(any(feature = "plugin", test))]
+use koto_ffi as abi;
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -20,11 +25,6 @@ impl<T> KotoFunction for T where
 /// See [`KValue::NativeFunction`]
 pub struct KNativeFunction {
     /// The function implementation that should be called when calling the external function
-    //
-    // Disable a clippy false positive, see https://github.com/rust-lang/rust-clippy/issues/9299
-    // The type signature can't be simplified without stabilized trait aliases,
-    // see https://github.com/rust-lang/rust/issues/55628
-    #[allow(clippy::type_complexity)]
     pub function: Ptr<dyn KotoFunction>,
 }
 
@@ -33,6 +33,47 @@ impl KNativeFunction {
     pub fn new(function: impl KotoFunction) -> Self {
         Self {
             function: make_ptr!(function),
+        }
+    }
+}
+
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KNativeFunction {
+    type Abi = abi::OpaqueHandle;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        // Safety: `OpaqueHandle` is a repr(C) two-word transport type used only to carry raw fat
+        // pointers across the FFI boundary. The layout is verified by the ABI unit test below.
+        unsafe {
+            std::mem::transmute::<*const dyn KotoFunction, abi::OpaqueHandle>(Ptr::into_raw(
+                self.function,
+            ))
+        }
+    }
+
+    unsafe fn from_abi(handle: Self::Abi) -> Self {
+        Self {
+            // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+            // pointer that was previously transported as an `OpaqueHandle`.
+            function: unsafe {
+                Ptr::from_raw(std::mem::transmute::<
+                    abi::OpaqueHandle,
+                    *const dyn KotoFunction,
+                >(handle))
+            },
+        }
+    }
+
+    unsafe fn clone_from_abi(handle: Self::Abi) -> Self {
+        Self {
+            // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+            // pointer that was previously transported as an `OpaqueHandle`.
+            function: unsafe {
+                Ptr::clone_from_raw(std::mem::transmute::<
+                    abi::OpaqueHandle,
+                    *const dyn KotoFunction,
+                >(handle))
+            },
         }
     }
 }
@@ -120,5 +161,56 @@ impl<'a> CallContext<'a> {
             }
             (_, []) => unexpected_args(expected_args_message, &[]),
         }
+    }
+}
+
+impl KotoCallContext<crate::RuntimeBackend> for CallContext<'_> {
+    fn vm(&self) -> &KotoVm {
+        &*self.vm
+    }
+
+    fn vm_mut(&mut self) -> &mut KotoVm {
+        self.vm
+    }
+
+    fn instance(&self) -> &KValue {
+        self.vm.get_register(self.frame_base)
+    }
+
+    fn args(&self) -> &[KValue] {
+        self.vm.register_slice(self.frame_base + 1, self.arg_count)
+    }
+
+    fn instance_and_args(
+        &self,
+        instance_check: impl Fn(&KValue) -> bool,
+        expected_args_message: &str,
+    ) -> Result<(&KValue, &[KValue])> {
+        CallContext::instance_and_args(self, instance_check, expected_args_message)
+    }
+}
+
+#[cfg(test)]
+mod abi_tests {
+    use super::*;
+    use std::{
+        ffi::c_void,
+        mem::{align_of, size_of},
+    };
+
+    #[test]
+    fn opaque_fat_ptr_matches_native_function_pointer_layout() {
+        assert_eq!(
+            size_of::<*const dyn KotoFunction>(),
+            size_of::<abi::OpaqueHandle>()
+        );
+        assert_eq!(
+            align_of::<*const dyn KotoFunction>(),
+            align_of::<abi::OpaqueHandle>()
+        );
+        assert_eq!(
+            size_of::<abi::OpaqueHandle>(),
+            size_of::<[*mut c_void; 2]>()
+        );
     }
 }

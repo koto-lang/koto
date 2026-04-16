@@ -33,6 +33,14 @@ impl<T> StringSlice<T>
 where
     T: StringSliceIndex,
 {
+    pub(crate) fn data(&self) -> &Ptr<String> {
+        &self.data
+    }
+
+    pub(crate) fn bounds(&self) -> Range<T> {
+        self.bounds.clone()
+    }
+
     /// Initializes a string slice with the given string data and bounds
     ///
     /// If the bounds aren't valid for the given string data then None is returned.

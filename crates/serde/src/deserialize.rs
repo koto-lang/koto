@@ -1,4 +1,4 @@
-use koto_runtime::{KValue, ValueKey, ValueMap};
+use koto_runtime::{KTuple, KValue, RuntimeBackend, ValueKey, ValueMap, api::KotoSequence};
 use serde_core::{
     Deserialize, Deserializer,
     de::{self, Unexpected, VariantAccess, Visitor},
@@ -126,7 +126,7 @@ impl<'de> Visitor<'de> for KValueVisitor {
             .iter()
             .map(|x| KValue::Number(x.into()))
             .collect::<Vec<_>>();
-        Ok(KValue::Tuple(data.into()).into())
+        Ok(KValue::Tuple(<KTuple as KotoSequence<RuntimeBackend>>::from_slice(&data)).into())
     }
 
     fn visit_none<E>(self) -> Result<Self::Value, E>
@@ -167,7 +167,9 @@ impl<'de> Visitor<'de> for KValueVisitor {
             data.push(next.into());
         }
 
-        Ok(DeserializableKValue(KValue::Tuple(data.into())))
+        Ok(DeserializableKValue(KValue::Tuple(
+            <KTuple as KotoSequence<RuntimeBackend>>::from_slice(&data),
+        )))
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>

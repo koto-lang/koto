@@ -1,4 +1,9 @@
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
 use crate::{Ptr, Result, lazy, prelude::*};
+use koto_api::{KotoCollection, KotoIdentity, KotoSequence, KotoSlice};
+#[cfg(feature = "plugin")]
+use koto_ffi as abi;
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
@@ -36,7 +41,7 @@ impl KTuple {
 
     /// Returns true if the tuple contains only immutable values
     pub fn is_hashable(&self) -> bool {
-        self.iter().all(KValue::is_hashable)
+        self.data().iter().all(KValue::is_hashable)
     }
 
     /// Removes and returns the first value in the tuple
@@ -138,7 +143,7 @@ impl KTuple {
         ctx.push_container(id);
         ctx.append('(');
 
-        for (i, value) in self.iter().enumerate() {
+        for (i, value) in self.data().iter().enumerate() {
             if i > 0 {
                 ctx.append(", ");
             }
@@ -152,6 +157,97 @@ impl KTuple {
     }
 }
 
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KTuple {
+    type Abi = abi::KTuple;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        match self.0 {
+            Inner::Full(data) => abi::KTuple {
+                kind: abi::KTupleKind::Full,
+                data: abi::KTupleData {
+                    full: unsafe { Ptr::into_raw(data) } as *mut _,
+                },
+            },
+            Inner::Slice(slice) => abi::KTuple {
+                kind: abi::KTupleKind::Slice16,
+                data: abi::KTupleData {
+                    slice16: abi::KTupleSlice16 {
+                        data: unsafe { Ptr::into_raw(slice.data) } as *mut _,
+                        start: slice.bounds.start,
+                        end: slice.bounds.end,
+                    },
+                },
+            },
+            Inner::SliceLarge(slice) => {
+                let slice = (*slice).clone();
+                abi::KTuple {
+                    kind: abi::KTupleKind::Slice,
+                    data: abi::KTupleData {
+                        slice: abi::KTupleSlice {
+                            data: unsafe { Ptr::into_raw(slice.data) } as *mut _,
+                            start: slice.bounds.start,
+                            end: slice.bounds.end,
+                        },
+                    },
+                }
+            }
+        }
+    }
+
+    unsafe fn from_abi(tuple: Self::Abi) -> Self {
+        match tuple.kind {
+            abi::KTupleKind::Full => {
+                let data = unsafe { Ptr::from_raw(tuple.data.full as *const Vec<KValue>) };
+                Self(Inner::Full(data))
+            }
+            abi::KTupleKind::Slice16 => {
+                let slice = unsafe { tuple.data.slice16 };
+                let data = unsafe { Ptr::from_raw(slice.data as *const Vec<KValue>) };
+                Self(Inner::Slice(TupleSlice16 {
+                    data,
+                    bounds: slice.start..slice.end,
+                    _niche_placeholder: ZeroU8::Zero,
+                }))
+            }
+            abi::KTupleKind::Slice => {
+                let slice = unsafe { tuple.data.slice };
+                let data = unsafe { Ptr::from_raw(slice.data as *const Vec<KValue>) };
+                Self(Inner::SliceLarge(Ptr::from(Box::new(TupleSlice {
+                    data,
+                    bounds: slice.start..slice.end,
+                }))))
+            }
+        }
+    }
+
+    unsafe fn clone_from_abi(tuple: Self::Abi) -> Self {
+        match tuple.kind {
+            abi::KTupleKind::Full => {
+                let data = unsafe { Ptr::clone_from_raw(tuple.data.full as *const Vec<KValue>) };
+                Self(Inner::Full(data))
+            }
+            abi::KTupleKind::Slice16 => {
+                let slice = unsafe { tuple.data.slice16 };
+                let data = unsafe { Ptr::clone_from_raw(slice.data as *const Vec<KValue>) };
+                Self(Inner::Slice(TupleSlice16 {
+                    data,
+                    bounds: slice.start..slice.end,
+                    _niche_placeholder: ZeroU8::Zero,
+                }))
+            }
+            abi::KTupleKind::Slice => {
+                let slice = unsafe { tuple.data.slice };
+                let data = unsafe { Ptr::clone_from_raw(slice.data as *const Vec<KValue>) };
+                Self(Inner::SliceLarge(Ptr::from(Box::new(TupleSlice {
+                    data,
+                    bounds: slice.start..slice.end,
+                }))))
+            }
+        }
+    }
+}
+
 impl Deref for KTuple {
     type Target = [KValue];
 
@@ -161,6 +257,39 @@ impl Deref for KTuple {
             Inner::Slice(slice) => slice.deref(),
             Inner::SliceLarge(slice) => slice.deref(),
         }
+    }
+}
+
+impl KotoCollection<RuntimeBackend> for KTuple {
+    fn len(&self) -> usize {
+        self.data().len()
+    }
+}
+
+impl KotoSlice<RuntimeBackend> for KTuple {
+    fn get(&self, index: usize) -> Option<KValue> {
+        self.data().get(index).cloned()
+    }
+}
+
+impl KotoSequence<RuntimeBackend> for KTuple {
+    type Data<'a>
+        = &'a [KValue]
+    where
+        Self: 'a;
+
+    fn data(&self) -> Self::Data<'_> {
+        KTuple::data(self)
+    }
+
+    fn from_slice(values: &[KValue]) -> Self {
+        KTuple::from(values.to_vec())
+    }
+}
+
+impl KotoIdentity for KTuple {
+    fn is_same_instance(&self, other: &Self) -> bool {
+        KTuple::is_same_instance(self, other)
     }
 }
 

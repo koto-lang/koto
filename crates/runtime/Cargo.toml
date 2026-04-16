@@ -16,10 +16,13 @@ default = ["rc"]
 
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
-arc = ["koto_memory/arc", "koto_derive/arc"]
-rc = ["koto_memory/rc", "koto_derive/rc"]
+arc = ["koto_memory/arc", "koto_derive/thread-safe"]
+rc = ["koto_memory/rc"]
+plugin = ["dep:libloading"]
 
 [dependencies]
+koto_api = { workspace = true }
+koto_ffi = { path = "../ffi" }
 koto_bytecode = { workspace = true }
 koto_derive = { workspace = true }
 koto_lexer = { workspace = true }
@@ -27,6 +30,7 @@ koto_memory = { workspace = true }
 koto_parser = { workspace = true }
 
 indexmap = { workspace = true }
+libloading = { workspace = true, optional = true }
 paste = { workspace = true }
 rustc-hash = { workspace = true }
 saturating_cast = { workspace = true }

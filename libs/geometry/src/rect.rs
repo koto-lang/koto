@@ -1,18 +1,21 @@
-use crate::{Vec2, geometry_comparison_op};
-use koto_runtime::{Result, derive::*, prelude::*};
+use crate::Vec2;
+use crate::geometry_comparison_op;
+use crate::runtime::Result;
+use crate::runtime::derive::{KotoCopy, KotoType, koto_impl, koto_method};
+use crate::runtime::prelude::*;
 use std::{
     fmt,
     ops::{Add, Div, Sub},
 };
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(runtime = koto_runtime, use_copy)]
+#[koto(runtime = crate::runtime, use_copy)]
 pub struct Rect {
     x: Bounds<f64>,
     y: Bounds<f64>,
 }
 
-#[koto_impl(runtime = koto_runtime)]
+#[koto_impl(runtime = crate::runtime)]
 impl Rect {
     pub fn from_x_y_w_h(x: f64, y: f64, width: f64, height: f64) -> Self {
         let x_start = x - width / 2.0;
@@ -94,9 +97,7 @@ impl Rect {
         self.y.set_center(y);
         self
     }
-}
 
-impl KotoObject for Rect {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -125,6 +126,24 @@ impl KotoObject for Rect {
         });
 
         Ok(KIterator::with_std_iter(iter))
+    }
+}
+
+impl crate::runtime::api::KotoObjectOps<crate::runtime::Backend> for Rect {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        Rect::display(self, ctx)
+    }
+
+    fn equal(&self, value: &KValue) -> Result<bool> {
+        Rect::equal(self, value)
+    }
+
+    fn is_iterable(&self) -> Result<IsIterable> {
+        Ok(Rect::is_iterable(self))
+    }
+
+    fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
+        Rect::make_iterator(self, vm)
     }
 }
 

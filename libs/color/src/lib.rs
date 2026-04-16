@@ -3,11 +3,19 @@
 mod color;
 pub use color::{Color, Encoding};
 
-use koto_runtime::{derive::koto_fn, prelude::*};
+cfg_select! {
+    feature = "plugin" => {
+        use koto_plugin as runtime;
+    }
+    _ => {
+        use koto_runtime as runtime;
+    }
+}
 use palette::{Hsl, Hsla, Hsv, Hsva, Oklab, Oklaba, Oklch, Oklcha, Srgb, Srgba};
+use runtime::{derive::koto_fn, prelude::*};
 
 pub fn make_module() -> KMap {
-    let mut result = KMap::default();
+    let mut result = KMap::with_type("color");
 
     macro_rules! color_init_fn {
         ($name:ident, $type3:path, $type4:path) => {{
@@ -15,7 +23,7 @@ pub fn make_module() -> KMap {
             use $type4 as ColorType4;
 
             koto_fn! {
-                runtime = koto_runtime;
+                runtime = runtime;
 
                 fn $name(c1: f32, c2: f32, c3: f32) -> Color {
                     ColorType4::from(ColorType3::new(c1, c2, c3)).into()
@@ -31,7 +39,7 @@ pub fn make_module() -> KMap {
     }
 
     koto_fn! {
-        runtime = koto_runtime;
+        runtime = runtime;
 
         fn hex(s: &str) -> KValue {
             from_hex_str(s)
@@ -81,13 +89,13 @@ pub fn make_module() -> KMap {
     color_init_fn!(rgb, Srgb, Srgba);
 
     // Allow users to simply call `color` for basic color initializers
-    let mut meta = MetaMap::default();
-    meta.insert(MetaKey::Type, "color".into());
-    meta.add_fn(MetaKey::Call, meta_call);
-
-    result.set_meta_map(Some(meta.into()));
+    result.insert_meta(MetaKey::Type, "color");
+    result.add_meta_fn(MetaKey::Call, meta_call);
     result
 }
+
+#[cfg(feature = "plugin")]
+koto_plugin::export_plugin!(make_module);
 
 fn from_hex_str(s: &str) -> KValue {
     match Color::hex_str(s) {

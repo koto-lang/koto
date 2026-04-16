@@ -119,6 +119,40 @@ impl OverloadedFunction {
 
         Ok(arms)
     }
+
+    pub(crate) fn match_arms_plugin(&self, runtime: &TokenStream) -> Result<TokenStream> {
+        let mut match_arms = Vec::with_capacity(self.candidates.len());
+        let mut unexpected_args_error = String::new();
+
+        for (i, definition) in self.candidates.iter().enumerate() {
+            match_arms.push(definition.match_arm_plugin(runtime)?);
+
+            if i > 0 {
+                unexpected_args_error.push_str(", ");
+            }
+
+            if self.candidates.len() > 1 && i == self.candidates.len() - 1 {
+                unexpected_args_error.push_str("or ");
+            }
+
+            unexpected_args_error.push_str(&definition.args.signature());
+        }
+
+        let error_expr = quote! {
+            unexpected_args(#unexpected_args_error, unexpected)
+        };
+
+        let error_arm = if matches!(self.options(), OverloadOptions::Method) {
+            quote!((_, unexpected) => #error_expr,)
+        } else {
+            quote!(unexpected => #error_expr,)
+        };
+
+        Ok(quote! {
+            #(#match_arms)*
+            #error_arm
+        })
+    }
 }
 
 pub(crate) struct OverloadedFunctionCandidate {
@@ -367,6 +401,207 @@ impl OverloadedFunctionCandidate {
         // Attach a span to so a type error will point at the right place.
         quote_spanned!(span=> #return_trait::into_result(#call))
     }
+
+    pub(crate) fn match_arm_plugin(&self, _runtime: &TokenStream) -> Result<TokenStream> {
+        self.ensure_plugin_supported()?;
+
+        let call_exprs = self.args.call_exprs_plugin(_runtime);
+        let fn_name = &self.item.sig.ident;
+        let match_pats = self
+            .value_args()
+            .map(|(arg, value)| value.match_pats(&arg.name))
+            .collect::<Vec<_>>();
+        let setup_exprs = self
+            .value_args()
+            .map(|(arg, _)| &arg.setup_expr)
+            .collect::<Vec<_>>();
+        let match_conditions = self
+            .value_args()
+            .flat_map(|(_, value)| value.match_condition.as_ref())
+            .collect::<Vec<_>>();
+
+        let condition = match match_conditions.as_slice() {
+            [] => quote!(),
+            [first, rest @ ..] => quote! {
+                if #first #(&& #rest)*
+            },
+        };
+
+        if matches!(self.options, OverloadOptions::Method) {
+            let has_method_context_param = self.args.inner.iter().any(|arg| {
+                matches!(
+                    &arg.kind,
+                    KotoArgKind::Context(context)
+                        if matches!(context.kind, KotoContextArgKind::MethodContext)
+                )
+            });
+
+            if has_method_context_param {
+                if self.args.inner.len() > 1 {
+                    return Err(Error::new_spanned(
+                        &self.item.sig.inputs,
+                        "Unexpected additional parameter for a `#[koto_method]` taking a `MethodContext`",
+                    ));
+                }
+
+                let wrapped_call = self.wrap_call(quote!(Self::#fn_name(#(#call_exprs, )*)));
+
+                return Ok(quote! {
+                    (KValue::Object(o), extra_args) => {
+                        return #wrapped_call;
+                    }
+                });
+            }
+        }
+
+        let mut pattern = quote! {
+            [#(#match_pats,)*]
+        };
+
+        if matches!(self.options, OverloadOptions::Method) {
+            pattern = quote!((KValue::Object(o), #pattern));
+        }
+
+        let expr = if let Some(KotoArg {
+            kind: KotoArgKind::Receiver(receiver),
+            ..
+        }) = self.args.inner.first()
+        {
+            enum ReturnKind {
+                RefSelf,
+                ResultRefSelf,
+                Other,
+            }
+
+            let return_kind = match &self.item.sig.output {
+                ReturnType::Default => ReturnKind::Other,
+                ReturnType::Type(_, ty) => match &**ty {
+                    Type::Reference(ty) => match &*ty.elem {
+                        Type::Path(type_path) if type_path.path.is_ident("Self") => {
+                            ReturnKind::RefSelf
+                        }
+                        _ => ReturnKind::Other,
+                    },
+                    Type::Path(type_path) => match type_path.path.segments.last() {
+                        Some(PathSegment {
+                            arguments: PathArguments::AngleBracketed(args),
+                            ..
+                        }) => match args.args.first() {
+                            Some(GenericArgument::Type(Type::Reference(ty))) => match &*ty.elem {
+                                Type::Path(type_path) if type_path.path.is_ident("Self") => {
+                                    ReturnKind::ResultRefSelf
+                                }
+                                _ => ReturnKind::Other,
+                            },
+                            _ => ReturnKind::Other,
+                        },
+                        _ => ReturnKind::Other,
+                    },
+                    _ => ReturnKind::Other,
+                },
+            };
+
+            let cast = if receiver.is_mut {
+                quote!(cast_mut)
+            } else {
+                quote!(cast)
+            };
+
+            let instance = if receiver.is_mut {
+                quote!(mut instance)
+            } else {
+                quote!(instance)
+            };
+
+            match return_kind {
+                ReturnKind::RefSelf => quote! {
+                    match o.#cast::<Self>() {
+                        Ok(#instance) => {
+                            #(#setup_exprs)*
+                            Self::#fn_name(#(#call_exprs, )*);
+                            return Ok(o.clone().into());
+                        }
+                        Err(e) => Err(e),
+                    }
+                },
+                ReturnKind::ResultRefSelf => quote! {
+                    match o.#cast::<Self>() {
+                        Ok(#instance) => {
+                            #(#setup_exprs)*
+                            Self::#fn_name(#(#call_exprs, )*)?;
+                            return Ok(o.clone().into());
+                        }
+                        Err(e) => Err(e),
+                    }
+                },
+                ReturnKind::Other => {
+                    let wrapped_call = self.wrap_call(quote!(Self::#fn_name(#(#call_exprs, )*)));
+                    quote! {
+                        match o.#cast::<Self>() {
+                            Ok(#instance) => {
+                                #(#setup_exprs)*
+                                return #wrapped_call;
+                            }
+                            Err(e) => Err(e),
+                        }
+                    }
+                }
+            }
+        } else {
+            match self.options {
+                OverloadOptions::Function => {
+                    let fn_impl = &self.item;
+                    let wrapped_call = self.wrap_call(quote!(#fn_name(#(#call_exprs, )*)));
+                    quote! {{
+                        #fn_impl
+                        #(#setup_exprs)*
+                        return #wrapped_call;
+                    }}
+                }
+                OverloadOptions::Method => {
+                    let wrapped_call = self.wrap_call(quote!(Self::#fn_name(#(#call_exprs, )*)));
+                    quote! {{
+                        #(#setup_exprs)*
+                        return #wrapped_call;
+                    }}
+                }
+            }
+        };
+
+        Ok(quote! {
+            #pattern #condition => #expr
+        })
+    }
+
+    fn ensure_plugin_supported(&self) -> Result<()> {
+        for arg in &self.args.inner {
+            match &arg.kind {
+                KotoArgKind::Context(KotoContextArg {
+                    kind: KotoContextArgKind::KotoVm,
+                }) => {}
+                KotoArgKind::Context(KotoContextArg {
+                    kind: KotoContextArgKind::MethodContext,
+                }) if matches!(self.options, OverloadOptions::Method) => {}
+                KotoArgKind::Context(context) => {
+                    return Err(Error::new(
+                        self.item.sig.span(),
+                        format!(
+                            "`{}` is not yet supported by `koto_plugin`'s backend",
+                            match context.kind {
+                                KotoContextArgKind::MethodContext => "MethodContext",
+                                KotoContextArgKind::CallContext => "CallContext",
+                                KotoContextArgKind::KotoVm => "KotoVm",
+                            }
+                        ),
+                    ));
+                }
+                KotoArgKind::Value(_) => {}
+                KotoArgKind::Receiver(_) => {}
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Either an `ItemFn` or `ImplItemFn`.
@@ -464,6 +699,13 @@ impl KotoArgs {
 
     fn call_exprs(&self) -> Vec<TokenStream> {
         self.inner.iter().flat_map(|arg| arg.call_expr()).collect()
+    }
+
+    fn call_exprs_plugin(&self, runtime: &TokenStream) -> Vec<TokenStream> {
+        self.inner
+            .iter()
+            .flat_map(|arg| arg.call_expr_plugin(runtime))
+            .collect()
     }
 }
 
@@ -610,7 +852,7 @@ impl KotoArg {
                     }
                 }
                 KotoArgKind::Context(context) => match context.kind {
-                    KotoContextArgKind::KotoVm => Some(quote!(ctx.vm)),
+                    KotoContextArgKind::KotoVm => Some(quote!(ctx.vm_mut())),
                     KotoContextArgKind::CallContext => Some(quote!(ctx)),
                     KotoContextArgKind::MethodContext => Some(quote! {
                         MethodContext::new(&o, extra_args, ctx.vm)
@@ -625,6 +867,11 @@ impl KotoArg {
                 }
             },
         }
+    }
+
+    fn call_expr_plugin(&self, runtime: &TokenStream) -> Option<TokenStream> {
+        let _ = runtime;
+        self.call_expr()
     }
 }
 

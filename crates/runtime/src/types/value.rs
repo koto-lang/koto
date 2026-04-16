@@ -1,6 +1,7 @@
 //! The core value type used in the Koto runtime
 
 use crate::{KFunction, Ptr, Result, lazy, prelude::*};
+use koto_api::{KotoDisplay, KotoIdentity, KotoValue};
 use std::{
     fmt::{self, Write},
     result::Result as StdResult,
@@ -86,7 +87,7 @@ impl KValue {
                 KMap::with_contents(data, meta).into()
             }
             KValue::Iterator(i) => i.make_copy()?.into(),
-            KValue::Object(o) => o.try_borrow()?.copy().into(),
+            KValue::Object(o) => o.copy()?.into(),
             _ => self.clone(),
         };
 
@@ -100,7 +101,10 @@ impl KValue {
             Function(f) if f.flags.is_generator() => false,
             Function(_) | NativeFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
-            Object(o) => o.try_borrow().is_ok_and(|o| o.is_callable()),
+            Object(o) => o
+                .try_borrow()
+                .and_then(|object| object.is_callable())
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -127,7 +131,10 @@ impl KValue {
         use KValue::*;
         match self {
             List(_) | Map(_) | Str(_) | Tuple(_) => true,
-            Object(o) => o.try_borrow().is_ok_and(|o| o.size().is_some()),
+            Object(o) => o
+                .try_borrow()
+                .and_then(|object| object.size())
+                .is_ok_and(|size| size.is_some()),
             _ => false,
         }
     }
@@ -147,7 +154,8 @@ impl KValue {
             }
             Object(o) => o
                 .try_borrow()
-                .is_ok_and(|o| !matches!(o.is_iterable(), IsIterable::NotIterable)),
+                .and_then(|object| object.is_iterable())
+                .is_ok_and(|iterable| !matches!(iterable, IsIterable::NotIterable)),
             _ => false,
         }
     }
@@ -181,10 +189,10 @@ impl KValue {
             Tuple(_) => lazy!(KString; "Tuple"),
             Function(f) if f.flags.is_generator() => lazy!(KString; "Generator"),
             Function(_) | NativeFunction(_) => lazy!(KString; "Function"),
-            Object(o) => o.try_borrow().map_or_else(
-                |_| "Error: object already borrowed".into(),
-                |o| o.type_string(),
-            ),
+            Object(o) => o
+                .try_borrow()
+                .map(|object| KotoType::type_string(&*object))
+                .unwrap_or_else(|_| lazy!(KString; "Object")),
             Iterator(_) => lazy!(KString; "Iterator"),
             TemporaryTuple { .. } => lazy!(KString; "TemporaryTuple"),
         }
@@ -235,6 +243,105 @@ impl KValue {
 impl fmt::Debug for KValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.type_as_string())
+    }
+}
+
+impl KotoValue<crate::RuntimeBackend> for KValue {
+    fn is_null(&self) -> bool {
+        matches!(self, KValue::Null)
+    }
+
+    fn as_bool(&self) -> Option<bool> {
+        match self {
+            KValue::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn as_number(&self) -> Option<KNumber> {
+        match self {
+            KValue::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn as_range(&self) -> Option<KRange> {
+        match self {
+            KValue::Range(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            KValue::Str(value) => Some(value.as_str()),
+            _ => None,
+        }
+    }
+
+    fn as_list(&self) -> Option<KList> {
+        match self {
+            KValue::List(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_tuple(&self) -> Option<KTuple> {
+        match self {
+            KValue::Tuple(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_map(&self) -> Option<KMap> {
+        match self {
+            KValue::Map(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_object(&self) -> Option<KObject> {
+        match self {
+            KValue::Object(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_iterator(&self) -> Option<KIterator> {
+        match self {
+            KValue::Iterator(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_function(&self) -> Option<KFunction> {
+        match self {
+            KValue::Function(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_native_function(&self) -> Option<KNativeFunction> {
+        match self {
+            KValue::NativeFunction(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn type_as_string(&self) -> KString {
+        self.type_as_string()
+    }
+}
+
+impl KotoDisplay<crate::RuntimeBackend> for KValue {
+    fn display(&self, ctx: &mut DisplayContext<'_>) -> Result<()> {
+        self.display(ctx)
+    }
+}
+
+impl KotoIdentity for KValue {
+    fn is_same_instance(&self, other: &Self) -> bool {
+        KValue::is_same_instance(self, other)
     }
 }
 
@@ -307,6 +414,12 @@ impl From<KObject> for KValue {
 impl From<KIterator> for KValue {
     fn from(value: KIterator) -> Self {
         Self::Iterator(value)
+    }
+}
+
+impl From<KFunction> for KValue {
+    fn from(value: KFunction) -> Self {
+        Self::Function(value)
     }
 }
 

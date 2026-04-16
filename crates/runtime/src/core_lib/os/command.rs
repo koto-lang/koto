@@ -126,15 +126,19 @@ impl Command {
             Err(error) => runtime_error!("{error}"),
         }
     }
-}
 
-impl KotoObject for Command {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!(
             "Command('{}')",
             self.0.borrow_mut().get_program().to_string_lossy()
         ));
         Ok(())
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for Command {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        Command::display(self, ctx)
     }
 }
 
@@ -184,7 +188,7 @@ impl CommandOutput {
     }
 }
 
-impl KotoObject for CommandOutput {}
+impl KotoObjectOps<RuntimeBackend> for CommandOutput {}
 
 /// A wrapper for [std::process::Child], used by `os.command.spawn`
 #[derive(Clone, KotoCopy, KotoType)]
@@ -333,7 +337,7 @@ impl Child {
     }
 }
 
-impl KotoObject for Child {}
+impl KotoObjectOps<RuntimeBackend> for Child {}
 
 #[derive(Clone)]
 struct ChildStdin(PtrMut<Option<BufWriter<process::ChildStdin>>>);

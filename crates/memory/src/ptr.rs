@@ -96,6 +96,42 @@ impl<T: ?Sized> Ptr<T> {
     pub fn ref_count(this: &Self) -> usize {
         PtrImpl::strong_count(&this.0)
     }
+
+    /// Converts the pointer into a raw pointer without adjusting the refcount.
+    ///
+    /// The raw pointer must later be passed to [`Ptr::from_raw`] to avoid leaking the allocation.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer must only be turned back into a [`Ptr`] originating from the same
+    /// allocation. The caller is responsible for eventually reconstructing exactly one owned
+    /// pointer with [`Ptr::from_raw`] so the strong reference released here is not leaked.
+    pub unsafe fn into_raw(this: Self) -> *const T {
+        PtrImpl::into_raw(this.0)
+    }
+
+    /// Reconstructs a pointer from a raw pointer previously returned by [`Ptr::into_raw`].
+    ///
+    /// # Safety
+    ///
+    /// `raw` must have been returned by [`Ptr::into_raw`] for the same pointer implementation,
+    /// and its strong reference must still be owned by the caller. Calling this more than once
+    /// for the same raw pointer without a matching [`Ptr::into_raw`] causes double-drops.
+    pub unsafe fn from_raw(raw: *const T) -> Self {
+        Self(unsafe { PtrImpl::from_raw(raw) })
+    }
+
+    /// Clones a pointer from a raw pointer without consuming the existing strong reference.
+    ///
+    /// # Safety
+    ///
+    /// `raw` must point to a live allocation managed by [`Ptr`] / [`crate::PtrMut`], and the allocation
+    /// must remain valid for the duration of the strong-count increment performed here. The raw
+    /// pointer must not be dangling or already have had its final strong reference released.
+    pub unsafe fn clone_from_raw(raw: *const T) -> Self {
+        unsafe { PtrImpl::increment_strong_count(raw) };
+        Self(unsafe { PtrImpl::from_raw(raw) })
+    }
 }
 
 impl<T: Clone> Ptr<T> {

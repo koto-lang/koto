@@ -9,11 +9,20 @@ pub use rect::Rect;
 pub use vec2::Vec2;
 pub use vec3::Vec3;
 
-use koto_runtime::{derive::koto_fn, prelude::*};
+cfg_select! {
+    feature = "plugin" => {
+        use koto_plugin as runtime;
+    }
+    _ => {
+        use koto_runtime as runtime;
+    }
+}
+use runtime::derive::koto_fn;
+use runtime::prelude::*;
 
 pub fn make_module() -> KMap {
     koto_fn! {
-        runtime = koto_runtime;
+        runtime = runtime;
 
         fn rect() -> Rect {
             (0.0, 0.0, 0.0, 0.0).into()
@@ -80,3 +89,6 @@ pub fn make_module() -> KMap {
 
     result
 }
+
+#[cfg(feature = "plugin")]
+koto_plugin::export_plugin!(make_module);

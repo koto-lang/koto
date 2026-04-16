@@ -40,7 +40,7 @@ macro_rules! try_deserialize_number {
             match self.0 {
                 KValue::Number(n) => match i64::try_from(n) {
                     Ok(i) => visitor.visit_i64(i),
-                    Err(_) => Err(Error::OutOfI64RangeNumber(n)),
+                    Err(_) => Err(Error::OutOfI64RangeNumber(n.to_string())),
                 },
                 other => unsupported_error("number", &other),
             }
@@ -333,7 +333,7 @@ fn values_to_bytes(values: &[KValue]) -> Result<Vec<u8>> {
             #[allow(clippy::unnecessary_fallible_conversions)]
             KValue::Number(n) => match u8::try_from(n) {
                 Ok(x) => Ok(x),
-                Err(_) => Err(Error::OutOfU8RangeNumber(*n)),
+                Err(_) => Err(Error::OutOfU8RangeNumber(n.to_string())),
             },
             other => unsupported_error("number", other),
         })

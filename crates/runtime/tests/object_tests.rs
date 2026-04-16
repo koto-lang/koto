@@ -3,7 +3,7 @@ mod objects {
 
     use indexmap::IndexMap;
     use koto_memory::Address;
-    use koto_runtime::{Result, derive::*, prelude::*};
+    use koto_runtime::{Backend, Result, derive::*, prelude::*};
     use koto_test_utils::*;
 
     #[derive(Clone, Copy, Debug, KotoCopy, KotoType)]
@@ -128,13 +128,13 @@ mod objects {
         }
     }
 
-    impl KotoObject for TestObject {
+    impl KotoObjectOps<Backend> for TestObject {
         fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
             if ctx.debug_enabled() {
                 ctx.append('{');
             }
 
-            ctx.append(format!("{}: {}", self.type_string(), self.x));
+            ctx.append(format!("{}: {}", Self::type_static(), self.x));
 
             if ctx.debug_enabled() {
                 ctx.append('}');
@@ -180,12 +180,12 @@ mod objects {
             }
         }
 
-        fn size(&self) -> Option<usize> {
-            Some(self.x.unsigned_abs() as usize)
+        fn size(&self) -> Result<Option<usize>> {
+            Ok(Some(self.x.unsigned_abs() as usize))
         }
 
-        fn is_callable(&self) -> bool {
-            true
+        fn is_callable(&self) -> Result<bool> {
+            Ok(true)
         }
 
         fn call(&mut self, _ctx: &mut CallContext) -> Result<KValue> {
@@ -318,8 +318,8 @@ mod objects {
             comparison_op!(self, other, !=)
         }
 
-        fn is_iterable(&self) -> IsIterable {
-            IsIterable::Iterable
+        fn is_iterable(&self) -> Result<IsIterable> {
+            Ok(IsIterable::Iterable)
         }
 
         fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
@@ -443,7 +443,7 @@ mod objects {
         }
     }
 
-    impl KotoObject for TestObjectAccess {}
+    impl KotoObjectOps<Backend> for TestObjectAccess {}
 
     /// An object that behaves similar to a `KMap`.
     #[derive(Clone, Debug, KotoCopy, KotoType)]
@@ -482,13 +482,13 @@ mod objects {
         }
     }
 
-    impl KotoObject for MapLikeObject {
+    impl KotoObjectOps<Backend> for MapLikeObject {
         fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
             if ctx.debug_enabled() {
                 ctx.append('{');
             }
 
-            ctx.append(self.type_string());
+            ctx.append(Self::type_static());
             ctx.append(": {");
             ctx.push_container(Address::from(ptr::from_ref(self)));
 
@@ -525,21 +525,21 @@ mod objects {
         }
     }
 
-    impl KotoAccess for TestIterator {}
+    impl<B: KotoBackend> KotoAccess<B> for TestIterator {}
 
-    impl KotoObject for TestIterator {
-        fn is_iterable(&self) -> IsIterable {
-            IsIterable::BidirectionalIterator
+    impl KotoObjectOps<Backend> for TestIterator {
+        fn is_iterable(&self) -> Result<IsIterable> {
+            Ok(IsIterable::BidirectionalIterator)
         }
 
-        fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
+        fn iterator_next(&mut self, _vm: &mut KotoVm) -> Result<Option<KIteratorOutput>> {
             self.x += 1;
-            Some(self.x.into())
+            Ok(Some(self.x.into()))
         }
 
-        fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<KIteratorOutput> {
+        fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Result<Option<KIteratorOutput>> {
             self.x -= 1;
-            Some(self.x.into())
+            Ok(Some(self.x.into()))
         }
     }
 
@@ -580,7 +580,7 @@ mod objects {
         }
     }
 
-    impl<T> KotoObject for GenericObject<T>
+    impl<T> KotoObjectOps<Backend> for GenericObject<T>
     where
         T: KotoField,
         KValue: From<T>,

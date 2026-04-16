@@ -30,7 +30,7 @@ impl Peekable {
         KObject::from(Self::new(iter)).into()
     }
 
-    fn next(&mut self) -> Option<Output> {
+    fn next_output(&mut self) -> Option<Output> {
         self.peeked_front.take().map(Output::Value).or_else(|| {
             self.iter
                 .next()
@@ -38,7 +38,7 @@ impl Peekable {
         })
     }
 
-    fn next_back(&mut self) -> Option<Output> {
+    fn next_back_output(&mut self) -> Option<Output> {
         self.peeked_back.take().map(Output::Value).or_else(|| {
             self.iter
                 .next_back()
@@ -50,7 +50,7 @@ impl Peekable {
     fn peek(&mut self) -> Result<KValue> {
         let peeked = match self.peeked_front.clone() {
             Some(peeked) => peeked,
-            None => match iter_output_to_result(self.next())? {
+            None => match iter_output_to_result(self.next_output())? {
                 None => return Ok(KValue::Null),
                 Some(peeked) => {
                     self.peeked_front = Some(peeked.clone());
@@ -66,7 +66,7 @@ impl Peekable {
     fn peek_back(&mut self) -> Result<KValue> {
         let peeked = match self.peeked_back.clone() {
             Some(peeked) => peeked,
-            None => match iter_output_to_result(self.next_back())? {
+            None => match iter_output_to_result(self.next_back_output())? {
                 None => return Ok(KValue::Null),
                 Some(peeked) => {
                     self.peeked_back = Some(peeked.clone());
@@ -77,9 +77,7 @@ impl Peekable {
 
         Ok(IteratorOutput::from(peeked).into())
     }
-}
 
-impl KotoObject for Peekable {
     fn is_iterable(&self) -> IsIterable {
         if self.iter.is_bidirectional() {
             IsIterable::BidirectionalIterator
@@ -89,19 +87,25 @@ impl KotoObject for Peekable {
     }
 
     fn iterator_next(&mut self, _vm: &mut KotoVm) -> Option<Output> {
-        self.peeked_front.take().map(Output::Value).or_else(|| {
-            self.iter
-                .next()
-                .or_else(|| self.peeked_back.take().map(Output::Value))
-        })
+        self.next_output()
     }
 
     fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Option<Output> {
-        self.peeked_back.take().map(Output::Value).or_else(|| {
-            self.iter
-                .next_back()
-                .or_else(|| self.peeked_front.take().map(Output::Value))
-        })
+        self.next_back_output()
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for Peekable {
+    fn is_iterable(&self) -> Result<IsIterable> {
+        Ok(Peekable::is_iterable(self))
+    }
+
+    fn iterator_next(&mut self, vm: &mut KotoVm) -> Result<Option<Output>> {
+        Ok(Peekable::iterator_next(self, vm))
+    }
+
+    fn iterator_next_back(&mut self, vm: &mut KotoVm) -> Result<Option<Output>> {
+        Ok(Peekable::iterator_next_back(self, vm))
     }
 }
 

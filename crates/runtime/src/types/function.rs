@@ -1,5 +1,9 @@
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
 use crate::{KList, vm::NonLocals};
 use koto_bytecode::{Chunk, FunctionFlags};
+#[cfg(feature = "plugin")]
+use koto_ffi as abi;
 use koto_memory::Ptr;
 
 /// A Koto function
@@ -72,6 +76,55 @@ impl KFunction {
         self.context
             .as_ref()
             .and_then(|context| context.non_locals.clone())
+    }
+}
+
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KFunction {
+    type Abi = abi::KFunction;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        abi::KFunction {
+            chunk: unsafe { Ptr::into_raw(self.chunk) } as *mut _,
+            ip: self.ip,
+            arg_count: self.arg_count,
+            optional_arg_count: self.optional_arg_count,
+            flags: self.flags.into(),
+            _reserved: 0,
+            context: self
+                .context
+                .map(|context| unsafe { Ptr::into_raw(context) } as *mut _)
+                .unwrap_or(std::ptr::null_mut()),
+        }
+    }
+
+    unsafe fn from_abi(function: Self::Abi) -> Self {
+        Self {
+            chunk: unsafe { Ptr::from_raw(function.chunk as *const Chunk) },
+            ip: function.ip,
+            arg_count: function.arg_count,
+            optional_arg_count: function.optional_arg_count,
+            flags: FunctionFlags::try_from(function.flags)
+                .expect("invalid function flags in plugin ABI"),
+            context: (!function.context.is_null())
+                .then(|| unsafe { Ptr::from_raw(function.context as *const FunctionContext) }),
+            _niche: Niche::default(),
+        }
+    }
+
+    unsafe fn clone_from_abi(function: Self::Abi) -> Self {
+        Self {
+            chunk: unsafe { Ptr::clone_from_raw(function.chunk as *const Chunk) },
+            ip: function.ip,
+            arg_count: function.arg_count,
+            optional_arg_count: function.optional_arg_count,
+            flags: FunctionFlags::try_from(function.flags)
+                .expect("invalid function flags in plugin ABI"),
+            context: (!function.context.is_null()).then(|| unsafe {
+                Ptr::clone_from_raw(function.context as *const FunctionContext)
+            }),
+            _niche: Niche::default(),
+        }
     }
 }
 

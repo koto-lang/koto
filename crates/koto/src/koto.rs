@@ -169,7 +169,7 @@ impl Koto {
     ///
     /// This is useful when a script's dependencies may have changed and need to be recompiled.
     pub fn clear_module_cache(&mut self) {
-        self.runtime.loader().borrow_mut().clear_cache();
+        self.runtime.clear_module_caches();
     }
 
     /// Enables or disables the `run_tests` setting

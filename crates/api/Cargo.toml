@@ -1,0 +1,16 @@
+[package]
+name = "koto_api"
+version = "0.17.0"
+description = "Shared Rust API traits for Koto backends"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+koto_ffi = { path = "../ffi" }
+rustc-hash = { workspace = true }

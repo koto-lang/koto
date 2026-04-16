@@ -1,0 +1,14 @@
+[package]
+name = "koto_ffi"
+version = "0.17.0"
+description = "The stable ABI definitions for dynamic Koto modules"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]

@@ -1,13 +1,23 @@
 //! A random number module for the Koto language
-
-use koto_runtime::{Result, derive::*, prelude::*};
+cfg_select! {
+    feature = "plugin" => {
+        use koto_plugin as runtime;
+    }
+    _ => {
+        use koto_runtime as runtime;
+    }
+}
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_xoshiro::Xoshiro256PlusPlus;
+use runtime::{Result, derive::*, prelude::*};
 use std::cell::RefCell;
+
+#[cfg(feature = "plugin")]
+koto_plugin::export_plugin!(make_module);
 
 pub fn make_module() -> KMap {
     koto_fn! {
-        runtime = koto_runtime;
+        runtime = runtime;
 
         fn gen_bool() -> bool {
             THREAD_RNG.with_borrow_mut(|rng| rng.bool())
@@ -52,11 +62,41 @@ pub fn make_module() -> KMap {
 }
 
 #[derive(Clone, Debug, KotoCopy, KotoType)]
-#[koto(runtime = koto_runtime, type_name = "Rng")]
+#[koto(runtime = runtime, type_name = "Rng")]
 struct Xoshiro256PlusPlusRng(Xoshiro256PlusPlus);
 
-#[koto_impl(runtime = koto_runtime)]
+#[koto_impl(runtime = runtime)]
 impl Xoshiro256PlusPlusRng {
+    fn shuffled_indices(&mut self, len: usize) -> Vec<usize> {
+        let mut indices: Vec<_> = (0..len).collect();
+        // This preserves the exact seeded behavior of SliceRandom::shuffle without
+        // requiring direct mutable slice access to backend-specific list storage.
+        // The ideal long-term fix would be an in-place implementation matching
+        // rand's private IncreasingUniform path, avoiding the temporary buffer.
+        indices.shuffle(&mut self.0);
+        indices
+    }
+
+    fn apply_permutation(
+        permutation: &[usize],
+        mut swap_indices: impl FnMut(usize, usize) -> Result<()>,
+    ) -> Result<()> {
+        let mut current: Vec<_> = (0..permutation.len()).collect();
+
+        for i in 0..permutation.len() {
+            while current[i] != permutation[i] {
+                let j = current
+                    .iter()
+                    .position(|&index| index == permutation[i])
+                    .expect("permutation should contain all indices");
+                swap_indices(i, j)?;
+                current.swap(i, j);
+            }
+        }
+
+        Ok(())
+    }
+
     fn make_value(rng: Xoshiro256PlusPlus) -> KValue {
         KObject::from(Self(rng)).into()
     }
@@ -88,7 +128,7 @@ impl Xoshiro256PlusPlusRng {
             List(l) => {
                 if !l.is_empty() {
                     let index = self.0.random_range(0..l.len());
-                    Ok(l.data()[index].clone())
+                    Ok(l.get(index).unwrap())
                 } else {
                     Ok(Null)
                 }
@@ -96,7 +136,7 @@ impl Xoshiro256PlusPlusRng {
             Tuple(t) => {
                 if !t.is_empty() {
                     let index = self.0.random_range(0..t.len());
-                    Ok(t[index].clone())
+                    Ok(t.get(index).unwrap())
                 } else {
                     Ok(Null)
                 }
@@ -113,10 +153,8 @@ impl Xoshiro256PlusPlusRng {
             Map(m) if !m.contains_meta_key(&ReadOp::Index.into()) => {
                 if !m.is_empty() {
                     let index = self.0.random_range(0..m.len());
-                    match m.data().get_index(index) {
-                        Some((key, value)) => {
-                            Ok(Tuple(KTuple::from(&[key.value().clone(), value.clone()])))
-                        }
+                    match m.get_index(index) {
+                        Some((key, value)) => Ok(Tuple(KTuple::from(&[key, value]))),
                         None => unreachable!(), // The index is guaranteed to be within range
                     }
                 } else {
@@ -162,7 +200,8 @@ impl Xoshiro256PlusPlusRng {
 
         match &arg {
             List(l) => {
-                l.data_mut().shuffle(&mut self.0);
+                let permutation = self.shuffled_indices(l.len());
+                Self::apply_permutation(&permutation, |i, j| l.swap_indices(i, j))?;
             }
             Map(m) if m.contains_meta_key(&WriteOp::IndexAssign.into()) => {
                 let index_op = m.get_meta_value(&WriteOp::IndexAssign.into()).unwrap();
@@ -196,29 +235,32 @@ impl Xoshiro256PlusPlusRng {
                 }
             }
             Map(m) => {
-                let mut data = m.data_mut();
-                for i in (1..data.len()).rev() {
+                for i in (1..m.len()).rev() {
                     let j = self.0.random_range(0..(i + 1));
-                    data.swap_indices(i, j);
+                    m.swap_indices(i, j)?;
                 }
             }
             Object(o) => {
-                let mut o_borrow = o.try_borrow_mut()?;
-                let Some(size) = o_borrow.size() else {
-                    return runtime_error!("{} has an unknown size", o_borrow.type_string());
-                };
-
-                for i in (1..size).rev() {
-                    let j = self.0.random_range(0..(i + 1));
-                    if i == j {
-                        continue;
+                let mut object = o.try_borrow_mut()?;
+                match object.size()? {
+                    Some(size) if size > 0 => {
+                        for i in (1..size).rev() {
+                            let j = self.0.random_range(0..(i + 1));
+                            if i == j {
+                                continue;
+                            }
+                            let i = KValue::from(i);
+                            let j = KValue::from(j);
+                            let value_i = object.index(&i)?;
+                            let value_j = object.index(&j)?;
+                            object.index_assign(&i, &value_j)?;
+                            object.index_assign(&j, &value_i)?;
+                        }
                     }
-                    let i = KValue::from(i);
-                    let j = KValue::from(j);
-                    let value_i = o_borrow.index(&i)?;
-                    let value_j = o_borrow.index(&j)?;
-                    o_borrow.index_assign(&i, &value_j)?;
-                    o_borrow.index_assign(&j, &value_i)?;
+                    Some(size) => {
+                        return runtime_error!("expected a positive @size, found {}", size);
+                    }
+                    None => return runtime_error!("expected @size to be implemented"),
                 }
             }
             unexpected => return unexpected_type("|Indexable|", unexpected),
@@ -228,7 +270,7 @@ impl Xoshiro256PlusPlusRng {
     }
 }
 
-impl KotoObject for Xoshiro256PlusPlusRng {}
+impl runtime::api::KotoObjectOps<runtime::Backend> for Xoshiro256PlusPlusRng {}
 
 thread_local! {
     static THREAD_RNG: RefCell<Xoshiro256PlusPlusRng>

@@ -1,4 +1,3 @@
-use koto_runtime::KNumber;
 use std::fmt;
 use thiserror::Error;
 
@@ -16,9 +15,9 @@ pub enum Error {
     #[error("missing map key for value")]
     MissingMapKey,
     #[error("number out of i64 range {0}")]
-    OutOfI64RangeNumber(KNumber),
+    OutOfI64RangeNumber(String),
     #[error("number out of u8 range {0}")]
-    OutOfU8RangeNumber(KNumber),
+    OutOfU8RangeNumber(String),
     #[error("i128 out of i64 range {0}")]
     OutOfRangeI128(i128),
     #[error("u64 out of i64 range {0}")]

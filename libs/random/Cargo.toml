@@ -18,9 +18,11 @@ default = ["rc"]
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
+plugin = ["dep:koto_plugin"]
 
 [dependencies]
 koto_runtime = { workspace = true }
+koto_plugin = { path = "../../crates/plugin", optional = true }
 
 lazy_static = { workspace = true }
 rand = { workspace = true, features = ["std", "os_rng"] }

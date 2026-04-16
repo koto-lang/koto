@@ -18,6 +18,7 @@ default = ["rc", "serde"]
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
 rc = ["koto_runtime/rc"]
+plugin = ["koto_runtime/plugin"]
 
 # Enable serde support
 serde = ["koto_serde"]

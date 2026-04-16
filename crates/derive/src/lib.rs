@@ -2,9 +2,6 @@
 
 #![warn(missing_docs)]
 
-#[cfg(all(feature = "arc", feature = "rc"))]
-compile_error!("A single memory management feature can be enabled at a time");
-
 mod attributes;
 mod function;
 mod koto_copy;
@@ -138,6 +135,12 @@ use proc_macro::TokenStream;
 #[proc_macro]
 pub fn koto_fn(input: TokenStream) -> TokenStream {
     function::koto_fn(input)
+}
+
+/// Plugin backend variant of [`koto_fn`](macro@koto_fn).
+#[proc_macro]
+pub fn koto_fn_plugin(input: TokenStream) -> TokenStream {
+    function::koto_fn_plugin(input)
 }
 
 /// `#[derive(KotoType)]`
@@ -411,6 +414,12 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn koto_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
     koto_impl::koto_impl(attr, item)
+}
+
+/// Plugin backend variant of [`koto_impl`](macro@koto_impl).
+#[proc_macro_attribute]
+pub fn koto_impl_plugin(attr: TokenStream, item: TokenStream) -> TokenStream {
+    koto_impl::koto_impl_plugin(attr, item)
 }
 
 /// See [`koto_impl`](macro@koto_impl)

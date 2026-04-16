@@ -61,7 +61,7 @@ pub fn make_module() -> KMap {
                 Ok(KValue::List(l.clone()))
             }
             (KValue::List(l), [KValue::Tuple(other)]) => {
-                l.data_mut().extend(other.iter().cloned());
+                l.data_mut().extend(other.data().iter().cloned());
                 Ok(KValue::List(l.clone()))
             }
             (KValue::List(l), [iterable]) if iterable.is_iterable() => {

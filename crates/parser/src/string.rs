@@ -1,4 +1,5 @@
 use crate::StringSlice;
+use koto_ffi as abi;
 use koto_memory::Ptr;
 use std::{
     cmp::Ordering,
@@ -108,6 +109,93 @@ impl KString {
             Inner::Full(string) => string,
             Inner::Slice(slice) => slice,
             Inner::SliceLarge(slice) => slice,
+        }
+    }
+
+    /// Converts the string into the plugin ABI representation.
+    pub fn into_abi(self) -> abi::KString {
+        match self.0 {
+            Inner::Full(string) => abi::KString {
+                kind: abi::KStringKind::Full,
+                data: abi::KStringData {
+                    full: unsafe { Ptr::into_raw(string) } as *mut _,
+                },
+            },
+            Inner::Slice(slice) => abi::KString {
+                kind: abi::KStringKind::Slice16,
+                data: abi::KStringData {
+                    slice16: abi::KStringBounds16 {
+                        data: unsafe { Ptr::into_raw(slice.data().clone()) } as *mut _,
+                        start: slice.bounds().start,
+                        end: slice.bounds().end,
+                    },
+                },
+            },
+            Inner::SliceLarge(slice) => {
+                let slice = (*slice).clone();
+                abi::KString {
+                    kind: abi::KStringKind::Slice,
+                    data: abi::KStringData {
+                        slice: abi::KStringBounds {
+                            data: unsafe { Ptr::into_raw(slice.data().clone()) } as *mut _,
+                            start: slice.bounds().start,
+                            end: slice.bounds().end,
+                        },
+                    },
+                }
+            }
+        }
+    }
+
+    /// Clones a string from the plugin ABI representation.
+    ///
+    /// # Safety
+    ///
+    /// `string` must contain a valid Koto string handle produced by a compatible runtime.
+    pub unsafe fn clone_from_abi(string: abi::KString) -> Self {
+        match string.kind {
+            abi::KStringKind::Full => {
+                let string = unsafe { Ptr::clone_from_raw(string.data.full as *const String) };
+                Self(Inner::Full(string))
+            }
+            abi::KStringKind::Slice16 => {
+                let slice = unsafe { string.data.slice16 };
+                let data = unsafe { Ptr::clone_from_raw(slice.data as *const String) };
+                Self(Inner::Slice(unsafe {
+                    StringSlice::new_unchecked(data, slice.start..slice.end)
+                }))
+            }
+            abi::KStringKind::Slice => {
+                let slice = unsafe { string.data.slice };
+                let data = unsafe { Ptr::clone_from_raw(slice.data as *const String) };
+                Self::from(unsafe { StringSlice::new_unchecked(data, slice.start..slice.end) })
+            }
+        }
+    }
+
+    /// Takes ownership of a string from the plugin ABI representation.
+    ///
+    /// # Safety
+    ///
+    /// `string` must contain a valid Koto string handle produced by a compatible runtime.
+    pub unsafe fn from_abi(string: abi::KString) -> Self {
+        match string.kind {
+            abi::KStringKind::Full => {
+                let string = unsafe { Ptr::from_raw(string.data.full as *const String) };
+                Self(Inner::Full(string))
+            }
+            abi::KStringKind::Slice16 => {
+                let slice = unsafe { string.data.slice16 };
+                let data = unsafe { Ptr::from_raw(slice.data as *const String) };
+                Self(Inner::Slice(unsafe {
+                    StringSlice::new_unchecked(data, slice.start..slice.end)
+                }))
+            }
+            abi::KStringKind::Slice => {
+                let slice = unsafe { string.data.slice };
+                let data = unsafe { Ptr::from_raw(slice.data as *const String) };
+                Self::from(unsafe { StringSlice::new_unchecked(data, slice.start..slice.end) })
+            }
         }
     }
 }

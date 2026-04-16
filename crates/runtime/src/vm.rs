@@ -7,6 +7,7 @@ use crate::{
     types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
 };
 use instant::Instant;
+use koto_api::KotoVmTrait;
 use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
 use koto_parser::{
     ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions, StringFormatRepresentation,
@@ -21,6 +22,11 @@ use std::{
     time::Duration,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+#[cfg(feature = "plugin")]
+use crate::plugin_host::{
+    NativeModuleCache, is_native_import, load_native_module, resolve_native_module_path,
+};
 
 #[derive(Clone)]
 pub enum ControlFlow {
@@ -41,6 +47,9 @@ struct VmContext {
     loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
     module_cache: KCell<ModuleCache>,
+    #[cfg(feature = "plugin")]
+    // The cached export maps of imported native modules
+    native_module_cache: KCell<NativeModuleCache>,
 }
 
 impl Default for VmContext {
@@ -83,6 +92,8 @@ impl VmContext {
             core_lib,
             loader: ModuleLoader::default().into(),
             module_cache: ModuleCache::default().into(),
+            #[cfg(feature = "plugin")]
+            native_module_cache: NativeModuleCache::default().into(),
         }
     }
 }
@@ -245,6 +256,14 @@ impl KotoVm {
         &self.context.loader
     }
 
+    /// Clears the source and native module caches.
+    pub fn clear_module_caches(&self) {
+        self.context.loader.borrow_mut().clear_cache();
+        self.context.module_cache.borrow_mut().clear();
+        #[cfg(feature = "plugin")]
+        self.context.native_module_cache.borrow_mut().clear();
+    }
+
     /// The prelude, containing items that can be imported within all modules
     pub fn prelude(&self) -> &KMap {
         &self.context.prelude
@@ -366,10 +385,10 @@ impl KotoVm {
                 // as a temporary tuple. The temp tuple's contents get pushed onto the stack here in
                 // the registers preceding the function's frame.
                 let start = self.registers.len();
-                self.registers.extend(args.iter().cloned());
+                self.registers.extend(args.as_ref().iter().cloned());
                 CallArgs::Single(KValue::TemporaryTuple(RegisterSlice {
                     start,
-                    count: args.len(),
+                    count: <[KValue]>::len(args),
                 }))
             }
             _ => args,
@@ -602,7 +621,7 @@ impl KotoVm {
 
         match op {
             WriteOp::IndexAssign => {
-                self.run_index_assign(container_register, container_register, write_arg_register)?
+                self.run_index_assign(container_register, write_arg_register, write_value_register)?
             }
             WriteOp::AccessAssign => {
                 self.run_access_assign(
@@ -663,10 +682,9 @@ impl KotoVm {
             Object(ref o) => {
                 use IsIterable::*;
 
-                let o_inner = o.try_borrow()?;
-                match o_inner.is_iterable() {
+                match o.try_borrow()?.is_iterable()? {
                     NotIterable => unexpected_type("Iterable", &value),
-                    Iterable => o_inner.make_iterator(self),
+                    Iterable => o.try_borrow()?.make_iterator(self),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())
                     }
@@ -1239,10 +1257,9 @@ impl KotoVm {
             Map(map) => KIterator::with_map(map).into(),
             Object(o) => {
                 use IsIterable::*;
-                let o_inner = o.try_borrow()?;
-                match o_inner.is_iterable() {
+                match o.try_borrow()?.is_iterable()? {
                     NotIterable => KIterator::once(o.clone().into())?.into(),
-                    Iterable => o_inner.make_iterator(self)?.into(),
+                    Iterable => o.try_borrow()?.make_iterator(self)?.into(),
                     ForwardIterator | BidirectionalIterator => {
                         KIterator::with_object(self.spawn_shared_vm(), o.clone())?.into()
                     }
@@ -1405,7 +1422,7 @@ impl KotoVm {
             }
             Tuple(tuple) => {
                 let index = signed_index_to_unsigned(index, tuple.len());
-                tuple.get(index).cloned().unwrap_or(Null)
+                tuple.data().get(index).cloned().unwrap_or(Null)
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
@@ -1464,10 +1481,9 @@ impl KotoVm {
                 }
             }
             value @ Object(o) => {
-                let o = o.try_borrow()?;
-                if let Some(size) = o.size() {
+                if let Some(size) = o.try_borrow()?.size()? {
                     let index = signed_index_to_unsigned(index, size);
-                    o.index(&index.into())?
+                    o.try_borrow()?.index(&index.into())?
                 } else {
                     return unexpected_type("a value with a defined size", value);
                 }
@@ -1536,15 +1552,14 @@ impl KotoVm {
                 }
             }
             Object(o) => {
-                let o = o.try_borrow()?;
-                if let Some(size) = o.size() {
+                if let Some(size) = o.try_borrow()?.size()? {
                     let index = signed_index_to_unsigned(index, size) as i64;
                     let range = if is_slice_to {
                         0..index
                     } else {
                         index..size as i64
                     };
-                    o.index(&KRange::from(range).into())?
+                    o.try_borrow()?.index(&KRange::from(range).into())?
                 } else {
                     KValue::Null
                 }
@@ -1725,7 +1740,7 @@ impl KotoVm {
                 List(KList::with_data(result))
             }
             (Tuple(a), Tuple(b)) => {
-                let result: Vec<_> = a.iter().chain(b.iter()).cloned().collect();
+                let result: Vec<_> = a.data().iter().chain(b.data().iter()).cloned().collect();
                 Tuple(result.into())
             }
             (Map(m), _) if m.contains_meta_key(&Add.into()) => {
@@ -2352,7 +2367,7 @@ impl KotoVm {
                 return self.call_overridden_op_1(Some(result_register), value_register, op);
             }
             Map(m) => Some(m.len()),
-            Object(o) => o.try_borrow()?.size(),
+            Object(o) => o.try_borrow()?.size()?,
             TemporaryTuple(RegisterSlice { count, .. }) => Some(*count),
             _ => None,
         };
@@ -2402,6 +2417,73 @@ impl KotoVm {
             .or_else(|| self.context.prelude.get(&import_name));
         if let Some(value) = maybe_non_local {
             return self.successful_import(import_register, value, import_all);
+        }
+
+        #[cfg(feature = "plugin")]
+        if is_native_import(import_name.as_str()) {
+            let source_path = self.reader.chunk.path.clone();
+            let native_path = resolve_native_module_path(
+                import_name.as_str(),
+                source_path
+                    .as_ref()
+                    .map(|path_string| Path::new(path_string.as_str())),
+            )?;
+
+            let maybe_in_cache = self
+                .context
+                .native_module_cache
+                .borrow()
+                .get(&native_path)
+                .map(|cached| cached.as_ref().map(|cached| cached.exports.clone()));
+
+            match maybe_in_cache {
+                Some(None) => {
+                    return runtime_error!("recursive import of module '{import_name}'");
+                }
+                Some(Some(cached_exports)) => {
+                    return self.successful_import(
+                        import_register,
+                        cached_exports.into(),
+                        import_all,
+                    );
+                }
+                None => {}
+            }
+
+            self.context
+                .native_module_cache
+                .borrow_mut()
+                .insert(native_path.clone(), None);
+
+            let load_result = load_native_module(&native_path);
+
+            match load_result {
+                Ok(loaded_module) => {
+                    if let Some(callback) = &self.context.settings.module_imported_callback {
+                        callback(&native_path);
+                    }
+
+                    let exports = loaded_module.exports.clone();
+                    self.context
+                        .native_module_cache
+                        .borrow_mut()
+                        .insert(native_path, Some(loaded_module));
+
+                    return self.successful_import(import_register, exports.into(), import_all);
+                }
+                Err(error) => {
+                    self.context
+                        .native_module_cache
+                        .borrow_mut()
+                        .remove(&native_path);
+                    return Err(error);
+                }
+            }
+        }
+
+        #[cfg(not(feature = "plugin"))]
+        if import_name.as_str().starts_with("native:") {
+            return runtime_error!("native module imports are disabled");
         }
 
         // Attempt to compile the imported module from disk,
@@ -2690,7 +2772,10 @@ impl KotoVm {
                 Ok(())
             }
             KValue::Object(o) => match key {
-                KValue::Str(key) => o.try_borrow_mut()?.access_assign(key, value),
+                KValue::Str(key) => {
+                    let o = o.clone();
+                    o.try_borrow_mut()?.access_assign(key, value)
+                }
                 unexpected => unexpected_type("String", unexpected),
             },
             unexpected => unexpected_type("a value that supports assignment via '.'", unexpected),
@@ -2899,21 +2984,20 @@ impl KotoVm {
                 }
             }
             Object(o) => {
-                let o = o.try_borrow()?;
-
                 let mut result = None;
 
                 if let KValue::Str(key) = key.value() {
-                    result = o.access(key)?;
+                    result = o.try_borrow()?.access(key)?;
                 }
 
                 // Iterator fallback?
-                if result.is_none() && !matches!(o.is_iterable(), IsIterable::NotIterable) {
+                let object = o.try_borrow()?;
+                if result.is_none() && !matches!(object.is_iterable()?, IsIterable::NotIterable) {
                     result = self.get_core_op(
                         &key,
                         &self.context.core_lib.iterator,
                         false,
-                        &o.type_string(),
+                        &KotoType::type_string(&*object),
                         error_if_not_found,
                     )?;
                 }
@@ -2922,7 +3006,7 @@ impl KotoVm {
                     self.set_register(result_register, result);
                     Ok(true)
                 } else if error_if_not_found {
-                    runtime_error!("'{key}' not found in '{}'", o.type_string())
+                    runtime_error!("'{key}' not found in '{}'", KotoType::type_string(&*object))
                 } else {
                     Ok(false)
                 }
@@ -2980,6 +3064,33 @@ impl KotoVm {
             }
         }
         Ok(())
+    }
+
+    #[cfg(feature = "plugin")]
+    pub(crate) fn call_borrowed_object(
+        &mut self,
+        object: &mut dyn KotoObject,
+        instance: KValue,
+        args: &[KValue],
+    ) -> Result<KValue> {
+        let frame_base = self.new_frame_base()?;
+
+        self.registers.push(instance);
+        self.registers.extend(args.iter().cloned());
+
+        let mut call_context = CallContext::new(self, frame_base, args.len() as u8);
+        let result = object.call(&mut call_context);
+
+        self.truncate_registers(frame_base);
+
+        if !self.call_stack.is_empty() {
+            let min_frame_registers = self.register_index(self.frame().required_registers);
+            if self.registers.len() < min_frame_registers {
+                self.registers.resize(min_frame_registers, KValue::Null);
+            }
+        }
+
+        result
     }
 
     // Similar to `call_koto_function`, but sets up the frame in a new VM for the generator
@@ -3759,6 +3870,61 @@ impl KotoVm {
     }
 }
 
+impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
+    fn spawn_shared_vm(&self) -> Self {
+        self.spawn_shared_vm()
+    }
+
+    fn call_function(
+        &mut self,
+        function: KValue,
+        args: &[KValue],
+    ) -> std::result::Result<KValue, Error> {
+        self.call_function(function, args)
+    }
+
+    fn call_instance_function(
+        &mut self,
+        instance: KValue,
+        function: KValue,
+        args: &[KValue],
+    ) -> std::result::Result<KValue, Error> {
+        self.call_instance_function(instance, function, args)
+    }
+
+    fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> std::result::Result<KValue, Error> {
+        self.run_unary_op(op, value)
+    }
+
+    fn run_binary_op(
+        &mut self,
+        op: BinaryOp,
+        lhs: KValue,
+        rhs: KValue,
+    ) -> std::result::Result<KValue, Error> {
+        self.run_binary_op(op, lhs, rhs)
+    }
+
+    fn run_read_op(
+        &mut self,
+        op: ReadOp,
+        container: KValue,
+        read_arg: KValue,
+    ) -> std::result::Result<KValue, Error> {
+        self.run_read_op(op, container, read_arg)
+    }
+
+    fn run_write_op(
+        &mut self,
+        op: WriteOp,
+        container: KValue,
+        write_arg: KValue,
+        write_value: KValue,
+    ) -> std::result::Result<KValue, Error> {
+        self.run_write_op(op, container, write_arg, write_value)
+    }
+}
+
 impl fmt::Debug for KotoVm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Vm")
@@ -3997,7 +4163,7 @@ impl NonLocals {
                     KValue::Object(o) => o
                         .try_borrow()
                         .ok()
-                        .and_then(|o| o.access(&name.into()).ok().flatten()),
+                        .and_then(|object| object.access(&name.into()).ok().flatten()),
                     _ => None,
                 };
                 if let Some(result) = result {
@@ -4135,7 +4301,10 @@ mod macros {
 
     macro_rules! call_object_binary_op {
         ($op:ident, $trait_fn:ident, $object:expr, $lhs_value:expr, $rhs_value:expr) => {{
-            match $object.try_borrow()?.$trait_fn($lhs_value) {
+            match $object
+                .try_borrow()
+                .and_then(|object| object.$trait_fn($lhs_value))
+            {
                 Ok(result) => result,
                 Err(error) => {
                     if error.is_unimplemented_error() {
@@ -4248,8 +4417,10 @@ mod macros {
          $lhs_value:expr,
          $rhs_value:expr,
          $result_register:expr) => {{
-            let object = $object.clone();
-            match object.try_borrow()?.$trait_fn($rhs_value) {
+            match $object
+                .try_borrow()
+                .and_then(|object| object.$trait_fn($rhs_value))
+            {
                 Ok(result) => result,
                 Err(error) if error.is_unimplemented_error() => match $rhs_value {
                     Object(o_rhs) => {
@@ -4362,10 +4533,12 @@ mod macros {
                         macros::call_metamap_binary_op!($self, $op, m, lhs_value, rhs_value);
                     }
                     (Object(o), Object(o2)) if o.is_same_instance(o2) => {
-                        let o2 = Object(o2.try_borrow()?.copy());
+                        let o2 = Object(o2.copy()?);
                         o.try_borrow_mut()?.$trait_fn(&o2)
                     }
-                    (Object(o), _) => o.try_borrow_mut()?.$trait_fn(rhs_value),
+                    (Object(o), _) => {
+                        o.try_borrow_mut()?.$trait_fn(rhs_value)
+                    }
                     _ => binary_op_error(lhs_value, rhs_value, $op),
                 }
             }

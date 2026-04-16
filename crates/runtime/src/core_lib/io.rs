@@ -82,17 +82,17 @@ pub fn make_module() -> KMap {
             [Str(s)] => ctx.vm.stdout().write_line(s.as_str()),
             [value] => {
                 let value = value.clone();
-                match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {
+                match ctx.vm.run_unary_op(crate::api::UnaryOp::Display, value)? {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
                     unexpected => return unexpected_type("String from @display", &unexpected),
                 }
             }
             values @ [_, ..] => {
                 let tuple_data = Vec::from(values);
-                match ctx
-                    .vm
-                    .run_unary_op(crate::UnaryOp::Display, KValue::Tuple(tuple_data.into()))?
-                {
+                match ctx.vm.run_unary_op(
+                    crate::api::UnaryOp::Display,
+                    KValue::Tuple(tuple_data.into()),
+                )? {
                     Str(s) => ctx.vm.stdout().write_line(s.as_str()),
                     unexpected => return unexpected_type("String from @display", &unexpected),
                 }
@@ -238,12 +238,15 @@ impl File {
             .write(display_context.result().as_bytes())
             .map(|_| KValue::Null)
     }
-}
-
-impl KotoObject for File {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!("{}({})", Self::type_static(), self.0.id()));
         Ok(())
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for File {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        File::display(self, ctx)
     }
 }
 

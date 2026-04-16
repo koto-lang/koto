@@ -1,4 +1,8 @@
-use koto::{derive::*, prelude::*, runtime::Result};
+use koto::{
+    derive::*,
+    prelude::*,
+    runtime::{self, Result},
+};
 
 #[allow(unused_variables, dead_code)]
 mod snippets {
@@ -11,7 +15,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -26,7 +30,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -45,7 +49,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -60,7 +64,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -79,7 +83,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -94,7 +98,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -113,7 +117,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -128,7 +132,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -147,7 +151,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -162,7 +166,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -181,7 +185,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -196,7 +200,7 @@ mod snippets {
             #[derive(Clone, KotoType, KotoCopy)]
             struct Struct;
 
-            impl KotoObject for Struct {}
+            impl KotoObjectOps<runtime::Backend> for Struct {}
 
             #[koto_impl]
             impl Struct {
@@ -217,7 +221,7 @@ mod example {
         x: f64,
     }
 
-    impl KotoObject for Foo {}
+    impl KotoObjectOps<runtime::Backend> for Foo {}
 
     #[koto_impl]
     impl Foo {

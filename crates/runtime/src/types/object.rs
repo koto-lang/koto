@@ -1,65 +1,19 @@
-use crate::{Borrow, BorrowMut, ErrorKind, PtrMut, Result, prelude::*};
-use std::{any::Any, fmt, marker::PhantomData, ops::Deref};
-
-/// A trait for specifying a Koto object's type
-///
-/// Using `#[derive(KotoType)]` is recommended.
-pub trait KotoType {
-    /// The Object's type as a static string
-    fn type_static() -> &'static str
-    where
-        Self: Sized;
-
-    /// The type of the Object as a [KString]
-    ///
-    /// This should defer to the type returned by [KotoType::type_static],
-    /// and will be called whenever the object's type is needed by the runtime,
-    /// e.g. when a script calls `koto.type`, so caching the result is a good idea.
-    /// `#[derive(KotoType)]` takes care of the details here.
-    fn type_string(&self) -> KString;
-}
-
-/// A trait for defining how objects should behave when copied in the Koto runtime
-///
-/// Use `#[derive(KotoCopy)]` for simple objects that don't need a custom implementation of
-/// [KotoCopy::deep_copy].
-pub trait KotoCopy {
-    /// How the object should behave when called from `koto.copy`
-    ///
-    /// A default implementation can't be provided here, but a typical implementation will look
-    /// similar to: `Object::from(self.clone())`
-    fn copy(&self) -> KObject;
-
-    /// How the object should behave when called from `koto.deep_copy`
-    ///
-    /// Deep copies should ensure that deep copies are performed for any Koto values that are owned
-    /// by the object (see [KValue::deep_copy]).
-    fn deep_copy(&self) -> KObject {
-        self.copy()
-    }
-}
+#[cfg(any(feature = "plugin", test))]
+use crate::KCell;
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
+use crate::{Borrow, BorrowMut, ErrorKind, KFunction, PtrMut, Result, prelude::*};
+use koto_api::{
+    KotoAccess, KotoBackend, KotoCopy, KotoMethodContext, KotoObjectCast, KotoObjectOps, KotoType,
+};
+#[cfg(any(feature = "plugin", test))]
+use koto_ffi as abi;
+use std::{any::Any, fmt, marker::PhantomData};
 
 /// A trait that allows objects to support '.' accesses
 ///
 /// This is the mechanism for attaching custom methods to objects in the Koto runtime.
 ///
-/// The `#[koto_impl]` macro provides an easy way to declare methods that should be made available
-/// via '.' access by using the `#[koto_method]` attribute, and then derives an appropriate
-/// implementation of [KotoAccess].
-pub trait KotoAccess: KotoType {
-    /// Called for access operations, e.g. `x.foo`
-    fn access(&self, key: &KString) -> Result<Option<KValue>> {
-        let _ = key;
-        Ok(None)
-    }
-
-    /// Called for assignment operations, e.g. `x.foo = "bar"`
-    fn access_assign(&mut self, key: &KString, value: &KValue) -> Result<()> {
-        let _ = (key, value);
-        unimplemented_error("@access_assign", self.type_string())
-    }
-}
-
 /// A trait for implementing objects that can be added to the Koto runtime
 ///
 /// [`KotoObject`]s are added to the Koto runtime by the [KObject] type, and stored as
@@ -107,7 +61,7 @@ pub trait KotoAccess: KotoType {
 ///     }
 /// }
 ///
-/// impl KotoObject for Foo {
+/// impl KotoObjectOps<RuntimeBackend> for Foo {
 ///     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
 ///         ctx.append(format!("Foo({})", self.data));
 ///         Ok(())
@@ -116,372 +70,106 @@ pub trait KotoAccess: KotoType {
 /// ```
 ///
 /// See also: [KObject].
-pub trait KotoObject: KotoType + KotoCopy + KotoAccess + KotoSend + KotoSync + Any {
-    /// Called when the object should be displayed as a string, e.g. by `io.print`
-    ///
-    /// By default, the object's type is used as the display string.
-    ///
-    /// The [`DisplayContext`] is used to append strings to the result, and provides information
-    /// about how the contents should be formatted,
-    /// e.g. the value is in a container, or the result should be displayed with debug information.
-    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        ctx.append(self.type_string());
-        Ok(())
+pub trait KotoObject:
+    KotoObjectOps<RuntimeBackend>
+    + KotoType<RuntimeBackend>
+    + KotoCopy<RuntimeBackend>
+    + KotoAccess<RuntimeBackend>
+    + KotoSend
+    + KotoSync
+    + Any
+{
+}
+
+impl<T> KotoObject for T where
+    T: KotoObjectOps<RuntimeBackend>
+        + KotoType<RuntimeBackend>
+        + KotoCopy<RuntimeBackend>
+        + KotoAccess<RuntimeBackend>
+        + KotoSend
+        + KotoSync
+        + Any
+{
+}
+
+/// The runtime backend marker used by [`KotoObjectOps`].
+pub struct RuntimeBackend;
+
+impl KotoBackend for RuntimeBackend {
+    type Error = crate::Error;
+    type Value = KValue;
+    type Number = KNumber;
+    type Range = KRange;
+    type String = KString;
+    type List = KList;
+    type Tuple = KTuple;
+    type Map = KMap;
+    type Object = KObject;
+    type Iterator = KIterator;
+    type IteratorOutput = KIteratorOutput;
+    type Function = KFunction;
+    type NativeFunction = KNativeFunction;
+    type Vm = KotoVm;
+    type DisplayContext<'a>
+        = DisplayContext<'a>
+    where
+        Self: 'a;
+    type CallContext<'a>
+        = CallContext<'a>
+    where
+        Self: 'a;
+
+    fn unimplemented_object_op<T>(
+        op: &'static str,
+        object_type: Self::String,
+    ) -> std::result::Result<T, Self::Error> {
+        unimplemented_error(op, object_type)
     }
 
-    /// Called for indexing operations, e.g. `x[0]`
-    ///
-    /// See also: [KotoObject::size]
-    fn index(&self, index: &KValue) -> Result<KValue> {
-        let _ = index;
-        unimplemented_error("@index", self.type_string())
-    }
-
-    /// Called when assigning a value via indexing, e.g. `x[0] = 99`
-    ///
-    /// See also: [KotoObject::size]
-    fn index_assign(&mut self, index: &KValue, value: &KValue) -> Result<()> {
-        let _ = (index, value);
-        unimplemented_error("@index_assign", self.type_string())
-    }
-
-    /// Called when checking for the number of elements contained in the object
-    ///
-    /// The size should represent the maximum valid index that can be passed to
-    /// [`KotoObject::index`].
-    ///
-    /// The runtime defers to this function when the 'size' of an object is needed,
-    /// e.g. when `koto.size` is called, or when unpacking function arguments.
-    ///
-    /// The `Indexable` type hint will pass for objects with a defined size.
-    ///
-    /// See also: [`KotoObject::index`]
-    fn size(&self) -> Option<usize> {
-        None
-    }
-
-    /// Declares to the runtime whether or not the object is callable
-    ///
-    /// The `Callable` type hint defers to the function, expecting `true` to be returned for objects
-    /// that implement [`KotoObject::call`].
-    fn is_callable(&self) -> bool {
-        false
-    }
-
-    /// Allows the object to behave as a function
-    ///
-    /// Objects that implement `call` should return `true` from [`KotoObject::is_callable`].
-    fn call(&mut self, ctx: &mut CallContext) -> Result<KValue> {
-        let _ = ctx;
-        unimplemented_error("@||", self.type_string())
-    }
-
-    /// Defines the behavior of negation (e.g. `-x`)
-    fn negate(&self) -> Result<KValue> {
-        unimplemented_error("@negate", self.type_string())
-    }
-
-    /// The `+` addition operator
-    ///
-    /// This will be called by the runtime when the object is on the LHS.
-    ///
-    /// To specialize the behaviour of `+` when the object is on the RHS, see [Self::add_rhs].
-    fn add(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@+", self.type_string())
-    }
-
-    /// The `+` addition operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn add_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@+", self.type_string())
-    }
-
-    /// The `-` subtraction operator
-    ///
-    /// This will be called by the runtime when the object is on the LHS of the operation,
-    /// or as a fallback if the value on the LHS doesn't support the operation.
-    ///
-    /// To specialize the behaviour of `-` when the object is on the RHS, see [Self::subtract_rhs].
-    fn subtract(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@-", self.type_string())
-    }
-
-    /// The `-` subtraction operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@-", self.type_string())
-    }
-
-    /// The `*` multiplication operator
-    ///
-    /// This will be called by the runtime when the object is on the LHS.
-    ///
-    /// To specialize the behaviour of `*` when the object is on the RHS, see [Self::multiply_rhs].
-    fn multiply(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@*", self.type_string())
-    }
-
-    /// The `*` multiplication operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@*", self.type_string())
-    }
-
-    /// The `/` division operator
-    fn divide(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@/", self.type_string())
-    }
-
-    /// The `/` division operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@/", self.type_string())
-    }
-
-    /// The `%` remainder operator
-    fn remainder(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@%", self.type_string())
-    }
-
-    /// The `%` remainder operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn remainder_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@%", self.type_string())
-    }
-
-    /// The `^` power operator
-    fn power(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@^", self.type_string())
-    }
-
-    /// The `^` power operator when the object is on the RHS
-    ///
-    /// This will be called when the value on the LHS doesn't implement the operation.
-    fn power_rhs(&self, other: &KValue) -> Result<KValue> {
-        let _ = other;
-        unimplemented_error("@^", self.type_string())
-    }
-
-    /// The `+=` in-place addition operator
-    fn add_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@+=", self.type_string())
-    }
-
-    /// The `-=` in-place subtraction operator
-    fn subtract_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@-=", self.type_string())
-    }
-
-    /// The `*=` in-place multiplication operator
-    fn multiply_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@*=", self.type_string())
-    }
-
-    /// The `/=` in-place division operator
-    fn divide_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@/=", self.type_string())
-    }
-
-    /// The `%=` in-place remainder operator
-    fn remainder_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@%=", self.type_string())
-    }
-
-    /// The `^=` in-place remainder operator
-    fn power_assign(&mut self, other: &KValue) -> Result<()> {
-        let _ = other;
-        unimplemented_error("@^=", self.type_string())
-    }
-
-    /// The `<` less-than operator
-    fn less(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@<", self.type_string())
-    }
-
-    /// The `<=` less-than-or-equal operator
-    ///
-    /// The default implementation derives its result from [Self::less] and [Self::equal].
-    fn less_or_equal(&self, other: &KValue) -> Result<bool> {
-        match self.less(other) {
-            Ok(true) => Ok(true),
-            Ok(false) => match self.equal(other) {
-                Ok(result) => Ok(result),
-                Err(error) if error.is_unimplemented_error() => {
-                    unimplemented_error("@<=", self.type_string())
-                }
-                error => error,
-            },
-            Err(error) if error.is_unimplemented_error() => {
-                unimplemented_error("@<=", self.type_string())
-            }
-            error => error,
-        }
-    }
-
-    /// The `>` greater-than operator
-    ///
-    /// The default implementation derives its result from [Self::less] and [Self::equal].
-    fn greater(&self, other: &KValue) -> Result<bool> {
-        match self.less(other) {
-            Ok(true) => Ok(false),
-            Ok(false) => match self.equal(other) {
-                Ok(result) => Ok(!result),
-                Err(error) if error.is_unimplemented_error() => {
-                    unimplemented_error("@>", self.type_string())
-                }
-                error => error,
-            },
-            Err(error) if error.is_unimplemented_error() => {
-                unimplemented_error("@>", self.type_string())
-            }
-            error => error,
-        }
-    }
-
-    /// The `>=` greater-than-or-equal operator
-    ///
-    /// The default implementation derives its result from [Self::less].
-    fn greater_or_equal(&self, other: &KValue) -> Result<bool> {
-        match self.less(other) {
-            Ok(result) => Ok(!result),
-            Err(error) if error.is_unimplemented_error() => {
-                unimplemented_error("@>=", self.type_string())
-            }
-            error => error,
-        }
-    }
-
-    /// The `==` equality operator
-    fn equal(&self, other: &KValue) -> Result<bool> {
-        let _ = other;
-        unimplemented_error("@==", self.type_string())
-    }
-
-    /// The `!=` inequality operator
-    ///
-    /// The default implementation derives its result from [Self::equal].
-    fn not_equal(&self, other: &KValue) -> Result<bool> {
-        match self.equal(other) {
-            Ok(result) => Ok(!result),
-            Err(error) if error.is_unimplemented_error() => {
-                unimplemented_error("@!=", self.type_string())
-            }
-            error => error,
-        }
-    }
-
-    /// Declares to the runtime whether or not the object is iterable
-    ///
-    /// The `Iterable` type hint defers to this function,
-    /// accepting anything other than `IsIterable::NotIterable`.
-    fn is_iterable(&self) -> IsIterable {
-        IsIterable::NotIterable
-    }
-
-    /// Returns an iterator that iterates over the objects contents
-    ///
-    /// If [`IsIterable::Iterable`] is returned from [`is_iterable`](Self::is_iterable),
-    /// then the runtime will call this function when the object is used in iterable contexts,
-    /// expecting a [`KIterator`] to be returned.
-    fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
-        let _ = vm;
-        unimplemented_error("@iterator", self.type_string())
-    }
-
-    /// Gets the object's next value in an iteration
-    ///
-    /// If either [`ForwardIterator`][IsIterable::ForwardIterator] or
-    /// [`BidirectionalIterator`][IsIterable::BidirectionalIterator] is returned from
-    /// [is_iterable](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
-    /// whenever it's used in an iterable context. This function will then be called each time
-    /// [`KIterator::next`] is invoked.
-    fn iterator_next(&mut self, vm: &mut KotoVm) -> Option<KIteratorOutput> {
-        let _ = vm;
-        None
-    }
-
-    /// Gets the object's next value from the end of an iteration
-    ///
-    /// If [`BidirectionalIterator`][IsIterable::BidirectionalIterator] is returned from
-    /// [`is_iterable`](Self::is_iterable), then the object will be wrapped in a [`KIterator`]
-    /// whenever it's used in an iterable context. This function will then be called each time
-    /// [`KIterator::next_back`] is invoked.
-    fn iterator_next_back(&mut self, vm: &mut KotoVm) -> Option<KIteratorOutput> {
-        let _ = vm;
-        None
-    }
-
-    /// Converts the object into a serializable [KValue]
-    ///
-    /// This is called by `koto_serde`'s serialize implementation when the object is encountered
-    /// during serialization.
-    ///
-    /// The object should prepare a [KValue] that best represents the object's properties.
-    fn serialize(&self) -> Result<KValue> {
-        unimplemented_error("serialize", self.type_string())
+    fn is_unimplemented_error(error: &Self::Error) -> bool {
+        error.is_unimplemented_error()
     }
 }
 
 /// A [`KotoObject`] wrapper used in the Koto runtime
 #[derive(Clone)]
 pub struct KObject {
-    object: PtrMut<dyn KotoObject>,
+    handle: PtrMut<dyn KotoObject>,
 }
 
+#[allow(missing_docs)]
 impl KObject {
     /// Checks if the object is of the given type
-    pub fn is_a<T: KotoObject>(&self) -> bool {
-        match self.object.try_borrow() {
-            Some(object) => (object.deref() as &dyn Any).is::<T>(),
-            None => false,
-        }
+    pub fn is_a<T: KotoType<RuntimeBackend> + 'static>(&self) -> bool {
+        self.try_borrow()
+            .ok()
+            .map(|object| (&*object as &dyn Any).is::<T>())
+            .unwrap_or(false)
     }
 
     /// Attempts to borrow the underlying object immutably
     pub fn try_borrow(&self) -> Result<Borrow<'_, dyn KotoObject>> {
-        self.object
+        self.handle
             .try_borrow()
             .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to borrow the underlying object mutably
     pub fn try_borrow_mut(&self) -> Result<BorrowMut<'_, dyn KotoObject>> {
-        self.object
+        self.handle
             .try_borrow_mut()
             .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 
     /// Attempts to immutably borrow and cast the underlying object to the specified type
-    pub fn cast<T: KotoObject>(&self) -> Result<Borrow<'_, T>> {
+    pub fn cast<T: KotoType<RuntimeBackend> + 'static>(&self) -> Result<Borrow<'_, T>> {
         Borrow::filter_map(self.try_borrow()?, |object| {
             (object as &dyn Any).downcast_ref::<T>()
         })
         .map_err(|_| match self.try_borrow() {
             Ok(object) => ErrorKind::UnexpectedObjectType {
                 expected: T::type_static(),
-                unexpected: object.type_string(),
+                unexpected: KotoType::type_string(&*object),
             }
             .into(),
             Err(e) => e,
@@ -489,14 +177,14 @@ impl KObject {
     }
 
     /// Attempts to mutably borrow and cast the underlying object to the specified type
-    pub fn cast_mut<T: KotoObject>(&self) -> Result<BorrowMut<'_, T>> {
+    pub fn cast_mut<T: KotoType<RuntimeBackend> + 'static>(&self) -> Result<BorrowMut<'_, T>> {
         BorrowMut::filter_map(self.try_borrow_mut()?, |object| {
             (object as &mut dyn Any).downcast_mut::<T>()
         })
         .map_err(|_| match self.try_borrow() {
             Ok(object) => ErrorKind::UnexpectedObjectType {
                 expected: T::type_static(),
-                unexpected: object.type_string(),
+                unexpected: KotoType::type_string(&*object),
             }
             .into(),
             Err(e) => e,
@@ -505,26 +193,111 @@ impl KObject {
 
     /// Returns true if the provided object occupies the same memory address
     pub fn is_same_instance(&self, other: &Self) -> bool {
-        PtrMut::ptr_eq(&self.object, &other.object)
+        PtrMut::ptr_eq(&self.handle, &other.handle)
     }
 
-    /// Returns the number of references currently held to the object
-    pub fn ref_count(&self) -> usize {
-        PtrMut::ref_count(&self.object)
+    /// Returns a copy of the object.
+    pub fn copy(&self) -> Result<Self> {
+        self.handle
+            .try_borrow()
+            .map(|object| KotoCopy::copy(&*object))
+            .ok_or_else(|| ErrorKind::UnableToBorrowObject.into())
     }
 }
 
-impl<T: KotoObject> From<T> for KObject {
+impl<T> From<T> for KObject
+where
+    T: KotoObject + 'static,
+{
     fn from(object: T) -> Self {
         Self {
-            object: make_ptr_mut!(object),
+            handle: make_ptr_mut!(object),
         }
     }
 }
 
 impl fmt::Debug for KObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "KObject ({:?})", PtrMut::address(&self.object))
+        write!(f, "KObject ({:?})", PtrMut::address(&self.handle))
+    }
+}
+
+impl KotoCopy<RuntimeBackend> for KObject {
+    fn copy(&self) -> KObject {
+        KObject::copy(self).unwrap_or_else(|_| self.clone())
+    }
+}
+
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KObject {
+    type Abi = abi::KObject;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        // Safety: `abi::KObject` is a repr(C) opaque fat-handle transport type used only to carry
+        // raw object trait pointers across the FFI boundary. The layout is verified by the ABI
+        // unit test below.
+        unsafe {
+            std::mem::transmute::<*const KCell<dyn KotoObject>, abi::KObject>(PtrMut::into_raw(
+                self.handle,
+            ))
+        }
+    }
+
+    unsafe fn from_abi(handle: Self::Abi) -> Self {
+        Self {
+            // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+            // pointer that was previously transported as an `abi::KObject`.
+            handle: unsafe {
+                PtrMut::from_raw(std::mem::transmute::<
+                    abi::KObject,
+                    *const KCell<dyn KotoObject>,
+                >(handle))
+            },
+        }
+    }
+
+    unsafe fn clone_from_abi(handle: Self::Abi) -> Self {
+        Self {
+            // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+            // pointer that was previously transported as an `abi::KObject`.
+            handle: unsafe {
+                PtrMut::clone_from_raw(std::mem::transmute::<
+                    abi::KObject,
+                    *const KCell<dyn KotoObject>,
+                >(handle))
+            },
+        }
+    }
+}
+
+impl KotoIdentity for KObject {
+    fn is_same_instance(&self, other: &Self) -> bool {
+        KObject::is_same_instance(self, other)
+    }
+}
+
+impl KotoObjectCast<RuntimeBackend> for KObject {
+    type ObjectRef<'a, T: 'static>
+        = Borrow<'a, T>
+    where
+        Self: 'a;
+    type ObjectRefMut<'a, T: 'static>
+        = BorrowMut<'a, T>
+    where
+        Self: 'a;
+
+    fn is_a<T: KotoType<RuntimeBackend> + 'static>(&self) -> bool {
+        KObject::is_a::<T>(self)
+    }
+
+    fn cast<T: KotoType<RuntimeBackend> + 'static>(&self) -> Result<Self::ObjectRef<'_, T>> {
+        KObject::cast::<T>(self)
+    }
+
+    fn cast_mut<T: KotoType<RuntimeBackend> + 'static>(
+        &mut self,
+    ) -> Result<Self::ObjectRefMut<'_, T>> {
+        KObject::cast_mut::<T>(self)
     }
 }
 
@@ -595,6 +368,37 @@ impl<'a, T: KotoObject> MethodContext<'a, T> {
     }
 }
 
+impl<T: KotoObject> KotoMethodContext<RuntimeBackend> for MethodContext<'_, T> {
+    type Instance<'a>
+        = Borrow<'a, T>
+    where
+        Self: 'a;
+    type InstanceMut<'a>
+        = BorrowMut<'a, T>
+    where
+        Self: 'a;
+
+    fn vm(&self) -> &KotoVm {
+        self.vm
+    }
+
+    fn args(&self) -> &[KValue] {
+        self.args
+    }
+
+    fn instance(&self) -> Result<Self::Instance<'_>> {
+        MethodContext::instance(self)
+    }
+
+    fn instance_mut(&mut self) -> Result<Self::InstanceMut<'_>> {
+        MethodContext::instance_mut(self)
+    }
+
+    fn instance_result(&self) -> Result<KValue> {
+        MethodContext::instance_result(self)
+    }
+}
+
 /// Creates an error that describes an unimplemented method
 fn unimplemented_error<T>(fn_name: &'static str, object_type: KString) -> Result<T> {
     runtime_error!(ErrorKind::Unimplemented {
@@ -603,24 +407,27 @@ fn unimplemented_error<T>(fn_name: &'static str, object_type: KString) -> Result
     })
 }
 
-/// An enum that indicates to the runtime if a [`KotoObject`] is iterable
-pub enum IsIterable {
-    /// The object is not iterable
-    NotIterable,
-    /// The object is iterable
-    ///
-    /// An iterable object is not itself an iterator, but provides an implementation of
-    /// [KotoObject::make_iterator] that is used to make an iterator when one is needed by the
-    /// runtime.
-    Iterable,
-    /// The object is a forward-only iterator
-    ///
-    /// A forward iterator provides an implementation of [KotoObject::iterator_next],
-    /// but not [KotoObject::iterator_next_back].
-    ForwardIterator,
-    /// The object is a bidirectional iterator.
-    ///
-    /// A bidirectional iterator provides an implementation of [KotoObject::iterator_next] and
-    /// [KotoObject::iterator_next_back].
-    BidirectionalIterator,
+/// Indicates whether a [`KotoObject`] is iterable.
+pub use koto_api::KotoObjectIterable as IsIterable;
+
+#[cfg(test)]
+mod abi_tests {
+    use super::*;
+    use std::{
+        ffi::c_void,
+        mem::{align_of, size_of},
+    };
+
+    #[test]
+    fn opaque_object_handle_matches_object_pointer_layout() {
+        assert_eq!(
+            size_of::<*const KCell<dyn KotoObject>>(),
+            size_of::<abi::KObject>()
+        );
+        assert_eq!(
+            align_of::<*const KCell<dyn KotoObject>>(),
+            align_of::<abi::KObject>()
+        );
+        assert_eq!(size_of::<abi::KObject>(), size_of::<[*mut c_void; 2]>());
+    }
 }

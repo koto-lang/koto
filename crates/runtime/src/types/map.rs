@@ -1,5 +1,15 @@
+#[cfg(feature = "plugin")]
+use crate::KCell;
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
 use crate::{Borrow, BorrowMut, Error, PtrMut, Result, prelude::*};
 use indexmap::{Equivalent, IndexMap};
+use koto_api::{
+    KotoCollection, KotoIdentity, KotoIndexSwap, KotoMap, KotoMapBuilder, KotoMapLookup,
+    KotoMapSource, KotoMapSourceMut, KotoMetaMap, KotoSlice,
+};
+#[cfg(feature = "plugin")]
+use koto_ffi as abi;
 use rustc_hash::FxHasher;
 use std::{
     hash::{BuildHasherDefault, Hash},
@@ -65,6 +75,12 @@ pub struct KMap {
     meta: Option<PtrMut<MetaMap>>,
 }
 
+/// A borrowed view over a [`KMap`]'s data.
+pub struct KMapData<'a>(Borrow<'a, ValueMap>);
+
+/// A mutable borrowed view over a [`KMap`]'s data.
+pub struct KMapDataMut<'a>(BorrowMut<'a, ValueMap>);
+
 impl KMap {
     /// Creates an empty KMap
     pub fn new() -> Self {
@@ -86,6 +102,18 @@ impl KMap {
     /// Creates a KMap initialized with the provided data
     pub fn with_data(data: ValueMap) -> Self {
         Self::with_contents(data, None)
+    }
+
+    /// Creates a map from the provided key/value entries.
+    ///
+    /// Entries with non-hashable keys are ignored, matching the plugin host path.
+    pub fn from_entries(entries: &[(KValue, KValue)]) -> Self {
+        let data = entries
+            .iter()
+            .cloned()
+            .filter_map(|(key, value)| ValueKey::try_from(key).ok().map(|key| (key, value)))
+            .collect();
+        Self::with_data(data)
     }
 
     /// Creates a KMap initialized with the provided data and meta map
@@ -183,11 +211,16 @@ impl KMap {
     }
 
     /// Inserts a value into the meta map, initializing the meta map if it doesn't yet exist
-    pub fn insert_meta(&mut self, key: MetaKey, value: KValue) {
+    pub fn insert_meta(&mut self, key: MetaKey, value: impl Into<KValue>) {
         self.meta
             .get_or_insert_with(Default::default)
             .borrow_mut()
-            .insert(key, value);
+            .insert(key, value.into());
+    }
+
+    /// Adds a function to the meta map.
+    pub fn add_meta_fn(&mut self, key: MetaKey, f: impl KotoFunction) {
+        self.insert_meta(key, KValue::NativeFunction(KNativeFunction::new(f)));
     }
 
     /// Adds a function to the KMap's data map
@@ -200,6 +233,12 @@ impl KMap {
     /// Note that this doesn't include entries in the meta map.
     pub fn len(&self) -> usize {
         self.data().len()
+    }
+
+    /// Swaps two entries by index.
+    pub fn swap_indices(&self, a: usize, b: usize) -> Result<()> {
+        self.data_mut().swap_indices(a, b);
+        Ok(())
     }
 
     /// Returns true if the KMap's data map contains no entries
@@ -285,9 +324,220 @@ impl KMap {
     }
 }
 
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KMap {
+    type Abi = abi::KMap;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        abi::KMap {
+            data: unsafe { PtrMut::into_raw(self.data) } as *mut _,
+            meta: self
+                .meta
+                .map(|meta| unsafe { PtrMut::into_raw(meta) } as *mut _)
+                .unwrap_or(std::ptr::null_mut()),
+        }
+    }
+
+    unsafe fn from_abi(map: Self::Abi) -> Self {
+        Self {
+            data: unsafe { PtrMut::from_raw(map.data as *const KCell<ValueMap>) },
+            meta: (!map.meta.is_null())
+                .then(|| unsafe { PtrMut::from_raw(map.meta as *const KCell<MetaMap>) }),
+        }
+    }
+
+    unsafe fn clone_from_abi(map: Self::Abi) -> Self {
+        Self {
+            data: unsafe { PtrMut::clone_from_raw(map.data as *const KCell<ValueMap>) },
+            meta: (!map.meta.is_null())
+                .then(|| unsafe { PtrMut::clone_from_raw(map.meta as *const KCell<MetaMap>) }),
+        }
+    }
+}
+
 impl From<ValueMap> for KMap {
     fn from(value: ValueMap) -> Self {
         KMap::with_data(value)
+    }
+}
+
+impl KMapDataMut<'_> {
+    /// Returns the number of entries in the map.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl KotoCollection<RuntimeBackend> for KMapData<'_> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl KotoSlice<RuntimeBackend> for KMapData<'_> {
+    fn get(&self, index: usize) -> Option<KValue> {
+        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+    }
+}
+
+impl KotoMapLookup<RuntimeBackend> for KMapData<'_> {
+    fn get_key(&self, key: &KValue) -> Option<KValue> {
+        let key = ValueKey::try_from(key.clone()).ok()?;
+        self.0.get(&key).cloned()
+    }
+}
+
+impl KotoMap<RuntimeBackend> for KMapData<'_> {
+    fn get_index(&self, index: usize) -> Option<(KValue, KValue)> {
+        self.0
+            .get_index(index)
+            .map(|(key, value)| (key.value().clone(), value.clone()))
+    }
+}
+
+impl KotoCollection<RuntimeBackend> for KMapDataMut<'_> {
+    fn len(&self) -> usize {
+        KMapDataMut::len(self)
+    }
+}
+
+impl KotoSlice<RuntimeBackend> for KMapDataMut<'_> {
+    fn get(&self, index: usize) -> Option<KValue> {
+        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+    }
+}
+
+impl KotoMapLookup<RuntimeBackend> for KMapDataMut<'_> {
+    fn get_key(&self, key: &KValue) -> Option<KValue> {
+        let key = ValueKey::try_from(key.clone()).ok()?;
+        self.0.get(&key).cloned()
+    }
+}
+
+impl KotoMap<RuntimeBackend> for KMapDataMut<'_> {
+    fn get_index(&self, index: usize) -> Option<(KValue, KValue)> {
+        self.0
+            .get_index(index)
+            .map(|(key, value)| (key.value().clone(), value.clone()))
+    }
+}
+
+impl KotoIndexSwap<RuntimeBackend> for KMapDataMut<'_> {
+    fn swap_indices(&mut self, a: usize, b: usize) -> std::result::Result<(), crate::Error> {
+        self.0.swap_indices(a, b);
+        Ok(())
+    }
+}
+
+impl KotoCollection<RuntimeBackend> for KMap {
+    fn len(&self) -> usize {
+        self.data().len()
+    }
+}
+
+impl KotoMapSource<RuntimeBackend> for KMap {
+    type Data<'a>
+        = KMapData<'a>
+    where
+        Self: 'a;
+
+    fn data(&self) -> Self::Data<'_> {
+        KMapData(KMap::data(self))
+    }
+
+    fn from_entries(entries: &[(KValue, KValue)]) -> Self {
+        KMap::from_entries(entries)
+    }
+}
+
+impl KotoSlice<RuntimeBackend> for KMap {
+    fn get(&self, index: usize) -> Option<KValue> {
+        self.get_index(index)
+            .map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+    }
+}
+
+impl KotoIdentity for KMap {
+    fn is_same_instance(&self, other: &Self) -> bool {
+        KMap::is_same_instance(self, other)
+    }
+}
+
+impl KotoIndexSwap<RuntimeBackend> for KMap {
+    fn swap_indices(&mut self, a: usize, b: usize) -> std::result::Result<(), crate::Error> {
+        KMap::swap_indices(self, a, b)
+    }
+}
+
+impl KotoMapSourceMut<RuntimeBackend> for KMap {
+    type DataMut<'a>
+        = KMapDataMut<'a>
+    where
+        Self: 'a;
+
+    fn data_mut(&self) -> Self::DataMut<'_> {
+        KMapDataMut(KMap::data_mut(self))
+    }
+}
+
+impl KotoMetaMap for KMap {
+    type MetaKey = MetaKey;
+    type Value = KValue;
+
+    fn contains_meta_key(&self, key: &Self::MetaKey) -> bool {
+        self.contains_meta_key(key)
+    }
+
+    fn get_meta_value(&self, key: &Self::MetaKey) -> Option<Self::Value> {
+        self.get_meta_value(key)
+    }
+}
+
+impl From<Vec<(KValue, KValue)>> for KMap {
+    fn from(entries: Vec<(KValue, KValue)>) -> Self {
+        KMap::from_entries(&entries)
+    }
+}
+
+impl FromIterator<(KValue, KValue)> for KMap {
+    fn from_iter<T: IntoIterator<Item = (KValue, KValue)>>(iter: T) -> Self {
+        KMap::from(iter.into_iter().collect::<Vec<_>>())
+    }
+}
+
+impl KotoMapBuilder<RuntimeBackend> for KMap {
+    type MetaKey = MetaKey;
+
+    fn with_type(type_name: &str) -> Self {
+        KMap::with_type(type_name)
+    }
+
+    fn insert(&self, key: &str, value: impl Into<KValue>) {
+        self.insert(key, value);
+    }
+
+    fn add_fn<F>(&self, key: &str, f: F)
+    where
+        F: for<'a> Fn(&mut crate::CallContext<'a>) -> std::result::Result<KValue, crate::Error>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.add_fn(key, f);
+    }
+
+    fn insert_meta(&mut self, key: Self::MetaKey, value: impl Into<KValue>) {
+        self.insert_meta(key, value.into());
+    }
+
+    fn add_meta_fn<F>(&mut self, key: Self::MetaKey, f: F)
+    where
+        F: for<'a> Fn(&mut crate::CallContext<'a>) -> std::result::Result<KValue, crate::Error>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.add_meta_fn(key, f);
     }
 }
 

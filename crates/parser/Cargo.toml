@@ -26,6 +26,7 @@ panic_on_parser_error = []
 error_ast = []
 
 [dependencies]
+koto_ffi = { path = "../ffi" }
 koto_lexer = { workspace = true }
 koto_memory = { workspace = true }
 

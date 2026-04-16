@@ -12,6 +12,7 @@ readme = "README.md"
 repository = "https://github.com/koto-lang/koto"
 
 [workspace.dependencies]
+koto_api = { path = "crates/api", default-features = false }
 koto_bytecode = { path = "crates/bytecode", default-features = false }
 koto_derive = { path = "crates/derive", default-features = false }
 koto_format = { path = "crates/format", default-features = false }
@@ -65,6 +66,8 @@ instant = "0.1.12"
 itertools = "0.13.0"
 # A macro for declaring lazily evaluated statics in Rust.
 lazy_static = "1.4.0"
+# Cross-platform library loading
+libloading = "0.8.6"
 # Performance and security oriented drop-in allocator
 mimalloc = { version = "0.1.39", default-features = false }
 # Convert and manage colors with a focus on correctness, flexibility and ease of use.

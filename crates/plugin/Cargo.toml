@@ -1,0 +1,19 @@
+[package]
+name = "koto_plugin"
+version = "0.17.0"
+description = "Plugin authoring helpers for dynamic Koto modules"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+indexmap = { workspace = true }
+koto_api = { workspace = true }
+koto_ffi = { path = "../ffi" }
+koto_derive = { workspace = true }
+rand = { workspace = true }

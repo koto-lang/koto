@@ -148,12 +148,16 @@ impl DateTime {
     fn year(&self) -> KValue {
         self.0.year().into()
     }
-}
 
-impl KotoObject for DateTime {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.0.format("%F %T").to_string());
         Ok(())
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for DateTime {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        DateTime::display(self, ctx)
     }
 }
 
@@ -177,9 +181,7 @@ impl Timer {
     fn elapsed(&self) -> KValue {
         self.elapsed_seconds().into()
     }
-}
 
-impl KotoObject for Timer {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(format!("Timer({:.3}s)", self.elapsed_seconds()));
         Ok(())
@@ -198,5 +200,15 @@ impl KotoObject for Timer {
             }
             unexpected => unexpected_type(Self::type_static(), unexpected),
         }
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for Timer {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        Timer::display(self, ctx)
+    }
+
+    fn subtract(&self, other: &KValue) -> Result<KValue> {
+        Timer::subtract(self, other)
     }
 }

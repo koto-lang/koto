@@ -1,5 +1,7 @@
+#![cfg(not(feature = "plugin"))]
+
 use koto_derive::*;
-use koto_runtime::{Result, prelude::*};
+use koto_runtime::{Backend, Result, prelude::*};
 use koto_test_utils::*;
 use std::{error::Error, fs, path::PathBuf, result::Result as StdResult};
 
@@ -22,9 +24,9 @@ impl TestContainer {
     }
 }
 
-impl KotoObject for TestContainer {
-    fn size(&self) -> Option<usize> {
-        Some(self.data.len())
+impl KotoObjectOps<Backend> for TestContainer {
+    fn size(&self) -> Result<Option<usize>> {
+        Ok(Some(self.data.len()))
     }
 
     fn index(&self, index: &KValue) -> Result<KValue> {

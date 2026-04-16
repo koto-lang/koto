@@ -2,9 +2,14 @@
 
 #![warn(missing_docs)]
 
+#[cfg(all(feature = "plugin", feature = "rc"))]
+compile_error!("Dynamic plugin hosting requires the `arc` memory management feature");
+
 mod display_context;
 mod error;
 mod io;
+#[cfg(feature = "plugin")]
+mod plugin_host;
 mod types;
 mod vm;
 
@@ -24,13 +29,18 @@ pub use crate::{
     },
     send_sync::{KotoSend, KotoSync},
     types::{
-        BinaryOp, CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,
-        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoAccess, KotoCopy,
-        KotoField, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap,
-        MethodContext, ReadOp, UnaryOp, ValueKey, ValueMap, ValueVec, WriteOp,
+        CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,
+        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoField,
+        KotoFunction, KotoHasher, KotoIterator, KotoObject, MetaKey, MetaMap, MethodContext,
+        RuntimeBackend, ValueKey, ValueMap, ValueVec,
     },
     vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield},
 };
+
+/// The shared API backend marker for the runtime.
+pub type Backend = RuntimeBackend;
+
+pub use koto_api as api;
 pub use koto_derive as derive;
 pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, lazy, make_ptr, make_ptr_mut};
 

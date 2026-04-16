@@ -17,9 +17,11 @@ default = ["rc"]
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
 arc = ["koto_runtime/arc"]
+plugin = ["dep:koto_plugin"]
 rc = ["koto_runtime/rc"]
 
 [dependencies]
+koto_plugin = { path = "../plugin", optional = true }
 koto_runtime = { workspace = true }
 
 serde_core = { workspace = true }

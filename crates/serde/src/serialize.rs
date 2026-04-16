@@ -1,4 +1,7 @@
-use koto_runtime::KValue;
+use koto_runtime::{
+    KValue,
+    api::{KotoCollection, KotoMap, KotoSlice},
+};
 use serde_core::{
     Serialize,
     ser::{self, SerializeMap, SerializeSeq},
@@ -26,22 +29,23 @@ impl Serialize for SerializableKValue<'_> {
             }
             KValue::List(l) => {
                 let mut seq = s.serialize_seq(Some(l.len()))?;
-                for element in l.data().iter() {
-                    seq.serialize_element(&SerializableKValue(element))?;
+                for element in l.iter() {
+                    seq.serialize_element(&SerializableKValue(&element))?;
                 }
                 seq.end()
             }
             KValue::Tuple(t) => {
                 let mut seq = s.serialize_seq(Some(t.len()))?;
                 for element in t.iter() {
-                    seq.serialize_element(&SerializableKValue(element))?;
+                    seq.serialize_element(&SerializableKValue(&element))?;
                 }
                 seq.end()
             }
             KValue::Map(m) => {
                 let mut seq = s.serialize_map(Some(m.len()))?;
-                for (key, value) in m.data().iter() {
-                    seq.serialize_entry(&key.to_string(), &SerializableKValue(value))?;
+                for (key, value) in KotoMap::iter(m) {
+                    let key = key_to_string(&key).map_err(ser::Error::custom)?;
+                    seq.serialize_entry(&key, &SerializableKValue(&value))?;
                 }
                 seq.end()
             }
@@ -67,18 +71,47 @@ impl Serialize for SerializableKValue<'_> {
     }
 }
 
+fn key_to_string(value: &KValue) -> Result<String, Error> {
+    Ok(match value {
+        KValue::Null => "null".to_string(),
+        KValue::Bool(value) => value.to_string(),
+        KValue::Number(value) => value.to_string(),
+        KValue::Str(value) => value.to_string(),
+        KValue::Tuple(values) => {
+            let contents = values
+                .data()
+                .iter()
+                .map(key_to_string)
+                .collect::<Result<Vec<_>, _>>()?;
+            format!("({})", contents.join(", "))
+        }
+        KValue::List(_) => return Err(Error::Unsupported("list keys must be hashable".into())),
+        KValue::Map(_) => return Err(Error::Unsupported("map keys must be hashable".into())),
+        KValue::Range(_) => return Err(Error::Unsupported("ranges".into())),
+        KValue::Object(_) => return Err(Error::Unsupported("objects".into())),
+        KValue::Function(_) => return Err(Error::Unsupported("functions".into())),
+        KValue::NativeFunction(_) => {
+            return Err(Error::Unsupported("native functions".into()));
+        }
+        KValue::Iterator(_) => return Err(Error::Unsupported("iterators".into())),
+        KValue::TemporaryTuple(_) => {
+            return Err(Error::Unsupported("temporary tuples".into()));
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{from_koto_value, to_koto_value};
-    use koto_runtime::prelude::*;
+    use koto_runtime::{Backend, prelude::*};
     use serde::{Deserialize, Serialize};
 
     #[test]
     fn object_to_kvalue() {
-        // TestObject could return any kind of value from `KotoObject::serialize`,
+        // TestObject could return any kind of value from `KotoObjectOps::serialize`,
         // but it defers to `to_koto_value` which produces a map.
-        match KotoObject::serialize(&TestObject { x: 123 }).unwrap() {
+        match KotoObjectOps::<Backend>::serialize(&TestObject { x: 123 }).unwrap() {
             KValue::Map(m) => match m.get("x").unwrap() {
                 KValue::Number(n) => assert_eq!(n, 123),
                 unexpected => unexpected_type("number", &unexpected).unwrap(),
@@ -99,28 +132,27 @@ mod tests {
         x: i64,
     }
 
-    impl KotoType for TestObject {
-        fn type_static() -> &'static str
-        where
-            Self: Sized,
-        {
+    impl KotoStaticType for TestObject {
+        fn type_static() -> &'static str {
             "TestObject"
         }
+    }
 
-        fn type_string(&self) -> KString {
+    impl<B: KotoBackend> KotoType<B> for TestObject {
+        fn type_string(&self) -> B::String {
             Self::type_static().into()
         }
     }
 
-    impl KotoCopy for TestObject {
+    impl KotoCopy<Backend> for TestObject {
         fn copy(&self) -> KObject {
             (*self).into()
         }
     }
 
-    impl KotoAccess for TestObject {}
+    impl<B: KotoBackend> KotoAccess<B> for TestObject {}
 
-    impl KotoObject for TestObject {
+    impl KotoObjectOps<Backend> for TestObject {
         fn serialize(&self) -> koto_runtime::Result<KValue> {
             // Convert this TestObject into a serializable kvalue by calling `to_koto_value`
             to_koto_value(self).map_err(|e| koto_runtime::Error::from(e.to_string()))

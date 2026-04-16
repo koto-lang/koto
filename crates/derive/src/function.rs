@@ -10,6 +10,23 @@ use crate::overloading::{
 };
 
 pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    koto_fn_with_backend(input, Backend::Runtime)
+}
+
+pub fn koto_fn_plugin(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    koto_fn_with_backend(input, Backend::Plugin)
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Backend {
+    Runtime,
+    Plugin,
+}
+
+fn koto_fn_with_backend(
+    input: proc_macro::TokenStream,
+    backend: Backend,
+) -> proc_macro::TokenStream {
     let FunctionDefinitions { runtime, functions } =
         parse_macro_input!(input as FunctionDefinitions);
 
@@ -17,13 +34,25 @@ pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     for function in functions.inner.values() {
         let name = function.first_ident();
-        let body = match function.match_arms() {
-            Ok(arms) => quote! {
-                use #runtime::{ KValue, __private::KotoFunctionReturn };
+        let body = match match backend {
+            Backend::Runtime => function.match_arms(),
+            Backend::Plugin => function.match_arms_plugin(&quote!(#runtime)),
+        } {
+            Ok(arms) => match backend {
+                Backend::Runtime => quote! {
+                    use #runtime::{ KValue, api::KotoCallContext, __private::KotoFunctionReturn };
 
-                match ctx.args() {
-                    #arms
-                }
+                    match ctx.args() {
+                        #arms
+                    }
+                },
+                Backend::Plugin => quote! {
+                    use #runtime::{ KValue, api::KotoCallContext, __private::KotoFunctionReturn };
+
+                    match ctx.args() {
+                        #arms
+                    }
+                },
             },
             Err(error) => {
                 let compile_error = error.into_compile_error();

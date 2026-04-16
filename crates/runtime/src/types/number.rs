@@ -1,4 +1,5 @@
 use crate::KValue;
+use koto_api::KotoNumber;
 use std::{
     cmp::Ordering,
     fmt,
@@ -118,6 +119,20 @@ impl KNumber {
             Self::F64(n) => n.to_bits(),
             Self::I64(n) => n as u64,
         }
+    }
+}
+
+impl KotoNumber for KNumber {
+    fn is_f64(self) -> bool {
+        self.is_f64()
+    }
+
+    fn is_i64(self) -> bool {
+        self.is_i64()
+    }
+
+    fn to_bits(self) -> u64 {
+        self.to_bits()
     }
 }
 

@@ -4,7 +4,7 @@
 
 use std::cmp::Ordering;
 
-use crate::{BinaryOp, Error, KValue, KotoVm, runtime_error};
+use crate::{Error, KValue, KotoVm, api::BinaryOp, runtime_error};
 
 /// Sorts values in a slice using Koto operators for comparison.
 pub fn sort_values(vm: &mut KotoVm, arr: &mut [KValue]) -> Result<(), Error> {

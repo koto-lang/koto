@@ -929,9 +929,7 @@ impl IteratorOutput {
     pub fn get(&self) -> KValue {
         self.0.clone()
     }
-}
 
-impl KotoObject for IteratorOutput {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(Self::type_static());
         ctx.append('(');
@@ -942,6 +940,12 @@ impl KotoObject for IteratorOutput {
 
         ctx.append(')');
         Ok(())
+    }
+}
+
+impl KotoObjectOps<RuntimeBackend> for IteratorOutput {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        IteratorOutput::display(self, ctx)
     }
 }
 

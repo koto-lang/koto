@@ -1,0 +1,4 @@
+from 'native:./libkoto_c_plugin.dylib' import answer, sum
+
+print answer
+print sum 20, 22

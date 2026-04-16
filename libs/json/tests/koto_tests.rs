@@ -1,3 +1,5 @@
+#![cfg(not(feature = "plugin"))]
+
 use koto_runtime::prelude::*;
 use koto_test_utils::run_test_script;
 use std::{error::Error, fs, path::PathBuf};

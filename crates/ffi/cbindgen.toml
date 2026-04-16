@@ -1,0 +1,18 @@
+language = "C"
+pragma_once = true
+include_guard = "KOTO_H"
+documentation = true
+documentation_style = "c"
+usize_is_size_t = true
+cpp_compat = true
+after_includes = "struct KotoHostApiV1;"
+
+[parse]
+parse_deps = false
+
+[export]
+item_types = ["constants", "enums", "structs", "unions", "typedefs"]
+include = ["KotoPluginInitV1"]
+
+[enum]
+rename_variants = "QualifiedScreamingSnakeCase"

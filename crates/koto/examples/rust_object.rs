@@ -50,7 +50,7 @@ impl MyType {
     }
 }
 
-impl KotoObject for MyType {
+impl KotoObjectOps<runtime::Backend> for MyType {
     // KotoObject::Display allows mytype to be used with Koto's print function
     fn display(&self, ctx: &mut DisplayContext) -> runtime::Result<()> {
         ctx.append(format!("MyType({})", self.0));

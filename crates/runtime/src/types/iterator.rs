@@ -1,3 +1,10 @@
+#[cfg(any(feature = "plugin", test))]
+use crate::KCell;
+#[cfg(feature = "plugin")]
+use crate::plugin_host::transfer::AbiTransfer;
+use koto_api::KotoIteratorBuilder;
+#[cfg(any(feature = "plugin", test))]
+use koto_ffi as abi;
 use koto_memory::Ptr;
 
 use crate::{Error, PtrMut, Result, prelude::*, vm::ReturnOrYield};
@@ -174,6 +181,86 @@ impl KIterator {
     }
 }
 
+#[cfg(feature = "plugin")]
+impl AbiTransfer for KIterator {
+    type Abi = abi::OpaqueHandle;
+
+    unsafe fn into_abi(self) -> Self::Abi {
+        // Safety: `OpaqueHandle` is a repr(C) two-word transport type used only to carry raw fat
+        // pointers across the FFI boundary. The layout is verified by the ABI unit test below.
+        unsafe {
+            std::mem::transmute::<*const KCell<dyn KotoIterator>, abi::OpaqueHandle>(
+                PtrMut::into_raw(self.0),
+            )
+        }
+    }
+
+    unsafe fn from_abi(handle: Self::Abi) -> Self {
+        // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+        // pointer that was previously transported as an `OpaqueHandle`.
+        Self(unsafe {
+            PtrMut::from_raw(std::mem::transmute::<
+                abi::OpaqueHandle,
+                *const KCell<dyn KotoIterator>,
+            >(handle))
+        })
+    }
+
+    unsafe fn clone_from_abi(handle: Self::Abi) -> Self {
+        // Safety: `handle` originated from `into_abi`, so this reconstructs the exact raw fat
+        // pointer that was previously transported as an `OpaqueHandle`.
+        Self(unsafe {
+            PtrMut::clone_from_raw(std::mem::transmute::<
+                abi::OpaqueHandle,
+                *const KCell<dyn KotoIterator>,
+            >(handle))
+        })
+    }
+}
+
+#[cfg(test)]
+mod abi_tests {
+    use super::*;
+    use std::{
+        ffi::c_void,
+        mem::{align_of, size_of},
+    };
+
+    #[test]
+    fn opaque_fat_ptr_matches_iterator_pointer_layout() {
+        assert_eq!(
+            size_of::<*const KCell<dyn KotoIterator>>(),
+            size_of::<abi::OpaqueHandle>()
+        );
+        assert_eq!(
+            align_of::<*const KCell<dyn KotoIterator>>(),
+            align_of::<abi::OpaqueHandle>()
+        );
+        assert_eq!(
+            size_of::<abi::OpaqueHandle>(),
+            size_of::<[*mut c_void; 2]>()
+        );
+    }
+}
+
+impl KotoIteratorBuilder for KIterator {
+    type Item = KIteratorOutput;
+
+    fn with_std_iter<T>(iter: T) -> Self
+    where
+        T: DoubleEndedIterator<Item = Self::Item> + Clone + Send + Sync + 'static,
+    {
+        Self::with_std_iter(iter)
+    }
+
+    fn with_std_forward_iter<T>(iter: T) -> Self
+    where
+        T: Iterator<Item = Self::Item> + Clone + Send + Sync + 'static,
+    {
+        Self::with_std_forward_iter(iter)
+    }
+}
+
 impl Iterator for KIterator {
     type Item = KIteratorOutput;
 
@@ -189,6 +276,53 @@ impl Iterator for KIterator {
 impl fmt::Debug for KIterator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "KIterator")
+    }
+}
+
+#[derive(Clone)]
+struct HostIteratorObject(KIterator);
+
+impl KotoStaticType for HostIteratorObject {
+    fn type_static() -> &'static str {
+        "Iterator"
+    }
+}
+
+impl<B: KotoBackend> KotoType<B> for HostIteratorObject {
+    fn type_string(&self) -> B::String {
+        Self::type_static().into()
+    }
+}
+
+impl KotoCopy<RuntimeBackend> for HostIteratorObject {
+    fn copy(&self) -> KObject {
+        self.clone().into()
+    }
+}
+
+impl<B: KotoBackend> KotoAccess<B> for HostIteratorObject {}
+
+impl KotoObjectOps<RuntimeBackend> for HostIteratorObject {
+    fn is_iterable(&self) -> Result<IsIterable> {
+        if self.0.is_bidirectional() {
+            Ok(IsIterable::BidirectionalIterator)
+        } else {
+            Ok(IsIterable::ForwardIterator)
+        }
+    }
+
+    fn iterator_next(&mut self, _vm: &mut KotoVm) -> Result<Option<KIteratorOutput>> {
+        Ok(self.0.next())
+    }
+
+    fn iterator_next_back(&mut self, _vm: &mut KotoVm) -> Result<Option<KIteratorOutput>> {
+        Ok(self.0.next_back())
+    }
+}
+
+impl From<KIterator> for KObject {
+    fn from(value: KIterator) -> Self {
+        KObject::from(HostIteratorObject(value))
     }
 }
 
@@ -511,12 +645,16 @@ impl ObjectIterator {
         use IsIterable::*;
 
         if matches!(
-            object.try_borrow()?.is_iterable(),
+            object.try_borrow()?.is_iterable()?,
             ForwardIterator | BidirectionalIterator
         ) {
             Ok(Self { vm, object })
         } else {
-            runtime_error!("{} is not an iterator", object.try_borrow()?.type_string())
+            let object_type = object
+                .try_borrow()
+                .map(|object| KotoType::type_string(&*object))
+                .unwrap_or_else(|_| "Object".into());
+            runtime_error!("{} is not an iterator", object_type)
         }
     }
 }
@@ -525,7 +663,7 @@ impl KotoIterator for ObjectIterator {
     fn make_copy(&self) -> Result<KIterator> {
         let copy = Self {
             vm: self.vm.spawn_shared_vm(),
-            object: self.object.try_borrow()?.copy(),
+            object: self.object.copy()?,
         };
         Ok(KIterator::new(copy))
     }
@@ -533,12 +671,17 @@ impl KotoIterator for ObjectIterator {
     fn is_bidirectional(&self) -> bool {
         self.object
             .try_borrow()
-            .is_ok_and(|o| matches!(o.is_iterable(), IsIterable::BidirectionalIterator))
+            .and_then(|object| object.is_iterable())
+            .is_ok_and(|iterable| matches!(iterable, IsIterable::BidirectionalIterator))
     }
 
     fn next_back(&mut self) -> Option<KIteratorOutput> {
-        match self.object.try_borrow_mut() {
-            Ok(mut o) => o.iterator_next_back(&mut self.vm),
+        match self
+            .object
+            .try_borrow_mut()
+            .and_then(|mut object| object.iterator_next_back(&mut self.vm))
+        {
+            Ok(result) => result,
             Err(e) => Some(KIteratorOutput::Error(e)),
         }
     }
@@ -548,8 +691,12 @@ impl Iterator for ObjectIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.object.try_borrow_mut() {
-            Ok(mut o) => o.iterator_next(&mut self.vm),
+        match self
+            .object
+            .try_borrow_mut()
+            .and_then(|mut object| object.iterator_next(&mut self.vm))
+        {
+            Ok(result) => result,
             Err(e) => Some(KIteratorOutput::Error(e)),
         }
     }

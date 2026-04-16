@@ -71,7 +71,13 @@ macro_rules! geometry_arithmetic_op {
                     Ok((*$self $op f64::from(n)).into())
                 }
                 unexpected => {
-                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                    unexpected_type(
+                        &format!(
+                            "a {} or Number",
+                            Self::type_static()
+                        ),
+                        unexpected,
+                    )
                 }
             }
         }
@@ -87,7 +93,13 @@ macro_rules! geometry_arithmetic_op_rhs {
                     Ok((Self::from(f64::from(n)) $op *$self).into())
                 }
                 unexpected => {
-                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                    unexpected_type(
+                        &format!(
+                            "a {} or Number",
+                            Self::type_static()
+                        ),
+                        unexpected,
+                    )
                 }
             }
         }
@@ -108,7 +120,13 @@ macro_rules! geometry_compound_assign_op {
                     Ok(())
                 }
                 unexpected => {
-                    unexpected_type(&format!("a {} or Number", Self::type_static()), unexpected)
+                    unexpected_type(
+                        &format!(
+                            "a {} or Number",
+                            Self::type_static()
+                        ),
+                        unexpected,
+                    )
                 }
             }
         }
@@ -124,7 +142,13 @@ macro_rules! geometry_comparison_op {
                     Ok(*$self $op *other)
                 }
                 unexpected => {
-                    unexpected_type(&format!("a {}", Self::type_static()), unexpected)
+                    unexpected_type(
+                        &format!(
+                            "a {}",
+                            Self::type_static()
+                        ),
+                        unexpected,
+                    )
                 }
             }
         }

@@ -1,17 +1,19 @@
+use crate::runtime::Result;
+use crate::runtime::derive::{KotoCopy, KotoType, koto_get, koto_impl, koto_method, koto_set};
+use crate::runtime::prelude::*;
 use crate::{
     geometry_arithmetic_op, geometry_arithmetic_op_rhs, geometry_comparison_op,
     geometry_compound_assign_op,
 };
-use koto_runtime::{Result, derive::*, prelude::*};
 use std::{fmt, ops};
 
 type Inner = glam::DVec2;
 
 #[derive(Copy, Clone, PartialEq, KotoCopy, KotoType)]
-#[koto(runtime = koto_runtime, use_copy)]
+#[koto(runtime = crate::runtime, use_copy)]
 pub struct Vec2(Inner);
 
-#[koto_impl(runtime = koto_runtime)]
+#[koto_impl(runtime = crate::runtime)]
 impl Vec2 {
     pub fn new(x: f64, y: f64) -> Self {
         Self(Inner::new(x, y))
@@ -62,9 +64,7 @@ impl Vec2 {
             unexpected => unexpected_type("a Number", unexpected),
         }
     }
-}
 
-impl KotoObject for Vec2 {
     fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append(self.to_string());
         Ok(())
@@ -131,7 +131,9 @@ impl KotoObject for Vec2 {
             KValue::Number(n) => match usize::from(n) {
                 0 => Ok(self.x().into()),
                 1 => Ok(self.y().into()),
-                other => runtime_error!("index out of range (got {other}, should be <= 1)"),
+                other => {
+                    runtime_error!(format!("index out of range (got {other}, should be <= 1)"))
+                }
             },
             unexpected => unexpected_type("Number", unexpected),
         }
@@ -154,6 +156,80 @@ impl KotoObject for Vec2 {
         });
 
         Ok(KIterator::with_std_iter(iter))
+    }
+}
+
+impl crate::runtime::api::KotoObjectOps<crate::runtime::Backend> for Vec2 {
+    fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        Vec2::display(self, ctx)
+    }
+
+    fn negate(&self) -> Result<KValue> {
+        Vec2::negate(self)
+    }
+
+    fn add(&self, other: &KValue) -> Result<KValue> {
+        Vec2::add(self, other)
+    }
+
+    fn add_rhs(&self, other: &KValue) -> Result<KValue> {
+        Vec2::add_rhs(self, other)
+    }
+
+    fn subtract(&self, other: &KValue) -> Result<KValue> {
+        Vec2::subtract(self, other)
+    }
+
+    fn subtract_rhs(&self, other: &KValue) -> Result<KValue> {
+        Vec2::subtract_rhs(self, other)
+    }
+
+    fn multiply(&self, other: &KValue) -> Result<KValue> {
+        Vec2::multiply(self, other)
+    }
+
+    fn multiply_rhs(&self, other: &KValue) -> Result<KValue> {
+        Vec2::multiply_rhs(self, other)
+    }
+
+    fn divide(&self, other: &KValue) -> Result<KValue> {
+        Vec2::divide(self, other)
+    }
+
+    fn divide_rhs(&self, other: &KValue) -> Result<KValue> {
+        Vec2::divide_rhs(self, other)
+    }
+
+    fn add_assign(&mut self, other: &KValue) -> Result<()> {
+        Vec2::add_assign(self, other)
+    }
+
+    fn subtract_assign(&mut self, other: &KValue) -> Result<()> {
+        Vec2::subtract_assign(self, other)
+    }
+
+    fn multiply_assign(&mut self, other: &KValue) -> Result<()> {
+        Vec2::multiply_assign(self, other)
+    }
+
+    fn divide_assign(&mut self, other: &KValue) -> Result<()> {
+        Vec2::divide_assign(self, other)
+    }
+
+    fn equal(&self, other: &KValue) -> Result<bool> {
+        Vec2::equal(self, other)
+    }
+
+    fn index(&self, index: &KValue) -> Result<KValue> {
+        Vec2::index(self, index)
+    }
+
+    fn is_iterable(&self) -> Result<IsIterable> {
+        Ok(Vec2::is_iterable(self))
+    }
+
+    fn make_iterator(&self, vm: &mut KotoVm) -> Result<KIterator> {
+        Vec2::make_iterator(self, vm)
     }
 }
 
