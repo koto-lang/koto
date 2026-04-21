@@ -1,14 +1,21 @@
-use super::{KValue, decode_value, encode_value};
-use crate::{
-    PluginBackend,
-    Result,
-    host::{current_host_api, status_to_error},
-};
+use super::{KValue, encode_value};
+use crate::abi;
+use crate::{PluginBackend, Result, host::status_to_error};
 use koto_api::{
     KotoCollection, KotoIdentity, KotoIndexSwap, KotoSequence, KotoSequenceMut, KotoSlice,
     KotoSliceMut,
 };
-use koto_ffi as abi;
+cfg_select! {
+    target_arch = "wasm32" => {
+        use super::decode_wasm_value;
+        use crate::wasm_support;
+        use koto_ffi::wasm;
+    }
+    _ => {
+        use super::decode_value;
+        use crate::host::current_host_api;
+    }
+}
 use std::{fmt, marker::PhantomData, mem::ManuallyDrop};
 
 /// A host-backed Koto list.
@@ -18,8 +25,9 @@ pub struct KList {
 }
 
 /// A borrowed view over plugin list data.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct KListData<'a> {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     api: *const abi::KotoHostApiV1,
     slice: abi::KValueSlice,
     _list: PhantomData<&'a KList>,
@@ -34,6 +42,17 @@ impl KList {
     pub(crate) fn from_existing(api: &abi::KotoHostApiV1, handle: abi::KValue) -> Self {
         let handle = unsafe { (api.value_clone)(handle) };
         Self::from_raw(api, handle)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_wasm_existing(handle: wasm::KValue) -> Self {
+        let handle = unsafe { wasm::value_clone(handle) };
+        let handle = wasm_support::wasm_value_to_native(handle);
+        debug_assert!(matches!(handle.kind, abi::KValueKind::List));
+        Self {
+            api: std::ptr::null(),
+            handle: abi::KList(unsafe { handle.data.handle }),
+        }
     }
 
     fn from_raw(api: &abi::KotoHostApiV1, handle: abi::KValue) -> Self {
@@ -73,15 +92,32 @@ impl KList {
 
     /// Creates a list from the provided slice.
     pub fn from_slice(values: &[KValue]) -> Self {
-        let api = current_host_api();
-        let encoded = values
-            .iter()
-            .cloned()
-            .map(|value| encode_value(api, value))
-            .collect::<Vec<_>>();
-        Self {
-            api: api as *const _,
-            handle: unsafe { (api.list_make)(encoded.as_ptr(), encoded.len()) },
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let encoded = values
+                    .iter()
+                    .cloned()
+                    .map(super::map::encode_export_value)
+                    .collect::<Vec<_>>();
+                Self {
+                    api: std::ptr::null(),
+                    handle: wasm_support::wasm_list_to_native(unsafe {
+                        wasm::list_make(encoded.as_ptr(), encoded.len() as u32)
+                    }),
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                let encoded = values
+                    .iter()
+                    .cloned()
+                    .map(|value| encode_value(api, value))
+                    .collect::<Vec<_>>();
+                Self {
+                    api: api as *const _,
+                    handle: unsafe { (api.list_make)(encoded.as_ptr(), encoded.len()) },
+                }
+            }
         }
     }
 
@@ -122,7 +158,16 @@ impl KList {
     pub fn data(&self) -> KListData<'_> {
         KListData {
             api: self.api,
-            slice: unsafe { (self.api().list_data)(self.handle) },
+            slice: cfg_select! {
+                target_arch = "wasm32" => {
+                    wasm_support::wasm_value_slice_to_native(unsafe {
+                        wasm::list_data(wasm_support::native_list_to_wasm(self.handle))
+                    })
+                }
+                _ => {
+                    unsafe { (self.api().list_data)(self.handle) }
+                }
+            },
             _list: PhantomData,
         }
     }
@@ -149,7 +194,14 @@ impl FromIterator<KValue> for KList {
 
 impl KotoCollection<PluginBackend> for KList {
     fn len(&self) -> usize {
-        unsafe { (self.api().list_len)(self.handle) }
+        cfg_select! {
+            target_arch = "wasm32" => {
+                unsafe { wasm::list_len(wasm_support::native_list_to_wasm(self.handle)) as usize }
+            }
+            _ => {
+                unsafe { (self.api().list_len)(self.handle) }
+            }
+        }
     }
 }
 
@@ -167,11 +219,39 @@ impl KotoSlice<PluginBackend> for KListData<'_> {
 
         let offset = index.checked_mul(self.slice.stride)?;
         let ptr = unsafe { (self.slice.data as *const u8).add(offset) }.cast();
-        let api = unsafe { &*self.api };
-        let value = unsafe { (api.value_view_clone)(abi::KValueView(ptr)) };
-        let result = decode_value(api, value).ok();
-        unsafe { (api.value_free)(value) };
-        result
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let _ = self.api;
+                let value = wasm_support::wasm_value_to_native(unsafe {
+                    wasm::value_view_clone(
+                        wasm_support::native_value_view_to_wasm(abi::KValueView(ptr))
+                    )
+                });
+                let result = decode_wasm_value(wasm_support::native_value_to_wasm(value)).ok();
+                unsafe {
+                    wasm::value_free(wasm_support::native_value_to_wasm(value));
+                }
+                result
+            }
+            _ => {
+                let api = unsafe { &*self.api };
+                let value = unsafe { (api.value_view_clone)(abi::KValueView(ptr)) };
+                let result = decode_value(api, value).ok();
+                unsafe {
+                    (api.value_free)(value)
+                };
+                result
+            }
+        }
+    }
+}
+
+impl Drop for KListData<'_> {
+    fn drop(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        unsafe {
+            wasm::value_slice_free(wasm_support::native_value_slice_to_wasm(self.slice));
+        }
     }
 }
 
@@ -216,16 +296,7 @@ impl KotoSequence<PluginBackend> for KList {
     }
 
     fn from_slice(values: &[KValue]) -> Self {
-        let api = current_host_api();
-        let encoded = values
-            .iter()
-            .cloned()
-            .map(|value| encode_value(api, value))
-            .collect::<Vec<_>>();
-        KList {
-            api: api as *const _,
-            handle: unsafe { (api.list_make)(encoded.as_ptr(), encoded.len()) },
-        }
+        KList::from_slice(values)
     }
 }
 
@@ -254,14 +325,35 @@ impl KotoIndexSwap<PluginBackend> for KList {
 
 impl Clone for KList {
     fn clone(&self) -> Self {
-        let api = self.api();
-        Self::from_raw(api, unsafe { (api.value_clone)(self.as_value()) })
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let cloned = unsafe {
+                    wasm::value_clone(wasm_support::native_value_to_wasm(self.as_value()))
+                };
+                let cloned = wasm_support::wasm_value_to_native(cloned);
+                Self {
+                    api: std::ptr::null(),
+                    handle: abi::KList(unsafe { cloned.data.handle }),
+                }
+            }
+            _ => {
+                let api = self.api();
+                Self::from_raw(api, unsafe { (api.value_clone)(self.as_value()) })
+            }
+        }
     }
 }
 
 impl Drop for KList {
     fn drop(&mut self) {
-        unsafe { (self.api().value_free)(self.as_value()) };
+        cfg_select! {
+            target_arch = "wasm32" => unsafe {
+                wasm::value_free(wasm_support::native_value_to_wasm(self.as_value()));
+            },
+            _ => unsafe {
+                (self.api().value_free)(self.as_value())
+            },
+        }
     }
 }
 

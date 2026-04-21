@@ -2,16 +2,22 @@
 
 #![warn(missing_docs)]
 
-#[cfg(all(feature = "plugin", feature = "rc"))]
-compile_error!("Dynamic plugin hosting requires the `arc` memory management feature");
+#[cfg(any(
+    all(feature = "native_host", not(feature = "arc")),
+    all(feature = "wasm_host", not(feature = "arc")),
+))]
+compile_error!("Dynamic module hosting requires the `arc` memory management feature");
 
 mod display_context;
 mod error;
 mod io;
-#[cfg(feature = "plugin")]
-mod plugin_host;
 mod types;
 mod vm;
+
+#[cfg(feature = "native_host")]
+mod native_host;
+#[cfg(feature = "wasm_host")]
+mod wasm_host;
 
 pub mod core_lib;
 pub mod prelude;

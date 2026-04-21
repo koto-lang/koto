@@ -24,12 +24,6 @@ pub trait KotoFunctionReturn {
     fn into_result(self) -> Result<KValue>;
 }
 
-impl<T: Into<KValue>> KotoFunctionReturn for Result<T> {
-    fn into_result(self) -> Result<KValue> {
-        self.map(Into::into)
-    }
-}
-
 impl<T: Into<KValue>> KotoFunctionReturn for T {
     fn into_result(self) -> Result<KValue> {
         Ok(self.into())
@@ -45,12 +39,6 @@ pub trait KotoMethodReturn {
     fn into_result(self) -> Result<KValue>;
 }
 
-impl<T: Into<KValue>> KotoMethodReturn for Result<T> {
-    fn into_result(self) -> Result<KValue> {
-        self.map(Into::into)
-    }
-}
-
 impl<T: Into<KValue>> KotoMethodReturn for T {
     fn into_result(self) -> Result<KValue> {
         Ok(self.into())
@@ -64,12 +52,6 @@ impl<T: Into<KValue>> KotoMethodReturn for T {
 )]
 pub trait KotoGetReturn {
     fn into_result(self) -> Result<KValue>;
-}
-
-impl<T: Into<KValue>> KotoGetReturn for Result<T> {
-    fn into_result(self) -> Result<KValue> {
-        self.map(Into::into)
-    }
 }
 
 impl<T: Into<KValue>> KotoGetReturn for T {

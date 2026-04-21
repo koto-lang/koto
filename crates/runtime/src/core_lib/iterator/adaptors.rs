@@ -103,7 +103,7 @@ impl Iterator for Chunks {
         let mut chunk = None;
 
         for output in self.iter.clone().take(self.chunk_size) {
-            match KValue::try_from(output) {
+            match output.try_into_value() {
                 Ok(value) => chunk
                     .get_or_insert_with(|| Vec::with_capacity(self.chunk_size))
                     .push(value),
@@ -186,7 +186,7 @@ impl Iterator for Cycle {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(output) = self.iter.next() {
-            match KValue::try_from(output) {
+            match output.try_into_value() {
                 Ok(value) => {
                     self.cache.push(value.clone());
                     Some(value.into())
@@ -1034,7 +1034,7 @@ impl Iterator for Windows {
                 break;
             };
 
-            match KValue::try_from(output) {
+            match output.try_into_value() {
                 Ok(value) => self.cache.push_back(value),
                 Err(error) => return Some(Output::Error(error)),
             }

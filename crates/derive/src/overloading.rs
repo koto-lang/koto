@@ -393,6 +393,13 @@ impl OverloadedFunctionCandidate {
             ReturnType::Default => Span::call_site(),
         };
 
+        if returns_result(&self.item.sig.output) {
+            if result_inner_type_is_kvalue(&self.item.sig.output) {
+                return quote_spanned!(span=> #call);
+            }
+            return quote_spanned!(span=> (#call).map(Into::into));
+        }
+
         let return_trait = match self.options {
             OverloadOptions::Function => quote_spanned!(span=> KotoFunctionReturn),
             OverloadOptions::Method => quote_spanned!(span=> KotoMethodReturn),
@@ -601,6 +608,53 @@ impl OverloadedFunctionCandidate {
         }
 
         Ok(())
+    }
+}
+
+pub(crate) fn returns_result(output: &ReturnType) -> bool {
+    match output {
+        ReturnType::Type(_, ty) => type_is_result(ty),
+        ReturnType::Default => false,
+    }
+}
+
+fn result_inner_type(output: &ReturnType) -> Option<&Type> {
+    let ReturnType::Type(_, ty) = output else {
+        return None;
+    };
+    let Type::Path(TypePath { qself: None, path }) = &**ty else {
+        return None;
+    };
+    let segment = path.segments.last()?;
+    if segment.ident != "Result" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    match args.args.first() {
+        Some(GenericArgument::Type(inner)) => Some(inner),
+        _ => None,
+    }
+}
+
+fn result_inner_type_is_kvalue(output: &ReturnType) -> bool {
+    match result_inner_type(output) {
+        Some(Type::Path(TypePath { qself: None, path })) => path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "KValue"),
+        _ => false,
+    }
+}
+
+fn type_is_result(ty: &Type) -> bool {
+    match ty {
+        Type::Path(TypePath { qself: None, path }) => path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "Result"),
+        _ => false,
     }
 }
 

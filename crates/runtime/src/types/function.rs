@@ -1,9 +1,9 @@
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{KList, vm::NonLocals};
 use koto_bytecode::{Chunk, FunctionFlags};
-#[cfg(feature = "plugin")]
-use koto_ffi as abi;
+#[cfg(feature = "native_host")]
+use koto_ffi::native as abi;
 use koto_memory::Ptr;
 
 /// A Koto function
@@ -79,7 +79,7 @@ impl KFunction {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KFunction {
     type Abi = abi::KFunction;
 

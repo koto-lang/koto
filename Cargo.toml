@@ -61,7 +61,7 @@ hotwatch = "0.5.0"
 # A hash table with consistent order and fast iteration.
 indexmap = "2.0.0"
 # A partial replacement for std::time::Instant that works on WASM too.
-instant = "0.1.12"
+instant = { version = "0.1.12", default-features = false }
 # Extra iterator adaptors
 itertools = "0.13.0"
 # A macro for declaring lazily evaluated statics in Rust.

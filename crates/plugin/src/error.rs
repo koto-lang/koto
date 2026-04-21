@@ -1,5 +1,5 @@
+use crate::abi;
 use crate::{KValue, runtime_error};
-use koto_ffi as abi;
 use std::{ffi::CString, fmt, mem::ManuallyDrop, ptr};
 
 /// The Result type used by the plugin helpers.

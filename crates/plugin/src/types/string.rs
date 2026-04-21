@@ -1,5 +1,17 @@
-use crate::host::{current_host_api, string_slice};
-use koto_ffi as abi;
+use crate::abi;
+cfg_select! {
+    target_arch = "wasm32" => {
+        use crate::wasm_support;
+        use koto_ffi::{KValueKind, wasm};
+    }
+    _ => {
+        use crate::host::{current_host_api, string_slice};
+    }
+}
+#[cfg(target_arch = "wasm32")]
+use std::ptr;
+#[cfg(target_arch = "wasm32")]
+use std::sync::OnceLock;
 use std::{
     cmp::Ordering,
     fmt,
@@ -10,8 +22,11 @@ use std::{
 
 /// A host-backed string type used by the derive macros and plugin helpers.
 pub struct KString {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     api: *const abi::KotoHostApiV1,
     handle: abi::KString,
+    #[cfg(target_arch = "wasm32")]
+    cache: OnceLock<Box<str>>,
 }
 
 impl KString {
@@ -19,6 +34,8 @@ impl KString {
         Self {
             api: api as *const _,
             handle,
+            #[cfg(target_arch = "wasm32")]
+            cache: OnceLock::new(),
         }
     }
 
@@ -27,10 +44,25 @@ impl KString {
         Self::from_raw(api, handle)
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_wasm_existing(handle: wasm::KValue) -> Self {
+        let handle = unsafe { wasm::value_clone(handle) };
+        let handle = wasm_support::wasm_value_to_native(handle);
+        debug_assert!(matches!(handle.kind, KValueKind::String));
+        Self {
+            api: ptr::null(),
+            handle: unsafe { handle.data.string_value },
+            cache: OnceLock::new(),
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn from_slice(api: &abi::KotoHostApiV1, value: abi::KStringSlice) -> Self {
         Self {
             api: api as *const _,
             handle: unsafe { (api.string_make)(value) },
+            #[cfg(target_arch = "wasm32")]
+            cache: OnceLock::new(),
         }
     }
 
@@ -39,9 +71,12 @@ impl KString {
         Self {
             api: api as *const _,
             handle: unsafe { handle.data.string_value },
+            #[cfg(target_arch = "wasm32")]
+            cache: OnceLock::new(),
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     fn api(&self) -> &abi::KotoHostApiV1 {
         unsafe { &*self.api }
     }
@@ -67,27 +102,81 @@ impl KString {
 
     /// Returns the string as `&str`.
     pub fn as_str(&self) -> &str {
-        let slice = unsafe { (self.api().string_as_slice)(self.handle) };
-        if slice.ptr.is_null() || slice.len == 0 {
-            ""
-        } else {
-            let bytes = unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) };
-            std::str::from_utf8(bytes).expect("host returned a non-utf8 KString")
+        cfg_select! {
+            target_arch = "wasm32" => {
+                self.cache
+                    .get_or_init(|| {
+                        let slice = unsafe {
+                            wasm::string_as_slice(wasm_support::native_string_to_wasm(self.handle))
+                        };
+                        if slice.ptr == 0 || slice.len == 0 {
+                            "".into()
+                        } else {
+                            let bytes = unsafe {
+                                std::slice::from_raw_parts(slice.ptr as *const u8, slice.len as usize)
+                            };
+                            let string = std::str::from_utf8(bytes)
+                                .expect("host returned a non-utf8 KString")
+                                .to_owned()
+                                .into_boxed_str();
+                            unsafe {
+                                wasm::string_slice_free(slice);
+                            }
+                            string
+                        }
+                    })
+                    .as_ref()
+            }
+            _ => {
+                let slice = unsafe { (self.api().string_as_slice)(self.handle) };
+                if slice.ptr.is_null() || slice.len == 0 {
+                    ""
+                } else {
+                    let bytes = unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) };
+                    std::str::from_utf8(bytes).expect("host returned a non-utf8 KString")
+                }
+            }
         }
     }
 }
 
 impl From<String> for KString {
     fn from(value: String) -> Self {
-        let api = current_host_api();
-        Self::from_slice(api, string_slice(&value))
+        cfg_select! {
+            target_arch = "wasm32" => {
+                Self {
+                    api: ptr::null(),
+                    handle: wasm_support::wasm_string_to_native(unsafe {
+                        wasm::string_make(wasm_support::string_slice(&value))
+                    }),
+                    cache: OnceLock::new(),
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                Self::from_slice(api, string_slice(&value))
+            }
+        }
     }
 }
 
 impl From<&str> for KString {
     fn from(value: &str) -> Self {
-        let api = current_host_api();
-        Self::from_slice(api, string_slice(value))
+        cfg_select! {
+            target_arch = "wasm32" => {
+                Self {
+                    api: ptr::null(),
+                    handle: wasm_support::wasm_string_to_native(unsafe {
+                        wasm::string_make(wasm_support::string_slice(value))
+                    }),
+                    cache: OnceLock::new(),
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                Self::from_slice(api, string_slice(value))
+            }
+        }
     }
 }
 
@@ -187,13 +276,36 @@ impl Hash for KString {
 
 impl Clone for KString {
     fn clone(&self) -> Self {
-        let api = self.api();
-        Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let cloned = unsafe {
+                    wasm::value_clone(wasm_support::native_value_to_wasm(self.handle()))
+                };
+                debug_assert!(matches!(cloned.kind, KValueKind::String));
+                let cloned = wasm_support::wasm_value_to_native(cloned);
+                Self {
+                    api: ptr::null(),
+                    handle: unsafe { cloned.data.string_value },
+                    cache: OnceLock::new(),
+                }
+            }
+            _ => {
+                let api = self.api();
+                Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+            }
+        }
     }
 }
 
 impl Drop for KString {
     fn drop(&mut self) {
-        unsafe { (self.api().value_free)(self.handle()) };
+        cfg_select! {
+            target_arch = "wasm32" => unsafe {
+                wasm::value_free(wasm_support::native_value_to_wasm(self.handle()))
+            },
+            _ => unsafe {
+                (self.api().value_free)(self.handle())
+            },
+        }
     }
 }

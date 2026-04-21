@@ -1,9 +1,9 @@
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{Ptr, Result, lazy, prelude::*};
 use koto_api::{KotoCollection, KotoIdentity, KotoSequence, KotoSlice};
-#[cfg(feature = "plugin")]
-use koto_ffi as abi;
+#[cfg(feature = "native_host")]
+use koto_ffi::native as abi;
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
@@ -157,7 +157,7 @@ impl KTuple {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KTuple {
     type Abi = abi::KTuple;
 

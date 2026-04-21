@@ -1,10 +1,18 @@
+use crate::abi;
 use crate::{
     KValue, KotoVm, PluginBackend, Result,
     error::{unexpected_args, unexpected_args_after_instance},
-    types::decode_value,
 };
 use koto_api::KotoCallContext;
-use koto_ffi as abi;
+cfg_select! {
+    target_arch = "wasm32" => {
+        use crate::types::decode_wasm_value;
+        use koto_ffi::wasm;
+    }
+    _ => {
+        use crate::types::decode_value;
+    }
+}
 use std::{
     cell::{Cell, RefCell, UnsafeCell},
     mem, slice,
@@ -24,8 +32,12 @@ fn return_pooled_args(mut args: Vec<KValue>) {
 }
 
 struct CallArgs {
+    #[cfg(not(target_arch = "wasm32"))]
     api: *const abi::KotoHostApiV1,
+    #[cfg(not(target_arch = "wasm32"))]
     args: *const abi::KValue,
+    #[cfg(target_arch = "wasm32")]
+    args: *const wasm::KValue,
     arg_count: usize,
     // This owns the pooled buffer so `args()` can fill it lazily through `&self`
     // and then return a plain slice without holding a `RefCell` borrow alive.
@@ -36,11 +48,10 @@ struct CallArgs {
 impl CallArgs {
     fn as_slice(&self) -> &[KValue] {
         let CallArgs {
-            api,
-            args,
             arg_count,
             decoded,
             is_decoded,
+            ..
         } = self;
 
         if !is_decoded.get() {
@@ -48,13 +59,31 @@ impl CallArgs {
             decoded.clear();
             decoded.reserve(*arg_count);
 
-            let api = unsafe { &**api };
-            let arg_handles = unsafe { slice::from_raw_parts(*args, *arg_count) };
-            for arg in arg_handles {
-                decoded.push(
-                    decode_value(api, *arg)
-                        .expect("plugin call context args were prevalidated before decoding"),
-                );
+            if *arg_count == 0 {
+                is_decoded.set(true);
+                return decoded.as_slice();
+            }
+
+            cfg_select! {
+                target_arch = "wasm32" => {
+                    let arg_handles = unsafe { slice::from_raw_parts(self.args, *arg_count) };
+                    for arg in arg_handles {
+                        decoded.push(
+                            decode_wasm_value(*arg)
+                                .expect("plugin wasm call context args were prevalidated before decoding"),
+                        );
+                    }
+                }
+                _ => {
+                    let api = unsafe { &*self.api };
+                    let arg_handles = unsafe { slice::from_raw_parts(self.args, *arg_count) };
+                    for arg in arg_handles {
+                        decoded.push(
+                            decode_value(api, *arg)
+                                .expect("plugin call context args were prevalidated before decoding"),
+                        );
+                    }
+                }
             }
             is_decoded.set(true);
         }
@@ -79,6 +108,7 @@ pub struct CallContext {
 }
 
 impl CallContext {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn from_abi(
         api: &abi::KotoHostApiV1,
         vm: KotoVm,
@@ -90,7 +120,33 @@ impl CallContext {
             vm,
             instance,
             args: CallArgs {
+                #[cfg(not(target_arch = "wasm32"))]
                 api: api as *const _,
+                args,
+                arg_count,
+                decoded: UnsafeCell::new(take_pooled_args()),
+                is_decoded: Cell::new(false),
+            },
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_abi(
+        _api: &abi::KotoHostApiV1,
+        _vm: KotoVm,
+        instance: KValue,
+        args: *const abi::KValue,
+        arg_count: usize,
+    ) -> Self {
+        Self::from_wasm(instance, args.cast::<wasm::KValue>(), arg_count)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_wasm(instance: KValue, args: *const wasm::KValue, arg_count: usize) -> Self {
+        Self {
+            vm: KotoVm::from_wasm(),
+            instance,
+            args: CallArgs {
                 args,
                 arg_count,
                 decoded: UnsafeCell::new(take_pooled_args()),

@@ -1,10 +1,10 @@
 use super::callable::{KFunction, KNativeFunction};
+use crate::abi;
 use crate::{DisplayContext, KIterator, KList, KMap, KObject, KString, KTuple};
 use koto_api::{
     KotoCollection, KotoDisplay, KotoIdentity, KotoNumber, KotoObjectOps, KotoRange, KotoSequence,
     KotoSlice, KotoValue, KotoVmTrait, UnaryOp, write_koto_range,
 };
-use koto_ffi as abi;
 use std::{
     cmp::Ordering,
     fmt,

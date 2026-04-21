@@ -7,7 +7,7 @@ use crate::{
     PREFIX_FUNCTION,
     overloading::{
         AccessAttributeArgs, OverloadOptions, OverloadedFunction, OverloadedFunctionCandidate,
-        OverloadedFunctions,
+        OverloadedFunctions, returns_result,
     },
 };
 use proc_macro::TokenStream;
@@ -667,9 +667,16 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
     let fn_ident = &fun.sig.ident;
     let ty = ctx.ty();
 
-    let wrapped_call = quote! {
-        let #call_result = instance.#fn_ident();
-        KotoGetReturn::into_result(#call_result)
+    let wrapped_call = if returns_result(&fun.sig.output) {
+        quote! {
+            let #call_result = instance.#fn_ident();
+            #call_result.map(Into::into)
+        }
+    } else {
+        quote! {
+            let #call_result = instance.#fn_ident();
+            KotoGetReturn::into_result(#call_result)
+        }
     };
 
     let value = if ctx.has_generics() {

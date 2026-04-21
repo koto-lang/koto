@@ -1,9 +1,14 @@
+use crate::abi;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::host::current_host_api;
+#[cfg(target_arch = "wasm32")]
+use crate::types::{decode_wasm_value, map::encode_export_value as encode_wasm_value};
 use crate::{
     CallContext, DisplayContext, KIterator, KIteratorOutput, KList, KMap, KNumber, KRange, KString,
     KTuple, KValue, KotoSend, KotoSync, KotoVm, Result,
     api::{BinaryOp, UnaryOp},
     error::{Error, unexpected_type},
-    host::{current_host_api, status_to_error, string_slice, with_host_api},
+    host::{status_to_error, string_slice, with_host_api},
     runtime_error,
     types::{decode_value, encode_value},
     vm::{abi_binary_op, abi_unary_op},
@@ -12,7 +17,6 @@ use koto_api::{
     KotoAccess, KotoBackend, KotoCopy, KotoIdentity, KotoMethodContext, KotoNamedAccess,
     KotoObjectCast, KotoObjectHandle, KotoObjectOps, KotoType,
 };
-use koto_ffi as abi;
 use std::{
     any::Any,
     collections::HashMap,
@@ -24,15 +28,29 @@ use std::{
     slice,
     sync::{Mutex, OnceLock},
 };
+cfg_select! {
+    target_arch = "wasm32" => {
+        use crate::wasm_support;
+        use koto_ffi::wasm;
+        use std::{
+            cell::{Cell, RefCell},
+        };
+    }
+    _ => {}
+}
 
-fn object_unary_op<T: KotoObject>(handle: &T, op: UnaryOp) -> Result<KValue> {
+fn object_unary_op<T: KotoObject + ?Sized>(handle: &T, op: UnaryOp) -> Result<KValue> {
     match op {
         UnaryOp::Negate => handle.negate(),
         _ => runtime_error!("unsupported plugin object unary op: {op:?}"),
     }
 }
 
-fn object_binary_op<T: KotoObject>(handle: &T, op: BinaryOp, rhs: &KValue) -> Result<KValue> {
+fn object_binary_op<T: KotoObject + ?Sized>(
+    handle: &T,
+    op: BinaryOp,
+    rhs: &KValue,
+) -> Result<KValue> {
     match op {
         BinaryOp::Add => handle.add(rhs),
         BinaryOp::AddRhs => handle.add_rhs(rhs),
@@ -50,12 +68,13 @@ fn object_binary_op<T: KotoObject>(handle: &T, op: BinaryOp, rhs: &KValue) -> Re
         BinaryOp::LessOrEqual => handle.less_or_equal(rhs).map(Into::into),
         BinaryOp::Greater => handle.greater(rhs).map(Into::into),
         BinaryOp::GreaterOrEqual => handle.greater_or_equal(rhs).map(Into::into),
+        BinaryOp::Equal => handle.equal(rhs).map(Into::into),
         BinaryOp::NotEqual => handle.not_equal(rhs).map(Into::into),
         _ => runtime_error!("unsupported plugin object binary op: {op:?}"),
     }
 }
 
-fn object_binary_op_assign<T: KotoObject>(
+fn object_binary_op_assign<T: KotoObject + ?Sized>(
     handle: &mut T,
     op: BinaryOp,
     rhs: &KValue,
@@ -83,9 +102,7 @@ unsafe impl Sync for KObject {}
 
 /// An immutable borrow of runtime-owned plugin object data.
 pub struct Borrow<'a, T> {
-    api: *const abi::KotoHostApiV1,
-    handle: abi::KObjectBorrow,
-    ptr: *const T,
+    storage: BorrowStorage<T>,
     _phantom: PhantomData<&'a T>,
 }
 
@@ -93,21 +110,29 @@ impl<T> Deref for Borrow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr }
+        match &self.storage {
+            BorrowStorage::Host { ptr, .. } => unsafe { &**ptr },
+            #[cfg(target_arch = "wasm32")]
+            BorrowStorage::Local(local) => unsafe { &**local },
+        }
     }
 }
 
 impl<T> Drop for Borrow<'_, T> {
     fn drop(&mut self) {
-        unsafe { ((*self.api).object_borrow_free)(self.handle) };
+        match &self.storage {
+            BorrowStorage::Host { api, handle, .. } => unsafe {
+                ((**api).object_borrow_free)(*handle)
+            },
+            #[cfg(target_arch = "wasm32")]
+            BorrowStorage::Local(_) => {}
+        }
     }
 }
 
 /// A mutable borrow of runtime-owned plugin object data.
 pub struct BorrowMut<'a, T> {
-    api: *const abi::KotoHostApiV1,
-    handle: abi::KObjectBorrowMut,
-    ptr: *mut T,
+    storage: BorrowMutStorage<T>,
     _phantom: PhantomData<&'a mut T>,
 }
 
@@ -115,20 +140,95 @@ impl<T> Deref for BorrowMut<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr }
+        match &self.storage {
+            BorrowMutStorage::Host { ptr, .. } => unsafe { &**ptr },
+            #[cfg(target_arch = "wasm32")]
+            BorrowMutStorage::Local(local) => unsafe { &**local },
+        }
     }
 }
 
 impl<T> DerefMut for BorrowMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.ptr }
+        match &mut self.storage {
+            BorrowMutStorage::Host { ptr, .. } => unsafe { &mut **ptr },
+            #[cfg(target_arch = "wasm32")]
+            BorrowMutStorage::Local(local) => unsafe { &mut **local },
+        }
     }
 }
 
 impl<T> Drop for BorrowMut<'_, T> {
     fn drop(&mut self) {
-        unsafe { ((*self.api).object_borrow_mut_free)(self.handle) };
+        match &self.storage {
+            BorrowMutStorage::Host { api, handle, .. } => unsafe {
+                ((**api).object_borrow_mut_free)(*handle)
+            },
+            #[cfg(target_arch = "wasm32")]
+            BorrowMutStorage::Local(_) => {}
+        }
     }
+}
+
+enum BorrowStorage<T> {
+    Host {
+        api: *const abi::KotoHostApiV1,
+        handle: abi::KObjectBorrow,
+        ptr: *const T,
+    },
+    #[cfg(target_arch = "wasm32")]
+    Local(*const T),
+}
+
+enum BorrowMutStorage<T> {
+    Host {
+        api: *const abi::KotoHostApiV1,
+        handle: abi::KObjectBorrowMut,
+        ptr: *mut T,
+    },
+    #[cfg(target_arch = "wasm32")]
+    Local(*mut T),
+}
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    // Registered wasm objects are removed again via `koto_plugin_object_drop_v1` when the host
+    // releases the last handle or runtime wrapper referencing the guest object.
+    static WASM_OBJECTS: RefCell<HashMap<u32, *mut dyn KotoObject>> = RefCell::new(HashMap::new());
+    static NEXT_WASM_OBJECT_ID: Cell<u32> = const { Cell::new(1) };
+}
+
+#[cfg(target_arch = "wasm32")]
+fn register_wasm_object(object: Box<dyn KotoObject>) -> u32 {
+    NEXT_WASM_OBJECT_ID.with(|next_id| {
+        let id = next_id.get();
+        next_id.set(id + 1);
+        WASM_OBJECTS.with(|objects| {
+            objects.borrow_mut().insert(id, Box::into_raw(object));
+        });
+        id
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn unregister_wasm_object(id: u32) {
+    WASM_OBJECTS.with(|objects| {
+        if let Some(ptr) = objects.borrow_mut().remove(&id) {
+            let _ = unsafe { Box::from_raw(ptr) };
+        }
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_object_id(handle: abi::KObject) -> Option<u32> {
+    let id = handle.metadata as usize as u32;
+    (id != 0).then_some(id)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn with_wasm_object_ptr<T>(id: u32, f: impl FnOnce(*mut dyn KotoObject) -> T) -> Option<T> {
+    let ptr = WASM_OBJECTS.with(|objects| objects.borrow().get(&id).copied());
+    ptr.map(f)
 }
 
 /// The plugin backend marker used by [`KotoObjectOps`].
@@ -553,6 +653,16 @@ impl KObject {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_wasm_existing(handle: wasm::KValue) -> Self {
+        let handle = wasm_support::wasm_value_to_native(handle);
+        debug_assert!(matches!(handle.kind, abi::KValueKind::Object));
+        Self {
+            api: std::ptr::null(),
+            handle: unsafe { handle.data.object_value },
+        }
+    }
+
     pub(crate) fn into_raw(self) -> abi::KValue {
         let this = ManuallyDrop::new(self);
         abi::KValue {
@@ -576,6 +686,10 @@ impl KObject {
         &self,
         f: impl FnOnce(&abi::KotoHostApiV1, &'static abi::KotoPluginObjectV1, abi::KObject) -> T,
     ) -> Option<T> {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            return None;
+        }
         let api = unsafe { &*self.api };
 
         let object_v1 = unsafe { (api.object_v1)(self.handle) };
@@ -588,6 +702,12 @@ impl KObject {
 
     /// Borrows the object's behavior immutably.
     pub fn try_borrow(&self) -> Result<ObjectBorrow<'_>> {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            return Err(Error::new(
+                "object behavior borrows aren't supported for wasm guest objects",
+            ));
+        }
         let api = unsafe { &*self.api };
         let handle = unsafe { (api.object_borrow)(self.handle) };
 
@@ -604,6 +724,12 @@ impl KObject {
 
     /// Borrows the object's behavior mutably.
     pub fn try_borrow_mut(&self) -> Result<ObjectBorrowMut<'_>> {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            return Err(Error::new(
+                "mutable object behavior borrows aren't supported for wasm guest objects",
+            ));
+        }
         let api = unsafe { &*self.api };
         let handle = unsafe { (api.object_borrow_mut)(self.handle) };
 
@@ -620,12 +746,59 @@ impl KObject {
 
     /// Returns true if the object is of the given Rust type.
     pub fn is_a<T: KotoType<PluginBackend> + 'static>(&self) -> bool {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            return wasm_object_id(self.handle)
+                .and_then(|id| {
+                    with_wasm_object_ptr(id, |ptr| {
+                        let object = unsafe { &*ptr };
+                        (object as &dyn Any).downcast_ref::<T>().is_some()
+                    })
+                })
+                .unwrap_or(false);
+        }
         self.with_object_handle(|_, object_v1, _| object_v1.type_tag == type_tag::<T>())
             .unwrap_or(false)
     }
 
     /// Attempts to borrow and cast the object to the specified Rust type.
     pub fn cast<T: KotoType<PluginBackend> + 'static>(&self) -> Result<Borrow<'_, T>> {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            if let Some(result) = wasm_object_id(self.handle).and_then(|id| {
+                with_wasm_object_ptr(id, |ptr| {
+                    let object = unsafe { &*ptr };
+                    if (object as &dyn Any).downcast_ref::<T>().is_none() {
+                        let unexpected = KotoType::<PluginBackend>::type_string(object);
+                        return Err(Error::new(format!(
+                            "expected {}, found {}",
+                            T::type_static(),
+                            unexpected
+                        )));
+                    }
+
+                    Ok(Borrow {
+                        storage: BorrowStorage::Local(
+                            match (object as &dyn Any).downcast_ref::<T>() {
+                                Some(object) => object as *const T,
+                                None => {
+                                    return Err(Error::new(format!(
+                                        "expected {}, found {}",
+                                        T::type_static(),
+                                        KotoType::<PluginBackend>::type_string(object),
+                                    )));
+                                }
+                            },
+                        ),
+                        _phantom: PhantomData,
+                    })
+                })
+            }) {
+                return result;
+            }
+
+            return Err(Error::new("unable to borrow object"));
+        }
         self.with_object_handle(|api, object_v1, instance| {
             if object_v1.type_tag != type_tag::<T>() {
                 let unexpected = KString::from_handle(api, unsafe {
@@ -650,9 +823,11 @@ impl KObject {
             }
 
             Ok(Borrow {
-                api: api as *const _,
-                handle,
-                ptr,
+                storage: BorrowStorage::Host {
+                    api: api as *const _,
+                    handle,
+                    ptr,
+                },
                 _phantom: PhantomData,
             })
         })
@@ -661,6 +836,42 @@ impl KObject {
 
     /// Attempts to mutably borrow and cast the object to the specified Rust type.
     pub fn cast_mut<T: KotoType<PluginBackend> + 'static>(&self) -> Result<BorrowMut<'_, T>> {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() {
+            if let Some(result) = wasm_object_id(self.handle).and_then(|id| {
+                with_wasm_object_ptr(id, |ptr| {
+                    let object = unsafe { &mut *ptr };
+                    if (object as &dyn Any).downcast_ref::<T>().is_none() {
+                        let unexpected = KotoType::<PluginBackend>::type_string(object);
+                        return Err(Error::new(format!(
+                            "expected {}, found {}",
+                            T::type_static(),
+                            unexpected
+                        )));
+                    }
+
+                    Ok(BorrowMut {
+                        storage: BorrowMutStorage::Local(
+                            match (object as &mut dyn Any).downcast_mut::<T>() {
+                                Some(object) => object as *mut T,
+                                None => {
+                                    return Err(Error::new(format!(
+                                        "expected {}, found {}",
+                                        T::type_static(),
+                                        KotoType::<PluginBackend>::type_string(object),
+                                    )));
+                                }
+                            },
+                        ),
+                        _phantom: PhantomData,
+                    })
+                })
+            }) {
+                return result;
+            }
+
+            return Err(Error::new("unable to mutably borrow object"));
+        }
         self.with_object_handle(|api, object_v1, instance| {
             if object_v1.type_tag != type_tag::<T>() {
                 let unexpected = KString::from_handle(api, unsafe {
@@ -685,9 +896,11 @@ impl KObject {
             }
 
             Ok(BorrowMut {
-                api: api as *const _,
-                handle,
-                ptr,
+                storage: BorrowMutStorage::Host {
+                    api: api as *const _,
+                    handle,
+                    ptr,
+                },
                 _phantom: PhantomData,
             })
         })
@@ -696,6 +909,11 @@ impl KObject {
 
     /// Returns `true` if both objects refer to the same underlying runtime instance.
     pub fn is_same_instance(&self, other: &Self) -> bool {
+        #[cfg(target_arch = "wasm32")]
+        if self.api.is_null() && other.api.is_null() {
+            return self.handle.data == other.handle.data
+                && self.handle.metadata == other.handle.metadata;
+        }
         let api = unsafe { &*self.api };
         std::ptr::eq(api, unsafe { &*other.api })
             && unsafe { (api.value_is_same_instance)(self.as_value(), other.as_value()) }
@@ -704,19 +922,53 @@ impl KObject {
 
 impl Clone for KObject {
     fn clone(&self) -> Self {
-        let api = unsafe { &*self.api };
-        let cloned = unsafe { (api.value_clone)(self.as_value()) };
-        Self {
-            api: self.api,
-            handle: unsafe { cloned.data.object_value },
+        cfg_select! {
+            target_arch = "wasm32" => {
+                if self.api.is_null() {
+                    let cloned = wasm_support::wasm_value_to_native(unsafe {
+                        wasm::value_clone(wasm_support::native_value_to_wasm(self.as_value()))
+                    });
+                    Self {
+                        api: self.api,
+                        handle: unsafe { cloned.data.object_value },
+                    }
+                } else {
+                    let api = unsafe { &*self.api };
+                    let cloned = unsafe { (api.value_clone)(self.as_value()) };
+                    Self {
+                        api: self.api,
+                        handle: unsafe { cloned.data.object_value },
+                    }
+                }
+            }
+            _ => {
+                let api = unsafe { &*self.api };
+                let cloned = unsafe { (api.value_clone)(self.as_value()) };
+                Self {
+                    api: self.api,
+                    handle: unsafe { cloned.data.object_value },
+                }
+            }
         }
     }
 }
 
 impl Drop for KObject {
     fn drop(&mut self) {
-        let api = unsafe { &*self.api };
-        unsafe { (api.value_free)(self.as_value()) };
+        cfg_select! {
+            target_arch = "wasm32" => {
+                if self.api.is_null() {
+                    unsafe { wasm::value_free(wasm_support::native_value_to_wasm(self.as_value())) };
+                } else {
+                    let api = unsafe { &*self.api };
+                    unsafe { (api.value_free)(self.as_value()) };
+                }
+            }
+            _ => {
+                let api = unsafe { &*self.api };
+                unsafe { (api.value_free)(self.as_value()) };
+            }
+        }
     }
 }
 
@@ -1239,6 +1491,7 @@ pub(crate) fn make_method_value(method: fn(&mut CallContext) -> Result<KValue>) 
     crate::KNativeFunction::new(method).into()
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn borrow_object<T>(
     api: &abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1255,13 +1508,16 @@ fn borrow_object<T>(
     }
 
     Ok(Borrow {
-        api: api as *const _,
-        handle,
-        ptr,
+        storage: BorrowStorage::Host {
+            api: api as *const _,
+            handle,
+            ptr,
+        },
         _phantom: PhantomData,
     })
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn borrow_object_mut<T>(
     api: &abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1278,9 +1534,11 @@ fn borrow_object_mut<T>(
     }
 
     Ok(BorrowMut {
-        api: api as *const _,
-        handle,
-        ptr,
+        storage: BorrowMutStorage::Host {
+            api: api as *const _,
+            handle,
+            ptr,
+        },
         _phantom: PhantomData,
     })
 }
@@ -1291,6 +1549,7 @@ fn type_tag<T>() -> usize {
 
 fn type_tag_impl<T>() {}
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn rust_object_v1<T>() -> &'static abi::KotoPluginObjectV1
 where
     T: KotoObject + 'static,
@@ -1329,18 +1588,21 @@ where
     })
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_init_trampoline<T>(storage: *mut c_void, source: *mut c_void) {
     unsafe {
         (storage as *mut T).write(std::ptr::read(source as *const T));
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_drop_data_trampoline<T>(storage: *mut c_void) {
     unsafe {
         std::ptr::drop_in_place(storage as *mut T);
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_type_string_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1355,6 +1617,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_named_value_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1395,6 +1658,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_named_value_assign_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1428,6 +1692,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_call_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1478,6 +1743,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_display_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1509,6 +1775,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_unary_op_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1544,6 +1811,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_binary_op_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1595,6 +1863,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_binary_op_assign_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1636,6 +1905,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_size_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1669,6 +1939,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_is_callable_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1697,6 +1968,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_index_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1732,6 +2004,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_index_assign_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1768,6 +2041,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_equal_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1803,6 +2077,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_iterable_kind_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1823,6 +2098,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_make_iterator_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1853,6 +2129,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_iterator_next_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1871,7 +2148,7 @@ where
                 Err(error) => return error.into_status(),
             };
             match object.iterator_next(&mut vm) {
-                Ok(Some(output)) => match KValue::try_from(output) {
+                Ok(Some(output)) => match output.try_into_value() {
                     Ok(value) => {
                         unsafe {
                             *out = encode_value(api, value);
@@ -1894,6 +2171,7 @@ where
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn object_iterator_next_back_trampoline<T>(
     host_api: *const abi::KotoHostApiV1,
     instance: abi::KObject,
@@ -1912,7 +2190,7 @@ where
                 Err(error) => return error.into_status(),
             };
             match object.iterator_next_back(&mut vm) {
-                Ok(Some(output)) => match KValue::try_from(output) {
+                Ok(Some(output)) => match output.try_into_value() {
                     Ok(value) => {
                         unsafe {
                             *out = encode_value(api, value);
@@ -1940,25 +2218,471 @@ where
     T: KotoObject + 'static,
 {
     fn from(value: T) -> Self {
-        let api = current_host_api();
-        let mut value = ManuallyDrop::new(value);
-        let handle = unsafe {
-            (api.object_make)(
-                rust_object_v1::<T>(),
-                abi::KotoObjectDataV1 {
-                    struct_size: size_of::<abi::KotoObjectDataV1>(),
-                    size: size_of::<T>().max(1),
-                    align: std::mem::align_of::<T>(),
-                    init: object_init_trampoline::<T>,
-                    drop: object_drop_data_trampoline::<T>,
-                    source: (&mut *value as *mut T).cast(),
-                },
-            )
-        };
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let id = register_wasm_object(Box::new(value));
+                let handle = wasm_support::wasm_object_to_native(unsafe { wasm::object_make(id) });
+                Self {
+                    api: std::ptr::null(),
+                    handle,
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                let mut value = ManuallyDrop::new(value);
+                let handle = unsafe {
+                    (api.object_make)(
+                        rust_object_v1::<T>(),
+                        abi::KotoObjectDataV1 {
+                            struct_size: size_of::<abi::KotoObjectDataV1>(),
+                            size: size_of::<T>().max(1),
+                            align: std::mem::align_of::<T>(),
+                            init: object_init_trampoline::<T>,
+                            drop: object_drop_data_trampoline::<T>,
+                            source: (&mut *value as *mut T).cast(),
+                        },
+                    )
+                };
 
-        Self {
-            api: api as *const _,
-            handle,
+                Self {
+                    api: api as *const _,
+                    handle,
+                }
+            }
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn with_wasm_object<R>(user_data: u32, f: impl FnOnce(&dyn KotoObject) -> Result<R>) -> Result<R> {
+    with_wasm_object_ptr(user_data, |ptr| {
+        let object = unsafe { &*ptr };
+        f(object)
+    })
+    .unwrap_or_else(|| Err(Error::new("unknown wasm plugin object id")))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn with_wasm_object_mut<R>(
+    user_data: u32,
+    f: impl FnOnce(&mut dyn KotoObject) -> Result<R>,
+) -> Result<R> {
+    with_wasm_object_ptr(user_data, |ptr| {
+        let object = unsafe { &mut *ptr };
+        f(object)
+    })
+    .unwrap_or_else(|| Err(Error::new("unknown wasm plugin object id")))
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_type_string_v1")]
+unsafe extern "C" fn wasm_object_type_string_trampoline(
+    user_data: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| {
+            Ok(wasm_support::string_slice(
+                KotoType::<PluginBackend>::type_string(object).as_ref(),
+            ))
+        })
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), out),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KStringSlice::default(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KStringSlice::default(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KStringSlice) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_drop_v1")]
+unsafe extern "C" fn wasm_object_drop_trampoline(user_data: u32) {
+    unregister_wasm_object(user_data);
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_named_value_v1")]
+unsafe extern "C" fn wasm_object_named_value_trampoline(
+    user_data: u32,
+    key_ptr: u32,
+    out_ptr: u32,
+    out_found_ptr: u32,
+    status_ptr: u32,
+) {
+    let key = unsafe { &*(key_ptr as *const wasm::KStringSlice) };
+    let key = unsafe { std::slice::from_raw_parts(key.ptr as *const u8, key.len as usize) };
+    let key = std::str::from_utf8(key).unwrap_or_default();
+
+    let (status, out, found) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| object.access(&KString::from(key)))
+    })) {
+        Ok(Ok(Some(out))) => (wasm::KotoStatus::ok(), encode_wasm_value(out), true),
+        Ok(Ok(None)) => (wasm::KotoStatus::ok(), wasm::KValue::null(), false),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+            false,
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+            false,
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(out_found_ptr as *mut bool) = found;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_named_value_assign_v1")]
+unsafe extern "C" fn wasm_object_named_value_assign_trampoline(
+    user_data: u32,
+    key_ptr: u32,
+    value_ptr: u32,
+    status_ptr: u32,
+) {
+    let key = unsafe { &*(key_ptr as *const wasm::KStringSlice) };
+    let key = unsafe { std::slice::from_raw_parts(key.ptr as *const u8, key.len as usize) };
+    let key = std::str::from_utf8(key).unwrap_or_default();
+    let value = unsafe { &*(value_ptr as *const wasm::KValue) };
+
+    let status = match catch_unwind(AssertUnwindSafe(|| {
+        let value = decode_wasm_value(*value)?;
+        with_wasm_object_mut(user_data, |object| {
+            object.access_assign(&KString::from(key), &value)
+        })
+    })) {
+        Ok(Ok(())) => wasm::KotoStatus::ok(),
+        Ok(Err(error)) => wasm_support::error_status(&error.to_string()),
+        Err(_) => wasm_support::error_status("wasm plugin object callback panicked"),
+    };
+
+    unsafe {
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_display_v1")]
+unsafe extern "C" fn wasm_object_display_trampoline(user_data: u32, out_ptr: u32, status_ptr: u32) {
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| {
+            let mut result = String::new();
+            let vm = KotoVm::from_wasm();
+            let mut ctx = DisplayContext::with_vm_and_capacity(&vm, result.capacity());
+            object.display(&mut ctx)?;
+            result = ctx.result();
+            Ok(encode_wasm_value(KValue::from(result)))
+        })
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), out),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_call_v1")]
+unsafe extern "C" fn wasm_object_call_trampoline(
+    ctx_ptr: u32,
+    user_data: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let ctx = unsafe { &*(ctx_ptr as *const wasm::CallContext) };
+
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        let instance = decode_wasm_value(ctx.instance)?;
+        let mut call_ctx = CallContext::from_wasm(
+            instance,
+            ctx.args_ptr as *const wasm::KValue,
+            ctx.arg_count as usize,
+        );
+        with_wasm_object_mut(user_data, |object| object.call(&mut call_ctx))
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), encode_wasm_value(out)),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_size_v1")]
+unsafe extern "C" fn wasm_object_size_trampoline(
+    user_data: u32,
+    out_ptr: u32,
+    out_has_size_ptr: u32,
+    status_ptr: u32,
+) {
+    let (status, out, has_size) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| object.size())
+    })) {
+        Ok(Ok(Some(size))) => (wasm::KotoStatus::ok(), size as u32, true),
+        Ok(Ok(None)) => (wasm::KotoStatus::ok(), 0, false),
+        Ok(Err(error)) => (wasm_support::error_status(&error.to_string()), 0, false),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            0,
+            false,
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut u32) = out;
+        *(out_has_size_ptr as *mut bool) = has_size;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_is_callable_v1")]
+unsafe extern "C" fn wasm_object_is_callable_trampoline(
+    user_data: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| object.is_callable())
+    })) {
+        Ok(Ok(is_callable)) => (wasm::KotoStatus::ok(), is_callable),
+        Ok(Err(error)) => (wasm_support::error_status(&error.to_string()), false),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            false,
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut bool) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_iterable_kind_v1")]
+unsafe extern "C" fn wasm_object_iterable_kind_trampoline(
+    user_data: u32,
+) -> koto_ffi::IterableKind {
+    match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| object.is_iterable())
+    })) {
+        Ok(Ok(IsIterable::NotIterable)) => koto_ffi::IterableKind::NotIterable,
+        Ok(Ok(IsIterable::Iterable)) => koto_ffi::IterableKind::Iterable,
+        Ok(Ok(IsIterable::ForwardIterator)) => koto_ffi::IterableKind::ForwardIterator,
+        Ok(Ok(IsIterable::BidirectionalIterator)) => koto_ffi::IterableKind::BidirectionalIterator,
+        Ok(Err(_)) | Err(_) => koto_ffi::IterableKind::NotIterable,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_make_iterator_v1")]
+unsafe extern "C" fn wasm_object_make_iterator_trampoline(
+    user_data: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| {
+            let mut vm = KotoVm::from_wasm();
+            let iterator = object.make_iterator(&mut vm)?;
+            Ok(encode_wasm_value(KValue::Iterator(iterator)))
+        })
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), out),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_unary_op_v1")]
+unsafe extern "C" fn wasm_object_unary_op_trampoline(
+    user_data: u32,
+    op: koto_ffi::UnaryOp,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        with_wasm_object(user_data, |object| object_unary_op(object, op.into()))
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), encode_wasm_value(out)),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_binary_op_v1")]
+unsafe extern "C" fn wasm_object_binary_op_trampoline(
+    user_data: u32,
+    op: koto_ffi::BinaryOp,
+    rhs_ptr: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let rhs = unsafe { &*(rhs_ptr as *const wasm::KValue) };
+
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        let rhs = decode_wasm_value(*rhs)?;
+        with_wasm_object(user_data, |object| {
+            object_binary_op(object, op.into(), &rhs)
+        })
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), encode_wasm_value(out)),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_index_v1")]
+unsafe extern "C" fn wasm_object_index_trampoline(
+    user_data: u32,
+    index_ptr: u32,
+    out_ptr: u32,
+    status_ptr: u32,
+) {
+    let index = unsafe { &*(index_ptr as *const wasm::KValue) };
+
+    let (status, out) = match catch_unwind(AssertUnwindSafe(|| {
+        let index = decode_wasm_value(*index)?;
+        with_wasm_object(user_data, |object| object.index(&index))
+    })) {
+        Ok(Ok(out)) => (wasm::KotoStatus::ok(), encode_wasm_value(out)),
+        Ok(Err(error)) => (
+            wasm_support::error_status(&error.to_string()),
+            wasm::KValue::null(),
+        ),
+        Err(_) => (
+            wasm_support::error_status("wasm plugin object callback panicked"),
+            wasm::KValue::null(),
+        ),
+    };
+
+    unsafe {
+        *(out_ptr as *mut wasm::KValue) = out;
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_index_assign_v1")]
+unsafe extern "C" fn wasm_object_index_assign_trampoline(
+    user_data: u32,
+    index_ptr: u32,
+    value_ptr: u32,
+    status_ptr: u32,
+) {
+    let index = unsafe { &*(index_ptr as *const wasm::KValue) };
+    let value = unsafe { &*(value_ptr as *const wasm::KValue) };
+
+    let status = match catch_unwind(AssertUnwindSafe(|| {
+        let index = decode_wasm_value(*index)?;
+        let value = decode_wasm_value(*value)?;
+        with_wasm_object_mut(user_data, |object| object.index_assign(&index, &value))
+    })) {
+        Ok(Ok(())) => wasm::KotoStatus::ok(),
+        Ok(Err(error)) => wasm_support::error_status(&error.to_string()),
+        Err(_) => wasm_support::error_status("wasm plugin object callback panicked"),
+    };
+
+    unsafe {
+        *(status_ptr as *mut wasm::KotoStatus) = status;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_object_binary_op_assign_v1")]
+unsafe extern "C" fn wasm_object_binary_op_assign_trampoline(
+    user_data: u32,
+    op: koto_ffi::BinaryOp,
+    rhs_ptr: u32,
+    status_ptr: u32,
+) {
+    let rhs = unsafe { &*(rhs_ptr as *const wasm::KValue) };
+
+    let status = match catch_unwind(AssertUnwindSafe(|| {
+        let rhs = decode_wasm_value(*rhs)?;
+        with_wasm_object_mut(user_data, |object| {
+            object_binary_op_assign(object, op.into(), &rhs)
+        })
+    })) {
+        Ok(Ok(())) => wasm::KotoStatus::ok(),
+        Ok(Err(error)) => wasm_support::error_status(&error.to_string()),
+        Err(_) => wasm_support::error_status("wasm plugin object callback panicked"),
+    };
+
+    unsafe {
+        *(status_ptr as *mut wasm::KotoStatus) = status;
     }
 }

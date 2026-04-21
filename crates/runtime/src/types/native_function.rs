@@ -1,9 +1,9 @@
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{Ptr, Result, error::unexpected_args_after_instance, prelude::*};
 use koto_api::KotoCallContext;
-#[cfg(any(feature = "plugin", test))]
-use koto_ffi as abi;
+#[cfg(any(feature = "native_host", test))]
+use koto_ffi::native as abi;
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -37,7 +37,7 @@ impl KNativeFunction {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KNativeFunction {
     type Abi = abi::OpaqueHandle;
 

@@ -27,8 +27,10 @@ pub use string::KString;
 pub use tuple::KTuple;
 pub use value::KValue;
 
+use crate::abi;
 use crate::{Result, runtime_error};
-use koto_ffi as abi;
+#[cfg(target_arch = "wasm32")]
+use koto_ffi::wasm;
 
 pub(crate) use object::make_method_value;
 
@@ -90,5 +92,44 @@ pub(crate) fn encode_value(_api: &abi::KotoHostApiV1, value: KValue) -> abi::KVa
         KValue::NativeFunction(value) => value.into_raw(),
         KValue::Iterator(value) => value.into_raw(),
         KValue::Object(value) => value.into_raw(),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn decode_wasm_value(value: wasm::KValue) -> Result<KValue> {
+    let value = crate::wasm_support::wasm_value_to_native(value);
+    match value.kind {
+        abi::KValueKind::Null => Ok(KValue::Null),
+        abi::KValueKind::Bool => Ok(KValue::Bool(unsafe { value.data.bool_value })),
+        abi::KValueKind::I64 => Ok(KValue::Number(KNumber::I64(unsafe {
+            value.data.i64_value
+        }))),
+        abi::KValueKind::F64 => Ok(KValue::Number(KNumber::F64(unsafe {
+            value.data.f64_value
+        }))),
+        abi::KValueKind::Range => Ok(KValue::Range(unsafe { value.data.range_value }.into())),
+        abi::KValueKind::String => Ok(KValue::Str(KString::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::List => Ok(KValue::List(KList::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::Tuple => Ok(KValue::Tuple(KTuple::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::Map => Ok(KValue::Map(KMap::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::Object => Ok(KValue::Object(KObject::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::Iterator => Ok(KValue::Iterator(iterator::KIterator::from_wasm_existing(
+            crate::wasm_support::native_value_to_wasm(value),
+        ))),
+        abi::KValueKind::Function
+        | abi::KValueKind::NativeFunction
+        | abi::KValueKind::Unsupported => {
+            runtime_error!("unsupported wasm value for plugin callback decoding")
+        }
     }
 }

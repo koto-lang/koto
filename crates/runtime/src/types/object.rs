@@ -1,13 +1,13 @@
-#[cfg(any(feature = "plugin", test))]
+#[cfg(any(feature = "native_host", test))]
 use crate::KCell;
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{Borrow, BorrowMut, ErrorKind, KFunction, PtrMut, Result, prelude::*};
 use koto_api::{
     KotoAccess, KotoBackend, KotoCopy, KotoMethodContext, KotoObjectCast, KotoObjectOps, KotoType,
 };
-#[cfg(any(feature = "plugin", test))]
-use koto_ffi as abi;
+#[cfg(any(feature = "native_host", test))]
+use koto_ffi::native as abi;
 use std::{any::Any, fmt, marker::PhantomData};
 
 /// A trait that allows objects to support '.' accesses
@@ -228,7 +228,7 @@ impl KotoCopy<RuntimeBackend> for KObject {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KObject {
     type Abi = abi::KObject;
 

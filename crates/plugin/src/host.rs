@@ -1,5 +1,5 @@
 use crate::Error;
-use koto_ffi as abi;
+use crate::abi;
 use std::{cell::Cell, ptr};
 
 thread_local! {
@@ -15,6 +15,7 @@ pub(crate) fn with_host_api<T>(host_api: &abi::KotoHostApiV1, f: impl FnOnce() -
     })
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(crate) fn current_host_api() -> &'static abi::KotoHostApiV1 {
     CURRENT_HOST_API.with(|current| {
         let host_api = current.get();

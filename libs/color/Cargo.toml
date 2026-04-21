@@ -20,6 +20,9 @@ arc = ["koto_runtime/arc"]
 plugin = ["dep:koto_plugin"]
 rc = ["koto_runtime/rc"]
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 koto_runtime = { workspace = true }
 koto_plugin = { path = "../../crates/plugin", optional = true }

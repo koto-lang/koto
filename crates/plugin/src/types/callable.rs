@@ -1,4 +1,11 @@
-use koto_ffi as abi;
+use crate::abi;
+use crate::{
+    KValue, KotoVm, Result,
+    call::CallContext,
+    error::Error,
+    host::with_host_api,
+    types::{decode_value, encode_value},
+};
 use std::{
     ffi::c_void,
     fmt,
@@ -6,19 +13,53 @@ use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     slice,
 };
-
-use crate::{
-    KValue, KotoVm, Result,
-    call::CallContext,
-    error::Error,
-    host::{current_host_api, with_host_api},
-    types::{decode_value, encode_value},
-};
+cfg_select! {
+    target_arch = "wasm32" => {
+        use crate::types::decode_wasm_value;
+        use crate::wasm_support;
+        use koto_ffi::wasm;
+        use std::{
+            cell::{Cell, RefCell},
+            collections::HashMap,
+        };
+    }
+    _ => {
+        use crate::host::current_host_api;
+    }
+}
 
 type PluginFunction = dyn Fn(&mut CallContext) -> Result<KValue> + 'static;
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 struct FunctionWrapper {
     function: Box<PluginFunction>,
+}
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    // Registered wasm native functions are removed again via `koto_plugin_native_function_drop_v1`
+    // when the host releases the last handle to the guest function.
+    static WASM_FUNCTIONS: RefCell<HashMap<u32, Box<PluginFunction>>> = RefCell::new(HashMap::new());
+    static NEXT_WASM_FUNCTION_ID: Cell<u32> = const { Cell::new(1) };
+}
+
+#[cfg(target_arch = "wasm32")]
+fn register_wasm_function(function: Box<PluginFunction>) -> u32 {
+    NEXT_WASM_FUNCTION_ID.with(|next_id| {
+        let id = next_id.get();
+        next_id.set(id + 1);
+        WASM_FUNCTIONS.with(|functions| {
+            functions.borrow_mut().insert(id, function);
+        });
+        id
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn unregister_wasm_function(id: u32) {
+    WASM_FUNCTIONS.with(|functions| {
+        functions.borrow_mut().remove(&id);
+    });
 }
 
 /// A host-backed Koto function value.
@@ -92,6 +133,7 @@ impl fmt::Debug for KFunction {
 
 /// A host-backed native function value.
 pub struct KNativeFunction {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     api: *const abi::KotoHostApiV1,
     handle: abi::OpaqueHandle,
 }
@@ -106,21 +148,44 @@ unsafe impl Sync for KNativeFunction {}
 impl KNativeFunction {
     #[doc(hidden)]
     pub fn new(function: impl Fn(&mut CallContext) -> Result<KValue> + 'static) -> Self {
-        let api = current_host_api();
-        let wrapper = Box::new(FunctionWrapper {
-            function: Box::new(function),
-        });
-        let handle = unsafe {
-            (api.native_function_make)(
-                function_trampoline,
-                Box::into_raw(wrapper).cast::<c_void>(),
-                drop_trampoline,
-            )
-        };
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let id = register_wasm_function(Box::new(function));
+                let (status, out) = unsafe {
+                    wasm::native_function_make(
+                        wasm_support::string_slice("koto_plugin_native_function_trampoline_v1"),
+                        id,
+                    )
+                };
+                if status.code != koto_ffi::KotoStatusCode::Ok {
+                    panic!("{}", wasm_support::status_to_error(status));
+                }
 
-        Self {
-            api: api as *const _,
-            handle,
+                let out = wasm_support::wasm_value_to_native(out);
+                debug_assert!(matches!(out.kind, abi::KValueKind::NativeFunction));
+                Self {
+                    api: std::ptr::null(),
+                    handle: unsafe { out.data.native_function_value },
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                let wrapper = Box::new(FunctionWrapper {
+                    function: Box::new(function),
+                });
+                let handle = unsafe {
+                    (api.native_function_make)(
+                        function_trampoline,
+                        Box::into_raw(wrapper).cast::<c_void>(),
+                        drop_trampoline,
+                    )
+                };
+
+                Self {
+                    api: api as *const _,
+                    handle,
+                }
+            }
         }
     }
 
@@ -137,6 +202,7 @@ impl KNativeFunction {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     fn api(&self) -> &abi::KotoHostApiV1 {
         unsafe { &*self.api }
     }
@@ -163,14 +229,35 @@ impl KNativeFunction {
 
 impl Clone for KNativeFunction {
     fn clone(&self) -> Self {
-        let api = self.api();
-        Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let cloned = unsafe {
+                    wasm::value_clone(wasm_support::native_value_to_wasm(self.handle()))
+                };
+                let cloned = wasm_support::wasm_value_to_native(cloned);
+                Self {
+                    api: std::ptr::null(),
+                    handle: unsafe { cloned.data.native_function_value },
+                }
+            }
+            _ => {
+                let api = self.api();
+                Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+            }
+        }
     }
 }
 
 impl Drop for KNativeFunction {
     fn drop(&mut self) {
-        unsafe { (self.api().value_free)(self.handle()) };
+        cfg_select! {
+            target_arch = "wasm32" => unsafe {
+                wasm::value_free(wasm_support::native_value_to_wasm(self.handle()));
+            },
+            _ => unsafe {
+                (self.api().value_free)(self.handle())
+            },
+        }
     }
 }
 
@@ -180,6 +267,7 @@ impl fmt::Debug for KNativeFunction {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn function_trampoline(
     host_api: *const abi::KotoHostApiV1,
     ctx: abi::CallContext,
@@ -224,6 +312,50 @@ unsafe extern "C" fn function_trampoline(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 unsafe extern "C" fn drop_trampoline(user_data: *mut c_void) {
     let _ = unsafe { Box::from_raw(user_data as *mut FunctionWrapper) };
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_native_function_trampoline_v1")]
+pub unsafe extern "C" fn wasm_function_trampoline(
+    ctx_ptr: wasm::CallContextPtr,
+    user_data: u32,
+    out_ptr: wasm::KValuePtr,
+    status_ptr: wasm::KotoStatusPtr,
+) {
+    let out = unsafe { &mut *(out_ptr as usize as *mut wasm::KValue) };
+    let status = unsafe { &mut *(status_ptr as usize as *mut wasm::KotoStatus) };
+    let ctx = unsafe { &*(ctx_ptr as usize as *const wasm::CallContext) };
+
+    *out = wasm::KValue::null();
+    *status = match catch_unwind(AssertUnwindSafe(|| {
+        let instance = decode_wasm_value(ctx.instance).unwrap_or(KValue::Null);
+        let mut call_ctx = CallContext::from_wasm(
+            instance,
+            ctx.args_ptr as *const wasm::KValue,
+            ctx.arg_count as usize,
+        );
+
+        WASM_FUNCTIONS.with(|functions| match functions.borrow().get(&user_data) {
+            Some(function) => match function(&mut call_ctx) {
+                Ok(value) => {
+                    *out = super::map::encode_export_value(value);
+                    wasm::KotoStatus::ok()
+                }
+                Err(error) => wasm_support::error_status(&error.to_string()),
+            },
+            None => wasm_support::error_status("unknown wasm plugin function id"),
+        })
+    })) {
+        Ok(status) => status,
+        Err(_) => wasm_support::error_status("wasm plugin callback panicked"),
+    };
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(export_name = "koto_plugin_native_function_drop_v1")]
+pub unsafe extern "C" fn wasm_function_drop_trampoline(user_data: u32) {
+    unregister_wasm_function(user_data);
 }

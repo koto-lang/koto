@@ -1,13 +1,13 @@
-#[cfg(any(feature = "plugin", test))]
+#[cfg(any(feature = "native_host", test))]
 use crate::KCell;
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use koto_api::KotoIteratorBuilder;
-#[cfg(any(feature = "plugin", test))]
-use koto_ffi as abi;
+#[cfg(any(feature = "native_host", test))]
+use koto_ffi::native as abi;
 use koto_memory::Ptr;
 
-use crate::{Error, PtrMut, Result, prelude::*, vm::ReturnOrYield};
+use crate::{Error, KFunction, PtrMut, Result, prelude::*, vm::ReturnOrYield};
 use std::{fmt, ops::DerefMut, result::Result as StdResult};
 
 /// The trait used to implement iterators in Koto
@@ -46,20 +46,60 @@ pub enum KIteratorOutput {
     Error(Error),
 }
 
-impl<T> From<T> for KIteratorOutput
-where
-    KValue: From<T>,
-{
-    fn from(value: T) -> Self {
-        Self::Value(value.into())
+macro_rules! impl_iterator_output_from {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl From<$ty> for KIteratorOutput {
+                fn from(value: $ty) -> Self {
+                    Self::Value(value.into())
+                }
+            }
+        )*
+    };
+}
+
+impl_iterator_output_from!(
+    bool,
+    i16,
+    i32,
+    i64,
+    u8,
+    u16,
+    u32,
+    usize,
+    f32,
+    f64,
+    String,
+    &str,
+    KValue,
+    KNumber,
+    KRange,
+    KString,
+    KList,
+    KTuple,
+    KMap,
+    KFunction,
+    KNativeFunction,
+    KIterator,
+    KObject,
+);
+
+impl From<(KValue, KValue)> for KIteratorOutput {
+    fn from((first, second): (KValue, KValue)) -> Self {
+        Self::ValuePair(first, second)
     }
 }
 
-impl TryFrom<KIteratorOutput> for KValue {
-    type Error = Error;
+impl From<Error> for KIteratorOutput {
+    fn from(error: Error) -> Self {
+        Self::Error(error)
+    }
+}
 
-    fn try_from(iterator_output: KIteratorOutput) -> StdResult<Self, Self::Error> {
-        match iterator_output {
+impl KIteratorOutput {
+    /// Converts iterator output into a plain value, turning iterator errors into `Err`.
+    pub fn try_into_value(self) -> StdResult<KValue, Error> {
+        match self {
             KIteratorOutput::Value(value) => Ok(value),
             KIteratorOutput::ValuePair(first, second) => {
                 Ok(KValue::Tuple(vec![first, second].into()))
@@ -181,7 +221,7 @@ impl KIterator {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KIterator {
     type Abi = abi::OpaqueHandle;
 

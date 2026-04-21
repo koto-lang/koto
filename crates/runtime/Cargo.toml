@@ -18,7 +18,8 @@ default = ["rc"]
 # To use `arc`, default features must be disabled.
 arc = ["koto_memory/arc", "koto_derive/thread-safe"]
 rc = ["koto_memory/rc"]
-plugin = ["dep:libloading"]
+native_host = ["dep:libloading"]
+wasm_host = ["dep:wasmi"]
 
 [dependencies]
 koto_api = { workspace = true }
@@ -32,19 +33,21 @@ koto_parser = { workspace = true }
 indexmap = { workspace = true }
 libloading = { workspace = true, optional = true }
 paste = { workspace = true }
+parking_lot = { workspace = true }
 rustc-hash = { workspace = true }
 saturating_cast = { workspace = true }
 smallvec = { workspace = true }
 thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }
+wasmi = { version = "0.40.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 chrono = { workspace = true, features = ["clock", "std"] }
 instant = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-chrono = { workspace = true, features = ["clock", "std", "wasmbind"] }
-instant = { workspace = true, features = ["wasm-bindgen"] }
+chrono = { workspace = true, default-features = false, features = ["clock", "std"] }
+instant = { workspace = true, default-features = false }
 
 [dev-dependencies]
 koto_test_utils = { path = "../../crates/test_utils", default-features = false }

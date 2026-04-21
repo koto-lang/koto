@@ -1,3 +1,4 @@
+use crate::abi;
 use crate::api::{
     BinaryOp, KotoIteratorBuilder, KotoNamedAccess, KotoObjectHandle, KotoObjectOps, KotoVmTrait,
     UnaryOp,
@@ -7,7 +8,6 @@ use crate::derive::{
     koto_method, koto_set, koto_set_fallback, koto_set_override,
 };
 use crate::*;
-use koto_ffi as abi;
 use std::{
     alloc::Layout,
     ffi::c_void,
@@ -68,7 +68,7 @@ enum TestValue {
 }
 
 fn test_borrow_storage_size() -> usize {
-    size_of::<[usize; abi::KOBJECT_BORROW_WORDS]>()
+    size_of::<[usize; 4]>()
 }
 
 fn make_test_borrow_token(token: Arc<SharedTestObject>) -> abi::KObjectBorrow {

@@ -13,6 +13,7 @@ parse_deps = false
 [export]
 item_types = ["constants", "enums", "structs", "unions", "typedefs"]
 include = ["KotoPluginInitV1"]
+exclude = ["KOBJECT_BORROW_WORDS"]
 
 [enum]
 rename_variants = "QualifiedScreamingSnakeCase"

@@ -1,4 +1,6 @@
-use koto_plugin::prelude::{KMap, KNumber, KTuple, KValue, KotoMapSource, KotoSequence, PluginBackend};
+use koto_plugin::prelude::{
+    KMap, KNumber, KTuple, KValue, KotoMapSource, KotoSequence, PluginBackend,
+};
 use serde_core::{
     Deserialize, Deserializer,
     de::{self, Unexpected, VariantAccess, Visitor},
@@ -190,9 +192,11 @@ impl<'de> Visitor<'de> for KValueVisitor {
             data.push((key.into(), value.into()));
         }
 
-        Ok(DeserializableKValue(KValue::Map(
-            <KMap as KotoMapSource<PluginBackend>>::from_entries(&data),
-        )))
+        Ok(DeserializableKValue(KValue::Map(<KMap as KotoMapSource<
+            PluginBackend,
+        >>::from_entries(
+            &data
+        ))))
     }
 
     fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
@@ -202,11 +206,13 @@ impl<'de> Visitor<'de> for KValueVisitor {
         let (variant, variant_access) = data.variant::<DeserializableKValue>()?;
         let value = variant_access.newtype_variant::<DeserializableKValue>()?;
 
-        Ok(KValue::Map(<KMap as KotoMapSource<PluginBackend>>::from_entries(&[(
-            variant.into(),
-            value.into(),
-        )]))
-        .into())
+        Ok(
+            KValue::Map(<KMap as KotoMapSource<PluginBackend>>::from_entries(&[(
+                variant.into(),
+                value.into(),
+            )]))
+            .into(),
+        )
     }
 }
 

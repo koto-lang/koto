@@ -33,12 +33,6 @@ pub trait KotoFunctionReturn {
     fn into_result(self) -> crate::Result<crate::KValue>;
 }
 
-impl<T: Into<crate::KValue>> KotoFunctionReturn for crate::Result<T> {
-    fn into_result(self) -> crate::Result<crate::KValue> {
-        self.map(Into::into)
-    }
-}
-
 impl<T: Into<crate::KValue>> KotoFunctionReturn for T {
     fn into_result(self) -> crate::Result<crate::KValue> {
         Ok(self.into())
@@ -52,12 +46,6 @@ impl<T: Into<crate::KValue>> KotoFunctionReturn for T {
 )]
 pub trait KotoGetReturn {
     fn into_result(self) -> crate::Result<crate::KValue>;
-}
-
-impl<T: Into<crate::KValue>> KotoGetReturn for crate::Result<T> {
-    fn into_result(self) -> crate::Result<crate::KValue> {
-        self.map(Into::into)
-    }
 }
 
 impl<T: Into<crate::KValue>> KotoGetReturn for T {
@@ -94,12 +82,6 @@ impl KotoSetReturn for () {
 )]
 pub trait KotoMethodReturn {
     fn into_result(self) -> crate::Result<crate::KValue>;
-}
-
-impl<T: Into<crate::KValue>> KotoMethodReturn for crate::Result<T> {
-    fn into_result(self) -> crate::Result<crate::KValue> {
-        self.map(Into::into)
-    }
 }
 
 impl<T: Into<crate::KValue>> KotoMethodReturn for T {

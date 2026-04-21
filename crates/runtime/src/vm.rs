@@ -19,14 +19,17 @@ use std::{
     fmt,
     hash::BuildHasherDefault,
     path::{Path, PathBuf},
+    result::Result as StdResult,
     time::Duration,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-#[cfg(feature = "plugin")]
-use crate::plugin_host::{
+#[cfg(feature = "native_host")]
+use crate::native_host::{
     NativeModuleCache, is_native_import, load_native_module, resolve_native_module_path,
 };
+#[cfg(feature = "wasm_host")]
+use crate::wasm_host::{is_wasm_import, load_wasm_module, resolve_wasm_module_path};
 
 #[derive(Clone)]
 pub enum ControlFlow {
@@ -47,7 +50,7 @@ struct VmContext {
     loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
     module_cache: KCell<ModuleCache>,
-    #[cfg(feature = "plugin")]
+    #[cfg(feature = "native_host")]
     // The cached export maps of imported native modules
     native_module_cache: KCell<NativeModuleCache>,
 }
@@ -92,7 +95,7 @@ impl VmContext {
             core_lib,
             loader: ModuleLoader::default().into(),
             module_cache: ModuleCache::default().into(),
-            #[cfg(feature = "plugin")]
+            #[cfg(feature = "native_host")]
             native_module_cache: NativeModuleCache::default().into(),
         }
     }
@@ -260,7 +263,7 @@ impl KotoVm {
     pub fn clear_module_caches(&self) {
         self.context.loader.borrow_mut().clear_cache();
         self.context.module_cache.borrow_mut().clear();
-        #[cfg(feature = "plugin")]
+        #[cfg(feature = "native_host")]
         self.context.native_module_cache.borrow_mut().clear();
     }
 
@@ -2419,7 +2422,7 @@ impl KotoVm {
             return self.successful_import(import_register, value, import_all);
         }
 
-        #[cfg(feature = "plugin")]
+        #[cfg(feature = "native_host")]
         if is_native_import(import_name.as_str()) {
             let source_path = self.reader.chunk.path.clone();
             let native_path = resolve_native_module_path(
@@ -2481,9 +2484,33 @@ impl KotoVm {
             }
         }
 
-        #[cfg(not(feature = "plugin"))]
+        #[cfg(not(feature = "native_host"))]
         if import_name.as_str().starts_with("native:") {
             return runtime_error!("native module imports are disabled");
+        }
+
+        #[cfg(feature = "wasm_host")]
+        if is_wasm_import(import_name.as_str()) {
+            let source_path = self.reader.chunk.path.clone();
+            let wasm_path = resolve_wasm_module_path(
+                import_name.as_str(),
+                source_path
+                    .as_ref()
+                    .map(|path_string| Path::new(path_string.as_str())),
+            )?;
+
+            let exports = load_wasm_module(&wasm_path)?;
+
+            if let Some(callback) = &self.context.settings.module_imported_callback {
+                callback(&wasm_path);
+            }
+
+            return self.successful_import(import_register, exports.into(), import_all);
+        }
+
+        #[cfg(not(feature = "wasm_host"))]
+        if import_name.as_str().starts_with("wasm:") {
+            return runtime_error!("wasm module imports are disabled");
         }
 
         // Attempt to compile the imported module from disk,
@@ -3066,7 +3093,7 @@ impl KotoVm {
         Ok(())
     }
 
-    #[cfg(feature = "plugin")]
+    #[cfg(feature = "native_host")]
     pub(crate) fn call_borrowed_object(
         &mut self,
         object: &mut dyn KotoObject,
@@ -3875,11 +3902,7 @@ impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
         self.spawn_shared_vm()
     }
 
-    fn call_function(
-        &mut self,
-        function: KValue,
-        args: &[KValue],
-    ) -> std::result::Result<KValue, Error> {
+    fn call_function(&mut self, function: KValue, args: &[KValue]) -> StdResult<KValue, Error> {
         self.call_function(function, args)
     }
 
@@ -3888,11 +3911,11 @@ impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
         instance: KValue,
         function: KValue,
         args: &[KValue],
-    ) -> std::result::Result<KValue, Error> {
+    ) -> StdResult<KValue, Error> {
         self.call_instance_function(instance, function, args)
     }
 
-    fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> std::result::Result<KValue, Error> {
+    fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> StdResult<KValue, Error> {
         self.run_unary_op(op, value)
     }
 
@@ -3901,7 +3924,7 @@ impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
         op: BinaryOp,
         lhs: KValue,
         rhs: KValue,
-    ) -> std::result::Result<KValue, Error> {
+    ) -> StdResult<KValue, Error> {
         self.run_binary_op(op, lhs, rhs)
     }
 
@@ -3910,7 +3933,7 @@ impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
         op: ReadOp,
         container: KValue,
         read_arg: KValue,
-    ) -> std::result::Result<KValue, Error> {
+    ) -> StdResult<KValue, Error> {
         self.run_read_op(op, container, read_arg)
     }
 
@@ -3920,7 +3943,7 @@ impl KotoVmTrait<crate::RuntimeBackend> for KotoVm {
         container: KValue,
         write_arg: KValue,
         write_value: KValue,
-    ) -> std::result::Result<KValue, Error> {
+    ) -> StdResult<KValue, Error> {
         self.run_write_op(op, container, write_arg, write_value)
     }
 }

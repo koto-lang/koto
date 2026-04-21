@@ -1,5 +1,5 @@
 use super::*;
-use crate::plugin_host::transfer::AbiTransfer;
+use crate::native_host::transfer::AbiTransfer;
 use crate::{CallContext, KIteratorOutput, RuntimeBackend};
 use koto_api::{KotoAccess, KotoCopy, KotoObjectOps, KotoStaticType};
 

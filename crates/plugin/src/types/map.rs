@@ -1,17 +1,30 @@
-use super::{KNativeFunction, KValue, decode_value, encode_value};
+use super::{KNativeFunction, KValue, decode_value};
+use crate::abi;
 use crate::{
-    KTuple, PluginBackend,
-    Result,
+    KTuple, PluginBackend, Result,
     call::CallContext,
-    host::{current_host_api, status_to_error, string_slice},
+    host::{status_to_error, string_slice},
     vm::{abi_binary_op, abi_read_op, abi_unary_op, abi_write_op},
 };
 use koto_api::{
     KotoCollection, KotoIdentity, KotoIndexSwap, KotoMap, KotoMapBuilder, KotoMapLookup,
     KotoMapSource, KotoMapSourceMut, KotoMetaMap, KotoSlice, MetaKey as SharedMetaKey,
 };
-use koto_ffi as abi;
 use std::{fmt, mem::ManuallyDrop};
+
+cfg_select! {
+    target_arch = "wasm32" => {
+        use super::decode_wasm_value;
+        use crate::wasm_support;
+        use koto_ffi::wasm;
+    }
+    _ => {
+        use crate::{
+            host::current_host_api,
+            types::encode_value,
+        };
+    }
+}
 
 /// The meta key type used by the plugin API.
 pub type MetaKey = SharedMetaKey<crate::KString>;
@@ -27,6 +40,7 @@ pub struct KMap {
 
 /// A borrowed view over map data.
 pub struct KMapData<'a> {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     api: *const abi::KotoHostApiV1,
     data: abi::KMapData,
     _map: std::marker::PhantomData<&'a KMap>,
@@ -40,16 +54,39 @@ pub struct KMapDataMut<'a> {
 impl KMap {
     /// Creates a new map with the given `@type`.
     pub fn with_type(type_name: &str) -> Self {
-        let api = current_host_api();
-        Self {
-            api: api as *const _,
-            handle: unsafe { (api.map_new_with_type)(string_slice(type_name)) },
+        cfg_select! {
+            target_arch = "wasm32" => {
+                Self {
+                    api: std::ptr::null(),
+                    handle: wasm_support::wasm_map_to_native(unsafe {
+                        wasm::map_new_with_type(wasm_support::string_slice(type_name))
+                    }),
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                Self {
+                    api: api as *const _,
+                    handle: unsafe { (api.map_new_with_type)(string_slice(type_name)) },
+                }
+            }
         }
     }
 
     pub(crate) fn from_existing(api: &abi::KotoHostApiV1, handle: abi::KValue) -> Self {
         let handle = unsafe { (api.value_clone)(handle) };
         Self::from_raw(api, handle)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_wasm_existing(handle: wasm::KValue) -> Self {
+        let handle = unsafe { wasm::value_clone(handle) };
+        let handle = wasm_support::wasm_value_to_native(handle);
+        debug_assert!(matches!(handle.kind, abi::KValueKind::Map));
+        Self {
+            api: std::ptr::null(),
+            handle: unsafe { handle.data.map_value },
+        }
     }
 
     fn from_raw(api: &abi::KotoHostApiV1, handle: abi::KValue) -> Self {
@@ -85,31 +122,67 @@ impl KMap {
 
     /// Creates a map from the provided key/value entries.
     pub fn from_entries(entries: &[(KValue, KValue)]) -> Self {
-        let api = current_host_api();
-        let encoded = entries
-            .iter()
-            .cloned()
-            .map(|(key, value)| abi::KotoMapEntry {
-                key: encode_value(api, key),
-                value: encode_value(api, value),
-            })
-            .collect::<Vec<_>>();
-        Self {
-            api: api as *const _,
-            handle: unsafe { (api.map_make)(encoded.as_ptr(), encoded.len()) },
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let encoded = entries
+                    .iter()
+                    .cloned()
+                    .map(|(key, value)| wasm::KotoMapEntry {
+                        key: encode_export_value(key),
+                        value: encode_export_value(value),
+                    })
+                    .collect::<Vec<_>>();
+                Self {
+                    api: std::ptr::null(),
+                    handle: wasm_support::wasm_map_to_native(unsafe {
+                        wasm::map_make(encoded.as_ptr(), encoded.len() as u32)
+                    }),
+                }
+            }
+            _ => {
+                let api = current_host_api();
+                let encoded = entries
+                    .iter()
+                    .cloned()
+                    .map(|(key, value)| abi::KotoMapEntry {
+                        key: encode_value(api, key),
+                        value: encode_value(api, value),
+                    })
+                    .collect::<Vec<_>>();
+                Self {
+                    api: api as *const _,
+                    handle: unsafe { (api.map_make)(encoded.as_ptr(), encoded.len()) },
+                }
+            }
         }
     }
 
     /// Adds a value entry to the map using a string key.
     pub fn insert(&self, key: &str, value: impl Into<KValue>) {
-        let api = self.api();
-        unsafe {
-            (api.map_insert_value)(
-                self.handle,
-                string_slice(key),
-                encode_value(api, value.into()),
-            )
-        };
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let status = unsafe {
+                    wasm::map_insert_value(
+                        wasm_support::native_map_to_wasm(self.handle),
+                        wasm_support::string_slice(key),
+                        encode_export_value(value.into()),
+                    )
+                };
+                if status.code != koto_ffi::KotoStatusCode::Ok {
+                    panic!("{}", wasm_support::status_to_error(status));
+                }
+            }
+            _ => {
+                let api = self.api();
+                unsafe {
+                    (api.map_insert_value)(
+                        self.handle,
+                        string_slice(key),
+                        encode_value(api, value.into()),
+                    )
+                };
+            }
+        }
     }
 
     /// Adds a function entry to the map using a string key.
@@ -119,14 +192,30 @@ impl KMap {
 
     /// Inserts a value into the map's meta map.
     pub fn insert_meta(&mut self, key: MetaKey, value: impl Into<KValue>) {
-        let api = self.api();
-        unsafe {
-            (api.map_insert_meta_value)(
-                self.handle,
-                encode_meta_key(&key),
-                encode_value(api, value.into()),
-            )
-        };
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let status = unsafe {
+                    wasm::map_insert_meta_value(
+                        wasm_support::native_map_to_wasm(self.handle),
+                        wasm_support::native_meta_key_to_wasm(encode_meta_key(&key)),
+                        encode_export_value(value.into()),
+                    )
+                };
+                if status.code != koto_ffi::KotoStatusCode::Ok {
+                    panic!("{}", wasm_support::status_to_error(status));
+                }
+            }
+            _ => {
+                let api = self.api();
+                unsafe {
+                    (api.map_insert_meta_value)(
+                        self.handle,
+                        encode_meta_key(&key),
+                        encode_value(api, value.into()),
+                    )
+                };
+            }
+        }
     }
 
     /// Adds a function to the map's meta map.
@@ -151,19 +240,26 @@ impl KMap {
 
     /// Returns the entry at `index`, if present.
     pub fn get_index(&self, index: usize) -> Option<(KValue, KValue)> {
-        if index >= self.len() {
-            return None;
-        }
+        cfg_select! {
+            target_arch = "wasm32" => {
+                self.data().get_index(index)
+            }
+            _ => {
+                if index >= self.len() {
+                    return None;
+                }
 
-        let api = self.api();
-        let key = unsafe { (api.map_key_at)(self.handle, index) };
-        let value = unsafe { (api.map_value_at)(self.handle, index) };
-        let result = Some((decode_value(api, key).ok()?, decode_value(api, value).ok()?));
-        unsafe {
-            (api.value_free)(key);
-            (api.value_free)(value);
+                let api = self.api();
+                let key = unsafe { (api.map_key_at)(self.handle, index) };
+                let value = unsafe { (api.map_value_at)(self.handle, index) };
+                let result = Some((decode_value(api, key).ok()?, decode_value(api, value).ok()?));
+                unsafe {
+                    (api.value_free)(key);
+                    (api.value_free)(value);
+                }
+                result
+            }
         }
-        result
     }
 
     /// Returns true if the map contains the given meta key.
@@ -218,7 +314,16 @@ impl KMap {
     pub fn data(&self) -> KMapData<'_> {
         KMapData {
             api: self.api,
-            data: unsafe { (self.api().map_data)(self.handle) },
+            data: cfg_select! {
+                target_arch = "wasm32" => {
+                    wasm_support::wasm_map_data_to_native(unsafe {
+                        wasm::map_data(wasm_support::native_map_to_wasm(self.handle))
+                    })
+                }
+                _ => {
+                    unsafe { (self.api().map_data)(self.handle) }
+                }
+            },
             _map: std::marker::PhantomData,
         }
     }
@@ -229,6 +334,38 @@ impl KMap {
 
     pub(crate) fn display_id(&self) -> usize {
         self.handle.data as usize
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn encode_export_value(value: KValue) -> wasm::KValue {
+    match value {
+        KValue::Null => wasm::KValue::null(),
+        KValue::Bool(value) => wasm_support::native_value_to_wasm(abi::KValue {
+            kind: abi::KValueKind::Bool,
+            data: abi::KValueData { bool_value: value },
+        }),
+        KValue::Number(crate::KNumber::I64(value)) => unsafe { wasm::value_make_i64(value) },
+        KValue::Number(crate::KNumber::F64(value)) => {
+            wasm_support::native_value_to_wasm(abi::KValue {
+                kind: abi::KValueKind::F64,
+                data: abi::KValueData { f64_value: value },
+            })
+        }
+        KValue::Range(value) => wasm_support::native_value_to_wasm(abi::KValue {
+            kind: abi::KValueKind::Range,
+            data: abi::KValueData {
+                range_value: value.into(),
+            },
+        }),
+        KValue::Str(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::List(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::Tuple(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::Map(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::Function(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::NativeFunction(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::Iterator(value) => wasm_support::native_value_to_wasm(value.into_raw()),
+        KValue::Object(value) => wasm_support::native_value_to_wasm(value.into_raw()),
     }
 }
 
@@ -316,10 +453,7 @@ fn map_keys_equal(a: &KValue, b: &KValue) -> bool {
         (KValue::Number(a), KValue::Number(b)) => a == b,
         (KValue::Str(a), KValue::Str(b)) => a == b,
         (KValue::Tuple(a), KValue::Tuple(b)) => {
-            a.len() == b.len()
-                && a.iter()
-                    .zip(b.iter())
-                    .all(|(a, b)| map_keys_equal(&a, &b))
+            a.len() == b.len() && a.iter().zip(b.iter()).all(|(a, b)| map_keys_equal(&a, &b))
         }
         _ => false,
     }
@@ -339,7 +473,14 @@ impl FromIterator<(KValue, KValue)> for KMap {
 
 impl KotoCollection<PluginBackend> for KMap {
     fn len(&self) -> usize {
-        unsafe { (self.api().map_len)(self.handle) }
+        cfg_select! {
+            target_arch = "wasm32" => {
+                unsafe { wasm::map_len(wasm_support::native_map_to_wasm(self.handle)) as usize }
+            }
+            _ => {
+                unsafe { (self.api().map_len)(self.handle) }
+            }
+        }
     }
 }
 
@@ -351,7 +492,8 @@ impl KotoCollection<PluginBackend> for KMapData<'_> {
 
 impl KotoSlice<PluginBackend> for KMapData<'_> {
     fn get(&self, index: usize) -> Option<KValue> {
-        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+        self.get_index(index)
+            .map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
     }
 }
 
@@ -370,20 +512,70 @@ impl KotoMap<PluginBackend> for KMapData<'_> {
             return None;
         }
 
+        #[cfg(target_arch = "wasm32")]
+        let entry = unsafe {
+            let data = std::mem::transmute::<abi::KMapData, wasm::KMapData>(self.data);
+            std::mem::transmute::<wasm::KMapEntryView, abi::KMapEntryView>(
+                wasm::map_data_get_entry(data, index as u32),
+            )
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
         let api = unsafe { &*self.api };
+        #[cfg(not(target_arch = "wasm32"))]
         let entry = unsafe { (api.map_data_get_entry)(self.data, index) };
         if entry.key == abi::KValueView::default() || entry.value == abi::KValueView::default() {
             return None;
         }
 
+        #[cfg(target_arch = "wasm32")]
+        let key = wasm_support::wasm_value_to_native(unsafe {
+            wasm::value_view_clone(wasm_support::native_value_view_to_wasm(entry.key))
+        });
+        #[cfg(target_arch = "wasm32")]
+        let value = wasm_support::wasm_value_to_native(unsafe {
+            wasm::value_view_clone(wasm_support::native_value_view_to_wasm(entry.value))
+        });
+        #[cfg(target_arch = "wasm32")]
+        unsafe {
+            wasm::value_view_free(wasm_support::native_value_view_to_wasm(entry.key));
+            wasm::value_view_free(wasm_support::native_value_view_to_wasm(entry.value));
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
         let key = unsafe { (api.value_view_clone)(entry.key) };
+        #[cfg(not(target_arch = "wasm32"))]
         let value = unsafe { (api.value_view_clone)(entry.value) };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let api = unsafe { &*self.api };
+        #[cfg(target_arch = "wasm32")]
+        let result = Some((
+            decode_wasm_value(wasm_support::native_value_to_wasm(key)).ok()?,
+            decode_wasm_value(wasm_support::native_value_to_wasm(value)).ok()?,
+        ));
+        #[cfg(not(target_arch = "wasm32"))]
         let result = Some((decode_value(api, key).ok()?, decode_value(api, value).ok()?));
+        #[cfg(target_arch = "wasm32")]
+        unsafe {
+            wasm::value_free(wasm_support::native_value_to_wasm(key));
+            wasm::value_free(wasm_support::native_value_to_wasm(value));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
         unsafe {
             (api.value_free)(key);
             (api.value_free)(value);
         }
         result
+    }
+}
+
+impl Drop for KMapData<'_> {
+    fn drop(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        unsafe {
+            wasm::map_data_free(wasm_support::native_map_data_to_wasm(self.data));
+        }
     }
 }
 
@@ -395,7 +587,8 @@ impl KotoCollection<PluginBackend> for KMapDataMut<'_> {
 
 impl KotoSlice<PluginBackend> for KMapDataMut<'_> {
     fn get(&self, index: usize) -> Option<KValue> {
-        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+        self.get_index(index)
+            .map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
     }
 }
 
@@ -464,13 +657,13 @@ impl KotoIdentity for KMap {
 }
 
 impl KotoIndexSwap<PluginBackend> for KMap {
-    fn swap_indices(&mut self, a: usize, b: usize) -> std::result::Result<(), crate::Error> {
+    fn swap_indices(&mut self, a: usize, b: usize) -> Result<()> {
         KMap::swap_indices(self, a, b)
     }
 }
 
 impl KotoIndexSwap<PluginBackend> for KMapDataMut<'_> {
-    fn swap_indices(&mut self, a: usize, b: usize) -> std::result::Result<(), crate::Error> {
+    fn swap_indices(&mut self, a: usize, b: usize) -> Result<()> {
         self.map.swap_indices(a, b)
     }
 }
@@ -488,10 +681,7 @@ impl KotoMapBuilder<PluginBackend> for KMap {
 
     fn add_fn<F>(&self, key: &str, f: F)
     where
-        F: for<'a> Fn(&mut CallContext) -> std::result::Result<KValue, crate::Error>
-            + Send
-            + Sync
-            + 'static,
+        F: for<'a> Fn(&mut CallContext) -> Result<KValue> + Send + Sync + 'static,
     {
         self.add_fn(key, f);
     }
@@ -502,10 +692,7 @@ impl KotoMapBuilder<PluginBackend> for KMap {
 
     fn add_meta_fn<F>(&mut self, key: Self::MetaKey, f: F)
     where
-        F: for<'a> Fn(&mut CallContext) -> std::result::Result<KValue, crate::Error>
-            + Send
-            + Sync
-            + 'static,
+        F: for<'a> Fn(&mut CallContext) -> Result<KValue> + Send + Sync + 'static,
     {
         self.add_meta_fn(key, f);
     }
@@ -513,14 +700,35 @@ impl KotoMapBuilder<PluginBackend> for KMap {
 
 impl Clone for KMap {
     fn clone(&self) -> Self {
-        let api = self.api();
-        Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+        cfg_select! {
+            target_arch = "wasm32" => {
+                let cloned = unsafe {
+                    wasm::value_clone(wasm_support::native_value_to_wasm(self.handle()))
+                };
+                let cloned = wasm_support::wasm_value_to_native(cloned);
+                Self {
+                    api: std::ptr::null(),
+                    handle: unsafe { cloned.data.map_value },
+                }
+            }
+            _ => {
+                let api = self.api();
+                Self::from_raw(api, unsafe { (api.value_clone)(self.handle()) })
+            }
+        }
     }
 }
 
 impl Drop for KMap {
     fn drop(&mut self) {
-        unsafe { (self.api().value_free)(self.handle()) };
+        cfg_select! {
+            target_arch = "wasm32" => unsafe {
+                wasm::value_free(wasm_support::native_value_to_wasm(self.handle()));
+            },
+            _ => unsafe {
+                (self.api().value_free)(self.handle())
+            },
+        }
     }
 }
 

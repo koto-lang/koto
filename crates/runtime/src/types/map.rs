@@ -1,15 +1,15 @@
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 use crate::KCell;
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{Borrow, BorrowMut, Error, PtrMut, Result, prelude::*};
 use indexmap::{Equivalent, IndexMap};
 use koto_api::{
     KotoCollection, KotoIdentity, KotoIndexSwap, KotoMap, KotoMapBuilder, KotoMapLookup,
     KotoMapSource, KotoMapSourceMut, KotoMetaMap, KotoSlice,
 };
-#[cfg(feature = "plugin")]
-use koto_ffi as abi;
+#[cfg(feature = "native_host")]
+use koto_ffi::native as abi;
 use rustc_hash::FxHasher;
 use std::{
     hash::{BuildHasherDefault, Hash},
@@ -324,7 +324,7 @@ impl KMap {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KMap {
     type Abi = abi::KMap;
 
@@ -376,7 +376,8 @@ impl KotoCollection<RuntimeBackend> for KMapData<'_> {
 
 impl KotoSlice<RuntimeBackend> for KMapData<'_> {
     fn get(&self, index: usize) -> Option<KValue> {
-        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+        self.get_index(index)
+            .map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
     }
 }
 
@@ -403,7 +404,8 @@ impl KotoCollection<RuntimeBackend> for KMapDataMut<'_> {
 
 impl KotoSlice<RuntimeBackend> for KMapDataMut<'_> {
     fn get(&self, index: usize) -> Option<KValue> {
-        self.get_index(index).map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
+        self.get_index(index)
+            .map(|entry| KTuple::from(vec![entry.0, entry.1]).into())
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
     Result, ValueKey, error::Error,
 };
 use koto_api::{BinaryOp, KotoCollection, KotoType, ReadOp, UnaryOp, WriteOp};
-use koto_ffi as abi;
+use koto_ffi::native as abi;
 use libloading::{Library, Symbol};
 use rustc_hash::FxHasher;
 use std::{
@@ -197,7 +197,7 @@ enum ObjectBorrowHandle {
 }
 
 fn plugin_borrow_storage_size() -> usize {
-    size_of::<[usize; abi::KOBJECT_BORROW_WORDS]>()
+    size_of::<[usize; 4]>()
 }
 
 fn object_borrow_data_ptr(object: &dyn KotoObject) -> *mut c_void {
@@ -226,8 +226,10 @@ fn make_object_borrow_token(token: ObjectBorrowHandle, data: *mut c_void) -> abi
         "plugin object borrow token alignment is too large"
     );
 
-    let mut result = abi::KObjectBorrow::default();
-    result.data = data;
+    let mut result = abi::KObjectBorrow {
+        data,
+        ..Default::default()
+    };
     unsafe {
         std::ptr::write(
             result.storage.as_mut_ptr().cast::<ObjectBorrowHandle>(),
@@ -250,8 +252,10 @@ fn make_object_borrow_mut_token(
         "plugin object borrow token alignment is too large"
     );
 
-    let mut result = abi::KObjectBorrowMut::default();
-    result.data = data;
+    let mut result = abi::KObjectBorrowMut {
+        data,
+        ..Default::default()
+    };
     unsafe {
         std::ptr::write(
             result.storage.as_mut_ptr().cast::<ObjectBorrowHandle>(),
@@ -261,7 +265,7 @@ fn make_object_borrow_mut_token(
     result
 }
 
-fn borrowed_object<'a>(borrow: &'a abi::KObjectBorrow) -> Result<&'a dyn KotoObject> {
+fn borrowed_object(borrow: &abi::KObjectBorrow) -> Result<&dyn KotoObject> {
     if !borrow.is_valid() {
         return Err(Error::from("null object borrow"));
     }
@@ -272,9 +276,7 @@ fn borrowed_object<'a>(borrow: &'a abi::KObjectBorrow) -> Result<&'a dyn KotoObj
     }
 }
 
-fn borrowed_object_mut<'a>(
-    borrow: &'a mut abi::KObjectBorrowMut,
-) -> Result<&'a mut dyn KotoObject> {
+fn borrowed_object_mut(borrow: &mut abi::KObjectBorrowMut) -> Result<&mut dyn KotoObject> {
     if !borrow.is_valid() {
         return Err(Error::from("null object borrow"));
     }
@@ -1082,7 +1084,7 @@ unsafe extern "C" fn object_borrow_mut_free(borrow: abi::KObjectBorrowMut) {
 
 unsafe extern "C" fn object_borrow_type_string(borrow: abi::KObjectBorrow) -> abi::KString {
     borrowed_object(&borrow)
-        .map(|object| KotoType::type_string(&*object).into_abi())
+        .map(|object| KotoType::type_string(object).into_abi())
         .unwrap_or_default()
 }
 
@@ -1147,7 +1149,7 @@ unsafe extern "C" fn object_borrow_iterator_next(
     };
 
     match borrowed_object_mut(&mut borrow).and_then(|object| object.iterator_next(vm)) {
-        Ok(Some(output)) => match KValue::try_from(output) {
+        Ok(Some(output)) => match output.try_into_value() {
             Ok(value) => {
                 unsafe {
                     *out = encode_abi_value(value);
@@ -1176,7 +1178,7 @@ unsafe extern "C" fn object_borrow_iterator_next_back(
     };
 
     match borrowed_object_mut(&mut borrow).and_then(|object| object.iterator_next_back(vm)) {
-        Ok(Some(output)) => match KValue::try_from(output) {
+        Ok(Some(output)) => match output.try_into_value() {
             Ok(value) => {
                 unsafe {
                     *out = encode_abi_value(value);

@@ -1,5 +1,5 @@
 use crate::StringSlice;
-use koto_ffi as abi;
+use koto_ffi::native as abi;
 use koto_memory::Ptr;
 use std::{
     cmp::Ordering,

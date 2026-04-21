@@ -21,5 +21,5 @@ build:
 run: build
   cd {{root_dir}} && \
     cargo run \
-      -p koto_cli --no-default-features --features arc,koto/plugin -- \
+      -p koto_cli --no-default-features --features arc,koto/native_host -- \
       {{example_script}}

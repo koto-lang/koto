@@ -1,7 +1,7 @@
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 use crate::KCell;
-#[cfg(feature = "plugin")]
-use crate::plugin_host::transfer::AbiTransfer;
+#[cfg(feature = "native_host")]
+use crate::native_host::transfer::AbiTransfer;
 use crate::{Borrow, BorrowMut, PtrMut, Result, prelude::*};
 use koto_api::{
     KotoCollection, KotoIdentity, KotoIndexSwap, KotoSequence, KotoSequenceMut, KotoSlice,
@@ -160,12 +160,12 @@ impl KList {
     }
 }
 
-#[cfg(feature = "plugin")]
+#[cfg(feature = "native_host")]
 impl AbiTransfer for KList {
-    type Abi = koto_ffi::KList;
+    type Abi = koto_ffi::native::KList;
 
     unsafe fn into_abi(self) -> Self::Abi {
-        koto_ffi::KList(unsafe { PtrMut::into_raw(self.0) } as *mut std::ffi::c_void)
+        koto_ffi::native::KList(unsafe { PtrMut::into_raw(self.0) } as *mut std::ffi::c_void)
     }
 
     unsafe fn from_abi(list: Self::Abi) -> Self {

@@ -1,0 +1,46 @@
+language = "C"
+pragma_once = true
+include_guard = "KOTO_WASM_H"
+documentation = true
+documentation_style = "c"
+usize_is_size_t = true
+cpp_compat = true
+
+[parse]
+parse_deps = false
+
+[export]
+item_types = ["constants", "enums", "structs", "unions", "typedefs", "functions"]
+include = [
+  "WASM_ABI_MAJOR_VERSION",
+  "WASM_ABI_MINOR_VERSION",
+  "KotoStatus",
+  "CallContext",
+  "WasmPluginAlloc",
+  "WasmPluginFree",
+  "WasmPluginFunction",
+  "WasmPluginInitV1",
+  "WasmHostFnValueMakeI64",
+  "WasmHostFnStringMake",
+  "WasmHostFnValueClone",
+  "WasmHostFnValueFree",
+  "WasmHostFnMapNewWithType",
+  "WasmHostFnMapInsertValue",
+  "WasmHostFnMapInsertMetaValue",
+  "WasmHostFnNativeFunctionMake",
+  "koto_value_make_i64",
+  "koto_string_make",
+  "koto_value_clone",
+  "koto_value_free",
+  "koto_map_new_with_type",
+  "koto_map_insert_value",
+  "koto_map_insert_meta_value",
+  "koto_native_function_make",
+]
+exclude = ["KOBJECT_BORROW_WORDS"]
+
+[enum]
+rename_variants = "QualifiedScreamingSnakeCase"
+
+[defines]
+"target_arch = wasm32" = "1"

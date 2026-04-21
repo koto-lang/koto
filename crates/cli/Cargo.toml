@@ -18,6 +18,8 @@ default = ["rc"]
 # To use `arc`, default features must be disabled.
 arc = ["koto/arc", "koto/serde"]
 rc = ["koto/rc", "koto/serde"]
+native_host = ["koto/native_host"]
+wasm_host = ["koto/wasm_host"]
 
 [[bin]]
 name = "koto"
