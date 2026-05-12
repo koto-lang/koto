@@ -83,6 +83,8 @@ pub enum SyntaxError {
     ExpectedAssignmentAfterMetaKey,
     #[error("expected argument for catch expression")]
     ExpectedCatchArgument,
+    #[error("function arguments must be separated by commas")]
+    ExpectedCommaBetweenCallArgs,
     #[error("expected catch expression after try")]
     ExpectedCatch,
     #[error("expected closing parenthesis ')'")]

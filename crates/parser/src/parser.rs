@@ -1559,6 +1559,32 @@ impl<'source> Parser<'source> {
                 {
                     self.consume_next_token_on_same_line();
                 } else {
+                    // Check for multiline calls without commas
+                    //
+                    // e.g.:
+                    //
+                    // assert_eq
+                    //   foo
+                    //   bar
+                    //   ^
+                    //
+                    // Piped calls can follow the last argument reusing the arg column,
+                    // so `Token::Arrow` is excluded from the error check.
+                    //
+                    // do_something
+                    //   foo,
+                    //   bar
+                    //   -> other_thing
+                    if let Some(peeked) = self.peek_token_with_context(&arg_context)
+                        && peeked.info.line() > self.current_line()
+                        && peeked.token != Token::Arrow
+                    {
+                        return self.error_with_span(
+                            SyntaxError::ExpectedCommaBetweenCallArgs,
+                            peeked.info.span,
+                        );
+                    }
+
                     break;
                 }
             }

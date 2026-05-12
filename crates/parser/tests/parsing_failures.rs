@@ -290,6 +290,24 @@ f = ||
             }
 
             #[test]
+            fn missing_commas_in_multiline_call() {
+                let source = "\
+assert_eq
+  'a'
+  'b'
+# ^
+";
+                check_parsing_fails_with_error_span(
+                    source,
+                    SyntaxError::ExpectedCommaBetweenCallArgs,
+                    Span {
+                        start: Position { line: 2, column: 2 },
+                        end: Position { line: 2, column: 3 },
+                    },
+                );
+            }
+
+            #[test]
             fn missing_commas_in_chained_call() {
                 check_parsing_fails("f.bar 1 2 3");
             }
