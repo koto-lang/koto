@@ -461,22 +461,26 @@ fn format_node<'source>(
 
             group = group.str("import").space_or_indent();
 
-            for (i, ImportItem { item, name }) in items.iter().enumerate() {
-                group = group.nested(0, node, |mut nested| {
-                    nested = nested.node(*item);
-                    if let Some(name) = name {
-                        nested = nested.str(" as ").node(*name);
-                    }
+            if items.is_empty() {
+                group = group.str("*");
+            } else {
+                for (i, ImportItem { item, name }) in items.iter().enumerate() {
+                    group = group.nested(0, node, |mut nested| {
+                        nested = nested.node(*item);
+                        if let Some(name) = name {
+                            nested = nested.str(" as ").node(*name);
+                        }
+
+                        if i < items.len() - 1 {
+                            nested = nested.char(',');
+                        }
+
+                        nested.build()
+                    });
 
                     if i < items.len() - 1 {
-                        nested = nested.char(',');
+                        group = group.space_or_indent_if_necessary();
                     }
-
-                    nested.build()
-                });
-
-                if i < items.len() - 1 {
-                    group = group.space_or_indent_if_necessary();
                 }
             }
 

@@ -132,6 +132,11 @@ The Koto project adheres to
 
 ### Fixed
 
+#### Language
+
+- Making subtubles of subtuples when using a non-zero start index now works as expected.
+  - e.g. `(1, 2, 3)[1..][1..]` would previously panic.
+
 #### Core Library
 
 - Range fixes:
@@ -139,10 +144,9 @@ The Koto project adheres to
     [#534](https://github.com/koto-lang/koto/issues/534)
   - `iterator.reversed` now produces correct results when used with non-inclusive ranges.
 
-#### Language
+#### Formatting
 
-- Making subtubles of subtuples when using a non-zero start index now works as expected.
-  - e.g. `(1, 2, 3)[1..][1..]` would previously panic.
+- Wildcard imports are now preserved during formatting.
 
 ## [0.16.0] 2025.07.23
 

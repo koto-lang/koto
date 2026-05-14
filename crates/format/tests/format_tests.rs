@@ -161,12 +161,12 @@ x = 1
         fn multiline_comment_then_eof() {
             check_format_output(
                 &["
-#- 
-  comment 
+#-
+  comment
 -#"],
                 "\
-#- 
-  comment 
+#-
+  comment
 -#
 ",
             );
@@ -1317,6 +1317,18 @@ import #- abc -#   bar     # xyz
 "],
                 "\
 import #- abc -# bar # xyz
+",
+            );
+        }
+
+        #[test]
+        fn import_wildcard() {
+            check_format_output(
+                &["\
+from   foo   import    *
+"],
+                "\
+from foo import *
 ",
             );
         }
