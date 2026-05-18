@@ -1531,6 +1531,7 @@ impl<'source> Parser<'source> {
 
                 if new_line {
                     arg_context.expected_indentation = Indentation::Equal(peeked.info.indent);
+                    arg_context.allow_map_block = true;
                 } else if args.is_empty() && self.peek_token() != Some(Token::Whitespace) {
                     break;
                 }

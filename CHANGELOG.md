@@ -13,21 +13,27 @@ The Koto project adheres to
 #### Language
 
 - Unpacking maps is now supported anywhere that variables can be created:
-  - ```koto
-    {x, y} = {x: 10, y: 20, z: 30}
-    x, y
-    #: (10, 20)
-    ```
+  ```koto
+  {x, y} = {x: 10, y: 20, z: 30}
+  x, y
+  #: (10, 20)
+  ```
+- Map blocks can now be used as the last argument in a parentheses-free function call:
+  ```koto
+  my_map.extend
+    abc: 123
+    xyz: 99
+  ```
 - `@access` and `@access_assign` metakeys have been added to support overriding the behavior of `.` access operations.
-  - ```koto
-    foo =
-      @access: |key| map.get(self, key) * 2
-      @access_assign: |key, value| map.insert(self, key, value * 100)
+  ```koto
+  foo =
+    @access: |key| map.get(self, key) * 2
+    @access_assign: |key, value| map.insert(self, key, value * 100)
 
-    foo.x = 1
-    foo.x
-    #: 200
-    ```
+  foo.x = 1
+  foo.x
+  #: 200
+  ```
 - `throw` can now be used with any value type, rather than only values that implement `@display`.
 
 #### API

@@ -2056,6 +2056,23 @@ check! 3: 99
 check! 4: 100
 ```
 
+### Map Blocks as Last Argument
+
+Parentheses-free function calls can accept a map block as the last argument:
+
+```koto
+print_entries = |prefix, entries|
+  for key, value in entries
+    print '{prefix}-{key}: {value}'
+
+print_entries 'X',
+  name: 'Very'
+  flag: 'Important'
+
+check! X-name: Very
+check! X-flag: Important
+```
+
 ## Generators
 
 Generators are iterators that are made by calling _generator functions_,

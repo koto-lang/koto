@@ -2975,6 +2975,81 @@ foo x,
         }
 
         #[test]
+        fn call_with_map_block() {
+            let sources = [
+                "
+foo
+  abc: 99
+",
+                "
+foo
+    abc: 99
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0), // foo
+                    id(1), // abc
+                    SmallInt(99),
+                    map_entry(1, 2),
+                    map_block(&[3]),
+                    chain_call(&[4], false, None), // 5
+                    chain_root(0, Some(5)),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("abc")]),
+            )
+        }
+
+        #[test]
+        fn call_with_trailing_map_block() {
+            let sources = [
+                "
+foo bar,
+  abc: 99
+  xyz: 123
+",
+                "
+foo bar,
+    abc: 99
+    xyz: 123
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0), // foo
+                    id(1), // bar
+                    id(2), // abc
+                    SmallInt(99),
+                    map_entry(2, 3),
+                    id(3), // 5 - xyz
+                    SmallInt(123),
+                    map_entry(5, 6),
+                    map_block(&[4, 7]),
+                    chain_call(&[1, 8], false, None),
+                    chain_root(0, Some(9)), // 10
+                    MainBlock {
+                        body: nodes(&[10]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("abc"),
+                    Constant::Str("xyz"),
+                ]),
+            )
+        }
+
+        #[test]
         fn call_with_parentheses() {
             let sources = [
                 "
