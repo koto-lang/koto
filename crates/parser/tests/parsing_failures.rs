@@ -208,7 +208,7 @@ z = if f x
             #[test]
             fn in_map_block() {
                 let source = "
-foo = 
+foo =
   bar: x = 1; x
 ";
                 check_parsing_fails(source);
@@ -323,6 +323,23 @@ f = || ?
                     Span {
                         start: Position { line: 0, column: 7 },
                         end: Position { line: 0, column: 8 },
+                    },
+                )
+            }
+
+            #[test]
+            fn call_arg_after_trailing_map_block() {
+                let source = "\
+foo bar,
+  abc: 99
+  , 'hello'
+# ^
+";
+                check_parsing_fails_with_span(
+                    source,
+                    Span {
+                        start: Position { line: 2, column: 2 },
+                        end: Position { line: 2, column: 3 },
                     },
                 )
             }

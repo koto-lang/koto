@@ -2067,7 +2067,7 @@ export a
 export a =
   1 + 1",
                 "
-export 
+export
   a =
     1 + 1",
             ];
@@ -2101,11 +2101,11 @@ export a, b, c
 export a, b, c =
   foo",
                 "
-export 
+export
   a, b, c = foo",
                 "
-export 
-  a, b, c 
+export
+  a, b, c
     = foo",
             ];
 
@@ -2139,7 +2139,7 @@ export
         #[test]
         fn export_map_block() {
             let source = "
-export 
+export
   a: 123
   b: 99
 ";
@@ -2960,7 +2960,7 @@ foo x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    id(0), //foo
+                    id(0), // foo
                     id(1), // x
                     id(2), // y
                     chain_call(&[1, 2], false, None),
@@ -2971,6 +2971,81 @@ foo x,
                     },
                 ],
                 Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn call_with_map_block() {
+            let sources = [
+                "
+foo
+  abc: 99
+",
+                "
+foo
+    abc: 99
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0), // foo
+                    id(1), // abc
+                    SmallInt(99),
+                    map_entry(1, 2),
+                    map_block(&[3]),
+                    chain_call(&[4], false, None), // 5
+                    chain_root(0, Some(5)),
+                    MainBlock {
+                        body: nodes(&[6]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("abc")]),
+            )
+        }
+
+        #[test]
+        fn call_with_trailing_map_block() {
+            let sources = [
+                "
+foo bar,
+  abc: 99
+  xyz: 123
+",
+                "
+foo bar,
+    abc: 99
+    xyz: 123
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    id(0), // foo
+                    id(1), // bar
+                    id(2), // abc
+                    SmallInt(99),
+                    map_entry(2, 3),
+                    id(3), // 5 - xyz
+                    SmallInt(123),
+                    map_entry(5, 6),
+                    map_block(&[4, 7]),
+                    chain_call(&[1, 8], false, None),
+                    chain_root(0, Some(9)), // 10
+                    MainBlock {
+                        body: nodes(&[10]),
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("abc"),
+                    Constant::Str("xyz"),
+                ]),
             )
         }
 
@@ -3240,10 +3315,10 @@ foo.bar x
   a
 ",
                 "
-| a, 
-  ( _, 
+| a,
+  ( _,
     (others..., c, _d)
-  ), 
+  ),
   _e
 |
   a
@@ -5133,9 +5208,9 @@ match {x: 1, @type: 'Foo'}
             let source = "\
 match {x: 1, y: 2}
   {
-    x as a, 
+    x as a,
     y as b
-  } then 
+  } then
     'ok'
 ";
             check_ast(
