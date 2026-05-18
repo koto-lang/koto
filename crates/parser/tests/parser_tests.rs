@@ -2067,7 +2067,7 @@ export a
 export a =
   1 + 1",
                 "
-export 
+export
   a =
     1 + 1",
             ];
@@ -2101,11 +2101,11 @@ export a, b, c
 export a, b, c =
   foo",
                 "
-export 
+export
   a, b, c = foo",
                 "
-export 
-  a, b, c 
+export
+  a, b, c
     = foo",
             ];
 
@@ -2139,7 +2139,7 @@ export
         #[test]
         fn export_map_block() {
             let source = "
-export 
+export
   a: 123
   b: 99
 ";
@@ -2960,7 +2960,7 @@ foo x,
             check_ast_for_equivalent_sources(
                 &sources,
                 &[
-                    id(0), //foo
+                    id(0), // foo
                     id(1), // x
                     id(2), // y
                     chain_call(&[1, 2], false, None),
@@ -3240,10 +3240,10 @@ foo.bar x
   a
 ",
                 "
-| a, 
-  ( _, 
+| a,
+  ( _,
     (others..., c, _d)
-  ), 
+  ),
   _e
 |
   a
@@ -5133,9 +5133,9 @@ match {x: 1, @type: 'Foo'}
             let source = "\
 match {x: 1, y: 2}
   {
-    x as a, 
+    x as a,
     y as b
-  } then 
+  } then
     'ok'
 ";
             check_ast(
