@@ -1,0 +1,17 @@
+# ---
+let foo: String, bar: Int = baz
+# ---
+constants:
+  0: Str("foo")
+  1: Str("String")
+  2: Str("bar")
+  3: Str("Int")
+  4: Str("baz")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: false }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: Type { type_index: ConstantIndex(3), allow_null: false }
+  3: Id(ConstantIndex(2), Some(AstIndex(2)))
+  4: Id(ConstantIndex(4), None)
+  5: MultiAssign { targets: [AstIndex(1), AstIndex(3)], expression: AstIndex(4), let_assignment: true }
+  6: MainBlock { body: [AstIndex(5)], local_count: 2 }

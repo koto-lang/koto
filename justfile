@@ -85,8 +85,10 @@ test_libs *args:
     {{args}}
 
 test_parser *args:
-  cargo test -p koto_lexer -p koto_parser -p koto_format {{args}}
-  cargo test -p koto_parser --features error_ast {{args}}
+  cargo test -p koto_lexer -p koto_parser -p koto_format --features error_ast {{args}}
+
+update_parser_snapshots *args:
+  KOTO_UPDATE_PARSER_SNAPSHOTS=1 cargo test -p koto_parser --features error_ast --test parser_tests {{args}}
 
 test_release *args:
   just test --profile release-dev {{args}}

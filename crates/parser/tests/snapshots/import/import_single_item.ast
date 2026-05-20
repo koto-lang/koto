@@ -1,0 +1,9 @@
+# ---
+import foo
+# ---
+constants:
+  0: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Import { from: [], items: [ImportItem { item: AstIndex(0), name: None }] }
+  2: MainBlock { body: [AstIndex(1)], local_count: 1 }

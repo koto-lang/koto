@@ -1,0 +1,19 @@
+# ---
+a, b = if true then 0, 1 else 1, 0
+# ---
+constants:
+  0: Str("a")
+  1: Str("b")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: BoolTrue
+  3: SmallInt(0)
+  4: SmallInt(1)
+  5: Tuple { elements: [AstIndex(3), AstIndex(4)], parentheses: false }
+  6: SmallInt(1)
+  7: SmallInt(0)
+  8: Tuple { elements: [AstIndex(6), AstIndex(7)], parentheses: false }
+  9: If(AstIf { condition: AstIndex(2), then_node: AstIndex(5), else_if_blocks: [], else_node: Some(AstIndex(8)), inline: true })
+  10: MultiAssign { targets: [AstIndex(0), AstIndex(1)], expression: AstIndex(9), let_assignment: false }
+  11: MainBlock { body: [AstIndex(10)], local_count: 2 }

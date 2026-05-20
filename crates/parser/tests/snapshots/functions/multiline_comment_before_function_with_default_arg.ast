@@ -1,0 +1,19 @@
+# ---
+#-
+A bug previously broke default argument parsing when
+the function was preceeded by a multiline comment.
+-#
+
+|foo = bar| foo
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Assign { target: AstIndex(0), expression: AstIndex(1), let_assignment: false }
+  3: FunctionArgs { args: [AstIndex(2)], variadic: false, output_type: None }
+  4: Id(ConstantIndex(0), None)
+  5: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(4), is_generator: false })
+  6: MainBlock { body: [AstIndex(5)], local_count: 0 }

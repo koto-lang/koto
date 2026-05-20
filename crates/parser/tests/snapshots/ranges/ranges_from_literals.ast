@@ -1,0 +1,14 @@
+# ---
+0..1
+0..=1
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(0)
+  1: SmallInt(1)
+  2: Range { start: AstIndex(0), end: AstIndex(1), inclusive: false }
+  3: SmallInt(0)
+  4: SmallInt(1)
+  5: Range { start: AstIndex(3), end: AstIndex(4), inclusive: true }
+  6: MainBlock { body: [AstIndex(2), AstIndex(5)], local_count: 0 }

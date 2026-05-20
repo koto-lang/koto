@@ -1,0 +1,12 @@
+# ---
+x = 1, 0
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: SmallInt(0)
+  3: Tuple { elements: [AstIndex(1), AstIndex(2)], parentheses: false }
+  4: Assign { target: AstIndex(0), expression: AstIndex(3), let_assignment: false }
+  5: MainBlock { body: [AstIndex(4)], local_count: 1 }

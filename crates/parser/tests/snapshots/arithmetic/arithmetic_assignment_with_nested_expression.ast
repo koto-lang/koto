@@ -1,0 +1,28 @@
+# ---
+a = (1 + 2) * 3
+# ---
+a =
+  (1 + 2)
+  * 3
+# ---
+a =
+  (1 +
+     2)
+  * 3
+# ---
+a = (1
+       + 2)
+  * 3
+# ---
+constants:
+  0: Str("a")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: SmallInt(2)
+  3: BinaryOp { op: Add, lhs: AstIndex(1), rhs: AstIndex(2) }
+  4: Nested(AstIndex(3))
+  5: SmallInt(3)
+  6: BinaryOp { op: Multiply, lhs: AstIndex(4), rhs: AstIndex(5) }
+  7: Assign { target: AstIndex(0), expression: AstIndex(6), let_assignment: false }
+  8: MainBlock { body: [AstIndex(7)], local_count: 1 }

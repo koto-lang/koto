@@ -1,0 +1,13 @@
+# ---
+[foo.bar()]
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Chain((Call { args: [], with_parens: true }, None))
+  2: Chain((Id(ConstantIndex(1)), Some(AstIndex(1))))
+  3: Chain((Root(AstIndex(0)), Some(AstIndex(2))))
+  4: List([AstIndex(3)])
+  5: MainBlock { body: [AstIndex(4)], local_count: 0 }

@@ -1,0 +1,20 @@
+# ---
+for a in x.zip y
+  a
+# ---
+constants:
+  0: Str("a")
+  1: Str("x")
+  2: Str("zip")
+  3: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(3), None)
+  3: Chain((Call { args: [AstIndex(2)], with_parens: false }, None))
+  4: Chain((Id(ConstantIndex(2)), Some(AstIndex(3))))
+  5: Chain((Root(AstIndex(1)), Some(AstIndex(4))))
+  6: Id(ConstantIndex(0), None)
+  7: Block([AstIndex(6)])
+  8: For(AstFor { args: [AstIndex(0)], iterable: AstIndex(5), body: AstIndex(7) })
+  9: MainBlock { body: [AstIndex(8)], local_count: 1 }

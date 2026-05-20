@@ -1,0 +1,15 @@
+# ---
+break
+continue
+return
+return 1
+# ---
+constants:
+  []
+nodes:
+  0: Break(None)
+  1: Continue
+  2: Return(None)
+  3: SmallInt(1)
+  4: Return(Some(AstIndex(3)))
+  5: MainBlock { body: [AstIndex(0), AstIndex(1), AstIndex(2), AstIndex(4)], local_count: 0 }

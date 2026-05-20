@@ -1,0 +1,11 @@
+# ---
+"\t\n\x4d\x2E"
+'\u{1F917}\u{1f30d}'
+# ---
+constants:
+  0: Str("\t\nM.")
+  1: Str("🤗🌍")
+nodes:
+  0: Str(AstString { quote: Double, contents: Literal(ConstantIndex(0)) })
+  1: Str(AstString { quote: Single, contents: Literal(ConstantIndex(1)) })
+  2: MainBlock { body: [AstIndex(0), AstIndex(1)], local_count: 0 }

@@ -1,0 +1,9 @@
+# ---
+(1,)
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(1)
+  1: Tuple { elements: [AstIndex(0)], parentheses: true }
+  2: MainBlock { body: [AstIndex(1)], local_count: 0 }

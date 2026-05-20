@@ -1,0 +1,14 @@
+# ---
+(0..1).size()
+# ---
+constants:
+  0: Str("size")
+nodes:
+  0: SmallInt(0)
+  1: SmallInt(1)
+  2: Range { start: AstIndex(0), end: AstIndex(1), inclusive: false }
+  3: Nested(AstIndex(2))
+  4: Chain((Call { args: [], with_parens: true }, None))
+  5: Chain((Id(ConstantIndex(0)), Some(AstIndex(4))))
+  6: Chain((Root(AstIndex(3)), Some(AstIndex(5))))
+  7: MainBlock { body: [AstIndex(6)], local_count: 0 }

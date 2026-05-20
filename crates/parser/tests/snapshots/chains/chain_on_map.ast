@@ -1,0 +1,29 @@
+# ---
+x = {y, z}.values()
+# ---
+x = {y, z}
+  .values()
+# ---
+x =
+  {y, z}
+    .values()
+# ---
+x = { y
+    , z}
+  .values()
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("z")
+  3: Str("values")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: Map { entries: [AstIndex(1), AstIndex(2)], braces: true }
+  4: Chain((Call { args: [], with_parens: true }, None))
+  5: Chain((Id(ConstantIndex(3)), Some(AstIndex(4))))
+  6: Chain((Root(AstIndex(3)), Some(AstIndex(5))))
+  7: Assign { target: AstIndex(0), expression: AstIndex(6), let_assignment: false }
+  8: MainBlock { body: [AstIndex(7)], local_count: 1 }

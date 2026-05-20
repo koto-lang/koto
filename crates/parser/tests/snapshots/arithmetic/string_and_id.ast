@@ -1,0 +1,11 @@
+# ---
+'hello' + x
+# ---
+constants:
+  0: Str("hello")
+  1: Str("x")
+nodes:
+  0: Str(AstString { quote: Single, contents: Literal(ConstantIndex(0)) })
+  1: Id(ConstantIndex(1), None)
+  2: BinaryOp { op: Add, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: MainBlock { body: [AstIndex(2)], local_count: 0 }

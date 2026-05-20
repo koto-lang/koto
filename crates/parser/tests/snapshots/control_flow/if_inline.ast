@@ -1,0 +1,13 @@
+# ---
+1 + if true then 0 else 1
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(1)
+  1: BoolTrue
+  2: SmallInt(0)
+  3: SmallInt(1)
+  4: If(AstIf { condition: AstIndex(1), then_node: AstIndex(2), else_if_blocks: [], else_node: Some(AstIndex(3)), inline: true })
+  5: BinaryOp { op: Add, lhs: AstIndex(0), rhs: AstIndex(4) }
+  6: MainBlock { body: [AstIndex(5)], local_count: 0 }

@@ -1,0 +1,16 @@
+# ---
+let {x}: Foo = {@type: 'Foo'}
+# ---
+constants:
+  0: Str("x")
+  1: Str("Foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Type { type_index: ConstantIndex(1), allow_null: false }
+  2: MapPattern { entries: [AstIndex(0)], type_hint: Some(AstIndex(1)) }
+  3: Meta(Type, None)
+  4: Str(AstString { quote: Single, contents: Literal(ConstantIndex(1)) })
+  5: MapEntry(AstIndex(3), AstIndex(4))
+  6: Map { entries: [AstIndex(5)], braces: true }
+  7: Assign { target: AstIndex(2), expression: AstIndex(6), let_assignment: true }
+  8: MainBlock { body: [AstIndex(7)], local_count: 1 }

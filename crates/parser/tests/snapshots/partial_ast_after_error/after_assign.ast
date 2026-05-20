@@ -1,0 +1,12 @@
+# ---
+a = 1
+!
+123
+# ---
+constants:
+  0: Str("a")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: Assign { target: AstIndex(0), expression: AstIndex(1), let_assignment: false }
+  3: MainBlock { body: [AstIndex(2)], local_count: 1 }

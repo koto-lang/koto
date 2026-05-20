@@ -1,0 +1,16 @@
+# ---
+0 < 1 and 1 > 0 or true
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(0)
+  1: SmallInt(1)
+  2: BinaryOp { op: Less, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: SmallInt(1)
+  4: SmallInt(0)
+  5: BinaryOp { op: Greater, lhs: AstIndex(3), rhs: AstIndex(4) }
+  6: BinaryOp { op: And, lhs: AstIndex(2), rhs: AstIndex(5) }
+  7: BoolTrue
+  8: BinaryOp { op: Or, lhs: AstIndex(6), rhs: AstIndex(7) }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

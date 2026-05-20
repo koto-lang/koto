@@ -1,0 +1,15 @@
+# ---
+x =
+  "foo": 42
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Str(AstString { quote: Double, contents: Literal(ConstantIndex(1)) })
+  2: SmallInt(42)
+  3: MapEntry(AstIndex(1), AstIndex(2))
+  4: Map { entries: [AstIndex(3)], braces: false }
+  5: Assign { target: AstIndex(0), expression: AstIndex(4), let_assignment: false }
+  6: MainBlock { body: [AstIndex(5)], local_count: 1 }

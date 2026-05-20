@@ -1,0 +1,28 @@
+# ---
+|x: String| -> String?
+    x
+# ---
+|x: String| -> String?
+  x
+# ---
+|x: String
+| -> String?
+  x
+# ---
+|
+  x: String
+| -> String?
+  x
+# ---
+constants:
+  0: Str("x")
+  1: Str("String")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: false }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: Type { type_index: ConstantIndex(1), allow_null: true }
+  3: FunctionArgs { args: [AstIndex(1)], variadic: false, output_type: Some(AstIndex(2)) }
+  4: Id(ConstantIndex(0), None)
+  5: Block([AstIndex(4)])
+  6: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(5), is_generator: false })
+  7: MainBlock { body: [AstIndex(6)], local_count: 0 }

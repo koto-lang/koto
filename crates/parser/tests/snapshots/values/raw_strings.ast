@@ -1,0 +1,17 @@
+# ---
+r'$foo ${bar}'
+r"[\r?\n]\"
+r#''$foo''#
+r##'#$bar'##
+# ---
+constants:
+  0: Str("$foo ${bar}")
+  1: Str("[\\r?\\n]\\")
+  2: Str("'$foo'")
+  3: Str("#$bar")
+nodes:
+  0: Str(AstString { quote: Single, contents: Raw { constant: ConstantIndex(0), hash_count: 0 } })
+  1: Str(AstString { quote: Double, contents: Raw { constant: ConstantIndex(1), hash_count: 0 } })
+  2: Str(AstString { quote: Single, contents: Raw { constant: ConstantIndex(2), hash_count: 1 } })
+  3: Str(AstString { quote: Single, contents: Raw { constant: ConstantIndex(3), hash_count: 2 } })
+  4: MainBlock { body: [AstIndex(0), AstIndex(1), AstIndex(2), AstIndex(3)], local_count: 0 }

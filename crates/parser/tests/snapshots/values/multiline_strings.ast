@@ -1,0 +1,15 @@
+# ---
+"    foo
+     bar
+"
+"foo \
+     bar\
+"
+# ---
+constants:
+  0: Str("    foo\n     bar\n")
+  1: Str("foo bar")
+nodes:
+  0: Str(AstString { quote: Double, contents: Literal(ConstantIndex(0)) })
+  1: Str(AstString { quote: Double, contents: Literal(ConstantIndex(1)) })
+  2: MainBlock { body: [AstIndex(0), AstIndex(1)], local_count: 0 }

@@ -1,0 +1,22 @@
+# ---
+foo.bar x
+  -> y
+  -> z
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+  2: Str("x")
+  3: Str("y")
+  4: Str("z")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(2), None)
+  2: Chain((Call { args: [AstIndex(1)], with_parens: false }, None))
+  3: Chain((Id(ConstantIndex(1)), Some(AstIndex(2))))
+  4: Chain((Root(AstIndex(0)), Some(AstIndex(3))))
+  5: Id(ConstantIndex(3), None)
+  6: BinaryOp { op: Pipe, lhs: AstIndex(4), rhs: AstIndex(5) }
+  7: Id(ConstantIndex(4), None)
+  8: BinaryOp { op: Pipe, lhs: AstIndex(6), rhs: AstIndex(7) }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

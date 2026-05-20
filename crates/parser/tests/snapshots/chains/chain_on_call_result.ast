@@ -1,0 +1,16 @@
+# ---
+(f x).foo
+# ---
+constants:
+  0: Str("f")
+  1: Str("x")
+  2: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Chain((Call { args: [AstIndex(1)], with_parens: false }, None))
+  3: Chain((Root(AstIndex(0)), Some(AstIndex(2))))
+  4: Nested(AstIndex(3))
+  5: Chain((Id(ConstantIndex(2)), None))
+  6: Chain((Root(AstIndex(4)), Some(AstIndex(5))))
+  7: MainBlock { body: [AstIndex(6)], local_count: 0 }

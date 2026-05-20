@@ -1,0 +1,13 @@
+# ---
+x = 1; x + x
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: Assign { target: AstIndex(0), expression: AstIndex(1), let_assignment: false }
+  3: Id(ConstantIndex(0), None)
+  4: Id(ConstantIndex(0), None)
+  5: BinaryOp { op: Add, lhs: AstIndex(3), rhs: AstIndex(4) }
+  6: MainBlock { body: [AstIndex(2), AstIndex(5)], local_count: 1 }

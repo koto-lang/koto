@@ -1,0 +1,8 @@
+# ---
+()
+# ---
+constants:
+  []
+nodes:
+  0: Tuple { elements: [], parentheses: true }
+  1: MainBlock { body: [AstIndex(0)], local_count: 0 }

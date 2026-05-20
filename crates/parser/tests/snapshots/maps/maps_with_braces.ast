@@ -1,0 +1,50 @@
+# ---
+{}
+x = {'foo': 42, bar, baz: 'hello', @+: 99}
+# ---
+{
+}
+x = { 'foo': 42
+  , bar
+  , baz   : 'hello'
+  , @+: 99
+}
+# ---
+{ }
+x =
+  { 'foo': 42, bar
+    , baz: 'hello'
+    , @+  : 99
+    }
+# ---
+{
+  }
+
+x =
+  { 'foo' : 42, bar,
+     baz: 'hello'
+  , @+: 99
+}
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+  2: Str("bar")
+  3: Str("baz")
+  4: Str("hello")
+nodes:
+  0: Map { entries: [], braces: true }
+  1: Id(ConstantIndex(0), None)
+  2: Str(AstString { quote: Single, contents: Literal(ConstantIndex(1)) })
+  3: SmallInt(42)
+  4: MapEntry(AstIndex(2), AstIndex(3))
+  5: Id(ConstantIndex(2), None)
+  6: Id(ConstantIndex(3), None)
+  7: Str(AstString { quote: Single, contents: Literal(ConstantIndex(4)) })
+  8: MapEntry(AstIndex(6), AstIndex(7))
+  9: Meta(Add, None)
+  10: SmallInt(99)
+  11: MapEntry(AstIndex(9), AstIndex(10))
+  12: Map { entries: [AstIndex(4), AstIndex(5), AstIndex(8), AstIndex(11)], braces: true }
+  13: Assign { target: AstIndex(1), expression: AstIndex(12), let_assignment: false }
+  14: MainBlock { body: [AstIndex(0), AstIndex(13)], local_count: 1 }

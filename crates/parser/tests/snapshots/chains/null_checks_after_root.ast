@@ -1,0 +1,12 @@
+# ---
+foo?.bar
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Chain((Id(ConstantIndex(1)), None))
+  2: Chain((NullCheck, Some(AstIndex(1))))
+  3: Chain((Root(AstIndex(0)), Some(AstIndex(2))))
+  4: MainBlock { body: [AstIndex(3)], local_count: 0 }

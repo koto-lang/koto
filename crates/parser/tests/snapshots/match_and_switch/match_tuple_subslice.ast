@@ -1,0 +1,21 @@
+# ---
+match x
+  (..., 0) then 0
+  (1, ...) then 1
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: PackedId(None)
+  2: SmallInt(0)
+  3: Tuple { elements: [AstIndex(1), AstIndex(2)], parentheses: true }
+  4: SmallInt(0)
+  5: MatchArm { patterns: [AstIndex(3)], condition: None, expression: AstIndex(4) }
+  6: SmallInt(1)
+  7: PackedId(None)
+  8: Tuple { elements: [AstIndex(6), AstIndex(7)], parentheses: true }
+  9: SmallInt(1)
+  10: MatchArm { patterns: [AstIndex(8)], condition: None, expression: AstIndex(9) }
+  11: Match { expression: AstIndex(0), arms: [AstIndex(5), AstIndex(10)] }
+  12: MainBlock { body: [AstIndex(11)], local_count: 0 }

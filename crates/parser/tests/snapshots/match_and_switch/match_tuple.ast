@@ -1,0 +1,33 @@
+# ---
+match (x, y, z)
+  (0, a, _) then a
+  (_, (0, b), _foo) then 0
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("z")
+  3: Str("a")
+  4: Str("b")
+  5: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: Tuple { elements: [AstIndex(0), AstIndex(1), AstIndex(2)], parentheses: true }
+  4: SmallInt(0)
+  5: Id(ConstantIndex(3), None)
+  6: Ignored(None, None)
+  7: Tuple { elements: [AstIndex(4), AstIndex(5), AstIndex(6)], parentheses: true }
+  8: Id(ConstantIndex(3), None)
+  9: MatchArm { patterns: [AstIndex(7)], condition: None, expression: AstIndex(8) }
+  10: Ignored(None, None)
+  11: SmallInt(0)
+  12: Id(ConstantIndex(4), None)
+  13: Tuple { elements: [AstIndex(11), AstIndex(12)], parentheses: true }
+  14: Ignored(Some(ConstantIndex(5)), None)
+  15: Tuple { elements: [AstIndex(10), AstIndex(13), AstIndex(14)], parentheses: true }
+  16: SmallInt(0)
+  17: MatchArm { patterns: [AstIndex(15)], condition: None, expression: AstIndex(16) }
+  18: Match { expression: AstIndex(3), arms: [AstIndex(9), AstIndex(17)] }
+  19: MainBlock { body: [AstIndex(18)], local_count: 2 }

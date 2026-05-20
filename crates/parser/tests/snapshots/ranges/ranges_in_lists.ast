@@ -1,0 +1,19 @@
+# ---
+[0..1]
+[0..10, 10..=0]
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(0)
+  1: SmallInt(1)
+  2: Range { start: AstIndex(0), end: AstIndex(1), inclusive: false }
+  3: List([AstIndex(2)])
+  4: SmallInt(0)
+  5: SmallInt(10)
+  6: Range { start: AstIndex(4), end: AstIndex(5), inclusive: false }
+  7: SmallInt(10)
+  8: SmallInt(0)
+  9: Range { start: AstIndex(7), end: AstIndex(8), inclusive: true }
+  10: List([AstIndex(6), AstIndex(9)])
+  11: MainBlock { body: [AstIndex(3), AstIndex(10)], local_count: 0 }

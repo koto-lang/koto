@@ -1,0 +1,22 @@
+# ---
+{x}, {y} = {x: 1}, {y: 2}
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Map { entries: [AstIndex(0)], braces: true }
+  2: Id(ConstantIndex(1), None)
+  3: Map { entries: [AstIndex(2)], braces: true }
+  4: Id(ConstantIndex(0), None)
+  5: SmallInt(1)
+  6: MapEntry(AstIndex(4), AstIndex(5))
+  7: Map { entries: [AstIndex(6)], braces: true }
+  8: Id(ConstantIndex(1), None)
+  9: SmallInt(2)
+  10: MapEntry(AstIndex(8), AstIndex(9))
+  11: Map { entries: [AstIndex(10)], braces: true }
+  12: TempTuple([AstIndex(7), AstIndex(11)])
+  13: MultiAssign { targets: [AstIndex(1), AstIndex(3)], expression: AstIndex(12), let_assignment: false }
+  14: MainBlock { body: [AstIndex(13)], local_count: 2 }

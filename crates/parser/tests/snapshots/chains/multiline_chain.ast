@@ -1,0 +1,21 @@
+# ---
+x.iter()
+  .skip 1
+  .to_tuple()
+# ---
+constants:
+  0: Str("x")
+  1: Str("iter")
+  2: Str("skip")
+  3: Str("to_tuple")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: Chain((Call { args: [], with_parens: true }, None))
+  3: Chain((Id(ConstantIndex(3)), Some(AstIndex(2))))
+  4: Chain((Call { args: [AstIndex(1)], with_parens: false }, Some(AstIndex(3))))
+  5: Chain((Id(ConstantIndex(2)), Some(AstIndex(4))))
+  6: Chain((Call { args: [], with_parens: true }, Some(AstIndex(5))))
+  7: Chain((Id(ConstantIndex(1)), Some(AstIndex(6))))
+  8: Chain((Root(AstIndex(0)), Some(AstIndex(7))))
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

@@ -133,3 +133,27 @@ impl Ast {
         &self.nodes
     }
 }
+
+impl fmt::Display for Ast {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "constants:")?;
+        if self.constants.size() == 0 {
+            writeln!(f, "  []")?;
+        } else {
+            for (i, constant) in self.constants.iter().enumerate() {
+                writeln!(f, "  {i}: {constant}")?;
+            }
+        }
+
+        writeln!(f, "nodes:")?;
+        if self.nodes.is_empty() {
+            writeln!(f, "  []")?;
+        } else {
+            for (i, ast_node) in self.nodes.iter().enumerate() {
+                writeln!(f, "  {i}: {:?}", ast_node.node)?;
+            }
+        }
+
+        Ok(())
+    }
+}

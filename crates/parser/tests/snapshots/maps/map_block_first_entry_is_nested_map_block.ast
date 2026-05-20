@@ -1,0 +1,21 @@
+# ---
+x =
+  foo:
+    bar: 42
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+  2: Str("bar")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: SmallInt(42)
+  4: MapEntry(AstIndex(2), AstIndex(3))
+  5: Map { entries: [AstIndex(4)], braces: false }
+  6: Block([AstIndex(5)])
+  7: MapEntry(AstIndex(1), AstIndex(6))
+  8: Map { entries: [AstIndex(7)], braces: false }
+  9: Assign { target: AstIndex(0), expression: AstIndex(8), let_assignment: false }
+  10: MainBlock { body: [AstIndex(9)], local_count: 1 }
