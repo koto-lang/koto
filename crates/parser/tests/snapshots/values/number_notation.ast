@@ -1,0 +1,23 @@
+# ---
+1
+0x1
+0x100
+0xABAD_CAFE
+0o1
+0o100
+0b1
+0b1_0_0
+# ---
+constants:
+  0: I64(256)
+  1: I64(2880293630)
+nodes:
+  0: SmallInt(1)
+  1: SmallInt(1)
+  2: Int(ConstantIndex(0))
+  3: Int(ConstantIndex(1))
+  4: SmallInt(1)
+  5: SmallInt(64)
+  6: SmallInt(1)
+  7: SmallInt(4)
+  8: MainBlock { body: [AstIndex(0), AstIndex(1), AstIndex(2), AstIndex(3), AstIndex(4), AstIndex(5), AstIndex(6), AstIndex(7)], local_count: 0 }

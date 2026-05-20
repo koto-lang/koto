@@ -1,0 +1,26 @@
+# ---
+f = |x|
+  y = x
+  y
+f 42
+# ---
+constants:
+  0: Str("f")
+  1: Str("x")
+  2: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: FunctionArgs { args: [AstIndex(1)], variadic: false, output_type: None }
+  3: Id(ConstantIndex(2), None)
+  4: Id(ConstantIndex(1), None)
+  5: Assign { target: AstIndex(3), expression: AstIndex(4), let_assignment: false }
+  6: Id(ConstantIndex(2), None)
+  7: Block([AstIndex(5), AstIndex(6)])
+  8: Function(Function { args: AstIndex(2), local_count: 2, accessed_non_locals: [], body: AstIndex(7), is_generator: false })
+  9: Assign { target: AstIndex(0), expression: AstIndex(8), let_assignment: false }
+  10: Id(ConstantIndex(0), None)
+  11: SmallInt(42)
+  12: Chain((Call { args: [AstIndex(11)], with_parens: false }, None))
+  13: Chain((Root(AstIndex(10)), Some(AstIndex(12))))
+  14: MainBlock { body: [AstIndex(9), AstIndex(13)], local_count: 1 }

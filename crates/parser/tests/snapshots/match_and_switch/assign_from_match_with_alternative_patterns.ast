@@ -1,0 +1,22 @@
+# ---
+x = match y
+  0 or 1 then 42
+  z then -1
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("z")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: SmallInt(0)
+  3: SmallInt(1)
+  4: SmallInt(42)
+  5: MatchArm { patterns: [AstIndex(2), AstIndex(3)], condition: None, expression: AstIndex(4) }
+  6: Id(ConstantIndex(2), None)
+  7: SmallInt(-1)
+  8: MatchArm { patterns: [AstIndex(6)], condition: None, expression: AstIndex(7) }
+  9: Match { expression: AstIndex(1), arms: [AstIndex(5), AstIndex(8)] }
+  10: Assign { target: AstIndex(0), expression: AstIndex(9), let_assignment: false }
+  11: MainBlock { body: [AstIndex(10)], local_count: 2 }

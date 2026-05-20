@@ -1,0 +1,35 @@
+# ---
+match x, y
+  0, 1 or 2, 3 if z then 0
+  a, () then
+    a
+  else 0
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("z")
+  3: Str("a")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: TempTuple([AstIndex(0), AstIndex(1)])
+  3: SmallInt(0)
+  4: SmallInt(1)
+  5: TempTuple([AstIndex(3), AstIndex(4)])
+  6: SmallInt(2)
+  7: SmallInt(3)
+  8: TempTuple([AstIndex(6), AstIndex(7)])
+  9: Id(ConstantIndex(2), None)
+  10: SmallInt(0)
+  11: MatchArm { patterns: [AstIndex(5), AstIndex(8)], condition: Some(AstIndex(9)), expression: AstIndex(10) }
+  12: Id(ConstantIndex(3), None)
+  13: Null
+  14: TempTuple([AstIndex(12), AstIndex(13)])
+  15: Id(ConstantIndex(3), None)
+  16: Block([AstIndex(15)])
+  17: MatchArm { patterns: [AstIndex(14)], condition: None, expression: AstIndex(16) }
+  18: SmallInt(0)
+  19: MatchArm { patterns: [], condition: None, expression: AstIndex(18) }
+  20: Match { expression: AstIndex(2), arms: [AstIndex(11), AstIndex(17), AstIndex(19)] }
+  21: MainBlock { body: [AstIndex(20)], local_count: 1 }

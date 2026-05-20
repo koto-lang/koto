@@ -1,0 +1,9 @@
+# ---
+throw 'error!'
+# ---
+constants:
+  0: Str("error!")
+nodes:
+  0: Str(AstString { quote: Single, contents: Literal(ConstantIndex(0)) })
+  1: Throw(AstIndex(0))
+  2: MainBlock { body: [AstIndex(1)], local_count: 0 }

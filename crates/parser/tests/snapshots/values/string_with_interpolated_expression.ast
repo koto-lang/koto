@@ -1,0 +1,12 @@
+# ---
+'{123 + 456}!'
+# ---
+constants:
+  0: I64(456)
+  1: Str("!")
+nodes:
+  0: SmallInt(123)
+  1: Int(ConstantIndex(0))
+  2: BinaryOp { op: Add, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: Str(AstString { quote: Single, contents: Interpolated([Expression { expression: AstIndex(2), format: StringFormatOptions { alignment: Default, min_width: None, precision: None, fill_character: None, representation: None } }, Literal(ConstantIndex(1))]) })
+  4: MainBlock { body: [AstIndex(3)], local_count: 0 }

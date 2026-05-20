@@ -1,0 +1,9 @@
+# ---
+throw x
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Throw(AstIndex(0))
+  2: MainBlock { body: [AstIndex(1)], local_count: 0 }

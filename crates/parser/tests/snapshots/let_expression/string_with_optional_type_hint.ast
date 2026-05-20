@@ -1,0 +1,13 @@
+# ---
+let a: String? = 'hello'
+# ---
+constants:
+  0: Str("a")
+  1: Str("String")
+  2: Str("hello")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: true }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: Str(AstString { quote: Single, contents: Literal(ConstantIndex(2)) })
+  3: Assign { target: AstIndex(1), expression: AstIndex(2), let_assignment: true }
+  4: MainBlock { body: [AstIndex(3)], local_count: 1 }

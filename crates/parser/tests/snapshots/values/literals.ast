@@ -1,0 +1,25 @@
+# ---
+true
+false
+1
+1.0
+"hello"
+'world'
+a
+null
+# ---
+constants:
+  0: F64(1.0)
+  1: Str("hello")
+  2: Str("world")
+  3: Str("a")
+nodes:
+  0: BoolTrue
+  1: BoolFalse
+  2: SmallInt(1)
+  3: Float(ConstantIndex(0))
+  4: Str(AstString { quote: Double, contents: Literal(ConstantIndex(1)) })
+  5: Str(AstString { quote: Single, contents: Literal(ConstantIndex(2)) })
+  6: Id(ConstantIndex(3), None)
+  7: Null
+  8: MainBlock { body: [AstIndex(0), AstIndex(1), AstIndex(2), AstIndex(3), AstIndex(4), AstIndex(5), AstIndex(6), AstIndex(7)], local_count: 0 }

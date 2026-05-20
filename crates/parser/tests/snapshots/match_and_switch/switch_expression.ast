@@ -1,0 +1,24 @@
+# ---
+switch
+  1 == 0 then 0
+  a > b then 1
+  else a
+# ---
+constants:
+  0: Str("a")
+  1: Str("b")
+nodes:
+  0: SmallInt(1)
+  1: SmallInt(0)
+  2: BinaryOp { op: Equal, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: SmallInt(0)
+  4: SwitchArm { condition: Some(AstIndex(2)), expression: AstIndex(3) }
+  5: Id(ConstantIndex(0), None)
+  6: Id(ConstantIndex(1), None)
+  7: BinaryOp { op: Greater, lhs: AstIndex(5), rhs: AstIndex(6) }
+  8: SmallInt(1)
+  9: SwitchArm { condition: Some(AstIndex(7)), expression: AstIndex(8) }
+  10: Id(ConstantIndex(0), None)
+  11: SwitchArm { condition: None, expression: AstIndex(10) }
+  12: Switch([AstIndex(4), AstIndex(9), AstIndex(11)])
+  13: MainBlock { body: [AstIndex(12)], local_count: 0 }

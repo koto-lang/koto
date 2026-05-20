@@ -1,0 +1,16 @@
+# ---
+x, _, _y = f()
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("f")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Ignored(None, None)
+  2: Ignored(Some(ConstantIndex(1)), None)
+  3: Id(ConstantIndex(2), None)
+  4: Chain((Call { args: [], with_parens: true }, None))
+  5: Chain((Root(AstIndex(3)), Some(AstIndex(4))))
+  6: MultiAssign { targets: [AstIndex(0), AstIndex(1), AstIndex(2)], expression: AstIndex(5), let_assignment: false }
+  7: MainBlock { body: [AstIndex(6)], local_count: 1 }

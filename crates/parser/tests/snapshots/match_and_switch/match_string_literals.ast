@@ -1,0 +1,21 @@
+# ---
+match x
+  'foo' then 99
+  "bar" or "baz" then break
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+  2: Str("bar")
+  3: Str("baz")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Str(AstString { quote: Single, contents: Literal(ConstantIndex(1)) })
+  2: SmallInt(99)
+  3: MatchArm { patterns: [AstIndex(1)], condition: None, expression: AstIndex(2) }
+  4: Str(AstString { quote: Double, contents: Literal(ConstantIndex(2)) })
+  5: Str(AstString { quote: Double, contents: Literal(ConstantIndex(3)) })
+  6: Break(None)
+  7: MatchArm { patterns: [AstIndex(4), AstIndex(5)], condition: None, expression: AstIndex(6) }
+  8: Match { expression: AstIndex(0), arms: [AstIndex(3), AstIndex(7)] }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

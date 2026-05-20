@@ -1,0 +1,11 @@
+# ---
+x[..]
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: RangeFull
+  2: Chain((Index(AstIndex(1)), None))
+  3: Chain((Root(AstIndex(0)), Some(AstIndex(2))))
+  4: MainBlock { body: [AstIndex(3)], local_count: 0 }

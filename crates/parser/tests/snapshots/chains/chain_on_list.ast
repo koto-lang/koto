@@ -1,0 +1,25 @@
+# ---
+x = [0, 1].contains y
+# ---
+x = [0, 1]
+  .contains y
+# ---
+x = [ 0
+    , 1]
+  .contains y
+# ---
+constants:
+  0: Str("x")
+  1: Str("contains")
+  2: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(0)
+  2: SmallInt(1)
+  3: List([AstIndex(1), AstIndex(2)])
+  4: Id(ConstantIndex(2), None)
+  5: Chain((Call { args: [AstIndex(4)], with_parens: false }, None))
+  6: Chain((Id(ConstantIndex(1)), Some(AstIndex(5))))
+  7: Chain((Root(AstIndex(3)), Some(AstIndex(6))))
+  8: Assign { target: AstIndex(0), expression: AstIndex(7), let_assignment: false }
+  9: MainBlock { body: [AstIndex(8)], local_count: 1 }

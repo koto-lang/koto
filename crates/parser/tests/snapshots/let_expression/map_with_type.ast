@@ -1,0 +1,16 @@
+# ---
+let {x: Number} = {x: 1}
+# ---
+constants:
+  0: Str("x")
+  1: Str("Number")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: false }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: MapPattern { entries: [AstIndex(1)], type_hint: None }
+  3: Id(ConstantIndex(0), None)
+  4: SmallInt(1)
+  5: MapEntry(AstIndex(3), AstIndex(4))
+  6: Map { entries: [AstIndex(5)], braces: true }
+  7: Assign { target: AstIndex(2), expression: AstIndex(6), let_assignment: true }
+  8: MainBlock { body: [AstIndex(7)], local_count: 1 }

@@ -1,0 +1,14 @@
+# ---
+x = from foo import bar
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+  2: Str("bar")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: Import { from: [AstIndex(1)], items: [ImportItem { item: AstIndex(2), name: None }] }
+  4: Assign { target: AstIndex(0), expression: AstIndex(3), let_assignment: false }
+  5: MainBlock { body: [AstIndex(4)], local_count: 2 }

@@ -1,0 +1,18 @@
+# ---
+for {x} in [{x: 1}]
+    x
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: MapPattern { entries: [AstIndex(0)], type_hint: None }
+  2: Id(ConstantIndex(0), None)
+  3: SmallInt(1)
+  4: MapEntry(AstIndex(2), AstIndex(3))
+  5: Map { entries: [AstIndex(4)], braces: true }
+  6: List([AstIndex(5)])
+  7: Id(ConstantIndex(0), None)
+  8: Block([AstIndex(7)])
+  9: For(AstFor { args: [AstIndex(1)], iterable: AstIndex(6), body: AstIndex(8) })
+  10: MainBlock { body: [AstIndex(9)], local_count: 1 }

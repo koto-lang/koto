@@ -1,0 +1,21 @@
+# ---
+f = |{x, y}|
+  x + y
+# ---
+constants:
+  0: Str("f")
+  1: Str("x")
+  2: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: MapPattern { entries: [AstIndex(1), AstIndex(2)], type_hint: None }
+  4: FunctionArgs { args: [AstIndex(3)], variadic: false, output_type: None }
+  5: Id(ConstantIndex(1), None)
+  6: Id(ConstantIndex(2), None)
+  7: BinaryOp { op: Add, lhs: AstIndex(5), rhs: AstIndex(6) }
+  8: Block([AstIndex(7)])
+  9: Function(Function { args: AstIndex(4), local_count: 2, accessed_non_locals: [], body: AstIndex(8), is_generator: false })
+  10: Assign { target: AstIndex(0), expression: AstIndex(9), let_assignment: false }
+  11: MainBlock { body: [AstIndex(10)], local_count: 1 }

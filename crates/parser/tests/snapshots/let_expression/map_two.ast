@@ -1,0 +1,19 @@
+# ---
+let {x, y} = {x: 1, y: 2}
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: MapPattern { entries: [AstIndex(0), AstIndex(1)], type_hint: None }
+  3: Id(ConstantIndex(0), None)
+  4: SmallInt(1)
+  5: MapEntry(AstIndex(3), AstIndex(4))
+  6: Id(ConstantIndex(1), None)
+  7: SmallInt(2)
+  8: MapEntry(AstIndex(6), AstIndex(7))
+  9: Map { entries: [AstIndex(5), AstIndex(8)], braces: true }
+  10: Assign { target: AstIndex(2), expression: AstIndex(9), let_assignment: true }
+  11: MainBlock { body: [AstIndex(10)], local_count: 2 }

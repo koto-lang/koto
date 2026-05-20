@@ -1,0 +1,16 @@
+# ---
+{x as _} = {x: 1}
+# ---
+constants:
+  0: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Ignored(None, None)
+  2: MapKeyRebind { key: AstIndex(0), id_or_ignored: AstIndex(1) }
+  3: Map { entries: [AstIndex(2)], braces: true }
+  4: Id(ConstantIndex(0), None)
+  5: SmallInt(1)
+  6: MapEntry(AstIndex(4), AstIndex(5))
+  7: Map { entries: [AstIndex(6)], braces: true }
+  8: Assign { target: AstIndex(3), expression: AstIndex(7), let_assignment: false }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

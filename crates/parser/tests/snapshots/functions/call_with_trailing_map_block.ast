@@ -1,0 +1,27 @@
+# ---
+foo bar,
+  abc: 99
+  xyz: 123
+# ---
+foo bar,
+    abc: 99
+    xyz: 123
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+  2: Str("abc")
+  3: Str("xyz")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: SmallInt(99)
+  4: MapEntry(AstIndex(2), AstIndex(3))
+  5: Id(ConstantIndex(3), None)
+  6: SmallInt(123)
+  7: MapEntry(AstIndex(5), AstIndex(6))
+  8: Map { entries: [AstIndex(4), AstIndex(7)], braces: false }
+  9: Chain((Call { args: [AstIndex(1), AstIndex(8)], with_parens: false }, None))
+  10: Chain((Root(AstIndex(0)), Some(AstIndex(9))))
+  11: MainBlock { body: [AstIndex(10)], local_count: 0 }

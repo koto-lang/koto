@@ -1,0 +1,23 @@
+# ---
+for x: String, _: Number, _y, z in foo
+  x
+# ---
+constants:
+  0: Str("x")
+  1: Str("String")
+  2: Str("Number")
+  3: Str("y")
+  4: Str("z")
+  5: Str("foo")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: false }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: Type { type_index: ConstantIndex(2), allow_null: false }
+  3: Ignored(None, Some(AstIndex(2)))
+  4: Ignored(Some(ConstantIndex(3)), None)
+  5: Id(ConstantIndex(4), None)
+  6: Id(ConstantIndex(5), None)
+  7: Id(ConstantIndex(0), None)
+  8: Block([AstIndex(7)])
+  9: For(AstFor { args: [AstIndex(1), AstIndex(3), AstIndex(4), AstIndex(5)], iterable: AstIndex(6), body: AstIndex(8) })
+  10: MainBlock { body: [AstIndex(9)], local_count: 2 }

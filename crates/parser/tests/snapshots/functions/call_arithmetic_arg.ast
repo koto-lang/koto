@@ -1,0 +1,14 @@
+# ---
+f x - 1
+# ---
+constants:
+  0: Str("f")
+  1: Str("x")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: SmallInt(1)
+  3: BinaryOp { op: Subtract, lhs: AstIndex(1), rhs: AstIndex(2) }
+  4: Chain((Call { args: [AstIndex(3)], with_parens: false }, None))
+  5: Chain((Root(AstIndex(0)), Some(AstIndex(4))))
+  6: MainBlock { body: [AstIndex(5)], local_count: 0 }

@@ -1,0 +1,21 @@
+# ---
+import foo, 'bar', baz
+# ---
+import
+  foo,
+  'bar',
+  baz,
+# ---
+import foo,
+  'bar', baz
+# ---
+constants:
+  0: Str("foo")
+  1: Str("bar")
+  2: Str("baz")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Str(AstString { quote: Single, contents: Literal(ConstantIndex(1)) })
+  2: Id(ConstantIndex(2), None)
+  3: Import { from: [], items: [ImportItem { item: AstIndex(0), name: None }, ImportItem { item: AstIndex(1), name: None }, ImportItem { item: AstIndex(2), name: None }] }
+  4: MainBlock { body: [AstIndex(3)], local_count: 2 }

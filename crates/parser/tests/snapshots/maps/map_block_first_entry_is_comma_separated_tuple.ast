@@ -1,0 +1,27 @@
+# ---
+x =
+    foo: 10, 20, 30
+# ---
+x =
+    foo: 10,
+         20,
+         30,
+# ---
+x =
+    foo: 10, 20,
+         30,
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: SmallInt(10)
+  3: SmallInt(20)
+  4: SmallInt(30)
+  5: Tuple { elements: [AstIndex(2), AstIndex(3), AstIndex(4)], parentheses: false }
+  6: MapEntry(AstIndex(1), AstIndex(5))
+  7: Map { entries: [AstIndex(6)], braces: false }
+  8: Assign { target: AstIndex(0), expression: AstIndex(7), let_assignment: false }
+  9: MainBlock { body: [AstIndex(8)], local_count: 1 }

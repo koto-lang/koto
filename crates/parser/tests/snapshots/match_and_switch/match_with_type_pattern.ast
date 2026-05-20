@@ -1,0 +1,16 @@
+# ---
+match x
+  y: String then y
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+  2: Str("String")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Type { type_index: ConstantIndex(2), allow_null: false }
+  2: Id(ConstantIndex(1), Some(AstIndex(1)))
+  3: Id(ConstantIndex(1), None)
+  4: MatchArm { patterns: [AstIndex(2)], condition: None, expression: AstIndex(3) }
+  5: Match { expression: AstIndex(0), arms: [AstIndex(4)] }
+  6: MainBlock { body: [AstIndex(5)], local_count: 1 }

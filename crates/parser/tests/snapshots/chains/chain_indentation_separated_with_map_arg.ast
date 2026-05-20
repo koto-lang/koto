@@ -1,0 +1,18 @@
+# ---
+x.takes_a_map
+  foo: 42
+# ---
+constants:
+  0: Str("x")
+  1: Str("takes_a_map")
+  2: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(2), None)
+  2: SmallInt(42)
+  3: MapEntry(AstIndex(1), AstIndex(2))
+  4: Map { entries: [AstIndex(3)], braces: false }
+  5: Chain((Call { args: [AstIndex(4)], with_parens: false }, None))
+  6: Chain((Id(ConstantIndex(1)), Some(AstIndex(5))))
+  7: Chain((Root(AstIndex(0)), Some(AstIndex(6))))
+  8: MainBlock { body: [AstIndex(7)], local_count: 0 }

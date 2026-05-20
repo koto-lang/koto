@@ -1,0 +1,19 @@
+# ---
+1 - 0 + 1
+# ---
+1 - 0
+  + 1
+# ---
+1
+  - 0
+    + 1
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(1)
+  1: SmallInt(0)
+  2: BinaryOp { op: Subtract, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: SmallInt(1)
+  4: BinaryOp { op: Add, lhs: AstIndex(2), rhs: AstIndex(3) }
+  5: MainBlock { body: [AstIndex(4)], local_count: 0 }

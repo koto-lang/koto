@@ -1,0 +1,22 @@
+# ---
+'Hello, {name}!'
+"{foo}"
+'{x} {y}'
+# ---
+constants:
+  0: Str("Hello, ")
+  1: Str("name")
+  2: Str("!")
+  3: Str("foo")
+  4: Str("x")
+  5: Str(" ")
+  6: Str("y")
+nodes:
+  0: Id(ConstantIndex(1), None)
+  1: Str(AstString { quote: Single, contents: Interpolated([Literal(ConstantIndex(0)), Expression { expression: AstIndex(0), format: StringFormatOptions { alignment: Default, min_width: None, precision: None, fill_character: None, representation: None } }, Literal(ConstantIndex(2))]) })
+  2: Id(ConstantIndex(3), None)
+  3: Str(AstString { quote: Double, contents: Interpolated([Expression { expression: AstIndex(2), format: StringFormatOptions { alignment: Default, min_width: None, precision: None, fill_character: None, representation: None } }]) })
+  4: Id(ConstantIndex(4), None)
+  5: Id(ConstantIndex(6), None)
+  6: Str(AstString { quote: Single, contents: Interpolated([Expression { expression: AstIndex(4), format: StringFormatOptions { alignment: Default, min_width: None, precision: None, fill_character: None, representation: None } }, Literal(ConstantIndex(5)), Expression { expression: AstIndex(5), format: StringFormatOptions { alignment: Default, min_width: None, precision: None, fill_character: None, representation: None } }]) })
+  7: MainBlock { body: [AstIndex(1), AstIndex(3), AstIndex(6)], local_count: 0 }

@@ -1,0 +1,23 @@
+# ---
+x =
+  @+: 0
+  @-: 1
+  @meta foo: 0
+# ---
+constants:
+  0: Str("x")
+  1: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Meta(Add, None)
+  2: SmallInt(0)
+  3: MapEntry(AstIndex(1), AstIndex(2))
+  4: Meta(Subtract, None)
+  5: SmallInt(1)
+  6: MapEntry(AstIndex(4), AstIndex(5))
+  7: Meta(Named, Some(ConstantIndex(1)))
+  8: SmallInt(0)
+  9: MapEntry(AstIndex(7), AstIndex(8))
+  10: Map { entries: [AstIndex(3), AstIndex(6), AstIndex(9)], braces: false }
+  11: Assign { target: AstIndex(0), expression: AstIndex(10), let_assignment: false }
+  12: MainBlock { body: [AstIndex(11)], local_count: 1 }

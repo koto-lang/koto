@@ -1,0 +1,51 @@
+# ---
+a = if false
+  0
+else if true
+  1
+else if false
+  0
+else
+  1
+a
+# ---
+a =
+  if false
+    0
+  else if true
+    1
+  else if false
+    0
+  else
+    1
+a
+# ---
+a = if false
+      0
+    else if true
+      1
+    else if false
+      0
+    else
+      1
+a
+# ---
+constants:
+  0: Str("a")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: BoolFalse
+  2: SmallInt(0)
+  3: Block([AstIndex(2)])
+  4: BoolTrue
+  5: SmallInt(1)
+  6: Block([AstIndex(5)])
+  7: BoolFalse
+  8: SmallInt(0)
+  9: Block([AstIndex(8)])
+  10: SmallInt(1)
+  11: Block([AstIndex(10)])
+  12: If(AstIf { condition: AstIndex(1), then_node: AstIndex(3), else_if_blocks: [(AstIndex(4), AstIndex(6)), (AstIndex(7), AstIndex(9))], else_node: Some(AstIndex(11)), inline: false })
+  13: Assign { target: AstIndex(0), expression: AstIndex(12), let_assignment: false }
+  14: Id(ConstantIndex(0), None)
+  15: MainBlock { body: [AstIndex(13), AstIndex(14)], local_count: 1 }

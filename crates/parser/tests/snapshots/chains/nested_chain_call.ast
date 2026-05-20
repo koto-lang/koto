@@ -1,0 +1,16 @@
+# ---
+((x).contains y)
+# ---
+constants:
+  0: Str("x")
+  1: Str("contains")
+  2: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Nested(AstIndex(0))
+  2: Id(ConstantIndex(2), None)
+  3: Chain((Call { args: [AstIndex(2)], with_parens: false }, None))
+  4: Chain((Id(ConstantIndex(1)), Some(AstIndex(3))))
+  5: Chain((Root(AstIndex(1)), Some(AstIndex(4))))
+  6: Nested(AstIndex(5))
+  7: MainBlock { body: [AstIndex(6)], local_count: 0 }

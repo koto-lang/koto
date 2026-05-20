@@ -1,0 +1,25 @@
+# ---
+match y
+  (rest..., 0, 1) then 0
+  (1, 0, others...) then 1
+# ---
+constants:
+  0: Str("y")
+  1: Str("rest")
+  2: Str("others")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: PackedId(Some(ConstantIndex(1)))
+  2: SmallInt(0)
+  3: SmallInt(1)
+  4: Tuple { elements: [AstIndex(1), AstIndex(2), AstIndex(3)], parentheses: true }
+  5: SmallInt(0)
+  6: MatchArm { patterns: [AstIndex(4)], condition: None, expression: AstIndex(5) }
+  7: SmallInt(1)
+  8: SmallInt(0)
+  9: PackedId(Some(ConstantIndex(2)))
+  10: Tuple { elements: [AstIndex(7), AstIndex(8), AstIndex(9)], parentheses: true }
+  11: SmallInt(1)
+  12: MatchArm { patterns: [AstIndex(10)], condition: None, expression: AstIndex(11) }
+  13: Match { expression: AstIndex(0), arms: [AstIndex(6), AstIndex(12)] }
+  14: MainBlock { body: [AstIndex(13)], local_count: 2 }

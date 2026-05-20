@@ -1,0 +1,17 @@
+# ---
+x = 1 + f y
+# ---
+constants:
+  0: Str("x")
+  1: Str("f")
+  2: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(1)
+  2: Id(ConstantIndex(1), None)
+  3: Id(ConstantIndex(2), None)
+  4: Chain((Call { args: [AstIndex(3)], with_parens: false }, None))
+  5: Chain((Root(AstIndex(2)), Some(AstIndex(4))))
+  6: BinaryOp { op: Add, lhs: AstIndex(1), rhs: AstIndex(5) }
+  7: Assign { target: AstIndex(0), expression: AstIndex(6), let_assignment: false }
+  8: MainBlock { body: [AstIndex(7)], local_count: 1 }

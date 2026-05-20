@@ -1,0 +1,16 @@
+# ---
+a[0] = a[1]
+# ---
+constants:
+  0: Str("a")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: SmallInt(0)
+  2: Chain((Index(AstIndex(1)), None))
+  3: Chain((Root(AstIndex(0)), Some(AstIndex(2))))
+  4: Id(ConstantIndex(0), None)
+  5: SmallInt(1)
+  6: Chain((Index(AstIndex(5)), None))
+  7: Chain((Root(AstIndex(4)), Some(AstIndex(6))))
+  8: Assign { target: AstIndex(3), expression: AstIndex(7), let_assignment: false }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

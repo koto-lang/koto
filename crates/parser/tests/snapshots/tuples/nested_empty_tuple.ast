@@ -1,0 +1,9 @@
+# ---
+(())
+# ---
+constants:
+  []
+nodes:
+  0: Tuple { elements: [], parentheses: true }
+  1: Nested(AstIndex(0))
+  2: MainBlock { body: [AstIndex(1)], local_count: 0 }

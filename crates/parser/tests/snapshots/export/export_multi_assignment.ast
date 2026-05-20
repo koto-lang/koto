@@ -1,0 +1,29 @@
+# ---
+export a, b, c = foo
+# ---
+export a, b, c
+  = foo
+# ---
+export a, b, c =
+  foo
+# ---
+export
+  a, b, c = foo
+# ---
+export
+  a, b, c
+    = foo
+# ---
+constants:
+  0: Str("a")
+  1: Str("b")
+  2: Str("c")
+  3: Str("foo")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: Id(ConstantIndex(2), None)
+  3: Id(ConstantIndex(3), None)
+  4: MultiAssign { targets: [AstIndex(0), AstIndex(1), AstIndex(2)], expression: AstIndex(3), let_assignment: false }
+  5: Export(AstIndex(4))
+  6: MainBlock { body: [AstIndex(5)], local_count: 3 }

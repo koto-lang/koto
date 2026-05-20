@@ -1,0 +1,20 @@
+# ---
+let x: Int, _: Int, _y: Int = f()
+# ---
+constants:
+  0: Str("x")
+  1: Str("Int")
+  2: Str("y")
+  3: Str("f")
+nodes:
+  0: Type { type_index: ConstantIndex(1), allow_null: false }
+  1: Id(ConstantIndex(0), Some(AstIndex(0)))
+  2: Type { type_index: ConstantIndex(1), allow_null: false }
+  3: Ignored(None, Some(AstIndex(2)))
+  4: Type { type_index: ConstantIndex(1), allow_null: false }
+  5: Ignored(Some(ConstantIndex(2)), Some(AstIndex(4)))
+  6: Id(ConstantIndex(3), None)
+  7: Chain((Call { args: [], with_parens: true }, None))
+  8: Chain((Root(AstIndex(6)), Some(AstIndex(7))))
+  9: MultiAssign { targets: [AstIndex(1), AstIndex(3), AstIndex(5)], expression: AstIndex(8), let_assignment: true }
+  10: MainBlock { body: [AstIndex(9)], local_count: 1 }

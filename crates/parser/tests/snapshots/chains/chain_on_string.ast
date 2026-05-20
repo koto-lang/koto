@@ -1,0 +1,14 @@
+# ---
+'fox'.ends_with 'x'
+# ---
+constants:
+  0: Str("fox")
+  1: Str("ends_with")
+  2: Str("x")
+nodes:
+  0: Str(AstString { quote: Single, contents: Literal(ConstantIndex(0)) })
+  1: Str(AstString { quote: Single, contents: Literal(ConstantIndex(2)) })
+  2: Chain((Call { args: [AstIndex(1)], with_parens: false }, None))
+  3: Chain((Id(ConstantIndex(1)), Some(AstIndex(2))))
+  4: Chain((Root(AstIndex(0)), Some(AstIndex(3))))
+  5: MainBlock { body: [AstIndex(4)], local_count: 0 }

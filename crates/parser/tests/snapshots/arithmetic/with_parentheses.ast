@@ -1,0 +1,16 @@
+# ---
+(1 + 0) * (1 + 0)
+# ---
+constants:
+  []
+nodes:
+  0: SmallInt(1)
+  1: SmallInt(0)
+  2: BinaryOp { op: Add, lhs: AstIndex(0), rhs: AstIndex(1) }
+  3: Nested(AstIndex(2))
+  4: SmallInt(1)
+  5: SmallInt(0)
+  6: BinaryOp { op: Add, lhs: AstIndex(4), rhs: AstIndex(5) }
+  7: Nested(AstIndex(6))
+  8: BinaryOp { op: Multiply, lhs: AstIndex(3), rhs: AstIndex(7) }
+  9: MainBlock { body: [AstIndex(8)], local_count: 0 }

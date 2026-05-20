@@ -1,0 +1,17 @@
+# ---
+x, y[0] = 1, 0
+# ---
+constants:
+  0: Str("x")
+  1: Str("y")
+nodes:
+  0: Id(ConstantIndex(0), None)
+  1: Id(ConstantIndex(1), None)
+  2: SmallInt(0)
+  3: Chain((Index(AstIndex(2)), None))
+  4: Chain((Root(AstIndex(1)), Some(AstIndex(3))))
+  5: SmallInt(1)
+  6: SmallInt(0)
+  7: TempTuple([AstIndex(5), AstIndex(6)])
+  8: MultiAssign { targets: [AstIndex(0), AstIndex(4)], expression: AstIndex(7), let_assignment: false }
+  9: MainBlock { body: [AstIndex(8)], local_count: 1 }

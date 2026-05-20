@@ -1,0 +1,11 @@
+# ---
+'!{a:_>3.2x}!'
+# ---
+constants:
+  0: Str("!")
+  1: Str("a")
+  2: Str("_")
+nodes:
+  0: Id(ConstantIndex(1), None)
+  1: Str(AstString { quote: Single, contents: Interpolated([Literal(ConstantIndex(0)), Expression { expression: AstIndex(0), format: StringFormatOptions { alignment: Right, min_width: Some(3), precision: Some(2), fill_character: Some(ConstantIndex(2)), representation: Some(HexLower) } }, Literal(ConstantIndex(0))]) })
+  2: MainBlock { body: [AstIndex(1)], local_count: 0 }

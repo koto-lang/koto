@@ -67,6 +67,16 @@ pub enum Constant<'a> {
     Str(&'a str),
 }
 
+impl fmt::Display for Constant<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Constant::F64(n) => write!(f, "F64({n:?})"),
+            Constant::I64(n) => write!(f, "I64({n})"),
+            Constant::Str(s) => write!(f, "Str({s:?})"),
+        }
+    }
+}
+
 /// A constant pool produced by the [Parser](crate::Parser) for a Koto script
 ///
 /// A `ConstantPoolBuilder` is used to prepare the pool.
