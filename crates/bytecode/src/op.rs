@@ -92,7 +92,7 @@ pub enum Op {
     /// The name of the module to be imported will be placed in the register before running this op,
     /// the imported module will then be placed in the same register.
     ///
-    /// `[*register]`
+    /// `[*register, allow_pending]`
     Import,
 
     /// Imports all items from a value
@@ -100,7 +100,7 @@ pub enum Op {
     /// The name of the module to be imported will be placed in the register before running this op,
     /// the imported module will then be made available for non-local access within the module.
     ///
-    /// `[*register]`
+    /// `[*register, allow_pending]`
     ImportAll,
 
     /// Makes a temporary tuple out of values stored in consecutive registers
@@ -612,8 +612,12 @@ pub enum Op {
     /// `[*result, *container, *key, jump_offset[2]]`
     TryAccessString,
 
+    /// Awaits a value, replacing it with the awaited output
+    ///
+    /// `[*value]`
+    Await,
+
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused95,
     Unused96,
     Unused97,
     Unused98,

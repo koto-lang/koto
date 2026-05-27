@@ -520,7 +520,7 @@ impl Compiler {
             }
             Node::TempTuple(elements) => self.compile_make_temp_tuple(elements, ctx)?,
             Node::Function(f) => self.compile_function(f, ctx)?,
-            Node::Import { from, items } => self.compile_import(from, items, ctx)?,
+            Node::Import { from, items } => self.compile_import(from, items, false, ctx)?,
             Node::Export(expression) => self.compile_export(*expression, ctx)?,
             Node::Assign {
                 target, expression, ..
@@ -594,6 +594,7 @@ impl Compiler {
                 None => return self.error(ErrorKind::InvalidLoopKeyword("continue".into())),
             },
             Node::Return(expression) => self.compile_return(*expression, node_index, ctx)?,
+            Node::Await(expression) => self.compile_await(*expression, ctx)?,
             Node::Yield(expression) => self.compile_yield(*expression, node_index, ctx)?,
             Node::Throw(expression) => {
                 // A throw will prevent the result from being used, but the caller should be
@@ -817,6 +818,39 @@ impl Compiler {
         }
 
         if expression_result.is_temporary {
+            self.pop_register()?;
+        }
+
+        Ok(result)
+    }
+
+    fn compile_await(
+        &mut self,
+        expression: AstIndex,
+        ctx: CompileNodeContext,
+    ) -> Result<CompileNodeOutput> {
+        if let Node::Import { from, items } = ctx.node(expression) {
+            return self.compile_import(from, items, true, ctx);
+        }
+
+        let result = self.assign_result_register(ctx)?;
+
+        let expression_context = match result.register {
+            Some(register) => ctx.with_fixed_register(register),
+            None => ctx.with_any_register(),
+        };
+        let expression_result = self.compile_node(expression, expression_context)?;
+        let expression_register = expression_result.unwrap(self)?;
+
+        self.push_op(Op::Await, &[expression_register]);
+
+        if let Some(result_register) = result.register
+            && result_register != expression_register
+        {
+            self.push_op(Op::Copy, &[result_register, expression_register]);
+        }
+
+        if expression_result.is_temporary && Some(expression_register) != result.register {
             self.pop_register()?;
         }
 
@@ -1779,6 +1813,7 @@ impl Compiler {
         &mut self,
         from: &[AstIndex],
         items: &[ImportItem],
+        allow_pending: bool,
         ctx: CompileNodeContext,
     ) -> Result<CompileNodeOutput> {
         use Op::*;
@@ -1812,6 +1847,7 @@ impl Compiler {
                                 import_register,
                                 item.item,
                                 wildcard_import,
+                                allow_pending,
                                 ctx,
                             )?;
 
@@ -1831,6 +1867,7 @@ impl Compiler {
                                 import_register,
                                 item.item,
                                 wildcard_import,
+                                allow_pending,
                                 ctx,
                             )?;
 
@@ -1852,7 +1889,13 @@ impl Compiler {
                         } else {
                             self.push_register()?
                         };
-                        self.compile_import_item(import_register, item.item, wildcard_import, ctx)?;
+                        self.compile_import_item(
+                            import_register,
+                            item.item,
+                            wildcard_import,
+                            allow_pending,
+                            ctx,
+                        )?;
 
                         if result.register.is_some() {
                             imported.push(import_register);
@@ -1868,7 +1911,7 @@ impl Compiler {
             }
         } else {
             let from_register = self.push_register()?;
-            self.compile_from(from_register, from, wildcard_import, ctx)?;
+            self.compile_from(from_register, from, wildcard_import, allow_pending, ctx)?;
 
             if wildcard_import {
                 if self.settings.export_top_level_ids && self.frame_stack.len() == 1 {
@@ -2015,15 +2058,22 @@ impl Compiler {
         result_register: u8,
         path: &[AstIndex],
         wildcard_import: bool,
+        allow_pending: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         match path {
             [] => return self.error(ErrorKind::MissingImportItem),
             [root] => {
-                self.compile_import_item(result_register, *root, wildcard_import, ctx)?;
+                self.compile_import_item(
+                    result_register,
+                    *root,
+                    wildcard_import,
+                    allow_pending,
+                    ctx,
+                )?;
             }
             [root, nested @ ..] => {
-                self.compile_import_item(result_register, *root, false, ctx)?;
+                self.compile_import_item(result_register, *root, false, allow_pending, ctx)?;
 
                 for nested_item in nested.iter() {
                     match ctx.node(*nested_item) {
@@ -2046,7 +2096,7 @@ impl Compiler {
                 }
 
                 if wildcard_import {
-                    self.push_op(Op::ImportAll, &[result_register]);
+                    self.push_op(Op::ImportAll, &[result_register, allow_pending as u8]);
                 }
             }
         }
@@ -2059,6 +2109,7 @@ impl Compiler {
         result_register: u8,
         item: AstIndex,
         wildcard_import: bool,
+        allow_pending: bool,
         ctx: CompileNodeContext,
     ) -> Result<()> {
         use Op::{Copy, Import, ImportAll};
@@ -2071,7 +2122,7 @@ impl Compiler {
                     // The item to be imported is already locally assigned.
                     if local_register != result_register {
                         if wildcard_import {
-                            self.push_op(ImportAll, &[local_register]);
+                            self.push_op(ImportAll, &[local_register, allow_pending as u8]);
                         } else {
                             self.push_op(Copy, &[result_register, local_register]);
                         }
@@ -2080,13 +2131,13 @@ impl Compiler {
                 } else {
                     // If the id isn't a local then it needs to be imported
                     self.compile_load_string_constant(result_register, *id);
-                    self.push_op(import_op, &[result_register]);
+                    self.push_op(import_op, &[result_register, allow_pending as u8]);
                     Ok(())
                 }
             }
             Node::Str(string) => {
                 self.compile_string(&string.contents, ctx.with_fixed_register(result_register))?;
-                self.push_op(import_op, &[result_register]);
+                self.push_op(import_op, &[result_register, allow_pending as u8]);
                 Ok(())
             }
             unexpected => self.error(ErrorKind::UnexpectedNode {
@@ -2910,6 +2961,7 @@ impl Compiler {
             function.is_generator,
             arg_is_unpacked_tuple,
             non_local_access,
+            function.is_async,
         );
 
         let function_size_ip = if let Some(result_register) = result.register {

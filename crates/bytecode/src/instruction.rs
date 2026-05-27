@@ -54,9 +54,11 @@ pub enum Instruction {
     },
     Import {
         register: u8,
+        allow_pending: bool,
     },
     ImportAll {
         register: u8,
+        allow_pending: bool,
     },
     MakeTempTuple {
         register: u8,
@@ -260,6 +262,9 @@ pub enum Instruction {
     Yield {
         register: u8,
     },
+    Await {
+        register: u8,
+    },
     Throw {
         register: u8,
     },
@@ -395,6 +400,7 @@ impl FunctionFlags {
     const GENERATOR: u8 = 1 << 1;
     const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 2;
     const NON_LOCAL_ACCESS: u8 = 1 << 3;
+    const ASYNC: u8 = 1 << 4;
 
     /// Returns a new [FunctionFlags] with the given flags set
     pub fn new(
@@ -402,6 +408,7 @@ impl FunctionFlags {
         generator: bool,
         arg_is_unpacked_tuple: bool,
         non_local_access: bool,
+        is_async: bool,
     ) -> Self {
         let mut flags = 0;
         if variadic {
@@ -415,6 +422,9 @@ impl FunctionFlags {
         }
         if non_local_access {
             flags |= Self::NON_LOCAL_ACCESS;
+        }
+        if is_async {
+            flags |= Self::ASYNC;
         }
         Self(flags)
     }
@@ -433,6 +443,11 @@ impl FunctionFlags {
     /// encountered.
     pub fn is_generator(self) -> bool {
         self.0 & Self::GENERATOR != 0
+    }
+
+    /// True if the function contains an await expression
+    pub fn is_async(self) -> bool {
+        self.0 & Self::ASYNC != 0
     }
 
     /// True if the function has a single argument which is an unpacked tuple
@@ -458,7 +473,7 @@ impl TryFrom<u8> for FunctionFlags {
     type Error = String;
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        if byte <= 0b1111 {
+        if byte <= 0b1_1111 {
             Ok(Self(byte))
         } else {
             Err(format!("Invalid function flags: {byte:#010b}"))
@@ -610,8 +625,20 @@ impl fmt::Debug for Instruction {
                 write!(f, "ExportValue     key: {key:<10} value: {value}")
             }
             ExportEntry { entry } => write!(f, "ExportEntry     entry: {entry}"),
-            Import { register } => write!(f, "Import          register: {register}"),
-            ImportAll { register } => write!(f, "ImportAll       register: {register}"),
+            Import {
+                register,
+                allow_pending,
+            } => write!(
+                f,
+                "Import          register: {register:<7} allow_pending: {allow_pending}",
+            ),
+            ImportAll {
+                register,
+                allow_pending,
+            } => write!(
+                f,
+                "ImportAll       register: {register:<7} allow_pending: {allow_pending}",
+            ),
             MakeTempTuple {
                 register,
                 start,
@@ -833,6 +860,7 @@ impl fmt::Debug for Instruction {
             ),
             Return { register } => write!(f, "Return          register: {register}"),
             Yield { register } => write!(f, "Yield           register: {register}"),
+            Await { register } => write!(f, "Await           register: {register}"),
             Throw { register } => write!(f, "Throw           register: {register}"),
             Size { register, value } => {
                 write!(f, "Size            result: {register:<7} value: {value}")

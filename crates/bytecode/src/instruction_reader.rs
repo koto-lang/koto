@@ -188,8 +188,14 @@ impl Iterator for InstructionReader {
                 value: get_u8!(),
             },
             Op::ExportEntry => ExportEntry { entry: byte_a },
-            Op::Import => Import { register: byte_a },
-            Op::ImportAll => ImportAll { register: byte_a },
+            Op::Import => Import {
+                register: byte_a,
+                allow_pending: get_u8!() != 0,
+            },
+            Op::ImportAll => ImportAll {
+                register: byte_a,
+                allow_pending: get_u8!() != 0,
+            },
             Op::MakeTempTuple => {
                 let [byte_b, byte_c] = get_u8x2!();
                 MakeTempTuple {
@@ -458,6 +464,7 @@ impl Iterator for InstructionReader {
             }
             Op::Return => Return { register: byte_a },
             Op::Yield => Yield { register: byte_a },
+            Op::Await => Await { register: byte_a },
             Op::Throw => Throw { register: byte_a },
             Op::Size => Size {
                 register: byte_a,
