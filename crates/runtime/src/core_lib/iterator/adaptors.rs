@@ -2,8 +2,132 @@
 
 use super::collect_pair;
 use crate::{Error, ErrorKind, InstructionFrame, KIteratorOutput as Output, Result, prelude::*};
-use std::{collections::VecDeque, mem::take, result::Result as StdResult};
+use std::{collections::VecDeque, mem::take, result::Result as StdResult, task::Context};
 use thiserror::Error;
+
+fn call_function_with_output_as_task(
+    vm: &mut KotoVm,
+    function: KValue,
+    output: &Output,
+) -> Result<KTask> {
+    match output {
+        Output::Value(value) => vm.call_function_as_task(function, value.clone()),
+        Output::ValuePair(a, b) => {
+            vm.call_function_as_task(function, CallArgs::AsTuple(&[a.clone(), b.clone()]))
+        }
+        Output::Error(error) => Err(error.clone()),
+    }
+}
+
+fn poll_task(
+    vm: &KotoVm,
+    task: &mut KTask,
+    context: &mut Context<'_>,
+    error_frame: &InstructionFrame,
+) -> KIteratorNext {
+    match poll_task_value(vm, task, context, error_frame) {
+        TaskValuePoll::Ready(result) => KIteratorNext::Output(Output::Value(result)),
+        TaskValuePoll::Pending => KIteratorNext::Pending,
+        TaskValuePoll::Error(error) => KIteratorNext::Output(error),
+    }
+}
+
+fn poll_task_value(
+    _vm: &KotoVm,
+    task: &mut KTask,
+    context: &mut Context<'_>,
+    error_frame: &InstructionFrame,
+) -> TaskValuePoll {
+    match task.poll_with_context(context) {
+        Ok(KTaskPoll::Ready(result)) => TaskValuePoll::Ready(result),
+        Ok(KTaskPoll::Pending) => TaskValuePoll::Pending,
+        Err(mut error) => {
+            error.extend_trace(error_frame.clone());
+            TaskValuePoll::Error(Output::Error(error))
+        }
+    }
+}
+
+fn poll_task_value_sync(
+    vm: &KotoVm,
+    task: &mut KTask,
+    error_frame: &InstructionFrame,
+) -> TaskValuePoll {
+    let waker = std::task::Waker::noop();
+    let mut context = Context::from_waker(waker);
+
+    loop {
+        match poll_task_value(vm, task, &mut context, error_frame) {
+            TaskValuePoll::Pending => std::thread::yield_now(),
+            result => return result,
+        }
+    }
+}
+
+fn call_function_with_output_sync(
+    vm: &mut KotoVm,
+    function: KValue,
+    output: &Output,
+    error_frame: &InstructionFrame,
+) -> Output {
+    let mut task = match call_function_with_output_as_task(vm, function, output) {
+        Ok(task) => task,
+        Err(mut error) => {
+            error.extend_trace(error_frame.clone());
+            return Output::Error(error);
+        }
+    };
+
+    match poll_task_value_sync(vm, &mut task, error_frame) {
+        TaskValuePoll::Ready(result) => Output::Value(result),
+        TaskValuePoll::Pending => unreachable!(),
+        TaskValuePoll::Error(error) => error,
+    }
+}
+
+fn bool_result_to_next(
+    result: KValue,
+    iter_output: Output,
+    error_frame: &InstructionFrame,
+) -> BoolNextResult {
+    match result {
+        KValue::Bool(false) => BoolNextResult::False,
+        KValue::Bool(true) => BoolNextResult::True(iter_output),
+        unexpected => BoolNextResult::Error(Output::Error(Error::with_error_frame(
+            ErrorKind::UnexpectedType {
+                expected: "Bool from the predicate".into(),
+                unexpected,
+            },
+            error_frame.clone(),
+        ))),
+    }
+}
+
+fn unexpected_iterator_output(unexpected: KValue, error_frame: &InstructionFrame) -> Output {
+    Output::Error(Error::with_error_frame(
+        ErrorKind::UnexpectedType {
+            expected: "Iterator".into(),
+            unexpected,
+        },
+        error_frame.clone(),
+    ))
+}
+
+fn unexpected_iterator_result(unexpected: KValue, error_frame: &InstructionFrame) -> KIteratorNext {
+    KIteratorNext::Output(unexpected_iterator_output(unexpected, error_frame))
+}
+
+enum BoolNextResult {
+    True(Output),
+    False,
+    Error(Output),
+}
+
+enum TaskValuePoll {
+    Ready(KValue),
+    Pending,
+    Error(Output),
+}
 
 /// An iterator that links the output of two iterators together in a chained sequence
 pub struct Chain {
@@ -31,6 +155,20 @@ impl KotoIterator for Chain {
             iter_b: self.iter_b.make_copy()?,
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self.iter_a {
+            Some(ref mut iter) => match iter.next_output_with_context(context) {
+                output @ KIteratorNext::Output(_) => output,
+                KIteratorNext::Pending => KIteratorNext::Pending,
+                KIteratorNext::Done => {
+                    self.iter_a = None;
+                    self.iter_b.next_output_with_context(context)
+                }
+            },
+            None => self.iter_b.next_output_with_context(context),
+        }
     }
 }
 
@@ -73,6 +211,7 @@ impl Iterator for Chain {
 pub struct Chunks {
     iter: KIterator,
     chunk_size: usize,
+    chunk: Vec<KValue>,
 }
 
 impl Chunks {
@@ -81,7 +220,11 @@ impl Chunks {
         if chunk_size < 1 {
             Err(ChunksError::ChunkSizeMustBeAtLeastOne)
         } else {
-            Ok(Self { iter, chunk_size })
+            Ok(Self {
+                iter,
+                chunk_size,
+                chunk: Vec::with_capacity(chunk_size),
+            })
         }
     }
 }
@@ -91,8 +234,32 @@ impl KotoIterator for Chunks {
         let result = Self {
             iter: self.iter.make_copy()?,
             chunk_size: self.chunk_size,
+            chunk: self.chunk.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        while self.chunk.len() < self.chunk_size {
+            match self.iter.next_output_with_context(context) {
+                KIteratorNext::Output(output) => match KValue::try_from(output) {
+                    Ok(value) => self.chunk.push(value),
+                    Err(error) => {
+                        self.chunk.clear();
+                        return KIteratorNext::Output(Output::Error(error));
+                    }
+                },
+                KIteratorNext::Pending => return KIteratorNext::Pending,
+                KIteratorNext::Done => break,
+            }
+        }
+
+        if self.chunk.is_empty() {
+            KIteratorNext::Done
+        } else {
+            let chunk = std::mem::replace(&mut self.chunk, Vec::with_capacity(self.chunk_size));
+            KIteratorNext::Output(KTuple::from(chunk).into())
+        }
     }
 }
 
@@ -100,18 +267,23 @@ impl Iterator for Chunks {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut chunk = None;
+        while self.chunk.len() < self.chunk_size {
+            let Some(output) = self.iter.next() else {
+                break;
+            };
 
-        for output in self.iter.clone().take(self.chunk_size) {
             match KValue::try_from(output) {
-                Ok(value) => chunk
-                    .get_or_insert_with(|| Vec::with_capacity(self.chunk_size))
-                    .push(value),
+                Ok(value) => self.chunk.push(value),
                 Err(error) => return Some(Output::Error(error)),
             }
         }
 
-        chunk.map(|chunk| KTuple::from(chunk).into())
+        if self.chunk.is_empty() {
+            None
+        } else {
+            let chunk = std::mem::replace(&mut self.chunk, Vec::with_capacity(self.chunk_size));
+            Some(KTuple::from(chunk).into())
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -179,6 +351,28 @@ impl KotoIterator for Cycle {
         };
         Ok(KIterator::new(result))
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self.iter.next_output_with_context(context) {
+            KIteratorNext::Output(output) => match KValue::try_from(output) {
+                Ok(value) => {
+                    self.cache.push(value.clone());
+                    KIteratorNext::Output(value.into())
+                }
+                Err(error) => KIteratorNext::Output(Output::Error(error)),
+            },
+            KIteratorNext::Pending => KIteratorNext::Pending,
+            KIteratorNext::Done if self.cache.is_empty() => KIteratorNext::Done,
+            KIteratorNext::Done => {
+                if self.cycle_index == self.cache.len() {
+                    self.cycle_index = 0;
+                }
+                let result = self.cache[self.cycle_index].clone();
+                self.cycle_index += 1;
+                KIteratorNext::Output(result.into())
+            }
+        }
+    }
 }
 
 impl Iterator for Cycle {
@@ -226,6 +420,7 @@ pub struct Each {
     function: KValue,
     vm: KotoVm,
     error_frame: InstructionFrame,
+    pending_function: Option<KTask>,
 }
 
 impl Each {
@@ -236,23 +431,21 @@ impl Each {
             function,
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
+            pending_function: None,
         }
     }
 
     fn map_output(&mut self, output: Output) -> Output {
-        let function = self.function.clone();
-        let functor_result = match output {
-            Output::Value(value) => self.vm.call_function(function, value),
-            Output::ValuePair(a, b) => self.vm.call_function(function, CallArgs::AsTuple(&[a, b])),
-            other => return other,
-        };
-        match functor_result {
-            Ok(result) => Output::Value(result),
-            Err(mut error) => {
-                error.extend_trace(self.error_frame.clone());
-                Output::Error(error)
-            }
+        if matches!(output, Output::Error(_)) {
+            return output;
         }
+
+        call_function_with_output_sync(
+            &mut self.vm,
+            self.function.clone(),
+            &output,
+            &self.error_frame,
+        )
     }
 }
 
@@ -263,8 +456,41 @@ impl KotoIterator for Each {
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
+            pending_function: self.pending_function.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if let Some(mut task) = self.pending_function.take() {
+            let result = poll_task(&self.vm, &mut task, context, &self.error_frame);
+            if matches!(result, KIteratorNext::Pending) {
+                self.pending_function = Some(task);
+            }
+            return result;
+        }
+
+        let output = match self.iter.next_output_with_context(context) {
+            KIteratorNext::Output(Output::Error(error)) => {
+                return KIteratorNext::Output(Output::Error(error));
+            }
+            KIteratorNext::Output(output) => output,
+            other => return other,
+        };
+
+        match call_function_with_output_as_task(&mut self.vm, self.function.clone(), &output) {
+            Ok(mut task) => {
+                let result = poll_task(&self.vm, &mut task, context, &self.error_frame);
+                if matches!(result, KIteratorNext::Pending) {
+                    self.pending_function = Some(task);
+                }
+                result
+            }
+            Err(mut error) => {
+                error.extend_trace(self.error_frame.clone());
+                KIteratorNext::Output(Output::Error(error))
+            }
+        }
     }
 
     fn is_bidirectional(&self) -> bool {
@@ -273,6 +499,38 @@ impl KotoIterator for Each {
 
     fn next_back(&mut self) -> Option<Output> {
         self.iter.next_back().map(|output| self.map_output(output))
+    }
+
+    fn next_back_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if let Some(mut task) = self.pending_function.take() {
+            let result = poll_task(&self.vm, &mut task, context, &self.error_frame);
+            if matches!(result, KIteratorNext::Pending) {
+                self.pending_function = Some(task);
+            }
+            return result;
+        }
+
+        let output = match self.iter.next_back_output_with_context(context) {
+            KIteratorNext::Output(Output::Error(error)) => {
+                return KIteratorNext::Output(Output::Error(error));
+            }
+            KIteratorNext::Output(output) => output,
+            other => return other,
+        };
+
+        match call_function_with_output_as_task(&mut self.vm, self.function.clone(), &output) {
+            Ok(mut task) => {
+                let result = poll_task(&self.vm, &mut task, context, &self.error_frame);
+                if matches!(result, KIteratorNext::Pending) {
+                    self.pending_function = Some(task);
+                }
+                result
+            }
+            Err(mut error) => {
+                error.extend_trace(self.error_frame.clone());
+                KIteratorNext::Output(Output::Error(error))
+            }
+        }
     }
 }
 
@@ -309,6 +567,25 @@ impl KotoIterator for Enumerate {
         };
         Ok(KIterator::new(result))
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self
+            .iter
+            .next_output_with_context(context)
+            .map(collect_pair)
+        {
+            KIteratorNext::Output(Output::Value(value)) => {
+                let result = KIteratorNext::Output(Output::ValuePair(self.index.into(), value));
+                self.index += 1;
+                result
+            }
+            KIteratorNext::Output(other) => {
+                self.index += 1;
+                KIteratorNext::Output(other)
+            }
+            other => other,
+        }
+    }
 }
 
 impl Iterator for Enumerate {
@@ -337,6 +614,7 @@ impl Iterator for Enumerate {
 pub struct Flatten {
     iter: KIterator,
     nested: Option<KIterator>,
+    pending_nested: Option<KTask>,
     vm: KotoVm,
     error_frame: InstructionFrame,
 }
@@ -347,6 +625,7 @@ impl Flatten {
         Self {
             iter,
             nested: None,
+            pending_nested: None,
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
         }
@@ -361,10 +640,77 @@ impl KotoIterator for Flatten {
                 Some(nested) => Some(nested.make_copy()?),
                 None => None,
             },
+            pending_nested: self.pending_nested.clone(),
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        loop {
+            if let Some(nested) = &mut self.nested {
+                match nested.next_output_with_context(context) {
+                    output @ KIteratorNext::Output(_) => return output,
+                    KIteratorNext::Pending => return KIteratorNext::Pending,
+                    KIteratorNext::Done => self.nested = None,
+                }
+            }
+
+            if let Some(mut task) = self.pending_nested.take() {
+                match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                    TaskValuePoll::Ready(KValue::Iterator(nested)) => {
+                        self.nested = Some(nested);
+                        continue;
+                    }
+                    TaskValuePoll::Ready(unexpected) => {
+                        return unexpected_iterator_result(unexpected, &self.error_frame);
+                    }
+                    TaskValuePoll::Pending => {
+                        self.pending_nested = Some(task);
+                        return KIteratorNext::Pending;
+                    }
+                    TaskValuePoll::Error(error) => return KIteratorNext::Output(error),
+                }
+            }
+
+            match self
+                .iter
+                .next_output_with_context(context)
+                .map(collect_pair)
+            {
+                KIteratorNext::Output(Output::Value(iterable)) if iterable.is_iterable() => {
+                    match self.vm.make_iterator_as_task(iterable) {
+                        Ok(mut task) => {
+                            match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                                TaskValuePoll::Ready(KValue::Iterator(nested)) => {
+                                    self.nested = Some(nested);
+                                    continue;
+                                }
+                                TaskValuePoll::Ready(unexpected) => {
+                                    return unexpected_iterator_result(
+                                        unexpected,
+                                        &self.error_frame,
+                                    );
+                                }
+                                TaskValuePoll::Pending => {
+                                    self.pending_nested = Some(task);
+                                    return KIteratorNext::Pending;
+                                }
+                                TaskValuePoll::Error(error) => {
+                                    return KIteratorNext::Output(error);
+                                }
+                            }
+                        }
+                        Err(mut error) => {
+                            error.extend_trace(self.error_frame.clone());
+                            return KIteratorNext::Output(Output::Error(error));
+                        }
+                    }
+                }
+                other => return other,
+            }
+        }
     }
 }
 
@@ -372,6 +718,9 @@ impl Iterator for Flatten {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+
         loop {
             if let Some(nested) = &mut self.nested
                 && let result @ Some(_) = nested.next()
@@ -381,14 +730,29 @@ impl Iterator for Flatten {
 
             match self.iter.next().map(collect_pair) {
                 Some(Output::Value(iterable)) if iterable.is_iterable() => {
-                    match self.vm.make_iterator(iterable) {
-                        Ok(nested) => {
-                            self.nested = Some(nested);
-                            continue;
-                        }
+                    let mut task = match self.vm.make_iterator_as_task(iterable) {
+                        Ok(task) => task,
                         Err(mut error) => {
                             error.extend_trace(self.error_frame.clone());
                             return Some(Output::Error(error));
+                        }
+                    };
+
+                    loop {
+                        match poll_task_value(&self.vm, &mut task, &mut context, &self.error_frame)
+                        {
+                            TaskValuePoll::Ready(KValue::Iterator(nested)) => {
+                                self.nested = Some(nested);
+                                break;
+                            }
+                            TaskValuePoll::Ready(unexpected) => {
+                                return Some(unexpected_iterator_output(
+                                    unexpected,
+                                    &self.error_frame,
+                                ));
+                            }
+                            TaskValuePoll::Pending => std::thread::yield_now(),
+                            TaskValuePoll::Error(error) => return Some(error),
                         }
                     }
                 }
@@ -428,6 +792,28 @@ impl KotoIterator for Intersperse {
         };
         Ok(KIterator::new(result))
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        let next = match self.peeked.take() {
+            Some(output) => KIteratorNext::Output(output),
+            None => self.iter.next_output_with_context(context),
+        };
+
+        match next {
+            KIteratorNext::Output(output) => {
+                let result = if self.next_is_separator {
+                    self.peeked = Some(output);
+                    KIteratorNext::Output(Output::Value(self.separator.clone()))
+                } else {
+                    KIteratorNext::Output(output)
+                };
+
+                self.next_is_separator = !self.next_is_separator;
+                result
+            }
+            other => other,
+        }
+    }
 }
 
 impl Iterator for Intersperse {
@@ -466,6 +852,7 @@ pub struct IntersperseWith {
     separator_function: KValue,
     vm: KotoVm,
     error_frame: InstructionFrame,
+    pending_separator: Option<KTask>,
 }
 
 impl IntersperseWith {
@@ -478,6 +865,7 @@ impl IntersperseWith {
             separator_function,
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
+            pending_separator: None,
         }
     }
 }
@@ -491,8 +879,73 @@ impl KotoIterator for IntersperseWith {
             separator_function: self.separator_function.clone(),
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
+            pending_separator: self.pending_separator.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if let Some(mut task) = self.pending_separator.take() {
+            match poll_task(&self.vm, &mut task, context, &self.error_frame) {
+                KIteratorNext::Output(output @ Output::Value(_)) => {
+                    self.next_is_separator = false;
+                    return KIteratorNext::Output(output);
+                }
+                KIteratorNext::Output(output @ Output::Error(_)) => {
+                    return KIteratorNext::Output(output);
+                }
+                KIteratorNext::Output(_) => unreachable!(),
+                KIteratorNext::Pending => {
+                    self.pending_separator = Some(task);
+                    return KIteratorNext::Pending;
+                }
+                KIteratorNext::Done => unreachable!(),
+            }
+        }
+
+        let next = match self.peeked.take() {
+            Some(output) => KIteratorNext::Output(output),
+            None => self.iter.next_output_with_context(context),
+        };
+
+        match next {
+            KIteratorNext::Output(output) => {
+                if self.next_is_separator {
+                    self.peeked = Some(output);
+
+                    match self
+                        .vm
+                        .call_function_as_task(self.separator_function.clone(), &[])
+                    {
+                        Ok(mut task) => {
+                            match poll_task(&self.vm, &mut task, context, &self.error_frame) {
+                                KIteratorNext::Output(output @ Output::Value(_)) => {
+                                    self.next_is_separator = false;
+                                    KIteratorNext::Output(output)
+                                }
+                                KIteratorNext::Output(output @ Output::Error(_)) => {
+                                    KIteratorNext::Output(output)
+                                }
+                                KIteratorNext::Output(_) => unreachable!(),
+                                KIteratorNext::Pending => {
+                                    self.pending_separator = Some(task);
+                                    KIteratorNext::Pending
+                                }
+                                KIteratorNext::Done => unreachable!(),
+                            }
+                        }
+                        Err(mut error) => {
+                            error.extend_trace(self.error_frame.clone());
+                            KIteratorNext::Output(Output::Error(error))
+                        }
+                    }
+                } else {
+                    self.next_is_separator = true;
+                    KIteratorNext::Output(output)
+                }
+            }
+            other => other,
+        }
     }
 }
 
@@ -505,13 +958,22 @@ impl Iterator for IntersperseWith {
         if next.is_some() {
             let result = if self.next_is_separator {
                 self.peeked = next;
+                let mut task = match self
+                    .vm
+                    .call_function_as_task(self.separator_function.clone(), &[])
+                {
+                    Ok(task) => task,
+                    Err(mut error) => {
+                        error.extend_trace(self.error_frame.clone());
+                        return Some(Output::Error(error));
+                    }
+                };
+
                 Some(
-                    match self.vm.call_function(self.separator_function.clone(), &[]) {
-                        Ok(result) => Output::Value(result),
-                        Err(mut error) => {
-                            error.extend_trace(self.error_frame.clone());
-                            Output::Error(error)
-                        }
+                    match poll_task_value_sync(&self.vm, &mut task, &self.error_frame) {
+                        TaskValuePoll::Ready(result) => Output::Value(result),
+                        TaskValuePoll::Pending => unreachable!(),
+                        TaskValuePoll::Error(error) => error,
                     },
                 )
             } else {
@@ -546,6 +1008,7 @@ pub struct Keep {
     predicate: KValue,
     vm: KotoVm,
     error_frame: InstructionFrame,
+    pending_predicate: Option<(Output, KTask)>,
 }
 
 impl Keep {
@@ -556,6 +1019,7 @@ impl Keep {
             predicate,
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
+            pending_predicate: None,
         }
     }
 }
@@ -567,8 +1031,73 @@ impl KotoIterator for Keep {
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
+            pending_predicate: self.pending_predicate.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        loop {
+            if let Some((iter_output, mut task)) = self.pending_predicate.take() {
+                match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                    TaskValuePoll::Ready(result) => {
+                        match bool_result_to_next(result, iter_output, &self.error_frame) {
+                            BoolNextResult::True(output) => {
+                                return KIteratorNext::Output(output);
+                            }
+                            BoolNextResult::False => continue,
+                            BoolNextResult::Error(error) => {
+                                return KIteratorNext::Output(error);
+                            }
+                        }
+                    }
+                    TaskValuePoll::Pending => {
+                        self.pending_predicate = Some((iter_output, task));
+                        return KIteratorNext::Pending;
+                    }
+                    TaskValuePoll::Error(error) => return KIteratorNext::Output(error),
+                }
+            }
+
+            let iter_output = match self.iter.next_output_with_context(context) {
+                KIteratorNext::Output(Output::Error(error)) => {
+                    return KIteratorNext::Output(Output::Error(error));
+                }
+                KIteratorNext::Output(output) => output,
+                other => return other,
+            };
+
+            match call_function_with_output_as_task(
+                &mut self.vm,
+                self.predicate.clone(),
+                &iter_output,
+            ) {
+                Ok(mut task) => {
+                    match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                        TaskValuePoll::Ready(result) => {
+                            match bool_result_to_next(result, iter_output, &self.error_frame) {
+                                BoolNextResult::True(output) => {
+                                    return KIteratorNext::Output(output);
+                                }
+                                BoolNextResult::False => continue,
+                                BoolNextResult::Error(error) => {
+                                    return KIteratorNext::Output(error);
+                                }
+                            }
+                        }
+                        TaskValuePoll::Pending => {
+                            self.pending_predicate = Some((iter_output, task));
+                            return KIteratorNext::Pending;
+                        }
+                        TaskValuePoll::Error(error) => return KIteratorNext::Output(error),
+                    }
+                }
+                Err(mut error) => {
+                    error.extend_trace(self.error_frame.clone());
+                    return KIteratorNext::Output(Output::Error(error));
+                }
+            }
+        }
     }
 }
 
@@ -577,19 +1106,26 @@ impl Iterator for Keep {
 
     fn next(&mut self) -> Option<Self::Item> {
         for output in &mut self.iter {
-            let predicate = self.predicate.clone();
-            let predicate_result = match &output {
-                Output::Value(value) => self.vm.call_function(predicate, value.clone()),
-                Output::ValuePair(a, b) => self
-                    .vm
-                    .call_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
-                error @ Output::Error(_) => return Some(error.clone()),
+            if matches!(output, Output::Error(_)) {
+                return Some(output);
+            }
+
+            let mut task = match call_function_with_output_as_task(
+                &mut self.vm,
+                self.predicate.clone(),
+                &output,
+            ) {
+                Ok(task) => task,
+                Err(mut error) => {
+                    error.extend_trace(self.error_frame.clone());
+                    return Some(Output::Error(error));
+                }
             };
 
-            let result = match predicate_result {
-                Ok(KValue::Bool(false)) => continue,
-                Ok(KValue::Bool(true)) => output,
-                Ok(unexpected) => {
+            let result = match poll_task_value_sync(&self.vm, &mut task, &self.error_frame) {
+                TaskValuePoll::Ready(KValue::Bool(false)) => continue,
+                TaskValuePoll::Ready(KValue::Bool(true)) => output,
+                TaskValuePoll::Ready(unexpected) => {
                     let error = Error::with_error_frame(
                         ErrorKind::UnexpectedType {
                             expected: "Bool from the predicate".into(),
@@ -599,10 +1135,8 @@ impl Iterator for Keep {
                     );
                     Output::Error(error)
                 }
-                Err(mut error) => {
-                    error.extend_trace(self.error_frame.clone());
-                    Output::Error(error)
-                }
+                TaskValuePoll::Pending => unreachable!(),
+                TaskValuePoll::Error(error) => error,
             };
 
             return Some(result);
@@ -635,6 +1169,15 @@ impl KotoIterator for PairFirst {
             iter: self.iter.make_copy()?,
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self.iter.next_output_with_context(context) {
+            KIteratorNext::Output(Output::ValuePair(first, _)) => {
+                KIteratorNext::Output(Output::Value(first))
+            }
+            other => other,
+        }
     }
 }
 
@@ -671,6 +1214,15 @@ impl KotoIterator for PairSecond {
             iter: self.iter.make_copy()?,
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self.iter.next_output_with_context(context) {
+            KIteratorNext::Output(Output::ValuePair(_, second)) => {
+                KIteratorNext::Output(Output::Value(second))
+            }
+            other => other,
+        }
     }
 }
 
@@ -722,6 +1274,14 @@ impl KotoIterator for Reversed {
     fn next_back(&mut self) -> Option<Output> {
         self.iter.next()
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        self.iter.next_back_output_with_context(context)
+    }
+
+    fn next_back_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        self.iter.next_output_with_context(context)
+    }
 }
 
 impl Iterator for Reversed {
@@ -761,6 +1321,21 @@ impl KotoIterator for Skip {
         Ok(KIterator::new(result))
     }
 
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        while self.remaining > 0 {
+            match self.iter.next_output_with_context(context) {
+                KIteratorNext::Output(_) => self.remaining -= 1,
+                KIteratorNext::Pending => return KIteratorNext::Pending,
+                KIteratorNext::Done => {
+                    self.remaining = 0;
+                    return KIteratorNext::Done;
+                }
+            }
+        }
+
+        self.iter.next_output_with_context(context)
+    }
+
     fn is_bidirectional(&self) -> bool {
         self.iter.is_bidirectional()
     }
@@ -773,6 +1348,21 @@ impl KotoIterator for Skip {
         }
 
         self.iter.next_back()
+    }
+
+    fn next_back_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        while self.remaining > 0 {
+            match self.iter.next_output_with_context(context) {
+                KIteratorNext::Output(_) => self.remaining -= 1,
+                KIteratorNext::Pending => return KIteratorNext::Pending,
+                KIteratorNext::Done => {
+                    self.remaining = 0;
+                    return KIteratorNext::Done;
+                }
+            }
+        }
+
+        self.iter.next_back_output_with_context(context)
     }
 }
 
@@ -810,6 +1400,8 @@ pub enum ReversedError {
 pub struct Step {
     iter: KIterator,
     step: u64,
+    pending_output: Option<Output>,
+    remaining_skip: u64,
 }
 
 impl Step {
@@ -818,7 +1410,12 @@ impl Step {
         if step == 0 {
             Err(StepError::StepCantBeZero)
         } else {
-            Ok(Self { iter, step })
+            Ok(Self {
+                iter,
+                step,
+                pending_output: None,
+                remaining_skip: 0,
+            })
         }
     }
 }
@@ -828,8 +1425,39 @@ impl KotoIterator for Step {
         let result = Self {
             iter: self.iter.make_copy()?,
             step: self.step,
+            pending_output: self.pending_output.clone(),
+            remaining_skip: self.remaining_skip,
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        loop {
+            if self.pending_output.is_none() {
+                match self.iter.next_output_with_context(context) {
+                    KIteratorNext::Output(output) => {
+                        self.pending_output = Some(output);
+                        self.remaining_skip = self.step - 1;
+                    }
+                    other => return other,
+                }
+            }
+
+            while self.remaining_skip > 0 {
+                match self.iter.next_output_with_context(context) {
+                    KIteratorNext::Output(_) => self.remaining_skip -= 1,
+                    KIteratorNext::Pending => return KIteratorNext::Pending,
+                    KIteratorNext::Done => {
+                        self.remaining_skip = 0;
+                        break;
+                    }
+                }
+            }
+
+            if let Some(output) = self.pending_output.take() {
+                return KIteratorNext::Output(output);
+            }
+        }
     }
 }
 
@@ -837,6 +1465,19 @@ impl Iterator for Step {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(output) = self.pending_output.take() {
+            while self.remaining_skip > 0 {
+                if self.iter.next().is_some() {
+                    self.remaining_skip -= 1;
+                } else {
+                    self.remaining_skip = 0;
+                    break;
+                }
+            }
+
+            return Some(output);
+        }
+
         let result = self.iter.next();
         for _ in 0..self.step - 1 {
             self.iter.next();
@@ -883,6 +1524,21 @@ impl KotoIterator for Take {
         };
         Ok(KIterator::new(result))
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if self.remaining > 0 {
+            match self.iter.next_output_with_context(context) {
+                output @ KIteratorNext::Output(_) => {
+                    self.remaining -= 1;
+                    output
+                }
+                KIteratorNext::Pending => KIteratorNext::Pending,
+                KIteratorNext::Done => KIteratorNext::Done,
+            }
+        } else {
+            KIteratorNext::Done
+        }
+    }
 }
 
 impl Iterator for Take {
@@ -913,6 +1569,7 @@ pub struct TakeWhile {
     vm: KotoVm,
     error_frame: InstructionFrame,
     finished: bool,
+    pending_predicate: Option<(Output, KTask)>,
 }
 
 impl TakeWhile {
@@ -924,6 +1581,7 @@ impl TakeWhile {
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
             finished: false,
+            pending_predicate: None,
         }
     }
 }
@@ -936,8 +1594,74 @@ impl KotoIterator for TakeWhile {
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
             finished: self.finished,
+            pending_predicate: self.pending_predicate.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if self.finished {
+            return KIteratorNext::Done;
+        }
+
+        if let Some((iter_output, mut task)) = self.pending_predicate.take() {
+            match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                TaskValuePoll::Ready(result) => {
+                    match bool_result_to_next(result, iter_output, &self.error_frame) {
+                        BoolNextResult::True(output) => {
+                            return KIteratorNext::Output(output);
+                        }
+                        BoolNextResult::False => {
+                            self.finished = true;
+                            return KIteratorNext::Done;
+                        }
+                        BoolNextResult::Error(error) => {
+                            return KIteratorNext::Output(error);
+                        }
+                    }
+                }
+                TaskValuePoll::Pending => {
+                    self.pending_predicate = Some((iter_output, task));
+                    return KIteratorNext::Pending;
+                }
+                TaskValuePoll::Error(error) => return KIteratorNext::Output(error),
+            }
+        }
+
+        let iter_output = match self.iter.next_output_with_context(context) {
+            KIteratorNext::Output(Output::Error(error)) => {
+                return KIteratorNext::Output(Output::Error(error));
+            }
+            KIteratorNext::Output(output) => output,
+            other => return other,
+        };
+
+        match call_function_with_output_as_task(&mut self.vm, self.predicate.clone(), &iter_output)
+        {
+            Ok(mut task) => {
+                match poll_task_value(&self.vm, &mut task, context, &self.error_frame) {
+                    TaskValuePoll::Ready(result) => {
+                        match bool_result_to_next(result, iter_output, &self.error_frame) {
+                            BoolNextResult::True(output) => KIteratorNext::Output(output),
+                            BoolNextResult::False => {
+                                self.finished = true;
+                                KIteratorNext::Done
+                            }
+                            BoolNextResult::Error(error) => KIteratorNext::Output(error),
+                        }
+                    }
+                    TaskValuePoll::Pending => {
+                        self.pending_predicate = Some((iter_output, task));
+                        KIteratorNext::Pending
+                    }
+                    TaskValuePoll::Error(error) => KIteratorNext::Output(error),
+                }
+            }
+            Err(mut error) => {
+                error.extend_trace(self.error_frame.clone());
+                KIteratorNext::Output(Output::Error(error))
+            }
+        }
     }
 }
 
@@ -950,22 +1674,29 @@ impl Iterator for TakeWhile {
         }
 
         let iter_output = self.iter.next()?;
-        let predicate = self.predicate.clone();
-        let predicate_result = match &iter_output {
-            Output::Value(value) => self.vm.call_function(predicate, value.clone()),
-            Output::ValuePair(a, b) => self
-                .vm
-                .call_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
-            error @ Output::Error(_) => return Some(error.clone()),
+        if matches!(iter_output, Output::Error(_)) {
+            return Some(iter_output);
+        }
+
+        let mut task = match call_function_with_output_as_task(
+            &mut self.vm,
+            self.predicate.clone(),
+            &iter_output,
+        ) {
+            Ok(task) => task,
+            Err(mut error) => {
+                error.extend_trace(self.error_frame.clone());
+                return Some(Output::Error(error));
+            }
         };
 
-        let result = match predicate_result {
-            Ok(KValue::Bool(true)) => iter_output,
-            Ok(KValue::Bool(false)) => {
+        let result = match poll_task_value_sync(&self.vm, &mut task, &self.error_frame) {
+            TaskValuePoll::Ready(KValue::Bool(true)) => iter_output,
+            TaskValuePoll::Ready(KValue::Bool(false)) => {
                 self.finished = true;
                 return None;
             }
-            Ok(unexpected) => {
+            TaskValuePoll::Ready(unexpected) => {
                 let error = Error::with_error_frame(
                     ErrorKind::UnexpectedType {
                         expected: "Bool from the predicate".into(),
@@ -975,10 +1706,8 @@ impl Iterator for TakeWhile {
                 );
                 Output::Error(error)
             }
-            Err(mut error) => {
-                error.extend_trace(self.error_frame.clone());
-                Output::Error(error)
-            }
+            TaskValuePoll::Pending => unreachable!(),
+            TaskValuePoll::Error(error) => error,
         };
 
         Some(result)
@@ -995,6 +1724,7 @@ pub struct Windows {
     iter: KIterator,
     cache: VecDeque<KValue>,
     window_size: usize,
+    pop_front_on_next: bool,
 }
 
 impl Windows {
@@ -1007,6 +1737,7 @@ impl Windows {
                 iter,
                 cache: VecDeque::with_capacity(window_size),
                 window_size,
+                pop_front_on_next: false,
             })
         }
     }
@@ -1018,8 +1749,35 @@ impl KotoIterator for Windows {
             iter: self.iter.make_copy()?,
             cache: self.cache.clone(),
             window_size: self.window_size,
+            pop_front_on_next: self.pop_front_on_next,
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if self.pop_front_on_next {
+            self.cache.pop_front();
+            self.pop_front_on_next = false;
+        }
+
+        while self.cache.len() < self.window_size {
+            match self.iter.next_output_with_context(context) {
+                KIteratorNext::Output(output) => match KValue::try_from(output) {
+                    Ok(value) => self.cache.push_back(value),
+                    Err(error) => return KIteratorNext::Output(Output::Error(error)),
+                },
+                KIteratorNext::Pending => return KIteratorNext::Pending,
+                KIteratorNext::Done => break,
+            }
+        }
+
+        if self.cache.len() == self.window_size {
+            let result: Vec<_> = self.cache.iter().cloned().collect();
+            self.pop_front_on_next = true;
+            KIteratorNext::Output(KTuple::from(result).into())
+        } else {
+            KIteratorNext::Done
+        }
     }
 }
 
@@ -1027,7 +1785,10 @@ impl Iterator for Windows {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.cache.pop_front();
+        if self.pop_front_on_next {
+            self.cache.pop_front();
+            self.pop_front_on_next = false;
+        }
 
         while self.cache.len() < self.window_size {
             let Some(output) = self.iter.next() else {
@@ -1042,6 +1803,7 @@ impl Iterator for Windows {
 
         if self.cache.len() == self.window_size {
             let result: Vec<_> = self.cache.iter().cloned().collect();
+            self.pop_front_on_next = true;
             Some(KTuple::from(result).into())
         } else {
             None
@@ -1068,12 +1830,17 @@ pub enum WindowsError {
 pub struct Zip {
     iter_a: KIterator,
     iter_b: KIterator,
+    pending_a: Option<KValue>,
 }
 
 impl Zip {
     /// Creates a new [Zip] adaptor
     pub fn new(iter_a: KIterator, iter_b: KIterator) -> Self {
-        Self { iter_a, iter_b }
+        Self {
+            iter_a,
+            iter_b,
+            pending_a: None,
+        }
     }
 }
 
@@ -1082,8 +1849,47 @@ impl KotoIterator for Zip {
         let result = Self {
             iter_a: self.iter_a.make_copy()?,
             iter_b: self.iter_b.make_copy()?,
+            pending_a: self.pending_a.clone(),
         };
         Ok(KIterator::new(result))
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if self.pending_a.is_none() {
+            match self
+                .iter_a
+                .next_output_with_context(context)
+                .map(collect_pair)
+            {
+                KIteratorNext::Output(Output::Value(value_a)) => self.pending_a = Some(value_a),
+                KIteratorNext::Output(Output::Error(error)) => {
+                    return KIteratorNext::Output(Output::Error(error));
+                }
+                KIteratorNext::Output(_) => unreachable!(),
+                KIteratorNext::Pending => return KIteratorNext::Pending,
+                KIteratorNext::Done => return KIteratorNext::Done,
+            }
+        }
+
+        match self
+            .iter_b
+            .next_output_with_context(context)
+            .map(collect_pair)
+        {
+            KIteratorNext::Output(Output::Value(value_b)) => {
+                let value_a = self.pending_a.take().unwrap();
+                KIteratorNext::Output(Output::ValuePair(value_a, value_b))
+            }
+            KIteratorNext::Output(Output::Error(error)) => {
+                KIteratorNext::Output(Output::Error(error))
+            }
+            KIteratorNext::Output(_) => unreachable!(),
+            KIteratorNext::Pending => KIteratorNext::Pending,
+            KIteratorNext::Done => {
+                self.pending_a = None;
+                KIteratorNext::Done
+            }
+        }
     }
 }
 
@@ -1091,12 +1897,17 @@ impl Iterator for Zip {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.iter_a.next().map(collect_pair) {
-            Some(Output::Value(value_a)) => match self.iter_b.next().map(collect_pair) {
-                Some(Output::Value(value_b)) => Some(Output::ValuePair(value_a, value_b)),
-                error @ Some(Output::Error(_)) => error,
-                _ => None,
+        let value_a = match self.pending_a.take() {
+            Some(value_a) => value_a,
+            None => match self.iter_a.next().map(collect_pair) {
+                Some(Output::Value(value_a)) => value_a,
+                error @ Some(Output::Error(_)) => return error,
+                _ => return None,
             },
+        };
+
+        match self.iter_b.next().map(collect_pair) {
+            Some(Output::Value(value_b)) => Some(Output::ValuePair(value_a, value_b)),
             error @ Some(Output::Error(_)) => error,
             _ => None,
         }

@@ -1,6 +1,10 @@
 //! A collection of string iterators
 
-use crate::{Error, ErrorKind, InstructionFrame, KIteratorOutput as Output, Result, prelude::*};
+use crate::{
+    Error, ErrorKind, InstructionFrame, KIteratorNext, KIteratorOutput as Output, Result,
+    prelude::*,
+};
+use std::task::Context;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// An iterator that outputs the individual bytes contained in a string
@@ -200,6 +204,8 @@ pub struct SplitWith {
     vm: KotoVm,
     error_frame: InstructionFrame,
     start: usize,
+    scan_index: usize,
+    pending_predicate: Option<PendingSplitPredicate>,
 }
 
 impl SplitWith {
@@ -211,6 +217,74 @@ impl SplitWith {
             vm: vm.spawn_shared_vm(),
             error_frame: vm.instruction_frame(),
             start: 0,
+            scan_index: 0,
+            pending_predicate: None,
+        }
+    }
+
+    fn handle_predicate_result(
+        &mut self,
+        result: KValue,
+        grapheme_start: usize,
+        grapheme_len: usize,
+    ) -> SplitPredicateResult {
+        use KValue::{Bool, Str};
+
+        match result {
+            Bool(true) => {
+                let output = Str(self.input.with_bounds(self.start..grapheme_start).unwrap());
+                self.start = grapheme_start + grapheme_len;
+                self.scan_index = self.start;
+                SplitPredicateResult::Output(Output::Value(output))
+            }
+            Bool(false) => {
+                self.scan_index = grapheme_start + grapheme_len;
+                SplitPredicateResult::Continue
+            }
+            unexpected => {
+                let error = Error::with_error_frame(
+                    ErrorKind::UnexpectedType {
+                        expected: "Bool from the match function".into(),
+                        unexpected,
+                    },
+                    self.error_frame.clone(),
+                );
+                SplitPredicateResult::Output(Output::Error(error))
+            }
+        }
+    }
+
+    fn poll_predicate_task(
+        &self,
+        mut task: KTask,
+        context: &mut Context<'_>,
+    ) -> SplitPredicateTaskPoll {
+        loop {
+            match task.poll_with_context(context) {
+                Ok(KTaskPoll::Ready(KValue::Task(nested))) => task = nested,
+                Ok(KTaskPoll::Ready(result)) => return SplitPredicateTaskPoll::Ready(result),
+                Ok(KTaskPoll::Pending) => return SplitPredicateTaskPoll::Pending(task),
+                Err(mut error) => {
+                    error.extend_trace(self.error_frame.clone());
+                    return SplitPredicateTaskPoll::Error(error);
+                }
+            }
+        }
+    }
+
+    fn poll_predicate_task_sync(&self, task: KTask) -> SplitPredicateTaskPoll {
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+        let mut task = task;
+
+        loop {
+            match self.poll_predicate_task(task, &mut context) {
+                SplitPredicateTaskPoll::Pending(pending) => {
+                    task = pending;
+                    std::thread::yield_now();
+                }
+                result => return result,
+            }
         }
     }
 }
@@ -223,9 +297,115 @@ impl KotoIterator for SplitWith {
             vm: self.vm.spawn_shared_vm(),
             error_frame: self.error_frame.clone(),
             start: self.start,
+            scan_index: self.scan_index,
+            pending_predicate: self.pending_predicate.clone(),
         };
         Ok(KIterator::new(result))
     }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        use KValue::Str;
+
+        if self.start >= self.input.len() {
+            return KIteratorNext::Done;
+        }
+
+        loop {
+            if let Some(mut pending) = self.pending_predicate.take() {
+                match self.poll_predicate_task(pending.task, context) {
+                    SplitPredicateTaskPoll::Ready(result) => {
+                        match self.handle_predicate_result(
+                            result,
+                            pending.grapheme_start,
+                            pending.grapheme_len,
+                        ) {
+                            SplitPredicateResult::Continue => continue,
+                            SplitPredicateResult::Output(output) => {
+                                return KIteratorNext::Output(output);
+                            }
+                        }
+                    }
+                    SplitPredicateTaskPoll::Pending(task) => {
+                        pending.task = task;
+                        self.pending_predicate = Some(pending);
+                        return KIteratorNext::Pending;
+                    }
+                    SplitPredicateTaskPoll::Error(error) => {
+                        return KIteratorNext::Output(Output::Error(error));
+                    }
+                }
+            }
+
+            if self.scan_index >= self.input.len() {
+                let output = Str(self
+                    .input
+                    .with_bounds(self.start..self.input.len())
+                    .unwrap());
+                self.start = self.input.len();
+                self.scan_index = self.start;
+                return KIteratorNext::Output(Output::Value(output));
+            }
+
+            let Some((grapheme_index, grapheme)) =
+                self.input[self.scan_index..].grapheme_indices(true).next()
+            else {
+                return KIteratorNext::Done;
+            };
+            let grapheme_len = grapheme.len();
+            let grapheme_start = self.scan_index + grapheme_index;
+            let grapheme_end = grapheme_start + grapheme_len;
+            let x = self
+                .input
+                .with_bounds(grapheme_start..grapheme_end)
+                .unwrap();
+
+            match self.vm.call_function_as_task(self.predicate.clone(), x) {
+                Ok(task) => match self.poll_predicate_task(task, context) {
+                    SplitPredicateTaskPoll::Ready(result) => {
+                        match self.handle_predicate_result(result, grapheme_start, grapheme_len) {
+                            SplitPredicateResult::Continue => continue,
+                            SplitPredicateResult::Output(output) => {
+                                return KIteratorNext::Output(output);
+                            }
+                        }
+                    }
+                    SplitPredicateTaskPoll::Pending(task) => {
+                        self.pending_predicate = Some(PendingSplitPredicate {
+                            grapheme_start,
+                            grapheme_len,
+                            task,
+                        });
+                        return KIteratorNext::Pending;
+                    }
+                    SplitPredicateTaskPoll::Error(error) => {
+                        return KIteratorNext::Output(Output::Error(error));
+                    }
+                },
+                Err(mut error) => {
+                    error.extend_trace(self.error_frame.clone());
+                    return KIteratorNext::Output(Output::Error(error));
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct PendingSplitPredicate {
+    grapheme_start: usize,
+    grapheme_len: usize,
+    task: KTask,
+}
+
+enum SplitPredicateTaskPoll {
+    Ready(KValue),
+    Pending(KTask),
+    Error(Error),
+}
+
+enum SplitPredicateResult {
+    Output(Output),
+    Continue,
 }
 
 impl Iterator for SplitWith {
@@ -247,14 +427,22 @@ impl Iterator for SplitWith {
                     .input
                     .with_bounds(grapheme_start..grapheme_end)
                     .unwrap();
-                match self.vm.call_function(self.predicate.clone(), x) {
-                    Ok(Bool(split_match)) => {
+                let task = match self.vm.call_function_as_task(self.predicate.clone(), x) {
+                    Ok(task) => task,
+                    Err(mut error) => {
+                        error.extend_trace(self.error_frame.clone());
+                        return Some(Output::Error(error));
+                    }
+                };
+
+                match self.poll_predicate_task_sync(task) {
+                    SplitPredicateTaskPoll::Ready(Bool(split_match)) => {
                         if split_match {
                             end = Some(grapheme_start);
                             break;
                         }
                     }
-                    Ok(unexpected) => {
+                    SplitPredicateTaskPoll::Ready(unexpected) => {
                         let error = Error::with_error_frame(
                             ErrorKind::UnexpectedType {
                                 expected: "Bool from the match function".into(),
@@ -264,16 +452,15 @@ impl Iterator for SplitWith {
                         );
                         return Some(Output::Error(error));
                     }
-                    Err(mut error) => {
-                        error.extend_trace(self.error_frame.clone());
-                        return Some(Output::Error(error));
-                    }
+                    SplitPredicateTaskPoll::Pending(_) => unreachable!(),
+                    SplitPredicateTaskPoll::Error(error) => return Some(Output::Error(error)),
                 }
             }
 
             let end = end.unwrap_or(self.input.len());
             let output = Str(self.input.with_bounds(start..end).unwrap());
             self.start = end + grapheme_len;
+            self.scan_index = self.start;
 
             Some(Output::Value(output))
         } else {

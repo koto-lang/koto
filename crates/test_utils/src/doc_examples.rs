@@ -47,7 +47,11 @@ An example in '{}' failed to compile: {error}",
 
         let chunk = self.compile_example(script, sections)?;
 
-        if let Err(error) = self.vm.run(chunk.clone()) {
+        if let Err(error) = self
+            .vm
+            .run(chunk.clone())
+            .and_then(|output| output.into_task().block_on(&self.vm))
+        {
             let script_lines = script.lines().collect::<Vec<_>>();
             return runtime_error!(
                 "

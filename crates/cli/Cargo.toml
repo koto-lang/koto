@@ -16,8 +16,9 @@ default = ["rc"]
 
 # Only one memory management strategy can be enabled at a time.
 # To use `arc`, default features must be disabled.
-arc = ["koto/arc", "koto/serde"]
-rc = ["koto/rc", "koto/serde"]
+arc = ["koto/arc", "koto/serde", "koto_http?/arc", "koto_io_async?/arc"]
+rc = ["koto/rc", "koto/serde", "koto_http?/rc", "koto_io_async?/rc"]
+tokio = ["dep:koto_http", "dep:koto_io_async", "dep:tokio"]
 
 [[bin]]
 name = "koto"
@@ -29,6 +30,8 @@ koto_format = { workspace = true }
 
 koto_color = { workspace = true }
 koto_geometry = { workspace = true }
+koto_http = { workspace = true, optional = true }
+koto_io_async = { workspace = true, optional = true }
 koto_json = { workspace = true }
 koto_random = { workspace = true }
 koto_regex = { workspace = true }
@@ -48,6 +51,10 @@ pulldown-cmark = { workspace = true }
 rustyline = { workspace = true, features = ["with-file-history"] }
 serde = { workspace = true, features = ["derive"] }
 textwrap = { workspace = true }
+tokio = { workspace = true, optional = true, features = [
+  "rt-multi-thread",
+  "time",
+] }
 unicode-width = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]

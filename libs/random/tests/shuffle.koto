@@ -1,3 +1,5 @@
+from task import sleep
+
 @test shuffle_koto_object = ||
   my_container =
     data: [10, 20, 30, 40, 50]
@@ -19,3 +21,72 @@
   assert_eq x.to_tuple(), ('b', 'a', 'c', 'd')
   rng.shuffle x
   assert_eq x.to_tuple(), ('d', 'a', 'b', 'c')
+
+@test pick_async_koto_object = ||
+  my_container =
+    data: ['chosen']
+
+    @size: ||
+      await sleep 0.001
+      size self.data
+
+    @index: |i|
+      await sleep 0.001
+      self.data[i]
+
+  assert_eq (await random.pick my_container), 'chosen'
+
+@test generator_pick_async_koto_object = ||
+  my_container =
+    data: ['chosen']
+
+    @size: ||
+      await sleep 0.001
+      size self.data
+
+    @index: |i|
+      await sleep 0.001
+      self.data[i]
+
+  rng = random.generator 1
+  assert_eq (await rng.pick my_container), 'chosen'
+
+@test shuffle_async_koto_object = ||
+  my_container =
+    data: [10, 20, 30, 40, 50]
+
+    @size: ||
+      await sleep 0.001
+      size self.data
+
+    @index: |i|
+      await sleep 0.001
+      self.data[i]
+
+    @index_assign: |i, value|
+      await sleep 0.001
+      self.data[i] = value
+
+  random.seed 42
+  await random.shuffle my_container
+  assert_eq my_container.data, [10, 40, 30, 20, 50]
+
+@test generator_shuffle_async_koto_object = ||
+  my_container =
+    data: [10, 20, 30, 40, 50]
+
+    @size: ||
+      await sleep 0.001
+      size self.data
+
+    @index: |i|
+      await sleep 0.001
+      self.data[i]
+
+    @index_assign: |i, value|
+      await sleep 0.001
+      self.data[i] = value
+
+  rng = random.generator 42
+  await rng.shuffle my_container
+  assert_eq my_container.data, [10, 40, 30, 20, 50]

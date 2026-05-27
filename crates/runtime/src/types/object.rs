@@ -115,6 +115,21 @@ pub trait KotoAccess: KotoType {
 /// }
 /// ```
 ///
+/// ## Async behavior
+///
+/// The methods on [`KotoObject`] are synchronous trait hooks. Operations such as indexing,
+/// assignment, calling, and operator overloading can't suspend directly from these hooks.
+///
+/// If an API may need to execute Koto code or suspend while waiting on async work, then it
+/// should be exposed as a VM-aware function instead:
+///
+/// - module functions via [`KMap::add_vm_fn`]
+/// - object methods via `#[koto_vm_method]`
+/// - lower-level wrappers via [`KNativeVmFunction`]
+///
+/// This keeps suspendable behavior on the VM/task path, where the runtime can propagate pending
+/// state correctly.
+///
 /// See also: [KObject].
 pub trait KotoObject: KotoType + KotoCopy + KotoAccess + KotoSend + KotoSync + Any {
     /// Called when the object should be displayed as a string, e.g. by `io.print`

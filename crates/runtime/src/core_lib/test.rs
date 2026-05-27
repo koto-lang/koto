@@ -20,48 +20,58 @@ pub fn make_module() -> KMap {
         Ok(KValue::Null)
     });
 
-    result.add_fn("assert_eq", |ctx| match ctx.args() {
+    result.add_vm_fn("assert_eq", |ctx| match ctx.args() {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = ctx.vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
-            match result {
-                Ok(KValue::Bool(true)) => Ok(KValue::Null),
-                Ok(KValue::Bool(false)) => {
-                    runtime_error!(
-                        "assertion failed, '{}' is not equal to '{}'",
-                        ctx.vm.value_to_string(&a)?,
-                        ctx.vm.value_to_string(&b)?,
-                    )
+
+            ctx.run_with_vm(|mut vm| async move {
+                match vm
+                    .run_binary_op(BinaryOp::Equal, a.clone(), b.clone())
+                    .await?
+                {
+                    KValue::Bool(true) => Ok(KValue::Null),
+                    KValue::Bool(false) => {
+                        runtime_error!(
+                            "assertion failed, '{}' is not equal to '{}'",
+                            vm.value_to_string(a).await?,
+                            vm.value_to_string(b).await?,
+                        )
+                    }
+                    unexpected => unexpected_type("Bool from equality comparison", &unexpected),
                 }
-                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
-                Err(e) => Err(e),
-            }
+            })
         }
-        unexpected => unexpected_args("|Any, Any|", unexpected),
+        unexpected => {
+            unexpected_args::<KValue>("|Any, Any|", unexpected).map(FunctionOutput::Ready)
+        }
     });
 
-    result.add_fn("assert_ne", |ctx| match ctx.args() {
+    result.add_vm_fn("assert_ne", |ctx| match ctx.args() {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = ctx
-                .vm
-                .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
-            match result {
-                Ok(KValue::Bool(true)) => Ok(KValue::Null),
-                Ok(KValue::Bool(false)) => {
-                    runtime_error!(
-                        "assertion failed, '{}' should not be equal to '{}'",
-                        ctx.vm.value_to_string(&a)?,
-                        ctx.vm.value_to_string(&b)?
-                    )
+
+            ctx.run_with_vm(|mut vm| async move {
+                match vm
+                    .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone())
+                    .await?
+                {
+                    KValue::Bool(true) => Ok(KValue::Null),
+                    KValue::Bool(false) => {
+                        runtime_error!(
+                            "assertion failed, '{}' should not be equal to '{}'",
+                            vm.value_to_string(a).await?,
+                            vm.value_to_string(b).await?
+                        )
+                    }
+                    unexpected => unexpected_type("Bool from equality comparison", &unexpected),
                 }
-                Ok(unexpected) => unexpected_type("Bool from equality comparison", &unexpected),
-                Err(e) => Err(e),
-            }
+            })
         }
-        unexpected => unexpected_args("|Any, Any|", unexpected),
+        unexpected => {
+            unexpected_args::<KValue>("|Any, Any|", unexpected).map(FunctionOutput::Ready)
+        }
     });
 
     result.add_fn("assert_near", |ctx| match ctx.args() {
@@ -74,12 +84,12 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|Number, Number, Number|", unexpected),
     });
 
-    result.add_fn("run_tests", |ctx| match ctx.args() {
+    result.add_vm_fn("run_tests", |ctx| match ctx.args() {
         [KValue::Map(tests)] => {
             let tests = tests.clone();
-            ctx.vm.run_tests(tests)
+            ctx.run_with_vm(|mut vm| async move { vm.run_tests(tests).await })
         }
-        unexpected => unexpected_args("|Map|", unexpected),
+        unexpected => unexpected_args::<KValue>("|Map|", unexpected).map(FunctionOutput::Ready),
     });
 
     result

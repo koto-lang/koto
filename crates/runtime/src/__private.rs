@@ -1,8 +1,9 @@
-use crate::{KNativeFunction, KValue, Result};
+use crate::{KNativeFunction, KNativeVmFunction, KValue, Result, VmOutput};
 
 /// Used by the `#[koto_impl]` macro.
 pub enum MethodOrField<T: ?Sized> {
     Method(KNativeFunction),
+    VmMethod(KNativeVmFunction),
     Field(fn(&T) -> Result<KValue>),
 }
 
@@ -10,6 +11,7 @@ impl<T: ?Sized> Clone for MethodOrField<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Method(x) => Self::Method(x.clone()),
+            Self::VmMethod(x) => Self::VmMethod(x.clone()),
             Self::Field(x) => Self::Field(*x),
         }
     }
@@ -54,6 +56,39 @@ impl<T: Into<KValue>> KotoMethodReturn for Result<T> {
 impl<T: Into<KValue>> KotoMethodReturn for T {
     fn into_result(self) -> Result<KValue> {
         Ok(self.into())
+    }
+}
+
+#[diagnostic::on_unimplemented(
+    message = "a `#[koto_vm_method]` method must return `VmOutput` or a value that implements `Into<KValue>`, optionally wrapped in `koto_runtime::Result`",
+    label = "wrong return type",
+    note = "for more info see the `#[koto_impl]` documentation"
+)]
+pub trait KotoVmMethodReturn {
+    fn into_result(self) -> Result<VmOutput>;
+}
+
+impl KotoVmMethodReturn for Result<VmOutput> {
+    fn into_result(self) -> Result<VmOutput> {
+        self
+    }
+}
+
+impl KotoVmMethodReturn for VmOutput {
+    fn into_result(self) -> Result<VmOutput> {
+        Ok(self)
+    }
+}
+
+impl<T: Into<KValue>> KotoVmMethodReturn for Result<T> {
+    fn into_result(self) -> Result<VmOutput> {
+        self.map(|value| VmOutput::Ready(value.into()))
+    }
+}
+
+impl<T: Into<KValue>> KotoVmMethodReturn for T {
+    fn into_result(self) -> Result<VmOutput> {
+        Ok(VmOutput::Ready(self.into()))
     }
 }
 

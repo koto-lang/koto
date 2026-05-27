@@ -4,10 +4,12 @@ use crate::{
     core_lib::{CoreLib, io::File, koto::Unimplemented},
     error::{Error, ErrorKind},
     prelude::*,
-    types::{FunctionContext, meta_id_to_key, value::RegisterSlice},
+    types::{
+        ActiveTasks, FunctionContext, LocalTaskExecutor, meta_id_to_key, value::RegisterSlice,
+    },
 };
 use instant::Instant;
-use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader};
+use koto_bytecode::{Chunk, Instruction, InstructionReader, ModuleLoader, Op};
 use koto_parser::{
     ConstantIndex, MetaKeyId, StringAlignment, StringFormatOptions, StringFormatRepresentation,
 };
@@ -18,15 +20,62 @@ use std::{
     fmt,
     hash::BuildHasherDefault,
     path::{Path, PathBuf},
+    task::{Context, Waker},
     time::Duration,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+/// The output of a VM operation that can suspend.
+pub enum VmOutput {
+    /// The operation completed immediately.
+    Ready(KValue),
+    /// The operation is waiting for async work to complete.
+    Pending(KTask),
+}
+
+impl VmOutput {
+    /// Returns true if the operation completed immediately.
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready(_))
+    }
+
+    /// Returns true if the operation is waiting for async work to complete.
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending(_))
+    }
+
+    /// Converts the output into a task.
+    pub fn into_task(self) -> KTask {
+        match self {
+            Self::Ready(value) => KTask::with_value(value),
+            Self::Pending(task) => task,
+        }
+    }
+}
+
+impl From<KValue> for VmOutput {
+    fn from(value: KValue) -> Self {
+        Self::Ready(value)
+    }
+}
+
+impl From<KTask> for VmOutput {
+    fn from(task: KTask) -> Self {
+        Self::Pending(task)
+    }
+}
 
 #[derive(Clone)]
 pub enum ControlFlow {
     Continue,
     Return(KValue),
     Yield(KValue),
+    Pending,
+}
+
+enum IterationStep {
+    Output(Option<KValue>),
+    Pending,
 }
 
 /// State shared between concurrent VMs
@@ -41,6 +90,8 @@ struct VmContext {
     loader: KCell<ModuleLoader>,
     // The cached export maps of imported modules
     module_cache: KCell<ModuleCache>,
+    // The active task manager used to spawn and poll async work
+    tasks: KCell<ActiveTasks>,
 }
 
 impl Default for VmContext {
@@ -77,12 +128,15 @@ impl VmContext {
             .io
             .insert("stderr", File::new(settings.stderr.clone()));
 
+        let task_executor = settings.task_executor.clone();
+
         Self {
             settings,
             prelude: core_lib.prelude(),
             core_lib,
             loader: ModuleLoader::default().into(),
             module_cache: ModuleCache::default().into(),
+            tasks: ActiveTasks::new(task_executor).into(),
         }
     }
 }
@@ -120,6 +174,11 @@ pub struct KotoVmSettings {
     /// reload the script when one of its dependencies has changed.
     pub module_imported_callback: Option<Box<dyn ModuleImportedCallback>>,
 
+    /// The executor used to spawn and poll async tasks.
+    ///
+    /// Default: [`LocalTaskExecutor`]
+    pub task_executor: Ptr<dyn KotoTaskExecutor>,
+
     /// The runtime's `stdin`that can be accessed from within the script via `io.stdin`
     ///
     /// Default: [`UnavailableStdin`]
@@ -147,6 +206,7 @@ impl Default for KotoVmSettings {
             run_import_tests: true,
             execution_limit: None,
             module_imported_callback: None,
+            task_executor: make_ptr!(LocalTaskExecutor),
             stdin: make_ptr!(UnavailableStdin::default()),
             stdout: make_ptr!(UnavailableStdout::default()),
             stderr: make_ptr!(UnavailableStderr::default()),
@@ -178,6 +238,10 @@ pub struct KotoVm {
     string_builders: Vec<String>,
     // The ip that produced the most recently read instruction, used for debug and error traces
     instruction_ip: u32,
+    // The waker used while this VM is being polled as a task
+    task_waker: Option<Waker>,
+    // The stack of modules currently being imported by this VM
+    module_import_stack: Vec<PathBuf>,
     // The current execution state
     execution_state: ExecutionState,
 }
@@ -191,6 +255,8 @@ pub enum ExecutionState {
     Active,
     /// The VM is executing a generator function that has just yielded a value
     Suspended,
+    /// The VM is waiting for a pending task
+    Pending,
 }
 
 impl Default for KotoVm {
@@ -213,6 +279,8 @@ impl KotoVm {
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
             instruction_ip: 0,
+            task_waker: None,
+            module_import_stack: Vec::new(),
             execution_state: ExecutionState::Inactive,
         }
     }
@@ -236,8 +304,22 @@ impl KotoVm {
             sequence_builders: Vec::new(),
             string_builders: Vec::new(),
             instruction_ip: 0,
+            task_waker: None,
+            module_import_stack: self.module_import_stack.clone(),
             execution_state: ExecutionState::Inactive,
         }
+    }
+
+    /// Spawns an await-compatible VM that shares the same execution context.
+    #[must_use]
+    pub fn spawn_async_vm(&self) -> AsyncKotoVm {
+        AsyncKotoVm::new(self.spawn_shared_vm())
+    }
+
+    pub(crate) fn spawn_shared_vm_with_current_instruction(&self) -> Self {
+        let mut result = self.spawn_shared_vm();
+        result.instruction_ip = self.instruction_ip;
+        result
     }
 
     /// The loader, responsible for loading and compiling Koto scripts and modules
@@ -278,8 +360,107 @@ impl KotoVm {
         &self.context.settings.stderr
     }
 
-    /// Runs the provided [Chunk], returning the resulting [KValue]
-    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
+    /// Runs the provided [Chunk].
+    ///
+    /// If the chunk suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
+    pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<VmOutput> {
+        let task = self.make_run_task(chunk);
+        self.poll_task_until_pending_or_ready(task)
+    }
+
+    /// Returns a task that will run the provided [Chunk] when polled or awaited.
+    pub fn run_as_task(&mut self, chunk: Ptr<Chunk>) -> Result<KTask> {
+        let task = self.make_run_task(chunk);
+        self.spawn_task(task)
+    }
+
+    fn make_run_task(&mut self, chunk: Ptr<Chunk>) -> KTask {
+        self.exports.ensure_meta_map();
+
+        let mut vm = self.spawn_shared_vm();
+        vm.push_run_frame(chunk);
+        KTask::with_vm(vm)
+    }
+
+    /// Spawns a task in the runtime's task executor.
+    pub fn spawn_task(&self, task: KTask) -> Result<KTask> {
+        self.context.tasks.borrow_mut().spawn(task)
+    }
+
+    /// Spawns a native future in the runtime's task executor.
+    pub fn spawn_future(&self, future: impl KotoFuture) -> Result<KTask> {
+        self.spawn_task(KTask::with_future(future))
+    }
+
+    /// Returns a task that will complete after the given duration.
+    pub fn sleep(&self, duration: Duration) -> Result<KTask> {
+        self.context.tasks.borrow_mut().sleep(duration)
+    }
+
+    /// Polls a task using the runtime's task executor.
+    pub fn poll_task(&self, task: &mut KTask) -> Result<KTaskPoll> {
+        let waker = Waker::noop();
+        let mut context = Context::from_waker(waker);
+
+        self.poll_task_with_context(task, &mut context)
+    }
+
+    /// Polls a task with the given context using the runtime's task executor.
+    pub fn poll_task_with_context(
+        &self,
+        task: &mut KTask,
+        context: &mut Context<'_>,
+    ) -> Result<KTaskPoll> {
+        self.poll_woken_tasks_except(Some(task));
+
+        let executor = self.context.tasks.borrow().executor().clone();
+
+        executor.poll(task, context)
+    }
+
+    pub(crate) fn current_task_waker(&self) -> Option<Waker> {
+        self.task_waker.clone()
+    }
+
+    /// Polls any active tasks that have been woken.
+    ///
+    /// Task failures are stored in their task handles, and can be observed when the task is awaited
+    /// or explicitly polled.
+    pub fn poll_woken_tasks(&self) -> usize {
+        self.poll_woken_tasks_except(None)
+    }
+
+    pub(crate) fn poll_woken_tasks_except(&self, excluded_task: Option<&KTask>) -> usize {
+        {
+            let mut tasks = self.context.tasks.borrow_mut();
+            if tasks.is_polling() {
+                return 0;
+            }
+            tasks.set_is_polling(true);
+        }
+
+        let tasks_to_poll = self.context.tasks.borrow().woken_tasks(excluded_task);
+        let executor = self.context.tasks.borrow().executor().clone();
+        let waker = Waker::noop();
+        let mut context = Context::from_waker(waker);
+        let mut result = 0;
+
+        for mut task in tasks_to_poll {
+            let _ = executor.poll(&mut task, &mut context);
+            result += 1;
+        }
+
+        {
+            let mut tasks = self.context.tasks.borrow_mut();
+            tasks.set_is_polling(false);
+            tasks.remove_inactive_tasks();
+        }
+
+        result
+    }
+
+    fn push_run_frame(&mut self, chunk: Ptr<Chunk>) -> u8 {
         // Set up an execution frame to run the chunk in
         let frame_base = self.next_register();
         self.registers.push(KValue::Null); // Instance register
@@ -298,22 +479,32 @@ impl KotoVm {
         // Ensure that execution stops here if an error is thrown
         self.frame_mut().execution_barrier = true;
 
-        // Run the chunk
-        let result = self.execute_instructions();
-        if result.is_err() {
-            self.pop_frame(KValue::Null)?;
-        }
+        frame_base
+    }
 
-        // Reset the register stack back to where it was at the start of the run
-        self.truncate_registers(frame_base);
+    /// Continues execution in a suspended VM.
+    ///
+    /// This is currently used to support generators and tasks.
+    pub fn continue_running(&mut self) -> Result<ReturnOrYield> {
+        let waker = Waker::noop();
+        let mut context = Context::from_waker(waker);
+
+        self.continue_running_with_context(&mut context)
+    }
+
+    /// Continues execution in a suspended VM with the given task context.
+    pub(crate) fn continue_running_with_context(
+        &mut self,
+        context: &mut Context<'_>,
+    ) -> Result<ReturnOrYield> {
+        let previous_waker = self.task_waker.replace(context.waker().clone());
+        let result = self.continue_running_inner();
+        self.task_waker = previous_waker;
+
         result
     }
 
-    /// Continues execution in a suspended VM
-    ///
-    /// This is currently used to support generators, which yield incremental results and then
-    /// leave the VM in a suspended state.
-    pub fn continue_running(&mut self) -> Result<ReturnOrYield> {
+    fn continue_running_inner(&mut self) -> Result<ReturnOrYield> {
         if self.call_stack.is_empty() {
             return Ok(ReturnOrYield::Return(KValue::Null));
         }
@@ -323,50 +514,144 @@ impl KotoVm {
         match self.execution_state {
             ExecutionState::Inactive => Ok(ReturnOrYield::Return(result)),
             ExecutionState::Suspended => Ok(ReturnOrYield::Yield(result)),
+            ExecutionState::Pending => Ok(ReturnOrYield::Pending),
             ExecutionState::Active => unreachable!(),
         }
     }
 
-    /// Calls a function with some given arguments
+    /// Calls a function with some given arguments.
+    ///
+    /// If the function suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
     pub fn call_function<'a>(
         &mut self,
         function: KValue,
         args: impl Into<CallArgs<'a>>,
-    ) -> Result<KValue> {
-        self.call_and_run_function(None, function, args.into())
+    ) -> Result<VmOutput> {
+        let task = self.make_function_call_task(
+            None,
+            function.is_async_callable(),
+            function,
+            args.into(),
+        )?;
+        self.poll_task_until_pending_or_ready(task)
     }
 
-    /// Runs an instance function with some given arguments
+    /// Runs an instance function with some given arguments.
+    ///
+    /// If the function suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
     pub fn call_instance_function<'a>(
         &mut self,
         instance: KValue,
         function: KValue,
         args: impl Into<CallArgs<'a>>,
-    ) -> Result<KValue> {
-        self.call_and_run_function(Some(instance), function, args.into())
+    ) -> Result<VmOutput> {
+        let task = self.make_function_call_task(
+            Some(instance),
+            function.is_async_callable(),
+            function,
+            args.into(),
+        )?;
+        self.poll_task_until_pending_or_ready(task)
     }
 
-    fn call_and_run_function(
+    /// Returns a task that calls a function with the given arguments when polled or awaited.
+    pub fn call_function_as_task<'a>(
+        &mut self,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
+        let task = self.make_function_call_task(
+            None,
+            function.is_async_callable(),
+            function,
+            args.into(),
+        )?;
+        self.spawn_task(task)
+    }
+
+    /// Returns a task that calls an instance function with the given arguments when polled or
+    /// awaited.
+    pub fn call_instance_function_as_task<'a>(
+        &mut self,
+        instance: KValue,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
+        let task = self.make_function_call_task(
+            Some(instance),
+            function.is_async_callable(),
+            function,
+            args.into(),
+        )?;
+        self.spawn_task(task)
+    }
+
+    pub(crate) fn call_function_without_awaiting_as_task<'a>(
+        &mut self,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
+        let task = self.make_function_call_task(None, false, function, args.into())?;
+        self.spawn_task(task)
+    }
+
+    fn make_value_task_vm(&self, await_result: bool) -> (KotoVm, u8) {
+        let mut vm = self.spawn_shared_vm();
+
+        let result_register = vm.next_register();
+        vm.registers.push(KValue::Null); // Result register
+
+        let mut return_bytes = Vec::with_capacity(if await_result { 4 } else { 2 });
+        if await_result {
+            return_bytes.extend_from_slice(&[Op::Await as u8, result_register]);
+        }
+        return_bytes.extend_from_slice(&[Op::Return as u8, result_register]);
+
+        Self::push_task_frame(&mut vm, return_bytes, 1);
+
+        (vm, result_register)
+    }
+
+    fn push_task_frame(vm: &mut KotoVm, bytes: Vec<u8>, required_registers: u8) {
+        let chunk = make_ptr!(Chunk {
+            bytes,
+            ..Default::default()
+        });
+        let module_exports = vm.exports.clone();
+
+        vm.push_frame(
+            chunk,
+            0,
+            0,
+            None,
+            Some(NonLocals {
+                module_exports,
+                wildcard_imports: None,
+            }),
+        );
+        vm.frame_mut().execution_barrier = true;
+        vm.frame_mut().required_registers = required_registers;
+    }
+
+    fn make_function_call_task(
         &mut self,
         instance: Option<KValue>,
+        await_result: bool,
         function: KValue,
         args: CallArgs,
-    ) -> Result<KValue> {
+    ) -> Result<KTask> {
         if !function.is_callable() {
             return unexpected_type("Function", &function);
         }
 
-        let result_register = self.next_register();
-        self.registers.push(KValue::Null); // Result register
+        let (mut vm, result_register) = self.make_value_task_vm(await_result);
 
         let args = match (&args, &function) {
             (CallArgs::AsTuple(args), KValue::Function(f)) if f.flags.arg_is_unpacked_tuple() => {
-                // If the function is being called with a tuple, and the function has a single
-                // unpacked tuple as its argument, then the call args can be passed into the function
-                // as a temporary tuple. The temp tuple's contents get pushed onto the stack here in
-                // the registers preceding the function's frame.
-                let start = self.registers.len();
-                self.registers.extend(args.iter().cloned());
+                let start = vm.registers.len();
+                vm.registers.extend(args.iter().cloned());
                 CallArgs::Single(KValue::TemporaryTuple(RegisterSlice {
                     start,
                     count: args.len(),
@@ -375,33 +660,28 @@ impl KotoVm {
             _ => args,
         };
 
-        let frame_base = self.next_register();
-        self.registers.push(instance.unwrap_or_default()); // Frame base
+        let frame_base = vm.next_register();
+        vm.registers.push(instance.unwrap_or_default()); // Frame base
 
         let arg_count = match args {
             CallArgs::Single(arg) => {
-                self.registers.push(arg);
+                vm.registers.push(arg);
                 1
             }
             CallArgs::Separate(args) => {
-                self.registers.extend_from_slice(args);
+                vm.registers.extend_from_slice(args);
                 args.len() as u8
             }
             CallArgs::AsTuple(args) => {
-                // If the call arg tuple wasn't converted into a temp tuple above,
-                // then at this point it needs to be stored in a KTuple.
-                self.registers.push(KValue::Tuple(Vec::from(args).into()));
+                vm.registers.push(KValue::Tuple(Vec::from(args).into()));
                 1
             }
         };
 
-        let old_frame_count = self.call_stack.len();
-
-        self.call_callable(
+        vm.call_callable(
             CallInfo {
                 result_register: Some(result_register),
                 frame_base,
-                // The instance (or Null) has already been copied into the frame base
                 instance: Some(frame_base),
                 arg_count,
                 packed_arg_count: 0,
@@ -409,51 +689,166 @@ impl KotoVm {
             function,
         )?;
 
-        let result = if self.call_stack.len() == old_frame_count {
-            // If the call stack is the same size as before calling call_callable,
-            // then an external function was called and the result should be in the result register.
-            let result = self.clone_register(result_register);
-            Ok(result)
+        Ok(KTask::with_vm(vm))
+    }
+
+    fn poll_task_until_pending_or_ready(&self, mut task: KTask) -> Result<VmOutput> {
+        let poll_result = if let Some(waker) = self.current_task_waker() {
+            let mut context = Context::from_waker(&waker);
+            self.poll_task_with_context(&mut task, &mut context)?
         } else {
-            // Otherwise, execute instructions until this frame is exited
-            self.frame_mut().execution_barrier = true;
-            let result = self.execute_instructions();
-            if result.is_err() {
-                self.pop_frame(KValue::Null)?;
-            }
-            result
+            self.poll_task(&mut task)?
         };
 
-        self.truncate_registers(result_register);
-
-        result
+        match poll_result {
+            KTaskPoll::Ready(value) => Ok(VmOutput::Ready(value)),
+            KTaskPoll::Pending => Ok(VmOutput::Pending(task)),
+        }
     }
 
-    /// Returns a displayable string for the given value
-    pub fn value_to_string(&mut self, value: &KValue) -> Result<String> {
-        let mut display_context = DisplayContext::with_vm(self);
-        value.display(&mut display_context)?;
-        Ok(display_context.result())
+    /// Returns a displayable string for the given value.
+    ///
+    /// If display conversion suspends, then [VmOutput::Pending] will be returned with a task that
+    /// can be polled to completion.
+    pub fn value_to_string(&mut self, value: &KValue) -> Result<VmOutput> {
+        let task = self.make_value_to_string_task(value.clone());
+        self.poll_task_until_pending_or_ready(task)
     }
 
-    /// Provides the result of running a unary operation on a KValue
-    pub fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> Result<KValue> {
+    /// Returns a task that provides a displayable string for the given value when polled or awaited.
+    pub fn value_to_string_as_task(&mut self, value: KValue) -> Result<KTask> {
+        let task = self.make_value_to_string_task(value);
+        self.spawn_task(task)
+    }
+
+    fn make_value_to_string_task(&self, value: KValue) -> KTask {
+        let mut runner = self.spawn_async_vm();
+        KTask::with_future(async move { Ok(KValue::from(runner.value_to_string(value).await?)) })
+    }
+
+    /// Returns a debug string for the given value.
+    ///
+    /// If debug conversion suspends, then [VmOutput::Pending] will be returned with a task that can
+    /// be polled to completion.
+    pub fn value_to_debug_string(&mut self, value: &KValue) -> Result<VmOutput> {
+        let task = self.make_value_to_debug_string_task(value.clone());
+        self.poll_task_until_pending_or_ready(task)
+    }
+
+    /// Returns a task that provides a debug string for the given value when polled or awaited.
+    pub fn value_to_debug_string_as_task(&mut self, value: KValue) -> Result<KTask> {
+        let task = self.make_value_to_debug_string_task(value);
+        self.spawn_task(task)
+    }
+
+    fn make_value_to_debug_string_task(&self, value: KValue) -> KTask {
+        let mut runner = self.spawn_async_vm();
+        KTask::with_future(
+            async move { Ok(KValue::from(runner.value_to_debug_string(value).await?)) },
+        )
+    }
+
+    fn display_value_with_runner(&mut self, result: u8, value: KValue, debug: bool) -> Result<()> {
+        let mut runner = AsyncKotoVm::new(self.spawn_shared_vm_with_current_instruction());
+        let future = async move {
+            let result = if debug {
+                runner.value_to_debug_string(value).await?
+            } else {
+                runner.value_to_string(value).await?
+            };
+            Ok(result.into())
+        };
+        self.poll_task_into_register(result, KTask::with_future(future))
+    }
+
+    fn poll_task_into_register(&mut self, result: u8, mut task: KTask) -> Result<()> {
+        let poll_result = if let Some(waker) = self.current_task_waker() {
+            let mut context = Context::from_waker(&waker);
+            task.poll_with_context(&mut context)?
+        } else {
+            task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(result_value) => {
+                self.set_register(result, result_value);
+            }
+            KTaskPoll::Pending => {
+                let task = self.spawn_task(task)?;
+                self.set_register(result, task.into());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Provides the result of running a unary operation on a KValue.
+    ///
+    /// If the operation suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
+    pub fn run_unary_op(&mut self, op: UnaryOp, value: KValue) -> Result<VmOutput> {
+        let task = self.make_unary_op_task(op, value)?;
+        self.poll_task_until_pending_or_ready(task)
+    }
+
+    /// Returns a task that provides the result of running a unary operation on a value
+    /// when polled or awaited.
+    pub fn run_unary_op_as_task(&mut self, op: UnaryOp, value: KValue) -> Result<KTask> {
+        let task = self.make_unary_op_task(op, value)?;
+        self.spawn_task(task)
+    }
+
+    fn make_unary_op_task(&mut self, op: UnaryOp, value: KValue) -> Result<KTask> {
         use UnaryOp::*;
 
-        let old_frame_count = self.call_stack.len();
+        if matches!(op, Next) {
+            let mut vm = self.spawn_shared_vm();
 
-        let result_register = self.next_register();
-        let value_register = result_register + 1;
+            let result_register = vm.next_register();
+            vm.registers.push(KValue::Null);
+            let value_register = vm.next_register();
+            vm.registers.push(value);
 
-        self.registers.push(KValue::Null); // `result_register`
-        self.registers.push(value); // `value_register`
+            let return_bytes = vec![
+                Op::IterNext as u8,
+                result_register,
+                value_register,
+                0,
+                0,
+                Op::Await as u8,
+                result_register,
+                Op::Return as u8,
+                result_register,
+            ];
+            Self::push_task_frame(&mut vm, return_bytes, 2);
+
+            return Ok(KTask::with_vm(vm));
+        }
+
+        let (mut vm, result_register) = self.make_value_task_vm(true);
+
+        let value_register = vm.next_register();
+        vm.registers.push(value);
+
+        vm.run_unary_op_in_register(op, result_register, value_register)?;
+
+        Ok(KTask::with_vm(vm))
+    }
+
+    fn run_unary_op_in_register(
+        &mut self,
+        op: UnaryOp,
+        result_register: u8,
+        value_register: u8,
+    ) -> Result<ControlFlow> {
+        use UnaryOp::*;
 
         match op {
             Debug => self.run_debug_op(result_register, value_register)?,
             Display => self.run_display(result_register, value_register)?,
             Negate => self.run_negate(result_register, value_register)?,
             Iterator => self.run_make_iterator(result_register, value_register, false)?,
-            Next => self.run_iterator_next(Some(result_register), value_register, 0, false)?,
+            Next => return self.run_iterator_next(Some(result_register), value_register, 0, false),
             NextBack => match self.clone_register(value_register) {
                 KValue::Map(m) if m.contains_meta_key(&NextBack.into()) => {
                     let op = m.get_meta_value(&NextBack.into()).unwrap();
@@ -472,176 +867,264 @@ impl KotoVm {
             Size => self.run_size(result_register, value_register, true)?,
         }
 
-        self.get_overridden_op_result(old_frame_count, result_register)
+        Ok(ControlFlow::Continue)
     }
 
-    /// Provides the result of running a binary operation on a pair of Values
-    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: KValue, rhs: KValue) -> Result<KValue> {
-        let old_frame_count = self.call_stack.len();
+    /// Provides the result of running a binary operation on a pair of Values.
+    ///
+    /// If the operation suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
+    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: KValue, rhs: KValue) -> Result<VmOutput> {
+        let task = self.make_binary_op_task(op, lhs, rhs)?;
+        self.poll_task_until_pending_or_ready(task)
+    }
 
-        let result_register = self.next_register();
-        let lhs_register = result_register + 1;
-        let rhs_register = result_register + 2;
+    /// Returns a task that provides the result of running a binary operation on a pair of Values
+    /// when polled or awaited.
+    pub fn run_binary_op_as_task(
+        &mut self,
+        op: BinaryOp,
+        lhs: KValue,
+        rhs: KValue,
+    ) -> Result<KTask> {
+        let task = self.make_binary_op_task(op, lhs, rhs)?;
+        self.spawn_task(task)
+    }
 
-        self.registers.push(KValue::Null); // Result register
-        self.registers.push(lhs);
-        self.registers.push(rhs);
+    fn make_binary_op_task(&mut self, op: BinaryOp, lhs: KValue, rhs: KValue) -> Result<KTask> {
+        let (mut vm, result_register) = self.make_value_task_vm(true);
 
+        let lhs_register = vm.next_register();
+        vm.registers.push(lhs);
+        let rhs_register = vm.next_register();
+        vm.registers.push(rhs);
+
+        vm.run_binary_op_in_registers(op, result_register, lhs_register, rhs_register)?;
+
+        Ok(KTask::with_vm(vm))
+    }
+
+    fn run_binary_op_in_registers(
+        &mut self,
+        op: BinaryOp,
+        result_register: u8,
+        lhs_register: u8,
+        rhs_register: u8,
+    ) -> Result<()> {
         match op {
             BinaryOp::Add | BinaryOp::AddRhs => {
-                self.run_add(result_register, lhs_register, rhs_register)?
+                self.run_add(result_register, lhs_register, rhs_register)
             }
             BinaryOp::Subtract | BinaryOp::SubtractRhs => {
-                self.run_subtract(result_register, lhs_register, rhs_register)?
+                self.run_subtract(result_register, lhs_register, rhs_register)
             }
             BinaryOp::Multiply | BinaryOp::MultiplyRhs => {
-                self.run_multiply(result_register, lhs_register, rhs_register)?
+                self.run_multiply(result_register, lhs_register, rhs_register)
             }
             BinaryOp::Divide | BinaryOp::DivideRhs => {
-                self.run_divide(result_register, lhs_register, rhs_register)?
+                self.run_divide(result_register, lhs_register, rhs_register)
             }
             BinaryOp::Remainder | BinaryOp::RemainderRhs => {
-                self.run_remainder(result_register, lhs_register, rhs_register)?
+                self.run_remainder(result_register, lhs_register, rhs_register)
             }
             BinaryOp::Power | BinaryOp::PowerRhs => {
-                self.run_power(result_register, lhs_register, rhs_register)?
+                self.run_power(result_register, lhs_register, rhs_register)
             }
             BinaryOp::AddAssign => {
                 self.run_add_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
             BinaryOp::SubtractAssign => {
                 self.run_subtract_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
             BinaryOp::MultiplyAssign => {
                 self.run_multiply_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
             BinaryOp::DivideAssign => {
                 self.run_divide_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
             BinaryOp::RemainderAssign => {
                 self.run_remainder_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
             BinaryOp::PowerAssign => {
                 self.run_power_assign(lhs_register, rhs_register)?;
                 self.set_register(result_register, self.clone_register(lhs_register));
+                Ok(())
             }
-            BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register),
             BinaryOp::LessOrEqual => {
-                self.run_less_or_equal(result_register, lhs_register, rhs_register)?
+                self.run_less_or_equal(result_register, lhs_register, rhs_register)
             }
-            BinaryOp::Greater => self.run_greater(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Greater => self.run_greater(result_register, lhs_register, rhs_register),
             BinaryOp::GreaterOrEqual => {
-                self.run_greater_or_equal(result_register, lhs_register, rhs_register)?
+                self.run_greater_or_equal(result_register, lhs_register, rhs_register)
             }
-            BinaryOp::Equal => self.run_equal(result_register, lhs_register, rhs_register)?,
-            BinaryOp::NotEqual => {
-                self.run_not_equal(result_register, lhs_register, rhs_register)?
-            }
+            BinaryOp::Equal => self.run_equal(result_register, lhs_register, rhs_register),
+            BinaryOp::NotEqual => self.run_not_equal(result_register, lhs_register, rhs_register),
         }
-
-        self.get_overridden_op_result(old_frame_count, result_register)
     }
 
-    /// Provides the result of running a read operation (i.e. access or index) on a pair of values
+    /// Provides the result of running a read operation (i.e. access or index) on a pair of values.
+    ///
+    /// If the operation suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
     pub fn run_read_op(
         &mut self,
         op: ReadOp,
         container: KValue,
         read_arg: KValue,
-    ) -> Result<KValue> {
-        let old_frame_count = self.call_stack.len();
+    ) -> Result<VmOutput> {
+        let task = self.make_read_op_task(op, container, read_arg)?;
+        self.poll_task_until_pending_or_ready(task)
+    }
 
-        let result_register = self.next_register();
-        let container_register = result_register + 1;
-        let read_arg_register = result_register + 2;
+    /// Returns a task that provides the result of running a read operation (i.e. access or index)
+    /// on a pair of values when polled or awaited.
+    pub fn run_read_op_as_task(
+        &mut self,
+        op: ReadOp,
+        container: KValue,
+        read_arg: KValue,
+    ) -> Result<KTask> {
+        let task = self.make_read_op_task(op, container, read_arg)?;
+        self.spawn_task(task)
+    }
 
-        self.registers.push(KValue::Null); // Result register
-        self.registers.push(container);
-        self.registers.push(read_arg);
+    fn make_read_op_task(
+        &mut self,
+        op: ReadOp,
+        container: KValue,
+        read_arg: KValue,
+    ) -> Result<KTask> {
+        let (mut vm, result_register) = self.make_value_task_vm(true);
 
+        let container_register = vm.next_register();
+        vm.registers.push(container);
+        let read_arg_register = vm.next_register();
+        vm.registers.push(read_arg);
+
+        vm.run_read_op_in_registers(op, result_register, container_register, read_arg_register)?;
+
+        Ok(KTask::with_vm(vm))
+    }
+
+    fn run_read_op_in_registers(
+        &mut self,
+        op: ReadOp,
+        result_register: u8,
+        container_register: u8,
+        read_arg_register: u8,
+    ) -> Result<()> {
         match op {
-            ReadOp::Index => {
-                self.run_index(result_register, container_register, read_arg_register)?
-            }
+            ReadOp::Index => self.run_index(result_register, container_register, read_arg_register),
             ReadOp::Access => {
                 let key_string = match self.clone_register(read_arg_register) {
                     KValue::Str(s) => s,
                     other => return unexpected_type("a String", &other),
                 };
-                self.run_access(result_register, container_register, key_string)?;
+                self.run_access(result_register, container_register, key_string)
             }
         }
-
-        self.get_overridden_op_result(old_frame_count, result_register)
     }
 
-    /// Provides the result of running a write operation (i.e. via access or index)
+    /// Provides the result of running a write operation (i.e. via access or index).
+    ///
+    /// If the operation suspends, then [VmOutput::Pending] will be returned with a task that can be
+    /// polled to completion.
     pub fn run_write_op(
         &mut self,
         op: WriteOp,
         container: KValue,
         write_arg: KValue,
         write_value: KValue,
-    ) -> Result<KValue> {
-        let old_frame_count = self.call_stack.len();
-
-        let result_register = self.next_register();
-        let container_register = result_register + 1;
-        let write_arg_register = result_register + 2;
-        let write_value_register = result_register + 3;
-
-        self.registers.push(KValue::Null); // Result register
-        self.registers.push(container);
-        self.registers.push(write_arg);
-        self.registers.push(write_value);
-
-        match op {
-            WriteOp::IndexAssign => {
-                self.run_index_assign(container_register, container_register, write_arg_register)?
-            }
-            WriteOp::AccessAssign => {
-                self.run_access_assign(
-                    container_register,
-                    write_arg_register,
-                    write_value_register,
-                )?;
-            }
-        }
-
-        self.get_overridden_op_result(old_frame_count, result_register)
+    ) -> Result<VmOutput> {
+        let task = self.make_write_op_task(op, container, write_arg, write_value)?;
+        self.poll_task_until_pending_or_ready(task)
     }
 
-    fn get_overridden_op_result(
+    /// Returns a task that provides the result of running a write operation (i.e. access or index)
+    /// on a value when polled or awaited.
+    pub fn run_write_op_as_task(
         &mut self,
-        old_frame_count: usize,
-        result_register: u8,
-    ) -> Result<KValue> {
-        let result = if self.call_stack.len() == old_frame_count {
-            // If the call stack is the same size, then a native function was called and the result
-            // will be in the result register
-            Ok(self.clone_register(result_register))
-        } else {
-            // If the call stack size has changed, then an overridden operator in Koto has been
-            // called, so continue execution until the call is complete.
-            self.frame_mut().execution_barrier = true;
-            let result = self.execute_instructions();
-            if result.is_err() {
-                self.pop_frame(KValue::Null)?;
-            }
-            result
-        };
-
-        self.truncate_registers(result_register);
-        result
+        op: WriteOp,
+        container: KValue,
+        write_arg: KValue,
+        write_value: KValue,
+    ) -> Result<KTask> {
+        let task = self.make_write_op_task(op, container, write_arg, write_value)?;
+        self.spawn_task(task)
     }
 
-    /// Makes a KIterator that iterates over the provided value's contents
-    pub fn make_iterator(&mut self, value: KValue) -> Result<KIterator> {
+    fn make_write_op_task(
+        &mut self,
+        op: WriteOp,
+        container: KValue,
+        write_arg: KValue,
+        write_value: KValue,
+    ) -> Result<KTask> {
+        let (mut vm, result_register) = self.make_value_task_vm(true);
+
+        let container_register = vm.next_register();
+        vm.registers.push(container);
+        let write_arg_register = vm.next_register();
+        vm.registers.push(write_arg);
+        let write_value_register = vm.next_register();
+        vm.registers.push(write_value);
+
+        vm.run_write_op_in_registers(
+            op,
+            Some(result_register),
+            container_register,
+            write_arg_register,
+            write_value_register,
+        )?;
+
+        Ok(KTask::with_vm(vm))
+    }
+
+    fn run_write_op_in_registers(
+        &mut self,
+        op: WriteOp,
+        result_register: Option<u8>,
+        container_register: u8,
+        write_arg_register: u8,
+        write_value_register: u8,
+    ) -> Result<ControlFlow> {
+        match op {
+            WriteOp::IndexAssign => self.run_index_assign(
+                result_register,
+                container_register,
+                write_arg_register,
+                write_value_register,
+            ),
+            WriteOp::AccessAssign => self.run_access_assign(
+                result_register,
+                container_register,
+                write_arg_register,
+                write_value_register,
+            ),
+        }
+    }
+
+    /// Makes a [KIterator] that iterates over the provided value's contents.
+    ///
+    /// If iterator creation suspends, then [VmOutput::Pending] will be returned with a task that
+    /// can be polled to completion.
+    pub fn make_iterator(&mut self, value: KValue) -> Result<VmOutput> {
+        let task = self.make_iterator_task(value);
+        self.poll_task_until_pending_or_ready(task)
+    }
+
+    pub(crate) fn make_iterator_from_ready_value(&mut self, value: KValue) -> Result<KIterator> {
         use KValue::*;
 
         match value {
@@ -649,10 +1132,7 @@ impl KotoVm {
                 KIterator::with_meta_next(self.spawn_shared_vm(), value)
             }
             Map(ref m) if m.contains_meta_key(&UnaryOp::Iterator.into()) => {
-                // If the value implements @iterator,
-                // first evaluate @iterator and then make an iterator from the result
-                let iterator_call_result = self.run_unary_op(UnaryOp::Iterator, value)?;
-                self.make_iterator(iterator_call_result)
+                runtime_error!("iterator creation requires an async VM")
             }
             Iterator(i) => Ok(i),
             Range(r) => KIterator::with_range(r),
@@ -676,79 +1156,38 @@ impl KotoVm {
         }
     }
 
-    /// Runs any function tagged with `@test` in the provided map
+    /// Returns a task that will make an iterator from the provided value when polled or awaited.
+    pub fn make_iterator_as_task(&mut self, value: KValue) -> Result<KTask> {
+        let task = self.make_iterator_task(value);
+        self.spawn_task(task)
+    }
+
+    fn make_iterator_task(&self, value: KValue) -> KTask {
+        let mut runner = self.spawn_async_vm();
+        KTask::with_future(async move { Ok(KValue::Iterator(runner.make_iterator(value).await?)) })
+    }
+
+    /// Runs any function tagged with `@test` in the provided map.
     ///
     /// Any test failure will be returned as an error.
-    pub fn run_tests(&mut self, test_map: KMap) -> Result<KValue> {
-        use KValue::{Map, Null};
+    ///
+    /// If a test suspends, then [VmOutput::Pending] will be returned with a task that can be polled
+    /// to completion.
+    pub fn run_tests(&mut self, test_map: KMap) -> Result<VmOutput> {
+        let task = self.make_run_tests_task(test_map);
+        self.poll_task_until_pending_or_ready(task)
+    }
 
-        // It's important throughout this function to make sure we don't hang on to any references
-        // to the internal test map data while calling the test functions. Otherwise we'll end up in
-        // deadlocks when the map needs to be modified (e.g. in pre or post test functions).
+    /// Returns a task that will run any function tagged with `@test` in the provided map
+    /// when polled or awaited.
+    pub fn run_tests_as_task(&mut self, test_map: KMap) -> Result<KTask> {
+        let task = self.make_run_tests_task(test_map);
+        self.spawn_task(task)
+    }
 
-        let (pre_test, post_test, meta_entry_count) = match test_map.meta_map() {
-            Some(meta) => {
-                let meta = meta.borrow();
-                (
-                    meta.get(&MetaKey::PreTest).cloned(),
-                    meta.get(&MetaKey::PostTest).cloned(),
-                    meta.len(),
-                )
-            }
-            None => (None, None, 0),
-        };
-
-        let self_arg = Map(test_map.clone());
-
-        for i in 0..meta_entry_count {
-            let meta_entry = test_map.meta_map().and_then(|meta| {
-                meta.borrow()
-                    .get_index(i)
-                    .map(|(key, value)| (key.clone(), value.clone()))
-            });
-
-            let Some((MetaKey::Test(test_name), test)) = meta_entry else {
-                continue;
-            };
-
-            if !test.is_callable() {
-                return unexpected_type(&format!("Callable for '{test_name}'"), &test);
-            }
-
-            let make_test_error = |error: Error, message: &str| {
-                Err(error.with_context(format!("{message} '{test_name}'")))
-            };
-
-            if let Some(pre_test) = &pre_test
-                && pre_test.is_callable()
-            {
-                let pre_test_result =
-                    self.call_instance_function(self_arg.clone(), pre_test.clone(), &[]);
-
-                if let Err(error) = pre_test_result {
-                    return make_test_error(error, "while preparing to run test");
-                }
-            }
-
-            let test_result = self.call_instance_function(self_arg.clone(), test, &[]);
-
-            if let Err(error) = test_result {
-                return make_test_error(error, "while running test");
-            }
-
-            if let Some(post_test) = &post_test
-                && post_test.is_callable()
-            {
-                let post_test_result =
-                    self.call_instance_function(self_arg.clone(), post_test.clone(), &[]);
-
-                if let Err(error) = post_test_result {
-                    return make_test_error(error, "after running test");
-                }
-            }
-        }
-
-        Ok(Null)
+    fn make_run_tests_task(&self, test_map: KMap) -> KTask {
+        let mut runner = self.spawn_async_vm();
+        KTask::with_future(async move { runner.run_tests(test_map).await })
     }
 
     fn execute_instructions(&mut self) -> Result<KValue> {
@@ -758,13 +1197,11 @@ impl KotoVm {
             .execution_limit
             .map(ExecutionTimeout::new);
 
-        self.instruction_ip = self.ip();
-
         // Every code path in this function must set the execution state to something other
         // than Active before exiting.
         self.execution_state = ExecutionState::Active;
 
-        while let Some(instruction) = self.reader.next() {
+        loop {
             if let Some(timeout) = timeout.as_mut()
                 && timeout.check_for_timeout()
             {
@@ -777,7 +1214,18 @@ impl KotoVm {
                     .map(|_| KValue::Null);
             }
 
-            match self.execute_instruction(instruction) {
+            let control_flow = if self.has_pending_operation() {
+                self.poll_pending_operation()
+            } else {
+                let instruction_ip = self.ip();
+                let Some(instruction) = self.reader.next() else {
+                    break;
+                };
+                self.instruction_ip = instruction_ip;
+                self.execute_instruction(instruction)
+            };
+
+            match control_flow {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
                     self.execution_state = ExecutionState::Inactive;
@@ -786,6 +1234,10 @@ impl KotoVm {
                 Ok(ControlFlow::Yield(value)) => {
                     self.execution_state = ExecutionState::Suspended;
                     return Ok(value);
+                }
+                Ok(ControlFlow::Pending) => {
+                    self.execution_state = ExecutionState::Pending;
+                    return Ok(KValue::Null);
                 }
                 Err(error) => match self.pop_call_stack_on_error(error.clone(), true) {
                     Ok((recover_register, ip)) => {
@@ -822,6 +1274,16 @@ impl KotoVm {
 
         let mut control_flow = ControlFlow::Continue;
 
+        macro_rules! run_and_poll_implicit_task {
+            ($register:expr, $run:expr) => {{
+                let old_frame_count = self.call_stack.len();
+                $run?;
+                if self.call_stack.len() == old_frame_count {
+                    control_flow = self.poll_implicit_task_in_register($register)?;
+                }
+            }};
+        }
+
         match instruction {
             Error { message } => runtime_error!(message)?,
             NewFrame { register_count } => {
@@ -849,8 +1311,14 @@ impl KotoVm {
             LoadNonLocal { register, constant } => self.run_load_non_local(register, constant)?,
             ExportValue { key, value } => self.run_export_value(key, value)?,
             ExportEntry { entry } => self.run_export_entry(entry)?,
-            Import { register } => self.run_import(register, false)?,
-            ImportAll { register } => self.run_import(register, true)?,
+            Import {
+                register,
+                allow_pending,
+            } => control_flow = self.run_import(register, false, allow_pending)?,
+            ImportAll {
+                register,
+                allow_pending,
+            } => control_flow = self.run_import(register, true, allow_pending)?,
             MakeTempTuple {
                 register,
                 start,
@@ -886,7 +1354,7 @@ impl KotoVm {
             StringPush {
                 value,
                 format_options,
-            } => self.run_string_push(value, &format_options)?,
+            } => control_flow = self.run_string_push(value, format_options)?,
             StringFinish { register } => self.run_string_finish(register)?,
             Range {
                 register,
@@ -907,7 +1375,10 @@ impl KotoVm {
             }
             RangeFull { register } => self.run_make_range(register, None, None, false)?,
             MakeIterator { register, iterable } => {
-                self.run_make_iterator(register, iterable, true)?
+                run_and_poll_implicit_task!(
+                    register,
+                    self.run_make_iterator(register, iterable, true)
+                );
             }
             Function { .. } => self.run_make_function(instruction)?,
             Capture {
@@ -915,28 +1386,55 @@ impl KotoVm {
                 target,
                 source,
             } => self.run_capture_value(function, target, source)?,
-            Negate { register, value } => self.run_negate(register, value)?,
+            Negate { register, value } => {
+                run_and_poll_implicit_task!(register, self.run_negate(register, value));
+            }
             Not { register, value } => self.run_not(register, value)?,
-            Add { register, lhs, rhs } => self.run_add(register, lhs, rhs)?,
-            Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs)?,
-            Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs)?,
-            Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs)?,
-            Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs)?,
-            Power { register, lhs, rhs } => self.run_power(register, lhs, rhs)?,
+            Add { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_add(register, lhs, rhs));
+            }
+            Subtract { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_subtract(register, lhs, rhs));
+            }
+            Multiply { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_multiply(register, lhs, rhs));
+            }
+            Divide { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_divide(register, lhs, rhs));
+            }
+            Remainder { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_remainder(register, lhs, rhs));
+            }
+            Power { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_power(register, lhs, rhs));
+            }
             AddAssign { lhs, rhs } => self.run_add_assign(lhs, rhs)?,
             SubtractAssign { lhs, rhs } => self.run_subtract_assign(lhs, rhs)?,
             MultiplyAssign { lhs, rhs } => self.run_multiply_assign(lhs, rhs)?,
             DivideAssign { lhs, rhs } => self.run_divide_assign(lhs, rhs)?,
             RemainderAssign { lhs, rhs } => self.run_remainder_assign(lhs, rhs)?,
             PowerAssign { lhs, rhs } => self.run_power_assign(lhs, rhs)?,
-            Less { register, lhs, rhs } => self.run_less(register, lhs, rhs)?,
-            LessOrEqual { register, lhs, rhs } => self.run_less_or_equal(register, lhs, rhs)?,
-            Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs)?,
-            GreaterOrEqual { register, lhs, rhs } => {
-                self.run_greater_or_equal(register, lhs, rhs)?
+            Less { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_less(register, lhs, rhs));
             }
-            Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs)?,
-            NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs)?,
+            LessOrEqual { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_less_or_equal(register, lhs, rhs));
+            }
+            Greater { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_greater(register, lhs, rhs));
+            }
+            GreaterOrEqual { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(
+                    register,
+                    self.run_greater_or_equal(register, lhs, rhs)
+                );
+            }
+            Equal { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_equal(register, lhs, rhs));
+            }
+            NotEqual { register, lhs, rhs } => {
+                run_and_poll_implicit_task!(register, self.run_not_equal(register, lhs, rhs));
+            }
             Jump { offset } => self.jump_ip(offset as u32),
             JumpBack { offset } => self.jump_ip_back(offset as u32),
             JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset as u32)?,
@@ -948,16 +1446,18 @@ impl KotoVm {
                 frame_base,
                 arg_count,
                 packed_arg_count: unpacked_arg_count,
-            } => self.call_callable(
-                CallInfo {
-                    result_register: Some(result),
-                    frame_base,
-                    instance: None,
-                    arg_count,
-                    packed_arg_count: unpacked_arg_count,
-                },
-                self.clone_register(function),
-            )?,
+            } => {
+                control_flow = self.call_or_resume_native(
+                    CallInfo {
+                        result_register: Some(result),
+                        frame_base,
+                        instance: None,
+                        arg_count,
+                        packed_arg_count: unpacked_arg_count,
+                    },
+                    self.clone_register(function),
+                )?;
+            }
             CallInstance {
                 result,
                 function,
@@ -965,16 +1465,18 @@ impl KotoVm {
                 frame_base,
                 arg_count,
                 packed_arg_count: unpacked_arg_count,
-            } => self.call_callable(
-                CallInfo {
-                    result_register: Some(result),
-                    frame_base,
-                    instance: Some(instance),
-                    arg_count,
-                    packed_arg_count: unpacked_arg_count,
-                },
-                self.clone_register(function),
-            )?,
+            } => {
+                control_flow = self.call_or_resume_native(
+                    CallInfo {
+                        result_register: Some(result),
+                        frame_base,
+                        instance: Some(instance),
+                        arg_count,
+                        packed_arg_count: unpacked_arg_count,
+                    },
+                    self.clone_register(function),
+                )?;
+            }
             Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
                     // If pop_frame returns a new return_value, then execution should stop.
@@ -982,46 +1484,75 @@ impl KotoVm {
                 }
             }
             Yield { register } => control_flow = ControlFlow::Yield(self.clone_register(register)),
+            Await { register } => control_flow = self.run_await(register)?,
             Throw { register } => {
                 return Err(crate::Error::from_koto_value(self.clone_register(register)));
             }
-            Size { register, value } => self.run_size(register, value, false)?,
+            Size { register, value } => {
+                run_and_poll_implicit_task!(register, self.run_size(register, value, false));
+            }
             IterNext {
                 result,
                 iterator,
                 jump_offset,
                 temporary_output,
-            } => self.run_iterator_next(result, iterator, jump_offset, temporary_output)?,
+            } => {
+                control_flow =
+                    self.run_iterator_next(result, iterator, jump_offset, temporary_output)?;
+                if matches!(control_flow, ControlFlow::Pending) {
+                    self.set_ip(self.instruction_ip);
+                }
+            }
             TempIndex {
                 register,
                 value,
                 index,
-            } => self.run_temp_index(register, value, index)?,
+            } => {
+                run_and_poll_implicit_task!(register, self.run_temp_index(register, value, index));
+            }
             SliceFrom {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, false)?,
+            } => {
+                let old_frame_count = self.call_stack.len();
+                control_flow = self.run_slice(register, value, index, false)?;
+                if matches!(control_flow, ControlFlow::Continue)
+                    && self.call_stack.len() == old_frame_count
+                {
+                    control_flow = self.poll_implicit_task_in_register(register)?;
+                }
+            }
             SliceTo {
                 register,
                 value,
                 index,
-            } => self.run_slice(register, value, index, true)?,
+            } => {
+                let old_frame_count = self.call_stack.len();
+                control_flow = self.run_slice(register, value, index, true)?;
+                if matches!(control_flow, ControlFlow::Continue)
+                    && self.call_stack.len() == old_frame_count
+                {
+                    control_flow = self.poll_implicit_task_in_register(register)?;
+                }
+            }
             Index {
                 register,
                 value,
                 index,
-            } => self.run_index(register, value, index)?,
+            } => {
+                run_and_poll_implicit_task!(register, self.run_index(register, value, index));
+            }
             IndexMut {
                 register,
                 index,
                 value,
-            } => self.run_index_assign(register, index, value)?,
+            } => control_flow = self.run_index_assign(None, register, index, value)?,
             AccessAssign {
                 register,
                 key,
                 value,
-            } => self.run_access_assign(register, key, value)?,
+            } => control_flow = self.run_access_assign(None, register, key, value)?,
             MetaInsert {
                 register,
                 value,
@@ -1039,18 +1570,28 @@ impl KotoVm {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, self.koto_string_from_constant(key))?,
+            } => {
+                run_and_poll_implicit_task!(
+                    register,
+                    self.run_access(register, value, self.koto_string_from_constant(key))
+                );
+            }
             TryAccess {
                 register,
                 value,
                 key,
                 jump_offset,
-            } => self.run_try_access(
-                register,
-                value,
-                self.koto_string_from_constant(key),
-                jump_offset as u32,
-            )?,
+            } => {
+                run_and_poll_implicit_task!(
+                    register,
+                    self.run_try_access(
+                        register,
+                        value,
+                        self.koto_string_from_constant(key),
+                        jump_offset as u32,
+                    )
+                );
+            }
             AccessString {
                 register,
                 value,
@@ -1060,7 +1601,7 @@ impl KotoVm {
                     KValue::Str(s) => s,
                     other => return unexpected_type("a String", &other),
                 };
-                self.run_access(register, value, key_string)?;
+                run_and_poll_implicit_task!(register, self.run_access(register, value, key_string));
             }
             TryAccessString {
                 register,
@@ -1072,7 +1613,10 @@ impl KotoVm {
                     KValue::Str(s) => s,
                     other => return unexpected_type("a String", &other),
                 };
-                self.run_try_access(register, value, key_string, jump_offset as u32)?;
+                run_and_poll_implicit_task!(
+                    register,
+                    self.run_try_access(register, value, key_string, jump_offset as u32)
+                );
             }
             TryStart {
                 arg_register,
@@ -1084,9 +1628,15 @@ impl KotoVm {
             TryEnd => {
                 self.frame_mut().catch_stack.pop();
             }
-            Debug { register, constant } => self.run_debug_instruction(register, constant)?,
-            CheckSizeEqual { register, size } => self.run_check_size_equal(register, size)?,
-            CheckSizeMin { register, size } => self.run_check_size_min(register, size)?,
+            Debug { register, constant } => {
+                control_flow = self.run_debug_instruction(register, constant)?;
+            }
+            CheckSizeEqual { register, size } => {
+                control_flow = self.run_check_size_equal(register, size)?;
+            }
+            CheckSizeMin { register, size } => {
+                control_flow = self.run_check_size_min(register, size)?;
+            }
             AssertType {
                 value,
                 allow_null,
@@ -1266,7 +1816,7 @@ impl KotoVm {
         iterable_register: u8,
         jump_offset: u16,
         output_is_temporary: bool,
-    ) -> Result<()> {
+    ) -> Result<ControlFlow> {
         use KValue::*;
 
         // Temporary iterators need to be removed from the register so that they can be mutated in
@@ -1310,13 +1860,18 @@ impl KotoVm {
             };
 
             self.set_register(iterable_register, new_iterable);
-            output
+            IterationStep::Output(output)
         } else {
             match self.clone_register(iterable_register) {
-                Iterator(mut iterator) => {
-                    match iterator.next() {
-                        Some(KIteratorOutput::Value(value)) => Some(value),
-                        Some(KIteratorOutput::ValuePair(first, second)) => {
+                Iterator(mut iterator) => match if let Some(waker) = self.task_waker.clone() {
+                    let mut context = Context::from_waker(&waker);
+                    iterator.next_output_with_context(&mut context)
+                } else {
+                    iterator.next_output()
+                } {
+                    KIteratorNext::Output(output) => match output {
+                        KIteratorOutput::Value(value) => IterationStep::Output(Some(value)),
+                        KIteratorOutput::ValuePair(first, second) => {
                             if let Some(result) = result_register {
                                 if output_is_temporary {
                                     // Place the value pair in a temporary tuple following the
@@ -1332,40 +1887,76 @@ impl KotoVm {
                                     }
                                     self.registers[first_index] = first;
                                     self.registers[second_index] = second;
-                                    Some(TemporaryTuple(RegisterSlice {
+                                    IterationStep::Output(Some(TemporaryTuple(RegisterSlice {
                                         start: first_index,
                                         count: 2,
-                                    }))
+                                    })))
                                 } else {
-                                    Some(Tuple(vec![first, second].into()))
+                                    IterationStep::Output(Some(Tuple(vec![first, second].into())))
                                 }
                             } else {
                                 // The output is going to be ignored, but we use Some here to
                                 // indicate that iteration should continue.
-                                Some(Null)
+                                IterationStep::Output(Some(Null))
                             }
                         }
-                        Some(KIteratorOutput::Error(error)) => {
+                        KIteratorOutput::Error(error) => {
                             return runtime_error!(error.to_string());
                         }
-                        None => None,
-                    }
-                }
+                    },
+                    KIteratorNext::Pending => IterationStep::Pending,
+                    KIteratorNext::Done => IterationStep::Output(None),
+                },
                 Map(m) if m.contains_meta_key(&UnaryOp::Next.into()) => {
                     let op = m.get_meta_value(&UnaryOp::Next.into()).unwrap();
                     if !op.is_callable() {
                         return unexpected_type("Callable function from @next", &op);
                     }
-                    // The return value will be retrieved from execute_instructions
-                    self.call_overridden_op_1(None, iterable_register, op)?;
-                    self.frame_mut().execution_barrier = true;
-                    match self.execute_instructions() {
-                        Ok(Null) => None,
-                        Ok(output) => Some(output),
-                        Err(error) => {
-                            self.pop_frame(KValue::Null)?;
-                            return Err(error);
+
+                    let old_frame_count = self.call_stack.len();
+                    let register_len_before_temp = self.registers.len();
+                    let (op_result_register, op_result_is_temporary) = match result_register {
+                        Some(register) => (register, false),
+                        None => {
+                            let register = self.next_register();
+                            self.registers.push(KValue::Null);
+                            (register, true)
                         }
+                    };
+                    let register_len_before_call = self.registers.len();
+
+                    self.call_overridden_op_1(Some(op_result_register), iterable_register, op)?;
+
+                    let output = if self.call_stack.len() == old_frame_count {
+                        let output = self.clone_register(op_result_register);
+                        self.registers.truncate(if op_result_is_temporary {
+                            register_len_before_temp
+                        } else {
+                            register_len_before_call
+                        });
+                        output
+                    } else {
+                        self.frame_mut().execution_barrier = true;
+                        match self.execute_instructions() {
+                            Ok(_) if matches!(self.execution_state, ExecutionState::Pending) => {
+                                return Ok(ControlFlow::Pending);
+                            }
+                            Ok(output) => {
+                                if op_result_is_temporary {
+                                    self.registers.truncate(register_len_before_temp);
+                                }
+                                output
+                            }
+                            Err(error) => {
+                                self.pop_frame(KValue::Null)?;
+                                return Err(error);
+                            }
+                        }
+                    };
+
+                    match output {
+                        Null => IterationStep::Output(None),
+                        output => IterationStep::Output(Some(output)),
                     }
                 }
                 unexpected => return unexpected_type("Iterator", &unexpected),
@@ -1373,23 +1964,24 @@ impl KotoVm {
         };
 
         match (output, result_register) {
-            (Some(output), Some(register)) => {
+            (IterationStep::Output(Some(output)), Some(register)) => {
                 self.set_register(register, output);
             }
-            (Some(_), None) => {
+            (IterationStep::Output(Some(_)), None) => {
                 // No result register, so the output can be discarded
             }
-            (None, Some(register)) => {
+            (IterationStep::Output(None), Some(register)) => {
                 // The iterator is finished, so jump to the provided offset
                 self.set_register(register, Null);
                 self.jump_ip(jump_offset as u32);
             }
-            (None, None) => {
+            (IterationStep::Output(None), None) => {
                 self.jump_ip(jump_offset as u32);
             }
+            (IterationStep::Pending, _) => return Ok(ControlFlow::Pending),
         }
 
-        Ok(())
+        Ok(ControlFlow::Continue)
     }
 
     fn run_temp_index(&mut self, result: u8, value: u8, index: i8) -> Result<()> {
@@ -1480,7 +2072,13 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_slice(&mut self, register: u8, value: u8, index: i8, is_slice_to: bool) -> Result<()> {
+    fn run_slice(
+        &mut self,
+        register: u8,
+        value: u8,
+        index: i8,
+        is_slice_to: bool,
+    ) -> Result<ControlFlow> {
         use KValue::*;
 
         let index_op = ReadOp::Index.into();
@@ -1515,14 +2113,21 @@ impl KotoVm {
                 }
             }
             Map(m) if m.contains_meta_key(&index_op) => {
-                let size = self.get_value_size(value)?;
-                let index = signed_index_to_unsigned(index, size) as i64;
-                let range = if is_slice_to {
-                    0..index
-                } else {
-                    index..size as i64
-                };
-                self.run_read_op(ReadOp::Index, Map(m), KRange::from(range).into())?
+                match self.run_unary_op(UnaryOp::Size, self.clone_register(value))? {
+                    VmOutput::Ready(size) => {
+                        return self.finish_meta_slice(register, m, index, is_slice_to, size);
+                    }
+                    VmOutput::Pending(task) => {
+                        self.set_pending_operation(PendingOperation::Slice(PendingSlice::Size {
+                            result_register: register,
+                            map: m,
+                            index,
+                            is_slice_to,
+                            task,
+                        }))?;
+                        return Ok(ControlFlow::Pending);
+                    }
+                }
             }
             Map(m) => {
                 let data = m.data();
@@ -1554,7 +2159,114 @@ impl KotoVm {
 
         self.set_register(register, result);
 
-        Ok(())
+        Ok(ControlFlow::Continue)
+    }
+
+    fn finish_meta_slice(
+        &mut self,
+        result_register: u8,
+        map: KMap,
+        index: i8,
+        is_slice_to: bool,
+        size: KValue,
+    ) -> Result<ControlFlow> {
+        let KValue::Number(size) = size else {
+            return unexpected_type("number for value size", &size);
+        };
+        let size = usize::from(size);
+        let index = signed_index_to_unsigned(index, size) as i64;
+        let range = if is_slice_to {
+            0..index
+        } else {
+            index..size as i64
+        };
+        let output = self.run_read_op(ReadOp::Index, map.into(), KRange::from(range).into())?;
+        self.finish_meta_slice_read(result_register, output)
+    }
+
+    fn finish_meta_slice_read(
+        &mut self,
+        result_register: u8,
+        output: VmOutput,
+    ) -> Result<ControlFlow> {
+        let result = match output {
+            VmOutput::Ready(result) => result,
+            VmOutput::Pending(task) => {
+                self.set_pending_operation(PendingOperation::Slice(PendingSlice::Read {
+                    result_register,
+                    task,
+                }))?;
+                return Ok(ControlFlow::Pending);
+            }
+        };
+
+        self.set_register(result_register, result);
+        self.poll_implicit_task_in_register(result_register)
+    }
+
+    fn poll_pending_slice(&mut self, pending: PendingSlice) -> Result<ControlFlow> {
+        let (result_register, mut task, on_ready) = match pending {
+            PendingSlice::Size {
+                result_register,
+                map,
+                index,
+                is_slice_to,
+                task,
+            } => (
+                result_register,
+                task,
+                PendingSliceContinuation::Size {
+                    map,
+                    index,
+                    is_slice_to,
+                },
+            ),
+            PendingSlice::Read {
+                result_register,
+                task,
+            } => (result_register, task, PendingSliceContinuation::Read),
+        };
+
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            task.poll_with_context(&mut context)?
+        } else {
+            task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(size) => match on_ready {
+                PendingSliceContinuation::Size {
+                    map,
+                    index,
+                    is_slice_to,
+                } => self.finish_meta_slice(result_register, map, index, is_slice_to, size),
+                PendingSliceContinuation::Read => {
+                    self.finish_meta_slice_read(result_register, VmOutput::Ready(size))
+                }
+            },
+            KTaskPoll::Pending => {
+                let pending = match on_ready {
+                    PendingSliceContinuation::Size {
+                        map,
+                        index,
+                        is_slice_to,
+                    } => PendingSlice::Size {
+                        result_register,
+                        map,
+                        index,
+                        is_slice_to,
+                        task,
+                    },
+                    PendingSliceContinuation::Read => PendingSlice::Read {
+                        result_register,
+                        task,
+                    },
+                };
+                self.set_pending_operation(PendingOperation::Slice(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
     }
 
     fn run_make_function(&mut self, function_instruction: Instruction) -> Result<()> {
@@ -1633,6 +2345,29 @@ impl KotoVm {
         }
     }
 
+    fn run_await(&mut self, register: u8) -> Result<ControlFlow> {
+        if let KValue::Task(mut task) = self.clone_register(register) {
+            let poll_result = if let Some(waker) = self.task_waker.clone() {
+                let mut context = Context::from_waker(&waker);
+                self.poll_task_with_context(&mut task, &mut context)?
+            } else {
+                self.poll_task(&mut task)?
+            };
+
+            match poll_result {
+                KTaskPoll::Ready(result) => {
+                    self.set_register(register, result);
+                }
+                KTaskPoll::Pending => {
+                    self.set_ip(self.instruction_ip);
+                    return Ok(ControlFlow::Pending);
+                }
+            }
+        }
+
+        Ok(ControlFlow::Continue)
+    }
+
     fn run_negate(&mut self, result: u8, value: u8) -> Result<()> {
         use KValue::*;
         use UnaryOp::Negate;
@@ -1672,16 +2407,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&Debug.into()).unwrap();
                 self.call_overridden_op_1(Some(result), value, op)
             }
-            other => {
-                let mut display_context = DisplayContext::with_vm(self).enable_debug();
-                match other.display(&mut display_context) {
-                    Ok(_) => {
-                        self.set_register(result, display_context.result().into());
-                        Ok(())
-                    }
-                    Err(_) => runtime_error!("failed to get display value"),
-                }
-            }
+            other => self.display_value_with_runner(result, other, true),
         }
     }
 
@@ -1693,16 +2419,7 @@ impl KotoVm {
                 let op = m.get_meta_value(&Display.into()).unwrap();
                 self.call_overridden_op_1(Some(result), value, op)
             }
-            other => {
-                let mut display_context = DisplayContext::with_vm(self);
-                match other.display(&mut display_context) {
-                    Ok(_) => {
-                        self.set_register(result, display_context.result().into());
-                        Ok(())
-                    }
-                    Err(_) => runtime_error!("failed to get display value"),
-                }
-            }
+            other => self.display_value_with_runner(result, other, false),
         }
     }
 
@@ -1954,14 +2671,14 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 let less_op = m.get_meta_value(&Less.into()).unwrap();
                 let equal_op = m.get_meta_value(&Equal.into()).unwrap();
-                let less = self.run_overridden_comparison_op(
-                    lhs_value.clone(),
-                    rhs_value.clone(),
+                return self.run_overridden_comparison_fallback(
+                    result,
+                    lhs_value,
+                    rhs_value,
                     less_op,
-                )?;
-                let result =
-                    less || self.run_overridden_comparison_op(lhs_value, rhs_value, equal_op)?;
-                result.into()
+                    Some(equal_op),
+                    ComparisonFallback::LessOrEqual,
+                );
             }
             (Object(o), _) => o.try_borrow()?.less_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, LessOrEqual),
@@ -1990,14 +2707,14 @@ impl KotoVm {
                 let rhs_value = rhs_value.clone();
                 let less_op = m.get_meta_value(&Less.into()).unwrap();
                 let equal_op = m.get_meta_value(&Equal.into()).unwrap();
-                let less = self.run_overridden_comparison_op(
-                    lhs_value.clone(),
-                    rhs_value.clone(),
+                return self.run_overridden_comparison_fallback(
+                    result,
+                    lhs_value,
+                    rhs_value,
                     less_op,
-                )?;
-                let result =
-                    !(less || self.run_overridden_comparison_op(lhs_value, rhs_value, equal_op)?);
-                result.into()
+                    Some(equal_op),
+                    ComparisonFallback::Greater,
+                );
             }
             (Object(o), _) => o.try_borrow()?.greater(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, Greater),
@@ -2024,12 +2741,14 @@ impl KotoVm {
                 let lhs_value = lhs_value.clone();
                 let rhs_value = rhs_value.clone();
                 let less_op = m.get_meta_value(&Less.into()).unwrap();
-                let result = !self.run_overridden_comparison_op(
-                    lhs_value.clone(),
-                    rhs_value.clone(),
+                return self.run_overridden_comparison_fallback(
+                    result,
+                    lhs_value,
+                    rhs_value,
                     less_op,
-                )?;
-                result.into()
+                    None,
+                    ComparisonFallback::GreaterOrEqual,
+                );
             }
             (Object(o), _) => o.try_borrow()?.greater_or_equal(rhs_value)?.into(),
             _ => return binary_op_error(lhs_value, rhs_value, GreaterOrEqual),
@@ -2058,12 +2777,12 @@ impl KotoVm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                self.compare_value_ranges(&data_a, &data_b)?
+                return self.run_value_range_equality(result, &data_a, &data_b, false);
             }
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                self.compare_value_ranges(&a, &b)?
+                return self.run_value_range_equality(result, &a, &b, false);
             }
             (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
                 call_metamap_binary_op!(self, Equal, m, lhs_value, rhs_value, result);
@@ -2072,7 +2791,7 @@ impl KotoVm {
                 if let Map(rhs_map) = rhs_value {
                     let a = map.clone();
                     let b = rhs_map.clone();
-                    self.compare_value_maps(a, b)?
+                    return self.run_value_map_equality(result, a, b, false);
                 } else {
                     false
                 }
@@ -2081,7 +2800,7 @@ impl KotoVm {
             (Function(a), Function(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                self.compare_functions(a, b)?
+                return self.run_function_equality(result, a, b, false);
             }
             _ => false,
         };
@@ -2110,27 +2829,31 @@ impl KotoVm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                !self.compare_value_ranges(&data_a, &data_b)?
+                return self.run_value_range_equality(result, &data_a, &data_b, true);
             }
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                !self.compare_value_ranges(&a, &b)?
+                return self.run_value_range_equality(result, &a, &b, true);
             }
             (Map(m), _) if m.contains_meta_key(&NotEqual.into()) => {
                 call_metamap_binary_op!(self, NotEqual, m, lhs_value, rhs_value, result);
             }
             (Map(m), _) if m.contains_meta_key(&Equal.into()) => {
                 let op = m.get_meta_value(&Equal.into()).unwrap();
-                let equal =
-                    self.run_overridden_comparison_op(lhs_value.clone(), rhs_value.clone(), op)?;
-                !equal
+                return self.run_overridden_comparison(
+                    result,
+                    lhs_value.clone(),
+                    rhs_value.clone(),
+                    op,
+                    true,
+                );
             }
             (Map(map), _) => {
                 if let Map(rhs_map) = rhs_value {
                     let a = map.clone();
                     let b = rhs_map.clone();
-                    !self.compare_value_maps(a, b)?
+                    return self.run_value_map_equality(result, a, b, true);
                 } else {
                     true
                 }
@@ -2139,7 +2862,7 @@ impl KotoVm {
             (Function(a), Function(b)) => {
                 let a = a.clone();
                 let b = b.clone();
-                !self.compare_functions(a, b)?
+                return self.run_function_equality(result, a, b, true);
             }
             _ => true,
         };
@@ -2148,69 +2871,127 @@ impl KotoVm {
         Ok(())
     }
 
-    fn compare_functions(&mut self, a: KFunction, b: KFunction) -> Result<bool> {
+    fn run_function_equality(
+        &mut self,
+        result: u8,
+        a: KFunction,
+        b: KFunction,
+        invert: bool,
+    ) -> Result<()> {
         if a.chunk == b.chunk && a.ip == b.ip {
             match (a.captures(), b.captures()) {
-                (None, None) => Ok(true),
+                (None, None) => self.set_register(result, (!invert).into()),
                 (Some(captures_a), Some(captures_b)) => {
                     let captures_a = captures_a.clone();
                     let captures_b = captures_b.clone();
                     let data_a = captures_a.data();
                     let data_b = captures_b.data();
-                    self.compare_value_ranges(&data_a, &data_b)
+                    return self.run_value_range_equality(result, &data_a, &data_b, invert);
                 }
-                _ => Ok(false),
+                _ => self.set_register(result, invert.into()),
             }
         } else {
-            Ok(false)
+            self.set_register(result, invert.into());
         }
+
+        Ok(())
     }
 
-    // Called from run_equal / run_not_equal to compare the contents of lists and tuples
-    fn compare_value_ranges(&mut self, range_a: &[KValue], range_b: &[KValue]) -> Result<bool> {
+    fn run_value_range_equality(
+        &mut self,
+        result: u8,
+        range_a: &[KValue],
+        range_b: &[KValue],
+        invert: bool,
+    ) -> Result<()> {
         if range_a.len() != range_b.len() {
-            return Ok(false);
+            self.set_register(result, invert.into());
+            return Ok(());
         }
 
-        for (value_a, value_b) in range_a.iter().zip(range_b.iter()) {
-            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
-                KValue::Bool(true) => {}
-                KValue::Bool(false) => return Ok(false),
-                other => {
-                    return runtime_error!(
-                        "Expected Bool from equality comparison, found '{}'",
-                        other.type_as_string()
-                    );
-                }
-            }
-        }
+        let range_a = range_a.iter().cloned().collect::<ValueVec>();
+        let range_b = range_b.iter().cloned().collect::<ValueVec>();
+        let mut runner = self.spawn_async_vm();
+        let future = async move {
+            let is_equal = compare_value_ranges(&mut runner, range_a, range_b).await?;
+            Ok(KValue::Bool(is_equal != invert))
+        };
 
-        Ok(true)
+        self.poll_task_into_register(result, KTask::with_future(future))
     }
 
-    // Called from run_equal / run_not_equal to compare the contents of maps
-    fn compare_value_maps(&mut self, map_a: KMap, map_b: KMap) -> Result<bool> {
+    fn run_value_map_equality(
+        &mut self,
+        result: u8,
+        map_a: KMap,
+        map_b: KMap,
+        invert: bool,
+    ) -> Result<()> {
         if map_a.len() != map_b.len() {
-            return Ok(false);
+            self.set_register(result, invert.into());
+            return Ok(());
         }
 
-        for (key_a, value_a) in map_a.data().iter() {
-            let Some(value_b) = map_b.get(key_a) else {
-                return Ok(false);
-            };
-            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b)? {
-                KValue::Bool(true) => {}
-                KValue::Bool(false) => return Ok(false),
-                other => {
-                    return runtime_error!(
-                        "Expected Bool from equality comparison, found '{}'",
-                        other.type_as_string()
-                    );
+        let map_a = map_a.data().clone();
+        let map_b = map_b.data().clone();
+        let mut runner = self.spawn_async_vm();
+        let future = async move {
+            let is_equal = compare_value_maps(&mut runner, map_a, map_b).await?;
+            Ok(KValue::Bool(is_equal != invert))
+        };
+
+        self.poll_task_into_register(result, KTask::with_future(future))
+    }
+
+    fn run_overridden_comparison(
+        &mut self,
+        result: u8,
+        lhs: KValue,
+        rhs: KValue,
+        op: KValue,
+        invert: bool,
+    ) -> Result<()> {
+        let mut runner = self.spawn_async_vm();
+        let future = async move {
+            let result = call_overridden_comparison(&mut runner, lhs, rhs, op).await?;
+            Ok(KValue::Bool(result != invert))
+        };
+
+        self.poll_task_into_register(result, KTask::with_future(future))
+    }
+
+    fn run_overridden_comparison_fallback(
+        &mut self,
+        result: u8,
+        lhs: KValue,
+        rhs: KValue,
+        less_op: KValue,
+        equal_op: Option<KValue>,
+        fallback: ComparisonFallback,
+    ) -> Result<()> {
+        let mut runner = self.spawn_async_vm();
+        let future = async move {
+            let less =
+                call_overridden_comparison(&mut runner, lhs.clone(), rhs.clone(), less_op).await?;
+            let result = match fallback {
+                ComparisonFallback::LessOrEqual => {
+                    let Some(equal_op) = equal_op else {
+                        return runtime_error!(ErrorKind::UnexpectedError);
+                    };
+                    less || call_overridden_comparison(&mut runner, lhs, rhs, equal_op).await?
                 }
-            }
-        }
+                ComparisonFallback::Greater => {
+                    let Some(equal_op) = equal_op else {
+                        return runtime_error!(ErrorKind::UnexpectedError);
+                    };
+                    !(less || call_overridden_comparison(&mut runner, lhs, rhs, equal_op).await?)
+                }
+                ComparisonFallback::GreaterOrEqual => !less,
+            };
+            Ok(KValue::Bool(result))
+        };
 
-        Ok(true)
+        self.poll_task_into_register(result, KTask::with_future(future))
     }
 
     fn call_overridden_op_1(
@@ -2219,10 +3000,15 @@ impl KotoVm {
         value_register: u8,
         op: KValue,
     ) -> Result<()> {
+        let pending_behavior = if result_register.is_some() {
+            PendingCallBehavior::ReturnTask
+        } else {
+            PendingCallBehavior::Suspend
+        };
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
         self.registers.push(self.clone_register(value_register)); // Frame base
-        self.call_callable(
+        self.call_callable_with_pending_behavior(
             CallInfo {
                 result_register,
                 frame_base,
@@ -2231,7 +3017,9 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-        )
+            pending_behavior,
+        )?;
+        Ok(())
     }
 
     fn call_overridden_op_2(
@@ -2241,13 +3029,18 @@ impl KotoVm {
         arg: KValue,
         op: KValue,
     ) -> Result<()> {
+        let pending_behavior = if result_register.is_some() {
+            PendingCallBehavior::ReturnTask
+        } else {
+            PendingCallBehavior::Suspend
+        };
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
 
         self.registers.push(instance); // Frame base
         self.registers.push(arg);
 
-        self.call_callable(
+        self.call_callable_with_pending_behavior(
             CallInfo {
                 result_register,
                 frame_base,
@@ -2256,7 +3049,9 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-        )
+            pending_behavior,
+        )?;
+        Ok(())
     }
 
     fn call_overridden_op_3(
@@ -2267,6 +3062,11 @@ impl KotoVm {
         arg_2: KValue,
         op: KValue,
     ) -> Result<()> {
+        let pending_behavior = if result_register.is_some() {
+            PendingCallBehavior::ReturnTask
+        } else {
+            PendingCallBehavior::Suspend
+        };
         // Set up the call registers at the end of the stack
         let frame_base = self.new_frame_base()?;
 
@@ -2274,7 +3074,7 @@ impl KotoVm {
         self.registers.push(arg_1);
         self.registers.push(arg_2);
 
-        self.call_callable(
+        self.call_callable_with_pending_behavior(
             CallInfo {
                 result_register,
                 frame_base,
@@ -2283,26 +3083,30 @@ impl KotoVm {
                 packed_arg_count: 0,
             },
             op,
-        )
+            pending_behavior,
+        )?;
+        Ok(())
     }
 
-    fn run_overridden_comparison_op(
+    fn call_discarded_overridden_op_3(
         &mut self,
-        lhs: KValue,
-        rhs: KValue,
+        instance: KValue,
+        arg_1: KValue,
+        arg_2: KValue,
         op: KValue,
-    ) -> Result<bool> {
-        self.call_overridden_op_2(None, lhs, rhs, op)?;
-        self.frame_mut().execution_barrier = true;
-        match self.execute_instructions() {
-            Ok(result) => match result {
-                KValue::Bool(result) => Ok(result),
-                unexpected => unexpected_type("Bool", &unexpected),
-            },
-            Err(error) => {
-                self.pop_frame(KValue::Null)?;
-                Err(error)
-            }
+    ) -> Result<ControlFlow> {
+        let should_poll_result = op.is_async_callable()
+            || matches!(op, KValue::NativeFunction(_) | KValue::NativeVmFunction(_));
+        if should_poll_result {
+            let truncate_registers_to = self.registers.len();
+            let result_register = self.next_register();
+            self.registers.push(KValue::Null);
+
+            self.call_overridden_op_3(Some(result_register), instance, arg_1, arg_2, op)?;
+            self.poll_discarded_implicit_task_in_register(result_register, truncate_registers_to)
+        } else {
+            self.call_overridden_op_3(None, instance, arg_1, arg_2, op)?;
+            Ok(ControlFlow::Continue)
         }
     }
 
@@ -2386,11 +3190,17 @@ impl KotoVm {
         Ok(())
     }
 
-    fn run_import(&mut self, import_register: u8, import_all: bool) -> Result<()> {
+    fn run_import(
+        &mut self,
+        import_register: u8,
+        import_all: bool,
+        allow_pending: bool,
+    ) -> Result<ControlFlow> {
         let import_name = match self.clone_register(import_register) {
             KValue::Str(s) => s,
             value @ KValue::Map(_) => {
-                return self.successful_import(import_register, value, import_all);
+                self.successful_import(import_register, value, import_all)?;
+                return Ok(ControlFlow::Continue);
             }
             other => return unexpected_type("import id or string, or accessible value", &other),
         };
@@ -2401,7 +3211,8 @@ impl KotoVm {
             .non_local(&import_name)
             .or_else(|| self.context.prelude.get(&import_name));
         if let Some(value) = maybe_non_local {
-            return self.successful_import(import_register, value, import_all);
+            self.successful_import(import_register, value, import_all)?;
+            return Ok(ControlFlow::Continue);
         }
 
         // Attempt to compile the imported module from disk,
@@ -2422,13 +3233,44 @@ impl KotoVm {
             .get(&compile_result.path)
             .cloned();
         match maybe_in_cache {
-            Some(None) => {
-                // If the cache contains a None placeholder entry for the module path,
-                // then we're in a recursive import (see below).
-                return runtime_error!("recursive import of module '{import_name}'");
+            Some(ModuleCacheEntry::Loading(task)) => {
+                if self
+                    .module_import_stack
+                    .iter()
+                    .any(|path| path == &compile_result.path)
+                {
+                    return runtime_error!("recursive import of module '{import_name}'");
+                }
+
+                let pending = PendingImport {
+                    import_register,
+                    import_all,
+                    import_name,
+                    module_path: compile_result.path,
+                    task,
+                    remove_cache_on_sync_error: false,
+                };
+
+                return match self.poll_pending_import(pending)? {
+                    ControlFlow::Pending if !allow_pending => {
+                        let pending = match self.frame_mut().pending_operation.take() {
+                            Some(PendingOperation::Import(pending)) => pending,
+                            _ => return runtime_error!(ErrorKind::UnexpectedError),
+                        };
+                        if pending.remove_cache_on_sync_error {
+                            self.context
+                                .module_cache
+                                .borrow_mut()
+                                .remove(&pending.module_path);
+                        }
+                        runtime_error!("import of '{}' requires await", pending.import_name)
+                    }
+                    control_flow => Ok(control_flow),
+                };
             }
-            Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
-                return self.successful_import(import_register, cached_exports.into(), import_all);
+            Some(ModuleCacheEntry::Loaded(cached_exports)) if compile_result.loaded_from_cache => {
+                self.successful_import(import_register, cached_exports.into(), import_all)?;
+                return Ok(ControlFlow::Continue);
             }
             _ => {}
         }
@@ -2439,80 +3281,138 @@ impl KotoVm {
         //   - If the module contains a @main function, run it.
         //   - If the steps above are successful, then cache the resulting exports map.
 
-        // Insert a placeholder for the new module, preventing recursive imports
-        self.context
-            .module_cache
-            .borrow_mut()
-            .insert(compile_result.path.clone(), None);
+        let task = self.make_import_task(compile_result.path.clone(), compile_result.chunk);
 
-        // Cache the current exports map and prepare an empty exports map for the module
-        // that's being imported.
-        let importer_exports = self.exports.clone();
-        self.exports = KMap::default();
+        self.context.module_cache.borrow_mut().insert(
+            compile_result.path.clone(),
+            ModuleCacheEntry::Loading(task.clone()),
+        );
 
-        // Execute the following steps in a closure to ensure that cleanup is performed afterwards
-        let import_result = {
-            || {
-                self.run(compile_result.chunk.clone())?;
+        let pending = PendingImport {
+            import_register,
+            import_all,
+            import_name,
+            module_path: compile_result.path,
+            task,
+            remove_cache_on_sync_error: true,
+        };
 
-                if self.context.settings.run_import_tests {
-                    self.run_tests(self.exports.clone())?;
+        match self.poll_pending_import(pending)? {
+            ControlFlow::Pending if !allow_pending => {
+                let pending = match self.frame_mut().pending_operation.take() {
+                    Some(PendingOperation::Import(pending)) => pending,
+                    _ => return runtime_error!(ErrorKind::UnexpectedError),
+                };
+                if pending.remove_cache_on_sync_error {
+                    self.context
+                        .module_cache
+                        .borrow_mut()
+                        .remove(&pending.module_path);
                 }
-
-                let maybe_main = self.exports.get_meta_value(&MetaKey::Main);
-                match maybe_main {
-                    Some(main) if main.is_callable() => {
-                        self.call_function(main, &[])?;
-                    }
-                    Some(unexpected) => return unexpected_type("callable function", &unexpected),
-                    None => {}
-                }
-
-                Ok(())
+                runtime_error!("import of '{}' requires await", pending.import_name)
             }
-        }();
-
-        if import_result.is_ok() {
-            if let Some(callback) = &self.context.settings.module_imported_callback {
-                callback(&compile_result.path);
-            }
-
-            // Cache the module's resulting exports
-            let module_exports = self.exports.clone();
-            self.context
-                .module_cache
-                .borrow_mut()
-                .insert(compile_result.path, Some(module_exports.clone()));
-
-            self.successful_import(import_register, module_exports.into(), import_all)
-                .ok();
-        } else {
-            // If there was an error while importing the module then make sure that the
-            // placeholder is removed from the imported modules cache.
-            self.context
-                .module_cache
-                .borrow_mut()
-                .remove(&compile_result.path);
+            control_flow => Ok(control_flow),
         }
+    }
 
-        // Replace the VM's active exports map
-        self.exports = importer_exports;
-        import_result
+    fn make_import_task(&self, module_path: PathBuf, chunk: Ptr<Chunk>) -> KTask {
+        let mut module_exports = KMap::default();
+        module_exports.ensure_meta_map();
+
+        let mut vm = self.spawn_shared_vm();
+        vm.exports = module_exports.clone();
+        vm.module_import_stack.push(module_path);
+        let run_import_tests = self.context.settings.run_import_tests;
+
+        KTask::with_future(async move {
+            let mut runner = AsyncKotoVm::new(vm);
+
+            runner.run(chunk).await?;
+
+            if run_import_tests {
+                runner.run_tests(module_exports.clone()).await?;
+            }
+
+            match module_exports.get_meta_value(&MetaKey::Main) {
+                Some(main) if main.is_callable() => {
+                    runner.call_function_with_args(main, vec![]).await?;
+                }
+                Some(unexpected) => return unexpected_type("callable function", &unexpected),
+                None => {}
+            }
+
+            Ok(KValue::Map(module_exports))
+        })
+    }
+
+    fn poll_pending_import(&mut self, mut pending: PendingImport) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            self.poll_task_with_context(&mut pending.task, &mut context)
+        } else {
+            self.poll_task(&mut pending.task)
+        };
+
+        match poll_result {
+            Ok(KTaskPoll::Ready(KValue::Map(module_exports))) => {
+                let should_call_callback = !matches!(
+                    self.context.module_cache.borrow().get(&pending.module_path),
+                    Some(ModuleCacheEntry::Loaded(_))
+                );
+
+                self.context.module_cache.borrow_mut().insert(
+                    pending.module_path.clone(),
+                    ModuleCacheEntry::Loaded(module_exports.clone()),
+                );
+
+                if should_call_callback
+                    && let Some(callback) = &self.context.settings.module_imported_callback
+                {
+                    callback(&pending.module_path);
+                }
+
+                self.successful_import(
+                    pending.import_register,
+                    module_exports.into(),
+                    pending.import_all,
+                )?;
+                Ok(ControlFlow::Continue)
+            }
+            Ok(KTaskPoll::Ready(unexpected)) => {
+                self.context
+                    .module_cache
+                    .borrow_mut()
+                    .remove(&pending.module_path);
+                unexpected_type("imported module", &unexpected)
+            }
+            Ok(KTaskPoll::Pending) => {
+                self.set_pending_operation(PendingOperation::Import(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+            Err(error) => {
+                self.context
+                    .module_cache
+                    .borrow_mut()
+                    .remove(&pending.module_path);
+                Err(error)
+            }
+        }
     }
 
     fn run_index_assign(
         &mut self,
+        result_register: Option<u8>,
         indexable_register: u8,
         index_register: u8,
         value_register: u8,
-    ) -> Result<()> {
+    ) -> Result<ControlFlow> {
         use KValue::*;
 
         let indexable = self.clone_register(indexable_register);
         let index_value = self.get_register(index_register);
         let value = self.get_register(value_register);
 
-        match indexable {
+        let control_flow = match indexable {
             List(list) => {
                 let mut list_data = list.data_mut();
                 let list_len = list_data.len();
@@ -2532,14 +3432,14 @@ impl KotoVm {
                     }
                     unexpected => return unexpected_type("Number or Range", unexpected),
                 }
-                Ok(())
+                Ok(ControlFlow::Continue)
             }
             Map(map) if map.contains_meta_key(&WriteOp::IndexAssign.into()) => {
                 let op = map.get_meta_value(&WriteOp::IndexAssign.into()).unwrap();
                 let index_value = index_value.clone();
                 let value = value.clone();
 
-                self.call_overridden_op_3(None, map.into(), index_value, value, op)
+                self.call_discarded_overridden_op_3(map.into(), index_value, value, op)
             }
             Map(map) => match index_value {
                 Number(index) => {
@@ -2557,7 +3457,7 @@ impl KotoVm {
                                 map_data.swap_remove_index(u_index);
                                 map_data.insert(key, new_entry[1].clone());
                                 map_data.swap_indices(u_index, map_len - 1);
-                                Ok(())
+                                Ok(ControlFlow::Continue)
                             }
                             unexpected => unexpected_type("Tuple with 2 elements", unexpected),
                         }
@@ -2567,9 +3467,18 @@ impl KotoVm {
                 }
                 unexpected => unexpected_type("Number", unexpected),
             },
-            Object(o) => o.try_borrow_mut()?.index_assign(index_value, value),
+            Object(o) => {
+                o.try_borrow_mut()?.index_assign(index_value, value)?;
+                Ok(ControlFlow::Continue)
+            }
             unexpected => unexpected_type("a mutable indexable value", &unexpected),
+        }?;
+
+        if let Some(result_register) = result_register {
+            self.set_register(result_register, self.clone_register(value_register));
         }
+
+        Ok(control_flow)
     }
 
     fn validate_index(&self, n: KNumber, size: Option<usize>) -> Result<usize> {
@@ -2672,29 +3581,44 @@ impl KotoVm {
 
     fn run_access_assign(
         &mut self,
+        result_register: Option<u8>,
         map_register: u8,
         key_register: u8,
         value_register: u8,
-    ) -> Result<()> {
+    ) -> Result<ControlFlow> {
         let key = self.get_register(key_register);
         let value = self.get_register(value_register);
 
-        match self.get_register(map_register) {
+        let control_flow = match self.get_register(map_register) {
             KValue::Map(map) if map.contains_meta_key(&WriteOp::AccessAssign.into()) => {
                 let op = map.get_meta_value(&WriteOp::AccessAssign.into()).unwrap();
-                self.call_overridden_op_3(None, map.clone().into(), key.clone(), value.clone(), op)
+                self.call_discarded_overridden_op_3(
+                    map.clone().into(),
+                    key.clone(),
+                    value.clone(),
+                    op,
+                )
             }
             KValue::Map(map) => {
                 let key = ValueKey::try_from(key.clone())?;
                 map.data_mut().insert(key, value.clone());
-                Ok(())
+                Ok(ControlFlow::Continue)
             }
             KValue::Object(o) => match key {
-                KValue::Str(key) => o.try_borrow_mut()?.access_assign(key, value),
+                KValue::Str(key) => {
+                    o.try_borrow_mut()?.access_assign(key, value)?;
+                    Ok(ControlFlow::Continue)
+                }
                 unexpected => unexpected_type("String", unexpected),
             },
             unexpected => unexpected_type("a value that supports assignment via '.'", unexpected),
+        }?;
+
+        if let Some(result_register) = result_register {
+            self.set_register(result_register, self.clone_register(value_register));
         }
+
+        Ok(control_flow)
     }
 
     fn run_meta_insert(&mut self, map_register: u8, value: u8, meta_id: MetaKeyId) -> Result<()> {
@@ -2957,58 +3881,241 @@ impl KotoVm {
         &mut self,
         call_info: &CallInfo,
         callable: ExternalCallable,
-    ) -> Result<()> {
-        let mut call_context = CallContext::new(self, call_info.frame_base, call_info.arg_count);
+        pending_behavior: PendingCallBehavior,
+    ) -> Result<ControlFlow> {
+        match callable {
+            ExternalCallable::Function(f) => {
+                let mut call_context =
+                    CallContext::new(self, call_info.frame_base, call_info.arg_count);
+                let result = (f.function)(&mut call_context)?;
+                self.finish_native_call(call_info, result);
+                Ok(ControlFlow::Continue)
+            }
+            ExternalCallable::VmFunction(f) => {
+                let mut call_context =
+                    VmCallContext::new(self, call_info.frame_base, call_info.arg_count);
+                match (f.function)(&mut call_context)? {
+                    VmOutput::Ready(result) => {
+                        self.finish_native_call(call_info, result);
+                        Ok(ControlFlow::Continue)
+                    }
+                    VmOutput::Pending(task) => match pending_behavior {
+                        PendingCallBehavior::Suspend => {
+                            self.set_pending_native_call(call_info, task)?;
+                            Ok(ControlFlow::Pending)
+                        }
+                        PendingCallBehavior::ReturnTask => {
+                            if let Some(result_register) = call_info.result_register {
+                                self.set_register(result_register, task.into());
+                                self.finish_native_call_registers(call_info.frame_base);
+                                Ok(ControlFlow::Continue)
+                            } else {
+                                self.set_pending_native_call(call_info, task)?;
+                                Ok(ControlFlow::Pending)
+                            }
+                        }
+                    },
+                }
+            }
+            ExternalCallable::Object(o) => {
+                let mut call_context =
+                    CallContext::new(self, call_info.frame_base, call_info.arg_count);
+                let result = o.try_borrow_mut()?.call(&mut call_context)?;
+                self.finish_native_call(call_info, result);
+                Ok(ControlFlow::Continue)
+            }
+        }
+    }
 
-        let result = match callable {
-            ExternalCallable::Function(f) => (f.function)(&mut call_context),
-            ExternalCallable::Object(o) => o.try_borrow_mut()?.call(&mut call_context),
-        }?;
+    fn call_or_resume_native(
+        &mut self,
+        call_info: CallInfo,
+        callable: KValue,
+    ) -> Result<ControlFlow> {
+        self.call_callable(call_info, callable)
+    }
 
+    fn has_pending_operation(&self) -> bool {
+        self.call_stack
+            .last()
+            .is_some_and(|frame| frame.pending_operation.is_some())
+    }
+
+    fn set_pending_operation(&mut self, pending: PendingOperation) -> Result<()> {
+        if self.call_stack.is_empty() {
+            return runtime_error!("execution is pending");
+        }
+
+        debug_assert!(self.frame().pending_operation.is_none());
+        self.frame_mut().pending_operation = Some(pending);
+
+        Ok(())
+    }
+
+    fn poll_pending_operation(&mut self) -> Result<ControlFlow> {
+        let Some(pending) = self.frame_mut().pending_operation.take() else {
+            return Ok(ControlFlow::Continue);
+        };
+
+        match pending {
+            PendingOperation::NativeCall(pending) => self.poll_pending_native_call(pending),
+            PendingOperation::PackedCall(pending) => self.poll_pending_packed_call(pending),
+            PendingOperation::ImplicitTask(pending) => self.poll_pending_implicit_task(pending),
+            PendingOperation::DebugInstruction(pending) => {
+                self.poll_pending_debug_instruction(pending)
+            }
+            PendingOperation::CheckSize(pending) => self.poll_pending_check_size(pending),
+            PendingOperation::Slice(pending) => self.poll_pending_slice(pending),
+            PendingOperation::StringPush(pending) => self.poll_pending_string_push(pending),
+            PendingOperation::Import(pending) => self.poll_pending_import(pending),
+        }
+    }
+
+    fn set_pending_native_call(&mut self, call_info: &CallInfo, task: KTask) -> Result<()> {
+        self.set_pending_operation(PendingOperation::NativeCall(PendingNativeCall {
+            result_register: call_info.result_register,
+            frame_base: call_info.frame_base,
+            task,
+        }))
+    }
+
+    fn poll_pending_native_call(&mut self, mut pending: PendingNativeCall) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            pending.task.poll_with_context(&mut context)?
+        } else {
+            pending.task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(result) => {
+                self.finish_pending_native_call(&pending, result);
+                Ok(ControlFlow::Continue)
+            }
+            KTaskPoll::Pending => {
+                self.set_pending_operation(PendingOperation::NativeCall(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
+    }
+
+    fn finish_pending_native_call(&mut self, pending: &PendingNativeCall, result: KValue) {
+        if let Some(result_register) = pending.result_register {
+            self.set_register(result_register, result);
+        }
+
+        self.finish_native_call_registers(pending.frame_base);
+    }
+
+    fn finish_native_call(&mut self, call_info: &CallInfo, result: KValue) {
         if let Some(result_register) = call_info.result_register {
             self.set_register(result_register, result);
         }
 
+        self.finish_native_call_registers(call_info.frame_base);
+    }
+
+    fn finish_native_call_registers(&mut self, frame_base: u8) {
         if !self.call_stack.is_empty() {
             // External function calls don't use the push/pop frame mechanism,
             // so drop the call args here now that the call has been completed,
-            self.truncate_registers(call_info.frame_base);
+            self.truncate_registers(frame_base);
             // Ensure that the calling frame still has the required number of registers
             let min_frame_registers = self.register_index(self.frame().required_registers);
             if self.registers.len() < min_frame_registers {
                 self.registers.resize(min_frame_registers, KValue::Null);
             }
         }
-        Ok(())
     }
 
-    // Similar to `call_koto_function`, but sets up the frame in a new VM for the generator
-    fn call_generator(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
-        // Spawn a VM for the generator
-        let mut generator_vm = self.spawn_shared_vm();
-        // Push a frame for running the generator function
-        generator_vm.push_frame(
+    fn poll_implicit_task_in_register(&mut self, result_register: u8) -> Result<ControlFlow> {
+        self.poll_implicit_task_in_register_impl(result_register, None)
+    }
+
+    fn poll_discarded_implicit_task_in_register(
+        &mut self,
+        result_register: u8,
+        truncate_registers_to: usize,
+    ) -> Result<ControlFlow> {
+        self.poll_implicit_task_in_register_impl(result_register, Some(truncate_registers_to))
+    }
+
+    fn poll_implicit_task_in_register_impl(
+        &mut self,
+        result_register: u8,
+        truncate_registers_to: Option<usize>,
+    ) -> Result<ControlFlow> {
+        match self.clone_register(result_register) {
+            KValue::Task(task) => self.poll_pending_implicit_task(PendingImplicitTask {
+                result_register,
+                task,
+                truncate_registers_to,
+            }),
+            _ => {
+                if let Some(truncate_registers_to) = truncate_registers_to {
+                    self.registers.truncate(truncate_registers_to);
+                }
+                Ok(ControlFlow::Continue)
+            }
+        }
+    }
+
+    fn poll_pending_implicit_task(
+        &mut self,
+        mut pending: PendingImplicitTask,
+    ) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            pending.task.poll_with_context(&mut context)?
+        } else {
+            pending.task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(result) => {
+                self.set_register(pending.result_register, result);
+                if let Some(truncate_registers_to) = pending.truncate_registers_to {
+                    self.registers.truncate(truncate_registers_to);
+                }
+                Ok(ControlFlow::Continue)
+            }
+            KTaskPoll::Pending => {
+                self.set_pending_operation(PendingOperation::ImplicitTask(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
+    }
+
+    // Similar to `call_koto_function`, but sets up the frame in a new VM for a suspended function
+    fn make_suspended_function_vm(
+        &mut self,
+        call_info: &CallInfo,
+        f: &KFunction,
+    ) -> Result<KotoVm> {
+        let mut vm = self.spawn_shared_vm();
+        // Push a frame for running the function
+        vm.push_frame(
             f.chunk.clone(),
             f.ip,
             0, // Arguments will be copied starting in register 0
             None,
             f.non_locals(),
         );
-        // Set the generator VM's state as suspended
-        generator_vm.execution_state = ExecutionState::Suspended;
+        // Set the VM's state as suspended
+        vm.execution_state = ExecutionState::Suspended;
 
-        // Place the instance in the first register of the generator vm
+        // Place the instance in the first register of the vm
         let instance = self
             .get_register_safe(call_info.frame_base)
             .cloned()
             .unwrap_or(KValue::Null);
-        generator_vm.registers.push(instance);
+        vm.registers.push(instance);
 
         let call_arg_base = call_info.frame_base + 1;
         let expected_arg_count = f.expected_arg_count();
 
-        // Copy any regular (non-variadic) arguments into the generator vm
-        generator_vm.registers.extend(
+        // Copy any regular (non-variadic) arguments into the vm
+        vm.registers.extend(
             self.register_slice(call_arg_base, expected_arg_count.min(call_info.arg_count))
                 .iter()
                 .cloned(),
@@ -3016,15 +4123,15 @@ impl KotoVm {
 
         // Fill in any missing arguments with default values
         apply_optional_arguments(
-            &mut generator_vm.registers,
+            &mut vm.registers,
             f,
             call_info.arg_count,
             expected_arg_count,
         )?;
 
-        // Copy any extra arguments into the generator vm,
+        // Copy any extra arguments into the vm,
         // they'll get extracted into a tuple in apply_variadic_arguments
-        generator_vm.registers.extend(
+        vm.registers.extend(
             self.register_slice(
                 call_arg_base + expected_arg_count,
                 call_info.arg_count.saturating_sub(expected_arg_count),
@@ -3035,15 +4142,21 @@ impl KotoVm {
 
         // Move variadic arguments into a tuple
         apply_variadic_arguments(
-            &mut generator_vm.registers,
-            1, // The first argument goes into register 1 in the generator vm
+            &mut vm.registers,
+            1, // The first argument goes into register 1 in the suspended vm
             call_info,
             f,
             expected_arg_count,
         )?;
 
         // Captures and temp tuple values are placed in the registers following the arguments
-        apply_captures(&mut generator_vm.registers, f);
+        apply_captures(&mut vm.registers, f);
+
+        Ok(vm)
+    }
+
+    fn call_generator(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
+        let generator_vm = self.make_suspended_function_vm(call_info, f)?;
 
         // Move the generator vm into an iterator and then place it in the result register
         if let Some(result_register) = call_info.result_register {
@@ -3053,8 +4166,22 @@ impl KotoVm {
         Ok(())
     }
 
+    fn call_task(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
+        let task_vm = self.make_suspended_function_vm(call_info, f)?;
+
+        if let Some(result_register) = call_info.result_register {
+            self.set_register(
+                result_register,
+                self.spawn_task(KTask::with_vm(task_vm))?.into(),
+            );
+        }
+
+        Ok(())
+    }
+
     fn call_koto_function(&mut self, call_info: &CallInfo, f: &KFunction) -> Result<()> {
         debug_assert!(!f.flags.is_generator());
+        debug_assert!(!f.flags.is_async());
 
         // The caller instance is in the frame base register,
         // and then arguments start from register frame_base + 1.
@@ -3098,7 +4225,16 @@ impl KotoVm {
         Ok(())
     }
 
-    fn call_callable(&mut self, mut info: CallInfo, callable: KValue) -> Result<()> {
+    fn call_callable(&mut self, info: CallInfo, callable: KValue) -> Result<ControlFlow> {
+        self.call_callable_with_pending_behavior(info, callable, PendingCallBehavior::Suspend)
+    }
+
+    fn call_callable_with_pending_behavior(
+        &mut self,
+        mut info: CallInfo,
+        callable: KValue,
+        pending_behavior: PendingCallBehavior,
+    ) -> Result<ControlFlow> {
         use KValue::*;
 
         if let Some(instance) = info.instance {
@@ -3113,45 +4249,69 @@ impl KotoVm {
             self.set_register(info.frame_base, KValue::Null);
         }
 
-        self.unpack_packed_arguments(&mut info)?;
+        if let Some(unpacking) = self.unpack_packed_arguments(&mut info)? {
+            self.set_pending_operation(PendingOperation::PackedCall(PendingPackedCall {
+                call_info: info,
+                callable,
+                pending_behavior,
+                unpacking,
+            }))?;
+            return Ok(ControlFlow::Pending);
+        }
 
         match callable {
             Function(f) => {
                 if f.flags.is_generator() {
-                    self.call_generator(&info, &f)
+                    self.call_generator(&info, &f)?;
+                } else if f.flags.is_async() {
+                    self.call_task(&info, &f)?;
                 } else {
-                    self.call_koto_function(&info, &f)
+                    self.call_koto_function(&info, &f)?;
                 }
+                Ok(ControlFlow::Continue)
             }
-            NativeFunction(f) => self.call_native_function(&info, ExternalCallable::Function(f)),
-            Object(o) => self.call_native_function(&info, ExternalCallable::Object(o)),
+            NativeFunction(f) => {
+                self.call_native_function(&info, ExternalCallable::Function(f), pending_behavior)
+            }
+            NativeVmFunction(f) => {
+                self.call_native_function(&info, ExternalCallable::VmFunction(f), pending_behavior)
+            }
+            Object(o) => {
+                self.call_native_function(&info, ExternalCallable::Object(o), pending_behavior)
+            }
             Map(ref m) if m.contains_meta_key(&MetaKey::Call) => {
                 let f = m.get_meta_value(&MetaKey::Call).unwrap();
                 // Set the callable value as the instance by placing it in the frame base,
                 // and then passing the @|| function into call_callable
                 self.set_register(info.frame_base, callable);
-                self.call_callable(
+                self.call_callable_with_pending_behavior(
                     CallInfo {
                         instance: Some(info.frame_base),
                         ..info
                     },
                     f,
+                    pending_behavior,
                 )
             }
             unexpected => unexpected_type("callable function", &unexpected),
         }
     }
 
-    fn unpack_packed_arguments(&mut self, info: &mut CallInfo) -> Result<()> {
+    fn unpack_packed_arguments(
+        &mut self,
+        info: &mut CallInfo,
+    ) -> Result<Option<PackedArgumentUnpacking>> {
         if info.packed_arg_count == 0 {
-            return Ok(());
+            return Ok(None);
         }
 
         // The indices of the registers that need to be unpacked are place in the registers
         // following the call args.
         let first_arg_index = self.register_index(info.frame_base + 1);
         let first_packed_arg_index = first_arg_index + info.arg_count as usize;
-        let last_packed_arg_index = first_packed_arg_index + info.packed_arg_count as usize;
+        let packed_arg_count = info.packed_arg_count as usize;
+        info.packed_arg_count = 0;
+        let last_packed_arg_index = first_packed_arg_index + packed_arg_count;
         let packed_arg_registers = self
             .registers
             .drain(first_packed_arg_index..last_packed_arg_index)
@@ -3160,72 +4320,229 @@ impl KotoVm {
                 unexpected => unexpected_type("Number", &unexpected),
             })
             .collect::<Result<SmallVec<[usize; 4]>>>()?;
-        let mut unpacked_values = ValueVec::new();
 
-        let original_arg_count = info.arg_count as isize;
+        let unpacking = PackedArgumentUnpacking {
+            first_arg_index,
+            packed_arg_registers,
+            next_packed_arg_index: 0,
+            original_arg_count: info.arg_count as isize,
+            active: None,
+        };
 
-        // Unpack the packed arguments in reverse order
-        for packed_arg_register in packed_arg_registers.iter() {
-            // Get the index of the argument that needs to be unpacked,
-            // taking in to account the offset resulting from unpacking previous packed arguments.
-            // Packed arguments can be empty, which can result in a negative offset,
-            // e.g. `f []..., x...`
-            //         ^ The first argument is empty, so the second argument is shifted by -1
-            let arg_offset = info.arg_count as isize - original_arg_count;
-            let unpack_index =
-                ((first_arg_index + packed_arg_register) as isize + arg_offset) as usize;
+        self.poll_packed_argument_unpacking(info, unpacking)
+    }
 
-            // First, swap-remove the argument to be unpacked,
-            // replacing the argument with null and keeping any trailing registers in place.
-            self.registers.push(KValue::Null);
-            let iterable = self.registers.swap_remove(unpack_index);
-
-            // Convert the value into an iterator
-            let iterator = self.make_iterator(iterable).map_err(|error| {
-                error.with_context(format!(
-                    "while unpacking argument at index {packed_arg_register}"
-                ))
-            })?;
-
-            // Process the iterator output, checking for errors and collecting `ValuePair`s
-            let max_unpacked_args = (u8::MAX - info.arg_count - 1) as usize; // -1 for frame base
-            for output in iterator {
-                if unpacked_values.len() == max_unpacked_args {
-                    return runtime_error!("Call argument limit reached during unpacking");
-                }
-                match output {
-                    KIteratorOutput::Value(value) => unpacked_values.push(value),
-                    KIteratorOutput::ValuePair(a, b) => {
-                        unpacked_values.push(KTuple::from(&[a, b]).into())
-                    }
-                    KIteratorOutput::Error(e) => return Err(e),
-                }
+    fn poll_pending_packed_call(&mut self, mut pending: PendingPackedCall) -> Result<ControlFlow> {
+        match self.poll_packed_argument_unpacking(&mut pending.call_info, pending.unpacking)? {
+            Some(unpacking) => {
+                pending.unpacking = unpacking;
+                self.set_pending_operation(PendingOperation::PackedCall(pending))?;
+                Ok(ControlFlow::Pending)
             }
-
-            info.arg_count -= 1; // Subtract 1 for the arg that was unpacked
-            info.arg_count += unpacked_values.len() as u8; // Add the unpacked value count
-
-            // Splice the unpacked args into the register stack, replacing the register that
-            // was occupied by the original argument.
-            self.registers
-                .splice(unpack_index..unpack_index + 1, unpacked_values.drain(..));
+            None => self.call_callable_with_pending_behavior(
+                pending.call_info,
+                pending.callable,
+                pending.pending_behavior,
+            ),
         }
+    }
 
-        Ok(())
+    fn poll_packed_argument_unpacking(
+        &mut self,
+        info: &mut CallInfo,
+        mut unpacking: PackedArgumentUnpacking,
+    ) -> Result<Option<PackedArgumentUnpacking>> {
+        loop {
+            if let Some(active) = unpacking.active.take() {
+                match active {
+                    PendingPackedArgument::IteratorTask {
+                        packed_arg_register,
+                        unpack_index,
+                        mut task,
+                        unpacked_values,
+                    } => {
+                        let poll_result = if let Some(waker) = self.task_waker.clone() {
+                            let mut context = Context::from_waker(&waker);
+                            self.poll_task_with_context(&mut task, &mut context)
+                        } else {
+                            self.poll_task(&mut task)
+                        }
+                        .map_err(|error| {
+                            error.with_context(format!(
+                                "while unpacking argument at index {packed_arg_register}"
+                            ))
+                        })?;
+
+                        match poll_result {
+                            KTaskPoll::Ready(KValue::Iterator(iterator)) => {
+                                unpacking.active = Some(PendingPackedArgument::Iterator {
+                                    unpack_index,
+                                    iterator,
+                                    unpacked_values,
+                                });
+                            }
+                            KTaskPoll::Ready(unexpected) => {
+                                return unexpected_type("Iterator", &unexpected);
+                            }
+                            KTaskPoll::Pending => {
+                                unpacking.active = Some(PendingPackedArgument::IteratorTask {
+                                    packed_arg_register,
+                                    unpack_index,
+                                    task,
+                                    unpacked_values,
+                                });
+                                return Ok(Some(unpacking));
+                            }
+                        }
+                    }
+                    PendingPackedArgument::Iterator {
+                        unpack_index,
+                        mut iterator,
+                        mut unpacked_values,
+                    } => {
+                        let max_unpacked_args = (u8::MAX - info.arg_count - 1) as usize; // -1 for frame base
+
+                        loop {
+                            let next_output = if let Some(waker) = self.task_waker.clone() {
+                                let mut context = Context::from_waker(&waker);
+                                iterator.next_output_with_context(&mut context)
+                            } else {
+                                iterator.next_output()
+                            };
+
+                            match next_output {
+                                KIteratorNext::Output(KIteratorOutput::Value(value)) => {
+                                    if unpacked_values.len() == max_unpacked_args {
+                                        return runtime_error!(
+                                            "Call argument limit reached during unpacking"
+                                        );
+                                    }
+                                    unpacked_values.push(value);
+                                }
+                                KIteratorNext::Output(KIteratorOutput::ValuePair(a, b)) => {
+                                    if unpacked_values.len() == max_unpacked_args {
+                                        return runtime_error!(
+                                            "Call argument limit reached during unpacking"
+                                        );
+                                    }
+                                    unpacked_values.push(KTuple::from(&[a, b]).into());
+                                }
+                                KIteratorNext::Output(KIteratorOutput::Error(error)) => {
+                                    return Err(error);
+                                }
+                                KIteratorNext::Pending => {
+                                    unpacking.active = Some(PendingPackedArgument::Iterator {
+                                        unpack_index,
+                                        iterator,
+                                        unpacked_values,
+                                    });
+                                    return Ok(Some(unpacking));
+                                }
+                                KIteratorNext::Done => {
+                                    Self::finish_packed_argument(
+                                        &mut self.registers,
+                                        info,
+                                        unpack_index,
+                                        &mut unpacked_values,
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if let Some(packed_arg_register) = unpacking
+                .packed_arg_registers
+                .get(unpacking.next_packed_arg_index)
+            {
+                unpacking.next_packed_arg_index += 1;
+
+                // Get the index of the argument that needs to be unpacked,
+                // taking in to account the offset resulting from unpacking previous packed
+                // arguments. Packed arguments can be empty, which can result in a negative offset,
+                // e.g. `f []..., x...`
+                //         ^ The first argument is empty, so the second argument is shifted by -1
+                let arg_offset = info.arg_count as isize - unpacking.original_arg_count;
+                let unpack_index = ((unpacking.first_arg_index + packed_arg_register) as isize
+                    + arg_offset) as usize;
+
+                // First, swap-remove the argument to be unpacked,
+                // replacing the argument with null and keeping any trailing registers in place.
+                self.registers.push(KValue::Null);
+                let iterable = self.registers.swap_remove(unpack_index);
+
+                // Convert the value into an iterator.
+                let task = self.make_iterator_as_task(iterable).map_err(|error| {
+                    error.with_context(format!(
+                        "while unpacking argument at index {packed_arg_register}"
+                    ))
+                })?;
+                unpacking.active = Some(PendingPackedArgument::IteratorTask {
+                    packed_arg_register: *packed_arg_register,
+                    unpack_index,
+                    task,
+                    unpacked_values: ValueVec::new(),
+                });
+            } else {
+                return Ok(None);
+            }
+        }
+    }
+
+    fn finish_packed_argument(
+        registers: &mut Vec<KValue>,
+        info: &mut CallInfo,
+        unpack_index: usize,
+        unpacked_values: &mut ValueVec,
+    ) {
+        info.arg_count -= 1; // Subtract 1 for the arg that was unpacked
+        info.arg_count += unpacked_values.len() as u8; // Add the unpacked value count
+
+        // Splice the unpacked args into the register stack, replacing the register that
+        // was occupied by the original argument.
+        registers.splice(unpack_index..unpack_index + 1, unpacked_values.drain(..));
     }
 
     fn run_debug_instruction(
         &mut self,
         register: u8,
         expression_constant: ConstantIndex,
-    ) -> Result<()> {
+    ) -> Result<ControlFlow> {
         let value = self.clone_register(register);
+        let prefix = self.debug_instruction_prefix();
+        let expression_string = self.get_constant_str(expression_constant).to_string();
+
         let value_string = match self.run_unary_op(UnaryOp::Debug, value)? {
-            KValue::Str(s) => s,
-            unexpected => return unexpected_type("a displayable value", &unexpected),
+            VmOutput::Ready(KValue::Str(s)) => s,
+            VmOutput::Pending(task) => {
+                return self.pending_debug_instruction(task, prefix, expression_string);
+            }
+            VmOutput::Ready(unexpected) => {
+                return unexpected_type("a displayable value", &unexpected);
+            }
         };
 
-        let prefix = match (
+        self.finish_debug_instruction(&prefix, &expression_string, value_string.as_ref())
+    }
+
+    fn pending_debug_instruction(
+        &mut self,
+        task: KTask,
+        prefix: String,
+        expression_string: String,
+    ) -> Result<ControlFlow> {
+        self.set_pending_operation(PendingOperation::DebugInstruction(
+            PendingDebugInstruction {
+                task,
+                prefix,
+                expression_string,
+            },
+        ))?;
+        Ok(ControlFlow::Pending)
+    }
+
+    fn debug_instruction_prefix(&self) -> String {
+        match (
             self.reader
                 .chunk
                 .debug_info
@@ -3236,31 +4553,121 @@ impl KotoVm {
             (Some(span), None) => format!("[{}] ", span.start.line + 1),
             (None, Some(path)) => format!("[{path}: #ERR] "),
             (None, None) => "[#ERR] ".to_string(),
-        };
-
-        let expression_string = self.get_constant_str(expression_constant);
-
-        self.stdout()
-            .write_line(&format!("{prefix}{expression_string}: {value_string}"))
-    }
-
-    fn run_check_size_equal(&mut self, value_register: u8, expected_size: usize) -> Result<()> {
-        let size = self.get_value_size(value_register)?;
-        if size == expected_size {
-            Ok(())
-        } else {
-            runtime_error!("the container has a size of '{size}', expected '{expected_size}'")
         }
     }
 
-    fn run_check_size_min(&mut self, value_register: u8, expected_size: usize) -> Result<()> {
-        let size = self.get_value_size(value_register)?;
-        if size >= expected_size {
-            Ok(())
+    fn finish_debug_instruction(
+        &self,
+        prefix: &str,
+        expression_string: &str,
+        value_string: &str,
+    ) -> Result<ControlFlow> {
+        self.stdout()
+            .write_line(&format!("{prefix}{expression_string}: {value_string}"))?;
+        Ok(ControlFlow::Continue)
+    }
+
+    fn poll_pending_debug_instruction(
+        &mut self,
+        mut pending: PendingDebugInstruction,
+    ) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            pending.task.poll_with_context(&mut context)?
         } else {
-            runtime_error!(
-                "The container has a size of '{size}', expected a minimum of  '{expected_size}'"
-            )
+            pending.task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(KValue::Str(value_string)) => self.finish_debug_instruction(
+                &pending.prefix,
+                &pending.expression_string,
+                value_string.as_ref(),
+            ),
+            KTaskPoll::Ready(unexpected) => unexpected_type("a displayable value", &unexpected),
+            KTaskPoll::Pending => {
+                self.set_pending_operation(PendingOperation::DebugInstruction(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
+    }
+
+    fn run_check_size_equal(
+        &mut self,
+        value_register: u8,
+        expected_size: usize,
+    ) -> Result<ControlFlow> {
+        self.run_check_size(value_register, expected_size, CheckSizeMode::Equal)
+    }
+
+    fn run_check_size_min(
+        &mut self,
+        value_register: u8,
+        expected_size: usize,
+    ) -> Result<ControlFlow> {
+        self.run_check_size(value_register, expected_size, CheckSizeMode::Min)
+    }
+
+    fn run_check_size(
+        &mut self,
+        value_register: u8,
+        expected_size: usize,
+        mode: CheckSizeMode,
+    ) -> Result<ControlFlow> {
+        match self.run_unary_op(UnaryOp::Size, self.clone_register(value_register))? {
+            VmOutput::Ready(size) => self.finish_check_size(size, expected_size, mode),
+            VmOutput::Pending(task) => {
+                self.set_pending_operation(PendingOperation::CheckSize(PendingCheckSize {
+                    task,
+                    expected_size,
+                    mode,
+                }))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
+    }
+
+    fn finish_check_size(
+        &self,
+        size: KValue,
+        expected_size: usize,
+        mode: CheckSizeMode,
+    ) -> Result<ControlFlow> {
+        let KValue::Number(size) = size else {
+            return unexpected_type("number for value size", &size);
+        };
+        let size = usize::from(size);
+
+        match mode {
+            CheckSizeMode::Equal if size == expected_size => Ok(ControlFlow::Continue),
+            CheckSizeMode::Equal => {
+                runtime_error!("the container has a size of '{size}', expected '{expected_size}'")
+            }
+            CheckSizeMode::Min if size >= expected_size => Ok(ControlFlow::Continue),
+            CheckSizeMode::Min => {
+                runtime_error!(
+                    "The container has a size of '{size}', expected a minimum of  '{expected_size}'"
+                )
+            }
+        }
+    }
+
+    fn poll_pending_check_size(&mut self, mut pending: PendingCheckSize) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            pending.task.poll_with_context(&mut context)?
+        } else {
+            pending.task.poll()?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(size) => {
+                self.finish_check_size(size, pending.expected_size, pending.mode)
+            }
+            KTaskPoll::Pending => {
+                self.set_pending_operation(PendingOperation::CheckSize(pending))?;
+                Ok(ControlFlow::Pending)
+            }
         }
     }
 
@@ -3342,13 +4749,6 @@ impl KotoVm {
         }
     }
 
-    fn get_value_size(&mut self, value_register: u8) -> Result<usize> {
-        match self.run_unary_op(UnaryOp::Size, self.clone_register(value_register))? {
-            KValue::Number(n) => Ok(n.into()),
-            unexpected => unexpected_type("number for value size", &unexpected),
-        }
-    }
-
     fn run_sequence_push(&mut self, value_register: u8) -> Result<()> {
         let value = self.clone_register(value_register);
         if let Some(builder) = self.sequence_builders.last_mut() {
@@ -3381,8 +4781,8 @@ impl KotoVm {
     fn run_string_push(
         &mut self,
         value_register: u8,
-        format_options: &Option<StringFormatOptions>,
-    ) -> Result<()> {
+        format_options: Option<StringFormatOptions>,
+    ) -> Result<ControlFlow> {
         let value = self.clone_register(value_register);
         let value_is_number = matches!(&value, KValue::Number(_));
 
@@ -3411,41 +4811,76 @@ impl KotoVm {
             other => match representation {
                 Some(StringFormatRepresentation::Debug) => {
                     match self.run_unary_op(UnaryOp::Debug, other)? {
-                        KValue::Str(rendered) => match precision {
-                            Some(precision) => {
-                                // `precision` acts as a maximum width for non-number values
-                                let mut truncated =
-                                    String::with_capacity((precision as usize).min(rendered.len()));
-                                for grapheme in rendered.graphemes(true).take(precision as usize) {
-                                    truncated.push_str(grapheme);
-                                }
-                                truncated
-                            }
-                            None => rendered.to_string(),
-                        },
-                        other => return unexpected_type("String", &other),
+                        VmOutput::Ready(KValue::Str(rendered)) => {
+                            truncate_string(rendered.as_str(), precision)
+                        }
+                        VmOutput::Pending(task) => {
+                            self.set_pending_operation(PendingOperation::StringPush(
+                                PendingStringPush {
+                                    task,
+                                    format_options,
+                                    value_is_number,
+                                },
+                            ))?;
+                            return Ok(ControlFlow::Pending);
+                        }
+                        VmOutput::Ready(other) => return unexpected_type("String", &other),
                     }
                 }
-                _ => {
-                    match self.run_unary_op(UnaryOp::Display, other)? {
-                        KValue::Str(rendered) => match precision {
-                            Some(precision) => {
-                                // `precision` acts as a maximum width for non-number values
-                                let mut truncated =
-                                    String::with_capacity((precision as usize).min(rendered.len()));
-                                for grapheme in rendered.graphemes(true).take(precision as usize) {
-                                    truncated.push_str(grapheme);
-                                }
-                                truncated
-                            }
-                            None => rendered.to_string(),
-                        },
-                        other => return unexpected_type("String", &other),
+                _ => match self.run_unary_op(UnaryOp::Display, other)? {
+                    VmOutput::Ready(KValue::Str(rendered)) => {
+                        truncate_string(rendered.as_str(), precision)
                     }
-                }
+                    VmOutput::Pending(task) => {
+                        self.set_pending_operation(PendingOperation::StringPush(
+                            PendingStringPush {
+                                task,
+                                format_options,
+                                value_is_number,
+                            },
+                        ))?;
+                        return Ok(ControlFlow::Pending);
+                    }
+                    VmOutput::Ready(other) => return unexpected_type("String", &other),
+                },
             },
         };
 
+        self.finish_string_push(rendered, format_options, value_is_number)?;
+        Ok(ControlFlow::Continue)
+    }
+
+    fn poll_pending_string_push(&mut self, mut pending: PendingStringPush) -> Result<ControlFlow> {
+        let poll_result = if let Some(waker) = self.task_waker.clone() {
+            let mut context = Context::from_waker(&waker);
+            self.poll_task_with_context(&mut pending.task, &mut context)?
+        } else {
+            self.poll_task(&mut pending.task)?
+        };
+
+        match poll_result {
+            KTaskPoll::Ready(KValue::Str(rendered)) => {
+                let rendered = truncate_string(
+                    rendered.as_str(),
+                    pending.format_options.and_then(|options| options.precision),
+                );
+                self.finish_string_push(rendered, pending.format_options, pending.value_is_number)?;
+                Ok(ControlFlow::Continue)
+            }
+            KTaskPoll::Ready(unexpected) => unexpected_type("String", &unexpected),
+            KTaskPoll::Pending => {
+                self.set_pending_operation(PendingOperation::StringPush(pending))?;
+                Ok(ControlFlow::Pending)
+            }
+        }
+    }
+
+    fn finish_string_push(
+        &mut self,
+        rendered: String,
+        format_options: Option<StringFormatOptions>,
+        value_is_number: bool,
+    ) -> Result<()> {
         // Apply other formatting options to the rendered string
         let result = match format_options {
             Some(options) => {
@@ -3853,7 +5288,82 @@ fn apply_variadic_arguments(
     Ok(())
 }
 
+async fn compare_value_ranges(
+    runner: &mut AsyncKotoVm,
+    range_a: ValueVec,
+    range_b: ValueVec,
+) -> Result<bool> {
+    for (value_a, value_b) in range_a.into_iter().zip(range_b) {
+        let result = runner
+            .run_binary_op(BinaryOp::Equal, value_a, value_b)
+            .await?;
+        match comparison_bool(result)? {
+            true => {}
+            false => return Ok(false),
+        }
+    }
+
+    Ok(true)
+}
+
+async fn compare_value_maps(
+    runner: &mut AsyncKotoVm,
+    map_a: ValueMap,
+    map_b: ValueMap,
+) -> Result<bool> {
+    for (key_a, value_a) in map_a.iter() {
+        let Some(value_b) = map_b.get(key_a).cloned() else {
+            return Ok(false);
+        };
+        let result = runner
+            .run_binary_op(BinaryOp::Equal, value_a.clone(), value_b)
+            .await?;
+        match comparison_bool(result)? {
+            true => {}
+            false => return Ok(false),
+        }
+    }
+
+    Ok(true)
+}
+
+async fn call_overridden_comparison(
+    runner: &mut AsyncKotoVm,
+    instance: KValue,
+    arg: KValue,
+    op: KValue,
+) -> Result<bool> {
+    let result = runner
+        .call_instance_function_with_args(instance, op, vec![arg])
+        .await?;
+    comparison_bool(result)
+}
+
+fn comparison_bool(value: KValue) -> Result<bool> {
+    match value {
+        KValue::Bool(result) => Ok(result),
+        unexpected => runtime_error!(
+            "Expected Bool from comparison, found '{}'",
+            unexpected.type_as_string()
+        ),
+    }
+}
+
 // See [KotoVm::call_koto_function] and [KotoVm::call_generator]
+fn truncate_string(rendered: &str, precision: Option<u32>) -> String {
+    match precision {
+        Some(precision) => {
+            // `precision` acts as a maximum width for non-number values
+            let mut truncated = String::with_capacity((precision as usize).min(rendered.len()));
+            for grapheme in rendered.graphemes(true).take(precision as usize) {
+                truncated.push_str(grapheme);
+            }
+            truncated
+        }
+        None => rendered.to_owned(),
+    }
+}
+
 fn apply_captures(registers: &mut Vec<KValue>, f: &KFunction) {
     if let Some(captures) = f.captures() {
         // Copy the captures list into the registers following the args
@@ -3924,10 +5434,14 @@ impl<'a, const N: usize> From<&'a [KValue; N]> for CallArgs<'a> {
     }
 }
 
-// A cache of the export maps of imported modules
-//
-// The Map is optional to prevent recursive imports (see Vm::run_import).
-type ModuleCache = HashMap<PathBuf, Option<KMap>, BuildHasherDefault<FxHasher>>;
+// A cache of imported module state.
+type ModuleCache = HashMap<PathBuf, ModuleCacheEntry, BuildHasherDefault<FxHasher>>;
+
+#[derive(Clone)]
+enum ModuleCacheEntry {
+    Loading(KTask),
+    Loaded(KMap),
+}
 
 // A frame in the VM's call stack
 #[derive(Clone)]
@@ -3957,6 +5471,8 @@ struct Frame {
     //   - an external function is calling back into the VM with a functor
     //   - a module is being imported
     pub execution_barrier: bool,
+    // The operation that's waiting for async work to complete.
+    pending_operation: Option<PendingOperation>,
 }
 
 impl Frame {
@@ -3971,6 +5487,7 @@ impl Frame {
             return_instruction_ip: 0,
             catch_stack: vec![],
             execution_barrier: false,
+            pending_operation: None,
         }
     }
 
@@ -4027,14 +5544,147 @@ impl NonLocals {
     }
 }
 
+#[derive(Clone)]
+enum PendingOperation {
+    NativeCall(PendingNativeCall),
+    PackedCall(PendingPackedCall),
+    ImplicitTask(PendingImplicitTask),
+    DebugInstruction(PendingDebugInstruction),
+    CheckSize(PendingCheckSize),
+    Slice(PendingSlice),
+    StringPush(PendingStringPush),
+    Import(PendingImport),
+}
+
+#[derive(Clone)]
+struct PendingNativeCall {
+    result_register: Option<u8>,
+    frame_base: u8,
+    task: KTask,
+}
+
+#[derive(Clone)]
+struct PendingPackedCall {
+    call_info: CallInfo,
+    callable: KValue,
+    pending_behavior: PendingCallBehavior,
+    unpacking: PackedArgumentUnpacking,
+}
+
+#[derive(Clone)]
+struct PackedArgumentUnpacking {
+    first_arg_index: usize,
+    packed_arg_registers: SmallVec<[usize; 4]>,
+    next_packed_arg_index: usize,
+    original_arg_count: isize,
+    active: Option<PendingPackedArgument>,
+}
+
+#[derive(Clone)]
+enum PendingPackedArgument {
+    IteratorTask {
+        packed_arg_register: usize,
+        unpack_index: usize,
+        task: KTask,
+        unpacked_values: ValueVec,
+    },
+    Iterator {
+        unpack_index: usize,
+        iterator: KIterator,
+        unpacked_values: ValueVec,
+    },
+}
+
+#[derive(Clone)]
+struct PendingImplicitTask {
+    result_register: u8,
+    task: KTask,
+    truncate_registers_to: Option<usize>,
+}
+
+#[derive(Clone)]
+struct PendingDebugInstruction {
+    task: KTask,
+    prefix: String,
+    expression_string: String,
+}
+
+#[derive(Clone)]
+struct PendingCheckSize {
+    task: KTask,
+    expected_size: usize,
+    mode: CheckSizeMode,
+}
+
+#[derive(Clone, Copy)]
+enum CheckSizeMode {
+    Equal,
+    Min,
+}
+
+#[derive(Clone)]
+enum PendingSlice {
+    Size {
+        result_register: u8,
+        map: KMap,
+        index: i8,
+        is_slice_to: bool,
+        task: KTask,
+    },
+    Read {
+        result_register: u8,
+        task: KTask,
+    },
+}
+
+enum PendingSliceContinuation {
+    Size {
+        map: KMap,
+        index: i8,
+        is_slice_to: bool,
+    },
+    Read,
+}
+
+#[derive(Clone)]
+struct PendingStringPush {
+    task: KTask,
+    format_options: Option<StringFormatOptions>,
+    value_is_number: bool,
+}
+
+#[derive(Clone)]
+struct PendingImport {
+    import_register: u8,
+    import_all: bool,
+    import_name: KString,
+    module_path: PathBuf,
+    task: KTask,
+    remove_cache_on_sync_error: bool,
+}
+
 // See Vm::call_external
 enum ExternalCallable {
     Function(KNativeFunction),
+    VmFunction(KNativeVmFunction),
     Object(KObject),
 }
 
+#[derive(Clone, Copy)]
+enum PendingCallBehavior {
+    Suspend,
+    ReturnTask,
+}
+
+#[derive(Clone, Copy)]
+enum ComparisonFallback {
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+}
+
 // See Vm::call_callable
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct CallInfo {
     result_register: Option<u8>,
     frame_base: u8,
@@ -4114,11 +5764,12 @@ impl ExecutionTimeout {
     }
 }
 
-/// An output value from [KotoVm::continue_running], either from a `return` or `yield` expression
+/// The result of continuing a suspended [KotoVm].
 #[allow(missing_docs)]
 pub enum ReturnOrYield {
     Return(KValue),
     Yield(KValue),
+    Pending,
 }
 
 // A collection of macros that avoid duplicated boilerplate in the various operator functions
@@ -4172,6 +5823,7 @@ mod macros {
     macro_rules! call_metamap_arithmetic_op {
         ($self:expr, $op:ident, $op_rhs:ident, $trait_fn:ident, $trait_fn_rhs:ident, $map:expr, $lhs:expr, $rhs:expr, $result_register:expr) => {{
             let op = $map.get_meta_value(&$op.into()).unwrap();
+            let old_frame_count = $self.call_stack.len();
 
             // Call the map's op function
             $self.call_overridden_op_2(
@@ -4181,40 +5833,52 @@ mod macros {
                 op,
             )?;
 
-            // Execute the function immediately so that we can check for `koto.unimplemented` errors
-            // - Enable the execution barrier on the function's frame so errors aren't propagated
-            $self.frame_mut().execution_barrier = true;
-            match $self.execute_instructions() {
-                Ok(result) => result,
-                Err(error) => {
-                    // Pop the frame given that an error has been thrown
-                    $self.pop_frame(KValue::Null)?;
-                    // Check for a `koto.unimplemented` error
-                    let ErrorKind::KotoError { thrown_value, .. } = &error.error else {
-                        // A non-unimplemented error was thrown, so propagate it
-                        return Err(error);
-                    };
+            if $self.call_stack.len() == old_frame_count {
+                $self.clone_register($result_register)
+            } else {
+                // Execute the function immediately so that we can check for
+                // `koto.unimplemented` errors.
+                $self.frame_mut().execution_barrier = true;
+                match $self.execute_instructions() {
+                    Ok(result) => result,
+                    Err(error) => {
+                        // Pop the frame given that an error has been thrown
+                        $self.pop_frame(KValue::Null)?;
+                        // Check for a `koto.unimplemented` error
+                        let ErrorKind::KotoError { thrown_value, .. } = &error.error else {
+                            // A non-unimplemented error was thrown, so propagate it
+                            return Err(error);
+                        };
 
-                    if !matches!(thrown_value, KValue::Object(o) if o.is_a::<Unimplemented>()) {
-                        // A non-unimplemented error was thrown, so propagate it
-                        return Err(error);
-                    }
+                        if !matches!(thrown_value, KValue::Object(o) if o.is_a::<Unimplemented>())
+                        {
+                            // A non-unimplemented error was thrown, so propagate it
+                            return Err(error);
+                        }
 
-                    match &$rhs {
-                        Object(o_rhs) => {
-                            call_object_binary_op!($op_rhs, $trait_fn_rhs, o_rhs, &$lhs, &$rhs).into()
+                        match &$rhs {
+                            Object(o_rhs) => {
+                                call_object_binary_op!(
+                                    $op_rhs,
+                                    $trait_fn_rhs,
+                                    o_rhs,
+                                    &$lhs,
+                                    &$rhs
+                                )
+                                .into()
+                            }
+                            Map(m) if m.contains_meta_key(&$op_rhs.into()) => {
+                                call_metamap_binary_op_rhs!(
+                                    $self,
+                                    $op_rhs,
+                                    m,
+                                    $lhs,
+                                    $rhs,
+                                    $result_register
+                                );
+                            }
+                            _ => return binary_op_error(&$lhs, &$rhs, $op),
                         }
-                        Map(m) if m.contains_meta_key(&$op_rhs.into()) => {
-                            call_metamap_binary_op_rhs!(
-                                $self,
-                                $op_rhs,
-                                m,
-                                $lhs,
-                                $rhs,
-                                $result_register
-                            );
-                        }
-                        _ => return binary_op_error(&$lhs, &$rhs, $op),
                     }
                 }
             }

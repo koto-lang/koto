@@ -1,7 +1,7 @@
 use crate::{Error, Ptr, Result, prelude::*};
 use koto_bytecode::CompilerSettings;
 use koto_runtime::{ModuleImportedCallback, SystemStderr, SystemStdin, SystemStdout};
-use std::time::Duration;
+use std::{future::poll_fn, task::Poll, time::Duration};
 
 /// The main interface for the Koto language.
 ///
@@ -78,6 +78,18 @@ impl Koto {
         self.run(chunk)
     }
 
+    /// Compiles and runs a Koto script asynchronously, returning the script's result
+    ///
+    /// This is a convenience function, equivalent to calling [compile](Self::compile) followed by
+    /// [run_async](Self::run_async).
+    pub async fn compile_and_run_async<'a>(
+        &mut self,
+        script: impl Into<CompileArgs<'a>>,
+    ) -> Result<KValue> {
+        let chunk = self.compile(script)?;
+        self.run_async(chunk).await
+    }
+
     /// Compiles a Koto script, returning the complied chunk if successful
     ///
     /// If successful, the compiled chunk is cached for subsequent calls to [Koto::run].
@@ -106,16 +118,69 @@ impl Koto {
     /// script then first call `.exports_mut().clear()`.
     pub fn run(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
         let result = self.runtime.run(chunk)?;
+        let result = self.block_on_output(result)?;
 
         if self.run_tests {
-            self.runtime.run_tests(self.runtime.exports().clone())?;
+            let exports = self.runtime.exports().clone();
+            let output = self.runtime.run_tests(exports)?;
+            self.block_on_output(output)?;
         }
 
         if let Some(main) = self.runtime.exports().get_meta_value(&MetaKey::Main) {
-            self.runtime.call_function(main, &[]).map_err(From::from)
+            let output = self.runtime.call_function(main, &[])?;
+            let result = self.block_on_output(output)?;
+            self.block_on_task_value(result)
         } else {
             Ok(result)
         }
+    }
+
+    /// Runs a compiled script as a [`Chunk`] asynchronously.
+    ///
+    /// This behaves like [run](Self::run), but lets the host application's async executor drive
+    /// suspended Koto work.
+    ///
+    /// Executor-backed modules such as `task`, `io_async`, and `http` require an async backend
+    /// to have been installed in the runtime or host application.
+    pub async fn run_async(&mut self, chunk: Ptr<Chunk>) -> Result<KValue> {
+        let result = self.runtime.run(chunk)?;
+        let result = self.await_output(result).await?;
+
+        if self.run_tests {
+            let exports = self.runtime.exports().clone();
+            let output = self.runtime.run_tests(exports)?;
+            self.await_output(output).await?;
+        }
+
+        if let Some(main) = self.runtime.exports().get_meta_value(&MetaKey::Main) {
+            let output = self.runtime.call_function(main, &[])?;
+            let result = self.await_output(output).await?;
+            self.await_task_value(result).await
+        } else {
+            Ok(result)
+        }
+    }
+
+    /// Polls a task using the runtime's task executor.
+    pub fn poll_task(&self, task: &mut KTask) -> Result<KTaskPoll> {
+        self.runtime.poll_task(task).map_err(From::from)
+    }
+
+    /// Runs a task to completion, blocking the current thread while it's pending.
+    pub fn block_on(&self, task: &mut KTask) -> Result<KValue> {
+        task.block_on(&self.runtime).map_err(From::from)
+    }
+
+    /// Waits for a task asynchronously using the runtime's task executor.
+    pub async fn await_task(&self, task: &mut KTask) -> Result<KValue> {
+        poll_fn(
+            |context| match self.runtime.poll_task_with_context(task, context) {
+                Ok(KTaskPoll::Ready(value)) => Poll::Ready(Ok(value)),
+                Ok(KTaskPoll::Pending) => Poll::Pending,
+                Err(error) => Poll::Ready(Err(Error::from(error))),
+            },
+        )
+        .await
     }
 
     /// Calls a function with the given arguments
@@ -126,8 +191,20 @@ impl Koto {
         function: KValue,
         args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
+        let output = self.runtime.call_function(function, args)?;
+        self.block_on_output(output)
+    }
+
+    /// Returns a task that calls a function with the given arguments when polled or awaited.
+    ///
+    /// If the provided value isn't [callable](KValue::is_callable) then an error will be returned.
+    pub fn call_function_as_task<'a>(
+        &mut self,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
         self.runtime
-            .call_function(function, args)
+            .call_function_as_task(function, args)
             .map_err(From::from)
     }
 
@@ -140,8 +217,24 @@ impl Koto {
         function: KValue,
         args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
+        let output = self
+            .runtime
+            .call_instance_function(instance, function, args)?;
+        self.block_on_output(output)
+    }
+
+    /// Returns a task that calls an instance function with the given arguments when polled or
+    /// awaited.
+    ///
+    /// If the provided value isn't [callable](KValue::is_callable) then an error will be returned.
+    pub fn call_instance_function_as_task<'a>(
+        &mut self,
+        instance: KValue,
+        function: KValue,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
         self.runtime
-            .call_instance_function(instance, function, args)
+            .call_instance_function_as_task(instance, function, args)
             .map_err(From::from)
     }
 
@@ -155,14 +248,44 @@ impl Koto {
         args: impl Into<CallArgs<'a>>,
     ) -> Result<KValue> {
         match self.exports().get(function_name) {
-            Some(f) => self.runtime.call_function(f, args).map_err(From::from),
+            Some(f) => {
+                let output = self.runtime.call_function(f, args)?;
+                self.block_on_output(output)
+            }
+            None => Err(Error::MissingFunction(function_name.into())),
+        }
+    }
+
+    /// Returns a task that calls an exported function with the given arguments when polled or
+    /// awaited.
+    ///
+    /// If the requested function isn't present, or if it isn't [callable](KValue::is_callable),
+    /// then an error will be returned.
+    pub fn call_exported_function_as_task<'a>(
+        &mut self,
+        function_name: &str,
+        args: impl Into<CallArgs<'a>>,
+    ) -> Result<KTask> {
+        match self.exports().get(function_name) {
+            Some(f) => self
+                .runtime
+                .call_function_as_task(f, args)
+                .map_err(From::from),
             None => Err(Error::MissingFunction(function_name.into())),
         }
     }
 
     /// Converts a [KValue] into a [String] by evaluating `@display` in the runtime
     pub fn value_to_string(&mut self, value: KValue) -> Result<String> {
-        self.runtime.value_to_string(&value).map_err(From::from)
+        let output = self.runtime.value_to_string(&value)?;
+
+        match self.block_on_output(output)? {
+            KValue::Str(result) => Ok(result.as_str().to_owned()),
+            unexpected => Err(Error::StringError(format!(
+                "expected String from @display, found '{}'",
+                unexpected.type_as_string()
+            ))),
+        }
     }
 
     /// Clears the loader's cached modules
@@ -178,6 +301,32 @@ impl Koto {
     /// and then disabled for repeated runs.
     pub fn set_run_tests(&mut self, enabled: bool) {
         self.run_tests = enabled;
+    }
+
+    fn block_on_output(&self, output: VmOutput) -> Result<KValue> {
+        output
+            .into_task()
+            .block_on(&self.runtime)
+            .map_err(From::from)
+    }
+
+    fn block_on_task_value(&self, value: KValue) -> Result<KValue> {
+        match value {
+            KValue::Task(mut task) => self.block_on(&mut task),
+            value => Ok(value),
+        }
+    }
+
+    async fn await_output(&self, output: VmOutput) -> Result<KValue> {
+        let mut task = output.into_task();
+        self.await_task(&mut task).await
+    }
+
+    async fn await_task_value(&self, value: KValue) -> Result<KValue> {
+        match value {
+            KValue::Task(mut task) => self.await_task(&mut task).await,
+            value => Ok(value),
+        }
     }
 }
 

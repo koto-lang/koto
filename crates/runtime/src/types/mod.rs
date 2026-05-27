@@ -9,6 +9,7 @@ mod native_function;
 mod number;
 mod object;
 mod range;
+mod task;
 mod tuple;
 pub mod value;
 mod value_key;
@@ -17,16 +18,20 @@ pub use koto_parser::KString;
 
 pub use self::{
     function::{FunctionContext, KFunction},
-    iterator::{KIterator, KIteratorOutput, KotoIterator},
+    iterator::{KIterator, KIteratorNext, KIteratorOutput, KotoIterator},
     list::{KList, ValueVec},
     map::{KMap, KotoHasher, ValueMap},
     meta_map::{BinaryOp, MetaKey, MetaMap, ReadOp, UnaryOp, WriteOp, meta_id_to_key},
-    native_function::{CallContext, KNativeFunction, KotoFunction},
+    native_function::{
+        AsyncKotoVm, CallContext, FunctionOutput, KNativeFunction, KNativeVmFunction, KotoFunction,
+        KotoVmFunction, VmCallContext,
+    },
     number::KNumber,
     object::{
         IsIterable, KObject, KotoAccess, KotoCopy, KotoField, KotoObject, KotoType, MethodContext,
     },
     range::KRange,
+    task::{ActiveTasks, KTask, KTaskPoll, KotoFuture, KotoTaskExecutor, LocalTaskExecutor},
     tuple::KTuple,
     value::KValue,
     value_key::ValueKey,

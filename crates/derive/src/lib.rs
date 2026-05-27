@@ -202,6 +202,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// This macro recognizes functions tagged with the following attributes:
 /// - [**`#[koto_method]`**](#koto_method)
+/// - [**`#[koto_vm_method]`**](#koto_vm_method)
 /// - [**`#[koto_get]`**](#koto_get)
 /// - [**`#[koto_set]`**](#koto_set)
 /// - [**`#[koto_get_fallback]`**](#koto_get_fallback)
@@ -209,7 +210,8 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// - [**`#[koto_get_override]`**](#koto_get_override)
 /// - [**`#[koto_set_override]`**](#koto_set_override)
 ///
-/// The attributes `#[koto_method]`, `#[koto_get]` and `#[koto_set]` can take optional arguments:
+/// The attributes `#[koto_method]`, `#[koto_vm_method]`, `#[koto_get]` and `#[koto_set]`
+/// can take optional arguments:
 /// - **`name`** — sets the access key, if not set it will be inferred by the function name
 /// - **`alias`** *(multiple allowed)* — adds additional keys to access with
 ///
@@ -229,6 +231,17 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 /// For cases where it would be preferable to return a clone of the object instance
 /// (e.g. if you want to implement chainable setters), then you can accept a `MethodContext<Self>`
 /// as the function argument and then return `MethodContext::instance_result()`.
+///
+/// ## `#[koto_vm_method]`
+///
+/// Like `#[koto_method]`, but the generated wrapper is a VM-aware native function.
+///
+/// Use this for methods that need to run VM operations that may suspend. The method can take
+/// `&self` or `&mut self` like a regular method, or a `&mut VmCallContext` for full control over
+/// argument handling and access to `VmCallContext::run_with_vm`.
+///
+/// The return type can be any `T: Into<KValue>`, `VmOutput`, or `koto_runtime::Result` wrapping
+/// either of those.
 ///
 /// ## `#[koto_get]`
 ///
@@ -266,7 +279,7 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_get_fallback]`
 ///
-/// This function is called when neither `#[koto_get]`s nor `#[koto_method]`s
+/// This function is called when neither `#[koto_get]`s nor method attributes
 /// with the requested name were found.
 ///
 /// The function must have a signature like either:
@@ -289,9 +302,9 @@ pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[koto_get_override]`
 ///
-/// This function is called **before** looking for any `#[koto_get]`es or `#[koto_method]`s.
+/// This function is called **before** looking for any `#[koto_get]`es or method attributes.
 /// If this method returns `Some`, then that value will be returned to koto.
-/// If it returns `None` instead, then `#[koto_get]`s and `#[koto_method]`s with the given key
+/// If it returns `None` instead, then `#[koto_get]`s and methods with the given key
 /// will be looked for before finally falling back to the `#[koto_get_fallback]` function.
 ///
 /// The function must have a signature like either:
@@ -452,6 +465,12 @@ pub fn koto_set_fallback(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// See [`koto_impl`](macro@koto_impl)
 #[proc_macro_attribute]
 pub fn koto_method(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// See [`koto_impl`](macro@koto_impl)
+#[proc_macro_attribute]
+pub fn koto_vm_method(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 

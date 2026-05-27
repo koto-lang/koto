@@ -97,6 +97,27 @@ macro_rules! koto_test {
 mod koto_tests {
     use super::*;
 
+    #[tokio::test(flavor = "current_thread")]
+    async fn run_async() {
+        let mut koto = Koto::default();
+        let chunk = koto.compile("await 42").unwrap();
+
+        match koto.run_async(chunk).await.unwrap() {
+            KValue::Number(result) => assert_eq!(i64::from(result), 42),
+            unexpected => panic!("unexpected result: {unexpected:?}"),
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn compile_and_run_async() {
+        let mut koto = Koto::default();
+
+        match koto.compile_and_run_async("await 99").await.unwrap() {
+            KValue::Number(result) => assert_eq!(i64::from(result), 99),
+            unexpected => panic!("unexpected result: {unexpected:?}"),
+        }
+    }
+
     koto_test!(comments);
     koto_test!(enums);
     koto_test!(io);

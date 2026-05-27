@@ -1,6 +1,6 @@
 //! The `map` core library module
 
-use super::{iterator::adaptors, value_sort::compare_values};
+use super::{iterator::adaptors, value_sort::compare_values_async};
 use crate::{Result, prelude::*};
 use std::cmp::Ordering;
 
@@ -32,10 +32,10 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("extend", |ctx| {
+    result.add_vm_fn("extend", |ctx| {
         let expected_error = "|Map, Iterable|";
 
-        match map_instance_and_args(ctx, expected_error)? {
+        match vm_map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [KValue::Map(other)]) => {
                 m.data_mut().extend(
                     other
@@ -43,19 +43,18 @@ pub fn make_module() -> KMap {
                         .iter()
                         .map(|(key, value)| (key.clone(), value.clone())),
                 );
-                Ok(KValue::Map(m.clone()))
+                Ok(KValue::Map(m.clone()).into())
             }
             (KValue::Map(m), [iterable]) if iterable.is_iterable() => {
                 let m = m.clone();
                 let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
 
-                {
-                    let mut map_data = m.data_mut();
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
                     let (size_hint, _) = iterator.size_hint();
-                    map_data.reserve(size_hint);
+                    m.data_mut().reserve(size_hint);
 
-                    for output in iterator {
+                    while let Some(output) = vm.next(&mut iterator).await? {
                         use KIteratorOutput as Output;
                         let (key, value) = match output {
                             Output::ValuePair(key, value) => (key, value),
@@ -68,13 +67,16 @@ pub fn make_module() -> KMap {
                             Output::Error(error) => return Err(error),
                         };
 
-                        map_data.insert(ValueKey::try_from(key.clone())?, value);
+                        m.data_mut().insert(ValueKey::try_from(key.clone())?, value);
                     }
-                }
 
-                Ok(KValue::Map(m))
+                    Ok(KValue::Map(m))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -199,10 +201,10 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("sort", |ctx| {
+    result.add_vm_fn("sort", |ctx| {
         let expected_error = "|Map|, or |Map, |Any, Any| -> Any|";
 
-        match map_instance_and_args(ctx, expected_error)? {
+        match vm_map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), []) => {
                 let mut error = None;
                 m.data_mut().sort_by(|key_a, _, key_b, _| {
@@ -221,92 +223,72 @@ pub fn make_module() -> KMap {
                 });
 
                 if let Some(error) = error {
-                    error
+                    error.map(FunctionOutput::Ready)
                 } else {
-                    Ok(KValue::Map(m.clone()))
+                    Ok(KValue::Map(m.clone()).into())
                 }
             }
             (KValue::Map(m), [f]) if f.is_callable() => {
                 let m = m.clone();
                 let f = f.clone();
-                let mut error = None;
+                let entries = m
+                    .data()
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect::<Vec<_>>();
 
-                let get_sort_key = |vm: &mut KotoVm,
-                                    cache: &mut ValueMap,
-                                    key: &ValueKey,
-                                    value: &KValue|
-                 -> Result<KValue> {
-                    let value =
-                        vm.call_function(f.clone(), &[key.value().clone(), value.clone()])?;
-                    cache.insert(key.clone(), value.clone());
-                    Ok(value)
-                };
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut keyed_entries = Vec::with_capacity(entries.len());
 
-                let mut cache = ValueMap::with_capacity(m.len());
-                m.data_mut().sort_by(|key_a, value_a, key_b, value_b| {
-                    if error.is_some() {
-                        return Ordering::Equal;
+                    for (key, value) in entries {
+                        let sort_key = vm
+                            .call_function_with_args(
+                                f.clone(),
+                                vec![key.value().clone(), value.clone()],
+                            )
+                            .await?;
+                        keyed_entries.push((sort_key, key, value));
                     }
 
-                    let value_a = match cache.get(key_a) {
-                        Some(value) => value.clone(),
-                        None => match get_sort_key(ctx.vm, &mut cache, key_a, value_a) {
-                            Ok(val) => val,
-                            Err(e) => {
-                                error.get_or_insert(Err(e));
-                                KValue::Null
-                            }
-                        },
-                    };
-                    let value_b = match cache.get(key_b) {
-                        Some(value) => value.clone(),
-                        None => match get_sort_key(ctx.vm, &mut cache, key_b, value_b) {
-                            Ok(val) => val,
-                            Err(e) => {
-                                error.get_or_insert(Err(e));
-                                KValue::Null
-                            }
-                        },
-                    };
+                    sort_map_entries_by_key(&mut vm, &mut keyed_entries).await?;
 
-                    match compare_values(ctx.vm, &value_a, &value_b) {
-                        Ok(ordering) => ordering,
-                        Err(e) => {
-                            error.get_or_insert(Err(e));
-                            Ordering::Equal
-                        }
-                    }
-                });
+                    *m.data_mut() = keyed_entries
+                        .into_iter()
+                        .map(|(_sort_key, key, value)| (key, value))
+                        .collect::<ValueMap>();
 
-                if let Some(error) = error {
-                    error
-                } else {
                     Ok(KValue::Map(m))
-                }
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("update", |ctx| {
+    result.add_vm_fn("update", |ctx| {
         let expected_error = "|Map, Any, |Any| -> Any||, or |Map, Any, Any, |Any| -> Any|";
 
-        match map_instance_and_args(ctx, expected_error)? {
+        match vm_map_instance_and_args(ctx, expected_error)? {
             (KValue::Map(m), [key, f]) if f.is_callable() => do_map_update(
                 m.clone(),
                 ValueKey::try_from(key.clone())?,
                 KValue::Null,
                 f.clone(),
-                ctx.vm,
+                ctx,
             ),
             (KValue::Map(m), [key, default, f]) if f.is_callable() => do_map_update(
                 m.clone(),
                 ValueKey::try_from(key.clone())?,
                 default.clone(),
                 f.clone(),
-                ctx.vm,
+                ctx,
             ),
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -343,19 +325,36 @@ fn do_map_update(
     key: ValueKey,
     default: KValue,
     f: KValue,
-    vm: &mut KotoVm,
-) -> Result<KValue> {
+    ctx: &mut VmCallContext<'_>,
+) -> Result<FunctionOutput> {
     if !map.data().contains_key(&key) {
         map.data_mut().insert(key.clone(), default);
     }
     let value = map.get(&key).unwrap();
-    match vm.call_function(f, value) {
-        Ok(new_value) => {
-            map.data_mut().insert(key, new_value.clone());
-            Ok(new_value)
+
+    ctx.run_with_vm(|mut vm| async move {
+        let new_value = vm.call_function_with_arg(f, value).await?;
+        map.data_mut().insert(key, new_value.clone());
+        Ok(new_value)
+    })
+}
+
+async fn sort_map_entries_by_key(
+    vm: &mut AsyncKotoVm,
+    entries: &mut [(KValue, ValueKey, KValue)],
+) -> Result<()> {
+    for i in 1..entries.len() {
+        let mut j = i;
+
+        while j > 0
+            && compare_values_async(vm, &entries[j].0, &entries[j - 1].0).await? == Ordering::Less
+        {
+            entries.swap(j, j - 1);
+            j -= 1;
         }
-        Err(error) => Err(error),
     }
+
+    Ok(())
 }
 
 fn map_instance_and_args<'a>(
@@ -366,6 +365,19 @@ fn map_instance_and_args<'a>(
 
     // For core.map ops, allow using maps with metamaps when the ops are used as standalone
     // functions.
+    match (ctx.instance(), ctx.args()) {
+        (instance @ Map(m), args) if m.meta_map().is_none() => Ok((instance, args)),
+        (_, [first @ Map(_), rest @ ..]) => Ok((first, rest)),
+        (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+    }
+}
+
+fn vm_map_instance_and_args<'a>(
+    ctx: &'a VmCallContext<'_>,
+    expected_error: &str,
+) -> Result<(&'a KValue, &'a [KValue])> {
+    use KValue::Map;
+
     match (ctx.instance(), ctx.args()) {
         (instance @ Map(m), args) if m.meta_map().is_none() => Ok((instance, args)),
         (_, [first @ Map(_), rest @ ..]) => Ok((first, rest)),

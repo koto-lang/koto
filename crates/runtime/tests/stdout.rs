@@ -28,7 +28,10 @@ mod vm {
             }
         };
 
-        match vm.run(chunk) {
+        match vm
+            .run(chunk)
+            .and_then(|output| output.into_task().block_on(&vm))
+        {
             Ok(_) => {
                 assert_eq!(output.captured_output().as_str(), expected_output);
             }

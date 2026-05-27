@@ -50,6 +50,27 @@ mod objects {
                 unexpected => unexpected_args("|TestExternal|", unexpected),
             }
         }
+
+        #[koto_vm_method]
+        fn add_with_vm(ctx: &mut VmCallContext) -> Result<FunctionOutput> {
+            let (instance, args) = ctx.instance_and_args(
+                |i| matches!(i, KValue::Object(_)),
+                <Self as KotoType>::type_static(),
+            )?;
+
+            match (instance, args) {
+                (KValue::Object(o), [arg]) => {
+                    let x = o.cast::<Self>()?.x;
+                    let arg = arg.clone();
+                    ctx.run_with_vm(move |mut vm| async move {
+                        vm.run_binary_op(BinaryOp::Add, x.into(), arg).await
+                    })
+                }
+                (_, unexpected) => {
+                    unexpected_args("|Number|", unexpected).map(FunctionOutput::Ready)
+                }
+            }
+        }
     }
 
     macro_rules! arithmetic_op {
@@ -690,6 +711,15 @@ x.absorb2 20, 30
 x.as_number()
 ";
             test_object_script(script, 60);
+        }
+
+        #[test]
+        fn vm_method() {
+            let script = "
+x = make_object 42
+x.add_with_vm 8
+";
+            test_object_script(script, 50);
         }
     }
 

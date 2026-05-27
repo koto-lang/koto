@@ -25,6 +25,8 @@ koto_test_utils = { path = "crates/test_utils", default-features = false }
 
 koto_color = { path = "libs/color", default-features = false }
 koto_geometry = { path = "libs/geometry", default-features = false }
+koto_http = { path = "libs/http", default-features = false }
+koto_io_async = { path = "libs/io_async", default-features = false }
 koto_json = { path = "libs/json", default-features = false }
 koto_random = { path = "libs/random", default-features = false }
 koto_regex = { path = "libs/regex", default-features = false }
@@ -87,6 +89,8 @@ rand = { version = "0.9.0", default-features = false }
 rand_xoshiro = "0.7.0"
 # A regular expression library
 regex = "1.10.2"
+# HTTP client library
+reqwest = { version = "0.11.27", default-features = false }
 # A speedy, non-cryptographic hash used in rustc
 rustc-hash = "2.1.0"
 # Rustyline, a readline implementation
@@ -115,6 +119,8 @@ test-case = "3.3.1"
 thiserror = "2"
 # A native Rust encoder and decoder of TOML-formatted files and streams.
 toml = { version = "0.9.8", features = ["preserve_order"] }
+# An async runtime
+tokio = { version = "1.45.0", default-features = false }
 # Powerful library for word wrapping, indenting, and dedenting strings
 textwrap = "0.16.0"
 # Determine whether characters have the XID_Start or XID_Continue properties

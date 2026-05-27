@@ -7,6 +7,10 @@ use std::{
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Address(*const u8);
 
+// SAFETY: Address is only used as an opaque identity token, and is never dereferenced.
+unsafe impl Send for Address {}
+unsafe impl Sync for Address {}
+
 impl<T: ?Sized> From<*const T> for Address {
     fn from(pointer: *const T) -> Self {
         Self(pointer as *const u8)

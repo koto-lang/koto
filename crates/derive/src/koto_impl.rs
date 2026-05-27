@@ -143,6 +143,9 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
                         MethodOrField::Method(f) => Ok(Some(
                             KValue::NativeFunction(f)
                         )),
+                        MethodOrField::VmMethod(f) => Ok(Some(
+                            KValue::NativeVmFunction(f)
+                        )),
                         MethodOrField::Field(getter) => Ok(Some(
                             getter(self)?
                         )),
@@ -195,6 +198,7 @@ struct Context {
     get_access_assign: Ident,
 
     overloaded_methods: RefCell<OverloadedFunctions>,
+    overloaded_vm_methods: RefCell<OverloadedFunctions>,
 
     insert_ops_for_access: InsertOps,
     insert_ops_for_access_assign: InsertOps,
@@ -236,6 +240,7 @@ impl Context {
 
             // output data
             overloaded_methods: Default::default(),
+            overloaded_vm_methods: Default::default(),
             insert_ops_for_access: Default::default(),
             insert_ops_for_access_assign: Default::default(),
             additional_items: Default::default(),
@@ -341,6 +346,10 @@ fn process(ctx: &Context) -> Result<()> {
         handle_koto_method(ctx, fun, attr)?;
     }
 
+    for (fun, attr) in ctx.fns_with_attr("koto_vm_method") {
+        handle_koto_vm_method(ctx, fun, attr)?;
+    }
+
     for (fun, attr) in ctx.fns_with_attr("koto_get") {
         handle_koto_get(ctx, fun, attr)?;
     }
@@ -365,9 +374,10 @@ fn process(ctx: &Context) -> Result<()> {
         handle_koto_set_override(ctx, fun, attr)?;
     }
 
-    // The `handle_koto_method` just added all methods to `ctx.overloaded_methods`.
+    // The method handlers just added all methods to the overloaded method sets.
     // Now we produce the wrapper functions and insert ops for the methods.
     add_koto_methods(ctx)?;
+    add_koto_vm_methods(ctx)?;
 
     // Add access and access assign map creation and getter functions.
     //
@@ -390,6 +400,13 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
     Ok(())
 }
 
+fn handle_koto_vm_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<()> {
+    let args = AccessAttributeArgs::new(attr)?;
+    let candidate = OverloadedFunctionCandidate::new(fun.clone(), args, OverloadOptions::VmMethod)?;
+    ctx.overloaded_vm_methods.borrow_mut().insert(candidate);
+    Ok(())
+}
+
 fn add_koto_methods(ctx: &Context) -> Result<()> {
     let overloaded_methods = ctx.overloaded_methods.borrow();
 
@@ -406,6 +423,55 @@ fn add_koto_methods(ctx: &Context) -> Result<()> {
 
         let value = quote! {
             MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
+        };
+
+        if names.len() == 1 {
+            let name = names.into_iter().next().unwrap();
+
+            ctx.insert_ops_for_access.add(quote! {
+                result.insert(
+                    #name,
+                    #value,
+                );
+            });
+        } else {
+            // Generate additional entries for each function alias
+            ctx.insert_ops_for_access.add_many(
+                names.len(),
+                quote! {
+                    {
+                        let value = #value;
+                        #(
+                            result.insert(
+                                #names,
+                                value.clone(),
+                            );
+                        )*
+                    }
+                },
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn add_koto_vm_methods(ctx: &Context) -> Result<()> {
+    let overloaded_methods = ctx.overloaded_vm_methods.borrow();
+
+    for overloaded_method in overloaded_methods.inner.values() {
+        let names = overloaded_method
+            .name_and_aliases()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        let wrapper = wrap_koto_vm_method(ctx, overloaded_method)?;
+        ctx.add_fn_to_impl(wrapper);
+
+        let wrapper_name = koto_vm_method_wrapper_name(overloaded_method.first_ident());
+
+        let value = quote! {
+            MethodOrField::VmMethod(KNativeVmFunction::new(Self::#wrapper_name))
         };
 
         if names.len() == 1 {
@@ -912,8 +978,46 @@ fn wrap_koto_method(ctx: &Context, fun: &OverloadedFunction) -> Result<ImplItemF
     )
 }
 
+fn wrap_koto_vm_method(ctx: &Context, fun: &OverloadedFunction) -> Result<ImplItemFn> {
+    let wrapper_name = koto_vm_method_wrapper_name(fun.first_ident());
+    let runtime = &ctx.runtime;
+
+    let wrapper_body = match fun.match_arms() {
+        Ok(arms) => quote! {
+            use #runtime::{ KValue, KotoType, VmOutput, __private::KotoVmMethodReturn };
+
+            match ctx.instance_and_args(
+                |i| matches!(i, KValue::Object(_)),
+                <Self as KotoType>::type_static()
+            )? {
+                #arms
+            }
+        },
+        Err(error) => {
+            let compile_error = error.into_compile_error();
+            quote!(#compile_error)
+        }
+    };
+
+    let wrapped_fn = quote! {
+        #[automatically_derived]
+        fn #wrapper_name(ctx: &mut #runtime::VmCallContext) -> #runtime::Result<#runtime::VmOutput> {
+            #wrapper_body
+        }
+    };
+
+    parse2(
+        wrapped_fn,
+        "Failed to parse the generated `#[koto_vm_method]` method wrapper",
+    )
+}
+
 fn koto_method_wrapper_name(ident: &Ident) -> Ident {
     format_ident!("{PREFIX_FUNCTION}{ident}")
+}
+
+fn koto_vm_method_wrapper_name(ident: &Ident) -> Ident {
+    format_ident!("{PREFIX_FUNCTION}vm_{ident}")
 }
 
 fn add_access_map_creator(ctx: &Context) -> Result<()> {
@@ -932,7 +1036,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
             > {
                 use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
-                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    KMap, KNativeFunction, KNativeVmFunction, KotoHasher, KValue, ValueKey, ValueMap,
                     __private::{MethodOrField, KotoGetReturn},
                 };
 
@@ -959,7 +1063,7 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
             > {
                 use ::std::{collections::HashMap, hash::BuildHasherDefault};
                 use #runtime::{
-                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
+                    KMap, KNativeFunction, KNativeVmFunction, KotoHasher, KValue, ValueKey, ValueMap,
                     __private::{MethodOrField, KotoGetReturn},
                 };
 

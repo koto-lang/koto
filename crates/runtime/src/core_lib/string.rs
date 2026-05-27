@@ -74,32 +74,39 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("from_bytes", |ctx| match ctx.args() {
+    result.add_vm_fn("from_bytes", |ctx| match ctx.args() {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let iterator = ctx.vm.make_iterator(iterable)?;
-            let (size_hint, _) = iterator.size_hint();
-            let mut bytes = Vec::<u8>::with_capacity(size_hint);
 
-            for output in iterator.map(collect_pair) {
-                use KIteratorOutput as Output;
-                match output {
-                    Output::Value(KValue::Number(n)) => match u8::try_from(i64::from(n)) {
-                        Ok(byte) => bytes.push(byte),
-                        Err(_) => return runtime_error!("'{n}' is out of the valid byte range"),
-                    },
-                    Output::Value(unexpected) => return unexpected_type("Number", &unexpected),
-                    Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+            ctx.run_with_vm(|mut vm| async move {
+                let mut iterator = vm.make_iterator(iterable).await?;
+                let (size_hint, _) = iterator.size_hint();
+                let mut bytes = Vec::<u8>::with_capacity(size_hint);
+
+                while let Some(output) = vm.next(&mut iterator).await? {
+                    use KIteratorOutput as Output;
+                    match collect_pair(output) {
+                        Output::Value(KValue::Number(n)) => match u8::try_from(i64::from(n)) {
+                            Ok(byte) => bytes.push(byte),
+                            Err(_) => {
+                                return runtime_error!("'{n}' is out of the valid byte range");
+                            }
+                        },
+                        Output::Value(unexpected) => return unexpected_type("Number", &unexpected),
+                        Output::Error(error) => return Err(error),
+                        _ => unreachable!(),
+                    }
                 }
-            }
 
-            match String::from_utf8(bytes) {
-                Ok(result) => Ok(result.into()),
-                Err(_) => runtime_error!("input failed UTF-8 validation"),
-            }
+                match String::from_utf8(bytes) {
+                    Ok(result) => Ok(result.into()),
+                    Err(_) => runtime_error!("input failed UTF-8 validation"),
+                }
+            })
         }
-        unexpected => unexpected_args("|Iterable|", unexpected),
+        unexpected => {
+            unexpected_args::<KValue>("|Iterable|", unexpected).map(FunctionOutput::Ready)
+        }
     });
 
     result.add_fn("is_empty", |ctx| {

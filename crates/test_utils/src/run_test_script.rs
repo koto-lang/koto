@@ -2,6 +2,17 @@ use crate::script_instructions;
 use koto_bytecode::{CompilerSettings, ModuleLoader};
 use koto_runtime::{Result, prelude::*};
 
+fn value_to_string(vm: &mut KotoVm, value: &KValue) -> String {
+    match vm
+        .value_to_string(value)
+        .and_then(|output| output.into_task().block_on(vm))
+        .unwrap()
+    {
+        KValue::Str(result) => result.as_str().to_owned(),
+        unexpected => panic!("Expected String from @display, found {unexpected:?}"),
+    }
+}
+
 /// Runs a script using the provided Vm, optionally checking its output
 pub fn run_test_script(
     mut vm: KotoVm,
@@ -18,17 +29,23 @@ pub fn run_test_script(
         }
     };
 
-    match vm.run(chunk) {
+    match vm
+        .run(chunk)
+        .and_then(|output| output.into_task().block_on(&vm))
+    {
         Ok(result) => {
             if let Some(expected_output) = expected_output {
-                match vm.run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone()) {
+                match vm
+                    .run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone())
+                    .and_then(|output| output.into_task().block_on(&vm))
+                {
                     Ok(KValue::Bool(true)) => {}
                     Ok(KValue::Bool(false)) => {
                         return Err(format!(
                             "{}\nUnexpected result - expected: {}, result: {}",
                             script_instructions(script, vm.chunk()),
-                            vm.value_to_string(&expected_output).unwrap(),
-                            vm.value_to_string(&result).unwrap(),
+                            value_to_string(&mut vm, &expected_output),
+                            value_to_string(&mut vm, &result),
                         )
                         .into());
                     }
@@ -36,7 +53,7 @@ pub fn run_test_script(
                         return Err(format!(
                             "{}\nExpected bool from equality comparison, found '{}'",
                             script_instructions(script, vm.chunk()),
-                            vm.value_to_string(&other).unwrap()
+                            value_to_string(&mut vm, &other)
                         )
                         .into());
                     }
@@ -50,7 +67,10 @@ pub fn run_test_script(
                 }
             }
 
-            match vm.run_tests(vm.exports().clone()) {
+            match vm
+                .run_tests(vm.exports().clone())
+                .and_then(|output| output.into_task().block_on(&vm))
+            {
                 Ok(_) => Ok(()),
                 Err(e) => Err(format!("{}\n {e}", script_instructions(script, vm.chunk())).into()),
             }

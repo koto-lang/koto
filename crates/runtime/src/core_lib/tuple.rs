@@ -1,38 +1,44 @@
 //! The `tuple` core library module
 
-use super::value_sort::{sort_by_key, sort_values};
+use super::value_sort::{sort_by_key_async, sort_values_async};
 use crate::prelude::*;
 
 /// Initializes the `tuple` core library module
 pub fn make_module() -> KMap {
     let result = KMap::with_type("core.tuple");
 
-    result.add_fn("contains", |ctx| {
+    result.add_vm_fn("contains", |ctx| {
         let expected_error = "|Tuple, Any|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), [value]) => {
-                let t = t.clone();
+                let candidates = t.iter().cloned().collect::<Vec<_>>();
                 let value = value.clone();
-                for candidate in t.iter() {
-                    match ctx
-                        .vm
-                        .run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone())
-                    {
-                        Ok(KValue::Bool(false)) => {}
-                        Ok(KValue::Bool(true)) => return Ok(true.into()),
-                        Ok(unexpected) => {
-                            return unexpected_type(
-                                "a Bool from the equality comparison",
-                                &unexpected,
-                            );
+
+                ctx.run_with_vm(|mut vm| async move {
+                    for candidate in candidates {
+                        match vm
+                            .run_binary_op(BinaryOp::Equal, value.clone(), candidate)
+                            .await?
+                        {
+                            KValue::Bool(false) => {}
+                            KValue::Bool(true) => return Ok(true.into()),
+                            unexpected => {
+                                return unexpected_type(
+                                    "a Bool from the equality comparison",
+                                    &unexpected,
+                                );
+                            }
                         }
-                        Err(e) => return Err(e),
                     }
-                }
-                Ok(false.into())
+
+                    Ok(false.into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -91,24 +97,32 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("sort_copy", |ctx| {
+    result.add_vm_fn("sort_copy", |ctx| {
         let expected_error = "|Tuple|, or |Tuple, |Any| -> Any|";
 
         match ctx.instance_and_args(is_tuple, expected_error)? {
             (KValue::Tuple(t), []) => {
                 let mut result = t.to_vec();
 
-                sort_values(ctx.vm, &mut result)?;
-
-                Ok(KValue::Tuple(result.into()))
+                ctx.run_with_vm(|mut vm| async move {
+                    sort_values_async(&mut vm, &mut result).await?;
+                    Ok(KValue::Tuple(result.into()))
+                })
             }
             (KValue::Tuple(t), [f]) if f.is_callable() => {
                 let t = t.clone();
-                let sorted = sort_by_key(ctx.vm, &t, f.clone())?;
-                let result: Vec<_> = sorted.into_iter().map(|(_key, value)| value).collect();
-                Ok(KValue::Tuple(result.into()))
+                let f = f.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let sorted = sort_by_key_async(&mut vm, &t, f).await?;
+                    let result: Vec<_> = sorted.into_iter().map(|(_key, value)| value).collect();
+                    Ok(KValue::Tuple(result.into()))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 

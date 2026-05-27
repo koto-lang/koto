@@ -12,7 +12,7 @@ static MODULE_NAME: &str = "core.iterator";
 pub fn make_module() -> KMap {
     let result = KMap::with_type(MODULE_NAME);
 
-    result.add_fn("advance", |ctx| {
+    result.add_vm_fn("advance", |ctx| {
         let expected_error = "|Iterator, Number >= 0|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -20,21 +20,26 @@ pub fn make_module() -> KMap {
                 let mut iterator = iterator.clone();
                 let mut remaining = usize::from(n);
 
-                while remaining > 0 {
-                    match iterator.next() {
-                        Some(Output::Error(error)) => return Err(error),
-                        Some(_) => remaining -= 1,
-                        None => break,
+                ctx.run_with_vm(|mut vm| async move {
+                    while remaining > 0 {
+                        match vm.next(&mut iterator).await? {
+                            Some(Output::Error(error)) => return Err(error),
+                            Some(_) => remaining -= 1,
+                            None => break,
+                        }
                     }
-                }
 
-                Ok(remaining.into())
+                    Ok(remaining.into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("all", |ctx| {
+    result.add_vm_fn("all", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -42,38 +47,36 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
 
-                for output in ctx.vm.make_iterator(iterable)? {
-                    let predicate_result = match output {
-                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
-                        Output::ValuePair(a, b) => ctx
-                            .vm
-                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
-                        Output::Error(error) => return Err(error),
-                    };
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
 
-                    match predicate_result {
-                        Ok(KValue::Bool(result)) => {
-                            if !result {
-                                return Ok(false.into());
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match call_function_with_output(&mut vm, predicate.clone(), output).await? {
+                            KValue::Bool(result) => {
+                                if !result {
+                                    return Ok(false.into());
+                                }
+                            }
+                            unexpected => {
+                                return unexpected_type(
+                                    "a Bool to be returned from the predicate",
+                                    &unexpected,
+                                );
                             }
                         }
-                        Ok(unexpected) => {
-                            return unexpected_type(
-                                "a Bool to be returned from the predicate",
-                                &unexpected,
-                            );
-                        }
-                        error @ Err(_) => return error,
                     }
-                }
 
-                Ok(true.into())
+                    Ok(true.into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("any", |ctx| {
+    result.add_vm_fn("any", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -81,167 +84,211 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
 
-                for output in ctx.vm.make_iterator(iterable)? {
-                    let predicate_result = match output {
-                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
-                        Output::ValuePair(a, b) => ctx
-                            .vm
-                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
-                        Output::Error(error) => return Err(error),
-                    };
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
 
-                    match predicate_result {
-                        Ok(KValue::Bool(result)) => {
-                            if result {
-                                return Ok(true.into());
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match call_function_with_output(&mut vm, predicate.clone(), output).await? {
+                            KValue::Bool(result) => {
+                                if result {
+                                    return Ok(true.into());
+                                }
+                            }
+                            unexpected => {
+                                return unexpected_type(
+                                    "a Bool to be returned from the predicate",
+                                    &unexpected,
+                                );
                             }
                         }
-                        Ok(unexpected) => {
-                            return unexpected_type(
-                                "a Bool to be returned from the predicate",
-                                &unexpected,
-                            );
-                        }
-                        Err(error) => return Err(error),
                     }
-                }
 
-                Ok(false.into())
+                    Ok(false.into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("chain", |ctx| {
+    result.add_vm_fn("chain", |ctx| {
         let expected_error = "|Iterable, Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
                 let iterable_a = iterable_a.clone();
                 let iterable_b = iterable_b.clone();
-                let result = KIterator::new(adaptors::Chain::new(
-                    ctx.vm.make_iterator(iterable_a)?,
-                    ctx.vm.make_iterator(iterable_b)?,
-                ));
 
-                Ok(KValue::Iterator(result))
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = KIterator::new(adaptors::Chain::new(
+                        vm.make_iterator(iterable_a).await?,
+                        vm.make_iterator(iterable_b).await?,
+                    ));
+
+                    Ok(KValue::Iterator(result))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("chunks", |ctx| {
+    result.add_vm_fn("chunks", |ctx| {
         let expected_error = "|Iterable, Number|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [KValue::Number(n)]) => {
                 let iterable = iterable.clone();
                 let n = *n;
-                match adaptors::Chunks::new(ctx.vm.make_iterator(iterable)?, n.into()) {
-                    Ok(result) => Ok(KIterator::new(result).into()),
-                    Err(e) => runtime_error!("iterator.chunks: {}", e),
-                }
+
+                ctx.run_with_vm(|mut vm| async move {
+                    match adaptors::Chunks::new(vm.make_iterator(iterable).await?, n.into()) {
+                        Ok(result) => Ok(KIterator::new(result).into()),
+                        Err(e) => runtime_error!("iterator.chunks: {}", e),
+                    }
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("consume", |ctx| {
+    result.add_vm_fn("consume", |ctx| {
         let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                for output in ctx.vm.make_iterator(iterable)? {
-                    if let Output::Error(error) = output {
-                        return Err(error);
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        if let Output::Error(error) = output {
+                            return Err(error);
+                        }
                     }
-                }
-                Ok(KValue::Null)
+
+                    Ok(KValue::Null)
+                })
             }
             (iterable, [f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let f = f.clone();
-                for output in ctx.vm.make_iterator(iterable)? {
-                    match output {
-                        Output::Value(value) => {
-                            ctx.vm.call_function(f.clone(), value)?;
-                        }
-                        Output::ValuePair(a, b) => {
-                            ctx.vm
-                                .call_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
-                        }
-                        Output::Error(error) => return Err(error),
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        call_function_with_output(&mut vm, f.clone(), output).await?;
                     }
-                }
-                Ok(KValue::Null)
+
+                    Ok(KValue::Null)
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("count", |ctx| {
+    result.add_vm_fn("count", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let mut result = 0;
-                for output in ctx.vm.make_iterator(iterable)? {
-                    if let Output::Error(error) = output {
-                        return Err(error);
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut result = 0;
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        if let Output::Error(error) = output {
+                            return Err(error);
+                        }
+                        result += 1;
                     }
-                    result += 1;
-                }
-                Ok(KValue::Number(result.into()))
+
+                    Ok(KValue::Number(result.into()))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("cycle", |ctx| {
+    result.add_vm_fn("cycle", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let result = adaptors::Cycle::new(ctx.vm.make_iterator(iterable)?);
 
-                Ok(KIterator::new(result).into())
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Cycle::new(vm.make_iterator(iterable).await?);
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("each", |ctx| {
+    result.add_vm_fn("each", |ctx| {
         let expected_error = "|Iterable, |Any| -> Any|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [f]) if f.is_callable() => {
                 let iterable = iterable.clone();
                 let f = f.clone();
-                let result = adaptors::Each::new(ctx.vm.make_iterator(iterable)?, f, ctx.vm);
+                let adaptor_vm = ctx.spawn_shared_vm();
 
-                Ok(KIterator::new(result).into())
+                ctx.run_with_vm(|mut vm| async move {
+                    let result =
+                        adaptors::Each::new(vm.make_iterator(iterable).await?, f, &adaptor_vm);
+
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("enumerate", |ctx| {
+    result.add_vm_fn("enumerate", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let result = adaptors::Enumerate::new(ctx.vm.make_iterator(iterable)?);
-                Ok(KIterator::new(result).into())
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Enumerate::new(vm.make_iterator(iterable).await?);
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("find", |ctx| {
+    result.add_vm_fn("find", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -249,50 +296,67 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
 
-                for output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
-                    match output {
-                        Output::Value(value) => {
-                            match ctx.vm.call_function(predicate.clone(), value.clone()) {
-                                Ok(KValue::Bool(result)) => {
-                                    if result {
-                                        return Ok(value);
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(value) => {
+                                match vm
+                                    .call_function_with_arg(predicate.clone(), value.clone())
+                                    .await?
+                                {
+                                    KValue::Bool(result) => {
+                                        if result {
+                                            return Ok(value);
+                                        }
+                                    }
+                                    unexpected => {
+                                        return unexpected_type(
+                                            "a Bool to be returned from the predicate",
+                                            &unexpected,
+                                        );
                                     }
                                 }
-                                Ok(unexpected) => {
-                                    return unexpected_type(
-                                        "a Bool to be returned from the predicate",
-                                        &unexpected,
-                                    );
-                                }
-                                Err(error) => return Err(error),
                             }
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
                         }
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
                     }
-                }
 
-                Ok(KValue::Null)
+                    Ok(KValue::Null)
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("flatten", |ctx| {
+    result.add_vm_fn("flatten", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let result = adaptors::Flatten::new(ctx.vm.make_iterator(iterable)?, ctx.vm);
+                let adaptor_vm = ctx.spawn_shared_vm();
 
-                Ok(KIterator::new(result).into())
+                ctx.run_with_vm(|mut vm| async move {
+                    let result =
+                        adaptors::Flatten::new(vm.make_iterator(iterable).await?, &adaptor_vm);
+
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("fold", |ctx| {
+    result.add_vm_fn("fold", |ctx| {
         let expected_error = "|Iterable, Any, |Any, Any| -> Any|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -300,35 +364,30 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let result = result.clone();
                 let f = f.clone();
-                let mut iter = ctx.vm.make_iterator(iterable)?;
 
-                match iter
-                    .borrow_internals(|iterator| {
-                        let mut fold_result = result.clone();
-                        for value in iterator.map(collect_pair) {
-                            match value {
-                                Output::Value(value) => {
-                                    match ctx.vm.call_function(f.clone(), &[fold_result, value]) {
-                                        Ok(result) => fold_result = result,
-                                        Err(error) => return Some(Output::Error(error)),
-                                    }
-                                }
-                                Output::Error(error) => return Some(Output::Error(error)),
-                                _ => unreachable!(),
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut fold_result = result;
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(value) => {
+                                fold_result = vm
+                                    .call_function_with_args(f.clone(), vec![fold_result, value])
+                                    .await?;
                             }
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
                         }
+                    }
 
-                        Some(Output::Value(fold_result))
-                    })
-                    // None is never returned from the closure
-                    .unwrap()
-                {
-                    Output::Value(result) => Ok(result),
-                    Output::Error(error) => Err(error),
-                    _ => unreachable!(),
-                }
+                    Ok(fold_result)
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -354,222 +413,322 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("intersperse", |ctx| {
+    result.add_vm_fn("intersperse", |ctx| {
         let expected_error = "|Iterable, Value|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [separator_fn]) if separator_fn.is_callable() => {
                 let iterable = iterable.clone();
                 let separator_fn = separator_fn.clone();
-                let result = adaptors::IntersperseWith::new(
-                    ctx.vm.make_iterator(iterable)?,
-                    separator_fn,
-                    ctx.vm,
-                );
+                let adaptor_vm = ctx.spawn_shared_vm();
 
-                Ok(KIterator::new(result).into())
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::IntersperseWith::new(
+                        vm.make_iterator(iterable).await?,
+                        separator_fn,
+                        &adaptor_vm,
+                    );
+
+                    Ok(KIterator::new(result).into())
+                })
             }
             (iterable, [separator]) => {
                 let iterable = iterable.clone();
                 let separator = separator.clone();
-                let result = adaptors::Intersperse::new(ctx.vm.make_iterator(iterable)?, separator);
 
-                Ok(KIterator::new(result).into())
+                ctx.run_with_vm(|mut vm| async move {
+                    let result =
+                        adaptors::Intersperse::new(vm.make_iterator(iterable).await?, separator);
+
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("iter", |ctx| {
+    result.add_vm_fn("iter", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                Ok(KValue::Iterator(ctx.vm.make_iterator(iterable)?))
+                ctx.run_with_vm(|mut vm| async move {
+                    Ok(KValue::Iterator(vm.make_iterator(iterable).await?))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("keep", |ctx| {
+    result.add_vm_fn("keep", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
-                let result =
-                    adaptors::Keep::new(ctx.vm.make_iterator(iterable)?, predicate, ctx.vm);
-                Ok(KIterator::new(result).into())
+                let adaptor_vm = ctx.spawn_shared_vm();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Keep::new(
+                        vm.make_iterator(iterable).await?,
+                        predicate,
+                        &adaptor_vm,
+                    );
+
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("last", |ctx| {
+    result.add_vm_fn("last", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let mut result = KValue::Null;
 
-                let mut iter = ctx.vm.make_iterator(iterable)?.map(collect_pair);
-                for output in &mut iter {
-                    match output {
-                        Output::Value(value) => result = value,
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
-                    }
-                }
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut result = KValue::Null;
 
-                Ok(result)
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("max", |ctx| {
-        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                run_iterator_comparison(ctx.vm, iterable, InvertResult::Yes)
-            }
-            (iterable, [key_fn]) if key_fn.is_callable() => {
-                let iterable = iterable.clone();
-                let key_fn = key_fn.clone();
-                run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::Yes)
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("min", |ctx| {
-        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                run_iterator_comparison(ctx.vm, iterable, InvertResult::No)
-            }
-            (iterable, [key_fn]) if key_fn.is_callable() => {
-                let iterable = iterable.clone();
-                let key_fn = key_fn.clone();
-                run_iterator_comparison_by_key(ctx.vm, iterable, key_fn, InvertResult::No)
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("min_max", |ctx| {
-        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                let mut result = None;
-
-                for iter_output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
-                    match iter_output {
-                        Output::Value(value) => {
-                            result = Some(match result {
-                                Some((min, max)) => (
-                                    compare_values(ctx.vm, min, value.clone(), InvertResult::No)?,
-                                    compare_values(ctx.vm, max, value, InvertResult::Yes)?,
-                                ),
-                                None => (value.clone(), value),
-                            })
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(value) => result = value,
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
                         }
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
                     }
-                }
 
-                Ok(result.map_or(KValue::Null, |(min, max)| {
-                    KValue::Tuple(vec![min, max].into())
-                }))
+                    Ok(result)
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("max", |ctx| {
+        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                ctx.run_with_vm(|mut vm| async move {
+                    run_iterator_comparison(&mut vm, iterable, InvertResult::Yes).await
+                })
             }
             (iterable, [key_fn]) if key_fn.is_callable() => {
                 let iterable = iterable.clone();
                 let key_fn = key_fn.clone();
-                let mut result = None;
-
-                for iter_output in ctx.vm.make_iterator(iterable)?.map(collect_pair) {
-                    match iter_output {
-                        Output::Value(value) => {
-                            let key = ctx.vm.call_function(key_fn.clone(), value.clone())?;
-                            let value_and_key = (value, key);
-
-                            result = Some(match result {
-                                Some((min_and_key, max_and_key)) => (
-                                    compare_values_with_key(
-                                        ctx.vm,
-                                        min_and_key,
-                                        value_and_key.clone(),
-                                        InvertResult::No,
-                                    )?,
-                                    compare_values_with_key(
-                                        ctx.vm,
-                                        max_and_key,
-                                        value_and_key,
-                                        InvertResult::Yes,
-                                    )?,
-                                ),
-                                None => (value_and_key.clone(), value_and_key),
-                            })
-                        }
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(), // value pairs have been collected in collect_pair
-                    }
-                }
-
-                Ok(result.map_or(KValue::Null, |((min, _), (max, _))| {
-                    KValue::Tuple(vec![min, max].into())
-                }))
+                ctx.run_with_vm(|mut vm| async move {
+                    run_iterator_comparison_by_key(&mut vm, iterable, key_fn, InvertResult::Yes)
+                        .await
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("next", |ctx| {
+    result.add_vm_fn("min", |ctx| {
+        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+                ctx.run_with_vm(|mut vm| async move {
+                    run_iterator_comparison(&mut vm, iterable, InvertResult::No).await
+                })
+            }
+            (iterable, [key_fn]) if key_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let key_fn = key_fn.clone();
+                ctx.run_with_vm(|mut vm| async move {
+                    run_iterator_comparison_by_key(&mut vm, iterable, key_fn, InvertResult::No)
+                        .await
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("min_max", |ctx| {
+        let expected_error = "|Iterable|, or |Iterable, |Any| -> Any|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut result = None;
+
+                    while let Some(iter_output) = vm.next(&mut iterator).await? {
+                        match collect_pair(iter_output) {
+                            Output::Value(value) => {
+                                result = Some(match result {
+                                    Some((min, max)) => (
+                                        compare_values(
+                                            &mut vm,
+                                            min,
+                                            value.clone(),
+                                            InvertResult::No,
+                                        )
+                                        .await?,
+                                        compare_values(&mut vm, max, value, InvertResult::Yes)
+                                            .await?,
+                                    ),
+                                    None => (value.clone(), value),
+                                })
+                            }
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    Ok(result.map_or(KValue::Null, |(min, max)| {
+                        KValue::Tuple(vec![min, max].into())
+                    }))
+                })
+            }
+            (iterable, [key_fn]) if key_fn.is_callable() => {
+                let iterable = iterable.clone();
+                let key_fn = key_fn.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut result = None;
+
+                    while let Some(iter_output) = vm.next(&mut iterator).await? {
+                        match collect_pair(iter_output) {
+                            Output::Value(value) => {
+                                let key = vm
+                                    .call_function_with_arg(key_fn.clone(), value.clone())
+                                    .await?;
+                                let value_and_key = (value, key);
+
+                                result = Some(match result {
+                                    Some((min_and_key, max_and_key)) => (
+                                        compare_values_with_key(
+                                            &mut vm,
+                                            min_and_key,
+                                            value_and_key.clone(),
+                                            InvertResult::No,
+                                        )
+                                        .await?,
+                                        compare_values_with_key(
+                                            &mut vm,
+                                            max_and_key,
+                                            value_and_key,
+                                            InvertResult::Yes,
+                                        )
+                                        .await?,
+                                    ),
+                                    None => (value_and_key.clone(), value_and_key),
+                                })
+                            }
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(), // value pairs have been collected in collect_pair
+                        }
+                    }
+
+                    Ok(result.map_or(KValue::Null, |((min, _), (max, _))| {
+                        KValue::Tuple(vec![min, max].into())
+                    }))
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("next", |ctx| {
+        let expected_error = "|Iterable|";
+
+        let iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (KValue::Iterator(i), []) => i.clone(),
+            (iterable, []) if iterable.is_iterable() => {
+                let iterable = iterable.clone();
+                return ctx.run_with_vm(|mut vm| async move {
+                    let mut iter = vm.make_iterator(iterable).await?;
+                    let output = match iter_output_to_result(vm.next(&mut iter).await?)? {
+                        None => KValue::Null,
+                        Some(output) => IteratorOutput::from(output).into(),
+                    };
+
+                    Ok(output)
+                });
+            }
+            (instance, args) => {
+                return unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready);
+            }
+        };
+
+        ctx.run_with_vm(|mut vm| async move {
+            let mut iter = iter;
+            let output = match iter_output_to_result(vm.next(&mut iter).await?)? {
+                None => KValue::Null,
+                Some(output) => IteratorOutput::from(output).into(),
+            };
+
+            Ok(output)
+        })
+    });
+
+    result.add_vm_fn("next_back", |ctx| {
         let expected_error = "|Iterable|";
 
         let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (KValue::Iterator(i), []) => i.clone(),
-            (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
+            (iterable, []) if iterable.is_iterable() => {
+                let iterable = iterable.clone();
+                return ctx.run_with_vm(|mut vm| async move {
+                    let mut iter = vm.make_iterator(iterable).await?;
+                    let output = match iter_output_to_result(vm.next_back(&mut iter).await?)? {
+                        None => KValue::Null,
+                        Some(output) => IteratorOutput::from(output).into(),
+                    };
+
+                    Ok(output)
+                });
+            }
             (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args);
+                return unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready);
             }
         };
 
-        let output = match iter_output_to_result(iter.next())? {
-            None => KValue::Null,
-            Some(output) => IteratorOutput::from(output).into(),
-        };
+        ctx.run_with_vm(|mut vm| async move {
+            let output = match iter_output_to_result(vm.next_back(&mut iter).await?)? {
+                None => KValue::Null,
+                Some(output) => IteratorOutput::from(output).into(),
+            };
 
-        Ok(output)
-    });
-
-    result.add_fn("next_back", |ctx| {
-        let expected_error = "|Iterable|";
-
-        let mut iter = match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (KValue::Iterator(i), []) => i.clone(),
-            (iterable, []) if iterable.is_iterable() => ctx.vm.make_iterator(iterable.clone())?,
-            (instance, args) => {
-                return unexpected_args_after_instance(expected_error, instance, args);
-            }
-        };
-
-        let output = match iter_output_to_result(iter.next_back())? {
-            None => KValue::Null,
-            Some(output) => IteratorOutput::from(output).into(),
-        };
-
-        Ok(output)
+            Ok(output)
+        })
     });
 
     result.add_fn("once", |ctx| {
@@ -584,21 +743,26 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("peekable", |ctx| {
+    result.add_vm_fn("peekable", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                Ok(peekable::Peekable::make_value(
-                    ctx.vm.make_iterator(iterable)?,
-                ))
+                ctx.run_with_vm(|mut vm| async move {
+                    Ok(peekable::Peekable::make_value(
+                        vm.make_iterator(iterable).await?,
+                    ))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("position", |ctx| {
+    result.add_vm_fn("position", |ctx| {
         let expected_error = "|Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -606,38 +770,39 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
 
-                for (i, output) in ctx.vm.make_iterator(iterable)?.enumerate() {
-                    let predicate_result = match output {
-                        Output::Value(value) => ctx.vm.call_function(predicate.clone(), value),
-                        Output::ValuePair(a, b) => ctx
-                            .vm
-                            .call_function(predicate.clone(), CallArgs::AsTuple(&[a, b])),
-                        Output::Error(error) => return Err(error),
-                    };
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let mut i = 0;
 
-                    match predicate_result {
-                        Ok(KValue::Bool(result)) => {
-                            if result {
-                                return Ok(i.into());
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match call_function_with_output(&mut vm, predicate.clone(), output).await? {
+                            KValue::Bool(result) => {
+                                if result {
+                                    return Ok(i.into());
+                                }
+                            }
+                            unexpected => {
+                                return unexpected_type(
+                                    "a Bool to be returned from the predicate",
+                                    &unexpected,
+                                );
                             }
                         }
-                        Ok(unexpected) => {
-                            return unexpected_type(
-                                "a Bool to be returned from the predicate",
-                                &unexpected,
-                            );
-                        }
-                        Err(error) => return Err(error),
-                    }
-                }
 
-                Ok(KValue::Null)
+                        i += 1;
+                    }
+
+                    Ok(KValue::Null)
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("product", |ctx| {
+    result.add_vm_fn("product", |ctx| {
         let (iterable, initial_value) = {
             let expected_error = "|Iterable|";
 
@@ -645,12 +810,19 @@ pub fn make_module() -> KMap {
                 (iterable, []) => (iterable.clone(), KValue::Number(1.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args);
+                    return unexpected_args_after_instance::<KValue>(
+                        expected_error,
+                        instance,
+                        args,
+                    )
+                    .map(FunctionOutput::Ready);
                 }
             }
         };
 
-        fold_with_operator(ctx.vm, iterable, initial_value, BinaryOp::Multiply)
+        ctx.run_with_vm(|mut vm| async move {
+            fold_with_operator(&mut vm, iterable, initial_value, BinaryOp::Multiply).await
+        })
     });
 
     result.add_fn("repeat", |ctx| {
@@ -672,36 +844,48 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("reversed", |ctx| {
+    result.add_vm_fn("reversed", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                match adaptors::Reversed::new(ctx.vm.make_iterator(iterable)?) {
-                    Ok(result) => Ok(KIterator::new(result).into()),
-                    Err(e) => runtime_error!("iterator.reversed: {}", e),
-                }
+
+                ctx.run_with_vm(|mut vm| async move {
+                    match adaptors::Reversed::new(vm.make_iterator(iterable).await?) {
+                        Ok(result) => Ok(KIterator::new(result).into()),
+                        Err(e) => runtime_error!("iterator.reversed: {}", e),
+                    }
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("skip", |ctx| {
+    result.add_vm_fn("skip", |ctx| {
         let expected_error = "|Iterable, Number >= 0|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [KValue::Number(n)]) if *n >= 0.0 => {
                 let iterable = iterable.clone();
                 let n = *n;
-                let result = adaptors::Skip::new(ctx.vm.make_iterator(iterable)?, n.into());
-                Ok(KIterator::new(result).into())
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Skip::new(vm.make_iterator(iterable).await?, n.into());
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("step", |ctx| {
+    result.add_vm_fn("step", |ctx| {
         let expected_error = "|Iterable, Number|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
@@ -709,19 +893,24 @@ pub fn make_module() -> KMap {
                 if *n > 0 {
                     let iterable = iterable.clone();
                     let step_size = n.into();
-                    match adaptors::Step::new(ctx.vm.make_iterator(iterable)?, step_size) {
-                        Ok(result) => Ok(KIterator::new(result).into()),
-                        Err(e) => runtime_error!("iterator.step: {}", e),
-                    }
+                    ctx.run_with_vm(|mut vm| async move {
+                        match adaptors::Step::new(vm.make_iterator(iterable).await?, step_size) {
+                            Ok(result) => Ok(KIterator::new(result).into()),
+                            Err(e) => runtime_error!("iterator.step: {}", e),
+                        }
+                    })
                 } else {
-                    runtime_error!("expected a non-negative number")
+                    runtime_error!("expected a non-negative number").map(FunctionOutput::Ready)
                 }
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("sum", |ctx| {
+    result.add_vm_fn("sum", |ctx| {
         let (iterable, initial_value) = {
             let expected_error = "|Iterable|";
 
@@ -729,168 +918,227 @@ pub fn make_module() -> KMap {
                 (iterable, []) => (iterable.clone(), KValue::Number(0.into())),
                 (iterable, [initial_value]) => (iterable.clone(), initial_value.clone()),
                 (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args);
+                    return unexpected_args_after_instance::<KValue>(
+                        expected_error,
+                        instance,
+                        args,
+                    )
+                    .map(FunctionOutput::Ready);
                 }
             }
         };
 
-        fold_with_operator(ctx.vm, iterable, initial_value, BinaryOp::Add)
+        ctx.run_with_vm(|mut vm| async move {
+            fold_with_operator(&mut vm, iterable, initial_value, BinaryOp::Add).await
+        })
     });
 
-    result.add_fn("take", |ctx| {
+    result.add_vm_fn("take", |ctx| {
         let expected_error = "|Iterable, Number >= 0|, or |Iterable, |Any| -> Bool|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [KValue::Number(n)]) if *n >= 0.0 => {
                 let iterable = iterable.clone();
                 let n = *n;
-                let result = adaptors::Take::new(ctx.vm.make_iterator(iterable)?, n.into());
-                Ok(KIterator::new(result).into())
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Take::new(vm.make_iterator(iterable).await?, n.into());
+                    Ok(KIterator::new(result).into())
+                })
             }
             (iterable, [predicate]) if predicate.is_callable() => {
                 let iterable = iterable.clone();
                 let predicate = predicate.clone();
-                let result =
-                    adaptors::TakeWhile::new(ctx.vm.make_iterator(iterable)?, predicate, ctx.vm);
-                Ok(KIterator::new(result).into())
+                let adaptor_vm = ctx.spawn_shared_vm();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::TakeWhile::new(
+                        vm.make_iterator(iterable).await?,
+                        predicate,
+                        &adaptor_vm,
+                    );
+
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("to_list", |ctx| {
+    result.add_vm_fn("to_list", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, []) => {
                 let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
-                let (size_hint, _) = iterator.size_hint();
-                let mut result = ValueVec::with_capacity(size_hint);
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let (size_hint, _) = iterator.size_hint();
+                    let mut result = ValueVec::with_capacity(size_hint);
 
-                for output in iterator.map(collect_pair) {
-                    match output {
-                        Output::Value(value) => result.push(value),
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
-                    }
-                }
-
-                Ok(KValue::List(KList::with_data(result)))
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("to_map", |ctx| {
-        let expected_error = "|Iterable|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
-                let (size_hint, _) = iterator.size_hint();
-                let mut result = ValueMap::with_capacity(size_hint);
-
-                for output in iterator {
-                    let (key, value) = match output {
-                        Output::ValuePair(key, value) => (key, value),
-                        Output::Value(KValue::Tuple(t)) if t.len() == 2 => {
-                            let key = t[0].clone();
-                            let value = t[1].clone();
-                            (key, value)
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(value) => result.push(value),
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
                         }
-                        Output::Value(value) => (value, KValue::Null),
-                        Output::Error(error) => return Err(error),
-                    };
-
-                    result.insert(ValueKey::try_from(key)?, value);
-                }
-
-                Ok(KValue::Map(KMap::with_data(result)))
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("to_string", |ctx| {
-        let expected_error = "|Iterable|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
-                let (size_hint, _) = iterator.size_hint();
-                let mut display_context = DisplayContext::with_vm_and_capacity(ctx.vm, size_hint);
-                for output in iterator.map(collect_pair) {
-                    match output {
-                        Output::Value(KValue::Str(s)) => display_context.append(s),
-                        Output::Value(value) => value.display(&mut display_context)?,
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
-                    };
-                }
-
-                Ok(display_context.result().into())
-            }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
-        }
-    });
-
-    result.add_fn("to_tuple", |ctx| {
-        let expected_error = "|Iterable|";
-
-        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
-            (iterable, []) => {
-                let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
-                let (size_hint, _) = iterator.size_hint();
-                let mut result = Vec::with_capacity(size_hint);
-
-                for output in iterator.map(collect_pair) {
-                    match output {
-                        Output::Value(value) => result.push(value),
-                        Output::Error(error) => return Err(error),
-                        _ => unreachable!(),
                     }
-                }
 
-                Ok(KValue::Tuple(result.into()))
+                    Ok(KValue::List(KList::with_data(result)))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("windows", |ctx| {
+    result.add_vm_fn("to_map", |ctx| {
+        let expected_error = "|Iterable|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let (size_hint, _) = iterator.size_hint();
+                    let mut result = ValueMap::with_capacity(size_hint);
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        let (key, value) = match output {
+                            Output::ValuePair(key, value) => (key, value),
+                            Output::Value(KValue::Tuple(t)) if t.len() == 2 => {
+                                let key = t[0].clone();
+                                let value = t[1].clone();
+                                (key, value)
+                            }
+                            Output::Value(value) => (value, KValue::Null),
+                            Output::Error(error) => return Err(error),
+                        };
+
+                        result.insert(ValueKey::try_from(key)?, value);
+                    }
+
+                    Ok(KValue::Map(KMap::with_data(result)))
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("to_string", |ctx| {
+        let expected_error = "|Iterable|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let (size_hint, _) = iterator.size_hint();
+                    let mut result = String::with_capacity(size_hint);
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(KValue::Str(s)) => result.push_str(s.as_str()),
+                            Output::Value(value) => {
+                                result.push_str(&vm.value_to_string(value).await?)
+                            }
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
+                        };
+                    }
+
+                    Ok(result.into())
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("to_tuple", |ctx| {
+        let expected_error = "|Iterable|";
+
+        match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
+            (iterable, []) => {
+                let iterable = iterable.clone();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
+                    let (size_hint, _) = iterator.size_hint();
+                    let mut result = Vec::with_capacity(size_hint);
+
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            Output::Value(value) => result.push(value),
+                            Output::Error(error) => return Err(error),
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    Ok(KValue::Tuple(result.into()))
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
+    });
+
+    result.add_vm_fn("windows", |ctx| {
         let expected_error = "|Iterable, Number|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable, [KValue::Number(n)]) => {
                 let iterable = iterable.clone();
                 let n = *n;
-                match adaptors::Windows::new(ctx.vm.make_iterator(iterable)?, n.into()) {
-                    Ok(result) => Ok(KIterator::new(result).into()),
-                    Err(e) => runtime_error!("iterator.windows: {}", e),
-                }
+
+                ctx.run_with_vm(|mut vm| async move {
+                    match adaptors::Windows::new(vm.make_iterator(iterable).await?, n.into()) {
+                        Ok(result) => Ok(KIterator::new(result).into()),
+                        Err(e) => runtime_error!("iterator.windows: {}", e),
+                    }
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("zip", |ctx| {
+    result.add_vm_fn("zip", |ctx| {
         let expected_error = "|Iterable|";
 
         match ctx.instance_and_args(KValue::is_iterable, expected_error)? {
             (iterable_a, [iterable_b]) if iterable_b.is_iterable() => {
                 let iterable_a = iterable_a.clone();
                 let iterable_b = iterable_b.clone();
-                let result = adaptors::Zip::new(
-                    ctx.vm.make_iterator(iterable_a)?,
-                    ctx.vm.make_iterator(iterable_b)?,
-                );
-                Ok(KIterator::new(result).into())
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let result = adaptors::Zip::new(
+                        vm.make_iterator(iterable_a).await?,
+                        vm.make_iterator(iterable_b).await?,
+                    );
+                    Ok(KIterator::new(result).into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -915,6 +1163,18 @@ pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<O
     };
 
     Ok(output)
+}
+
+async fn call_function_with_output(
+    vm: &mut AsyncKotoVm,
+    function: KValue,
+    output: Output,
+) -> Result<KValue> {
+    match output {
+        Output::Value(value) => vm.call_function_with_arg(function, value).await,
+        Output::ValuePair(a, b) => vm.call_function_with_tuple(function, vec![a, b]).await,
+        Output::Error(error) => Err(error),
+    }
 }
 
 /// The output type used by operations like `iterator.next()` and `next_back()`
@@ -957,18 +1217,19 @@ impl From<IteratorOutput> for KValue {
     }
 }
 
-fn fold_with_operator(
-    vm: &mut KotoVm,
+async fn fold_with_operator(
+    vm: &mut AsyncKotoVm,
     iterable: KValue,
     initial_value: KValue,
     operator: BinaryOp,
 ) -> Result<KValue> {
     let mut result = initial_value;
+    let mut iterator = vm.make_iterator(iterable).await?;
 
-    for output in vm.make_iterator(iterable)?.map(collect_pair) {
-        match output {
+    while let Some(output) = vm.next(&mut iterator).await? {
+        match collect_pair(output) {
             Output::Value(rhs_value) => {
-                result = vm.run_binary_op(operator, result, rhs_value)?;
+                result = vm.run_binary_op(operator, result, rhs_value).await?;
             }
             Output::Error(error) => return Err(error),
             _ => unreachable!(),
@@ -978,19 +1239,20 @@ fn fold_with_operator(
     Ok(result)
 }
 
-fn run_iterator_comparison(
-    vm: &mut KotoVm,
+async fn run_iterator_comparison(
+    vm: &mut AsyncKotoVm,
     iterable: KValue,
     invert_result: InvertResult,
 ) -> Result<KValue> {
     let mut result: Option<KValue> = None;
+    let mut iterator = vm.make_iterator(iterable).await?;
 
-    for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
-        match iter_output {
+    while let Some(iter_output) = vm.next(&mut iterator).await? {
+        match collect_pair(iter_output) {
             Output::Value(value) => {
                 result = Some(match result {
                     Some(result) => {
-                        compare_values(vm, result.clone(), value.clone(), invert_result)?
+                        compare_values(vm, result.clone(), value.clone(), invert_result).await?
                     }
                     None => value,
                 })
@@ -1003,23 +1265,27 @@ fn run_iterator_comparison(
     Ok(result.unwrap_or_default())
 }
 
-fn run_iterator_comparison_by_key(
-    vm: &mut KotoVm,
+async fn run_iterator_comparison_by_key(
+    vm: &mut AsyncKotoVm,
     iterable: KValue,
     key_fn: KValue,
     invert_result: InvertResult,
 ) -> Result<KValue> {
     let mut result_and_key: Option<(KValue, KValue)> = None;
+    let mut iterator = vm.make_iterator(iterable).await?;
 
-    for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
-        match iter_output {
+    while let Some(iter_output) = vm.next(&mut iterator).await? {
+        match collect_pair(iter_output) {
             Output::Value(value) => {
-                let key = vm.call_function(key_fn.clone(), value.clone())?;
+                let key = vm
+                    .call_function_with_arg(key_fn.clone(), value.clone())
+                    .await?;
                 let value_and_key = (value, key);
 
                 result_and_key = Some(match result_and_key {
                     Some(result_and_key) => {
-                        compare_values_with_key(vm, result_and_key, value_and_key, invert_result)?
+                        compare_values_with_key(vm, result_and_key, value_and_key, invert_result)
+                            .await?
                     }
                     None => value_and_key,
                 });
@@ -1035,8 +1301,8 @@ fn run_iterator_comparison_by_key(
 // Compares two values using BinaryOp::Less
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
-fn compare_values(
-    vm: &mut KotoVm,
+async fn compare_values(
+    vm: &mut AsyncKotoVm,
     a: KValue,
     b: KValue,
     invert_result: InvertResult,
@@ -1044,7 +1310,9 @@ fn compare_values(
     use InvertResult::*;
     use KValue::Bool;
 
-    let comparison_result = vm.run_binary_op(BinaryOp::Less, a.clone(), b.clone())?;
+    let comparison_result = vm
+        .run_binary_op(BinaryOp::Less, a.clone(), b.clone())
+        .await?;
 
     match (comparison_result, invert_result) {
         (Bool(true), No) => Ok(a),
@@ -1061,8 +1329,8 @@ fn compare_values(
 // Compares two values using BinaryOp::Less
 //
 // Returns the lesser of the two values, unless `invert_result` is set to Yes
-fn compare_values_with_key(
-    vm: &mut KotoVm,
+async fn compare_values_with_key(
+    vm: &mut AsyncKotoVm,
     a_and_key: (KValue, KValue),
     b_and_key: (KValue, KValue),
     invert_result: InvertResult,
@@ -1070,8 +1338,9 @@ fn compare_values_with_key(
     use InvertResult::*;
     use KValue::Bool;
 
-    let comparison_result =
-        vm.run_binary_op(BinaryOp::Less, a_and_key.1.clone(), b_and_key.1.clone())?;
+    let comparison_result = vm
+        .run_binary_op(BinaryOp::Less, a_and_key.1.clone(), b_and_key.1.clone())
+        .await?;
 
     match (comparison_result, invert_result) {
         (Bool(true), No) => Ok(a_and_key),

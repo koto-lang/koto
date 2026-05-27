@@ -1,5 +1,6 @@
 use crate::{Borrow, BorrowMut, Error, PtrMut, Result, prelude::*};
 use indexmap::{Equivalent, IndexMap};
+use koto_memory::Address;
 use rustc_hash::FxHasher;
 use std::{
     hash::{BuildHasherDefault, Hash},
@@ -190,9 +191,18 @@ impl KMap {
             .insert(key, value);
     }
 
+    pub(crate) fn ensure_meta_map(&mut self) {
+        self.meta.get_or_insert_with(Default::default);
+    }
+
     /// Adds a function to the KMap's data map
     pub fn add_fn(&self, id: &str, f: impl KotoFunction) {
         self.insert(id, KValue::NativeFunction(KNativeFunction::new(f)));
+    }
+
+    /// Adds a VM-aware function to the KMap's data map
+    pub fn add_vm_fn(&self, id: &str, f: impl KotoVmFunction) {
+        self.insert(id, KValue::NativeVmFunction(KNativeVmFunction::new(f)));
     }
 
     /// Returns the number of entries in the KMap's data map
@@ -220,6 +230,10 @@ impl KMap {
         PtrMut::ptr_eq(&self.data, &other.data)
     }
 
+    pub(crate) fn address(&self) -> Address {
+        PtrMut::address(&self.data)
+    }
+
     /// If present, returns the @type meta value as a [KString], recursively going up the @base chain.
     pub fn meta_type(&self) -> Option<KString> {
         use KValue::*;
@@ -242,10 +256,17 @@ impl KMap {
                 .ok_or_else(|| Error::from("missing VM in map display op"))?
                 .spawn_shared_vm();
             match vm.run_unary_op(UnaryOp::Display, self.clone().into())? {
-                KValue::Str(display_result) => {
+                VmOutput::Ready(KValue::Str(display_result)) => {
                     ctx.append(display_result);
                 }
-                unexpected => return unexpected_type("String as @display result", &unexpected),
+                VmOutput::Ready(unexpected) => {
+                    return unexpected_type("String as @display result", &unexpected);
+                }
+                VmOutput::Pending(_) => {
+                    return runtime_error!(
+                        "map @display suspended while rendering with a synchronous DisplayContext"
+                    );
+                }
             }
         } else {
             if let Some(meta_type) = self.meta_type() {
@@ -255,7 +276,7 @@ impl KMap {
 
             ctx.append('{');
 
-            let id = PtrMut::address(&self.data);
+            let id = self.address();
 
             if ctx.is_in_parents(id) {
                 ctx.append("...");

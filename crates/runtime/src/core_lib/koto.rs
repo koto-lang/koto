@@ -66,9 +66,12 @@ pub fn make_module() -> KMap {
         Ok(result)
     });
 
-    result.add_fn("size", |ctx| match ctx.args() {
-        [value] => ctx.vm.run_unary_op(UnaryOp::Size, value.clone()),
-        unexpected => unexpected_args("|Any|", unexpected),
+    result.add_vm_fn("size", |ctx| match ctx.args() {
+        [value] => {
+            let value = value.clone();
+            ctx.run_with_vm(|mut vm| async move { vm.run_unary_op(UnaryOp::Size, value).await })
+        }
+        unexpected => unexpected_args::<KValue>("|Any|", unexpected).map(FunctionOutput::Ready),
     });
 
     result.add_fn("type", |ctx| match ctx.args() {
@@ -78,29 +81,43 @@ pub fn make_module() -> KMap {
 
     result.insert("unimplemented", KObject::from(Unimplemented));
 
-    result.add_fn("load", |ctx| match ctx.args() {
-        [KValue::Str(s)] => Ok(try_load_koto_script(ctx, s)?.into()),
-        unexpected => unexpected_args("|String|", unexpected),
+    result.add_fn("load", |ctx| {
+        let script = match ctx.args() {
+            [KValue::Str(s)] => s.clone(),
+            unexpected => return unexpected_args("|String|", unexpected),
+        };
+
+        Ok(try_load_koto_script(ctx, script.as_str())?.into())
     });
 
-    result.add_fn("run", |ctx| match ctx.args() {
-        [KValue::Str(s)] => {
-            let chunk = try_load_koto_script(ctx, s)?;
-            ctx.vm.run(chunk.inner())
-        }
-        [KValue::Object(o)] if let Ok(chunk) = o.cast::<Chunk>().map(|chunk| chunk.inner()) => {
-            ctx.vm.run(chunk)
-        }
-        unexpected => unexpected_args("|String|, or |Chunk|", unexpected),
+    result.add_vm_fn("run", |ctx| {
+        let chunk = match ctx.args() {
+            [KValue::Str(s)] => {
+                let mut vm = ctx.spawn_shared_vm();
+                try_load_koto_script_with_vm(&mut vm, s)?.inner()
+            }
+            [KValue::Object(o)] if let Ok(chunk) = o.cast::<Chunk>().map(|chunk| chunk.inner()) => {
+                chunk
+            }
+            unexpected => {
+                return unexpected_args::<KValue>("|String|, or |Chunk|", unexpected)
+                    .map(FunctionOutput::Ready);
+            }
+        };
+
+        ctx.run_with_vm(|mut vm| async move { vm.run(chunk).await })
     });
 
     result
 }
 
-fn try_load_koto_script(ctx: &CallContext<'_>, script: &str) -> Result<Chunk> {
+fn try_load_koto_script(ctx: &mut CallContext<'_>, script: &str) -> Result<Chunk> {
+    try_load_koto_script_with_vm(ctx.vm, script)
+}
+
+fn try_load_koto_script_with_vm(vm: &mut KotoVm, script: &str) -> Result<Chunk> {
     let chunk =
-        ctx.vm
-            .loader()
+        vm.loader()
             .borrow_mut()
             .compile_script(script, None, CompilerSettings::default())?;
 

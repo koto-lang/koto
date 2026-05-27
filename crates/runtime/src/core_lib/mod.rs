@@ -9,6 +9,7 @@ pub mod number;
 pub mod os;
 pub mod range;
 pub mod string;
+pub mod task;
 pub mod test;
 pub mod tuple;
 mod value_sort;
@@ -27,6 +28,7 @@ pub struct CoreLib {
     pub number: KMap,
     pub range: KMap,
     pub string: KMap,
+    pub task: KMap,
     pub test: KMap,
     pub tuple: KMap,
 }
@@ -60,6 +62,7 @@ impl CoreLib {
         result.insert("number", self.number.clone());
         result.insert("range", self.range.clone());
         result.insert("string", self.string.clone());
+        result.insert("task", self.task.clone());
         result.insert("test", self.test.clone());
         result.insert("tuple", self.tuple.clone());
 
@@ -79,6 +82,7 @@ impl Default for CoreLib {
             number: number::make_module(),
             range: range::make_module(),
             string: string::make_module(),
+            task: task::make_module(),
             test: test::make_module(),
             tuple: tuple::make_module(),
         }

@@ -97,11 +97,44 @@ rust_function.rs
 `Koto::call_function` can be used to call Koto functions, or any other callable
 Koto values.
 
-
-
 ```rust_include
 koto_function.rs
 ```
+
+## Running Async Scripts
+
+`Koto::run` blocks until the script has finished, including any suspended async work.
+Use `Koto::run_async` or `Koto::compile_and_run_async` when the host application
+already has an async executor and should drive suspended Koto work itself.
+
+The example uses Tokio's current-thread runtime to provide the host executor.
+
+```rust_include
+async_tasks.rs
+```
+
+Koto's async semantics are executor-agnostic, but executor-backed modules still
+depend on a host-provided async backend.
+
+The Koto CLI installs one when built with the `tokio` feature, which enables
+modules like `task`, `io_async`, and `http`. Embedding applications can install
+whatever backend they want to support, or omit one entirely and stick to the
+blocking APIs.
+
+## Async Native APIs
+
+`KotoObject` trait hooks like `index`, `index_assign`, `call`, and operator
+overloads are synchronous.
+
+If a native API may need to execute Koto code or suspend while async work is
+pending, then it should be exposed as a VM-aware function or method instead:
+
+- module functions via `KMap::add_vm_fn`
+- object methods via `#[koto_vm_method]`
+- lower-level wrappers via `KNativeVmFunction`
+
+This is the path used by the core library for suspendable operations, and keeps
+pending state visible to the VM.
 
 ## Adding a Module to the Prelude
 

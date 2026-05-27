@@ -836,6 +836,7 @@ fn format_node<'source>(
             group.build_block()
         }
         Node::Throw(value) => FormatItem::from_keyword_and_value("throw", value, node, ctx, trivia),
+        Node::Await(value) => FormatItem::from_keyword_and_value("await", value, node, ctx, trivia),
         Node::Yield(value) => FormatItem::from_keyword_and_value("yield", value, node, ctx, trivia),
         Node::Debug { expression, .. } => {
             FormatItem::from_keyword_and_value("debug", expression, node, ctx, trivia)

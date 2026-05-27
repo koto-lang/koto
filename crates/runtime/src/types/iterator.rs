@@ -1,7 +1,7 @@
 use koto_memory::Ptr;
 
 use crate::{Error, PtrMut, Result, prelude::*, vm::ReturnOrYield};
-use std::{fmt, ops::DerefMut, result::Result as StdResult};
+use std::{fmt, ops::DerefMut, result::Result as StdResult, task::Context};
 
 /// The trait used to implement iterators in Koto
 ///
@@ -9,6 +9,19 @@ use std::{fmt, ops::DerefMut, result::Result as StdResult};
 pub trait KotoIterator: Iterator<Item = KIteratorOutput> + KotoSend + KotoSync {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> Result<KIterator>;
+
+    /// Returns the next output from the iterator, allowing iteration to suspend.
+    fn next_output(&mut self) -> KIteratorNext {
+        match self.next() {
+            Some(output) => KIteratorNext::Output(output),
+            None => KIteratorNext::Done,
+        }
+    }
+
+    /// Returns the next output from the iterator using the provided async context.
+    fn next_output_with_context(&mut self, _context: &mut Context<'_>) -> KIteratorNext {
+        self.next_output()
+    }
 
     /// Returns true if the iterator supports reversed iteration via `next_back`
     fn is_bidirectional(&self) -> bool {
@@ -20,6 +33,19 @@ pub trait KotoIterator: Iterator<Item = KIteratorOutput> + KotoSend + KotoSync {
     /// Returns `None` when no more items are available in reverse order.
     fn next_back(&mut self) -> Option<KIteratorOutput> {
         None
+    }
+
+    /// Returns the next output from the back of the iterator, allowing iteration to suspend.
+    fn next_back_output(&mut self) -> KIteratorNext {
+        match self.next_back() {
+            Some(output) => KIteratorNext::Output(output),
+            None => KIteratorNext::Done,
+        }
+    }
+
+    /// Returns the next output from the back of the iterator using the provided async context.
+    fn next_back_output_with_context(&mut self, _context: &mut Context<'_>) -> KIteratorNext {
+        self.next_back_output()
     }
 }
 
@@ -37,6 +63,27 @@ pub enum KIteratorOutput {
     ///
     /// Iterators that run functions should check for errors and pass them along to the caller.
     Error(Error),
+}
+
+/// The result of stepping an iterator.
+pub enum KIteratorNext {
+    /// The iterator produced an output value.
+    Output(KIteratorOutput),
+    /// The iterator is waiting for async work to complete.
+    Pending,
+    /// The iterator is exhausted.
+    Done,
+}
+
+impl KIteratorNext {
+    /// Maps an output value, leaving pending and done results unchanged.
+    pub fn map(self, f: impl FnOnce(KIteratorOutput) -> KIteratorOutput) -> Self {
+        match self {
+            Self::Output(output) => Self::Output(f(output)),
+            Self::Pending => Self::Pending,
+            Self::Done => Self::Done,
+        }
+    }
 }
 
 impl<T> From<T> for KIteratorOutput
@@ -162,7 +209,34 @@ impl KIterator {
     ///
     /// See [KotoIterator::next_back]
     pub fn next_back(&mut self) -> Option<KIteratorOutput> {
-        self.0.borrow_mut().next_back()
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+
+        loop {
+            match self.next_back_output_with_context(&mut context) {
+                KIteratorNext::Output(output) => return Some(output),
+                KIteratorNext::Pending => std::thread::yield_now(),
+                KIteratorNext::Done => return None,
+            }
+        }
+    }
+
+    /// Returns the next output from the back of the iterator using the provided async context.
+    pub(crate) fn next_back_output_with_context(
+        &mut self,
+        context: &mut Context<'_>,
+    ) -> KIteratorNext {
+        self.0.borrow_mut().next_back_output_with_context(context)
+    }
+
+    /// Returns the next output from the iterator, allowing iteration to suspend.
+    pub(crate) fn next_output(&mut self) -> KIteratorNext {
+        self.0.borrow_mut().next_output()
+    }
+
+    /// Returns the next output from the iterator using the provided async context.
+    pub(crate) fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        self.0.borrow_mut().next_output_with_context(context)
     }
 
     /// Mutably borrows the underlying iterator, allowing repeated iterations with a single borrow
@@ -178,7 +252,16 @@ impl Iterator for KIterator {
     type Item = KIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.borrow_mut().next()
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+
+        loop {
+            match self.next_output_with_context(&mut context) {
+                KIteratorNext::Output(output) => return Some(output),
+                KIteratorNext::Pending => std::thread::yield_now(),
+                KIteratorNext::Done => return None,
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -439,6 +522,8 @@ struct MetaIterator {
     vm: KotoVm,
     iterator: KValue,
     is_bidirectional: bool,
+    pending_next: Option<KTask>,
+    pending_next_back: Option<KTask>,
 }
 
 impl MetaIterator {
@@ -463,7 +548,56 @@ impl MetaIterator {
             vm,
             iterator,
             is_bidirectional,
+            pending_next: None,
+            pending_next_back: None,
         })
+    }
+
+    fn poll_next_task(
+        &mut self,
+        mut task: KTask,
+        context: &mut Context<'_>,
+        is_next_back: bool,
+    ) -> KIteratorNext {
+        loop {
+            match task.poll_with_context(context) {
+                Ok(KTaskPoll::Ready(KValue::Null)) => return KIteratorNext::Done,
+                Ok(KTaskPoll::Ready(KValue::Task(nested))) => task = nested,
+                Ok(KTaskPoll::Ready(result)) => {
+                    return KIteratorNext::Output(Output::Value(result));
+                }
+                Ok(KTaskPoll::Pending) => {
+                    if is_next_back {
+                        self.pending_next_back = Some(task);
+                    } else {
+                        self.pending_next = Some(task);
+                    }
+                    return KIteratorNext::Pending;
+                }
+                Err(error) => return KIteratorNext::Output(Output::Error(error)),
+            }
+        }
+    }
+
+    fn next_op_task(&mut self, op: UnaryOp) -> Result<KTask> {
+        let KValue::Map(map) = &self.iterator else {
+            return runtime_error!("expected Map with implementation of @next");
+        };
+
+        let expected = match op {
+            UnaryOp::Next => "Value with an implementation of @next",
+            UnaryOp::NextBack => "Value with an implementation of @next_back",
+            _ => unreachable!(),
+        };
+        let Some(function) = map.get_meta_value(&op.into()) else {
+            return unexpected_type(expected, &self.iterator);
+        };
+        if !function.is_callable() {
+            return unexpected_type("Callable function", &function);
+        }
+
+        self.vm
+            .call_instance_function_as_task(self.iterator.clone(), function, &[])
     }
 }
 
@@ -477,13 +611,43 @@ impl KotoIterator for MetaIterator {
     }
 
     fn next_back(&mut self) -> Option<KIteratorOutput> {
-        match self
-            .vm
-            .run_unary_op(UnaryOp::NextBack, self.iterator.clone())
-        {
-            Ok(KValue::Null) => None,
-            Ok(result) => Some(Output::Value(result)),
-            Err(error) => Some(Output::Error(error)),
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+
+        loop {
+            match self.next_back_output_with_context(&mut context) {
+                KIteratorNext::Output(output) => return Some(output),
+                KIteratorNext::Pending => std::thread::yield_now(),
+                KIteratorNext::Done => return None,
+            }
+        }
+    }
+
+    fn next_back_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if let Some(task) = self.pending_next_back.take() {
+            return self.poll_next_task(task, context, true);
+        }
+
+        match self.next_op_task(UnaryOp::NextBack) {
+            Ok(task) => self.poll_next_task(task, context, true),
+            Err(error) => KIteratorNext::Output(Output::Error(error)),
+        }
+    }
+
+    fn next_output(&mut self) -> KIteratorNext {
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+        self.next_output_with_context(&mut context)
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        if let Some(task) = self.pending_next.take() {
+            return self.poll_next_task(task, context, false);
+        }
+
+        match self.next_op_task(UnaryOp::Next) {
+            Ok(task) => self.poll_next_task(task, context, false),
+            Err(error) => KIteratorNext::Output(Output::Error(error)),
         }
     }
 }
@@ -492,10 +656,14 @@ impl Iterator for MetaIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.vm.run_unary_op(UnaryOp::Next, self.iterator.clone()) {
-            Ok(KValue::Null) => None,
-            Ok(result) => Some(Output::Value(result)),
-            Err(error) => Some(Output::Error(error)),
+        loop {
+            match self.next_output() {
+                KIteratorNext::Output(output) => return Some(output),
+                KIteratorNext::Pending => {
+                    std::thread::yield_now();
+                }
+                KIteratorNext::Done => return None,
+            }
         }
     }
 }
@@ -609,21 +777,40 @@ impl KotoIterator for GeneratorIterator {
         let new_vm = crate::vm::clone_generator_vm(&self.vm)?;
         Ok(KIterator::with_vm(new_vm))
     }
+
+    fn next_output(&mut self) -> KIteratorNext {
+        let waker = std::task::Waker::noop();
+        let mut context = Context::from_waker(waker);
+        self.next_output_with_context(&mut context)
+    }
+
+    fn next_output_with_context(&mut self, context: &mut Context<'_>) -> KIteratorNext {
+        match self.vm.continue_running_with_context(context) {
+            Ok(ReturnOrYield::Return(_)) => KIteratorNext::Done,
+            Ok(ReturnOrYield::Yield(output)) => match output {
+                KValue::TemporaryTuple(_) => {
+                    unreachable!("Yield shouldn't produce temporary tuples")
+                }
+                result => KIteratorNext::Output(KIteratorOutput::Value(result)),
+            },
+            Ok(ReturnOrYield::Pending) => KIteratorNext::Pending,
+            Err(error) => KIteratorNext::Output(KIteratorOutput::Error(error)),
+        }
+    }
 }
 
 impl Iterator for GeneratorIterator {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.vm.continue_running() {
-            Ok(ReturnOrYield::Return(_)) => None,
-            Ok(ReturnOrYield::Yield(output)) => match output {
-                KValue::TemporaryTuple(_) => {
-                    unreachable!("Yield shouldn't produce temporary tuples")
+        loop {
+            match self.next_output() {
+                KIteratorNext::Output(output) => return Some(output),
+                KIteratorNext::Pending => {
+                    std::thread::yield_now();
                 }
-                result => Some(KIteratorOutput::Value(result)),
-            },
-            Err(error) => Some(KIteratorOutput::Error(error)),
+                KIteratorNext::Done => return None,
+            }
         }
     }
 }

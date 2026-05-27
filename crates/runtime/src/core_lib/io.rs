@@ -45,23 +45,25 @@ pub fn make_module() -> KMap {
         unexpected => unexpected_args("|String|", unexpected),
     });
 
-    result.add_fn("extend_path", |ctx| match ctx.args() {
+    result.add_vm_fn("extend_path", |ctx| match ctx.args() {
         [Str(path), nodes @ ..] => {
             let mut path = PathBuf::from(path.as_str());
+            let nodes = nodes.to_vec();
 
-            for node in nodes {
-                match node {
-                    Str(s) => path.push(s.as_str()),
-                    other => {
-                        let mut display_context = DisplayContext::with_vm(ctx.vm);
-                        other.display(&mut display_context)?;
-                        path.push(display_context.result());
+            ctx.run_with_vm(|mut vm| async move {
+                for node in nodes {
+                    match node {
+                        Str(s) => path.push(s.as_str()),
+                        other => path.push(vm.value_to_string(other).await?),
                     }
                 }
-            }
-            Ok(path.to_string_lossy().to_string().into())
+
+                Ok(path.to_string_lossy().to_string().into())
+            })
         }
-        unexpected => unexpected_args("|String, Any...|", unexpected),
+        unexpected => {
+            unexpected_args::<KValue>("|String, Any...|", unexpected).map(FunctionOutput::Ready)
+        }
     });
 
     result.add_fn("open", {
@@ -77,30 +79,39 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("print", |ctx| {
-        let result = match ctx.args() {
-            [Str(s)] => ctx.vm.stdout().write_line(s.as_str()),
+    result.add_vm_fn("print", |ctx| {
+        let stdout = ctx.stdout();
+
+        match ctx.args() {
+            [Str(s)] => stdout
+                .write_line(s.as_str())
+                .map(|_| FunctionOutput::Ready(Null)),
             [value] => {
                 let value = value.clone();
-                match ctx.vm.run_unary_op(crate::UnaryOp::Display, value)? {
-                    Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return unexpected_type("String from @display", &unexpected),
-                }
+
+                ctx.run_with_vm(|mut vm| async move {
+                    match vm.run_unary_op(UnaryOp::Display, value).await? {
+                        Str(s) => stdout.write_line(s.as_str()).map(|_| Null),
+                        unexpected => unexpected_type("String from @display", &unexpected),
+                    }
+                })
             }
             values @ [_, ..] => {
                 let tuple_data = Vec::from(values);
-                match ctx
-                    .vm
-                    .run_unary_op(crate::UnaryOp::Display, KValue::Tuple(tuple_data.into()))?
-                {
-                    Str(s) => ctx.vm.stdout().write_line(s.as_str()),
-                    unexpected => return unexpected_type("String from @display", &unexpected),
-                }
-            }
-            unexpected => return unexpected_args("|Any|, or |Any, Any...|", unexpected),
-        };
 
-        result.map(|_| Null)
+                ctx.run_with_vm(|mut vm| async move {
+                    match vm
+                        .run_unary_op(UnaryOp::Display, KValue::Tuple(tuple_data.into()))
+                        .await?
+                    {
+                        Str(s) => stdout.write_line(s.as_str()).map(|_| Null),
+                        unexpected => unexpected_type("String from @display", &unexpected),
+                    }
+                })
+            }
+            unexpected => unexpected_args::<KValue>("|Any|, or |Any, Any...|", unexpected)
+                .map(FunctionOutput::Ready),
+        }
     });
 
     result.add_fn("read_to_string", |ctx| match ctx.args() {
@@ -146,7 +157,6 @@ pub fn make_module() -> KMap {
 #[koto(runtime = crate)]
 pub struct File(Ptr<dyn KotoFile>);
 
-#[koto_impl(runtime = crate)]
 impl File {
     /// Creates a new [File] from a value that implements [KotoFile]
     pub fn new(file: Ptr<dyn KotoFile>) -> Self {
@@ -161,82 +171,140 @@ impl File {
         Self(make_ptr!(BufferedSystemFile::new(file, path))).into()
     }
 
-    #[koto_method]
-    fn flush(&mut self) -> Result<()> {
-        self.0.flush()
+    fn is_file(value: &KValue) -> bool {
+        matches!(value, KValue::Object(object) if object.is_a::<Self>())
     }
 
-    #[koto_method]
-    fn is_terminal(&self) -> bool {
-        self.0.is_terminal()
+    fn instance_and_args<'a>(ctx: &'a CallContext) -> Result<(Ptr<dyn KotoFile>, &'a [KValue])> {
+        let (instance, args) = ctx.instance_and_args(Self::is_file, Self::type_static())?;
+        match instance {
+            KValue::Object(object) => Ok((object.cast::<Self>()?.0.clone(), args)),
+            _ => unreachable!(),
+        }
     }
 
-    #[koto_method]
-    fn path(&self) -> Result<KString> {
-        self.0.path()
+    fn vm_instance_and_args<'a>(
+        ctx: &'a VmCallContext,
+    ) -> Result<(Ptr<dyn KotoFile>, &'a [KValue])> {
+        let (instance, args) = ctx.instance_and_args(Self::is_file, Self::type_static())?;
+        match instance {
+            KValue::Object(object) => Ok((object.cast::<Self>()?.0.clone(), args)),
+            _ => unreachable!(),
+        }
     }
 
-    #[koto_method]
-    fn read_line(&mut self) -> Result<KValue> {
-        self.0.read_line().map(|result| match result {
-            Some(result) => {
-                if !result.is_empty() {
-                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
-                    result[..result.len() - newline_bytes].into()
-                } else {
-                    KValue::Null
+    fn flush(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
+        match args {
+            [] => file.flush().map(|_| KValue::Null),
+            unexpected => unexpected_args("||", unexpected),
+        }
+    }
+
+    fn is_terminal(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
+        match args {
+            [] => Ok(file.is_terminal().into()),
+            unexpected => unexpected_args("||", unexpected),
+        }
+    }
+
+    fn path(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
+        match args {
+            [] => file.path().map(Into::into),
+            unexpected => unexpected_args("||", unexpected),
+        }
+    }
+
+    fn read_line(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
+        match args {
+            [] => file.read_line().map(|result| match result {
+                Some(result) => {
+                    if !result.is_empty() {
+                        let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                        result[..result.len() - newline_bytes].into()
+                    } else {
+                        KValue::Null
+                    }
                 }
-            }
-            None => KValue::Null,
-        })
+                None => KValue::Null,
+            }),
+            unexpected => unexpected_args("||", unexpected),
+        }
     }
 
-    #[koto_method]
-    fn read_to_string(&mut self) -> Result<String> {
-        self.0.read_to_string()
+    fn read_to_string(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
+        match args {
+            [] => file.read_to_string().map(Into::into),
+            unexpected => unexpected_args("||", unexpected),
+        }
     }
 
-    #[koto_method]
-    fn seek(&mut self, args: &[KValue]) -> Result<KValue> {
+    fn seek(ctx: &mut CallContext) -> Result<KValue> {
+        let (file, args) = Self::instance_and_args(ctx)?;
         match args {
             [KValue::Number(n)] => {
                 if *n < 0.0 {
                     return runtime_error!("negative seek positions not allowed");
                 }
-                self.0.seek(n.into()).map(|_| KValue::Null)
+                file.seek(n.into()).map(|_| KValue::Null)
             }
             unexpected => unexpected_args("|Number|", unexpected),
         }
     }
 
-    #[koto_method]
-    fn write(ctx: MethodContext<Self>) -> Result<KValue> {
-        match ctx.args {
+    fn write(ctx: &mut VmCallContext) -> Result<FunctionOutput> {
+        let (file, args) = Self::vm_instance_and_args(ctx)?;
+        match args {
             [value] => {
-                let mut display_context = DisplayContext::with_vm(ctx.vm);
-                value.display(&mut display_context)?;
-                ctx.instance_mut()?
-                    .0
-                    .write(display_context.result().as_bytes())
-                    .map(|_| KValue::Null)
+                let value = value.clone();
+                ctx.run_with_vm(move |mut vm| async move {
+                    let display = vm.value_to_string(value).await?;
+                    file.write(display.as_bytes()).map(|_| KValue::Null)
+                })
             }
-            unexpected => unexpected_args("|Any|", unexpected),
+            unexpected => unexpected_args::<KValue>("|Any|", unexpected).map(FunctionOutput::Ready),
         }
     }
 
-    #[koto_method]
-    fn write_line(ctx: MethodContext<Self>) -> Result<KValue> {
-        let mut display_context = DisplayContext::with_vm(ctx.vm);
-        match ctx.args {
-            [] => {}
-            [value] => value.display(&mut display_context)?,
-            unexpected => return unexpected_args("||, or |Any|", unexpected),
+    fn write_line(ctx: &mut VmCallContext) -> Result<FunctionOutput> {
+        let (file, args) = Self::vm_instance_and_args(ctx)?;
+        match args {
+            [] => file
+                .write_line("")
+                .map(|_| FunctionOutput::Ready(KValue::Null)),
+            [value] => {
+                let value = value.clone();
+                ctx.run_with_vm(move |mut vm| async move {
+                    let display = vm.value_to_string(value).await?;
+                    file.write_line(display.as_str()).map(|_| KValue::Null)
+                })
+            }
+            unexpected => {
+                unexpected_args::<KValue>("||, or |Any|", unexpected).map(FunctionOutput::Ready)
+            }
+        }
+    }
+}
+
+impl KotoAccess for File {
+    fn access(&self, key: &KString) -> Result<Option<KValue>> {
+        let result = match key.as_str() {
+            "flush" => KNativeFunction::new(Self::flush).into(),
+            "is_terminal" => KNativeFunction::new(Self::is_terminal).into(),
+            "path" => KNativeFunction::new(Self::path).into(),
+            "read_line" => KNativeFunction::new(Self::read_line).into(),
+            "read_to_string" => KNativeFunction::new(Self::read_to_string).into(),
+            "seek" => KNativeFunction::new(Self::seek).into(),
+            "write" => KNativeVmFunction::new(Self::write).into(),
+            "write_line" => KNativeVmFunction::new(Self::write_line).into(),
+            _ => return Ok(None),
         };
-        display_context.append('\n');
-        ctx.instance_mut()?
-            .0
-            .write(display_context.result().as_bytes())
-            .map(|_| KValue::Null)
+
+        Ok(Some(result))
     }
 }
 

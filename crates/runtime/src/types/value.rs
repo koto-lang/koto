@@ -40,8 +40,14 @@ pub enum KValue {
     /// A function that's implemented outside of the Koto runtime
     NativeFunction(KNativeFunction),
 
+    /// A VM-aware function that's implemented outside of the Koto runtime
+    NativeVmFunction(KNativeVmFunction),
+
     /// The iterator type used in Koto
     Iterator(KIterator),
+
+    /// A task that can be awaited
+    Task(KTask),
 
     /// An object with behaviour defined via the [`KotoObject`] trait
     Object(KObject),
@@ -86,6 +92,7 @@ impl KValue {
                 KMap::with_contents(data, meta).into()
             }
             KValue::Iterator(i) => i.make_copy()?.into(),
+            KValue::Task(_) => self.clone(),
             KValue::Object(o) => o.try_borrow()?.copy().into(),
             _ => self.clone(),
         };
@@ -98,9 +105,21 @@ impl KValue {
         use KValue::*;
         match self {
             Function(f) if f.flags.is_generator() => false,
-            Function(_) | NativeFunction(_) => true,
+            Function(_) | NativeFunction(_) | NativeVmFunction(_) => true,
             Map(m) => m.contains_meta_key(&MetaKey::Call),
             Object(o) => o.try_borrow().is_ok_and(|o| o.is_callable()),
+            _ => false,
+        }
+    }
+
+    /// Returns true if calling the value will produce a task that should be awaited automatically
+    /// by VM-aware native functions.
+    pub fn is_async_callable(&self) -> bool {
+        match self {
+            KValue::Function(f) => f.flags.is_async(),
+            KValue::Map(m) if m.contains_meta_key(&MetaKey::Call) => m
+                .get_meta_value(&MetaKey::Call)
+                .is_some_and(|call| call.is_async_callable()),
             _ => false,
         }
     }
@@ -160,6 +179,7 @@ impl KValue {
             (Object(a), Object(b)) => a.is_same_instance(b),
             (List(a), List(b)) => a.is_same_instance(b),
             (Tuple(a), Tuple(b)) => a.is_same_instance(b),
+            (Task(a), Task(b)) => a.is_same_instance(b),
             _ => false,
         }
     }
@@ -180,12 +200,13 @@ impl KValue {
             Str(_) => lazy!(KString; "String"),
             Tuple(_) => lazy!(KString; "Tuple"),
             Function(f) if f.flags.is_generator() => lazy!(KString; "Generator"),
-            Function(_) | NativeFunction(_) => lazy!(KString; "Function"),
+            Function(_) | NativeFunction(_) | NativeVmFunction(_) => lazy!(KString; "Function"),
             Object(o) => o.try_borrow().map_or_else(
                 |_| "Error: object already borrowed".into(),
                 |o| o.type_string(),
             ),
             Iterator(_) => lazy!(KString; "Iterator"),
+            Task(_) => lazy!(KString; "Task"),
             TemporaryTuple { .. } => lazy!(KString; "TemporaryTuple"),
         }
     }
@@ -207,12 +228,20 @@ impl KValue {
             }
             NativeFunction(f) => {
                 if ctx.debug_enabled() {
-                    write!(ctx, "|| ({})", Ptr::address(&f.function))
+                    write!(ctx, "|| ({})", f.address())
+                } else {
+                    write!(ctx, "||")
+                }
+            }
+            NativeVmFunction(f) => {
+                if ctx.debug_enabled() {
+                    write!(ctx, "|| ({})", f.address())
                 } else {
                     write!(ctx, "||")
                 }
             }
             Iterator(_) => write!(ctx, "Iterator"),
+            Task(_) => write!(ctx, "Task"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(ctx, "TemporaryTuple [{start}..{}]", start + count)
             }
@@ -310,9 +339,21 @@ impl From<KIterator> for KValue {
     }
 }
 
+impl From<KTask> for KValue {
+    fn from(value: KTask) -> Self {
+        Self::Task(value)
+    }
+}
+
 impl From<KNativeFunction> for KValue {
     fn from(value: KNativeFunction) -> Self {
         Self::NativeFunction(value)
+    }
+}
+
+impl From<KNativeVmFunction> for KValue {
+    fn from(value: KNativeVmFunction) -> Self {
+        Self::NativeVmFunction(value)
     }
 }
 
@@ -439,6 +480,9 @@ mod tests {
         assert!(size_of::<KList>() <= 16);
         assert!(size_of::<KMap>() <= 16);
         assert!(size_of::<KObject>() <= 16);
+        assert!(size_of::<KTask>() <= 16);
+        assert!(size_of::<KNativeFunction>() <= 16);
+        assert!(size_of::<KNativeVmFunction>() <= 16);
         assert!(size_of::<KFunction>() <= 24);
         assert!(size_of::<KValue>() <= 24);
     }

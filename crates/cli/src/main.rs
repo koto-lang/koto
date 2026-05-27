@@ -11,6 +11,8 @@ use koto::{
 use koto_format::FormatOptions;
 use repl::{EditMode, Repl, ReplSettings};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "tokio")]
+use std::time::Duration;
 use std::{env, error::Error, fs, io, path::PathBuf};
 
 #[global_allocator]
@@ -115,7 +117,54 @@ fn parse_arguments() -> Result<KotoArgs> {
     })
 }
 
+#[cfg(feature = "tokio")]
+#[derive(Clone)]
+struct TokioTaskExecutor {
+    handle: tokio::runtime::Handle,
+}
+
+#[cfg(feature = "tokio")]
+impl TokioTaskExecutor {
+    fn new(handle: tokio::runtime::Handle) -> Self {
+        Self { handle }
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl KotoTaskExecutor for TokioTaskExecutor {
+    fn poll(
+        &self,
+        task: &mut KTask,
+        context: &mut std::task::Context<'_>,
+    ) -> koto::runtime::Result<KTaskPoll> {
+        let _guard = self.handle.enter();
+        task.poll_with_context(context)
+    }
+
+    fn sleep(&self, duration: Duration) -> koto::runtime::Result<KTask> {
+        self.spawn(KTask::with_future(async move {
+            tokio::time::sleep(duration).await;
+            Ok(KValue::Null)
+        }))
+    }
+}
+
 fn main() -> Result<()> {
+    #[cfg(feature = "tokio")]
+    {
+        let tokio_runtime =
+            tokio::runtime::Runtime::new().context("failed to start the Tokio runtime")?;
+        let _guard = tokio_runtime.enter();
+        run(tokio_runtime.handle().clone())
+    }
+
+    #[cfg(not(feature = "tokio"))]
+    {
+        run()
+    }
+}
+
+fn run(#[cfg(feature = "tokio")] tokio_handle: tokio::runtime::Handle) -> Result<()> {
     let args = match parse_arguments() {
         Ok(args) => args,
         Err(error) => {
@@ -137,16 +186,24 @@ fn main() -> Result<()> {
         return Config::print_default();
     }
 
+    let vm_settings = KotoVmSettings {
+        run_import_tests: args.run_import_tests,
+        args: args.script_args,
+        stdin: make_ptr!(SystemStdin::default()),
+        stdout: make_ptr!(SystemStdout::default()),
+        stderr: make_ptr!(SystemStderr::default()),
+        ..Default::default()
+    };
+
+    #[cfg(feature = "tokio")]
+    let vm_settings = KotoVmSettings {
+        task_executor: make_ptr!(TokioTaskExecutor::new(tokio_handle)),
+        ..vm_settings
+    };
+
     let koto_settings = KotoSettings {
         run_tests: args.run_tests || args.run_import_tests,
-        vm_settings: KotoVmSettings {
-            run_import_tests: args.run_import_tests,
-            args: args.script_args,
-            stdin: make_ptr!(SystemStdin::default()),
-            stdout: make_ptr!(SystemStdout::default()),
-            stderr: make_ptr!(SystemStderr::default()),
-            ..Default::default()
-        },
+        vm_settings,
     };
 
     let mut stdin = io::stdin();
@@ -249,6 +306,10 @@ fn add_modules(koto: &Koto) {
     let prelude = koto.prelude();
     prelude.insert("color", koto_color::make_module());
     prelude.insert("geometry", koto_geometry::make_module());
+    #[cfg(feature = "tokio")]
+    prelude.insert("http", koto_http::make_module());
+    #[cfg(feature = "tokio")]
+    prelude.insert("io_async", koto_io_async::make_module());
     prelude.insert("json", koto_json::make_module());
     prelude.insert("random", koto_random::make_module());
     prelude.insert("regex", koto_regex::make_module());

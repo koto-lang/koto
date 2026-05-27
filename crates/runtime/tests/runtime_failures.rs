@@ -3,8 +3,19 @@
 mod runtime {
     use koto_bytecode::{CompilerSettings, ModuleLoader};
     use koto_lexer::{Position, Span};
-    use koto_runtime::{InstructionFrame, KotoVm};
+    use koto_runtime::{InstructionFrame, KValue, KotoVm};
     use koto_test_utils::script_instructions;
+
+    fn value_to_string(vm: &mut KotoVm, value: &KValue) -> String {
+        match vm
+            .value_to_string(value)
+            .and_then(|output| output.into_task().block_on(vm))
+            .unwrap()
+        {
+            KValue::Str(result) => result.as_str().to_owned(),
+            unexpected => panic!("Expected String from @display, found {unexpected:?}"),
+        }
+    }
 
     fn check_script_fails(script: &str) {
         check_that_script_fails(script, None, None);
@@ -34,12 +45,15 @@ mod runtime {
             }
         };
 
-        match vm.run(chunk) {
+        match vm
+            .run(chunk)
+            .and_then(|output| output.into_task().block_on(&vm))
+        {
             Ok(result) => {
                 println!("{}", script_instructions(script, vm.chunk()));
                 panic!(
                     "Script didn't fail as expected, result: {}",
-                    vm.value_to_string(&result).unwrap()
+                    value_to_string(&mut vm, &result)
                 )
             }
             Err(e) => {

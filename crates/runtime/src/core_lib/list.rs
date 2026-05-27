@@ -2,7 +2,7 @@
 
 use super::{
     iterator::collect_pair,
-    value_sort::{sort_by_key, sort_values},
+    value_sort::{sort_by_key_async, sort_values_async},
 };
 use crate::prelude::*;
 use std::{cmp::Ordering, ops::DerefMut};
@@ -23,69 +23,77 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("contains", |ctx| {
+    result.add_vm_fn("contains", |ctx| {
         let expected_error = "|List|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [value]) => {
-                let l = l.clone();
+                let candidates = l.data().iter().cloned().collect::<Vec<_>>();
                 let value = value.clone();
-                for candidate in l.data().iter() {
-                    match ctx
-                        .vm
-                        .run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone())
-                    {
-                        Ok(KValue::Bool(false)) => {}
-                        Ok(KValue::Bool(true)) => return Ok(true.into()),
-                        Ok(unexpected) => {
-                            return runtime_error!(
-                                "list.contains: Expected Bool from comparison, found '{}'",
-                                unexpected.type_as_string()
-                            );
+
+                ctx.run_with_vm(|mut vm| async move {
+                    for candidate in candidates {
+                        match vm
+                            .run_binary_op(BinaryOp::Equal, value.clone(), candidate)
+                            .await?
+                        {
+                            KValue::Bool(false) => {}
+                            KValue::Bool(true) => return Ok(true.into()),
+                            unexpected => {
+                                return runtime_error!(
+                                    "list.contains: Expected Bool from comparison, found '{}'",
+                                    unexpected.type_as_string()
+                                );
+                            }
                         }
-                        Err(e) => return Err(e),
                     }
-                }
-                Ok(false.into())
+
+                    Ok(false.into())
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("extend", |ctx| {
+    result.add_vm_fn("extend", |ctx| {
         let expected_error = "|List, Iterable|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [KValue::List(other)]) => {
                 l.data_mut().extend(other.data().iter().cloned());
-                Ok(KValue::List(l.clone()))
+                Ok(KValue::List(l.clone()).into())
             }
             (KValue::List(l), [KValue::Tuple(other)]) => {
                 l.data_mut().extend(other.iter().cloned());
-                Ok(KValue::List(l.clone()))
+                Ok(KValue::List(l.clone()).into())
             }
             (KValue::List(l), [iterable]) if iterable.is_iterable() => {
                 let l = l.clone();
                 let iterable = iterable.clone();
-                let iterator = ctx.vm.make_iterator(iterable)?;
 
-                {
-                    let mut list_data = l.data_mut();
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut iterator = vm.make_iterator(iterable).await?;
                     let (size_hint, _) = iterator.size_hint();
-                    list_data.reserve(size_hint);
+                    l.data_mut().reserve(size_hint);
 
-                    for value in iterator.map(collect_pair) {
-                        match value {
-                            KIteratorOutput::Value(value) => list_data.push(value.clone()),
+                    while let Some(output) = vm.next(&mut iterator).await? {
+                        match collect_pair(output) {
+                            KIteratorOutput::Value(value) => l.data_mut().push(value),
                             KIteratorOutput::Error(error) => return Err(error),
                             _ => unreachable!(),
                         }
                     }
-                }
 
-                Ok(KValue::List(l))
+                    Ok(KValue::List(l))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -236,7 +244,7 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("resize_with", |ctx| {
+    result.add_vm_fn("resize_with", |ctx| {
         let expected_error = "|List, Number, || -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
@@ -253,92 +261,97 @@ pub fn make_module() -> KMap {
                 match len.cmp(&new_size) {
                     Ordering::Greater => l.data_mut().truncate(new_size),
                     Ordering::Less => {
-                        l.data_mut().reserve(new_size);
-                        for _ in 0..new_size - len {
-                            let new_value = ctx.vm.call_function(f.clone(), &[])?;
-                            l.data_mut().push(new_value);
-                        }
+                        return ctx.run_with_vm(|mut vm| async move {
+                            l.data_mut().reserve(new_size);
+                            for _ in 0..new_size - len {
+                                let new_value =
+                                    vm.call_function_with_args(f.clone(), Vec::new()).await?;
+                                l.data_mut().push(new_value);
+                            }
+
+                            Ok(KValue::List(l))
+                        });
                     }
                     Ordering::Equal => {}
                 }
 
-                Ok(KValue::List(l))
+                Ok(KValue::List(l).into())
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
-    result.add_fn("retain", |ctx| {
-        let result = {
-            let expected_error = "|List, Any|";
+    result.add_vm_fn("retain", |ctx| {
+        let expected_error = "|List, Any|";
 
-            match ctx.instance_and_args(is_list, expected_error)? {
-                (KValue::List(l), [f]) if f.is_callable() => {
-                    let l = l.clone();
-                    let f = f.clone();
+        match ctx.instance_and_args(is_list, expected_error)? {
+            (KValue::List(l), [f]) if f.is_callable() => {
+                let l = l.clone();
+                let f = f.clone();
+                let values = l.data().iter().cloned().collect::<Vec<_>>();
 
-                    let mut write_index = 0;
-                    for read_index in 0..l.len() {
-                        let value = l.data()[read_index].clone();
-                        match ctx.vm.call_function(f.clone(), value.clone()) {
-                            Ok(KValue::Bool(result)) => {
-                                if result {
-                                    l.data_mut()[write_index] = value;
-                                    write_index += 1;
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut result = ValueVec::with_capacity(values.len());
+
+                    for value in values {
+                        match vm.call_function_with_arg(f.clone(), value.clone()).await? {
+                            KValue::Bool(keep) => {
+                                if keep {
+                                    result.push(value);
                                 }
                             }
-                            Ok(unexpected) => {
+                            unexpected => {
                                 return unexpected_type(
                                     "a Bool to returned from the predicate",
                                     &unexpected,
                                 );
                             }
-                            Err(error) => return Err(error),
                         }
                     }
-                    l.data_mut().resize(write_index, KValue::Null);
-                    l
-                }
-                (KValue::List(l), [value]) => {
-                    let l = l.clone();
-                    let value = value.clone();
 
-                    let mut error = None;
-                    l.data_mut().retain(|x| {
-                        if error.is_some() {
-                            return true;
-                        }
-                        match ctx
-                            .vm
-                            .run_binary_op(BinaryOp::Equal, x.clone(), value.clone())
+                    *l.data_mut() = result;
+                    Ok(KValue::List(l))
+                })
+            }
+            (KValue::List(l), [value]) => {
+                let l = l.clone();
+                let value = value.clone();
+                let values = l.data().iter().cloned().collect::<Vec<_>>();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut result = ValueVec::with_capacity(values.len());
+
+                    for candidate in values {
+                        match vm
+                            .run_binary_op(BinaryOp::Equal, candidate.clone(), value.clone())
+                            .await?
                         {
-                            Ok(KValue::Bool(true)) => true,
-                            Ok(KValue::Bool(false)) => false,
-                            Ok(unexpected) => {
-                                error = Some(unexpected_type(
+                            KValue::Bool(keep) => {
+                                if keep {
+                                    result.push(candidate);
+                                }
+                            }
+                            unexpected => {
+                                return unexpected_type(
                                     "a Bool from the equality comparison",
                                     &unexpected,
-                                ));
-                                true
-                            }
-                            Err(e) => {
-                                error = Some(Err(e));
-                                true
+                                );
                             }
                         }
-                    });
-                    if let Some(error) = error {
-                        return error;
                     }
-                    l
-                }
-                (instance, args) => {
-                    return unexpected_args_after_instance(expected_error, instance, args);
-                }
-            }
-        };
 
-        Ok(KValue::List(result))
+                    *l.data_mut() = result;
+                    Ok(KValue::List(l))
+                })
+            }
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
+        }
     });
 
     result.add_fn("reverse", |ctx| {
@@ -353,28 +366,40 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("sort", |ctx| {
+    result.add_vm_fn("sort", |ctx| {
         let expected_error = "|List|, or |List, |Any| -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), []) => {
                 let l = l.clone();
-                let mut data = l.data_mut();
-                sort_values(ctx.vm, &mut data)?;
-                Ok(KValue::List(l.clone()))
+                let mut values = l.data().iter().cloned().collect::<Vec<_>>();
+
+                ctx.run_with_vm(|mut vm| async move {
+                    sort_values_async(&mut vm, &mut values).await?;
+                    *l.data_mut() = values.into_iter().collect();
+                    Ok(KValue::List(l))
+                })
             }
             (KValue::List(l), [f]) if f.is_callable() => {
                 let l = l.clone();
+                let f = f.clone();
+                let values = l.data().iter().cloned().collect::<Vec<_>>();
 
-                let sorted = sort_by_key(ctx.vm, l.data().as_ref(), f.clone())?;
+                ctx.run_with_vm(|mut vm| async move {
+                    let sorted = sort_by_key_async(&mut vm, &values, f).await?;
 
-                for (target_value, (_key, source_value)) in l.data_mut().iter_mut().zip(sorted) {
-                    *target_value = source_value;
-                }
+                    *l.data_mut() = sorted
+                        .into_iter()
+                        .map(|(_key, value)| value)
+                        .collect::<ValueVec>();
 
-                Ok(KValue::List(l))
+                    Ok(KValue::List(l))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 
@@ -399,24 +424,30 @@ pub fn make_module() -> KMap {
         }
     });
 
-    result.add_fn("transform", |ctx| {
+    result.add_vm_fn("transform", |ctx| {
         let expected_error = "|List, |Any| -> Any|";
 
         match ctx.instance_and_args(is_list, expected_error)? {
             (KValue::List(l), [f]) if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
+                let values = l.data().iter().cloned().collect::<Vec<_>>();
 
-                for value in l.data_mut().iter_mut() {
-                    *value = match ctx.vm.call_function(f.clone(), value.clone()) {
-                        Ok(result) => result,
-                        Err(error) => return Err(error),
+                ctx.run_with_vm(|mut vm| async move {
+                    let mut result = ValueVec::with_capacity(values.len());
+
+                    for value in values {
+                        result.push(vm.call_function_with_arg(f.clone(), value).await?);
                     }
-                }
 
-                Ok(KValue::List(l))
+                    *l.data_mut() = result;
+                    Ok(KValue::List(l))
+                })
             }
-            (instance, args) => unexpected_args_after_instance(expected_error, instance, args),
+            (instance, args) => {
+                unexpected_args_after_instance::<KValue>(expected_error, instance, args)
+                    .map(FunctionOutput::Ready)
+            }
         }
     });
 

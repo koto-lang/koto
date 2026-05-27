@@ -39,6 +39,7 @@ criterion = { workspace = true }
 dunce = { workspace = true }
 mimalloc = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [[bench]]
 name = "koto_benchmark"

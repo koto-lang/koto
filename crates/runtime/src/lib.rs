@@ -24,12 +24,14 @@ pub use crate::{
     },
     send_sync::{KotoSend, KotoSync},
     types::{
-        BinaryOp, CallContext, IsIterable, KFunction, KIterator, KIteratorOutput, KList, KMap,
-        KNativeFunction, KNumber, KObject, KRange, KString, KTuple, KValue, KotoAccess, KotoCopy,
-        KotoField, KotoFunction, KotoHasher, KotoIterator, KotoObject, KotoType, MetaKey, MetaMap,
-        MethodContext, ReadOp, UnaryOp, ValueKey, ValueMap, ValueVec, WriteOp,
+        ActiveTasks, AsyncKotoVm, BinaryOp, CallContext, FunctionOutput, IsIterable, KFunction,
+        KIterator, KIteratorNext, KIteratorOutput, KList, KMap, KNativeFunction, KNativeVmFunction,
+        KNumber, KObject, KRange, KString, KTask, KTaskPoll, KTuple, KValue, KotoAccess, KotoCopy,
+        KotoField, KotoFunction, KotoFuture, KotoHasher, KotoIterator, KotoObject,
+        KotoTaskExecutor, KotoType, KotoVmFunction, LocalTaskExecutor, MetaKey, MetaMap,
+        MethodContext, ReadOp, UnaryOp, ValueKey, ValueMap, ValueVec, VmCallContext, WriteOp,
     },
-    vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield},
+    vm::{CallArgs, KotoVm, KotoVmSettings, ModuleImportedCallback, ReturnOrYield, VmOutput},
 };
 pub use koto_derive as derive;
 pub use koto_memory::{Borrow, BorrowMut, KCell, Ptr, PtrMut, lazy, make_ptr, make_ptr_mut};

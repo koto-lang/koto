@@ -17,7 +17,9 @@ mod timeout {
             }
         };
 
-        let result = vm.run(chunk);
+        let result = vm
+            .run(chunk)
+            .and_then(|output| output.into_task().block_on(&vm));
 
         if should_timeout {
             match result {

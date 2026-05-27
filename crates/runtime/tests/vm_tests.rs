@@ -3334,6 +3334,69 @@ fold 0..5, |n, _| n + 1";
         }
     }
 
+    mod async_tasks {
+        use super::*;
+
+        #[test]
+        fn await_ready_value() {
+            check_script_output("await 42", 42);
+        }
+
+        #[test]
+        fn async_function_returns_task() {
+            let script = "
+f = || await 42
+koto.type f()
+";
+            check_script_output(script, "Task");
+        }
+
+        #[test]
+        fn await_async_function() {
+            let script = "
+f = || await 42
+await f()
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn nested_awaits() {
+            let script = "
+add_one = |x| await x + 1
+add_two = |x|
+  y = await add_one x
+  await add_one y
+await add_two 40
+";
+            check_script_output(script, 42);
+        }
+
+        #[test]
+        fn task_runs_once() {
+            let script = "
+counter = [0]
+f = ||
+  counter[0] += 1
+  await counter[0]
+t = f()
+(await t), (await t), counter[0]
+";
+            check_script_output(script, number_tuple(&[1, 1, 1]));
+        }
+
+        #[test]
+        fn await_in_nested_function_doesnt_make_parent_async() {
+            let script = "
+f = ||
+  _nested = || await 42
+  99
+f()
+";
+            check_script_output(script, 99);
+        }
+    }
+
     mod generators {
         use super::*;
 
@@ -3345,6 +3408,27 @@ gen = ||
   yield 2
 gen().to_tuple()";
             check_script_output(script, number_tuple(&[1, 2]));
+        }
+
+        #[test]
+        fn generator_with_awaits() {
+            let script = "
+gen = ||
+  yield await 1
+  x = await 2
+  yield x + 1
+gen().to_tuple()";
+            check_script_output(script, number_tuple(&[1, 3]));
+        }
+
+        #[test]
+        fn function_with_await_and_yield_is_a_generator() {
+            let script = "
+gen = ||
+  x = await 1
+  yield x
+(koto.type gen), (koto.type gen())";
+            check_script_output(script, tuple(&["Generator".into(), "Iterator".into()]));
         }
 
         #[test]

@@ -1,4 +1,5 @@
 use crate::{Ptr, Result, lazy, prelude::*};
+use koto_memory::Address;
 use std::ops::{Deref, Range};
 
 /// The Tuple type used by the Koto runtime
@@ -128,13 +129,17 @@ impl KTuple {
         ptr_a == ptr_b && bounds_a == bounds_b
     }
 
-    /// Renders the tuple into the provided display context
-    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
-        let id = Ptr::address(match &self.0 {
+    pub(crate) fn address(&self) -> Address {
+        Ptr::address(match &self.0 {
             Inner::Full(data) => data,
             Inner::SliceLarge(slice) => &slice.data,
             Inner::Slice(slice) => &slice.data,
-        });
+        })
+    }
+
+    /// Renders the tuple into the provided display context
+    pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
+        let id = self.address();
         ctx.push_container(id);
         ctx.append('(');
 

@@ -318,8 +318,11 @@ fn unsupported_error<T>(expected: &str, value: &KValue) -> Result<T> {
         KValue::List(_) | KValue::Tuple(_) => Unexpected::Seq,
         KValue::Map(_) => Unexpected::Map,
         KValue::Str(s) => Unexpected::Str(s.as_str()),
-        KValue::Function(_) | KValue::NativeFunction(_) => Unexpected::Other("function"),
+        KValue::Function(_) | KValue::NativeFunction(_) | KValue::NativeVmFunction(_) => {
+            Unexpected::Other("function")
+        }
         KValue::Iterator(_) => Unexpected::Other("iterator"),
+        KValue::Task(_) => Unexpected::Other("task"),
         KValue::Object(_) => Unexpected::Other("object"),
         KValue::TemporaryTuple(_) => Unexpected::Other("temp tuple"),
     };

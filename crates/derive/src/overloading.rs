@@ -13,15 +13,20 @@ use syn::{
 pub(crate) enum OverloadOptions {
     Function,
     Method,
+    VmMethod,
 }
 
 impl OverloadOptions {
     fn allow_self(&self) -> bool {
-        matches!(self, OverloadOptions::Method)
+        matches!(self, OverloadOptions::Method | OverloadOptions::VmMethod)
     }
 
     fn allow_method_context(&self) -> bool {
         matches!(self, OverloadOptions::Method)
+    }
+
+    fn allow_vm_call_context(&self) -> bool {
+        matches!(self, OverloadOptions::VmMethod)
     }
 
     fn allow_call_context(&self) -> bool {
@@ -106,7 +111,10 @@ impl OverloadedFunction {
             unexpected_args(#unexpected_args_error, unexpected)
         };
 
-        let error_arm = if matches!(self.options(), OverloadOptions::Method) {
+        let error_arm = if matches!(
+            self.options(),
+            OverloadOptions::Method | OverloadOptions::VmMethod
+        ) {
             quote!((_, unexpected) => #error_expr,)
         } else {
             quote!(unexpected => #error_expr,)
@@ -172,7 +180,10 @@ impl OverloadedFunctionCandidate {
             #fn_name(#(#call_exprs, )*)
         };
 
-        if matches!(self.options, OverloadOptions::Method) {
+        if matches!(
+            self.options,
+            OverloadOptions::Method | OverloadOptions::VmMethod
+        ) {
             call = quote!(Self::#call);
         }
 
@@ -198,11 +209,21 @@ impl OverloadedFunctionCandidate {
             },
         };
 
-        // Special handling of methods with a `MethodContext`.
-        if matches!(self.options, OverloadOptions::Method) {
+        // Special handling of methods with context args that receive all call args.
+        if matches!(
+            self.options,
+            OverloadOptions::Method | OverloadOptions::VmMethod
+        ) {
             let has_method_context_param = self.args.inner.iter().any(|arg| matches!(&arg.kind, KotoArgKind::Context(context) if matches!(context.kind, KotoContextArgKind::MethodContext)));
 
             if has_method_context_param {
+                if !matches!(self.options, OverloadOptions::Method) {
+                    return Err(Error::new_spanned(
+                        &self.item.sig.inputs,
+                        "`MethodContext` is not supported for `#[koto_vm_method]`, use `VmCallContext` instead",
+                    ));
+                }
+
                 if self.args.inner.len() > 1 {
                     return Err(Error::new_spanned(
                         &self.item.sig.inputs,
@@ -218,13 +239,42 @@ impl OverloadedFunctionCandidate {
 
                 return Ok(arm);
             }
+
+            let has_vm_call_context_param = self.args.inner.iter().any(|arg| matches!(&arg.kind, KotoArgKind::Context(context) if matches!(context.kind, KotoContextArgKind::VmCallContext)));
+
+            if has_vm_call_context_param {
+                if !matches!(self.options, OverloadOptions::VmMethod) {
+                    return Err(Error::new_spanned(
+                        &self.item.sig.inputs,
+                        "`VmCallContext` is only supported for `#[koto_vm_method]`",
+                    ));
+                }
+
+                if self.args.inner.len() > 1 {
+                    return Err(Error::new_spanned(
+                        &self.item.sig.inputs,
+                        "Unexpected additional parameter for a `#[koto_vm_method]` taking a `VmCallContext`",
+                    ));
+                }
+
+                let wrapped_call = self.wrap_call(call);
+
+                let arm = quote! {
+                    (KValue::Object(_), _) => { #wrapped_call }
+                };
+
+                return Ok(arm);
+            }
         }
 
         let mut pattern = quote! {
             [#(#match_pats,)*]
         };
 
-        if matches!(self.options, OverloadOptions::Method) {
+        if matches!(
+            self.options,
+            OverloadOptions::Method | OverloadOptions::VmMethod
+        ) {
             pattern = quote!((KValue::Object(o), #pattern));
         }
 
@@ -241,7 +291,7 @@ impl OverloadedFunctionCandidate {
                     return #wrapped_call;
                 }}
             }
-            OverloadOptions::Method => {
+            OverloadOptions::Method | OverloadOptions::VmMethod => {
                 // Special handling of methods with `self`.
                 if let Some(KotoArg {
                     kind: KotoArgKind::Receiver(receiver),
@@ -301,16 +351,21 @@ impl OverloadedFunctionCandidate {
                         },
                     };
 
+                    let ref_self_result = match self.options {
+                        OverloadOptions::VmMethod => quote!(Ok(VmOutput::Ready(o.clone().into()))),
+                        _ => quote!(Ok(o.clone().into())),
+                    };
+
                     let expr = match return_kind {
                         ReturnKind::RefSelf => quote! {{
                             #(#setup_exprs)*
                             #call;
-                            return Ok(o.clone().into());
+                            return #ref_self_result;
                         }},
                         ReturnKind::ResultRefSelf => quote! {{
                             #(#setup_exprs)*
                             #call?;
-                            return Ok(o.clone().into());
+                            return #ref_self_result;
                         }},
                         ReturnKind::Other => {
                             let wrapped_call = self.wrap_call(call);
@@ -362,6 +417,7 @@ impl OverloadedFunctionCandidate {
         let return_trait = match self.options {
             OverloadOptions::Function => quote_spanned!(span=> KotoFunctionReturn),
             OverloadOptions::Method => quote_spanned!(span=> KotoMethodReturn),
+            OverloadOptions::VmMethod => quote_spanned!(span=> KotoVmMethodReturn),
         };
 
         // Attach a span to so a type error will point at the right place.
@@ -554,6 +610,16 @@ impl KotoArg {
                             ));
                         }
                     }
+                    "VmCallContext" => {
+                        if options.allow_vm_call_context() {
+                            arg.context(VmCallContext)
+                        } else {
+                            return Err(Error::new_spanned(
+                                ident,
+                                "`VmCallContext` is not supported here",
+                            ));
+                        }
+                    }
                     // Unknown types can be assumed to implement `KotoObject`
                     _ => arg
                         .value(Object(ident_string))
@@ -615,6 +681,7 @@ impl KotoArg {
                     KotoContextArgKind::MethodContext => Some(quote! {
                         MethodContext::new(&o, extra_args, ctx.vm)
                     }),
+                    KotoContextArgKind::VmCallContext => Some(quote!(ctx)),
                 },
                 KotoArgKind::Receiver(receiver) => {
                     if receiver.is_mut {
@@ -704,6 +771,7 @@ struct KotoContextArg {
 
 enum KotoContextArgKind {
     MethodContext,
+    VmCallContext,
     CallContext,
     KotoVm,
 }

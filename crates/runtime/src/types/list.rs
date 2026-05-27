@@ -1,4 +1,5 @@
 use crate::{Borrow, BorrowMut, PtrMut, Result, prelude::*};
+use koto_memory::Address;
 
 /// The underlying `Vec` type used by [KList]
 pub type ValueVec = smallvec::SmallVec<[KValue; 4]>;
@@ -48,11 +49,15 @@ impl KList {
         PtrMut::ptr_eq(&self.0, &other.0)
     }
 
+    pub(crate) fn address(&self) -> Address {
+        PtrMut::address(&self.0)
+    }
+
     /// Renders the list to the provided display context
     pub fn display(&self, ctx: &mut DisplayContext) -> Result<()> {
         ctx.append('[');
 
-        let id = PtrMut::address(&self.0);
+        let id = self.address();
         if ctx.is_in_parents(id) {
             ctx.append("...");
         } else {
