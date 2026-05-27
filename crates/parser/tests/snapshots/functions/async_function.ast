@@ -1,0 +1,11 @@
+# ---
+|| await 1
+# ---
+constants:
+  []
+nodes:
+  0: FunctionArgs { args: [], variadic: false, output_type: None }
+  1: SmallInt(1)
+  2: Await(AstIndex(1))
+  3: Function(Function { args: AstIndex(0), local_count: 0, accessed_non_locals: [], body: AstIndex(2), is_generator: false, is_async: true })
+  4: MainBlock { body: [AstIndex(3)], local_count: 0 }

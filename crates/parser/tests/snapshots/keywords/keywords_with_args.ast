@@ -1,6 +1,7 @@
 # ---
 not true
 debug x + x
+await x + 1
 # ---
 constants:
   0: Str("x")
@@ -12,4 +13,8 @@ nodes:
   3: Id(ConstantIndex(0), None)
   4: BinaryOp { op: Add, lhs: AstIndex(2), rhs: AstIndex(3) }
   5: Debug { expression_string: ConstantIndex(1), expression: AstIndex(4) }
-  6: MainBlock { body: [AstIndex(1), AstIndex(5)], local_count: 0 }
+  6: Id(ConstantIndex(0), None)
+  7: SmallInt(1)
+  8: BinaryOp { op: Add, lhs: AstIndex(6), rhs: AstIndex(7) }
+  9: Await(AstIndex(8))
+  10: MainBlock { body: [AstIndex(1), AstIndex(5), AstIndex(9)], local_count: 0 }

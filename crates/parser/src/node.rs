@@ -337,6 +337,9 @@ pub enum Node {
     /// A throw expression
     Throw(AstIndex),
 
+    /// An await expression
+    Await(AstIndex),
+
     /// A yield expression
     Yield(AstIndex),
 
@@ -383,6 +386,10 @@ pub struct Function {
     ///
     /// The presence of a `yield` expression in the function body will set this to true.
     pub is_generator: bool,
+    /// A flag that indicates if the function is async or not
+    ///
+    /// The presence of an `await` expression in the function body will set this to true.
+    pub is_async: bool,
 }
 
 /// A string definition

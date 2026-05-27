@@ -427,6 +427,7 @@ mod parser {
             piped_call_chain,
             indented_piped_calls_after_chain,
             generator_function,
+            async_function,
             unpack_call_args,
             multiline_comment_before_function_with_default_arg,
             unpacked_map_argument,

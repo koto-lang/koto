@@ -15,5 +15,5 @@ nodes:
   2: Assign { target: AstIndex(0), expression: AstIndex(1), let_assignment: false }
   3: FunctionArgs { args: [AstIndex(2)], variadic: false, output_type: None }
   4: Id(ConstantIndex(0), None)
-  5: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(4), is_generator: false })
+  5: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(4), is_generator: false, is_async: false })
   6: MainBlock { body: [AstIndex(5)], local_count: 0 }

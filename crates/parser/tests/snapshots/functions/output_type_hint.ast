@@ -24,5 +24,5 @@ nodes:
   3: FunctionArgs { args: [AstIndex(1)], variadic: false, output_type: Some(AstIndex(2)) }
   4: Id(ConstantIndex(0), None)
   5: Block([AstIndex(4)])
-  6: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(5), is_generator: false })
+  6: Function(Function { args: AstIndex(3), local_count: 1, accessed_non_locals: [], body: AstIndex(5), is_generator: false, is_async: false })
   7: MainBlock { body: [AstIndex(6)], local_count: 0 }

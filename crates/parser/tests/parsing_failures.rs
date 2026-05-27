@@ -750,13 +750,17 @@ switch
             }
         }
 
-        mod reserved_keywords {
+        mod keyword_expressions {
             use super::*;
 
             #[test]
-            fn r#await() {
+            fn await_requires_expression() {
                 check_parsing_fails("await = 99");
             }
+        }
+
+        mod reserved_keywords {
+            use super::*;
 
             #[test]
             fn r#const() {

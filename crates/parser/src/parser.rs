@@ -20,6 +20,8 @@ use std::{
 struct Frame {
     // If a frame contains yield then it represents a generator function
     contains_yield: bool,
+    // If a frame contains await then it represents an async function
+    contains_await: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_frame: HashSet<ConstantIndex>,
     // IDs and chain roots which were accessed when not locally assigned at the time of access
@@ -1017,6 +1019,17 @@ impl<'source> Parser<'source> {
                     self.consume_token_and_error(SyntaxError::ExpectedExpression)
                 }
             }
+            Token::Await => {
+                self.consume_token_with_context(context);
+                let start_span = self.current_span();
+
+                if let Some(expression) = self.parse_expression(&context.start_new_expression())? {
+                    self.frame_mut()?.contains_await = true;
+                    self.push_node_with_start_span(Node::Await(expression), start_span)
+                } else {
+                    self.consume_token_and_error(SyntaxError::ExpectedExpression)
+                }
+            }
             Token::Loop => self.consume_loop_block(context),
             Token::For => self.consume_for_loop(context),
             Token::While => self.consume_while_loop(context),
@@ -1046,7 +1059,6 @@ impl<'source> Parser<'source> {
             Token::Try => self.consume_try_expression(context),
             Token::Let => self.consume_let_expression(context),
             // Reserved keywords
-            Token::Await => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             Token::Const => self.consume_token_and_error(SyntaxError::ReservedKeyword),
             // An error occurred in the lexer
             Token::Error => self.consume_token_and_error(SyntaxError::UnexpectedToken),
@@ -1317,6 +1329,7 @@ impl<'source> Parser<'source> {
                 accessed_non_locals: AstVec::from_iter(function_frame.accessed_non_locals),
                 body,
                 is_generator: function_frame.contains_yield,
+                is_async: function_frame.contains_await,
             }),
             start_span,
         )
