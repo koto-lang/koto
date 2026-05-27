@@ -1,0 +1,24 @@
+[package]
+name = "koto_io_async"
+version = "0.17.0"
+description = "A Koto library for async IO operations"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
+
+[dependencies]
+koto_runtime = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }

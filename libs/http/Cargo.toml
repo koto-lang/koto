@@ -1,0 +1,27 @@
+[package]
+name = "koto_http"
+version = "0.17.0"
+description = "A Koto library for async HTTP operations"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_runtime/arc", "koto_serde/arc"]
+rc = ["koto_runtime/rc", "koto_serde/rc"]
+
+[dependencies]
+koto_runtime = { workspace = true }
+koto_serde = { workspace = true }
+
+reqwest = { workspace = true, features = ["rustls-tls"] }
+serde_json = { workspace = true }
