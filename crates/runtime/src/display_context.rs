@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::TryReserveError, fmt, result::Result as StdResult};
 
 use koto_memory::Address;
 
@@ -38,6 +38,11 @@ impl<'a> DisplayContext<'a> {
         }
     }
 
+    /// Reserves capacity for appending to the end of the string
+    pub fn try_reserve(&mut self, additional: usize) -> StdResult<(), TryReserveError> {
+        self.result.try_reserve(additional)
+    }
+
     /// Enables the debug flag on the display context
     pub fn enable_debug(mut self) -> Self {
         self.debug = true;
@@ -52,6 +57,20 @@ impl<'a> DisplayContext<'a> {
     /// Appends to the end of the string
     pub fn append<'b>(&mut self, s: impl Into<StringBuilderAppend<'b>>) {
         s.into().append(&mut self.result);
+    }
+
+    /// Appends to the end of the string, returning an error if insufficient memory is available
+    pub fn try_append<'b>(
+        &mut self,
+        s: impl Into<StringBuilderAppend<'b>>,
+    ) -> StdResult<(), TryReserveError> {
+        let s = s.into();
+        let s_len = s.len();
+        if self.result.capacity() - self.result.len() < s_len {
+            self.try_reserve(s_len)?;
+        }
+        s.append(&mut self.result);
+        Ok(())
     }
 
     /// Returns a reference to the context's VM
@@ -139,6 +158,16 @@ impl<'a> From<&'a KString> for StringBuilderAppend<'a> {
 }
 
 impl StringBuilderAppend<'_> {
+    fn len(&self) -> usize {
+        match self {
+            StringBuilderAppend::Char(c) => c.len_utf8(),
+            StringBuilderAppend::Str(s) => s.len(),
+            StringBuilderAppend::String(s) => s.len(),
+            StringBuilderAppend::KString(s) => s.len(),
+            StringBuilderAppend::KStringRef(s) => s.len(),
+        }
+    }
+
     fn append(self, string: &mut String) {
         match self {
             StringBuilderAppend::Char(c) => string.push(c),

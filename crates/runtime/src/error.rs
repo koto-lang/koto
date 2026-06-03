@@ -26,6 +26,9 @@ pub enum ErrorKind {
     },
     #[error("execution timed out (the limit of {} seconds was reached)", .0.as_secs_f64())]
     Timeout(Duration),
+
+    #[error("iterator output too large to collect into {collection}")]
+    IteratorOutOfMemory { collection: &'static str },
     #[error("unable to borrow an object that is already mutably borrowed")]
     UnableToBorrowObject,
     #[error(
@@ -55,7 +58,11 @@ pub enum ErrorKind {
         fn_name: &'static str,
         object_type: KString,
     },
-    #[error("unable to perform operation '{op}' with '{}' and '{}'", lhs.type_as_string(), rhs.type_as_string())]
+    #[error(
+        "unable to perform operation '{op}' with '{}' and '{}'",
+        lhs.type_as_string(),
+        rhs.type_as_string(),
+    )]
     InvalidBinaryOp {
         lhs: KValue,
         rhs: KValue,
@@ -70,7 +77,8 @@ pub enum ErrorKind {
     #[error("this operation is unsupported on this platform")]
     UnsupportedPlatform,
     #[error(
-        "an unexpected error occurred, please report this as a bug at\nhttps://github.com/koto-lang/koto/issues"
+        "an unexpected error occurred, please report this as a bug at
+https://github.com/koto-lang/koto/issues"
     )]
     UnexpectedError,
 

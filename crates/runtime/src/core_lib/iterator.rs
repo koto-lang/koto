@@ -4,7 +4,7 @@ pub mod adaptors;
 pub mod generators;
 pub mod peekable;
 
-use crate::{KIteratorOutput as Output, Result, derive::*, prelude::*};
+use crate::{Error, ErrorKind, KIteratorOutput as Output, Result, derive::*, prelude::*};
 
 static MODULE_NAME: &str = "core.iterator";
 
@@ -766,11 +766,20 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
                 let (size_hint, _) = iterator.size_hint();
-                let mut result = ValueVec::with_capacity(size_hint);
+                let mut result = ValueVec::new();
+                if result.try_reserve(size_hint).is_err() {
+                    return iter_out_of_memory_error("List");
+                }
 
                 for output in iterator.map(collect_pair) {
                     match output {
-                        Output::Value(value) => result.push(value),
+                        Output::Value(value) => {
+                            if result.capacity() == result.len() && result.try_reserve(1).is_err() {
+                                return iter_out_of_memory_error("List");
+                            }
+
+                            result.push(value);
+                        }
                         Output::Error(error) => return Err(error),
                         _ => unreachable!(),
                     }
@@ -790,7 +799,10 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
                 let (size_hint, _) = iterator.size_hint();
-                let mut result = ValueMap::with_capacity(size_hint);
+                let mut result = ValueMap::default();
+                if result.try_reserve(size_hint).is_err() {
+                    return iter_out_of_memory_error("Map");
+                }
 
                 for output in iterator {
                     let (key, value) = match output {
@@ -804,7 +816,12 @@ pub fn make_module() -> KMap {
                         Output::Error(error) => return Err(error),
                     };
 
-                    result.insert(ValueKey::try_from(key)?, value);
+                    let key = ValueKey::try_from(key)?;
+                    if result.capacity() == result.len() && result.try_reserve(1).is_err() {
+                        return iter_out_of_memory_error("Map");
+                    }
+
+                    result.insert(key, value);
                 }
 
                 Ok(KValue::Map(KMap::with_data(result)))
@@ -821,11 +838,26 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
                 let (size_hint, _) = iterator.size_hint();
-                let mut display_context = DisplayContext::with_vm_and_capacity(ctx.vm, size_hint);
+                let mut display_context = DisplayContext::with_vm(ctx.vm);
+                if display_context.try_reserve(size_hint).is_err() {
+                    return iter_out_of_memory_error("String");
+                }
+
                 for output in iterator.map(collect_pair) {
                     match output {
-                        Output::Value(KValue::Str(s)) => display_context.append(s),
-                        Output::Value(value) => value.display(&mut display_context)?,
+                        Output::Value(KValue::Str(s)) => {
+                            if display_context.try_append(s).is_err() {
+                                return iter_out_of_memory_error("String");
+                            }
+                        }
+                        Output::Value(value) => {
+                            let mut value_context = DisplayContext::with_vm(ctx.vm);
+                            value.display(&mut value_context)?;
+
+                            if display_context.try_append(value_context.result()).is_err() {
+                                return iter_out_of_memory_error("String");
+                            }
+                        }
                         Output::Error(error) => return Err(error),
                         _ => unreachable!(),
                     };
@@ -845,11 +877,21 @@ pub fn make_module() -> KMap {
                 let iterable = iterable.clone();
                 let iterator = ctx.vm.make_iterator(iterable)?;
                 let (size_hint, _) = iterator.size_hint();
-                let mut result = Vec::with_capacity(size_hint);
+
+                let mut result = Vec::new();
+                if result.try_reserve(size_hint).is_err() {
+                    return iter_out_of_memory_error("Tuple");
+                }
 
                 for output in iterator.map(collect_pair) {
                     match output {
-                        Output::Value(value) => result.push(value),
+                        Output::Value(value) => {
+                            if result.capacity() == result.len() && result.try_reserve(1).is_err() {
+                                return iter_out_of_memory_error("Tuple");
+                            }
+
+                            result.push(value)
+                        }
                         Output::Error(error) => return Err(error),
                         _ => unreachable!(),
                     }
@@ -915,6 +957,10 @@ pub(crate) fn iter_output_to_result(iterator_output: Option<Output>) -> Result<O
     };
 
     Ok(output)
+}
+
+fn iter_out_of_memory_error<T>(collection: &'static str) -> Result<T> {
+    Err(Error::new(ErrorKind::IteratorOutOfMemory { collection }))
 }
 
 /// The output type used by operations like `iterator.next()` and `next_back()`
