@@ -149,6 +149,7 @@ The Koto project adheres to
   - `range.union` now behaves as expected when creating unions with a mix of inclusive and non-inclusive ranges.
     [#534](https://github.com/koto-lang/koto/issues/534)
   - `iterator.reversed` now produces correct results when used with non-inclusive ranges.
+- Iterator consumers that build collections will now return runtime errors when used with unbounded inputs that exhaust available memory.
 
 #### Formatting
 
