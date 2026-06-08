@@ -81,6 +81,7 @@ The Koto project adheres to
   - `#[koto_get]`/`#[koto_set]` attributes (along with `_override` and `_fallback` attributes) have been added to make it easier to define field getters and setters.
   - Thanks to [@bluurryy](https://github.com/bluurryy) for the contributions.
 - The `KotoAccess` trait has replaced `KotoEntries`, and allows Rust objects to define how `.` access should behave on the object.
+- `Koto::spawn_shared` has been added to enable shared resources (like the core library and prelude) for applications that run parallel Koto instances.
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 - `UnavailableStdin`, `UnavailableStdout` and `UnavailableStderr` have been added to represent unavailable io streams
 - `KotoSettings::inherit_args` and `KotoSettings::inherit_io` have been added to use the args / io of the current process

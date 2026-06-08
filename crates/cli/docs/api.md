@@ -151,6 +151,21 @@ default-features = false
 features = ["arc"]
 ```
 
+## Spawning shared Koto instances
+
+Sometimes it can be useful to have more that one Koto instance, while avoiding the setup cost of
+initializing the core library, prelude, module cache, and other resources that could be shared
+between instances.
+
+`Koto::spawn_shared` provides this feature, spawning a runtime with shared settings and resources.
+
+An exception to resource sharing is the spawned runtime's `exports` map, which is newly initialized
+with the assumption that the spawned instance will be used to initialize new modules.
+
+```rust_include
+spawn_shared.rs
+```
+
 ## Using Koto in a REPL
 
 Some applications (like REPLs) require assigned variables to persist between each script evaluation.

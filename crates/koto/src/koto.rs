@@ -50,6 +50,19 @@ impl Koto {
         }
     }
 
+    /// Creates a new instance of Koto using shared runtime resources
+    ///
+    /// A new exports map is set up for the spawned runtime,
+    /// while the settings, prelude, core library, and module cache are shared.
+    pub fn spawn_shared(&self) -> Self {
+        let mut runtime = self.runtime.spawn_shared_vm();
+        *runtime.exports_mut() = KMap::default();
+        Self {
+            runtime,
+            run_tests: self.run_tests,
+        }
+    }
+
     /// Returns a reference to the runtime's prelude
     pub fn prelude(&self) -> &KMap {
         self.runtime.prelude()
