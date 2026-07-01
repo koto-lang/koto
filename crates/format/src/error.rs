@@ -1,4 +1,3 @@
-use derive_name::VariantName;
 use koto_lexer::Span;
 use koto_parser::Node;
 use thiserror::Error;
@@ -9,7 +8,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ErrorKind {
-    #[error("expected {expected}, found '{}'", unexpected.variant_name())]
+    #[error("expected {expected}, found '{unexpected}'")]
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("Multi-assign node is missing targets")]
     MissingMultiAssignTargets,

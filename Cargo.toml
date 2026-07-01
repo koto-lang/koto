@@ -45,8 +45,6 @@ criterion = { version = "0.5.1", default-features = false }
 crossterm = { version = "0.29", default-features = false }
 # Adds #[derive(x)] macros for more traits
 derive_more = "2.0.1"
-# Derive macro to get the name of a struct, enum or enum variant
-derive-name = "1.1.0"
 # Normalize Windows paths to the most compatible format
 dunce = "1.0.2"
 # A small cross-platform library for retrieving random data from system source
@@ -103,6 +101,8 @@ serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 serde_yaml_ng = "0.10.0"
 # 'Small vector' optimization: store up to a small number of items on the stack
 smallvec = { version = "1.11.1", features = ["const_generics", "union"] }
+# Derive macro to get the name of a struct, enum or enum variant
+strum = { version = "0.28.0", features = ["derive"] }
 # Parser for Rust source code
 syn = { version = "2.0.41", features = ["full"] }
 # A library for managing temporary files and directories.
