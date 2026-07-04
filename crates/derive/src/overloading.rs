@@ -5,7 +5,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
     Attribute, Error, FnArg, GenericArgument, Ident, ImplItemFn, ItemFn, LitStr, Meta, PatType,
-    PathArguments, PathSegment, Result, ReturnType, Signature, Type, TypePath, TypeReference,
+    Path, PathArguments, PathSegment, Result, ReturnType, Signature, Type, TypePath, TypeReference,
     TypeSlice, spanned::Spanned,
 };
 
@@ -84,12 +84,12 @@ impl OverloadedFunction {
             .collect()
     }
 
-    pub(crate) fn match_arms(&self) -> Result<TokenStream> {
+    pub(crate) fn match_arms(&self, runtime: &Path) -> Result<TokenStream> {
         let mut match_arms = Vec::with_capacity(self.candidates.len());
         let mut unexpected_args_error = String::new();
 
         for (i, definition) in self.candidates.iter().enumerate() {
-            match_arms.push(definition.match_arm()?);
+            match_arms.push(definition.match_arm(runtime)?);
 
             if i > 0 {
                 unexpected_args_error.push_str(", ");
@@ -103,7 +103,7 @@ impl OverloadedFunction {
         }
 
         let error_expr = quote! {
-            unexpected_args(#unexpected_args_error, unexpected)
+            #runtime::unexpected_args(#unexpected_args_error, unexpected)
         };
 
         let error_arm = if matches!(self.options(), OverloadOptions::Method) {
@@ -164,8 +164,8 @@ impl OverloadedFunctionCandidate {
         })
     }
 
-    pub(crate) fn match_arm(&self) -> Result<TokenStream> {
-        let call_exprs = self.args.call_exprs();
+    pub(crate) fn match_arm(&self, runtime: &Path) -> Result<TokenStream> {
+        let call_exprs = self.args.call_exprs(runtime);
         let fn_name = &self.item.sig.ident;
 
         let mut call = quote! {
@@ -178,7 +178,7 @@ impl OverloadedFunctionCandidate {
 
         let match_pats = self
             .value_args()
-            .map(|(arg, value)| value.match_pats(&arg.name))
+            .map(|(arg, value)| value.match_pats(&arg.name, runtime))
             .collect::<Vec<_>>();
 
         let setup_exprs = self
@@ -210,10 +210,10 @@ impl OverloadedFunctionCandidate {
                     ));
                 }
 
-                let wrapped_call = self.wrap_call(call);
+                let wrapped_call = self.wrap_call(call, runtime);
 
                 let arm = quote! {
-                    (KValue::Object(o), extra_args) => { #wrapped_call }
+                    (#runtime::KValue::Object(o), extra_args) => { #wrapped_call }
                 };
 
                 return Ok(arm);
@@ -225,7 +225,7 @@ impl OverloadedFunctionCandidate {
         };
 
         if matches!(self.options, OverloadOptions::Method) {
-            pattern = quote!((KValue::Object(o), #pattern));
+            pattern = quote!((#runtime::KValue::Object(o), #pattern));
         }
 
         // For functions we insert the implementation in the match arm,
@@ -233,7 +233,7 @@ impl OverloadedFunctionCandidate {
         let expr = match self.options {
             OverloadOptions::Function => {
                 let fn_impl = &self.item;
-                let wrapped_call = self.wrap_call(call);
+                let wrapped_call = self.wrap_call(call, runtime);
 
                 quote! {{
                     #fn_impl
@@ -313,7 +313,7 @@ impl OverloadedFunctionCandidate {
                             return Ok(o.clone().into());
                         }},
                         ReturnKind::Other => {
-                            let wrapped_call = self.wrap_call(call);
+                            let wrapped_call = self.wrap_call(call, runtime);
 
                             quote! {{
                                 #(#setup_exprs)*
@@ -329,7 +329,7 @@ impl OverloadedFunctionCandidate {
                         }
                     }
                 } else {
-                    let wrapped_call = self.wrap_call(call);
+                    let wrapped_call = self.wrap_call(call, runtime);
 
                     quote! {{
                         #(#setup_exprs)*
@@ -353,15 +353,17 @@ impl OverloadedFunctionCandidate {
         })
     }
 
-    fn wrap_call(&self, call: TokenStream) -> TokenStream {
+    fn wrap_call(&self, call: TokenStream, runtime: &Path) -> TokenStream {
         let span = match &self.item.sig.output {
             ReturnType::Type(_, ty) => ty.span(),
             ReturnType::Default => Span::call_site(),
         };
 
         let return_trait = match self.options {
-            OverloadOptions::Function => quote_spanned!(span=> KotoFunctionReturn),
-            OverloadOptions::Method => quote_spanned!(span=> KotoMethodReturn),
+            OverloadOptions::Function => {
+                quote_spanned!(span=> #runtime::__private::KotoFunctionReturn)
+            }
+            OverloadOptions::Method => quote_spanned!(span=> #runtime::__private::KotoMethodReturn),
         };
 
         // Attach a span to so a type error will point at the right place.
@@ -462,8 +464,11 @@ impl KotoArgs {
         result
     }
 
-    fn call_exprs(&self) -> Vec<TokenStream> {
-        self.inner.iter().flat_map(|arg| arg.call_expr()).collect()
+    fn call_exprs(&self, runtime: &Path) -> Vec<TokenStream> {
+        self.inner
+            .iter()
+            .flat_map(|arg| arg.call_expr(runtime))
+            .collect()
     }
 }
 
@@ -557,7 +562,7 @@ impl KotoArg {
                     // Unknown types can be assumed to implement `KotoObject`
                     _ => arg
                         .value(Object(ident_string))
-                        .match_condition(quote!(let Ok(#name) = #name.cast::<#ident>())),
+                        .match_condition(quote!(let Ok(#name) = #name.cast::<#arg_type>())),
                 }
                 .build())
             }
@@ -591,7 +596,7 @@ impl KotoArg {
         }
     }
 
-    fn call_expr(&self) -> Option<TokenStream> {
+    fn call_expr(&self, runtime: &Path) -> Option<TokenStream> {
         let Self {
             name,
             call_expr,
@@ -613,7 +618,7 @@ impl KotoArg {
                     KotoContextArgKind::KotoVm => Some(quote!(ctx.vm)),
                     KotoContextArgKind::CallContext => Some(quote!(ctx)),
                     KotoContextArgKind::MethodContext => Some(quote! {
-                        MethodContext::new(&o, extra_args, ctx.vm)
+                        #runtime::MethodContext::new(&o, extra_args, ctx.vm)
                     }),
                 },
                 KotoArgKind::Receiver(receiver) => {
@@ -665,21 +670,21 @@ impl KotoValueArg {
     }
 
     /// The KValue variant to match for the arg
-    fn match_pats(&self, name: &Ident) -> TokenStream {
+    fn match_pats(&self, name: &Ident, runtime: &Path) -> TokenStream {
         if self.is_variadic {
             quote!(#name @ ..)
         } else {
             match &self.kind {
-                KotoValueArgKind::Bool => quote!(KValue::Bool(#name)),
-                KotoValueArgKind::String => quote!(KValue::Str(#name)),
-                KotoValueArgKind::Number => quote!(KValue::Number(#name)),
-                KotoValueArgKind::Range => quote!(KValue::Range(#name)),
-                KotoValueArgKind::List => quote!(KValue::List(#name)),
-                KotoValueArgKind::Tuple => quote!(KValue::Tuple(#name)),
-                KotoValueArgKind::Map => quote!(KValue::Map(#name)),
+                KotoValueArgKind::Bool => quote!(#runtime::KValue::Bool(#name)),
+                KotoValueArgKind::String => quote!(#runtime::KValue::Str(#name)),
+                KotoValueArgKind::Number => quote!(#runtime::KValue::Number(#name)),
+                KotoValueArgKind::Range => quote!(#runtime::KValue::Range(#name)),
+                KotoValueArgKind::List => quote!(#runtime::KValue::List(#name)),
+                KotoValueArgKind::Tuple => quote!(#runtime::KValue::Tuple(#name)),
+                KotoValueArgKind::Map => quote!(#runtime::KValue::Map(#name)),
                 KotoValueArgKind::Iterable => quote!(#name),
                 KotoValueArgKind::Any => quote!(#name),
-                KotoValueArgKind::Object(_) => quote!(KValue::Object(#name)),
+                KotoValueArgKind::Object(_) => quote!(#runtime::KValue::Object(#name)),
             }
         }
     }

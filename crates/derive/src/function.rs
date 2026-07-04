@@ -17,10 +17,8 @@ pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     for function in functions.inner.values() {
         let name = function.first_ident();
-        let body = match function.match_arms() {
+        let body = match function.match_arms(&runtime) {
             Ok(arms) => quote! {
-                use #runtime::{ KValue, __private::KotoFunctionReturn };
-
                 match ctx.args() {
                     #arms
                 }
