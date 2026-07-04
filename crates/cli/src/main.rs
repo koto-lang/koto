@@ -200,7 +200,7 @@ fn main() -> Result<()> {
             }) {
                 Ok(chunk) => {
                     if args.show_bytecode {
-                        println!("{}\n", &Chunk::bytes_as_string(&chunk));
+                        println!("{}\n", Chunk::bytes_as_string(&chunk));
                     }
                     if args.show_instructions {
                         println!("Constants\n---------\n{}\n", chunk.constants);
