@@ -8,7 +8,10 @@ pub(crate) fn derive_koto_copy(input: TokenStream) -> TokenStream {
     let name = input.ident;
     let (impl_generics, ty_generics, generic_where_clause) = input.generics.split_for_impl();
 
-    let attributes = koto_derive_attributes(&input.attrs);
+    let attributes = match koto_derive_attributes(&input.attrs) {
+        Ok(attributes) => attributes,
+        Err(error) => return error.into_compile_error().into(),
+    };
     let runtime = attributes.runtime;
     let (required_trait, copy_impl) = if attributes.use_copy {
         (

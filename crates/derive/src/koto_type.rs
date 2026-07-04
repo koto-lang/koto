@@ -7,7 +7,10 @@ pub fn derive_koto_type(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let attributes = koto_derive_attributes(&input.attrs);
+    let attributes = match koto_derive_attributes(&input.attrs) {
+        Ok(attributes) => attributes,
+        Err(error) => return error.into_compile_error().into(),
+    };
 
     let name = input.ident;
 
