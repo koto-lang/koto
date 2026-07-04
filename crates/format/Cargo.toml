@@ -23,7 +23,7 @@ rc = ["koto_parser/rc"]
 koto_lexer = { workspace = true }
 koto_parser = { workspace = true }
 
-derive-name = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+strum = { workspace = true }
 thiserror = { workspace = true }
 unicode-width = { workspace = true }

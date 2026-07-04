@@ -3,7 +3,6 @@ use crate::{
     frame::{Arg, AssignedOrReserved, Frame, FrameError},
 };
 use circular_buffer::CircularBuffer;
-use derive_name::VariantName;
 use koto_parser::{
     Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry, AstUnaryOp, AstVec, ChainNode,
     ConstantIndex, Function, ImportItem, KString, MetaKeyId, Node, Parser, Span, StringContents,
@@ -16,7 +15,7 @@ use thiserror::Error;
 #[derive(Error, Clone, Debug)]
 #[allow(missing_docs)]
 enum ErrorKind {
-    #[error("expected {expected}, found '{}'", unexpected.variant_name())]
+    #[error("expected {expected}, found '{unexpected}'")]
     UnexpectedNode { expected: String, unexpected: Node },
     #[error("attempting to assign to a temporary value")]
     AssigningToATemporaryValue,

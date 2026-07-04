@@ -15,7 +15,7 @@ pub use smallvec::smallvec as astvec;
 /// A parsed node that can be included in the [AST](crate::Ast).
 ///
 /// Nodes refer to each other via [`AstIndex`], see [`AstNode`](crate::AstNode).
-#[derive(Clone, Debug, Default, PartialEq, Eq, derive_name::VariantName)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, strum::Display)]
 pub enum Node {
     /// The `null` keyword
     #[default]

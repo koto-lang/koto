@@ -29,7 +29,7 @@ error_ast = []
 koto_lexer = { workspace = true }
 koto_memory = { workspace = true }
 
-derive-name = { workspace = true }
 smallvec = { workspace = true }
+strum = { workspace = true }
 thiserror = { workspace = true }
 unicode-segmentation = { workspace = true }
