@@ -1,8 +1,3 @@
-use std::{
-    cell::{Cell, RefCell},
-    mem,
-};
-
 use crate::{
     PREFIX_FUNCTION,
     overloading::{
@@ -13,6 +8,10 @@ use crate::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote, quote_spanned};
+use std::{
+    cell::{Cell, RefCell},
+    mem,
+};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
     Signature, Type, TypePath,
@@ -68,7 +67,6 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
 
     let Context {
         mut impl_item,
-        impl_item_ident,
         runtime,
         get_access,
         get_access_assign,
@@ -79,9 +77,8 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
         ..
     } = ctx;
 
-    let (impl_generics, ty_generics, where_clause) = impl_item.generics.split_for_impl();
-    let ty = impl_item.self_ty.as_ref();
-    let turbofish = ty_generics.as_turbofish();
+    let (impl_generics, _, where_clause) = impl_item.generics.split_for_impl();
+    let ty = &impl_item.self_ty;
 
     let koto_access_impl_content = if process_result.is_ok() {
         // Add the generated functions to the impl block.
@@ -136,7 +133,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             {
                 #access_override
 
-                if let Some(method_or_field) = #impl_item_ident #turbofish::#get_access(key) {
+                if let Some(method_or_field) = <#ty>::#get_access(key) {
                     return match method_or_field {
                         #runtime::__private::MethodOrField::Method(f) => Ok(Some(
                             #runtime::KValue::NativeFunction(f)
@@ -155,7 +152,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             {
                 #access_assign_override
 
-                if let Some(setter) = #impl_item_ident #turbofish::#get_access_assign(key) {
+                if let Some(setter) = <#ty>::#get_access_assign(key) {
                     return setter(self, value);
                 };
 
@@ -184,7 +181,6 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
 
 struct Context {
     impl_item: ItemImpl,
-    impl_item_ident: Ident,
     runtime: Path,
 
     create_access_map: Ident,
@@ -206,24 +202,19 @@ struct Context {
 
 impl Context {
     fn new(impl_item: ItemImpl, attr: KotoImplParser) -> Result<Self> {
-        let impl_item_ident = match &impl_item.self_ty.as_ref() {
+        match &impl_item.self_ty.as_ref() {
             Type::Path(TypePath { path, .. }) => {
-                let Some(last_segment) = path.segments.last() else {
+                let Some(_) = path.segments.last() else {
                     return Err(Error::new_spanned(path, "Expected an identifier"));
                 };
-                &last_segment.ident
             }
             ty => return Err(Error::new_spanned(ty, "Expected a type path")),
-        }
-        .clone();
+        };
 
         Ok(Context {
             // input data
             impl_item,
             runtime: attr.runtime,
-
-            // cached values
-            impl_item_ident,
 
             // The names have an intentional extra underscore at the start as not to conflict with
             // generated wrapper methods.
@@ -276,33 +267,8 @@ impl Context {
         Ok(fns.into_iter().next())
     }
 
-    fn ty(&self) -> proc_macro2::TokenStream {
-        let Self {
-            impl_item,
-            impl_item_ident,
-            ..
-        } = self;
-
-        let (_, ty_generics, _) = impl_item.generics.split_for_impl();
-
-        quote! {
-            #impl_item_ident #ty_generics
-        }
-    }
-
-    fn ty_turbofish(&self) -> proc_macro2::TokenStream {
-        let Self {
-            impl_item,
-            impl_item_ident,
-            ..
-        } = self;
-
-        let (_, ty_generics, _) = impl_item.generics.split_for_impl();
-        let turbofish = ty_generics.as_turbofish();
-
-        quote! {
-            #impl_item_ident #turbofish
-        }
+    fn ty(&self) -> &Type {
+        &self.impl_item.self_ty
     }
 }
 
@@ -1027,11 +993,10 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
     let name = &ctx.get_access;
     let create_access_map = &ctx.create_access_map;
     let runtime = &ctx.runtime;
-    let ty_turbofish = ctx.ty_turbofish();
+    let ty = ctx.ty();
 
     let getter_fn = if ctx.impl_item.generics.params.is_empty() {
         // Non-generic types can cache the entries map in a `thread_local`/`LazyLock`
-        let ty = ctx.ty();
 
         cfg_select! {
             feature = "rc" => {
@@ -1045,7 +1010,7 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                                 &'static str,
                                 #runtime::__private::MethodOrField<#ty>,
                                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
-                            > = #ty_turbofish::#create_access_map();
+                            > = <#ty>::#create_access_map();
                         }
 
                         ENTRIES.with(|entries| entries.get(key).cloned())
@@ -1066,7 +1031,7 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                             >>;
 
                         static ENTRIES: EntriesLock
-                            = EntriesLock::new(#ty_turbofish::#create_access_map);
+                            = EntriesLock::new(<#ty>::#create_access_map);
 
                         EntriesLock::force(&ENTRIES).get(key).cloned()
                     }
@@ -1109,7 +1074,7 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                             .with_borrow_mut(|per_type_entries| {
                                 per_type_entries
                                     .entry(::std::any::TypeId::of::<Self>())
-                                    .or_insert_with(#ty_turbofish::#create_access_map)
+                                    .or_insert_with(<#ty>::#create_access_map)
                                     .get(key).cloned()
                             })
                     }
@@ -1141,7 +1106,7 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                         PER_TYPE_ENTRIES
                             .borrow_mut()
                             .entry(::std::any::TypeId::of::<Self>())
-                            .or_insert_with(#ty_turbofish::#create_access_map)
+                            .or_insert_with(<#ty>::#create_access_map)
                             .get(key).cloned()
                     }
                 }
@@ -1166,7 +1131,6 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
     let create_access_map = &ctx.create_access_assign_map;
     let runtime = &ctx.runtime;
     let ty = ctx.ty();
-    let ty_turbofish = ctx.ty_turbofish();
 
     let getter_fn = if ctx.impl_item.generics.params.is_empty() {
         // Non-generic types can cache the entries map in a `thread_local`/`LazyLock`
@@ -1183,7 +1147,7 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
                                 &'static str,
                                 fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
                                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
-                            > = #ty_turbofish::#create_access_map();
+                            > = <#ty>::#create_access_map();
                         }
 
                         ENTRIES.with(|entries| entries.get(key).cloned())
@@ -1201,7 +1165,7 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
                             fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
                             ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
                         >>;
-                        static ENTRIES: EntriesLock = EntriesLock::new(#ty_turbofish::#create_access_map);
+                        static ENTRIES: EntriesLock = EntriesLock::new(<#ty>::#create_access_map);
 
                         EntriesLock::force(&ENTRIES).get(key).cloned()
                     }
@@ -1244,7 +1208,7 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
                             .with_borrow_mut(|per_type_entries| {
                                 per_type_entries
                                     .entry(::std::any::TypeId::of::<Self>())
-                                    .or_insert_with(#ty_turbofish::#create_access_map)
+                                    .or_insert_with(<#ty>::#create_access_map)
                                     .get(key).cloned()
                             })
                     }
@@ -1277,7 +1241,7 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
                         PER_TYPE_ENTRIES
                             .borrow_mut()
                             .entry(::std::any::TypeId::of::<Self>())
-                            .or_insert_with(#ty_turbofish::#create_access_map)
+                            .or_insert_with(<#ty>::#create_access_map)
                             .get(key).cloned()
                     }
                 }
