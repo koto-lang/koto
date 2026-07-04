@@ -1,12 +1,11 @@
+use crate::overloading::{
+    AccessAttributeArgs, OverloadOptions, OverloadedFunctionCandidate, OverloadedFunctions,
+};
 use quote::quote;
 use syn::{
     Ident, ItemFn, Path, Result, Token,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
-};
-
-use crate::overloading::{
-    AccessAttributeArgs, OverloadOptions, OverloadedFunctionCandidate, OverloadedFunctions,
 };
 
 pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

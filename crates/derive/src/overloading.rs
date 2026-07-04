@@ -10,7 +10,7 @@ use syn::{
 };
 
 #[derive(Clone, Copy)]
-pub(crate) enum OverloadOptions {
+pub enum OverloadOptions {
     Function,
     Method,
 }
@@ -35,12 +35,12 @@ impl OverloadOptions {
 }
 
 #[derive(Default)]
-pub(crate) struct OverloadedFunctions {
-    pub(crate) inner: IndexMap<String, OverloadedFunction>,
+pub struct OverloadedFunctions {
+    pub inner: IndexMap<String, OverloadedFunction>,
 }
 
 impl OverloadedFunctions {
-    pub(crate) fn insert(&mut self, definition: OverloadedFunctionCandidate) {
+    pub fn insert(&mut self, definition: OverloadedFunctionCandidate) {
         self.inner
             .entry(definition.name.value())
             .or_default()
@@ -50,28 +50,28 @@ impl OverloadedFunctions {
 }
 
 #[derive(Default)]
-pub(crate) struct OverloadedFunction {
+pub struct OverloadedFunction {
     // The vec of candidates must not be empty or some methods will panic.
     // In practice, this is ensured by the `OverloadedFunctions::insert` implementation,
     // which is the only place `OverloadedFunction`s are created.
-    pub(crate) candidates: Vec<OverloadedFunctionCandidate>,
+    pub candidates: Vec<OverloadedFunctionCandidate>,
 }
 
 impl OverloadedFunction {
-    pub(crate) fn first_ident(&self) -> &Ident {
+    pub fn first_ident(&self) -> &Ident {
         &self.candidates.first().unwrap().ident
     }
 
-    pub(crate) fn name(&self) -> &LitStr {
+    pub fn name(&self) -> &LitStr {
         // All candidates have the same name.
         &self.candidates.first().unwrap().name
     }
 
-    pub(crate) fn options(&self) -> OverloadOptions {
+    pub fn options(&self) -> OverloadOptions {
         self.candidates.first().unwrap().options
     }
 
-    pub(crate) fn name_and_aliases(&self) -> Vec<LitStr> {
+    pub fn name_and_aliases(&self) -> Vec<LitStr> {
         iter::once(self.name())
             .chain(
                 self.candidates
@@ -84,7 +84,7 @@ impl OverloadedFunction {
             .collect()
     }
 
-    pub(crate) fn match_arms(&self, runtime: &Path) -> Result<TokenStream> {
+    pub fn match_arms(&self, runtime: &Path) -> Result<TokenStream> {
         let mut match_arms = Vec::with_capacity(self.candidates.len());
         let mut unexpected_args_error = String::new();
 
@@ -121,19 +121,19 @@ impl OverloadedFunction {
     }
 }
 
-pub(crate) struct OverloadedFunctionCandidate {
-    pub(crate) name: LitStr,
-    pub(crate) aliases: Vec<LitStr>,
-    pub(crate) ident: Ident,
-    pub(crate) args: KotoArgs,
+pub struct OverloadedFunctionCandidate {
+    pub name: LitStr,
+    pub aliases: Vec<LitStr>,
+    pub ident: Ident,
+    pub args: KotoArgs,
     // This may originally have been an `ItemFn` or `ImplItemFn`.
     // We use `ImplItemFn` because any `ItemFn` can also be represented by an `ImplItemFn`.
-    pub(crate) item: ImplItemFn,
-    pub(crate) options: OverloadOptions,
+    pub item: ImplItemFn,
+    pub options: OverloadOptions,
 }
 
 impl OverloadedFunctionCandidate {
-    pub(crate) fn new(
+    pub fn new(
         item: impl ItemFnOrImplItemFn,
         args: AccessAttributeArgs,
         options: OverloadOptions,
@@ -145,7 +145,7 @@ impl OverloadedFunctionCandidate {
         })
     }
 
-    pub(crate) fn with_name_fallback(
+    pub fn with_name_fallback(
         item: ImplItemFn,
         args: AccessAttributeArgs,
         options: OverloadOptions,
@@ -164,7 +164,7 @@ impl OverloadedFunctionCandidate {
         })
     }
 
-    pub(crate) fn match_arm(&self, runtime: &Path) -> Result<TokenStream> {
+    pub fn match_arm(&self, runtime: &Path) -> Result<TokenStream> {
         let call_exprs = self.args.call_exprs(runtime);
         let fn_name = &self.item.sig.ident;
 
@@ -372,7 +372,7 @@ impl OverloadedFunctionCandidate {
 }
 
 /// Either an `ItemFn` or `ImplItemFn`.
-pub(crate) trait ItemFnOrImplItemFn {
+pub trait ItemFnOrImplItemFn {
     fn into_impl_item_fn(self) -> ImplItemFn;
 }
 
@@ -400,12 +400,12 @@ impl ItemFnOrImplItemFn for ItemFn {
     }
 }
 
-pub(crate) struct KotoArgs {
+pub struct KotoArgs {
     inner: Vec<KotoArg>,
 }
 
 impl KotoArgs {
-    pub(crate) fn from_sig(sig: &Signature, options: OverloadOptions) -> Result<Self> {
+    pub fn from_sig(sig: &Signature, options: OverloadOptions) -> Result<Self> {
         if sig.inputs.len() > options.max_arguments() {
             return Err(Error::new_spanned(sig, "too many arguments"));
         }
@@ -442,7 +442,7 @@ impl KotoArgs {
         Ok(Self { inner: args })
     }
 
-    pub(crate) fn signature(&self) -> String {
+    pub fn signature(&self) -> String {
         let mut result = "|".to_string();
 
         for (i, arg) in self
@@ -829,13 +829,13 @@ fn unsupported_arg_type<T>(arg_type: &Type) -> Result<T> {
 }
 
 #[derive(Default)]
-pub(crate) struct AccessAttributeArgs {
-    pub(crate) name: Option<LitStr>,
-    pub(crate) aliases: Vec<LitStr>,
+pub struct AccessAttributeArgs {
+    pub name: Option<LitStr>,
+    pub aliases: Vec<LitStr>,
 }
 
 impl AccessAttributeArgs {
-    pub(crate) fn new(attr: &Attribute) -> Result<Self> {
+    pub fn new(attr: &Attribute) -> Result<Self> {
         let mut name = None::<LitStr>;
         let mut aliases = Vec::new();
 
@@ -860,10 +860,7 @@ impl AccessAttributeArgs {
     ///
     /// If there is no `name` attribute, then `name_fallback` will be invoked to
     /// produce a name in its stead.
-    pub(crate) fn names(
-        self,
-        name_fallback: impl FnOnce() -> Result<LitStr>,
-    ) -> Result<Vec<LitStr>> {
+    pub fn names(self, name_fallback: impl FnOnce() -> Result<LitStr>) -> Result<Vec<LitStr>> {
         let name = match self.name {
             Some(name) => name,
             None => name_fallback()?,

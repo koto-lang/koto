@@ -21,7 +21,7 @@ use syn::{
     spanned::Spanned,
 };
 
-pub(crate) fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut attrs = KotoImplParser::default();
     let parser = syn::meta::parser(|meta| attrs.parse(meta));
     parse_macro_input!(args with parser);

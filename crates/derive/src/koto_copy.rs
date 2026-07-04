@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, parse_macro_input};
 
-pub(crate) fn derive_koto_copy(input: TokenStream) -> TokenStream {
+pub fn derive_koto_copy(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     let (impl_generics, ty_generics, generic_where_clause) = input.generics.split_for_impl();
