@@ -1,12 +1,11 @@
+use crate::overloading::{
+    AccessAttributeArgs, OverloadOptions, OverloadedFunctionCandidate, OverloadedFunctions,
+};
 use quote::quote;
 use syn::{
     Ident, ItemFn, Path, Result, Token,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
-};
-
-use crate::overloading::{
-    AccessAttributeArgs, OverloadOptions, OverloadedFunctionCandidate, OverloadedFunctions,
 };
 
 pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -17,10 +16,8 @@ pub fn koto_fn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     for function in functions.inner.values() {
         let name = function.first_ident();
-        let body = match function.match_arms() {
+        let body = match function.match_arms(&runtime) {
             Ok(arms) => quote! {
-                use #runtime::{ KValue, __private::KotoFunctionReturn };
-
                 match ctx.args() {
                     #arms
                 }

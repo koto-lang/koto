@@ -1,8 +1,3 @@
-use std::{
-    cell::{Cell, RefCell},
-    mem,
-};
-
 use crate::{
     PREFIX_FUNCTION,
     overloading::{
@@ -13,6 +8,10 @@ use crate::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote, quote_spanned};
+use std::{
+    cell::{Cell, RefCell},
+    mem,
+};
 use syn::{
     Attribute, Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, LitStr, Meta, Path, ReturnType,
     Signature, Type, TypePath,
@@ -22,7 +21,7 @@ use syn::{
     spanned::Spanned,
 };
 
-pub(crate) fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn koto_impl(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut attrs = KotoImplParser::default();
     let parser = syn::meta::parser(|meta| attrs.parse(meta));
     parse_macro_input!(args with parser);
@@ -68,7 +67,6 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
 
     let Context {
         mut impl_item,
-        impl_item_ident,
         runtime,
         get_access,
         get_access_assign,
@@ -79,9 +77,8 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
         ..
     } = ctx;
 
-    let (impl_generics, ty_generics, where_clause) = impl_item.generics.split_for_impl();
-    let ty = impl_item.self_ty.as_ref();
-    let turbofish = ty_generics.as_turbofish();
+    let (impl_generics, _, where_clause) = impl_item.generics.split_for_impl();
+    let ty = &impl_item.self_ty;
 
     let koto_access_impl_content = if process_result.is_ok() {
         // Add the generated functions to the impl block.
@@ -134,16 +131,14 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             fn access(&self, key: &#runtime::KString)
                 -> #runtime::Result<::std::option::Option<#runtime::KValue>>
             {
-                use #runtime::{KValue, __private::MethodOrField};
-
                 #access_override
 
-                if let Some(method_or_field) = #impl_item_ident #turbofish::#get_access(key) {
+                if let Some(method_or_field) = <#ty>::#get_access(key) {
                     return match method_or_field {
-                        MethodOrField::Method(f) => Ok(Some(
-                            KValue::NativeFunction(f)
+                        #runtime::__private::MethodOrField::Method(f) => Ok(Some(
+                            #runtime::KValue::NativeFunction(f)
                         )),
-                        MethodOrField::Field(getter) => Ok(Some(
+                        #runtime::__private::MethodOrField::Field(getter) => Ok(Some(
                             getter(self)?
                         )),
                     };
@@ -157,7 +152,7 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
             {
                 #access_assign_override
 
-                if let Some(setter) = #impl_item_ident #turbofish::#get_access_assign(key) {
+                if let Some(setter) = <#ty>::#get_access_assign(key) {
                     return setter(self, value);
                 };
 
@@ -186,7 +181,6 @@ fn koto_impl_inner(ctx: Context) -> proc_macro2::TokenStream {
 
 struct Context {
     impl_item: ItemImpl,
-    impl_item_ident: Ident,
     runtime: Path,
 
     create_access_map: Ident,
@@ -208,24 +202,26 @@ struct Context {
 
 impl Context {
     fn new(impl_item: ItemImpl, attr: KotoImplParser) -> Result<Self> {
-        let impl_item_ident = match &impl_item.self_ty.as_ref() {
+        if let Some((_, trait_path, _)) = &impl_item.trait_ {
+            return Err(Error::new_spanned(
+                trait_path,
+                "`#[koto_impl]` doesn't work with trait impls",
+            ));
+        }
+
+        match &impl_item.self_ty.as_ref() {
             Type::Path(TypePath { path, .. }) => {
-                let Some(last_segment) = path.segments.last() else {
+                if path.segments.last().is_none() {
                     return Err(Error::new_spanned(path, "Expected an identifier"));
                 };
-                &last_segment.ident
             }
             ty => return Err(Error::new_spanned(ty, "Expected a type path")),
-        }
-        .clone();
+        };
 
         Ok(Context {
             // input data
             impl_item,
             runtime: attr.runtime,
-
-            // cached values
-            impl_item_ident,
 
             // The names have an intentional extra underscore at the start as not to conflict with
             // generated wrapper methods.
@@ -278,33 +274,8 @@ impl Context {
         Ok(fns.into_iter().next())
     }
 
-    fn ty(&self) -> proc_macro2::TokenStream {
-        let Self {
-            impl_item,
-            impl_item_ident,
-            ..
-        } = self;
-
-        let (_, ty_generics, _) = impl_item.generics.split_for_impl();
-
-        quote! {
-            #impl_item_ident #ty_generics
-        }
-    }
-
-    fn ty_turbofish(&self) -> proc_macro2::TokenStream {
-        let Self {
-            impl_item,
-            impl_item_ident,
-            ..
-        } = self;
-
-        let (_, ty_generics, _) = impl_item.generics.split_for_impl();
-        let turbofish = ty_generics.as_turbofish();
-
-        quote! {
-            #impl_item_ident #turbofish
-        }
+    fn ty(&self) -> &Type {
+        &self.impl_item.self_ty
     }
 }
 
@@ -392,6 +363,7 @@ fn handle_koto_method(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Resu
 
 fn add_koto_methods(ctx: &Context) -> Result<()> {
     let overloaded_methods = ctx.overloaded_methods.borrow();
+    let runtime = &ctx.runtime;
 
     for overloaded_method in overloaded_methods.inner.values() {
         let names = overloaded_method
@@ -405,7 +377,9 @@ fn add_koto_methods(ctx: &Context) -> Result<()> {
         let wrapper_name = koto_method_wrapper_name(overloaded_method.first_ident());
 
         let value = quote! {
-            MethodOrField::Method(KNativeFunction::new(Self::#wrapper_name))
+            #runtime::__private::MethodOrField::Method(
+                #runtime::KNativeFunction::new(Self::#wrapper_name)
+            )
         };
 
         if names.len() == 1 {
@@ -474,15 +448,16 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
     let fn_ident = &fun.sig.ident;
     let ty = ctx.ty();
+    let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident();
-        KotoGetReturn::into_result(#call_result)
+        #runtime::__private::KotoGetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
         quote! {
-            MethodOrField::Field(
+            #runtime::__private::MethodOrField::Field(
                 |instance: &dyn ::std::any::Any| {
                     let instance = instance.downcast_ref::<#ty>().unwrap();
                     #wrapped_call
@@ -491,7 +466,7 @@ fn handle_koto_get(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
         }
     } else {
         quote_spanned! { return_ty_span =>
-            MethodOrField::Field(
+            #runtime::__private::MethodOrField::Field(
                 |instance: &#ty| {
                     #wrapped_call
                 }
@@ -572,22 +547,23 @@ fn handle_koto_set(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -> Result<
 
     let fn_ident = &fun.sig.ident;
     let ty = ctx.ty();
+    let runtime = &ctx.runtime;
 
     let wrapped_call = quote! {
         let #call_result = instance.#fn_ident(#value);
-        KotoSetReturn::into_result(#call_result)
+        #runtime::__private::KotoSetReturn::into_result(#call_result)
     };
 
     let value = if ctx.has_generics() {
         quote! {
-            |instance: &mut dyn Any, #value: &KValue| -> Result<()> {
+            |instance: &mut dyn ::std::any::Any, #value: &#runtime::KValue| -> #runtime::Result<()> {
                 let instance = instance.downcast_mut::<#ty>().unwrap();
                 #wrapped_call
             }
         }
     } else {
         quote! {
-            |instance: &mut #ty, #value: &KValue| -> Result<()> {
+            |instance: &mut #ty, #value: &#runtime::KValue| -> #runtime::Result<()> {
                 #wrapped_call
             }
         }
@@ -660,17 +636,15 @@ fn handle_koto_get_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        KotoGetFallbackReturn::into_result(#call_result)
+        #runtime::__private::KotoGetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
         fn #wrapper_name(&self, #key: &#runtime::KString)
-            -> #runtime::Result<Option<#runtime::KValue>>
+            -> #runtime::Result<::std::option::Option<#runtime::KValue>>
         {
-            use #runtime::__private::KotoGetFallbackReturn;
-
             #wrapped_call
         }
     };
@@ -723,17 +697,15 @@ fn handle_koto_set_fallback(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        KotoSetFallbackReturn::into_result(#call_result)
+        #runtime::__private::KotoSetFallbackReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
+        fn #wrapper_name(&mut self, #key: &#runtime::KString, #value: &#runtime::KValue)
             -> #runtime::Result<()>
         {
-            use #runtime::__private::KotoSetFallbackReturn;
-
             #wrapped_call
         }
     };
@@ -785,17 +757,15 @@ fn handle_koto_get_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key);
-        KotoGetOverrideReturn::into_result(#call_result)
+        #runtime::__private::KotoGetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&self, #key: &KString)
-            -> #runtime::Result<Option<KValue>>
+        fn #wrapper_name(&self, #key: &#runtime::KString)
+            -> #runtime::Result<::std::option::Option<#runtime::KValue>>
         {
-            use #runtime::__private::KotoGetOverrideReturn;
-
             #wrapped_call
         }
     };
@@ -853,17 +823,15 @@ fn handle_koto_set_override(ctx: &Context, fun: &ImplItemFn, attr: &Attribute) -
 
     let wrapped_call = quote! {
         let #call_result = self.#fn_ident(#key, #value);
-        KotoSetOverrideReturn::into_result(#call_result)
+        #runtime::__private::KotoSetOverrideReturn::into_result(#call_result)
     };
 
     let wrapper_name = koto_method_wrapper_name(fn_ident);
 
     let wrapped_fn = quote! {
-        fn #wrapper_name(&mut self, #key: &KString, #value: &KValue)
+        fn #wrapper_name(&mut self, #key: &#runtime::KString, #value: &#runtime::KValue)
             -> #runtime::Result<bool>
         {
-            use #runtime::__private::KotoSetOverrideReturn;
-
             #wrapped_call
         }
     };
@@ -882,13 +850,11 @@ fn wrap_koto_method(ctx: &Context, fun: &OverloadedFunction) -> Result<ImplItemF
     let wrapper_name = koto_method_wrapper_name(fun.first_ident());
     let runtime = &ctx.runtime;
 
-    let wrapper_body = match fun.match_arms() {
+    let wrapper_body = match fun.match_arms(runtime) {
         Ok(arms) => quote! {
-            use #runtime::{ KValue, KotoType, __private::KotoMethodReturn };
-
             match ctx.instance_and_args(
-                |i| matches!(i, KValue::Object(_)),
-                <Self as KotoType>::type_static()
+                |i| matches!(i, #runtime::KValue::Object(_)),
+                <Self as #runtime::KotoType>::type_static()
             )? {
                 #arms
             }
@@ -930,17 +896,11 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 #runtime::__private::MethodOrField<dyn ::std::any::Any>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{
-                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::{MethodOrField, KotoGetReturn},
-                };
-
-                let mut result = HashMap::<
+                let mut result = ::std::collections::HashMap::<
                     &'static str,
-                    MethodOrField<dyn Any>,
-                    BuildHasherDefault<KotoHasher>,
-                >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
+                    #runtime::__private::MethodOrField<dyn ::std::any::Any>,
+                    ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                >::with_capacity_and_hasher(#insert_ops_len, ::std::hash::BuildHasherDefault::new());
 
                 #(#insert_ops)*
 
@@ -957,17 +917,11 @@ fn add_access_map_creator(ctx: &Context) -> Result<()> {
                 #runtime::__private::MethodOrField<#ty>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{
-                    KMap, KNativeFunction, KotoHasher, KValue, ValueKey, ValueMap,
-                    __private::{MethodOrField, KotoGetReturn},
-                };
-
-                let mut result = HashMap::<
+                let mut result = ::std::collections::HashMap::<
                     &'static str,
-                    MethodOrField<#ty>,
-                    BuildHasherDefault<KotoHasher>,
-                >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
+                    #runtime::__private::MethodOrField<#ty>,
+                    ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                >::with_capacity_and_hasher(#insert_ops_len, ::std::hash::BuildHasherDefault::new());
 
                 #(#insert_ops)*
 
@@ -1001,17 +955,11 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{
-                    KMap, KNativeFunction, KotoHasher, KValue, Result, ValueKey, ValueMap,
-                    __private::KotoSetReturn,
-                };
-
-                let mut result = HashMap::<
+                let mut result = ::std::collections::HashMap::<
                     &'static str,
-                    fn(&mut #ty, &KValue) -> Result<()>,
-                    BuildHasherDefault<KotoHasher>,
-                >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
+                    fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
+                    ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                >::with_capacity_and_hasher(#insert_ops_len, ::std::hash::BuildHasherDefault::new());
 
                 #(#insert_ops)*
 
@@ -1026,17 +974,11 @@ fn add_access_assign_map_creator(ctx: &Context) -> Result<()> {
                 fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>,
                 ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
             > {
-                use ::std::{any::Any, collections::HashMap, hash::BuildHasherDefault};
-                use #runtime::{
-                    KMap, KNativeFunction, KValue, ValueKey, ValueMap, Result,
-                    __private::KotoSetReturn,
-                };
-
                 let mut result = ::std::collections::HashMap::<
                     &'static str,
-                    fn(&mut dyn Any, &KValue) -> Result<()>,
-                    BuildHasherDefault<#runtime::KotoHasher>,
-                >::with_capacity_and_hasher(#insert_ops_len, BuildHasherDefault::new());
+                    fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>,
+                    ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                >::with_capacity_and_hasher(#insert_ops_len, ::std::hash::BuildHasherDefault::new());
 
                 #(#insert_ops)*
 
@@ -1058,26 +1000,24 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
     let name = &ctx.get_access;
     let create_access_map = &ctx.create_access_map;
     let runtime = &ctx.runtime;
-    let ty_turbofish = ctx.ty_turbofish();
+    let ty = ctx.ty();
 
     let getter_fn = if ctx.impl_item.generics.params.is_empty() {
         // Non-generic types can cache the entries map in a `thread_local`/`LazyLock`
-        let ty = ctx.ty();
 
         cfg_select! {
             feature = "rc" => {
                 quote! {
                     #[automatically_derived]
-                    fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<#ty>> {
-                        use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                        use #runtime::{KotoHasher, __private::MethodOrField};
-
+                    fn #name(key: &str)
+                        -> ::std::option::Option<#runtime::__private::MethodOrField<#ty>>
+                    {
                         thread_local! {
-                            static ENTRIES: HashMap<
+                            static ENTRIES: ::std::collections::HashMap<
                                 &'static str,
-                                MethodOrField<#ty>,
-                                BuildHasherDefault<KotoHasher>,
-                            > = #ty_turbofish::#create_access_map();
+                                #runtime::__private::MethodOrField<#ty>,
+                                ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                            > = <#ty>::#create_access_map();
                         }
 
                         ENTRIES.with(|entries| entries.get(key).cloned())
@@ -1087,17 +1027,20 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
             feature = "arc" => {
                 quote! {
                     #[automatically_derived]
-                    fn #name(key: &str) -> Option<#runtime::__private::MethodOrField<#ty>> {
-                        use ::std::{collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
-                        use #runtime::{lazy, __private::MethodOrField, KotoHasher};
+                    fn #name(key: &str)
+                        -> ::std::option::Option<#runtime::__private::MethodOrField<#ty>>
+                    {
+                        type EntriesLock =
+                            ::std::sync::LazyLock<::std::collections::HashMap<
+                                &'static str,
+                                #runtime::__private::MethodOrField<#ty>,
+                                ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                            >>;
 
-                        static ENTRIES: LazyLock<HashMap<
-                            &'static str,
-                            MethodOrField<#ty>,
-                            BuildHasherDefault<KotoHasher>,
-                        >> = LazyLock::new(#ty_turbofish::#create_access_map);
+                        static ENTRIES: EntriesLock
+                            = EntriesLock::new(<#ty>::#create_access_map);
 
-                        LazyLock::force(&ENTRIES).get(key).cloned()
+                        EntriesLock::force(&ENTRIES).get(key).cloned()
                     }
                 }
             }
@@ -1114,34 +1057,31 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                 quote! {
                     #[automatically_derived]
                     fn #name(key: &str)
-                        -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                        -> ::std::option::Option<
+                            #runtime::__private::MethodOrField<dyn ::std::any::Any>
+                        >
                     {
-                        use ::std::{
-                            any::TypeId, cell::RefCell, collections::HashMap,
-                            hash::BuildHasherDefault,
-                        };
-                        use #runtime::{KMap, KotoHasher, __private::MethodOrField};
-
-                        type PerTypeEntriesMap = HashMap<
-                            TypeId,
-                            HashMap<
+                        type Hasher = ::std::hash::BuildHasherDefault<#runtime::KotoHasher>;
+                        type PerTypeEntriesMap = ::std::collections::HashMap<
+                            ::std::any::TypeId,
+                            ::std::collections::HashMap<
                                 &'static str,
-                                MethodOrField<dyn ::std::any::Any>,
-                                BuildHasherDefault<KotoHasher>,
+                                #runtime::__private::MethodOrField<dyn ::std::any::Any>,
+                                Hasher,
                             >,
-                            BuildHasherDefault<KotoHasher>,
+                            Hasher,
                         >;
+                        type EntriesCell = ::std::cell::RefCell<PerTypeEntriesMap>;
 
                         thread_local! {
-                            static PER_TYPE_ENTRIES: RefCell<PerTypeEntriesMap>
-                                = RefCell::default();
+                            static PER_TYPE_ENTRIES: EntriesCell = EntriesCell::default();
                         }
 
                         PER_TYPE_ENTRIES
                             .with_borrow_mut(|per_type_entries| {
                                 per_type_entries
-                                    .entry(TypeId::of::<Self>())
-                                    .or_insert_with(#ty_turbofish::#create_access_map)
+                                    .entry(::std::any::TypeId::of::<Self>())
+                                    .or_insert_with(<#ty>::#create_access_map)
                                     .get(key).cloned()
                             })
                     }
@@ -1151,33 +1091,29 @@ fn add_access_getter(ctx: &Context) -> Result<()> {
                 quote! {
                     #[automatically_derived]
                     fn #name(key: &str)
-                        -> Option<#runtime::__private::MethodOrField<dyn ::std::any::Any>>
+                        -> ::std::option::Option<
+                            #runtime::__private::MethodOrField<dyn ::std::any::Any>
+                        >
                     {
-                        use ::std::{
-                            any::TypeId, collections::HashMap, hash::BuildHasherDefault,
-                            sync::LazyLock,
-                        };
-                        use #runtime::{
-                            KCell, KMap, KotoHasher, KNativeFunction, __private::MethodOrField,
-                        };
-
-                        type PerTypeEntriesMap = HashMap<
-                            TypeId,
-                            HashMap<
+                        type Hasher = ::std::hash::BuildHasherDefault<#runtime::KotoHasher>;
+                        type PerTypeEntriesMap = ::std::collections::HashMap<
+                            ::std::any::TypeId,
+                            ::std::collections::HashMap<
                                 &'static str,
-                                MethodOrField<dyn ::std::any::Any>,
-                                BuildHasherDefault<KotoHasher>
+                                #runtime::__private::MethodOrField<dyn ::std::any::Any>,
+                                Hasher
                             >,
-                            BuildHasherDefault<KotoHasher>
+                            Hasher
                         >;
+                        type EntriesLock = ::std::sync::LazyLock<#runtime::KCell<PerTypeEntriesMap>>;
 
-                        static PER_TYPE_ENTRIES: LazyLock<KCell<PerTypeEntriesMap>> =
-                            LazyLock::new(KCell::default);
+                        static PER_TYPE_ENTRIES: EntriesLock =
+                            EntriesLock::new(#runtime::KCell::default);
 
                         PER_TYPE_ENTRIES
                             .borrow_mut()
-                            .entry(TypeId::of::<Self>())
-                            .or_insert_with(#ty_turbofish::#create_access_map)
+                            .entry(::std::any::TypeId::of::<Self>())
+                            .or_insert_with(<#ty>::#create_access_map)
                             .get(key).cloned()
                     }
                 }
@@ -1202,7 +1138,6 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
     let create_access_map = &ctx.create_access_assign_map;
     let runtime = &ctx.runtime;
     let ty = ctx.ty();
-    let ty_turbofish = ctx.ty_turbofish();
 
     let getter_fn = if ctx.impl_item.generics.params.is_empty() {
         // Non-generic types can cache the entries map in a `thread_local`/`LazyLock`
@@ -1211,16 +1146,15 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
             feature = "rc" => {
                 quote! {
                     #[automatically_derived]
-                    fn #name(key: &str) -> Option<fn(&mut #ty, &KValue) -> #runtime::Result<()>> {
-                        use ::std::{collections::HashMap, hash::BuildHasherDefault};
-                        use #runtime::{Result, KotoHasher};
-
+                    fn #name(key: &str) -> ::std::option::Option<fn(&mut #ty, &#runtime::KValue)
+                        -> #runtime::Result<()>>
+                    {
                         thread_local! {
-                            static ENTRIES: HashMap<
+                            static ENTRIES: ::std::collections::HashMap<
                                 &'static str,
-                                fn(&mut #ty, &KValue) -> Result<()>,
-                                BuildHasherDefault<KotoHasher>,
-                            > = #ty_turbofish::#create_access_map();
+                                fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
+                                ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                            > = <#ty>::#create_access_map();
                         }
 
                         ENTRIES.with(|entries| entries.get(key).cloned())
@@ -1230,17 +1164,17 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
             feature = "arc" => {
                 quote! {
                     #[automatically_derived]
-                    fn #name(key: &str) -> Option<fn(&mut #ty, &KValue) -> #runtime::Result<()>> {
-                        use ::std::{collections::HashMap, hash::BuildHasherDefault, sync::LazyLock};
-                        use #runtime::{lazy, KotoHasher};
-
-                        static ENTRIES: LazyLock<HashMap<
+                    fn #name(key: &str) -> ::std::option::Option<fn(&mut #ty, &#runtime::KValue)
+                        -> #runtime::Result<()>>
+                    {
+                        type EntriesLock = ::std::sync::LazyLock<::std::collections::HashMap<
                             &'static str,
-                            fn(&mut #ty, &KValue) -> Result<()>,
-                            BuildHasherDefault<KotoHasher>,
-                        >> = LazyLock::new(#ty_turbofish::#create_access_map);
+                            fn(&mut #ty, &#runtime::KValue) -> #runtime::Result<()>,
+                            ::std::hash::BuildHasherDefault<#runtime::KotoHasher>,
+                        >>;
+                        static ENTRIES: EntriesLock = EntriesLock::new(<#ty>::#create_access_map);
 
-                        LazyLock::force(&ENTRIES).get(key).cloned()
+                        EntriesLock::force(&ENTRIES).get(key).cloned()
                     }
                 }
             }
@@ -1256,34 +1190,32 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
             feature = "rc" => {
                 quote! {
                     #[automatically_derived]
-                    fn #name(key: &str) -> Option<fn(&mut dyn ::std::any::Any, &#runtime::KValue)
-                        -> #runtime::Result<()>>
+                    fn #name(key: &str) -> ::std::option::Option<
+                        fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>
+                    >
                     {
-                        use ::std::{
-                            any::TypeId, cell::RefCell, collections::HashMap,
-                            hash::BuildHasherDefault,
-                        };
-                        use #runtime::{KMap, KotoHasher, KValue, Result};
-
-                        type PerTypeEntriesMap = HashMap<
-                            TypeId,
-                            HashMap<
+                        type Hasher = ::std::hash::BuildHasherDefault<#runtime::KotoHasher>;
+                        type PerTypeEntriesMap = ::std::collections::HashMap<
+                            ::std::any::TypeId,
+                            ::std::collections::HashMap<
                                 &'static str,
-                                fn(&mut dyn ::std::any::Any, &KValue) -> Result<()>,
-                                BuildHasherDefault<KotoHasher>,
+                                fn(&mut dyn ::std::any::Any, &#runtime::KValue)
+                                    -> #runtime::Result<()>,
+                                Hasher,
                             >,
-                            BuildHasherDefault<KotoHasher>,
+                            Hasher,
                         >;
 
                         thread_local! {
-                            static PER_TYPE_ENTRIES: RefCell<PerTypeEntriesMap> = RefCell::default();
+                            static PER_TYPE_ENTRIES: ::std::cell::RefCell<PerTypeEntriesMap>
+                                = ::std::cell::RefCell::default();
                         }
 
                         PER_TYPE_ENTRIES
                             .with_borrow_mut(|per_type_entries| {
                                 per_type_entries
-                                    .entry(TypeId::of::<Self>())
-                                    .or_insert_with(#ty_turbofish::#create_access_map)
+                                    .entry(::std::any::TypeId::of::<Self>())
+                                    .or_insert_with(<#ty>::#create_access_map)
                                     .get(key).cloned()
                             })
                     }
@@ -1293,31 +1225,30 @@ fn add_access_assign_getter(ctx: &Context) -> Result<()> {
                 quote! {
                     #[automatically_derived]
                     fn #name(key: &str)
-                        -> Option<fn(&mut dyn ::std::any::Any, &KValue) -> #runtime::Result<()>>
+                        -> ::std::option::Option<
+                            fn(&mut dyn ::std::any::Any, &#runtime::KValue) -> #runtime::Result<()>
+                        >
                     {
-                        use ::std::{
-                            any::TypeId, collections::HashMap, hash::BuildHasherDefault,
-                            sync::LazyLock,
-                        };
-                        use #runtime::{KCell, KMap, KotoHasher, KNativeFunction, Result};
-
-                        type PerTypeEntriesMap = HashMap<
-                            TypeId,
-                            HashMap<
+                        type Hasher = ::std::hash::BuildHasherDefault<#runtime::KotoHasher>;
+                        type PerTypeEntriesMap = ::std::collections::HashMap<
+                            ::std::any::TypeId,
+                            ::std::collections::HashMap<
                                 &'static str,
-                                fn(&mut dyn ::std::any::Any, &KValue) -> Result<()>,
-                                BuildHasherDefault<KotoHasher>,
+                                fn(&mut dyn ::std::any::Any, &#runtime::KValue)
+                                    -> #runtime::Result<()>,
+                                Hasher,
                             >,
-                            BuildHasherDefault<KotoHasher>,
+                            Hasher,
                         >;
+                        type EntriesLock = ::std::sync::LazyLock<#runtime::KCell<PerTypeEntriesMap>>;
 
-                        static PER_TYPE_ENTRIES: LazyLock<KCell<PerTypeEntriesMap>> =
-                            LazyLock::new(KCell::default);
+                        static PER_TYPE_ENTRIES: EntriesLock
+                            = EntriesLock::new(#runtime::KCell::default);
 
                         PER_TYPE_ENTRIES
                             .borrow_mut()
-                            .entry(TypeId::of::<Self>())
-                            .or_insert_with(#ty_turbofish::#create_access_map)
+                            .entry(::std::any::TypeId::of::<Self>())
+                            .or_insert_with(<#ty>::#create_access_map)
                             .get(key).cloned()
                     }
                 }

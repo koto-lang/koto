@@ -1,6 +1,6 @@
-use syn::{Attribute, LitStr, Path, parse_quote};
+use syn::{Attribute, LitStr, Path, Result, parse_quote};
 
-pub(crate) struct KotoAttributes {
+pub struct KotoAttributes {
     pub type_name: Option<String>,
     pub use_copy: bool,
     pub runtime: Path,
@@ -16,7 +16,7 @@ impl Default for KotoAttributes {
     }
 }
 
-pub(crate) fn koto_derive_attributes(attrs: &[Attribute]) -> KotoAttributes {
+pub fn koto_derive_attributes(attrs: &[Attribute]) -> Result<KotoAttributes> {
     let mut result = KotoAttributes::default();
 
     for attr in attrs.iter().filter(|a| a.path().is_ident("koto")) {
@@ -35,9 +35,8 @@ pub(crate) fn koto_derive_attributes(attrs: &[Attribute]) -> KotoAttributes {
             } else {
                 Err(meta.error("unsupported koto attribute"))
             }
-        })
-        .expect("failed to parse koto attribute");
+        })?;
     }
 
-    result
+    Ok(result)
 }
