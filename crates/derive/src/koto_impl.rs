@@ -202,9 +202,16 @@ struct Context {
 
 impl Context {
     fn new(impl_item: ItemImpl, attr: KotoImplParser) -> Result<Self> {
+        if let Some((_, trait_path, _)) = &impl_item.trait_ {
+            return Err(Error::new_spanned(
+                trait_path,
+                "`#[koto_impl]` doesn't work with trait impls",
+            ));
+        }
+
         match &impl_item.self_ty.as_ref() {
             Type::Path(TypePath { path, .. }) => {
-                let Some(_) = path.segments.last() else {
+                if path.segments.last().is_none() {
                     return Err(Error::new_spanned(path, "Expected an identifier"));
                 };
             }
