@@ -1,16 +1,16 @@
 #![cfg_attr(feature = "panic_on_parser_error", allow(unreachable_code))]
 
 use crate::{
-    StringFormatOptions,
+    AstBuilder, StringFormatOptions,
     ast::{Ast, AstIndex},
     constant_pool::{ConstantIndex, ConstantPoolBuilder},
     error::{Error, ErrorKind, ExpectedIndentation, InternalError, Result, SyntaxError},
     node::*,
 };
+use indexmap::IndexSet;
 use koto_lexer::{LexedToken, Lexer, Span, StringType, Token};
 use std::{
     borrow::Cow,
-    collections::HashSet,
     iter::Peekable,
     str::{Chars, FromStr},
 };
@@ -20,16 +20,16 @@ use std::{
 struct Frame {
     // If a frame contains yield then it represents a generator function
     contains_yield: bool,
-    // IDs that have been assigned within the current frame
-    ids_assigned_in_frame: HashSet<ConstantIndex>,
-    // IDs and chain roots which were accessed when not locally assigned at the time of access
-    accessed_non_locals: HashSet<ConstantIndex>,
+    // IDs that have been assigned within the current frame, in first-assignment order
+    ids_assigned_in_frame: IndexSet<ConstantIndex>,
+    // IDs and chain roots which were accessed when not locally assigned, in first-access order
+    accessed_non_locals: IndexSet<ConstantIndex>,
     // While expressions are being parsed we keep track of lhs assignments and rhs accesses.
     // At the end of a multi-assignment expression (see `finalize_id_accesses`),
     // accessed IDs that weren't locally assigned at the time of access are then counted as
     // non-local accesses.
-    pending_accesses: HashSet<ConstantIndex>,
-    pending_assignments: HashSet<ConstantIndex>,
+    pending_accesses: IndexSet<ConstantIndex>,
+    pending_assignments: IndexSet<ConstantIndex>,
 
     // If this is still `Some` after the expression is done parsing
     // then this error will be returned.
@@ -65,19 +65,19 @@ impl Frame {
         self.pending_assignments.insert(id);
         // While an assignment expression is being parsed, the LHS id is counted as an access
         // until the assignment operator is encountered.
-        self.pending_accesses.remove(&id);
+        self.pending_accesses.shift_remove(&id);
     }
 
     // At the end of an expression, determine which RHS accesses are non-local
     fn finalize_id_accesses(&mut self) {
-        for id in self.pending_accesses.drain() {
+        for id in self.pending_accesses.drain(..) {
             if !self.ids_assigned_in_frame.contains(&id) {
                 self.accessed_non_locals.insert(id);
             }
         }
 
         self.ids_assigned_in_frame
-            .extend(self.pending_assignments.drain());
+            .extend(self.pending_assignments.drain(..));
     }
 
     // Register an error, that will be returned after the expression has been parsed.
@@ -268,7 +268,7 @@ impl Default for ParserOptions {
 /// Koto's parser
 pub struct Parser<'source> {
     source: &'source str,
-    ast: Ast,
+    ast: AstBuilder,
     constants: ConstantPoolBuilder,
     lexer: Lexer<'source>,
     current_token: LexedToken,
@@ -287,7 +287,7 @@ impl<'source> Parser<'source> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             source,
-            ast: Ast::with_capacity(capacity_guess),
+            ast: AstBuilder::with_capacity(capacity_guess),
             constants: ConstantPoolBuilder::default(),
             lexer: Lexer::new(source),
             current_token: LexedToken::default(),
@@ -295,25 +295,41 @@ impl<'source> Parser<'source> {
             options,
         };
 
-        match parser.consume_main_block() {
-            Ok(_) => {
-                parser.ast.set_constants(parser.constants.build());
-                Ok(parser.ast)
-            }
-            Err(error) => {
-                #[cfg(feature = "error_ast")]
-                {
-                    parser.ast.set_constants(parser.constants.build());
-                    let mut error = error;
-                    error.ast = Some(Box::new(parser.ast));
-                    Err(error)
-                }
-                #[cfg(not(feature = "error_ast"))]
-                {
-                    Err(error)
-                }
-            }
+        let result = parser.consume_main_block();
+
+        #[cfg(not(feature = "error_ast"))]
+        if let Err(error) = result {
+            return Err(error);
         }
+
+        // The root frame is always first, nested frames may still follow it if there was an error.
+        parser.frame_stack.truncate(1);
+        let Some(root_frame) = parser.frame_stack.pop() else {
+            return Err(Error::new(
+                InternalError::MissingFrame.into(),
+                Span::default(),
+            ));
+        };
+
+        let ast = parser.ast.build(
+            parser.constants.build(),
+            root_frame.ids_assigned_in_frame,
+            root_frame.accessed_non_locals,
+        );
+
+        result.map(|_| ast).map_err(|error| {
+            cfg_select! {
+                feature = "error_ast" => {
+                    let mut error = error;
+                    error.ast = Some(Box::new(ast));
+                    Err(error)
+                }
+                _ => {
+                    let _ = error;
+                    unreachable!() // `not(feature = "error_ast")` has an early return above.
+                }
+            }
+        })
     }
 
     // Parses the main 'top-level' block
@@ -365,7 +381,6 @@ impl<'source> Parser<'source> {
 
         let result = self.push_main_block_node(body, start_span)?;
 
-        self.frame_stack.pop();
         Ok(result)
     }
 

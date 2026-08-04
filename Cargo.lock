@@ -746,6 +746,7 @@ dependencies = [
 name = "koto_parser"
 version = "0.17.0"
 dependencies = [
+ "indexmap",
  "koto_lexer",
  "koto_memory",
  "smallvec",

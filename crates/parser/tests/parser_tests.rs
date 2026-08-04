@@ -528,4 +528,53 @@ mod parser {
             error_in_function,
         }
     }
+
+    #[test]
+    fn binding_info_is_available_on_success() {
+        let source = "\
+x, qux = foo, bar
+f = |arg| foo + baz
+x = last";
+
+        let ast = Parser::parse(source).unwrap();
+        let assigned = ast
+            .top_level_assigned_ids()
+            .iter()
+            .map(|id| ast.constants().get_str(*id))
+            .collect::<Vec<_>>();
+        let accessed = ast
+            .accessed_non_locals()
+            .iter()
+            .map(|id| ast.constants().get_str(*id))
+            .collect::<Vec<_>>();
+
+        assert_eq!(assigned, ["x", "qux", "f"]);
+        assert_eq!(accessed, ["foo", "bar", "baz", "last"]);
+    }
+
+    #[cfg(feature = "error_ast")]
+    #[test]
+    fn binding_info_is_available_on_error() {
+        let source = "\
+x, y = foo, bar
++";
+
+        let error = Parser::parse(source).unwrap_err();
+        let ast = error.ast.unwrap();
+
+        assert_eq!(
+            ast.top_level_assigned_ids()
+                .iter()
+                .map(|id| ast.constants().get_str(*id))
+                .collect::<Vec<_>>(),
+            ["x", "y"]
+        );
+        assert_eq!(
+            ast.accessed_non_locals()
+                .iter()
+                .map(|id| ast.constants().get_str(*id))
+                .collect::<Vec<_>>(),
+            ["foo", "bar"]
+        );
+    }
 }
