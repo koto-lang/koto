@@ -85,6 +85,7 @@ The Koto project adheres to
 - `KotoVm::run_read_op` and `KotoVm::run_write_op` have been added to run overridden index / access operations.
 - `UnavailableStdin`, `UnavailableStdout` and `UnavailableStderr` have been added to represent unavailable io streams
 - `KotoSettings::inherit_args` and `KotoSettings::inherit_io` have been added to use the args / io of the current process
+- `koto_parser::Ast` now exposes top-level assigned IDs and accessed non-locals.
 
 #### Core Library
 
@@ -136,6 +137,10 @@ The Koto project adheres to
   - The `alpha` and `set_alpha` functions have been replace with a settable `alpha` field.
 - `geometry`
   - `vec2.x` and `.y`, and `vec3.x`, `.y`, and `.z` are now settable fields instead of functions.
+
+#### API
+
+- `koto_parse::Ast` is now immutable, with `AstBuilder` introduced for building ASTs.
 
 ### Fixed
 
