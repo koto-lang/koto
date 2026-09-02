@@ -248,6 +248,7 @@ fn main() -> Result<()> {
 fn add_modules(koto: &Koto) {
     let prelude = koto.prelude();
     prelude.insert("color", koto_color::make_module());
+    prelude.insert("crypto", koto_crypto::make_module());
     prelude.insert("geometry", koto_geometry::make_module());
     prelude.insert("json", koto_json::make_module());
     prelude.insert("random", koto_random::make_module());

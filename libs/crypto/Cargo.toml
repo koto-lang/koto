@@ -1,0 +1,45 @@
+[package]
+name = "koto_crypto"
+version = "0.17.0"
+description = "A Koto library for hashing, encryption, and signing"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_runtime/arc"]
+rc = ["koto_runtime/rc"]
+
+# Optional features that pull in larger dependencies.
+# `encryption` enables ChaCha20-Poly1305 authenticated encryption,
+# and `signing` enables Ed25519 signatures.
+encryption = ["dep:chacha20poly1305"]
+signing = ["dep:ed25519-dalek"]
+
+[dependencies]
+koto_runtime = { workspace = true }
+
+blake2 = "0.11"
+blake3 = "1.8"
+digest = "0.11"
+getrandom = { workspace = true }
+hex = "0.4"
+hmac = "0.13"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11"
+
+chacha20poly1305 = { version = "0.11", optional = true }
+ed25519-dalek = { version = "3", optional = true }
+
+[dev-dependencies]
+koto_test_utils = { workspace = true }

@@ -93,6 +93,24 @@ The Koto project adheres to
   - `number.step_to`
   - `os.env`
 
+#### Libs
+
+- A new `crypto` lib has been added, and is available by default in the CLI.
+  - Hashing (`blake2b`, `blake2s`, `blake3`, `sha256`, `sha512`, `sha1`, `md5`),
+    keyed hashing (`hmac`), hex encoding, and random byte generation are always
+    available.
+  - ChaCha20-Poly1305 authenticated encryption (`encrypt`/`decrypt`) requires
+    the `encryption` feature, and Ed25519 signatures (`keypair`, `sign`,
+    `verify`) require the `signing` feature. Both are enabled in the CLI.
+  - Binary values like keys, digests, ciphertexts, and signatures are
+    represented as hex-encoded strings.
+    ```koto
+    keypair = crypto.keypair()
+    signature = crypto.sign keypair.secret, 'important message'
+    crypto.verify keypair.public, 'important message', signature
+    #: true
+    ```
+
 ### Changed
 
 #### Language
