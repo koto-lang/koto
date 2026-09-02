@@ -24,6 +24,7 @@ koto_serde = { path = "crates/serde", default-features = false }
 koto_test_utils = { path = "crates/test_utils", default-features = false }
 
 koto_color = { path = "libs/color", default-features = false }
+koto_crypto = { path = "libs/crypto", default-features = false }
 koto_geometry = { path = "libs/geometry", default-features = false }
 koto_json = { path = "libs/json", default-features = false }
 koto_random = { path = "libs/random", default-features = false }

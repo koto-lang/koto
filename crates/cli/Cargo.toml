@@ -28,6 +28,7 @@ koto = { workspace = true }
 koto_format = { workspace = true }
 
 koto_color = { workspace = true }
+koto_crypto = { workspace = true, features = ["encryption", "signing"] }
 koto_geometry = { workspace = true }
 koto_json = { workspace = true }
 koto_random = { workspace = true }

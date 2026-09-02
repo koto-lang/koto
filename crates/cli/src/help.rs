@@ -69,6 +69,7 @@ impl Help {
 
         let extra_lib_files = [
             include_doc!("libs/color.md"),
+            include_doc!("libs/crypto.md"),
             include_doc!("libs/geometry.md"),
             include_doc!("libs/json.md"),
             include_doc!("libs/random.md"),

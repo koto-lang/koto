@@ -63,6 +63,7 @@ test_docs:
     --test tempfile_docs \
     --test toml_docs \
     --test yaml_docs
+  cargo test -p koto_crypto --features encryption,signing --test crypto_docs
 
 test_examples:
   #!/usr/bin/env sh
@@ -76,6 +77,7 @@ test_koto:
   cargo test --test koto_tests
 
 test_libs *args:
+  cargo test -p koto_crypto --features encryption,signing {{args}}
   cargo test \
     -p koto_json \
     -p koto_random \
